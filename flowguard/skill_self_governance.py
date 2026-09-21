@@ -1,4 +1,4 @@
-"""Receipt-bound parent governance for the fifteen FlowGuard skills.
+"""Receipt-bound parent governance for the current FlowGuard skill suite.
 
 The parent in this module never accepts caller-authored ``current`` or
 ``pass`` flags.  It loads immutable child receipts, verifies every child
@@ -35,7 +35,8 @@ from .evidence_receipts import (
 from .route_topology import RouteHandoff, route_handoffs
 from .self_maintenance import SelfMaintenanceChildReport
 from .skill_native_checks import build_current_native_receipt_context
-from .skill_suite import validate_skill_suite
+from .skill_suite import FLOWGUARD_KERNEL_ROLE, validate_skill_suite
+from .suite_contract import FLOWGUARD_EXPECTED_MEMBER_COUNT
 
 
 SUITE_MAP_PATH = Path(".skillguard/flowguard-suite/suite-map.json")
@@ -77,7 +78,7 @@ class GovernanceChildRequirement:
     subject_id: str
     owner_route: str
     obligation_id: str
-    role: str = "public_satellite"
+    role: str = FLOWGUARD_KERNEL_ROLE
 
     def to_dict(self) -> dict[str, str]:
         return {
@@ -106,14 +107,17 @@ def load_governance_requirements(
             subject_id=str(member["name"]),
             owner_route=str(member.get("owner", "")),
             obligation_id=skill_contract_obligation_id(str(member["name"])),
-            role=str(member.get("role", "public_satellite")),
+            role=str(member.get("role", FLOWGUARD_KERNEL_ROLE)),
         )
         for member in members
         if bool(member.get("required", True))
     )
     subject_ids = tuple(item.subject_id for item in requirements)
-    if len(subject_ids) != 15:
-        raise ValueError(f"full FlowGuard self-governance requires exactly 15 suite members, found {len(subject_ids)}")
+    if len(subject_ids) != FLOWGUARD_EXPECTED_MEMBER_COUNT:
+        raise ValueError(
+            "full FlowGuard self-governance requires exactly "
+            f"{FLOWGUARD_EXPECTED_MEMBER_COUNT} current suite members, found {len(subject_ids)}"
+        )
     if len(set(subject_ids)) != len(subject_ids):
         raise ValueError("suite map contains duplicate required skill ids")
     return requirements
@@ -159,7 +163,7 @@ class SkillSelfGovernanceReport:
     self_governance_receipt: EvidenceReceipt | None = None
     self_governance_receipt_hash: str = ""
     claim_boundary: str = (
-        "A full result proves only the exact fifteen receipt-bound skill contracts in the current repository; "
+        "A full result proves only the exact current receipt-bound skill contracts in the current repository; "
         "release, installation, distribution, or future agent behavior need their own current evidence."
     )
 
@@ -393,7 +397,7 @@ def _parent_receipt(
             ConsumedChildReceipt(receipt.receipt_id, receipt.fingerprint) for receipt in receipts
         ),
         claim_boundary=(
-            "The parent consumed the exact fifteen current deep-contract receipts. Distribution, installation, "
+            "The parent consumed the exact current deep-contract receipts. Distribution, installation, "
             "release, and future agent behavior remain outside this receipt."
         ),
         metadata={"typed_downstream": [item.to_dict() for item in typed_downstream]},
@@ -408,7 +412,7 @@ def run_skill_self_governance(
     output_directory: str | Path | None = None,
     save_parent_receipt: bool = True,
 ) -> SkillSelfGovernanceReport:
-    """Verify and exactly consume all fifteen required child receipts."""
+    """Verify and exactly consume all current required child receipts."""
 
     root = Path(repository_root).resolve()
     requirements = load_governance_requirements(root)

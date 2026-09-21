@@ -2349,6 +2349,14 @@ class _AuthorActivationError(RuntimeError):
         self.rollback_ok = rollback_ok
 
 
+class _ConsumerActivationError(RuntimeError):
+    """A staged consumer projection failed and reports rollback state."""
+
+    def __init__(self, message: str, *, rollback_ok: bool) -> None:
+        super().__init__(message)
+        self.rollback_ok = rollback_ok
+
+
 def _activate_author_projection(
     source_root: Path,
     target_root: Path,
@@ -2760,6 +2768,272 @@ def author_sync_skill_suite(
         )
 
 
+def _unmanaged_target_fingerprint(
+    target_root: Path,
+    member_ids: Sequence[str],
+) -> tuple[tuple[str, str], ...]:
+    """Fingerprint third-party files without entering managed member roots."""
+
+    if not target_root.is_dir():
+        return ()
+    managed_members = set(member_ids)
+    rows: list[tuple[str, str]] = []
+    for path in target_root.rglob("*"):
+        relative = path.relative_to(target_root).as_posix()
+        first = PurePosixPath(relative).parts[0] if relative else ""
+        if relative == OWNERSHIP_MANIFEST_NAME or first in managed_members:
+            continue
+        if path.is_symlink():
+            rows.append((relative, "symlink:" + os.readlink(path)))
+        elif path.is_file():
+            rows.append(
+                (
+                    relative,
+                    "file:" + hashlib.sha256(path.read_bytes()).hexdigest(),
+                )
+            )
+    return tuple(sorted(rows))
+
+
+def _verify_consumer_projection(
+    target_root: Path,
+    source_inventory: SkillTreeInventory,
+    expected_manifest: Mapping[str, Any],
+    *,
+    member_ids: Sequence[str],
+    exclusion_rules: Sequence[ExclusionRule],
+) -> TreeParity:
+    """Read back one activated consumer projection and its ownership authority."""
+
+    target_inventory = inventory_skill_tree(
+        target_root,
+        member_ids=member_ids,
+        exclusion_rules=exclusion_rules,
+        allow_missing_root=True,
+    )
+    parity = compare_tree_inventories(source_inventory, target_inventory)
+    if not parity.ok:
+        raise ValueError("activated consumer projection does not match the frozen source")
+    manifest, manifest_error, _raw = _read_manifest_snapshot(target_root)
+    if manifest_error or manifest != dict(expected_manifest):
+        raise ValueError(
+            manifest_error
+            or "activated consumer ownership authority differs from the frozen projection"
+        )
+    return parity
+
+
+def _activate_consumer_projection(
+    source_root: Path,
+    target_root: Path,
+    source_inventory: SkillTreeInventory,
+    target_inventory: SkillTreeInventory,
+    old_manifest: Mapping[str, Any] | None,
+    old_manifest_raw: bytes | None,
+    expected_manifest: Mapping[str, Any],
+    copied_files: Sequence[str],
+    removed_files: Sequence[str],
+    generated_files: Mapping[str, bytes],
+    *,
+    member_ids: Sequence[str],
+    exclusion_rules: Sequence[ExclusionRule],
+    unmanaged_before: tuple[tuple[str, str], ...],
+    obsolete_member_ids: Sequence[str] = (),
+    adopted_files: Sequence[str] = (),
+) -> TreeParity:
+    """Stage, recheck, swap, read back, and rollback a consumer projection."""
+
+    target_root.parent.mkdir(parents=True, exist_ok=True)
+    stage_root = Path(tempfile.mkdtemp(prefix=".fgcs-", dir=target_root.parent))
+    backup_root = Path(tempfile.mkdtemp(prefix=".fgcb-", dir=target_root.parent))
+    target_preexisted = target_root.exists()
+    manifest_path = _manifest_path(target_root)
+    manifest_backup = backup_root / OWNERSHIP_MANIFEST_NAME
+    activated: list[tuple[str, bool]] = []
+    created_directories: list[Path] = []
+    manifest_activated = False
+    frozen_rows = {item.relative_path: item for item in source_inventory.files}
+    prior_rows = {
+        item.relative_path: item
+        for item in (
+            FileFingerprint.from_dict(row)
+            for row in (old_manifest or {}).get("files", ())
+        )
+    }
+    adopted_set = set(adopted_files)
+
+    try:
+        # Build a complete clean projection outside the target.  Generated
+        # consumer manifests are staged as bytes and rechecked against the
+        # frozen source inventory, so no producer can observe a half-install.
+        for relative in copied_files:
+            staged_file = _contained_path(stage_root, relative)
+            staged_file.parent.mkdir(parents=True, exist_ok=True)
+            generated = generated_files.get(relative)
+            if generated is not None:
+                staged_file.write_bytes(generated)
+            else:
+                source_file = _contained_path(source_root, relative)
+                shutil.copy2(source_file, staged_file)
+            if FileFingerprint.from_path(staged_file, relative) != frozen_rows[relative]:
+                raise ValueError(f"staged consumer file differs from frozen source: {relative}")
+        stage_manifest = _manifest_path(stage_root)
+        _write_manifest(stage_manifest, expected_manifest)
+
+        # Re-observe every source and managed target input before any target
+        # byte is moved.  A changed source, ownership manifest, managed file,
+        # or third-party file invalidates this transaction.
+        source_after, _generated_after = _consumer_source_inventory(
+            source_root,
+            member_ids=member_ids,
+            exclusion_rules=exclusion_rules,
+        )
+        if not _inventories_match(source_inventory, source_after):
+            raise ValueError("consumer source changed before activation")
+        current_manifest_raw = (
+            manifest_path.read_bytes() if manifest_path.is_file() else None
+        )
+        if current_manifest_raw != old_manifest_raw:
+            raise ValueError("consumer ownership authority changed before activation")
+        current_target_inventory = inventory_skill_tree(
+            target_root,
+            member_ids=member_ids,
+            exclusion_rules=exclusion_rules,
+            allow_missing_root=True,
+        )
+        if not _inventories_match(target_inventory, current_target_inventory):
+            raise ValueError("consumer target projection changed before activation")
+        if _unmanaged_target_fingerprint(target_root, member_ids) != unmanaged_before:
+            raise ValueError("third-party target files changed before activation")
+
+        # Move only manifest-owned paths through a sibling backup.  Files that
+        # are not owned by this projection remain outside the activation set.
+        for relative in copied_files:
+            destination = _contained_path(target_root, relative)
+            expected_before = prior_rows.get(relative)
+            actual_before = _fingerprint_if_file(destination, relative)
+            if (
+                expected_before is None
+                and actual_before is not None
+                and relative not in adopted_set
+            ):
+                raise ValueError(f"unowned target path appeared before activation: {relative}")
+            if expected_before is not None and (
+                actual_before is None or actual_before.raw_hash != expected_before.raw_hash
+            ):
+                raise ValueError(f"owned target path changed before activation: {relative}")
+            if destination.exists() and not destination.is_file():
+                raise ValueError(f"target path is not a regular file: {relative}")
+            missing_parents: list[Path] = []
+            cursor = destination.parent
+            while cursor != target_root and not cursor.exists():
+                missing_parents.append(cursor)
+                cursor = cursor.parent
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            for directory in reversed(missing_parents):
+                if directory not in created_directories:
+                    created_directories.append(directory)
+            had_old = destination.is_file() and not destination.is_symlink()
+            if had_old:
+                backup_file = _contained_path(backup_root, relative)
+                backup_file.parent.mkdir(parents=True, exist_ok=True)
+                destination.replace(backup_file)
+            activated.append((relative, had_old))
+            _contained_path(stage_root, relative).replace(destination)
+
+        for relative in removed_files:
+            destination = _contained_path(target_root, relative)
+            expected_before = prior_rows[relative]
+            actual_before = _fingerprint_if_file(destination, relative)
+            if actual_before is None or actual_before.raw_hash != expected_before.raw_hash:
+                raise ValueError(f"obsolete owned path changed before removal: {relative}")
+            backup_file = _contained_path(backup_root, relative)
+            backup_file.parent.mkdir(parents=True, exist_ok=True)
+            destination.replace(backup_file)
+            activated.append((relative, True))
+
+        if manifest_path.exists() or manifest_path.is_symlink():
+            if not manifest_path.is_file() or manifest_path.is_symlink():
+                raise ValueError("consumer ownership manifest is not a regular file")
+            manifest_path.replace(manifest_backup)
+        manifest_activated = True
+        stage_manifest.replace(manifest_path)
+        # Retire only empty installer-owned member directories after their
+        # manifest-owned files have moved.  Any third-party file keeps its
+        # directory visible and outside this transaction's deletion set.
+        _remove_empty_member_directories(target_root, obsolete_member_ids)
+        parity = _verify_consumer_projection(
+            target_root,
+            source_inventory,
+            expected_manifest,
+            member_ids=member_ids,
+            exclusion_rules=exclusion_rules,
+        )
+        source_final, _generated_final = _consumer_source_inventory(
+            source_root,
+            member_ids=member_ids,
+            exclusion_rules=exclusion_rules,
+        )
+        if not _inventories_match(source_inventory, source_final):
+            raise ValueError("consumer source changed after activation")
+        if _unmanaged_target_fingerprint(target_root, member_ids) != unmanaged_before:
+            raise ValueError("third-party target files changed during activation")
+        return parity
+    except Exception as exc:
+        rollback_errors: list[str] = []
+        try:
+            if manifest_activated:
+                if manifest_path.exists() or manifest_path.is_symlink():
+                    if manifest_path.is_dir() and not manifest_path.is_symlink():
+                        shutil.rmtree(manifest_path)
+                    else:
+                        manifest_path.unlink()
+                if manifest_backup.is_file():
+                    manifest_backup.replace(manifest_path)
+            for relative, had_old in reversed(activated):
+                destination = _contained_path(target_root, relative)
+                backup_file = _contained_path(backup_root, relative)
+                if destination.exists() or destination.is_symlink():
+                    if destination.is_dir() and not destination.is_symlink():
+                        shutil.rmtree(destination)
+                    else:
+                        destination.unlink()
+                if had_old and backup_file.is_file():
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    backup_file.replace(destination)
+            for directory in reversed(created_directories):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
+            if not target_preexisted and target_root.is_dir():
+                try:
+                    target_root.rmdir()
+                except OSError:
+                    pass
+            restored_manifest_raw = (
+                manifest_path.read_bytes() if manifest_path.is_file() else None
+            )
+            if restored_manifest_raw != old_manifest_raw:
+                rollback_errors.append("ownership authority was not restored byte-for-byte")
+            if _unmanaged_target_fingerprint(target_root, member_ids) != unmanaged_before:
+                rollback_errors.append("third-party files were not restored byte-for-byte")
+        except Exception as rollback_exc:
+            rollback_errors.append(f"{type(rollback_exc).__name__}: {rollback_exc}")
+        raise _ConsumerActivationError(
+            f"{type(exc).__name__}: {exc}"
+            + (
+                "; rollback failed: " + "; ".join(rollback_errors)
+                if rollback_errors
+                else "; previous projection restored"
+            ),
+            rollback_ok=not rollback_errors,
+        ) from exc
+    finally:
+        shutil.rmtree(stage_root, ignore_errors=True)
+        shutil.rmtree(backup_root, ignore_errors=True)
+
+
 def _install_skill_tree(
     source: str | Path,
     target: str | Path | None = None,
@@ -2799,7 +3073,7 @@ def _install_skill_tree(
     if findings:
         return DistributionReport("install", str(source_root), str(target_root), dry_run, excluded_files=source_inventory.excluded_files, findings=tuple(findings), ownership_manifest=str(_manifest_path(target_root)))
 
-    old_manifest, manifest_error = _read_manifest(target_root)
+    old_manifest, manifest_error, old_manifest_raw = _read_manifest_snapshot(target_root)
     if manifest_error:
         findings.append(DistributionFinding("ownership_manifest_invalid", manifest_error, OWNERSHIP_MANIFEST_NAME))
         return DistributionReport("install", str(source_root), str(target_root), dry_run, excluded_files=source_inventory.excluded_files, findings=tuple(findings), ownership_manifest=str(_manifest_path(target_root)))
@@ -2914,44 +3188,112 @@ def _install_skill_tree(
         )
     )
 
-    if not dry_run:
-        target_root.mkdir(parents=True, exist_ok=True)
-        for relative in copied:
-            destination = _contained_path(target_root, relative)
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            generated = generated_files.get(relative)
-            if generated is not None:
-                with tempfile.NamedTemporaryFile("wb", dir=destination.parent, delete=False) as handle:
-                    handle.write(generated)
-                    temporary = Path(handle.name)
-                temporary.replace(destination)
-            else:
-                source_file = _contained_path(source_root, relative)
-                shutil.copy2(source_file, destination)
-        for relative in removed:
-            destination = _contained_path(target_root, relative)
-            if destination.is_file() and not destination.is_symlink():
-                destination.unlink()
-        previous_member_ids = tuple(
-            str(item)
-            for item in (old_manifest or {}).get("member_ids", ())
-            if isinstance(item, str)
-        )
-        obsolete_member_ids = tuple(
-            member_id for member_id in previous_member_ids if member_id not in ids
-        )
-        # A contraction may retire a whole installer-owned member directory.
-        # Remove only directories that are empty after the manifest-owned files
-        # above have been removed; modified or third-party files remain visible
-        # as residuals and are never deleted by this path.
-        _remove_empty_member_directories(target_root, obsolete_member_ids)
-        payload = _ownership_payload(source_root, target_root, source_inventory, owned.values(), exclusion_rules)
-        _write_manifest(_manifest_path(target_root), payload)
+    previous_member_ids = tuple(
+        str(item)
+        for item in (old_manifest or {}).get("member_ids", ())
+        if isinstance(item, str)
+    )
+    obsolete_member_ids = tuple(
+        member_id for member_id in previous_member_ids if member_id not in ids
+    )
+    expected_manifest = _ownership_payload(
+        source_root,
+        target_root,
+        source_inventory,
+        owned.values(),
+        exclusion_rules,
+    )
+    unmanaged_before = _unmanaged_target_fingerprint(target_root, ids)
 
-    parity = None
-    if not dry_run:
-        final_inventory = inventory_skill_tree(target_root, member_ids=ids, exclusion_rules=exclusion_rules)
-        parity = compare_tree_inventories(source_inventory, final_inventory)
+    # A blocking conflict is a preflight rejection.  The older direct-copy
+    # path could still begin a partial write after discovering an unowned or
+    # modified managed path; the current transaction refuses to swap any byte.
+    if any(finding.blocking for finding in findings) and not dry_run:
+        return DistributionReport(
+            action="install",
+            source=str(source_root),
+            target=str(target_root),
+            dry_run=False,
+            copied_files=tuple(copied),
+            removed_files=tuple(removed),
+            unchanged_files=tuple(unchanged),
+            adopted_files=tuple(adopted),
+            conflict_files=tuple(sorted(set(conflicts))),
+            extra_files=tuple(extras),
+            excluded_files=reported_exclusions,
+            findings=tuple(findings),
+            ownership_manifest=str(_manifest_path(target_root)),
+            transaction_status="not_started",
+        )
+
+    if dry_run:
+        return DistributionReport(
+            action="install",
+            source=str(source_root),
+            target=str(target_root),
+            dry_run=True,
+            copied_files=tuple(copied),
+            removed_files=tuple(removed),
+            unchanged_files=tuple(unchanged),
+            adopted_files=tuple(adopted),
+            conflict_files=tuple(sorted(set(conflicts))),
+            extra_files=tuple(extras),
+            excluded_files=reported_exclusions,
+            findings=tuple(findings),
+            ownership_manifest=str(_manifest_path(target_root)),
+            transaction_status="planned",
+        )
+
+    if not copied and not removed and old_manifest == expected_manifest:
+        parity = compare_tree_inventories(source_inventory, target_inventory)
+        return DistributionReport(
+            action="install",
+            source=str(source_root),
+            target=str(target_root),
+            dry_run=False,
+            copied_files=(),
+            removed_files=(),
+            unchanged_files=tuple(unchanged),
+            adopted_files=tuple(adopted),
+            conflict_files=(),
+            extra_files=tuple(extras),
+            excluded_files=reported_exclusions,
+            findings=tuple(findings),
+            ownership_manifest=str(_manifest_path(target_root)),
+            parity=parity,
+            transaction_status="unchanged",
+        )
+
+    try:
+        parity = _activate_consumer_projection(
+            source_root,
+            target_root,
+            source_inventory,
+            target_inventory,
+            old_manifest,
+            old_manifest_raw,
+            expected_manifest,
+            tuple(sorted(copied)),
+            tuple(sorted(removed)),
+            generated_files,
+            member_ids=ids,
+            exclusion_rules=exclusion_rules,
+            unmanaged_before=unmanaged_before,
+            obsolete_member_ids=obsolete_member_ids,
+            adopted_files=tuple(sorted(adopted)),
+        )
+        transaction_status = "activated"
+    except _ConsumerActivationError as exc:
+        findings.append(
+            DistributionFinding(
+                "install_activation_rolled_back"
+                if exc.rollback_ok
+                else "install_rollback_failed",
+                str(exc),
+            )
+        )
+        parity = None
+        transaction_status = "rolled_back" if exc.rollback_ok else "rollback_failed"
     return DistributionReport(
         action="install",
         source=str(source_root),
@@ -2967,6 +3309,7 @@ def _install_skill_tree(
         findings=tuple(findings),
         ownership_manifest=str(_manifest_path(target_root)),
         parity=parity,
+        transaction_status=transaction_status,
     )
 
 

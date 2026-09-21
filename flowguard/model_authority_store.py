@@ -2541,6 +2541,7 @@ def prepare_initial_model_authority_staging(
     staging_root: str | Path,
     snapshot_id: str,
     bootstrap_evidence_fingerprint: str,
+    system_id: str = "",
     accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ) -> tuple[ModelSystemSnapshot, ModelSystemSnapshot, ModelAuthorityHead]:
     """Create the private generation-one base for first current adoption.
@@ -2586,6 +2587,7 @@ def prepare_initial_model_authority_staging(
     candidate = build_manifest_model_system_snapshot(
         staging_path,
         snapshot_id=snapshot_id,
+        **({"system_id": system_id} if system_id else {}),
         accepted_boundary_contract=accepted_boundary_contract,
     )
     pending = build_initial_intent_pending_snapshot(candidate)
@@ -2609,6 +2611,7 @@ def bootstrap_initial_current_model_authority(
     revision_set_id: str,
     task_id: str,
     activation_receipt_id: str,
+    system_id: str = "",
     current_design_intent_contributions: Iterable[Any],
     legacy_entry_dispositions: Iterable[Any] = (),
     intent_receipt_id: str,
@@ -2651,6 +2654,7 @@ def bootstrap_initial_current_model_authority(
         staging_root=staging_path,
         snapshot_id=snapshot_id,
         bootstrap_evidence_fingerprint=bootstrap_evidence_fingerprint,
+        system_id=system_id,
         accepted_boundary_contract=accepted_boundary_contract,
     )
     design = tuple(current_design_intent_contributions)

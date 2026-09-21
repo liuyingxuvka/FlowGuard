@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.5` | `1.0` | Python standard library only | MIT |
+| `v0.69.6` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -30,8 +30,8 @@
 FlowGuard is a model-first preflight layer for AI-assisted software work.
 
 Its primary agent surface is `.agents/skills/`: start with
-`.agents/skills/flowguard/SKILL.md`, and keep the sibling FlowGuard skills
-available so the kernel can select the smallest matching route.
+`.agents/skills/flowguard/SKILL.md`, and keep the on-demand domain references
+available so the kernel can load only the smallest matching route.
 
 The suite includes executable check scripts. The Python package is the check
 engine used by those skills; it is not the skill installation itself.
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.5 candidate self-model contains an exact inventory of 51 current
+The v0.69.6 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -783,7 +783,7 @@ The internal domain references and template files are loaded by the selected
 skill route; they are not public CLI operations. Run `python -m flowguard
 --help` to see the exact three-operation public surface.
 
-FlowGuard v0.69.5 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.6 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.69.6 - 2026-09-22
+
+- Closed the compact one-skill route boundary: the public `flowguard` entry remains the sole installable skill, while domain material is loaded on demand through typed route projections.
+- Re-authored the current reverse-surface map against the fresh discovery fingerprint, repaired the behavior ledger and current author registry, and verified all 51 native model owners with fresh parent evidence.
+- Kept release and installation claims separate: this patch carries source, model, consumer-projection, and targeted/full-test evidence only; publication is established by the immutable tag and GitHub release.
+
 ## v0.69.5 - 2026-09-21
 
 - Published the compact current lifecycle: `read`, `change`, and `release`.

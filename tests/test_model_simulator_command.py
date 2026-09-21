@@ -3,11 +3,14 @@ from __future__ import annotations
 import contextlib
 import io
 import json
-import tempfile
 import unittest
 from pathlib import Path
 
 from flowguard.__main__ import main
+from flowguard.development_process_simulator import (
+    DevelopmentProcessSimulationRequest,
+    review_development_process_simulator,
+)
 
 
 class ModelSimulatorCommandTests(unittest.TestCase):
@@ -21,64 +24,74 @@ class ModelSimulatorCommandTests(unittest.TestCase):
             exit_code = main(["simulator", "--root", str(self.repository), *arguments, "--json"])
         return exit_code, json.loads(stdout.getvalue())
 
-    def test_list_audits_one_canonical_manifest(self) -> None:
-        exit_code, payload = self.invoke("--list")
+    def assert_retired_operation(
+        self, exit_code: int, payload: dict[str, object], operation: str
+    ) -> None:
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
-        self.assertEqual(0, exit_code)
-        self.assertEqual("pass", payload["status"])
-        self.assertEqual(
-            len(payload["manifest_audit"]["registered_model_ids"]),
-            len(payload["models"]),
+    def test_list_audits_one_canonical_manifest(self) -> None:
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                request_id="current-readiness",
+                validation_freshness_risk=True,
+            )
         )
-        self.assertGreater(len(payload["models"]), 0)
-        self.assertTrue(payload["manifest_audit"]["ok"])
+        self.assertEqual("pass", report.status)
+        self.assertEqual(("execution_freshness",), report.selected_modes)
+        exit_code, payload = self.invoke("--list")
+        self.assert_retired_operation(exit_code, payload, "simulator")
 
     def test_execution_scope_is_required(self) -> None:
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(request_id="missing-scope")
+        )
+        self.assertEqual("needs_revision", report.status)
+        self.assertIn(
+            "no_development_process_mode_selected",
+            {finding.code for finding in report.findings},
+        )
         exit_code, payload = self.invoke()
-
-        self.assertEqual(3, exit_code)
-        self.assertEqual("invalid_input", payload["status"])
-        self.assertIn("--model", payload["message"])
+        self.assert_retired_operation(exit_code, payload, "simulator")
 
     def test_unmatched_selector_is_not_empty_success(self) -> None:
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                request_id="invalid-optimization",
+                process_optimization_reasons=("unknown-reason",),
+            )
+        )
+        self.assertEqual("blocked", report.status)
+        self.assertIn(
+            "process_optimization_reason_invalid",
+            {finding.code for finding in report.findings},
+        )
         exit_code, payload = self.invoke("--model", "does-not-exist")
-
-        self.assertEqual(3, exit_code)
-        self.assertEqual("invalid_input", payload["status"])
-        self.assertIn("matched no", payload["message"])
+        self.assert_retired_operation(exit_code, payload, "simulator")
 
     def test_selected_model_runs_through_native_runner_with_bounded_evidence(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary:
-            output = Path(temporary) / "run"
-            exit_code, payload = self.invoke(
-                "--model",
-                "architecture_reduction",
-                "--tier",
-                "focused",
-                "--output-dir",
-                str(output),
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                request_id="current-implementation",
+                implementation_work=True,
+                final_claim_requested=True,
+                execution_freshness_evidence_ids=("evidence:current",),
             )
-
-            self.assertEqual(0, exit_code)
-            self.assertEqual("pass", payload["status"])
-            self.assertEqual("flowguard-simulator", payload["command"])
-            self.assertEqual([], payload["non_pass_child_ids"])
-            self.assertNotIn("results", payload)
-            self.assertLess(len(json.dumps(payload, sort_keys=True)), 2000)
-            full = json.loads(Path(payload["result_path"]).read_text(encoding="utf-8"))
-            self.assertEqual(["architecture_reduction"], full["selected_model_ids"])
-            # Model simulation executes the canonical current per-model
-            # runner under the verification owner root; retired flat paths
-            # are no longer part of the simulator contract.
-            command_text = " ".join(full["results"][0]["command"])
-            self.assertIn(
-                ".flowguard/verification/owners/architecture_reduction/run_checks.py",
-                command_text,
-            )
-            self.assertEqual("gzip", full["results"][0]["stdout"]["compression"])
-            self.assertEqual("", full["results"][0]["stdout"]["diagnostic_tail"])
-            self.assertTrue((output / "evidence-run.json").is_file())
-            self.assertTrue((output.parent / "CURRENT.json").is_file())
+        )
+        self.assertEqual("pass", report.status)
+        self.assertTrue(report.ok)
+        self.assertEqual(("execution_freshness",), report.selected_modes)
+        exit_code, payload = self.invoke(
+            "--model",
+            "architecture_reduction",
+            "--tier",
+            "focused",
+        )
+        self.assert_retired_operation(exit_code, payload, "simulator")
 
 
 if __name__ == "__main__":

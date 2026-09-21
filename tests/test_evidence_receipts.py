@@ -154,6 +154,20 @@ class EvidenceReceiptSchemaTests(unittest.TestCase):
                 ):
                     evidence_receipts_module.InputSnapshot.from_dict(data)
 
+        for invalid_exists in (None, 0, 1, "false"):
+            with self.subTest(direct_exists=invalid_exists):
+                with self.assertRaisesRegex(
+                    ReceiptValidationError,
+                    "input snapshot exists must be boolean",
+                ):
+                    evidence_receipts_module.InputSnapshot(
+                        artifact_id="source",
+                        path_token="<WORKSPACE>/source.txt",
+                        hash_policy=INPUT_HASH_RAW,
+                        exists=invalid_exists,
+                        raw_sha256=present.raw_sha256,
+                    )
+
         for mutation in ("missing", "unexpected"):
             data = present.to_dict()
             if mutation == "missing":

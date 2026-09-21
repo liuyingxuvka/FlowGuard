@@ -3,22 +3,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = (
-    "flowguard",
-    "flowguard-architecture-reduction",
-    "flowguard-behavior-commitment-ledger",
-    "flowguard-code-structure-recommendation",
-    "flowguard-contract-exhaustion-mesh",
-    "flowguard-development-process-flow",
-    "flowguard-existing-model-preflight",
-    "flowguard-field-lifecycle-mesh",
-    "flowguard-model-mesh",
-    "flowguard-model-miss-review",
-    "flowguard-model-test-alignment",
-    "flowguard-model-topology-hazard-review",
-    "flowguard-structure-mesh",
-    "flowguard-test-mesh",
-    "flowguard-ui-flow-structure",
+SUITE_MAP = ROOT / ".skillguard" / "flowguard-suite" / "suite-map.json"
+SKILLS = tuple(
+    row["name"]
+    for row in json.loads(SUITE_MAP.read_text(encoding="utf-8"))["included_skills"]
 )
 
 

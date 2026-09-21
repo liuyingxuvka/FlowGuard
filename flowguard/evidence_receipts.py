@@ -106,6 +106,20 @@ class ReceiptValidationError(ValueError):
     """Raised when data cannot form a canonical evidence receipt."""
 
 
+def _wire_bool(value: Any, field_name: str) -> bool:
+    """Accept only a JSON boolean for an evidence wire field.
+
+    ``bool(value)`` is deliberately forbidden at this boundary: strings such
+    as ``"false"`` and integers such as ``1`` are truthy in Python but are not
+    the current receipt representation.  Keeping this check in one helper
+    makes direct constructors and JSON loaders apply the same rule.
+    """
+
+    if type(value) is not bool:
+        raise ReceiptValidationError(f"{field_name} must be boolean")
+    return value
+
+
 def _sha256(data: bytes) -> str:
     return f"sha256:{hashlib.sha256(data).hexdigest()}"
 
@@ -321,9 +335,11 @@ class InputSnapshot:
         object.__setattr__(self, "artifact_id", str(self.artifact_id))
         object.__setattr__(self, "path_token", str(self.path_token).replace("\\", "/"))
         object.__setattr__(self, "hash_policy", str(self.hash_policy))
-        if type(self.exists) is not bool:
-            raise ReceiptValidationError("input snapshot exists must be boolean")
-        object.__setattr__(self, "exists", self.exists)
+        object.__setattr__(
+            self,
+            "exists",
+            _wire_bool(self.exists, "input snapshot exists"),
+        )
         object.__setattr__(self, "raw_sha256", str(self.raw_sha256))
         object.__setattr__(self, "semantic_sha256", str(self.semantic_sha256))
         object.__setattr__(self, "obligation_ids", _unique_tuple(self.obligation_ids))
@@ -356,7 +372,7 @@ class InputSnapshot:
             artifact_id=str(data["artifact_id"]),
             path_token=str(data["path_token"]),
             hash_policy=str(data["hash_policy"]),
-            exists=data["exists"],
+            exists=_wire_bool(data["exists"], "input snapshot exists"),
             raw_sha256=str(data["raw_sha256"]),
             semantic_sha256=str(data["semantic_sha256"]),
             obligation_ids=_as_tuple(data["obligation_ids"]),

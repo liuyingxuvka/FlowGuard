@@ -131,11 +131,40 @@ def _write_consumer(root: Path) -> None:
         "    _pkg.__path__ = [__import__('pathlib').Path(__file__).resolve().parents[4].joinpath('flowguard').as_posix()]\n"
         "    _pkg.__package__ = 'flowguard'\n"
         "    sys.modules['flowguard'] = _pkg\n"
+        "\n"
+        "def make_report(cases, function_name):\n"
+        "    results = []\n"
+        "    for case in cases:\n"
+        "        initial = {'fields': {'case': case['name'], 'phase': 'initial'}}\n"
+        "        final = {'fields': {'case': case['name'], 'phase': case.get('observed_status', 'ok')}}\n"
+        "        results.append({\n"
+        "            'scenario_name': case['name'],\n"
+        "            'ok': bool(case['ok']),\n"
+        "            'status': 'pass' if case['ok'] else 'fail',\n"
+        "            'scenario_run': {\n"
+        "                'observed_status': case.get('observed_status', 'ok'),\n"
+        "                'traces': [{\n"
+        "                    'initial_state': initial,\n"
+        "                    'steps': [{\n"
+        "                        'old_state': initial,\n"
+        "                        'new_state': final,\n"
+        "                        'function_name': function_name,\n"
+        "                        'function_output': case.get('observed_status', 'ok'),\n"
+        "                        'label': 'native-executed',\n"
+        "                    }],\n"
+        "                    'final_state': final,\n"
+        "                    'labels': ['native-executed'],\n"
+        "                }],\n"
+        "                'final_states': [final],\n"
+        "                'observed_violation_names': list(case.get('finding_codes', ())),\n"
+        "            },\n"
+        "        })\n"
+        "    return {'results': results, 'exit_code': 0 if all(item['ok'] for item in cases) else 1}\n"
     )
     runner_sources = {
-        "alpha": runner_prelude + """import json\nfrom src.alpha import classify\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, value, expected in ((\"good-negative\", -1, \"negative\"), (\"good-zero\", 0, \"zero\"), (\"good-positive\", 1, \"positive\")):\n        observed = classify(value)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        classify(\"invalid\")\n    except (TypeError, ValueError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return 0 if all(case[\"ok\"] for case in cases) else 1\n\ndef main():\n    return native_main(\"model:alpha\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
-        "beta": runner_prelude + """import json\nfrom src.beta import enabled\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, flag, expected in ((\"good-disabled\", False, \"off\"), (\"good-enabled\", True, \"on\")):\n        observed = enabled(flag)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        enabled(\"invalid\")\n    except (TypeError, ValueError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return 0 if all(case[\"ok\"] for case in cases) else 1\n\ndef main():\n    return native_main(\"model:beta\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
-        "alpha_beta_connection": runner_prelude + """import json\nfrom src.join import enabled_from_value\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, value, expected in ((\"join-negative\", -1, \"off\"), (\"join-zero\", 0, \"off\"), (\"join-positive\", 1, \"on\")):\n        observed = enabled_from_value(value)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        enabled_from_value(\"invalid\")\n    except (TypeError, ValueError, KeyError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return 0 if all(case[\"ok\"] for case in cases) else 1\n\ndef main():\n    return native_main(\"model:alpha_beta_connection\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
+        "alpha": runner_prelude + """import json\nfrom src.alpha import classify\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, value, expected in ((\"good-negative\", -1, \"negative\"), (\"good-zero\", 0, \"zero\"), (\"good-positive\", 1, \"positive\")):\n        observed = classify(value)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        classify(\"invalid\")\n    except (TypeError, ValueError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return make_report(cases, \"classify\")\n\ndef main():\n    return native_main(\"model:alpha\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
+        "beta": runner_prelude + """import json\nfrom src.beta import enabled\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, flag, expected in ((\"good-disabled\", False, \"off\"), (\"good-enabled\", True, \"on\")):\n        observed = enabled(flag)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        enabled(\"invalid\")\n    except (TypeError, ValueError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return make_report(cases, \"enabled\")\n\ndef main():\n    return native_main(\"model:beta\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
+        "alpha_beta_connection": runner_prelude + """import json\nfrom src.join import enabled_from_value\nfrom flowguard.native_case_runner import native_main\n\ndef run_review():\n    cases = []\n    for name, value, expected in ((\"join-negative\", -1, \"off\"), (\"join-zero\", 0, \"off\"), (\"join-positive\", 1, \"on\")):\n        observed = enabled_from_value(value)\n        cases.append({\"name\": name, \"ok\": observed == expected, \"observed_status\": \"ok\" if observed == expected else \"violation\", \"case_kind\": \"good\"})\n    try:\n        enabled_from_value(\"invalid\")\n    except (TypeError, ValueError, KeyError):\n        cases.append({\"name\": \"known-bad\", \"ok\": True, \"observed_status\": \"violation\", \"finding_codes\": [\"consumer:invalid-boundary\"], \"case_kind\": \"bad\"})\n    print(json.dumps({\"cases\": cases}, sort_keys=True))\n    return make_report(cases, \"enabled_from_value\")\n\ndef main():\n    return native_main(\"model:alpha_beta_connection\", run_review)\n\nif __name__ == \"__main__\":\n    raise SystemExit(main())\n""",
     }
     runner_sources["alpha"] = runner_sources["alpha"].replace(
         "    print(json.dumps({\"cases\": cases}, sort_keys=True))\n",
@@ -697,11 +726,18 @@ def _write_release_request(
     return request_path, request
 
 
-def test_public_release_source_qualification_reuses_accepted_current_without_writes(
+def test_public_release_source_qualification_reuses_accepted_current_with_qualification_receipt(
     tmp_path: Path,
 ):
     target, staging = _consumer_roots(tmp_path)
     _adopt(target, staging)
+    # The public release seam consumes the canonical leaf store.  Bootstrap
+    # keeps the producer receipts in isolated staging, so publish that exact
+    # content-addressed store as the fixture's pre-existing accepted evidence
+    # before measuring release-side writes.
+    public_receipts = target / ".flowguard" / "evidence" / "model-owner-receipts"
+    public_receipts.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(staging / "work" / "model-owner-receipts", public_receipts)
     original_head, _snapshot = load_observed_model_system(target)
     request_path, _request = _write_release_request(target)
     before = _file_inventory(target / ".flowguard")
@@ -716,9 +752,15 @@ def test_public_release_source_qualification_reuses_accepted_current_without_wri
     assert payload["producer_count"] == 0
     assert payload["run_count"] == 0
     assert payload["reused_count"] == 3
-    assert payload["write_count"] == 0
+    assert payload["write_count"] == 1
+    qualification_path = (target / payload["qualification_receipt_path"]).resolve()
+    assert qualification_path.is_file()
+    assert payload["qualification_receipt_fingerprint"].startswith("sha256:")
     assert load_observed_model_system(target)[0] == original_head
-    assert _file_inventory(target / ".flowguard") == before
+    after = _file_inventory(target / ".flowguard")
+    assert set(after) == set(before) | {str(qualification_path)}
+    for path, content in before.items():
+        assert after[path] == content
 
 
 def test_public_release_wrong_artifact_hash_blocks_before_source_qualification(

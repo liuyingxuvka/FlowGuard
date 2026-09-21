@@ -35,14 +35,23 @@ REQUIRED_LABELS = (
 def run_real_load_graph_budget_review() -> bool:
     report = review_prompt_bundles(ROOT)
     kernel = next(item for item in report["bundles"] if item["route_id"] == "flowguard")
-    component_paths = {item["path"] for item in kernel["components"]}
-    conditional_paths = {item["path"] for item in kernel["conditional_edges"]}
+    component_paths = {
+        component["path"]
+        for stage in kernel["stages"]
+        for component in stage["components"]
+    }
+    triggered_paths = {
+        component["path"]
+        for stage in kernel["stages"]
+        if stage["stage"] == "triggered_expansion"
+        for component in stage["components"]
+    }
     ok = (
         report["ok"]
         and report["provider_token_usage_available"] is False
         and kernel["headroom_ok"]
         and ".agents/skills/flowguard/references/route_index.md" in component_paths
-        and ".agents/skills/flowguard/references/modeling_protocol.md" in conditional_paths
+        and ".agents/skills/flowguard/references/routes/model_first_function_flow.md" in triggered_paths
     )
     print(
         "derived first-read load graph and headroom: "

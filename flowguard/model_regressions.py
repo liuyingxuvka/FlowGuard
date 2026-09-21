@@ -123,6 +123,9 @@ MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA = (
 MODEL_REGRESSION_PARENT_ARTIFACT_TYPE = (
     "flowguard_model_regression_parent_receipt"
 )
+PREPARED_MODEL_REGRESSION_PLAN_SCHEMA = (
+    "flowguard.prepared_model_regression_plan.v1"
+)
 MODEL_REGRESSION_PARENT_CURRENT_SCHEMA = (
     "flowguard.model_regression_parent_current.v1"
 )
@@ -1093,6 +1096,441 @@ class ModelRegressionManifest:
                 "native_owner_projection": native_owner_projection,
             }
         )
+
+
+@dataclass(frozen=True)
+class PreparedModelRegressionRow:
+    """One frozen model-owner decision consumed by a regression run.
+
+    The row is deliberately smaller than ``ValidationOwnerPlanRow``.  It is
+    the public execution boundary: callers can inspect the decision, but the
+    execution API cannot replace it with a new tier, pattern, or shard filter.
+    ``reuse_receipt_ref`` is an identity only; the executor still loads and
+    verifies the receipt from the canonical store.
+    """
+
+    owner_id: str
+    execution_key: str
+    disposition: str
+    reuse_receipt_ref: str = ""
+
+    def __post_init__(self) -> None:
+        owner_id = str(self.owner_id).strip()
+        execution_key = str(self.execution_key).strip()
+        disposition = str(self.disposition).strip()
+        if not owner_id:
+            raise ValueError("prepared model row owner_id is required")
+        if disposition not in {OWNER_EXECUTE, OWNER_REUSE_CURRENT, OWNER_BLOCKED}:
+            raise ValueError(
+                "prepared model row has unsupported disposition: " + disposition
+            )
+        if disposition != OWNER_BLOCKED and not execution_key:
+            raise ValueError(
+                f"prepared model row execution_key is required: {owner_id}"
+            )
+        receipt_ref = str(self.reuse_receipt_ref).strip()
+        if disposition == OWNER_REUSE_CURRENT and not receipt_ref:
+            raise ValueError(
+                f"prepared model row reuse_receipt_ref is required: {owner_id}"
+            )
+        if disposition != OWNER_REUSE_CURRENT and receipt_ref:
+            raise ValueError(
+                f"prepared model row cannot carry a reuse receipt: {owner_id}"
+            )
+        object.__setattr__(self, "owner_id", owner_id)
+        object.__setattr__(self, "execution_key", execution_key)
+        object.__setattr__(self, "disposition", disposition)
+        object.__setattr__(self, "reuse_receipt_ref", receipt_ref)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "owner_id": self.owner_id,
+            "execution_key": self.execution_key,
+            "disposition": self.disposition,
+            "reuse_receipt_ref": self.reuse_receipt_ref,
+        }
+
+
+@dataclass(frozen=True)
+class PreparedModelRegressionPlan:
+    """The one immutable owner plan for a model change.
+
+    The private observation and manifest are retained in memory so execution
+    can consume the exact source/receipt observation without scanning and
+    selecting owners a second time.  They are excluded from the wire
+    fingerprint because the public fields are the complete stable plan
+    identity.  A plan created for a different root, manifest, or candidate is
+    rejected before any producer lease is acquired.
+    """
+
+    source_root: str
+    target_id: str
+    base_head: str
+    candidate_fingerprint: str
+    model_denominator: tuple[str, ...]
+    affected_ids: tuple[str, ...]
+    owner_contracts: tuple[ValidationOwnerContract, ...]
+    observation_fingerprint: str
+    rows: tuple[PreparedModelRegressionRow, ...]
+    native_binding_denominator: tuple[str, ...]
+    dependency_edges: tuple[tuple[str, tuple[str, ...]], ...]
+    manifest_fingerprint: str = ""
+    _manifest: ModelRegressionManifest | None = field(
+        default=None, repr=False, compare=False
+    )
+    _observation: ValidationOwnerObservation | None = field(
+        default=None, repr=False, compare=False
+    )
+
+    def __post_init__(self) -> None:
+        source_root = str(self.source_root).strip()
+        if not source_root:
+            raise ValueError("prepared model plan source_root is required")
+        target_id = str(self.target_id).strip()
+        base_head = str(self.base_head).strip()
+        candidate_fingerprint = str(self.candidate_fingerprint).strip()
+        observation_fingerprint = str(self.observation_fingerprint).strip()
+        manifest_fingerprint = str(self.manifest_fingerprint).strip()
+        if not candidate_fingerprint or not observation_fingerprint:
+            raise ValueError(
+                "prepared model plan candidate and observation fingerprints are required"
+            )
+        def ids(values: Sequence[str], label: str) -> tuple[str, ...]:
+            normalized = tuple(sorted({str(item).strip() for item in values if str(item).strip()}))
+            if len(normalized) != len(tuple(values)):
+                raise ValueError(f"prepared model plan {label} contains duplicate or empty ids")
+            return normalized
+
+        model_denominator = ids(self.model_denominator, "model_denominator")
+        affected_ids = ids(self.affected_ids, "affected_ids")
+        native_denominator = ids(
+            self.native_binding_denominator, "native_binding_denominator"
+        )
+        rows = tuple(self.rows)
+        owner_ids = tuple(row.owner_id for row in rows)
+        if len(owner_ids) != len(set(owner_ids)):
+            raise ValueError("prepared model plan rows contain duplicate owners")
+        contract_ids = tuple(contract.owner_id for contract in self.owner_contracts)
+        if len(contract_ids) != len(set(contract_ids)):
+            raise ValueError("prepared model plan owner contracts must be unique")
+        if set(owner_ids) != set(contract_ids):
+            raise ValueError(
+                "prepared model plan rows and contracts have different owner denominators"
+            )
+        edges: list[tuple[str, tuple[str, ...]]] = []
+        contract_by_id = {item.owner_id: item for item in self.owner_contracts}
+        for owner_id in contract_ids:
+            contract = contract_by_id[owner_id]
+            edges.append((owner_id, tuple(contract.dependency_owner_ids)))
+        if tuple(edges) != tuple(self.dependency_edges):
+            raise ValueError("prepared model plan dependency_edges do not match contracts")
+        object.__setattr__(self, "source_root", source_root)
+        object.__setattr__(self, "target_id", target_id)
+        object.__setattr__(self, "base_head", base_head)
+        object.__setattr__(self, "candidate_fingerprint", candidate_fingerprint)
+        object.__setattr__(self, "observation_fingerprint", observation_fingerprint)
+        object.__setattr__(self, "manifest_fingerprint", manifest_fingerprint)
+        object.__setattr__(self, "model_denominator", model_denominator)
+        object.__setattr__(self, "affected_ids", affected_ids)
+        object.__setattr__(self, "native_binding_denominator", native_denominator)
+        object.__setattr__(self, "rows", rows)
+        object.__setattr__(self, "dependency_edges", tuple(edges))
+
+    @property
+    def fingerprint(self) -> str:
+        return fingerprint_value(self.to_dict(include_fingerprint=False))
+
+    @property
+    def current_observation(self) -> ValidationOwnerObservation:
+        if self._observation is None:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan has no in-memory source observation"
+            )
+        return self._observation
+
+    @property
+    def current_manifest(self) -> ModelRegressionManifest:
+        if self._manifest is None:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan has no in-memory manifest"
+            )
+        return self._manifest
+
+    def to_dict(self, *, include_fingerprint: bool = True) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "schema_version": PREPARED_MODEL_REGRESSION_PLAN_SCHEMA,
+            "source_root": self.source_root,
+            "target_id": self.target_id,
+            "base_head": self.base_head,
+            "candidate_fingerprint": self.candidate_fingerprint,
+            "model_denominator": list(self.model_denominator),
+            "affected_ids": list(self.affected_ids),
+            "owner_contracts": [item.to_dict() for item in self.owner_contracts],
+            "observation_fingerprint": self.observation_fingerprint,
+            "rows": [item.to_dict() for item in self.rows],
+            "native_binding_denominator": list(self.native_binding_denominator),
+            "dependency_edges": [
+                {"owner_id": owner_id, "depends_on": list(dependencies)}
+                for owner_id, dependencies in self.dependency_edges
+            ],
+            "manifest_fingerprint": self.manifest_fingerprint,
+        }
+        if include_fingerprint:
+            payload["plan_fingerprint"] = self.fingerprint
+        return payload
+
+    def assert_usable(
+        self,
+        root: str | Path,
+        manifest: ModelRegressionManifest,
+    ) -> None:
+        root_path = Path(root).resolve()
+        if Path(self.source_root).resolve() != root_path:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan source root does not match execution root"
+            )
+        selected = select_entries(manifest, tier="full")
+        selected_ids = tuple(item.model_id for item in selected)
+        if selected_ids != self.model_denominator:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan model denominator is stale"
+            )
+        if self.manifest_fingerprint:
+            live_fingerprint = source_file_fingerprint(manifest.path)
+            if live_fingerprint != self.manifest_fingerprint:
+                raise ModelRegressionEvidenceError(
+                    "prepared model plan manifest fingerprint is stale"
+                )
+        if self._manifest is not None and self._manifest.path != manifest.path:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan manifest path is not current"
+            )
+        if self._observation is None:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan source observation is unavailable"
+            )
+
+
+def _prepared_plan_rows(
+    observation: ValidationOwnerObservation,
+) -> tuple[PreparedModelRegressionRow, ...]:
+    return tuple(
+        PreparedModelRegressionRow(
+            owner_id=row.owner_id,
+            execution_key=row.owner_identity,
+            disposition=row.disposition,
+            reuse_receipt_ref=row.receipt_id
+            if row.disposition == OWNER_REUSE_CURRENT
+            else "",
+        )
+        for row in observation.rows
+    )
+
+
+def prepare_model_regression_plan(
+    root: str | Path = ".",
+    *,
+    target_id: str = "",
+    base_head: str = "",
+    candidate_fingerprint: str = "",
+    affected_ids: Sequence[str] = (),
+    receipt_dir: str | Path | None = None,
+    require_executed_case_ids: bool = True,
+    timeout: float | None = None,
+) -> PreparedModelRegressionPlan:
+    """Freeze the complete model denominator and one owner observation.
+
+    This is the only supported planner for compact lifecycle changes.  It
+    always observes the full manifest, never accepts caller tier/pattern/shard
+    narrowing, and classifies only exact-current receipts as reusable.  The
+    returned private observation is consumed directly by
+    :func:`run_manifest_regressions`.
+    """
+
+    root_path = Path(root).resolve()
+    manifest = ModelRegressionManifest.load(root_path)
+    selected = select_entries(manifest, tier="full")
+    audit = audit_manifest(root_path, manifest)
+    source_inventory_errors = audit_selected_model_source_inventories(
+        root_path, tuple(entry.model_id for entry in selected)
+    )
+    if not audit.ok or source_inventory_errors:
+        errors = (*audit.errors, *source_inventory_errors)
+        raise ModelRegressionEvidenceError(
+            "prepared model regression plan is blocked: " + "; ".join(errors)
+        )
+    receipt_root = (
+        Path(receipt_dir).resolve()
+        if receipt_dir is not None
+        else root_path / ".flowguard" / "evidence" / "model-owner-receipts"
+    )
+    contracts = tuple(
+        _model_owner_contract(root_path, manifest, entry) for entry in selected
+    )
+    parent_contract = _model_parent_owner_contract(
+        manifest, selected, claim_scope="full", tier="full"
+    )
+    observation = observe_validation_owners(
+        root_path,
+        contracts,
+        receipt_root=receipt_root,
+        additional_input_patterns=parent_contract.input_patterns,
+        prefer_latest_model_receipt=True,
+    )
+    rows = observation.rows
+    reusable_receipts = dict(observation.receipt_by_owner)
+    entries_by_owner = {
+        f"model:{entry.model_id}": entry for entry in selected
+    }
+    # The changed scope is an additional invalidation boundary.  Source
+    # currentness remains authoritative: a caller cannot use this list to
+    # narrow the complete denominator or mark a stale row reusable.
+    affected = tuple(
+        sorted({str(item).strip() for item in affected_ids if str(item).strip()})
+    )
+    affected_tokens = set(affected)
+    forced_rows: list[Any] = []
+    for row in rows:
+        model_id = row.owner_id.removeprefix("model:")
+        forced = row.owner_id in affected_tokens or model_id in affected_tokens
+        if forced and row.disposition == OWNER_REUSE_CURRENT:
+            forced_rows.append(
+                replace(
+                    row,
+                    disposition=OWNER_EXECUTE,
+                    reason="prepared plan affected owner",
+                    receipt_id="",
+                    receipt_fingerprint="",
+                )
+            )
+            reusable_receipts.pop(row.owner_id, None)
+        else:
+            forced_rows.append(row)
+    rows = tuple(forced_rows)
+    if require_executed_case_ids:
+        strict_rows: list[Any] = []
+        for row in rows:
+            if row.disposition != OWNER_REUSE_CURRENT:
+                strict_rows.append(row)
+                continue
+            stale_native = False
+            try:
+                child = child_from_owner_receipt(
+                    reusable_receipts[row.owner_id], receipt_root
+                )
+                raw_child = child.payload.get("model_result")
+                if not isinstance(raw_child, Mapping):
+                    stale_native = True
+                    raw_child = {}
+                stale_native = not (
+                    raw_child.get("executed_case_ids")
+                    and raw_child.get("native_case_results")
+                    and raw_child.get("native_case_result_artifact_path")
+                    and raw_child.get("native_case_result_artifact_fingerprint")
+                )
+                if not stale_native:
+                    loaded_rows, _path, loaded_fingerprint, verification = (
+                        _load_native_case_result_artifact(
+                            str(raw_child["native_case_result_artifact_path"]),
+                            owner_id=row.owner_id,
+                            marker_case_ids=_coerce_executed_case_ids(
+                                raw_child.get("executed_case_ids", ()),
+                                context=f"strict prepared plan {row.owner_id}",
+                            ),
+                        )
+                    )
+                    declared_rows = _coerce_native_case_results(
+                        raw_child.get("native_case_results"),
+                        context=f"strict prepared plan {row.owner_id}",
+                    )
+                    stale_native = (
+                        not verification.ok
+                        or not _native_result_rows_equal(declared_rows, loaded_rows)
+                        or str(raw_child["native_case_result_artifact_fingerprint"])
+                        != loaded_fingerprint
+                    )
+            except Exception:
+                stale_native = True
+            if stale_native:
+                strict_rows.append(
+                    replace(
+                        row,
+                        disposition=OWNER_EXECUTE,
+                        reason="prepared plan current receipt lacks strict native evidence",
+                        receipt_id="",
+                        receipt_fingerprint="",
+                    )
+                )
+                reusable_receipts.pop(row.owner_id, None)
+            else:
+                strict_rows.append(row)
+        rows = tuple(strict_rows)
+    effective_timeout = timeout
+    if effective_timeout is None and (root_path / ".flowguard" / "project.toml").is_file():
+        effective_timeout = ValidationExecutionPolicy.from_project(
+            root_path
+        ).owner_timeout("model_regressions_full")
+    rows = _demote_policy_incompatible_model_rows(
+        rows,
+        reusable_receipts,
+        entries_by_owner,
+        receipt_root=receipt_root,
+        timeout_override=effective_timeout,
+    )
+    rows = _demote_model_identity_mismatches(
+        rows,
+        reusable_receipts,
+        entries_by_owner,
+        root_path=root_path,
+        manifest=manifest,
+        planning_observation=observation,
+        receipt_root=receipt_root,
+    )
+    reusable_receipts = {
+        owner_id: receipt
+        for owner_id, receipt in reusable_receipts.items()
+        if any(
+            row.owner_id == owner_id and row.disposition == OWNER_REUSE_CURRENT
+            for row in rows
+        )
+    }
+    effective_observation = replace(
+        observation,
+        rows=rows,
+        reusable_receipts=tuple(
+            reusable_receipts[owner_id]
+            for owner_id in sorted(reusable_receipts)
+        ),
+    )
+    prepared_rows = _prepared_plan_rows(effective_observation)
+    candidate = str(candidate_fingerprint).strip() or fingerprint_value(
+        {
+            "schema": PREPARED_MODEL_REGRESSION_PLAN_SCHEMA,
+            "model_denominator": [entry.model_id for entry in selected],
+            "observation": observation.observation_fingerprint,
+        }
+    )
+    native_denominator = tuple(sorted(f"model:{entry.model_id}" for entry in selected))
+    dependency_edges = tuple(
+        (contract.owner_id, tuple(contract.dependency_owner_ids))
+        for contract in contracts
+    )
+    return PreparedModelRegressionPlan(
+        source_root=str(root_path),
+        target_id=str(target_id).strip(),
+        base_head=str(base_head).strip(),
+        candidate_fingerprint=candidate,
+        model_denominator=tuple(entry.model_id for entry in selected),
+        affected_ids=affected,
+        owner_contracts=contracts,
+        observation_fingerprint=observation.observation_fingerprint,
+        rows=prepared_rows,
+        native_binding_denominator=native_denominator,
+        dependency_edges=dependency_edges,
+        manifest_fingerprint=source_file_fingerprint(manifest.path),
+        _manifest=manifest,
+        _observation=effective_observation,
+    )
 
 
 @dataclass(frozen=True)
@@ -5334,6 +5772,7 @@ def run_manifest_regressions(
     require_executed_case_ids: bool = False,
     authority_kind: str = "standalone",
     parent_scope: str = "",
+    prepared_plan: PreparedModelRegressionPlan | None = None,
 ) -> ModelRegressionReport:
     """Run the manifest once and publish its terminal run in one scope.
 
@@ -5380,21 +5819,43 @@ def run_manifest_regressions(
         raise ValueError("jobs must be at least 1")
     if timeout is not None and timeout <= 0:
         raise ValueError("timeout must be positive")
-    selected = select_entries(manifest, tier=tier, model_patterns=model_patterns, shard=shard)
-    source_inventory_errors = audit_selected_model_source_inventories(
-        root_path,
-        (entry.model_id for entry in selected),
-    )
-    complete_selected = select_entries(manifest, tier="full")
-    parent_claim_scope = (
-        "full"
-        if tier == "full"
-        and not model_patterns
-        and shard is None
-        and tuple(entry.model_id for entry in selected)
-        == tuple(entry.model_id for entry in complete_selected)
-        else "scoped"
-    )
+    if prepared_plan is not None:
+        if tier != "full" or model_patterns or shard is not None:
+            raise ValueError(
+                "prepared model regression plan cannot be combined with tier, "
+                "model_patterns, or shard selection"
+            )
+        prepared_plan.assert_usable(root_path, manifest)
+        selected = tuple(
+            entry
+            for entry in select_entries(manifest, tier="full")
+            if entry.model_id in set(prepared_plan.model_denominator)
+        )
+        if tuple(entry.model_id for entry in selected) != prepared_plan.model_denominator:
+            raise ModelRegressionEvidenceError(
+                "prepared model plan selected denominator is not exact"
+            )
+        source_inventory_errors = ()
+        complete_selected = selected
+        parent_claim_scope = "full"
+    else:
+        selected = select_entries(
+            manifest, tier=tier, model_patterns=model_patterns, shard=shard
+        )
+        source_inventory_errors = audit_selected_model_source_inventories(
+            root_path,
+            (entry.model_id for entry in selected),
+        )
+        complete_selected = select_entries(manifest, tier="full")
+        parent_claim_scope = (
+            "full"
+            if tier == "full"
+            and not model_patterns
+            and shard is None
+            and tuple(entry.model_id for entry in selected)
+            == tuple(entry.model_id for entry in complete_selected)
+            else "scoped"
+        )
     if any(entry.mutation_policy == "mutating" for entry in selected) and not allow_mutating:
         blocked = tuple(entry.model_id for entry in selected if entry.mutation_policy == "mutating")
         audit = ManifestAudit(
@@ -5415,8 +5876,12 @@ def run_manifest_regressions(
         if receipt_dir is not None
         else root_path / ".flowguard" / "evidence" / "model-owner-receipts"
     )
-    contracts = tuple(
-        _model_owner_contract(root_path, manifest, entry) for entry in selected
+    contracts = (
+        prepared_plan.owner_contracts
+        if prepared_plan is not None
+        else tuple(
+            _model_owner_contract(root_path, manifest, entry) for entry in selected
+        )
     )
     parent_contract = _model_parent_owner_contract(
         manifest,
@@ -5424,17 +5889,21 @@ def run_manifest_regressions(
         claim_scope=parent_claim_scope,
         tier=tier,
     )
-    planning_observation = observe_validation_owners(
-        root_path,
-        contracts,
-        receipt_root=receipt_root,
-        additional_input_patterns=parent_contract.input_patterns,
-        prefer_latest_model_receipt=True,
+    planning_observation = (
+        prepared_plan.current_observation
+        if prepared_plan is not None
+        else observe_validation_owners(
+            root_path,
+            contracts,
+            receipt_root=receipt_root,
+            additional_input_patterns=parent_contract.input_patterns,
+            prefer_latest_model_receipt=True,
+        )
     )
     plan_rows = planning_observation.rows
     currents = planning_observation.current_by_owner
     reusable_receipts = planning_observation.receipt_by_owner
-    if require_executed_case_ids:
+    if require_executed_case_ids and prepared_plan is None:
         # A legacy current receipt without the strict producer envelope is
         # stale for this execution mode.  Reclassify only that owner for one
         # bounded fresh run; never promote the old receipt or run all owners
@@ -5552,34 +6021,61 @@ def run_manifest_regressions(
     entries_by_owner = {
         f"model:{entry.model_id}": entry for entry in selected
     }
-    # Resource-policy changes do not alter functional currentness, but a
-    # tightened cap can make one previously passing producer incompatible
-    # with the current execution policy.  Demote only those leaves before
-    # constructing reused results; unrelated current receipts remain reusable.
-    plan_rows = _demote_policy_incompatible_model_rows(
-        plan_rows,
-        reusable_receipts,
-        entries_by_owner,
-        receipt_root=receipt_root,
-        timeout_override=effective_timeout,
-    )
-    plan_rows = _demote_model_identity_mismatches(
-        plan_rows,
-        reusable_receipts,
-        entries_by_owner,
-        root_path=root_path,
-        manifest=manifest,
-        planning_observation=planning_observation,
-        receipt_root=receipt_root,
-    )
-    reusable_receipts = {
-        owner_id: receipt
-        for owner_id, receipt in reusable_receipts.items()
-        if any(
-            row.owner_id == owner_id and row.disposition == OWNER_REUSE_CURRENT
-            for row in plan_rows
+    if prepared_plan is None:
+        # Resource-policy changes do not alter functional currentness, but a
+        # tightened cap can make one previously passing producer incompatible
+        # with the current execution policy.  Demote only those leaves before
+        # constructing reused results; unrelated current receipts remain reusable.
+        plan_rows = _demote_policy_incompatible_model_rows(
+            plan_rows,
+            reusable_receipts,
+            entries_by_owner,
+            receipt_root=receipt_root,
+            timeout_override=effective_timeout,
         )
-    }
+        plan_rows = _demote_model_identity_mismatches(
+            plan_rows,
+            reusable_receipts,
+            entries_by_owner,
+            root_path=root_path,
+            manifest=manifest,
+            planning_observation=planning_observation,
+            receipt_root=receipt_root,
+        )
+        reusable_receipts = {
+            owner_id: receipt
+            for owner_id, receipt in reusable_receipts.items()
+            if any(
+                row.owner_id == owner_id and row.disposition == OWNER_REUSE_CURRENT
+                for row in plan_rows
+            )
+        }
+    else:
+        expected_rows = {
+            row.owner_id: row for row in prepared_plan.rows
+        }
+        actual_rows = {
+            row.owner_id: row for row in plan_rows
+        }
+        if set(expected_rows) != set(actual_rows):
+            raise ModelRegressionEvidenceError(
+                "prepared model plan rows are not the observed owner denominator"
+            )
+        for owner_id, expected in expected_rows.items():
+            actual = actual_rows[owner_id]
+            if (
+                actual.owner_identity != expected.execution_key
+                or actual.disposition != expected.disposition
+                or actual.receipt_id
+                != (
+                    expected.reuse_receipt_ref
+                    if expected.disposition == OWNER_REUSE_CURRENT
+                    else ""
+                )
+            ):
+                raise ModelRegressionEvidenceError(
+                    "prepared model plan row changed before execution: " + owner_id
+                )
     reused_results: dict[str, ModelRunResult] = {}
     if audit.ok:
         for row in plan_rows:
@@ -5796,6 +6292,7 @@ __all__ = [
     "MODEL_REGRESSION_PARENT_ARTIFACT_TYPE",
     "MODEL_REGRESSION_PARENT_CURRENT_SCHEMA",
     "MODEL_REGRESSION_PARENT_RECEIPT_SCHEMA",
+    "PREPARED_MODEL_REGRESSION_PLAN_SCHEMA",
     "CurrentModelRegressionChildEvidence",
     "CurrentModelRegressionParentEvidence",
     "ModelOwnerExecutionEvidence",
@@ -5808,6 +6305,8 @@ __all__ = [
     "ModelRegressionManifestError",
     "ModelRegressionReport",
     "ModelRunResult",
+    "PreparedModelRegressionPlan",
+    "PreparedModelRegressionRow",
     "audit_intent_source_input_bindings",
     "audit_selected_model_source_inventories",
     "audit_manifest",
@@ -5819,6 +6318,7 @@ __all__ = [
     "parse_executed_case_ids",
     "build_model_regression_execution_evidence",
     "parse_shard",
+    "prepare_model_regression_plan",
     "resolve_current_full_model_regression_parent",
     "resolve_entry_input_inventory",
     "run_manifest_regressions",

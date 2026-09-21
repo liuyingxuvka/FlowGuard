@@ -17,7 +17,7 @@ from flowguard.skill_contracts import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL_ID = "flowguard-development-process-flow"
+SKILL_ID = "flowguard"
 SKILL = ROOT / ".agents" / "skills" / SKILL_ID
 
 
@@ -29,16 +29,14 @@ class CurrentSkillContractParityTests(unittest.TestCase):
         former = dict(source)
         former["v1_runtime_authority"] = {"status": "migration-evidence"}
         self.assertIn(
-            "unknown_contract_source_field:v1_runtime_authority",
+            "unknown_compact_contract_field:v1_runtime_authority",
             validate_contract_source(former, SKILL),
         )
 
         missing_model_owner = json.loads(json.dumps(source))
-        missing_model_owner["depth_profile"]["model_deepening_check_id"] = (
-            "check:missing:model-deepening"
-        )
+        missing_model_owner["obligations"][0]["check_ids"] = ["check:missing"]
         self.assertIn(
-            "depth_profile_model_deepening_check_unknown",
+            "obligation_check_ids_invalid:0",
             validate_contract_source(missing_model_owner, SKILL),
         )
 
@@ -46,8 +44,8 @@ class CurrentSkillContractParityTests(unittest.TestCase):
         compiled, manifest, findings, written = compile_skill_contract(SKILL)
         self.assertFalse(findings)
         self.assertFalse(written)
-        self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
-        self.assertEqual("skillguard.check_manifest.v2", manifest["schema_version"])
+        self.assertEqual("skillguard.compiled_contract.v3", compiled["schema_version"])
+        self.assertEqual("skillguard.check_manifest.v3", manifest["schema_version"])
         self.assertEqual(compiled["contract_hash"], manifest["contract_hash"])
 
     def test_flowguard_reader_never_writes_an_alternate_authority(self) -> None:
@@ -81,7 +79,7 @@ class CurrentSkillContractParityTests(unittest.TestCase):
 
             source_path = copied_skill / CONTRACT_SOURCE_FILE
             source = json.loads(source_path.read_text(encoding="utf-8"))
-            source["claim_boundary"] += " Changed without recompilation."
+            source["checks"][0]["expected"]["exit_code"] = 1
             source_path.write_text(
                 json.dumps(source, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -95,27 +93,34 @@ class CurrentSkillContractParityTests(unittest.TestCase):
             self.assertIn("binding_fingerprint_stale", codes)
             self.assertIn("former_runtime_authority_residual", codes)
 
-    def test_all_fifteen_members_pass_current_parity(self) -> None:
+    def test_single_current_member_passes_current_parity(self) -> None:
         report = compile_skill_suite(ROOT)
         self.assertTrue(report.ok, report.to_json_text())
-        self.assertEqual(15, len(report.member_ids))
-        self.assertEqual(15, len(report.contract_hashes))
+        self.assertEqual(("flowguard",), report.member_ids)
+        self.assertEqual(1, len(report.contract_hashes))
 
     def test_current_authority_root_contains_only_current_files(self) -> None:
-        for skill_root in sorted((ROOT / ".agents" / "skills").iterdir()):
+        current_ids = compile_skill_suite(ROOT).member_ids
+        for skill_id in current_ids:
+            skill_root = ROOT / ".agents" / "skills" / skill_id
             authority = skill_root / ".skillguard"
             if not authority.is_dir():
                 continue
             with self.subTest(skill=skill_root.name):
+                current_files = {
+                    Path(CONTRACT_SOURCE_FILE).name,
+                    Path(COMPILED_CONTRACT_FILE).name,
+                    Path(CHECK_MANIFEST_FILE).name,
+                    "surface-inventory.json",
+                    "surface-semantic-map.json",
+                }
                 self.assertEqual(
-                    {
-                        Path(CONTRACT_SOURCE_FILE).name,
-                        Path(COMPILED_CONTRACT_FILE).name,
-                        Path(CHECK_MANIFEST_FILE).name,
-                        "surface-inventory.json",
-                        "surface-semantic-map.json",
-                    },
-                    {path.name for path in authority.iterdir()},
+                    current_files,
+                    {path.name for path in authority.iterdir() if path.is_file()},
+                )
+                self.assertTrue(
+                    all(path.name == "archive" and path.is_dir() for path in authority.iterdir() if path.is_dir()),
+                    f"unexpected non-current authority directories: {sorted(path.name for path in authority.iterdir() if path.is_dir())}",
                 )
 
 

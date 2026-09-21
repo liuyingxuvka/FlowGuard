@@ -935,11 +935,18 @@ class RecursiveHierarchyPlan:
         )
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
         if self.strict is not None:
-            object.__setattr__(self, "strict", bool(self.strict))
+            object.__setattr__(
+                self,
+                "strict",
+                _wire_bool(self.strict, "recursive_hierarchy_plan.strict"),
+            )
         object.__setattr__(
             self,
             "allow_scoped_leaf_exemptions",
-            bool(self.allow_scoped_leaf_exemptions),
+            _wire_bool(
+                self.allow_scoped_leaf_exemptions,
+                "recursive_hierarchy_plan.allow_scoped_leaf_exemptions",
+            ),
         )
         object.__setattr__(self, "metadata", dict(self.metadata))
         object.__setattr__(

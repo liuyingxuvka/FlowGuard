@@ -2731,15 +2731,16 @@ def _restore_previous_projection(
 def _write_canonical_projection_lookup_cache(
     projection: CanonicalBlueprintProjection,
     staging_root: Path,
-    project_root: Path,
+    projection_root: Path,
 ) -> Path | None:
     """Write the removable affected-read offset cache for one projection.
 
     The cache is deliberately outside the canonical projection tree and is
-    keyed by the accepted projection fingerprint.  It is an I/O accelerator,
-    not a blueprint/model/receipt authority: the affected reader still binds
-    every container to the manifest and every selected object to the accepted
-    index fingerprint.
+    keyed by the accepted projection fingerprint *and its output root*.  It is
+    an I/O accelerator, not a blueprint/model/receipt authority: the affected
+    reader still binds every container to the manifest and every selected
+    object to the accepted index fingerprint.  Keeping one exact sibling path
+    means a reader cannot recover from an ancestor or prior-generation cache.
     """
 
     from .affected_blueprint_reader import _JsonArrayRowLocator
@@ -2782,16 +2783,13 @@ def _write_canonical_projection_lookup_cache(
         "projection_fingerprint": projection.fingerprint,
         "containers": containers,
     }
-    cache_root = (
-        project_root
-        / "work"
-        / "flowguard"
-        / "canonical-blueprint"
-        / "lookup-cache"
+    output_root = Path(projection_root).resolve()
+    cache_path = output_root.parent / (
+        f".{output_root.name}.lookup-cache-"
+        f"{projection.fingerprint.removeprefix('sha256:')}.json"
     )
-    cache_root.mkdir(parents=True, exist_ok=True)
-    cache_path = cache_root / f"{projection.fingerprint.removeprefix('sha256:')}.json"
-    temporary = cache_root / f".{cache_path.name}.tmp-{uuid.uuid4().hex}"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = cache_path.parent / f".{cache_path.name}.tmp-{uuid.uuid4().hex}"
     try:
         temporary.write_bytes(canonical_json_bytes(cache_payload) + b"\n")
         os.replace(temporary, cache_path)
@@ -2902,11 +2900,7 @@ def write_canonical_blueprint_projection(
             )
 
         assert project_root is not None
-        _write_canonical_projection_lookup_cache(
-            projection,
-            staging,
-            project_root,
-        )
+        _write_canonical_projection_lookup_cache(projection, staging, root)
 
         current_root_snapshot = _validated_existing_projection_snapshot(root)
         if current_root_snapshot != initial_root_snapshot:

@@ -919,8 +919,8 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertIn("fault profiles", profile.outputs)
         self.assertIn("backfeed report", profile.outputs)
         target_ids = {handoff.target_id for handoff in profile.next_actions}
-        self.assertIn("flowguard-model-mesh", target_ids)
-        self.assertIn("flowguard-test-mesh", target_ids)
+        self.assertIn("model_mesh_maintenance", target_ids)
+        self.assertIn("test_mesh_maintenance", target_ids)
         checklist = tuple(profile.metadata["checklist"])
         self.assertTrue(any("declared finite axes" in item for item in checklist))
         self.assertTrue(any("coverage universe" in item for item in checklist))

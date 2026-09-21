@@ -12,18 +12,22 @@ def _run(*argv: str) -> tuple[int, dict]:
     return status, json.loads(stream.getvalue())
 
 
-def test_route_reference_returns_one_public_capsule_without_catalog():
+def test_retired_route_reference_command_is_rejected_without_a_producer():
     status, payload = _run("route-reference", "model_first_function_flow", "--json")
 
-    assert status == 0
-    assert payload["route"]["route_id"] == "model_first_function_flow"
-    assert payload["route"]["reference_edges"]
-    assert "current_route_registry" not in payload
+    assert status == 2
+    assert payload["status"] == "blocked"
+    assert payload["decision"] == "block"
+    assert payload["producer_count"] == 0
+    assert payload["error"] == "unknown operation: route-reference"
+    assert payload["allowed_operations"] == ["read", "change", "release"]
 
 
-def test_route_reference_blocks_stale_or_unknown_route():
+def test_retired_route_reference_command_rejects_unknown_route_without_parsing_it():
     status, payload = _run("route-reference", "not-a-current-route", "--json")
 
-    assert status == 1
+    assert status == 2
     assert payload["status"] == "blocked"
-    assert payload["route"] == {}
+    assert payload["decision"] == "block"
+    assert payload["producer_count"] == 0
+    assert payload["error"] == "unknown operation: route-reference"

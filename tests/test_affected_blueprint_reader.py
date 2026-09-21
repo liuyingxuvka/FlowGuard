@@ -1,15 +1,12 @@
 from dataclasses import replace
 import json
 from types import SimpleNamespace
-from contextlib import redirect_stdout
-from io import StringIO
 from unittest import mock
 
 import pytest
 
 import flowguard
 import flowguard.affected_blueprint_reader as affected_reader_module
-from flowguard.__main__ import main
 from flowguard.affected_blueprint_reader import (
     AffectedBlueprintIndex,
     AffectedBlueprintReadError,
@@ -33,7 +30,6 @@ from flowguard.target_system_blueprint import (
     BlueprintReadinessLedger,
     ModelPathQualityBlueprintBinding,
 )
-from flowguard.existing_model_preflight import ExistingModelPreflight, ModelContextHit
 
 
 def _path_quality_binding() -> ModelPathQualityBlueprintBinding:
@@ -1035,55 +1031,21 @@ def test_understanding_is_derived_from_affected_content_without_whole_builder():
     projection.to_dict.assert_not_called()
 
 
-def test_basic_cli_navigation_without_projection_is_success_with_scoped_deep_gap(
-    tmp_path,
-):
-    preflight = ExistingModelPreflight(
-        "preflight:basic-navigation",
-        "locate alpha owner",
-        mode="light",
-        inventory_scope="selected_owner_closure",
-        existing_modeled_system=True,
-        grounding_state="modeled_current",
-        authority_required=True,
-        authority_status="pass",
-        authority_integrity="pass",
-        selected_source_currentness="current",
-        execution_evidence_status="not_run",
-        authority_snapshot_fingerprint="sha256:snapshot",
-        authority_subject_revision="revision:accepted",
-        as_of={
-            "snapshot_fingerprint": "sha256:snapshot",
-            "subject_revision": "revision:accepted",
-        },
-        relevant_models=(
-            ModelContextHit(
-                model_id="alpha",
-                model_path=".flowguard/models/alpha.py",
-                evidence_id="model-authority:sha256:alpha",
-                evidence_tier="authoritative_observed",
-                evidence_current=True,
-            ),
-        ),
-        selected_model_paths=(".flowguard/models/alpha.py",),
-        selected_runner_paths=(".flowguard/runners/alpha.py",),
-        selected_input_paths=(".flowguard/inputs/alpha.json",),
-        selected_closure={
-            "selected_model_ids": ["alpha"],
-            "producer_count": 0,
-            "write_count": 0,
-        },
-    )
+def test_retired_affected_blueprint_cli_route_is_blocked_without_fallback():
+    """The removed broad route cannot impersonate the current read surface."""
+
+    from contextlib import redirect_stdout
+    from io import StringIO
+
+    from flowguard.__main__ import main
+
     output = StringIO()
-    with mock.patch(
-        "flowguard.existing_model_preflight.existing_model_preflight_from_project",
-        return_value=preflight,
-    ), redirect_stdout(output):
+    with redirect_stdout(output):
         exit_code = main(
             [
                 "affected-blueprint-understanding",
                 "--root",
-                str(tmp_path),
+                ".",
                 "--task-summary",
                 "locate alpha owner",
                 "--json",
@@ -1091,17 +1053,12 @@ def test_basic_cli_navigation_without_projection_is_success_with_scoped_deep_gap
         )
 
     payload = json.loads(output.getvalue())
-    assert exit_code == 0
-    assert payload["ok"] is True
-    assert payload["status"] == "basic_navigation"
-    assert payload["selected_model_ids"] == ["alpha"]
-    assert payload["as_of"]["snapshot_fingerprint"] == "sha256:snapshot"
+    assert exit_code == 2
+    assert payload["status"] == "blocked"
+    assert payload["decision"] == "block"
     assert payload["producer_count"] == 0
-    assert payload["write_count"] == 0
-    deep_gap = next(
-        gap for gap in payload["gaps"] if gap["code"] == "deep_projection_not_requested"
-    )
-    assert deep_gap["severity"] == "scoped"
+    assert payload["error"] == "unknown operation: affected-blueprint-understanding"
+    assert payload["allowed_operations"] == ["read", "change", "release"]
 
 
 def test_affected_understanding_loads_only_exact_compact_path_quality() -> None:

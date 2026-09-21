@@ -35,10 +35,11 @@ def test_current_reverse_surface_ui_like_actions_are_explicitly_governed() -> No
         for row in _expanded(mapping)
         if row["surface_id"] in discovered_ui
     }
-    # The current source observation includes the four UI-like action
-    # surfaces added by the forward/reverse closure work.  Keep this explicit
-    # denominator tied to the checked-in current discovery artifact.
-    assert len(discovered_ui) == 95
+    # Keep the denominator owned by the current discovery artifact.  The
+    # number changes when source discovery legitimately changes; closure is
+    # proved by exact ID conservation below, not by a historical literal.
+    assert discovered_ui
+    assert mapping["discovery_fingerprint"] == discovery["discovery_fingerprint"]
     assert set(mapped) == discovered_ui
     assert all(
         row["disposition"] in {"governed", "internal_proven"}
@@ -117,11 +118,12 @@ def test_current_reverse_surface_map_has_no_blocked_or_unmodeled_rows() -> None:
     expanded = _expanded(mapping)
     discovery_by_id = {row["surface_id"]: row for row in discovery["surfaces"]}
     # The current denominator is the exact source observation after the
-    # module/class/function call-graph closure repair.  The current direct
-    # source freeze contains 15,517 explicitly authored observations; no
-    # predecessor denominator is inherited.
-    assert len(expanded) == len(discovered_ids) == 15517
-    assert {row["surface_id"] for row in expanded} == discovered_ids
+    # module/class/function call-graph closure repair.  No predecessor
+    # denominator is inherited.
+    assert len(expanded) == len(discovered_ids) == discovery["surface_count"]
+    expanded_ids = [row["surface_id"] for row in expanded]
+    assert len(expanded_ids) == len(set(expanded_ids))
+    assert set(expanded_ids) == discovered_ids
     assert not any(row["disposition"] == "blocked_gap" for row in expanded)
     assert not any(
         discovery_by_id[row["surface_id"]]["surface_kind"] == "ui_like_action"

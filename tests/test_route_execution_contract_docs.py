@@ -11,21 +11,45 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from flowguard.route_topology import PUBLIC_ROUTE_IDS, PUBLIC_ROUTE_SKILL_OWNERS
-
-
 CONTRACT = ROOT / ".agents" / "skills" / "flowguard" / "references" / "route_execution_contract.md"
 ROUTE_INDEX = ROOT / ".agents" / "skills" / "flowguard" / "references" / "route_index.md"
+KERNEL_SKILL = ROOT / ".agents" / "skills" / "flowguard" / "SKILL.md"
+
+CURRENT_OPERATIONS = ("read", "change", "release")
+CURRENT_DOMAINS = (
+    "architecture-reduction",
+    "behavior-commitment-ledger",
+    "code-structure-recommendation",
+    "contract-exhaustion-mesh",
+    "development-process-flow",
+    "existing-model-preflight",
+    "field-lifecycle-mesh",
+    "model-mesh",
+    "model-miss-review",
+    "model-test-alignment",
+    "model-topology-hazard-review",
+    "structure-mesh",
+    "test-mesh",
+    "ui-flow-structure",
+)
 
 
 class RouteExecutionContractDocsTests(unittest.TestCase):
-    def test_contract_covers_exactly_the_public_route_registry(self) -> None:
+    def test_contract_covers_one_skill_and_three_public_operations(self) -> None:
         text = CONTRACT.read_text(encoding="utf-8")
-        self.assertEqual(15, len(PUBLIC_ROUTE_IDS))
-        for route_id in PUBLIC_ROUTE_IDS:
-            with self.subTest(route=route_id):
-                self.assertIn(f"| `{route_id}` |", text)
-                self.assertIn(f"`{route_id}`", ROUTE_INDEX.read_text(encoding="utf-8"))
+        index = ROUTE_INDEX.read_text(encoding="utf-8")
+        skill = KERNEL_SKILL.read_text(encoding="utf-8")
+        self.assertIn("one public skill", text)
+        self.assertIn("exactly three public operations", text)
+        for operation in CURRENT_OPERATIONS:
+            with self.subTest(operation=operation):
+                self.assertIn(f"`{operation}`", text)
+                self.assertIn(f"`{operation}`", index)
+                self.assertIn(f"`{operation}`", skill)
+        for domain in CURRENT_DOMAINS:
+            with self.subTest(domain=domain):
+                self.assertIn(f"references/domains/{domain}/", text)
+                self.assertIn(f"references/domains/{domain}/", index)
 
     def test_shared_contract_contains_finite_execution_and_governed_gates(self) -> None:
         text = CONTRACT.read_text(encoding="utf-8")
@@ -43,18 +67,14 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
             with self.subTest(fragment=fragment):
                 self.assertIn(fragment, text)
 
-    def test_each_public_skill_points_to_its_single_lazy_contract_row(self) -> None:
-        for route_id in PUBLIC_ROUTE_IDS:
-            skill_id = PUBLIC_ROUTE_SKILL_OWNERS[route_id]
-            skill_path = ROOT / ".agents" / "skills" / skill_id / "SKILL.md"
-            with self.subTest(route=route_id, skill=skill_id):
-                self.assertTrue(skill_path.is_file())
-                text = skill_path.read_text(encoding="utf-8")
-                self.assertIn("## Shared execution contract", text)
-                self.assertIn("route_execution_contract.md", text)
-                self.assertIn(f"`{route_id}`", text)
-                self.assertIn("## Use When", text)
-                self.assertIn("## Do Not Use When", text)
+    def test_single_public_skill_points_to_the_lazy_contract(self) -> None:
+        self.assertTrue(KERNEL_SKILL.is_file())
+        text = KERNEL_SKILL.read_text(encoding="utf-8")
+        self.assertIn("references/route_index.md", text)
+        self.assertIn("references/domains/<subject>/", text)
+        self.assertIn("read", text)
+        self.assertIn("change", text)
+        self.assertIn("release", text)
 
     def test_open_spec_local_acceptance_files_still_name_the_three_gates(self) -> None:
         completion_tasks = (

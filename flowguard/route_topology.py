@@ -42,14 +42,10 @@ LOOP_DECISION_BLOCKED_BOUND = "blocked_reentry_bound"
 
 
 def _skill_id_for_public_route(route_id: str) -> str:
-    if route_id == "model_first_function_flow":
-        return "flowguard"
-    route_stem = {
-        "model_mesh_maintenance": "model_mesh",
-        "structure_mesh_maintenance": "structure_mesh",
-        "test_mesh_maintenance": "test_mesh",
-    }.get(route_id, route_id)
-    return f"flowguard-{route_stem.replace('_', '-')}"
+    # All direct route projections are owned by the one installed FlowGuard
+    # kernel.  Route ids remain distinct API identities; their domain material
+    # is selected inside the kernel and is not emitted as public skill members.
+    return "flowguard"
 
 
 @dataclass(frozen=True)
@@ -245,13 +241,19 @@ def route_handoff(
     """Create a typed handoff for a registered public or internal route id."""
 
     route_id = str(route_id)
-    if route_id in PUBLIC_ROUTE_SKILL_OWNERS:
+    if route_id == "model_first_function_flow":
         return RouteHandoff(
             TARGET_KIND_SKILL,
-            PUBLIC_ROUTE_SKILL_OWNERS[route_id],
+            "flowguard",
             condition,
             claim_scope,
         )
+    if route_id in PUBLIC_ROUTE_SKILL_OWNERS:
+        # A domain route is still a public API projection, but it is an
+        # internal route of the single installed kernel when referenced from
+        # another route.  Keep the route id in the typed handoff so selection
+        # remains precise without recreating a satellite skill identity.
+        return RouteHandoff(TARGET_KIND_INTERNAL_ROUTE, route_id, condition, claim_scope)
     if route_id in INTERNAL_ROUTE_OWNERS:
         return RouteHandoff(TARGET_KIND_INTERNAL_ROUTE, route_id, condition, claim_scope)
     raise ValueError(f"route id is not registered for a typed handoff: {route_id}")
@@ -692,7 +694,7 @@ def validate_route_topology(
                 )
             if skill_name:
                 prior = public_skill_to_route.get(skill_name)
-                if prior and prior != route_id:
+                if prior and prior != route_id and skill_name != "flowguard":
                     findings.append(
                         RouteTopologyFinding(
                             "duplicate_public_skill_owner",
@@ -702,7 +704,10 @@ def validate_route_topology(
                             target_id=skill_name,
                         )
                     )
-                public_skill_to_route[skill_name] = route_id
+                # The compact distribution intentionally maps every public
+                # route projection to the one kernel.  Preserve the kernel
+                # front door as the target route for skill-kind handoffs.
+                public_skill_to_route.setdefault(skill_name, route_id)
         elif route_id in INTERNAL_ROUTE_OWNERS:
             expected_owner = INTERNAL_ROUTE_OWNERS[route_id]
             if role == ROUTE_ROLE_PUBLIC_OWNER or entry_policy == ENTRY_POLICY_DIRECT:
@@ -790,7 +795,14 @@ def validate_route_topology(
                 valid = handoff.target_id in suite_skill_ids and handoff.target_id in public_skill_to_route
                 resolved_route = public_skill_to_route.get(handoff.target_id, "")
             elif handoff.target_kind == TARGET_KIND_INTERNAL_ROUTE:
-                valid = handoff.target_id in INTERNAL_ROUTE_OWNERS and handoff.target_id in route_ids
+                # Public route projections are internal nodes when reached from
+                # another route of the single kernel.  They remain public API
+                # identities for admission, but are valid typed route targets
+                # alongside explicitly delegated/internal routes.
+                valid = (
+                    handoff.target_id in (set(INTERNAL_ROUTE_OWNERS) | set(PUBLIC_ROUTE_SKILL_OWNERS))
+                    and handoff.target_id in route_ids
+                )
                 resolved_route = handoff.target_id if valid else ""
             elif handoff.target_kind == TARGET_KIND_HELPER_API:
                 valid = handoff.target_id in HELPER_API_TARGETS

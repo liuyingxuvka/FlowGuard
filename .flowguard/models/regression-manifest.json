@@ -1750,9 +1750,9 @@
           "check:model-regression:architecture_reduction"
         ],
         "model_sha256": "sha256:d5967097b6945956c09f7485b407c3eb04f399081351e9bac5fea25582e9c631",
-        "runner_sha256": "sha256:c89db647149ea6e1ec77519580d310a370d5ec220d6c40e7a9300208525a6885",
+        "runner_sha256": "sha256:6b98c3659189c64da3e91abb4e6ec12e0e2d6984f8e03e12133a76084f534ab5",
         "declaration_fingerprint": "sha256:8bb5471bde6bd956a5cabd37694a0c6546bfc2fe412f363edd962429397ec25b",
-        "closure_fingerprint": "sha256:0c04655283d0faa256b00158d364c558da42839af962940eaf32a8816f784368"
+        "closure_fingerprint": "sha256:ab221b9d5a99d11427d92d4398a3d77da282a7d1a7a298fd30f7006f6a6a9d4e"
       }
     },
     {
@@ -1906,10 +1906,10 @@
         "evidence_check_ids": [
           "check:model-regression:codex_skill_satellites"
         ],
-        "model_sha256": "sha256:39b7a453d26872037353496120c09efb99e3d9efd72b1b3af4ad6d11f4b9a2db",
-        "runner_sha256": "sha256:3622e0c9f925c9e630e22e94eda08534d2a5f08d3b9fd774a7175156aaeaa364",
+        "model_sha256": "sha256:08079748842c42ccd5913190614db89f66fe39b4fcc7d985533bb4fdaa5c853c",
+        "runner_sha256": "sha256:2d581f5b963fcd0c197a8ef266021041e6925fe0195b02ab7117596941ac733d",
         "declaration_fingerprint": "sha256:ad6175482e11e5e9d467c7f5e72e1702e024afe77b258b04db89b8b00da742a3",
-        "closure_fingerprint": "sha256:543e48f6a368245c2162b02cb9fc856e24d7ff607b2d978f16ad2eab124a93df"
+        "closure_fingerprint": "sha256:a8a6baa67ff91394b53d0556cdd0e27239f9ec55486f8689499e5770be585897"
       }
     },
     {
@@ -2556,9 +2556,9 @@
           "check:model-regression:guidance_compression"
         ],
         "model_sha256": "sha256:147f7805b015c05d61e9a31ec16abf7ea06400f25ba06d23a6aad79d0f916fad",
-        "runner_sha256": "sha256:c60174eea895615bcfdd95b3d6039b4c4890af6a0b1fb95b1a97ac3cf0604651",
+        "runner_sha256": "sha256:9b2dec1b5c07fec575ae76dff0e3875646fffceb61775deeabdc35901e345df1",
         "declaration_fingerprint": "sha256:2b6f94fe2f0de2880dfbfdc15f43251ccd46f711f2f55b64b31b005bff02677e",
-        "closure_fingerprint": "sha256:53f61e902662a5a7f4453edb80cc5c5b61584e825b30401108e027446d64bff1"
+        "closure_fingerprint": "sha256:7313e91510804525e7cd1029e63db2ef572ba1c3c54bb27a2b912458033ea865"
       }
     },
     {
@@ -2883,9 +2883,9 @@
           "check:model-regression:hierarchical_model_mesh"
         ],
         "model_sha256": "sha256:6ce3b4e84c4b7148f480ee0d79933cee8df0b367da1e1f173ebb2221ff0a594a",
-        "runner_sha256": "sha256:aa9bca65be0bba39a78e6c6684bb392ede35e050dc0d92c4a53f033d879280a8",
+        "runner_sha256": "sha256:ef854317f4d05befbd47c479021524fd43f0d118b08f9f139c0e7724130cace5",
         "declaration_fingerprint": "sha256:ce61d1721178e2b41e28276f74365e691499f02035176cdefebfdce671e4045b",
-        "closure_fingerprint": "sha256:656aff31465eb1a4e466ef97ba99d5ba1dc9280abb76d8e41c9a7cd1bc804736"
+        "closure_fingerprint": "sha256:41a211f1dab1fe683f9c229afdbd1eeeaf8074bf59ee06527f7c651f38a25c19"
       }
     },
     {
@@ -3276,9 +3276,9 @@
           "check:model-regression:mesh_target_split_derivation"
         ],
         "model_sha256": "sha256:f721e97f462b124f64998842c97f4cf230753e254d54042aacea2b55aa16dde9",
-        "runner_sha256": "sha256:e67734e0222c40fb579e5402596c54230b3ea416d241e64c3d649fbca883d0cc",
+        "runner_sha256": "sha256:f8e1b8a876f551c6f4af9876ef17a97e4b246d43b700aeed440324737e773f69",
         "declaration_fingerprint": "sha256:ee0e0340e169a8332105dcd7b904b1f77de1791c408ba05bd2a27bcb04d35b48",
-        "closure_fingerprint": "sha256:467230ff60c549f847349e1a4a93dc43f4ba0019116ee06237069a26405e0d32"
+        "closure_fingerprint": "sha256:c688963e48076d52c0205e276fb4da50b3a2ab5713fe1735764ec8e6113a7b67"
       }
     },
     {
@@ -3342,9 +3342,9 @@
           "check:model-regression:minimum_valuable_model_entry"
         ],
         "model_sha256": "sha256:caed6139d18a5e1362d055c020caa3c3a08c279b71ddd585b79b963965883943",
-        "runner_sha256": "sha256:6fae195fd3c59f8221f781e56b2c6245fc600a80c00bd7eb7a699743ad5b0b07",
+        "runner_sha256": "sha256:bb8edbf3b659438dc7b144b296bade2f41b8d0f630e49e52e8423e01618f4194",
         "declaration_fingerprint": "sha256:9d0561a27e5e5989afc5464c9e14c17fe766009fc1e4172d504826c385a4e37d",
-        "closure_fingerprint": "sha256:bf50fed42461f0c21dc020987a64df1c04ec185161ec61b08a1aa5233a1866ce"
+        "closure_fingerprint": "sha256:7f41184839aff646d936d525a9a8947c780c982dcc0de1bc0db7982e83f90c3c"
       }
     },
     {
@@ -4140,10 +4140,10 @@
         "evidence_check_ids": [
           "check:model-regression:self_maintenance_mesh"
         ],
-        "model_sha256": "sha256:d78d6e2111e6a6544be5de8833f76b616fca43093e6efa252b4470e18ef30899",
+        "model_sha256": "sha256:8d8db45b31ddcb29eeac7de63e3fb6c8d749d83c15669e15b1525f86c9c4d734",
         "runner_sha256": "sha256:f3190ee0865c0bddd5149cd2ee28873d9180f4272f994f8f092ad973715afbfc",
         "declaration_fingerprint": "sha256:074c26c38348704183d1edc5aa15f78cdd528bbc8288d10a60671ccae0a5303d",
-        "closure_fingerprint": "sha256:6514cba487fb8f9c57aa621c1b100de0220bd355d856f38eb2ae4c4e3fdafd72"
+        "closure_fingerprint": "sha256:ba8e1f77cfb4c0943019f67868e2b1f5bf6ccc0c8813263c860aa4fbd6979b27"
       }
     },
     {
@@ -4378,9 +4378,9 @@
           "check:model-regression:structure_refactor_mesh"
         ],
         "model_sha256": "sha256:8dbc97a96bcd09c4c9136a41c07713d9c2f919c0e672ae91ea5bb914c0f6e6b2",
-        "runner_sha256": "sha256:9b6244b36b843e61f62fe9b36d1abf39cc5c626c6f5cdc0acb6232a4743f7097",
+        "runner_sha256": "sha256:184d21e8ebb10fdebd9b39748c024dbb7f1c09f6f7a65dd4c858861a362d0051",
         "declaration_fingerprint": "sha256:755a538b00052caba36373508e96b139663ee303a08c1db9ab3e586c9d548b23",
-        "closure_fingerprint": "sha256:b0bc4fc81180ba015331dfdb036fbb64998751f69c6c6338230c58b9717d36de"
+        "closure_fingerprint": "sha256:e46764a8c1c3274c2256b0e1b5ce82664746437e7e8baf5fe58e5722c390608a"
       }
     },
     {
@@ -4528,9 +4528,9 @@
           "check:model-regression:test_evidence_mesh"
         ],
         "model_sha256": "sha256:f5b968439b2da5bcd667523f80291912041f14b463a7f2af6c347809d822722c",
-        "runner_sha256": "sha256:195e0bdbad005054b676ea509fa749aed26ac6375d441585559119df36b72786",
+        "runner_sha256": "sha256:53247befc2a8fb115ce6ae16c54b578f08fab83c8b0d8bac0296224d41af0c9d",
         "declaration_fingerprint": "sha256:4c2f9de4a71002f66f6f9f8d2b00527f7b4f22d7c99a1a8e0ea6d8a8f040d468",
-        "closure_fingerprint": "sha256:612d8b90bbace0ff3a461e27e3a3470b170ef6507c011abaa719a28ffc0619e6"
+        "closure_fingerprint": "sha256:03643224042cf8d35182799c692ed038a58e651d2275c75298e753575a6e0c3a"
       }
     },
     {

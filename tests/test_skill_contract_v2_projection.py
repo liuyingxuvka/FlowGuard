@@ -1,187 +1,72 @@
 from __future__ import annotations
 
-import hashlib
-import importlib.util
+import copy
 import json
-import sys
 import unittest
 from pathlib import Path
 
-from flowguard.skill_contracts import validate_contract_source
+from flowguard.skill_contracts import (
+    CHECK_MANIFEST_SCHEMA,
+    COMPILED_CONTRACT_SCHEMA,
+    CONTRACT_SOURCE_SCHEMA,
+    compile_skill_suite,
+    validate_contract_source,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILLS = {
-    "flowguard": ".flowguard/models/owners/minimum_valuable_model_entry/model.py",
-    "flowguard-architecture-reduction": ".flowguard/models/owners/architecture_reduction/model.py",
-    "flowguard-behavior-commitment-ledger": ".flowguard/models/owners/behavior_commitment_ledger/model.py",
-    "flowguard-code-structure-recommendation": "examples/skill_contract_model_exports/code_structure_recommendation.py",
-    "flowguard-contract-exhaustion-mesh": "examples/skill_contract_model_exports/contract_exhaustion_mesh.py",
-    "flowguard-development-process-flow": ".flowguard/models/owners/development_process_flow/model.py",
-    "flowguard-existing-model-preflight": ".flowguard/models/owners/existing_model_preflight/model.py",
-    "flowguard-field-lifecycle-mesh": ".flowguard/models/owners/default_replacement_field_lifecycle/model.py",
-    "flowguard-model-mesh": ".flowguard/models/owners/hierarchical_model_mesh/model.py",
-    "flowguard-model-miss-review": ".flowguard/models/owners/model_miss_review/model.py",
-    "flowguard-model-test-alignment": ".flowguard/models/owners/model_test_code_alignment/model.py",
-    "flowguard-model-topology-hazard-review": ".flowguard/models/owners/model_topology_hazard_review/model.py",
-    "flowguard-structure-mesh": ".flowguard/models/owners/structure_refactor_mesh/model.py",
-    "flowguard-test-mesh": ".flowguard/models/owners/test_evidence_mesh/model.py",
-    "flowguard-ui-flow-structure": ".flowguard/models/owners/ui_flow_structure_skill/model.py",
-}
-SUITE_MEMBER_IDS = tuple(SKILLS)
-
-
-def load_module(path: Path):
-    digest = hashlib.sha256(path.as_posix().encode("utf-8")).hexdigest()[:12]
-    name = f"flowguard_current_projection_{digest}"
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[name] = module
-    spec.loader.exec_module(module)
-    return module
+SKILL = ROOT / ".agents" / "skills" / "flowguard"
+AUTHORITY = SKILL / ".skillguard"
 
 
 class SkillContractCurrentProjectionTests(unittest.TestCase):
-    def test_all_sources_use_current_only_authority_and_honest_depth(self) -> None:
-        for skill_id, model_path in SKILLS.items():
-            with self.subTest(skill=skill_id):
-                skill = ROOT / ".agents" / "skills" / skill_id
-                source = json.loads(
-                    (skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8")
-                )
-                self.assertEqual("skillguard.contract_source.v2", source["schema_version"])
-                self.assertEqual(model_path, source["model_path"])
-                self.assertTrue(source["confirmed"])
-                self.assertFalse(source["release_eligible"])
-                self.assertFalse(validate_contract_source(source, skill))
-                self.assertNotIn("v1_runtime_authority", source)
-                self.assertEqual("skill_maintainer_source", source["repository_role"])
-                self.assertEqual("unit:flowguard-suite", source["maintenance_unit_id"])
-                self.assertEqual(list(SUITE_MEMBER_IDS), source["member_skill_ids"])
-                self.assertEqual(
-                    {
-                        "projection_id": "projection:consumer-distribution",
-                        "prohibited_path_prefixes": [".skillguard/"],
-                        "prohibited_prompt_tokens": [
-                            "SkillGuard",
-                            ".skillguard",
-                            "skillguard.py",
-                        ],
-                        "release_manifest_path": "consumer-release.json",
-                    },
-                    source["consumer_projection"],
-                )
-                self.assertEqual("native-integrated", source["integration_mode"])
-                self.assertFalse(source["may_define_parallel_execution_route"])
-                self.assertFalse(source["may_define_skillguard_runtime_route"])
+    def test_single_source_uses_current_v3_authority_and_three_lifecycles(self) -> None:
+        source = json.loads((AUTHORITY / "contract-source.json").read_text(encoding="utf-8"))
 
-                profile = source["depth_profile"]
-                self.assertEqual("skillguard.depth_profile.v2", profile["schema_version"])
-                self.assertEqual(skill_id, profile["target_skill_id"])
-                self.assertEqual("native-integrated", profile["integration_mode"])
-                self.assertFalse(profile["skillguard_adds_domain_route"])
-                self.assertEqual("enforced", profile["enforcement_level"])
-                self.assertEqual(["enforced"], profile["required_closure_profiles"])
-                self.assertEqual(
-                    {row["check_id"] for row in source["checks"]},
-                    set(profile["native_check_ids"]),
-                )
-                self.assertEqual(
-                    ["enforced"],
-                    [row["profile_id"] for row in source["closure_profiles"]],
-                )
-                provider = profile["provider_runtime"]
-                self.assertEqual("skillguard-local-provider", provider["provider_id"])
-                self.assertEqual(
-                    "skillguard-declared-check-supervision-current",
-                    provider["required_runtime_contract_id"],
-                )
-                self.assertEqual("enrolled", provider["required_enrollment_status"])
-                self.assertTrue(provider["required_capability_ids"])
-                self.assertTrue(provider["readiness_check_ids"])
-                self.assertIn("SkillGuard only reconciles", profile["claim_boundary"])
-                self.assertNotIn("calibration", profile)
-                self.assertNotIn("coverage_universes", profile)
-
-    def test_generated_contracts_match_current_source_and_model_export(self) -> None:
-        for skill_id, model_path in SKILLS.items():
-            with self.subTest(skill=skill_id):
-                skill = ROOT / ".agents" / "skills" / skill_id
-                source = json.loads((skill / ".skillguard" / "contract-source.json").read_text(encoding="utf-8"))
-                compiled = json.loads((skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8"))
-                manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
-                module = load_module(ROOT / model_path)
-                exported = module.export_contract_model()
-                self.assertEqual("flowguard-executable-model", module.FLOWGUARD_MODEL_MARKER)
-                self.assertEqual("skillguard.compiled_contract.v2", compiled["schema_version"])
-                self.assertEqual("skillguard.check_manifest.v2", manifest["schema_version"])
-                self.assertEqual(source["model_id"], exported["model_id"])
-                self.assertEqual(exported["model_id"], compiled["model_id"])
-                self.assertEqual(source["depth_profile"], compiled["depth_profile"])
-                self.assertEqual("skill_maintainer_source", compiled["repository_role"])
-                self.assertEqual("unit:flowguard-suite", compiled["maintenance_unit_id"])
-                self.assertEqual(list(SUITE_MEMBER_IDS), compiled["member_skill_ids"])
-                self.assertEqual(source["consumer_projection"], compiled["consumer_projection"])
-                self.assertEqual(source["consumer_projection"], manifest["consumer_projection"])
-                self.assertEqual(compiled["contract_hash"], manifest["contract_hash"])
-                self.assertEqual(
-                    {row["route_id"] for row in exported["routes"]},
-                    set(source["depth_profile"]["native_route_ids"]),
-                )
-                self.assertEqual(
-                    {row["step_id"] for row in source["step_bindings"]},
-                    {row["step_id"] for row in compiled["steps"] if not row.get("terminal_kind")},
-                )
-
-    def test_development_process_contract_owns_strategy_equivalence(self) -> None:
-        skill = ROOT / ".agents" / "skills" / "flowguard-development-process-flow"
-        compiled = json.loads((skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8"))
-        manifest = json.loads((skill / ".skillguard" / "check-manifest.json").read_text(encoding="utf-8"))
-        obligation = "obligation:flowguard-development-process-flow:process-strategy-equivalence"
-        self.assertIn(obligation, {row["obligation_id"] for row in compiled["obligations"]})
-        strategy = next(
-            row
-            for row in manifest["checks"]
-            if row["check_id"].endswith(":process-strategy-equivalence")
-        )
-        self.assertEqual([obligation], strategy["covers_obligation_ids"])
-        self.assertIn("tests/test_development_process_strategy.py", strategy["args"])
+        self.assertEqual(CONTRACT_SOURCE_SCHEMA, source["schema_version"])
+        self.assertEqual("flowguard", source["skill_id"])
+        self.assertEqual("unit:flowguard-suite", source["maintenance_unit_id"])
+        self.assertEqual(["flowguard"], source["member_skill_ids"])
         self.assertEqual(
-            1,
-            sum(
-                obligation in row["covers_obligation_ids"]
-                for row in manifest["checks"]
-            ),
+            {"route:read", "route:change", "route:release"},
+            {row["route_id"] for row in source["routes"]},
         )
+        self.assertFalse(validate_contract_source(source, SKILL))
+        self.assertNotIn("depth_profile", source)
+        self.assertNotIn("v1_runtime_authority", source)
 
-    def test_development_process_maintenance_routes_compose_for_one_enforced_closure(self) -> None:
-        skill = ROOT / ".agents" / "skills" / "flowguard-development-process-flow"
-        compiled = json.loads(
-            (skill / ".skillguard" / "compiled-contract.json").read_text(encoding="utf-8")
-        )
-        function_ids = {row["function_id"] for row in compiled["functions"]}
+    def test_legacy_v2_source_is_rejection_only(self) -> None:
+        source = json.loads((AUTHORITY / "contract-source.json").read_text(encoding="utf-8"))
+        legacy = copy.deepcopy(source)
+        legacy["schema_version"] = "skillguard.contract_source.v2"
+
+        findings = validate_contract_source(legacy, SKILL)
+
+        self.assertIn("contract_source_schema_mismatch", findings)
+        self.assertTrue(findings)
+
+    def test_generated_v3_contract_and_manifest_match_current_source(self) -> None:
+        source = json.loads((AUTHORITY / "contract-source.json").read_text(encoding="utf-8"))
+        compiled = json.loads((AUTHORITY / "compiled-contract.json").read_text(encoding="utf-8"))
+        manifest = json.loads((AUTHORITY / "check-manifest.json").read_text(encoding="utf-8"))
+
+        self.assertEqual(COMPILED_CONTRACT_SCHEMA, compiled["schema_version"])
+        self.assertEqual(CHECK_MANIFEST_SCHEMA, manifest["schema_version"])
+        self.assertEqual(source["skill_id"], compiled["skill_id"])
+        self.assertEqual(source["member_skill_ids"], compiled["member_skill_ids"])
+        self.assertEqual(compiled["contract_hash"], manifest["contract_hash"])
         self.assertEqual(
-            {
-                "function:development_process_flow",
-                "function:plan_detailing_compiler",
-                "function:agent_workflow_rehearsal",
-            },
-            function_ids,
+            {"route:read", "route:change", "route:release"},
+            {row["route_id"] for row in compiled["routes"]},
         )
-        for function in compiled["functions"]:
-            self.assertEqual(
-                function_ids - {function["function_id"]},
-                set(function["composable_with"]),
-            )
+        self.assertNotIn(".skillguard", " ".join(compiled["consumer_projection"]["file_paths"]))
 
-    def test_suite_inventory_is_exactly_the_fifteen_current_sources(self) -> None:
-        self.assertEqual(15, len(SKILLS))
-        discovered = {
-            path.parent.parent.name
-            for path in (ROOT / ".agents" / "skills").glob("*/.skillguard/contract-source.json")
-        }
-        self.assertEqual(set(SKILLS), discovered)
+    def test_suite_compiler_accepts_only_the_current_member(self) -> None:
+        report = compile_skill_suite(ROOT)
+
+        self.assertTrue(report.ok, report.to_json_text())
+        self.assertEqual(("flowguard",), report.member_ids)
+        self.assertEqual(1, len(report.contract_hashes))
 
 
 if __name__ == "__main__":

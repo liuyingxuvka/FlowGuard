@@ -892,20 +892,6 @@ INVARIANTS = (
 
 REQUIRED_SKILL_RECEIPT_IDS = (
     "flowguard",
-    "flowguard-architecture-reduction",
-    "flowguard-behavior-commitment-ledger",
-    "flowguard-code-structure-recommendation",
-    "flowguard-contract-exhaustion-mesh",
-    "flowguard-development-process-flow",
-    "flowguard-existing-model-preflight",
-    "flowguard-field-lifecycle-mesh",
-    "flowguard-model-mesh",
-    "flowguard-model-miss-review",
-    "flowguard-model-test-alignment",
-    "flowguard-model-topology-hazard-review",
-    "flowguard-structure-mesh",
-    "flowguard-test-mesh",
-    "flowguard-ui-flow-structure",
 )
 REQUIRED_RECEIPT_COUNT = len(REQUIRED_SKILL_RECEIPT_IDS)
 ABSTRACT_RECEIPT_IDS = REQUIRED_SKILL_RECEIPT_IDS

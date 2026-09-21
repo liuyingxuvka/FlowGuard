@@ -421,22 +421,11 @@ class UnderstandingReadinessTests(unittest.TestCase):
             with redirect_stdout(output):
                 exit_code = main(arguments)
             after = sorted(path.name for path in root.iterdir())
-        self.assertEqual(0, exit_code)
+        self.assertEqual(2, exit_code)
         self.assertEqual(before, after)
         payload = json.loads(output.getvalue())
-        self.assertEqual(UNDERSTANDING_VERIFIED, payload["understanding_sufficiency"])
-        self.assertEqual(
-            [
-                "evidence_qualification",
-                "implementation_inventory",
-                "traceability",
-                "independent_semantics",
-                "model_code_test",
-                "resource_oracle",
-                "static_blueprint",
-            ],
-            [row["layer"] for row in payload["blueprint_layer_statuses"]],
-        )
+        self.assertEqual("blocked", payload["status"])
+        self.assertIn("unknown operation", payload["error"])
 
     def test_status_api_is_registered_only_under_existing_kernel_route(self) -> None:
         names = {

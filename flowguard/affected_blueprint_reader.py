@@ -1901,30 +1901,23 @@ def _projection_lookup_cache_path(
     authority_root: str | Path,
     projection_fingerprint: str,
 ) -> Path:
-    """Return the bounded cache lane used by canonical projection writers."""
+    """Return the one cache path written for this exact projection root.
 
-    anchors = [projection_root.parent.resolve(), Path(authority_root).resolve()]
-    candidates: list[Path] = []
-    for anchor in anchors:
-        for candidate in (anchor, *anchor.parents):
-            if candidate == Path(candidate.anchor):
-                continue
-            cache = (
-                candidate
-                / "work"
-                / "flowguard"
-                / "canonical-blueprint"
-                / "lookup-cache"
-                / f"{projection_fingerprint.removeprefix('sha256:')}.json"
-            )
-            if cache not in candidates:
-                candidates.append(cache)
-    for candidate in candidates:
-        if candidate.is_file() and not candidate.is_symlink():
-            return candidate
-    # Prefer the projection's nearest project-owned lane for the typed
-    # missing-cache diagnostic.  No fallback to another generation is allowed.
-    return candidates[0]
+    The offset index is a writer product, not a discoverable project cache.
+    Its sibling path is content-addressed by the projection fingerprint and
+    therefore remains bound to the selected projection root.  In particular,
+    do not search parents, authority ancestors, or prior work directories:
+    doing so would let a stale generation silently rescue the current read.
+    ``authority_root`` remains in the signature for callers that already pass
+    the authority context; it is intentionally not a cache search root.
+    """
+
+    del authority_root
+    root = Path(projection_root).resolve()
+    return root.parent / (
+        f".{root.name}.lookup-cache-"
+        f"{projection_fingerprint.removeprefix('sha256:')}.json"
+    )
 
 
 def _load_projection_lookup_cache(

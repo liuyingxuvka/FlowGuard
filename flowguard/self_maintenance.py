@@ -1122,7 +1122,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             route_handoffs("plan_detailing_compiler", "agent_workflow_rehearsal", "development_process_flow"),
             "development_process_simulator",
             "",
-            "flowguard-development-process-flow",
+            "",
             metadata={
                 "modes": ("plan_detailing", "agent_workflow", "execution_freshness"),
                 "front_door": "development_process_flow",
@@ -1154,7 +1154,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
             ),
             "development_process_flow",
             "development_process_flow_template_files",
-            "flowguard-development-process-flow",
+            "",
         ),
         RouteProfile(
             "risk_evidence_ledger",
@@ -1286,6 +1286,7 @@ def default_flowguard_route_profiles() -> tuple[RouteProfile, ...]:
     return tuple(
         replace(
             profile,
+            skill_name="flowguard",
             **PUBLIC_ROUTE_ADMISSION[profile.route_id],
             deepening_trigger_ids=COMMON_DEEPENING_TRIGGERS,
         )
@@ -1312,7 +1313,7 @@ def default_ai_maintenance_profiles() -> tuple[AIMaintenanceProfile, ...]:
             "Connect scattered capabilities into a route chain.",
             SELF_MAINTENANCE_ROUTE,
             ("installed route ids", "public route groups"),
-            ("development_process_flow", "flowguard-codex-skill-satellites"),
+            ("development_process_flow", "flowguard-suite-topology"),
             ("route profiles", "skill/docs sync", "route completeness check"),
         ),
         AIMaintenanceProfile(

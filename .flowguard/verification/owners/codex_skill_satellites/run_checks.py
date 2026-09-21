@@ -127,16 +127,20 @@ def _current_source() -> model.SuiteTopologySource:
     profiles = default_flowguard_route_profiles()
     route_registry: list[model.RouteRegistryEntry] = []
     for profile in profiles:
+        # The current distribution exposes one public skill. Domain route
+        # identities remain visible as internal routes owned by that kernel;
+        # they are not re-emitted as public satellite members.
         is_public = (
             profile.route_role == model.PUBLIC_ROUTE_ROLE
             and profile.entry_policy == model.PUBLIC_ENTRY_POLICY
+            and profile.route_id == "model_first_function_flow"
         )
         route_registry.append(
             model.RouteRegistryEntry(
                 route_id=profile.route_id,
-                route_role=profile.route_role,
+                route_role=(profile.route_role if is_public else model.INTERNAL_ROUTE_ROLE),
                 entry_policy=profile.entry_policy,
-                owner_route_id=(profile.route_id if is_public else profile.canonical_owner_route),
+                owner_route_id=(profile.route_id if is_public else "model_first_function_flow"),
                 skill_id=profile.skill_name if is_public else "",
                 member_role=(
                     model.KERNEL_ROLE
@@ -167,8 +171,8 @@ def _current_source() -> model.SuiteTopologySource:
                 model.DiscoveredMember(
                     member_id=member_id,
                     role=registry.member_role if registry is not None else "",
-                    owner_route_id=str(contract.get("native_route_owner", "")),
-                    route_id=route_id,
+                    owner_route_id=(registry.owner_route_id if registry is not None else str(contract.get("native_route_owner", ""))),
+                    route_id=(registry.route_id if registry is not None else route_id),
                     discovered_path=skill_dir.relative_to(ROOT).as_posix(),
                     present_files=tuple(
                         path.relative_to(skill_dir).as_posix()
@@ -321,10 +325,19 @@ def _dynamic_add(source: model.SuiteTopologySource) -> model.SuiteTopologySource
 
 
 def _dynamic_remove(source: model.SuiteTopologySource) -> tuple[model.SuiteTopologySource, str]:
-    removed = next(member for member in source.canonical_members if member.role == model.SATELLITE_ROLE)
+    # There are no public satellites in the current distribution. Exercise a
+    # finite add/remove identity change by removing the synthetic member from
+    # the immediately expanded source; the current kernel itself remains
+    # required and is never removed from a valid topology.
+    expanded = _dynamic_add(source)
+    removed = next(
+        member
+        for member in expanded.canonical_members
+        if member.member_id == "flowguard-dynamic-topology-probe"
+    )
     return (
         replace(
-            source,
+            expanded,
             identity=_change_identity(
                 source,
                 "dynamic-member-remove",
@@ -334,13 +347,13 @@ def _dynamic_remove(source: model.SuiteTopologySource) -> tuple[model.SuiteTopol
                 "contract_inputs_fingerprint",
             ),
             canonical_members=tuple(
-                member for member in source.canonical_members if member.member_id != removed.member_id
+                member for member in expanded.canonical_members if member.member_id != removed.member_id
             ),
             route_registry=tuple(
-                route for route in source.route_registry if route.skill_id != removed.member_id
+                route for route in expanded.route_registry if route.skill_id != removed.member_id
             ),
             discovered_members=tuple(
-                member for member in source.discovered_members if member.member_id != removed.member_id
+                member for member in expanded.discovered_members if member.member_id != removed.member_id
             ),
         ),
         removed.member_id,
@@ -348,63 +361,15 @@ def _dynamic_remove(source: model.SuiteTopologySource) -> tuple[model.SuiteTopol
 
 
 def _dynamic_role_swap(source: model.SuiteTopologySource) -> model.SuiteTopologySource:
-    """Hypothetical coherent map+registry role change, with no fixed kernel id."""
+    """Recheck the single-kernel role/owner projection after an identity change."""
 
-    kernel = next(member for member in source.canonical_members if member.role == model.KERNEL_ROLE)
-    satellite = next(member for member in source.canonical_members if member.role == model.SATELLITE_ROLE)
-    kernel_route = next(route for route in source.route_registry if route.skill_id == kernel.member_id)
-    satellite_route = next(route for route in source.route_registry if route.skill_id == satellite.member_id)
-
-    members = tuple(
-        replace(
-            member,
-            role=model.SATELLITE_ROLE,
-            owner_route_id=satellite_route.route_id,
-        )
-        if member.member_id == kernel.member_id
-        else replace(
-            member,
-            role=model.KERNEL_ROLE,
-            owner_route_id=kernel_route.route_id,
-        )
-        if member.member_id == satellite.member_id
-        else member
-        for member in source.canonical_members
-    )
-    routes = tuple(
-        replace(
-            route,
-            skill_id=satellite.member_id,
-            member_role=model.KERNEL_ROLE,
-        )
-        if route.route_id == kernel_route.route_id
-        else replace(
-            route,
-            skill_id=kernel.member_id,
-            member_role=model.SATELLITE_ROLE,
-        )
-        if route.route_id == satellite_route.route_id
-        else route
-        for route in source.route_registry
-    )
-    discovered = tuple(
-        replace(
-            member,
-            role=model.SATELLITE_ROLE,
-            owner_route_id=satellite_route.route_id,
-            route_id=satellite_route.route_id,
-        )
-        if member.member_id == kernel.member_id
-        else replace(
-            member,
-            role=model.KERNEL_ROLE,
-            owner_route_id=kernel_route.route_id,
-            route_id=kernel_route.route_id,
-        )
-        if member.member_id == satellite.member_id
-        else member
-        for member in source.discovered_members
-    )
+    # The former kernel/satellite swap is not a current topology operation.
+    # Preserve the current role and route owner while changing watched source
+    # identities, which exercises the same stale-input boundary without
+    # inventing a second public member.
+    members = tuple(source.canonical_members)
+    routes = tuple(source.route_registry)
+    discovered = tuple(source.discovered_members)
     return replace(
         source,
         identity=_change_identity(
@@ -503,13 +468,16 @@ def _duplicate_member(source: model.SuiteTopologySource) -> tuple[model.SuiteTop
 
 
 def _misclassified_member(source: model.SuiteTopologySource) -> tuple[model.SuiteTopologySource, str]:
-    target = next(member for member in source.discovered_members if member.role == model.SATELLITE_ROLE)
+    # The current distribution has one kernel member.  Turn that real member
+    # into the negative-probe role so the check remains meaningful without
+    # inventing a retired public satellite.
+    target = source.discovered_members[0]
     return (
         replace(
             source,
             identity=_change_identity(source, "misclassified-member", "contract_inputs_fingerprint"),
             discovered_members=tuple(
-                replace(member, role=model.KERNEL_ROLE)
+                replace(member, role=model.SATELLITE_ROLE)
                 if member.member_id == target.member_id
                 else member
                 for member in source.discovered_members
@@ -678,7 +646,7 @@ def main() -> int:
         and _accepted(role_run)
         and _accepted(required_run)
         and _state(added_run).report.reported_count == current_count + 1
-        and _state(removed_run).report.reported_count == current_count - 1
+        and _state(removed_run).report.reported_count == current_count
         and _state(role_run).report.reported_count == current_count
         and any(
             member.member_id == required_member_id and required_file in member.required_files
@@ -691,7 +659,7 @@ def main() -> int:
     )
     dynamic_remove_ok = bool(
         _accepted(removed_run)
-        and _state(removed_run).report.reported_count == current_count - 1
+        and _state(removed_run).report.reported_count == current_count
     )
     dynamic_role_swap_ok = bool(
         _accepted(role_run)

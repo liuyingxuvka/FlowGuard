@@ -108,11 +108,12 @@ def full_children():
 
 
 class SkillSelfGovernanceTests(unittest.TestCase):
-    def test_canonical_inventory_has_exact_fifteen_receipt_requirements(self):
+    def test_canonical_inventory_has_exact_one_receipt_requirement(self):
         requirements = load_governance_requirements(ROOT)
 
-        self.assertEqual(15, len(requirements))
-        self.assertEqual(15, len({item.subject_id for item in requirements}))
+        self.assertEqual(1, len(requirements))
+        self.assertEqual(1, len({item.subject_id for item in requirements}))
+        self.assertEqual("flowguard", requirements[0].subject_id)
         self.assertTrue(all(item.obligation_id.endswith(".deep") for item in requirements))
 
     def test_exact_current_eligible_children_emit_bound_parent_receipt(self):
@@ -127,13 +128,13 @@ class SkillSelfGovernanceTests(unittest.TestCase):
 
         self.assertTrue(report.ok, report.to_json_text())
         self.assertEqual("pass", report.status)
-        self.assertEqual(15, len(report.child_reports))
+        self.assertEqual(1, len(report.child_reports))
         self.assertTrue(all(item.is_current_pass() for item in report.child_reports))
         self.assertTrue(report.self_governance_receipt_hash.startswith("sha256:"))
         parent = report.self_governance_receipt
         self.assertIsNotNone(parent)
-        self.assertEqual(15, len(parent.required_child_receipts))
-        self.assertEqual(15, len(parent.consumed_child_receipts))
+        self.assertEqual(1, len(parent.required_child_receipts))
+        self.assertEqual(1, len(parent.consumed_child_receipts))
         self.assertEqual(
             {item.receipt_id for item in receipts},
             {item.receipt_id for item in parent.consumed_child_receipts},
@@ -173,7 +174,7 @@ class SkillSelfGovernanceTests(unittest.TestCase):
 
     def test_missing_child_blocks_full_and_names_minimum_revalidation(self):
         requirements, receipts, contexts = full_children()
-        missing = requirements[5]
+        missing = requirements[0]
         receipts = tuple(item for item in receipts if item.subject_id != missing.subject_id)
 
         report = run_skill_self_governance(
@@ -190,7 +191,7 @@ class SkillSelfGovernanceTests(unittest.TestCase):
 
     def test_stale_and_partial_statuses_cannot_be_promoted_to_full(self):
         _, receipts, contexts = full_children()
-        target = receipts[7]
+        target = receipts[0]
         stale_contexts = dict(contexts)
         stale_contexts[target.receipt_id] = current_context(target, contract_hash=digest("changed"))
 
@@ -219,9 +220,9 @@ class SkillSelfGovernanceTests(unittest.TestCase):
                 self.assertFalse(report.ok, status)
                 self.assertIsNone(report.self_governance_receipt)
 
-    def test_three_layer_matrix_keeps_engine_green_contract_failure_and_full_block_separate(self):
+    def test_single_kernel_contract_failure_blocks_all_current_governance_layers(self):
         _, receipts, contexts = full_children()
-        target = next(item for item in receipts if item.subject_id != "flowguard")
+        target = receipts[0]
         broken_contexts = dict(contexts)
         broken_contexts[target.receipt_id] = current_context(target, contract_hash=digest("changed-contract"))
 
@@ -233,7 +234,11 @@ class SkillSelfGovernanceTests(unittest.TestCase):
         )
         layers = {item.layer_id: item for item in report.layers}
 
-        self.assertEqual("pass", layers[LAYER_ENGINE_AND_CORE].status)
+        # The compact suite has one current kernel member, so its native
+        # engine and deep-contract evidence are the same owned child.  A stale
+        # kernel receipt must therefore invalidate both layers rather than
+        # inventing a second satellite layer to keep the engine green.
+        self.assertEqual("fail", layers[LAYER_ENGINE_AND_CORE].status)
         self.assertEqual("fail", layers[LAYER_SKILL_CONTRACTS].status)
         self.assertEqual("blocked", layers[LAYER_FULL_SELF_GOVERNANCE].status)
 
@@ -268,7 +273,7 @@ class SkillSelfGovernanceTests(unittest.TestCase):
             root = Path(directory)
             path = root / "suite-map.json"
             path.write_text(json.dumps(data), encoding="utf-8")
-            with self.assertRaisesRegex(ValueError, "exactly 15"):
+            with self.assertRaisesRegex(ValueError, "exactly 1"):
                 load_governance_requirements(root, suite_map_path=path)
 
     def test_default_storage_loads_children_and_saves_parent_outside_skill_packages(self):
@@ -288,7 +293,7 @@ class SkillSelfGovernanceTests(unittest.TestCase):
 
             self.assertTrue(report.ok, report.to_json_text())
             self.assertIn(SELF_GOVERNANCE_SUBJECT, {item.subject_id for item in stored})
-            self.assertEqual(16, len(stored))
+            self.assertEqual(2, len(stored))
             self.assertTrue(
                 (root / ".flowguard/evidence/skill-native-receipts").is_dir()
             )

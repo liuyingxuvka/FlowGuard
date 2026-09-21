@@ -95,13 +95,22 @@ def run_rejection_examples() -> bool:
 def run_narrow_entry_projection_review() -> bool:
     report = review_prompt_bundles(ROOT)
     kernel = next(item for item in report["bundles"] if item["route_id"] == "flowguard")
-    guaranteed = {item["path"] for item in kernel["components"]}
-    conditional = {item["path"] for item in kernel["conditional_edges"]}
+    guaranteed = {
+        component["path"]
+        for stage in kernel["stages"]
+        if stage["stage"] in {"admitted_core", "catalog", "preselection"}
+        for component in stage["components"]
+    }
+    triggered = {
+        component["path"]
+        for stage in kernel["stages"]
+        if stage["stage"] == "triggered_expansion"
+        for component in stage["components"]
+    }
     ok = (
         kernel["ok"]
         and ".agents/skills/flowguard/references/route_index.md" in guaranteed
-        and ".agents/skills/flowguard/references/modeling_protocol.md" not in guaranteed
-        and ".agents/skills/flowguard/references/modeling_protocol.md" in conditional
+        and ".agents/skills/flowguard/references/routes/model_first_function_flow.md" in triggered
     )
     print(f"narrow minimum-entry projection: {'pass' if ok else 'fail'}")
     return ok

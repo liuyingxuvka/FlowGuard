@@ -719,7 +719,11 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     collection_started = time.monotonic()
     collection_path = output_root / "collection.json"
     collection_remaining = _deadline_remaining(invocation_deadline)
-    if collection_remaining <= 0.0:
+    # Monotonic clocks on Windows have finite resolution.  A budget smaller
+    # than one clock tick can otherwise round the deadline forward and allow
+    # a real collection producer to start even though the caller has already
+    # spent the complete invocation budget.
+    if invocation_budget < 1e-6 or collection_remaining <= 0.0:
         payload = _blocked_payload(
             output_root=output_root,
             reason="pytest invocation absolute deadline exhausted before collection",

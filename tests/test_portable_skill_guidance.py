@@ -9,35 +9,38 @@ from flowguard.skill_contracts import compile_skill_suite
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / ".agents" / "skills"
+KERNEL = SKILLS / "flowguard"
+DOMAINS = KERNEL / "references" / "domains"
 
 
 class PortableSkillGuidanceTests(unittest.TestCase):
     def test_kernel_owns_current_portable_projection_without_serializing_python(self):
-        skill = (SKILLS / "flowguard" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (KERNEL / "SKILL.md").read_text(encoding="utf-8")
         reference = (
-            SKILLS / "flowguard" / "references" / "modeling_core_protocol.md"
+            KERNEL / "references" / "modeling_core_protocol.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("references/modeling_core_protocol.md", skill)
+        self.assertIn("references/route_index.md", skill)
+        self.assertIn("references/domains/<subject>/", skill)
         self.assertIn("flowguard.portable_model.v1", reference)
         self.assertIn("never attempt to serialize an", reference)
         self.assertIn("arbitrary callable", reference)
         self.assertIn("There is no alternate reader or prose fallback", reference)
 
     def test_mesh_consumes_explicit_refinement_instead_of_reimplementing_checker(self):
-        skill = (SKILLS / "flowguard-model-mesh" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (DOMAINS / "model-mesh" / "SKILL.md").read_text(encoding="utf-8")
         reference = (
-            SKILLS / "flowguard-model-mesh" / "references" / "model_mesh_protocol.md"
+            DOMAINS / "model-mesh" / "references" / "model_mesh_protocol.md"
         ).read_text(encoding="utf-8")
         self.assertIn("flowguard.portable_refinement.v1", skill)
         self.assertIn("do not build a second mesh-owned interpreter", reference)
 
     def test_topology_consumes_same_identity_and_executable_temporal_receipt(self):
         skill = (
-            SKILLS / "flowguard-model-topology-hazard-review" / "SKILL.md"
+            DOMAINS / "model-topology-hazard-review" / "SKILL.md"
         ).read_text(encoding="utf-8")
         reference = (
-            SKILLS
-            / "flowguard-model-topology-hazard-review"
+            DOMAINS
+            / "model-topology-hazard-review"
             / "references"
             / "topology_hazard_protocol.md"
         ).read_text(encoding="utf-8")
@@ -46,18 +49,24 @@ class PortableSkillGuidanceTests(unittest.TestCase):
         self.assertIn("canonical checker report", reference)
 
     def test_contract_sources_track_portable_runtime_as_affected_input(self):
-        for skill_id in (
-            "flowguard",
-            "flowguard-model-mesh",
-            "flowguard-model-topology-hazard-review",
-        ):
+        contract_paths = {
+            "flowguard": KERNEL / ".skillguard" / "contract-source.json",
+            "flowguard-model-mesh": DOMAINS / "model-mesh" / ".skillguard" / "contract-source.json",
+            "flowguard-model-topology-hazard-review": DOMAINS / "model-topology-hazard-review" / ".skillguard" / "contract-source.json",
+        }
+        for skill_id, contract_path in contract_paths.items():
             payload = json.loads(
-                (SKILLS / skill_id / ".skillguard" / "contract-source.json").read_text(
-                    encoding="utf-8"
-                )
+                contract_path.read_text(encoding="utf-8")
             )
-            self.assertIn("flowguard/portable_model.py", payload["implementation_paths"])
-            self.assertIn("flowguard/portable_checker.py", payload["implementation_paths"])
+            if skill_id == "flowguard":
+                self.assertEqual(["flowguard"], payload["member_skill_ids"])
+                self.assertIn(
+                    "references/domains/model-mesh/SKILL.md",
+                    payload["consumer_projection"]["file_paths"],
+                )
+            else:
+                self.assertIn("flowguard/portable_model.py", payload["implementation_paths"])
+                self.assertIn("flowguard/portable_checker.py", payload["implementation_paths"])
 
     def test_generated_skill_contracts_are_current(self):
         report = compile_skill_suite(ROOT, write=False)

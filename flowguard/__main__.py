@@ -940,12 +940,11 @@ def _run_route_reference_command(args: argparse.Namespace) -> int:
         for profile in default_flowguard_route_profiles()
         if profile.route_id in PUBLIC_ROUTE_ADMISSION
     }
-    aliases = {
-        alias: route_id
-        for route_id, profile in profiles.items()
-        for alias in (profile.route_id, profile.skill_name)
-        if alias
-    }
+    # Canonical route ids remain the only route selectors.  The one current
+    # skill id is accepted only as the kernel front-door alias; retired
+    # flowguard-* satellite ids are never reconstructed from route profiles.
+    aliases = {route_id: route_id for route_id in profiles}
+    aliases["flowguard"] = "model_first_function_flow"
     route_id = aliases.get(requested, "")
     profile = profiles.get(route_id)
     payload: dict[str, object] = {
@@ -5205,45 +5204,218 @@ def _native_path_quality_material(
                 f"path-quality owner did not produce native case evidence: {model_id}"
             )
         cases = tuple(run.native_case_results)
-        terminal_states = tuple(
-            {
-                "id": f"case-state:{row.source_case_id}",
-                "terminal": True,
-            }
-            for row in cases
+        native_result_path = Path(str(run.native_case_result_artifact_path)).resolve()
+        if native_result_path.is_symlink() or not native_result_path.is_file():
+            raise ValueError(
+                f"path-quality native result artifact is missing: {model_id}"
+            )
+        native_result_bytes = native_result_path.read_bytes()
+        native_result_fingerprint = "sha256:" + hashlib.sha256(native_result_bytes).hexdigest()
+        if native_result_fingerprint != run.native_case_result_artifact_fingerprint:
+            raise ValueError(
+                f"path-quality native result artifact fingerprint is stale: {model_id}"
+            )
+        source_path = (
+            native_result_path
+            if native_result_path.name == "native-source.json"
+            else native_result_path.with_name("native-source.json")
         )
-        transitions = tuple(
-            {
-                "id": f"case-transition:{row.source_case_id}",
-                "source": "start",
-                "target": f"case-state:{row.source_case_id}",
-                "trigger": row.source_case_id,
-                "guard": "native-case-executed",
-                "outputs": (f"outcome:{row.outcome}",),
-                "effects": (f"observe:{row.observed_status}",),
-            }
-            for row in cases
-        )
-        validations = tuple(
-            {
-                "id": f"validation:{row.source_case_id}",
-                "obligation_id": f"obligation:{row.source_case_id}",
-                "oracle_id": f"oracle:{row.oracle_fingerprint}",
-                "subject_fingerprint": row.result_artifact_fingerprint,
-                "evidence_boundary_id": f"boundary:{model_id}",
-            }
-            for row in cases
-        )
+        if source_path.is_symlink() or not source_path.is_file():
+            raise ValueError(
+                f"path-quality native source artifact is missing: {model_id}"
+            )
+        source_bytes = source_path.read_bytes()
+        source_fingerprint = "sha256:" + hashlib.sha256(source_bytes).hexdigest()
+        try:
+            source_payload = _strict_json_loads(source_bytes.decode("utf-8"))
+        except (UnicodeError, ValueError, json.JSONDecodeError) as exc:
+            raise ValueError(
+                f"path-quality native source artifact is unreadable: {model_id}"
+            ) from exc
+        if not isinstance(source_payload, Mapping):
+            raise ValueError(f"path-quality native source artifact is not an object: {model_id}")
+        report_payload = source_payload.get("report")
+        report_rows = report_payload.get("results") if isinstance(report_payload, Mapping) else None
+        if not isinstance(report_rows, list) or not report_rows:
+            raise ValueError(
+                f"path-quality native source has no executed report graph: {model_id}"
+            )
+        raw_rows: dict[str, Mapping[str, Any]] = {}
+        for raw_row in report_rows:
+            if not isinstance(raw_row, Mapping):
+                raise ValueError(f"path-quality native report row is not an object: {model_id}")
+            scenario_name = raw_row.get("scenario_name")
+            if not isinstance(scenario_name, str) or not scenario_name.strip():
+                raise ValueError(f"path-quality native report row has no scenario name: {model_id}")
+            if scenario_name in raw_rows:
+                raise ValueError(
+                    f"path-quality native report has duplicate scenario: {scenario_name}"
+                )
+            raw_rows[scenario_name] = raw_row
+
+        states: dict[str, dict[str, Any]] = {}
+        transitions: dict[str, dict[str, Any]] = {}
+        fields: dict[str, dict[str, Any]] = {}
+        function_blocks: dict[str, dict[str, Any]] = {}
+        outputs: dict[str, dict[str, Any]] = {}
+        validations: dict[str, dict[str, Any]] = {}
+        initial_state_ids: set[str] = set()
+        terminal_state_ids: set[str] = set()
+
+        def state_id(case_id: str, value: Any) -> str:
+            return f"state:{case_id}:{canonical_fingerprint(value).split(':', 1)[1]}"
+
+        def add_state(case_id: str, value: Any, *, initial: bool = False, terminal: bool = False) -> str:
+            if value is None:
+                raise ValueError(f"path-quality native trace has no state: {case_id}")
+            identifier = state_id(case_id, value)
+            row = states.setdefault(
+                identifier,
+                {"id": identifier, "initial": False, "terminal": False, "behaviorally_relevant": True},
+            )
+            row["initial"] = bool(row["initial"] or initial)
+            row["terminal"] = bool(row["terminal"] or terminal)
+            if initial:
+                initial_state_ids.add(identifier)
+            if terminal:
+                terminal_state_ids.add(identifier)
+            raw_fields = value.get("fields") if isinstance(value, Mapping) else None
+            if isinstance(raw_fields, Mapping):
+                for name in raw_fields:
+                    field_id = f"field:{case_id}:{name}"
+                    fields[field_id] = {"id": field_id}
+            return identifier
+
+        expected_scenario_names: set[str] = set()
+        for row in cases:
+            if row.child_case_ids:
+                continue
+            native_prefix = f"native-scenario:{model_id}:"
+            case_prefix = f"case:{model_id}:"
+            if row.source_case_id.startswith(native_prefix):
+                scenario_name = row.source_case_id.removeprefix(native_prefix)
+            elif row.source_case_id.startswith(case_prefix):
+                scenario_name = row.source_case_id.removeprefix(case_prefix)
+            else:
+                raise ValueError(
+                    f"path-quality native row identity is not current: {row.source_case_id}"
+                )
+            if scenario_name in expected_scenario_names:
+                raise ValueError(
+                    f"path-quality native report denominator has duplicate leaf: {row.source_case_id}"
+                )
+            expected_scenario_names.add(scenario_name)
+        if set(raw_rows) != expected_scenario_names:
+            raise ValueError(
+                f"path-quality native report denominator mismatch: {model_id}"
+            )
+        for row in cases:
+            if row.child_case_ids:
+                continue
+            native_prefix = f"native-scenario:{model_id}:"
+            case_prefix = f"case:{model_id}:"
+            if row.source_case_id.startswith(native_prefix):
+                scenario_name = row.source_case_id.removeprefix(native_prefix)
+            elif row.source_case_id.startswith(case_prefix):
+                scenario_name = row.source_case_id.removeprefix(case_prefix)
+            else:
+                raise ValueError(
+                    f"path-quality native row identity is not current: {row.source_case_id}"
+                )
+            raw_row = raw_rows.get(scenario_name)
+            if raw_row is None:
+                raise ValueError(
+                    f"path-quality native report row missing: {row.source_case_id}"
+                )
+            if row.result_artifact_fingerprint != source_fingerprint:
+                raise ValueError(
+                    f"path-quality native source fingerprint is not bound by row: {row.source_case_id}"
+                )
+            scenario_run = raw_row.get("scenario_run")
+            traces = scenario_run.get("traces") if isinstance(scenario_run, Mapping) else None
+            final_states = scenario_run.get("final_states") if isinstance(scenario_run, Mapping) else None
+            if not isinstance(traces, list) or not traces or not isinstance(final_states, list) or not final_states:
+                raise ValueError(
+                    f"path-quality native row has no real executed graph: {row.source_case_id}"
+                )
+            for trace_index, trace in enumerate(traces):
+                if not isinstance(trace, Mapping):
+                    raise ValueError(f"path-quality native trace is not an object: {row.source_case_id}")
+                previous = add_state(
+                    row.source_case_id,
+                    trace.get("initial_state"),
+                    initial=True,
+                )
+                steps = trace.get("steps")
+                if not isinstance(steps, list):
+                    raise ValueError(f"path-quality native trace steps are not an array: {row.source_case_id}")
+                for step_index, step in enumerate(steps):
+                    if not isinstance(step, Mapping):
+                        raise ValueError(f"path-quality native trace step is not an object: {row.source_case_id}")
+                    old = step.get("old_state", trace.get("initial_state") if step_index == 0 else None)
+                    new = step.get("new_state")
+                    if new is None:
+                        raise ValueError(f"path-quality native trace step has no new state: {row.source_case_id}")
+                    source_state = add_state(row.source_case_id, old)
+                    target_state = add_state(row.source_case_id, new)
+                    output_value = step.get("function_output")
+                    output_ids: tuple[str, ...] = ()
+                    if output_value is not None:
+                        output_id = f"output:{row.source_case_id}:{step_index}:{canonical_fingerprint(output_value).split(':', 1)[1]}"
+                        # A native trace's function output is an observed
+                        # terminal value unless the report explicitly models
+                        # a downstream consumer.  Marking it terminal keeps
+                        # the graph honest: the value is retained as a leaf
+                        # observation and is not falsely reported as an
+                        # unconsumed intermediate output.
+                        outputs[output_id] = {"id": output_id, "terminal": True}
+                        output_ids = (output_id,)
+                    function_name = str(step.get("function_name") or "native-step")
+                    block_id = f"function:{row.source_case_id}:{trace_index}:{step_index}:{function_name}"
+                    function_blocks[block_id] = {
+                        "id": block_id,
+                        "outputs": output_ids,
+                    }
+                    transition_id = f"transition:{row.source_case_id}:{trace_index}:{step_index}"
+                    transitions[transition_id] = {
+                        "id": transition_id,
+                        "source": source_state,
+                        "target": target_state,
+                        "trigger": str(step.get("label") or function_name),
+                        "guard": "native-observed",
+                        "outputs": output_ids,
+                    }
+                    previous = target_state
+                final_state = trace.get("final_state")
+                if final_state is not None:
+                    final_id = add_state(row.source_case_id, final_state, terminal=True)
+                    if final_id != previous:
+                        transition_id = f"transition:{row.source_case_id}:{trace_index}:final"
+                        transitions[transition_id] = {
+                            "id": transition_id,
+                            "source": previous,
+                            "target": final_id,
+                            "trigger": "native-final-state",
+                            "guard": "native-observed",
+                        }
+            for final_state in final_states:
+                add_state(row.source_case_id, final_state, terminal=True)
+            for validation_index, oracle in enumerate(row.oracle_results):
+                validation_id = f"validation:{row.source_case_id}:{validation_index}"
+                validations[validation_id] = {
+                    "id": validation_id,
+                    "obligation_id": f"obligation:{row.source_case_id}:{validation_index}",
+                    "oracle_id": str(oracle["oracle_member_id"]),
+                    "subject_fingerprint": source_fingerprint,
+                    "evidence_boundary_id": f"boundary:{model_id}",
+                }
         facts = {
-            "states": ({"id": "start", "initial": True}, *terminal_states),
-            "transitions": transitions,
-            "fields": (),
-            "function_blocks": (),
-            "outputs": tuple(
-                {"id": output_id, "terminal": True}
-                for output_id in sorted({f"outcome:{row.outcome}" for row in cases})
-            ),
-            "validations": validations,
+            "states": tuple(states.values()),
+            "transitions": tuple(transitions.values()),
+            "fields": tuple(fields.values()),
+            "function_blocks": tuple(function_blocks.values()),
+            "outputs": tuple(outputs.values()),
+            "validations": tuple(validations.values()),
             "owners": (
                 {
                     "id": f"owner:{model_id}",
@@ -5252,6 +5424,8 @@ def _native_path_quality_material(
                     "current": True,
                 },
             ),
+            "initial_state_ids": tuple(sorted(initial_state_ids)),
+            "terminal_state_ids": tuple(sorted(terminal_state_ids)),
         }
         retained = tuple(derive_retained_elements(facts))
         obligations = tuple(
@@ -5310,6 +5484,425 @@ def _native_path_quality_material(
     return tuple(subjects), tuple(reviews)
 
 
+def _release_leaf_blockers(
+    revision: Any,
+    required_model_ids: tuple[str, ...],
+    *,
+    root: Path | None = None,
+    receipt_root: Path | None = None,
+    leaf_receipts: Mapping[str, tuple[str, str]] | None = None,
+) -> tuple[str, ...]:
+    """Require one accepted leaf reference for every released model.
+
+    The accepted revision keeps native owner leaves in
+    ``completed_evidence_refs``. A release must consume that exact completed
+    projection; required (pending) refs or the parent aggregate are not a
+    substitute. This gate performs no producer execution and never turns a
+    missing or invalid leaf into a pass. When ``root`` and ``receipt_root``
+    are supplied, the accepted ref is also opened from the canonical immutable
+    store and its model child proof and native result artifact are checked.
+    The small duck-typed form remains available to projection-only callers.
+    """
+
+    completed = tuple(getattr(revision, "completed_evidence_refs", ()) or ())
+    blockers: list[str] = []
+    if not completed:
+        return tuple(
+            f"release.native_leaf_missing:model:{model_id}"
+            for model_id in required_model_ids
+        )
+    seen_receipt_ids: set[str] = set()
+    seen_receipt_fingerprints: set[str] = set()
+    for item in completed:
+        receipt_id = str(getattr(item, "receipt_id", ""))
+        receipt_fingerprint = str(getattr(item, "receipt_fingerprint", ""))
+        if receipt_id in seen_receipt_ids:
+            blockers.append(f"release.native_leaf_duplicate_receipt:{receipt_id}")
+        if receipt_fingerprint in seen_receipt_fingerprints:
+            blockers.append(
+                f"release.native_leaf_duplicate_fingerprint:{receipt_fingerprint}"
+            )
+        seen_receipt_ids.add(receipt_id)
+        seen_receipt_fingerprints.add(receipt_fingerprint)
+
+    for model_id in required_model_ids:
+        if leaf_receipts is not None and model_id in leaf_receipts:
+            receipt_ref, receipt_fingerprint = leaf_receipts[model_id]
+            if root is not None and receipt_root is not None:
+                blockers.extend(
+                    _release_direct_leaf_artifact_blockers(
+                        root,
+                        receipt_root,
+                        receipt_ref,
+                        receipt_fingerprint,
+                        model_id=model_id,
+                    )
+                )
+            else:
+                blockers.append(
+                    f"release.native_leaf_override_without_store:model:{model_id}"
+                )
+            continue
+        affected_id = f"model_instance:model:{model_id}"
+        matches = tuple(
+            item
+            for item in completed
+            if affected_id in tuple(getattr(item, "covered_affected_ids", ()) or ())
+        )
+        if not matches:
+            blockers.append(f"release.native_leaf_missing:{affected_id}")
+            continue
+        if len(matches) != 1:
+            blockers.append(f"release.native_leaf_ambiguous:{affected_id}")
+            continue
+        item = matches[0]
+        if (
+            str(getattr(item, "status", "")) != "pass"
+            or getattr(item, "current", False) is not True
+            or getattr(item, "eligible", False) is not True
+        ):
+            blockers.append(f"release.native_leaf_not_current:{affected_id}")
+        if not str(getattr(item, "receipt_id", "")).strip():
+            blockers.append(f"release.native_leaf_receipt_id_missing:{affected_id}")
+        if not re.fullmatch(
+            r"sha256:[0-9a-f]{64}",
+            str(getattr(item, "receipt_fingerprint", "")),
+        ):
+            blockers.append(
+                f"release.native_leaf_receipt_fingerprint_invalid:{affected_id}"
+            )
+        if root is not None and receipt_root is not None and not blockers:
+            blockers.extend(
+                _release_leaf_artifact_blockers(
+                    root,
+                    receipt_root,
+                    item,
+                    model_id=model_id,
+                )
+            )
+    return tuple(dict.fromkeys(blockers))
+
+
+def _release_leaf_artifact_blockers(
+    root: Path,
+    receipt_root: Path,
+    ref: Any,
+    *,
+    model_id: str,
+) -> tuple[str, ...]:
+    """Re-read one accepted leaf's canonical receipt and native artifact.
+
+    Revision evidence is a compact identity projection. Release qualification
+    must still read immutable receipt bytes and the direct model child proof;
+    an accepted ref alone cannot make a deleted, foreign, or tampered native
+    artifact current. This helper performs no producer execution.
+    """
+
+    from .evidence_receipts import load_evidence_receipt
+
+    blockers: list[str] = []
+    receipt_id = str(getattr(ref, "receipt_id", ""))
+    expected_fingerprint = str(getattr(ref, "receipt_fingerprint", ""))
+    try:
+        aggregate = load_evidence_receipt(
+            receipt_id,
+            root,
+            output_directory=receipt_root,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return (
+            f"release.native_leaf_receipt_unreadable:{model_id}:{type(exc).__name__}",
+        )
+    if aggregate.fingerprint != expected_fingerprint:
+        blockers.append(f"release.native_leaf_receipt_hash_mismatch:model:{model_id}")
+    if (
+        aggregate.result_status != "pass"
+        or aggregate.exit_code != 0
+        or aggregate.skipped_checks
+        or aggregate.blockers
+    ):
+        blockers.append(f"release.native_leaf_receipt_not_terminal:model:{model_id}")
+    if aggregate.subject_kind != "validation_owner" or aggregate.producer_id != aggregate.subject_id:
+        blockers.append(f"release.native_leaf_receipt_foreign_owner:model:{model_id}")
+
+    expected_subject = f"validation-owner:model:{model_id}"
+    children = tuple(
+        item
+        for item in aggregate.required_child_receipts
+        if item.subject_id == expected_subject
+    )
+    if len(children) != 1:
+        blockers.append(f"release.native_leaf_child_missing_or_ambiguous:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    child_requirement = children[0]
+    try:
+        child = load_evidence_receipt(
+            child_requirement.receipt_id,
+            root,
+            output_directory=receipt_root,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        blockers.append(
+            f"release.native_leaf_child_unreadable:{model_id}:{type(exc).__name__}"
+        )
+        return tuple(dict.fromkeys(blockers))
+    if child.fingerprint != child_requirement.expected_receipt_fingerprint:
+        blockers.append(f"release.native_leaf_child_hash_mismatch:model:{model_id}")
+    if (
+        child.subject_id != expected_subject
+        or child.subject_kind != "validation_owner"
+        or child.producer_id != expected_subject
+        or child.result_status != "pass"
+        or child.exit_code != 0
+        or child.required_child_receipts
+        or child.consumed_child_receipts
+        or child.skipped_checks
+        or child.blockers
+        or str(child.metadata.get("publication_kind", "")) != "supervised_producer"
+    ):
+        blockers.append(f"release.native_leaf_child_not_direct_pass:model:{model_id}")
+
+    proof_relpath = str(child.metadata.get("proof_relpath", "")).strip()
+    if not proof_relpath:
+        blockers.append(f"release.native_leaf_proof_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    proof_path = (receipt_root / proof_relpath).resolve()
+    try:
+        proof_path.relative_to(receipt_root.resolve())
+    except ValueError:
+        blockers.append(f"release.native_leaf_proof_foreign_path:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    if proof_path.is_symlink() or not proof_path.is_file():
+        blockers.append(f"release.native_leaf_proof_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    try:
+        proof_bytes = proof_path.read_bytes()
+        proof_fingerprint = "sha256:" + hashlib.sha256(proof_bytes).hexdigest()
+        if proof_fingerprint != child.proof_artifact_fingerprint:
+            blockers.append(f"release.native_leaf_proof_hash_mismatch:model:{model_id}")
+        proof_payload = _strict_json_loads(proof_bytes.decode("utf-8"))
+    except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError):
+        blockers.append(f"release.native_leaf_proof_unreadable:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    if not isinstance(proof_payload, Mapping):
+        blockers.append(f"release.native_leaf_proof_invalid:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    model_result = _release_model_result_from_proof(proof_payload, model_id=model_id)
+    if model_result is None:
+        blockers.append(f"release.native_leaf_model_result_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    native_path_value = str(model_result.get("native_case_result_artifact_path", "")).strip()
+    native_fingerprint = str(model_result.get("native_case_result_artifact_fingerprint", "")).strip()
+    if not native_path_value or not native_fingerprint:
+        blockers.append(f"release.native_leaf_native_artifact_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    native_path = Path(native_path_value).expanduser()
+    if not native_path.is_absolute():
+        native_path = (root / native_path).resolve()
+    else:
+        native_path = native_path.resolve()
+    if native_path.is_symlink() or not native_path.is_file():
+        blockers.append(f"release.native_leaf_native_artifact_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    try:
+        native_digest = "sha256:" + hashlib.sha256(native_path.read_bytes()).hexdigest()
+    except OSError:
+        blockers.append(f"release.native_leaf_native_artifact_unreadable:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    if native_digest != native_fingerprint:
+        blockers.append(f"release.native_leaf_native_artifact_hash_mismatch:model:{model_id}")
+    return tuple(dict.fromkeys(blockers))
+
+
+def _release_direct_leaf_artifact_blockers(
+    root: Path,
+    receipt_root: Path,
+    receipt_ref: str,
+    expected_fingerprint: str,
+    *,
+    model_id: str,
+) -> tuple[str, ...]:
+    """Validate a freshly executed direct model receipt for one missing leaf."""
+
+    from .evidence_receipts import load_evidence_receipt
+
+    blockers: list[str] = []
+    try:
+        child = load_evidence_receipt(
+            receipt_ref,
+            root,
+            output_directory=receipt_root,
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return (
+            f"release.native_leaf_child_unreadable:{model_id}:{type(exc).__name__}",
+        )
+    expected_subject = f"validation-owner:model:{model_id}"
+    if child.fingerprint != expected_fingerprint:
+        blockers.append(f"release.native_leaf_child_hash_mismatch:model:{model_id}")
+    if (
+        child.subject_id != expected_subject
+        or child.subject_kind != "validation_owner"
+        or child.producer_id != expected_subject
+        or child.result_status != "pass"
+        or child.exit_code != 0
+        or child.required_child_receipts
+        or child.consumed_child_receipts
+        or child.skipped_checks
+        or child.blockers
+        or str(child.metadata.get("publication_kind", "")) != "supervised_producer"
+    ):
+        blockers.append(f"release.native_leaf_child_not_direct_pass:model:{model_id}")
+
+    proof_relpath = str(child.metadata.get("proof_relpath", "")).strip()
+    if not proof_relpath:
+        blockers.append(f"release.native_leaf_proof_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    proof_path = (receipt_root / proof_relpath).resolve()
+    try:
+        proof_path.relative_to(receipt_root.resolve())
+    except ValueError:
+        blockers.append(f"release.native_leaf_proof_foreign_path:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    if proof_path.is_symlink() or not proof_path.is_file():
+        blockers.append(f"release.native_leaf_proof_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    try:
+        proof_bytes = proof_path.read_bytes()
+        proof_fingerprint = "sha256:" + hashlib.sha256(proof_bytes).hexdigest()
+        if proof_fingerprint != child.proof_artifact_fingerprint:
+            blockers.append(f"release.native_leaf_proof_hash_mismatch:model:{model_id}")
+        proof_payload = _strict_json_loads(proof_bytes.decode("utf-8"))
+    except (OSError, UnicodeError, TypeError, ValueError, json.JSONDecodeError):
+        blockers.append(f"release.native_leaf_proof_unreadable:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    model_result = _release_model_result_from_proof(proof_payload, model_id=model_id)
+    if model_result is None:
+        blockers.append(f"release.native_leaf_model_result_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    native_path_value = str(model_result.get("native_case_result_artifact_path", "")).strip()
+    native_fingerprint = str(model_result.get("native_case_result_artifact_fingerprint", "")).strip()
+    if not native_path_value or not native_fingerprint:
+        blockers.append(f"release.native_leaf_native_artifact_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    native_path = Path(native_path_value).expanduser()
+    if not native_path.is_absolute():
+        native_path = (root / native_path).resolve()
+    else:
+        native_path = native_path.resolve()
+    if native_path.is_symlink() or not native_path.is_file():
+        blockers.append(f"release.native_leaf_native_artifact_missing:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    try:
+        native_digest = "sha256:" + hashlib.sha256(native_path.read_bytes()).hexdigest()
+    except OSError:
+        blockers.append(f"release.native_leaf_native_artifact_unreadable:model:{model_id}")
+        return tuple(dict.fromkeys(blockers))
+    if native_digest != native_fingerprint:
+        blockers.append(f"release.native_leaf_native_artifact_hash_mismatch:model:{model_id}")
+    return tuple(dict.fromkeys(blockers))
+
+
+def _release_model_result_from_proof(
+    proof_payload: Mapping[str, Any],
+    *,
+    model_id: str,
+) -> Mapping[str, Any] | None:
+    """Read the producer-owned model result from the current leaf proof shape.
+
+    ``publish_supervised_validation_owner_result`` serializes the caller's
+    evidence context under ``child.payload`` in the immutable owner proof.
+    Release qualification must follow that exact schema.  In particular, it
+    must not accept an ad-hoc top-level ``evidence_context`` copy or search
+    recursively for a similarly named object, because either would allow a
+    non-owner field to stand in for producer evidence.
+    """
+
+    if proof_payload.get("schema_version") != "flowguard.validation_owner_receipt.v2":
+        return None
+    child = proof_payload.get("child")
+    if not isinstance(child, Mapping):
+        return None
+    if child.get("status") != "pass":
+        return None
+    payload = child.get("payload")
+    if not isinstance(payload, Mapping):
+        return None
+    model_result = payload.get("model_result")
+    if not isinstance(model_result, Mapping):
+        return None
+    if model_result.get("model_id") != model_id:
+        return None
+    return model_result
+
+
+def _release_missing_leaf_ids(
+    revision: Any,
+    required_model_ids: tuple[str, ...],
+    *,
+    root: Path,
+    receipt_root: Path,
+) -> tuple[str, ...]:
+    """Return only absent leaves that may be repaired by one owner run.
+
+    A missing content-addressed receipt or direct model child is repairable.
+    A present receipt with a bad fingerprint, foreign owner, or malformed proof
+    is an invalid leaf and remains a hard release blocker.
+    """
+
+    from .evidence_receipts import load_evidence_receipt, receipt_path
+
+    completed = tuple(getattr(revision, "completed_evidence_refs", ()) or ())
+    missing: list[str] = []
+    for model_id in required_model_ids:
+        affected_id = f"model_instance:model:{model_id}"
+        matches = tuple(
+            item
+            for item in completed
+            if affected_id in tuple(getattr(item, "covered_affected_ids", ()) or ())
+        )
+        if not matches:
+            missing.append(model_id)
+            continue
+        if len(matches) != 1:
+            continue
+        ref = matches[0]
+        expected_receipt_path = receipt_path(
+            str(getattr(ref, "receipt_id", "")),
+            root,
+            output_directory=receipt_root,
+        )
+        if not expected_receipt_path.is_file() or expected_receipt_path.is_symlink():
+            missing.append(model_id)
+            continue
+        try:
+            aggregate = load_evidence_receipt(
+                str(getattr(ref, "receipt_id", "")),
+                root,
+                output_directory=receipt_root,
+            )
+        except (OSError, TypeError, ValueError):
+            continue
+        expected_subject = f"validation-owner:model:{model_id}"
+        child_requirements = tuple(
+            item
+            for item in aggregate.required_child_receipts
+            if item.subject_id == expected_subject
+        )
+        if len(child_requirements) != 1:
+            if not child_requirements:
+                missing.append(model_id)
+            continue
+        child_path = receipt_path(
+            child_requirements[0].receipt_id,
+            root,
+            output_directory=receipt_root,
+        )
+        if not child_path.is_file() or child_path.is_symlink():
+            missing.append(model_id)
+    return tuple(sorted(set(missing)))
+
+
 def _change_current_operation(
     root: Path,
     request: Mapping[str, Any],
@@ -5324,7 +5917,10 @@ def _change_current_operation(
     )
     from .model_intent import ModelIntentContribution, ModelIntentDisposition
     from .model_intent_authority import EffectiveIntentTransition
-    from .model_regressions import run_manifest_regressions
+    from .model_regressions import (
+        prepare_model_regression_plan,
+        run_manifest_regressions,
+    )
     from .model_revision_builder import build_current_model_revision
     from .model_revision_owner_evidence import produce_model_revision_owner_evidence
     from .model_revision_plan import preview_current_model_revision
@@ -5462,6 +6058,15 @@ def _change_current_operation(
     output_root = root / "work" / f"change-{request_sha256[:12]}"
     receipt_root.mkdir(parents=True, exist_ok=True)
     try:
+        prepared_plan = prepare_model_regression_plan(
+            root,
+            target_id=head.system_id,
+            base_head=head.fingerprint,
+            candidate_fingerprint=preview_candidate.fingerprint,
+            affected_ids=required_quality_ids,
+            receipt_dir=receipt_root,
+            require_executed_case_ids=True,
+        )
         parent = run_manifest_regressions(
             root,
             tier="full",
@@ -5469,6 +6074,7 @@ def _change_current_operation(
             output_dir=output_root / "model-parent",
             receipt_dir=receipt_root,
             require_executed_case_ids=True,
+            prepared_plan=prepared_plan,
         )
     except (OSError, TypeError, ValueError) as exc:
         completed_leaf_artifacts = tuple(
@@ -5594,7 +6200,10 @@ def _change_operation(
     from .evidence_receipts import fingerprint_value
     from .model_authority_store import bootstrap_initial_current_model_authority
     from .model_intent import ModelIntentContribution
-    from .model_regressions import run_manifest_regressions
+    from .model_regressions import (
+        prepare_model_regression_plan,
+        run_manifest_regressions,
+    )
     from .model_system_inventory import build_manifest_model_system_snapshot
     from .project_manifest import manifest_text_fingerprint
 
@@ -5738,6 +6347,7 @@ def _change_operation(
     candidate = build_manifest_model_system_snapshot(
         staging_path,
         snapshot_id=str(preparation["snapshot_id"]),
+        system_id=str(target_id),
     )
     if candidate.system_id != target_id:
         raise ValueError("change target_id does not match candidate system_id")
@@ -5752,6 +6362,15 @@ def _change_operation(
     output_root = root / "work" / f"change-{request_sha256[:12]}"
     receipt_root.mkdir(parents=True, exist_ok=True)
     try:
+        prepared_plan = prepare_model_regression_plan(
+            staging_path,
+            target_id=target_id,
+            base_head="",
+            candidate_fingerprint=candidate.fingerprint,
+            affected_ids=tuple(item.logical_model_id for item in candidate.model_instances),
+            receipt_dir=receipt_root,
+            require_executed_case_ids=True,
+        )
         parent = run_manifest_regressions(
             staging_path,
             tier="full",
@@ -5759,6 +6378,7 @@ def _change_operation(
             output_dir=output_root / "model-parent",
             receipt_dir=receipt_root,
             require_executed_case_ids=True,
+            prepared_plan=prepared_plan,
         )
     except (OSError, TypeError, ValueError) as exc:
         return {
@@ -5822,6 +6442,7 @@ def _change_operation(
         revision_set_id=str(preparation["revision_set_id"]),
         task_id=str(preparation["task_id"]),
         activation_receipt_id=str(preparation["activation_receipt_id"]),
+        system_id=str(target_id),
         current_design_intent_contributions=design,
         intent_receipt_id=f"intent:{preparation['revision_set_id']}",
         intent_rationale=str(preparation["decision_reason"]),
@@ -5853,6 +6474,7 @@ def _release_operation(
 ) -> dict[str, Any]:
     """Qualify one exact accepted current source and optional local artifact."""
 
+    from .evidence_lifecycle import write_json_atomic
     from .model_authority import ModelAuthorityError
     from .model_authority_store import (
         load_current_model_authority_state,
@@ -5860,6 +6482,10 @@ def _release_operation(
         read_selected_model_closure,
     )
     from .release_verification import verify_declared_artifact
+    from .model_regressions import (
+        prepare_model_regression_plan,
+        run_manifest_regressions,
+    )
 
     request_fields = {
         "operation",
@@ -5999,6 +6625,7 @@ def _release_operation(
     revision = state.accepted_revision
     if revision is None or revision.status != "accepted":
         raise ValueError("release requires one accepted current revision")
+    receipt_root = root / ".flowguard" / "evidence" / "model-owner-receipts"
     current_model_ids = {item.logical_model_id for item in snapshot.model_instances}
     missing_models = sorted(set(contract["required_model_ids"]) - current_model_ids)
     if missing_models:
@@ -6011,6 +6638,178 @@ def _release_operation(
     missing_checks = sorted(set(contract["required_check_ids"]) - accepted_check_ids)
     if missing_checks:
         raise ValueError(f"release contract checks are not accepted obligations: {missing_checks}")
+    required_model_ids = tuple(contract["required_model_ids"])
+    missing_leaf_ids = _release_missing_leaf_ids(
+        revision,
+        required_model_ids,
+        root=root,
+        receipt_root=receipt_root,
+    )
+    leaf_blockers = _release_leaf_blockers(
+        revision,
+        required_model_ids,
+        root=root,
+        receipt_root=receipt_root,
+    )
+    # A genuinely absent receipt/child can be repaired by its one model owner.
+    # Any present-but-invalid identity remains a hard blocker and therefore
+    # never gets overwritten by a fresh run.
+    repairable_prefixes = (
+        "release.native_leaf_missing:",
+        "release.native_leaf_receipt_unreadable:",
+        "release.native_leaf_child_missing_or_ambiguous:",
+        "release.native_leaf_child_unreadable:",
+    )
+    nonrepairable_leaf_blockers = tuple(
+        blocker
+        for blocker in leaf_blockers
+        if not (
+            blocker.startswith(repairable_prefixes)
+            and any(f":{model_id}" in blocker for model_id in missing_leaf_ids)
+        )
+    )
+    producer_count = 0
+    run_count = 0
+    reused_count = len(required_model_ids)
+    leaf_receipts: dict[str, tuple[str, str]] = {}
+    if nonrepairable_leaf_blockers:
+        return {
+            "operation": "release",
+            "status": "blocked",
+            "reason": "native_leaf_invalid",
+            "target_id": target_id,
+            "producer_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "write_count": 0,
+            "artifact_status": "pass" if artifact is not None else "not_run",
+            "leaf_status": "blocked",
+            "blockers": list(nonrepairable_leaf_blockers),
+            "claim_scope": "local_qualification",
+        }
+    if missing_leaf_ids:
+        release_output = root / "work" / (
+            "release-" + hashlib.sha256(
+                json.dumps(
+                    {
+                        "head": head.fingerprint,
+                        "models": list(required_model_ids),
+                        "missing": list(missing_leaf_ids),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()[:12]
+        )
+        try:
+            prepared_plan = prepare_model_regression_plan(
+                root,
+                target_id=target_id,
+                base_head=head.fingerprint,
+                candidate_fingerprint=snapshot.fingerprint,
+                affected_ids=missing_leaf_ids,
+                receipt_dir=receipt_root,
+                require_executed_case_ids=True,
+            )
+            parent = run_manifest_regressions(
+                root,
+                tier="full",
+                jobs=1,
+                output_dir=release_output / "model-parent",
+                receipt_dir=receipt_root,
+                require_executed_case_ids=True,
+                prepared_plan=prepared_plan,
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            return {
+                "operation": "release",
+                "status": "blocked",
+                "reason": "native_leaf_execution_failed",
+                "target_id": target_id,
+                "producer_count": 0,
+                "run_count": 0,
+                "reused_count": 0,
+                "write_count": 0,
+                "artifact_status": "pass" if artifact is not None else "not_run",
+                "leaf_status": "blocked",
+                "blockers": ["release.native_leaf_execution_failed"],
+                "error": str(exc),
+                "claim_scope": "local_qualification",
+            }
+        required_results = {
+            item.model_id: item
+            for item in parent.results
+            if item.model_id in required_model_ids
+        }
+        run_count = sum(
+            item.execution_disposition == "execute"
+            for item in required_results.values()
+        )
+        producer_count = run_count
+        reused_count = sum(
+            item.execution_disposition == "reuse_current"
+            for item in required_results.values()
+        )
+        if parent.status != "pass" or set(required_results) != set(required_model_ids):
+            return {
+                "operation": "release",
+                "status": "blocked",
+                "reason": "native_leaf_execution_failed",
+                "target_id": target_id,
+                "producer_count": producer_count,
+                "run_count": run_count,
+                "reused_count": reused_count,
+                "write_count": 0,
+                "artifact_status": "pass" if artifact is not None else "not_run",
+                "leaf_status": "blocked",
+                "blockers": ["release.native_leaf_execution_failed"],
+                "claim_scope": "local_qualification",
+            }
+        for model_id in missing_leaf_ids:
+            result = required_results.get(model_id)
+            if result is None or result.execution_disposition != "execute":
+                return {
+                    "operation": "release",
+                    "status": "blocked",
+                    "reason": "native_leaf_execution_failed",
+                    "target_id": target_id,
+                    "producer_count": producer_count,
+                    "run_count": run_count,
+                    "reused_count": reused_count,
+                    "write_count": 0,
+                    "artifact_status": "pass" if artifact is not None else "not_run",
+                    "leaf_status": "blocked",
+                    "blockers": [
+                        f"release.native_leaf_missing_owner_not_executed:model:{model_id}"
+                    ],
+                    "claim_scope": "local_qualification",
+                }
+            leaf_receipts[model_id] = (
+                str(result.receipt_path),
+                str(result.receipt_fingerprint),
+            )
+        leaf_blockers = _release_leaf_blockers(
+            revision,
+            required_model_ids,
+            root=root,
+            receipt_root=receipt_root,
+            leaf_receipts=leaf_receipts,
+        )
+        if leaf_blockers:
+            return {
+                "operation": "release",
+                "status": "blocked",
+                "reason": "native_leaf_invalid",
+                "target_id": target_id,
+                "producer_count": producer_count,
+                "run_count": run_count,
+                "reused_count": reused_count,
+                "write_count": 0,
+                "artifact_status": "pass" if artifact is not None else "not_run",
+                "leaf_status": "blocked",
+                "blockers": list(leaf_blockers),
+                "claim_scope": "local_qualification",
+            }
     source_rows: list[dict[str, str]] = []
     for relative in contract["required_source_paths"]:
         candidate = Path(relative)
@@ -6035,6 +6834,92 @@ def _release_operation(
     final_head, _final_snapshot = load_observed_model_system(root)
     if final_head.fingerprint != head.fingerprint:
         raise ValueError("release current head changed during qualification")
+    from .evidence_receipts import load_evidence_receipt
+
+    completed_refs = tuple(getattr(revision, "completed_evidence_refs", ()) or ())
+    leaf_rows: list[dict[str, str]] = []
+    for model_id in required_model_ids:
+        if model_id in leaf_receipts:
+            receipt_ref, expected_fingerprint = leaf_receipts[model_id]
+            receipt = load_evidence_receipt(
+                receipt_ref,
+                root,
+                output_directory=receipt_root,
+            )
+            leaf_rows.append(
+                {
+                    "model_id": model_id,
+                    "receipt_id": receipt.receipt_id,
+                    "receipt_fingerprint": receipt.fingerprint,
+                    "execution": "execute",
+                }
+            )
+            if expected_fingerprint != receipt.fingerprint:
+                raise ValueError(
+                    f"release leaf receipt changed during qualification: {model_id}"
+                )
+            continue
+        affected_id = f"model_instance:model:{model_id}"
+        matches = tuple(
+            item
+            for item in completed_refs
+            if affected_id in tuple(getattr(item, "covered_affected_ids", ()) or ())
+        )
+        if len(matches) != 1:
+            raise ValueError(f"release leaf identity disappeared during qualification: {model_id}")
+        leaf_rows.append(
+            {
+                "model_id": model_id,
+                "receipt_id": str(matches[0].receipt_id),
+                "receipt_fingerprint": str(matches[0].receipt_fingerprint),
+                "execution": "reuse_current",
+            }
+        )
+    qualification_payload = {
+        "schema_version": "flowguard.release_qualification_receipt.v1",
+        "target_id": target_id,
+        "source_head_fingerprint": head.fingerprint,
+        "release_contract_hash": hashlib.sha256(contract_raw).hexdigest(),
+        "required_model_ids": list(required_model_ids),
+        "required_check_ids": list(contract["required_check_ids"]),
+        "required_source_paths": source_rows,
+        "artifact_status": "pass" if artifact is not None else "not_run",
+        "artifact_checks": [item.to_dict() for item in artifact_checks],
+        "leaf_rows": leaf_rows,
+        "producer_count": producer_count,
+        "run_count": run_count,
+        "reused_count": reused_count,
+        "claim_scope": "local_qualification",
+    }
+    qualification_fingerprint = "sha256:" + hashlib.sha256(
+        json.dumps(
+            qualification_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    qualification_payload["qualification_fingerprint"] = qualification_fingerprint
+    qualification_dir = root / ".flowguard" / "evidence" / "release-qualifications"
+    qualification_path = qualification_dir / (
+        qualification_fingerprint.split(":", 1)[1] + ".json"
+    )
+    qualification_bytes = (
+        json.dumps(
+            qualification_payload,
+            ensure_ascii=False,
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode("utf-8")
+    qualification_write_count = 0
+    if qualification_path.exists():
+        if qualification_path.is_symlink() or qualification_path.read_bytes() != qualification_bytes:
+            raise ValueError("release qualification receipt is not immutable")
+    else:
+        write_json_atomic(qualification_path, qualification_payload)
+        qualification_write_count = 1
     return {
         "operation": "release",
         "status": "pass",
@@ -6044,13 +6929,16 @@ def _release_operation(
         "required_model_ids": list(contract["required_model_ids"]),
         "required_check_ids": list(contract["required_check_ids"]),
         "required_source_paths": source_rows,
-        "producer_count": 0,
-        "run_count": 0,
-        "reused_count": len(contract["required_model_ids"]),
-        "write_count": 0,
+        "producer_count": producer_count,
+        "run_count": run_count,
+        "reused_count": reused_count,
+        "write_count": qualification_write_count,
         "artifact_status": "pass" if artifact is not None else "not_run",
+        "leaf_status": "pass",
         "qualification": "artifact_and_source" if artifact is not None else "source_qualification_only",
         "checks": [item.to_dict() for item in artifact_checks],
+        "qualification_receipt_path": qualification_path.relative_to(root).as_posix(),
+        "qualification_receipt_fingerprint": qualification_fingerprint,
         "blockers": [],
         "claim_scope": "local_qualification",
         "claim_boundary": (

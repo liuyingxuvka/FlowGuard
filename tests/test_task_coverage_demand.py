@@ -110,7 +110,7 @@ class TaskCoverageDemandTests(unittest.TestCase):
             exit_code = main(
                 ["task-coverage-demand", "--facts", str(facts_path), "--json"]
             )
-        self.assertEqual(0, exit_code)
+            self.assertEqual(2, exit_code)
 
     def test_compilation_is_deterministic_and_caller_additions_are_monotonic(self) -> None:
         facts = TaskFacts(

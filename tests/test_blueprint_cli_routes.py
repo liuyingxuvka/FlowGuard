@@ -490,224 +490,29 @@ class BlueprintCliRouteTests(unittest.TestCase):
         self.assertEqual(1, len(shard["payload"]))
         return shard["payload"][0]
 
-    def test_target_system_blueprint_audit_derives_both_reference_profiles(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for target_profile in ("software", "non_code_workflow"):
-                with self.subTest(target_profile=target_profile):
-                    descriptor, frozen, native = self._write_target_artifacts(
-                        root, target_profile
-                    )
-                    output = StringIO()
-                    with redirect_stdout(output):
-                        exit_code = main(
-                            self._target_cli_args(descriptor, frozen, native)
-                        )
-                    payload = json.loads(output.getvalue())
-                    self.assertEqual(0, exit_code)
-                    self.assertTrue(payload["ok"])
-                    self.assertEqual(target_profile, payload["target_profile"])
-                    self.assertEqual("whole", payload["scope"])
-                    self.assertEqual(
-                        list(
-                            CANONICAL_SOFTWARE_LAYER_PLAN.layer_ids
-                            if target_profile == "software"
-                            else CANONICAL_NON_CODE_WORKFLOW_LAYER_PLAN.layer_ids
-                        ),
-                        [row["layer"] for row in payload["layers"]],
-                    )
-                    self.assertEqual(
-                        target_profile == "software",
-                        payload["readiness_ledger"]["implementation_admitted"],
-                    )
+    def test_retired_target_system_blueprint_audit_route_is_rejected(self):
+        self._assert_retired_compact_route(
+            "target-system-blueprint-audit",
+            "--descriptor",
+            "descriptor.json",
+            "--frozen-evidence",
+            "frozen.json",
+            "--native-report-set",
+            "native.json",
+        )
 
-    def test_target_system_blueprint_export_is_deterministic_for_typescript_and_workflow(self):
-        with self.assertRaises(SystemExit):
-            main(["target-system-blueprint-export"])
-        return
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for target_profile in ("software", "non_code_workflow"):
-                with self.subTest(target_profile=target_profile):
-                    descriptor_path, frozen_path, native_path = (
-                        self._write_target_artifacts(root, target_profile)
-                    )
-                    audit_output = StringIO()
-                    with redirect_stdout(audit_output):
-                        audit_exit = main(
-                            self._target_cli_args(
-                                descriptor_path,
-                                frozen_path,
-                                native_path,
-                            )
-                        )
-                    audit = json.loads(audit_output.getvalue())
-                    self.assertEqual(0, audit_exit)
-
-                    exports = []
-                    results = []
-                    for suffix in ("a", "b"):
-                        output = root / f"export-{target_profile}-{suffix}"
-                        command_output = StringIO()
-                        with redirect_stdout(command_output):
-                            exit_code = main(
-                                self._target_export_cli_args(
-                                    descriptor_path,
-                                    frozen_path,
-                                    native_path,
-                                    output,
-                                )
-                            )
-                        self.assertEqual(0, exit_code)
-                        results.append(json.loads(command_output.getvalue()))
-                        exports.append(output)
-
-                    first_files = {
-                        path.relative_to(exports[0]).as_posix(): path.read_bytes()
-                        for path in sorted(exports[0].rglob("*"))
-                        if path.is_file()
-                    }
-                    second_files = {
-                        path.relative_to(exports[1]).as_posix(): path.read_bytes()
-                        for path in sorted(exports[1].rglob("*"))
-                        if path.is_file()
-                    }
-                    self.assertEqual(first_files, second_files)
-                    self.assertEqual(
-                        results[0]["projection_fingerprint"],
-                        results[1]["projection_fingerprint"],
-                    )
-                    self.assertTrue(results[0]["materialization_ok"])
-                    self.assertEqual("complete", results[0]["materialization_status"])
-                    self.assertEqual(audit["status"], results[0]["model_readiness_status"])
-                    self.assertIn(
-                        "content-addressed shard integrity only",
-                        results[0]["generic_claim_boundary"],
-                    )
-                    self.assertIn(
-                        "compiler-owned qualification",
-                        results[0]["claim_boundary"],
-                    )
-
-                    manifest = json.loads(
-                        (exports[0] / "manifest.json").read_text(encoding="utf-8")
-                    )
-                    self.assertEqual(
-                        set(TARGET_SYSTEM_BLUEPRINT_PROJECTION_KINDS),
-                        {row["kind"] for row in manifest["shards"]},
-                    )
-                    identity = self._projection_payload(exports[0], "identity")
-                    providers = self._projection_payload(
-                        exports[0], "provider_evidence"
-                    )
-                    native = self._projection_payload(exports[0], "native_reports")
-                    readiness = self._projection_payload(exports[0], "readiness")
-                    self.assertEqual(
-                        json.loads(descriptor_path.read_text(encoding="utf-8")),
-                        identity["descriptor"],
-                    )
-                    self.assertEqual(
-                        json.loads(frozen_path.read_text(encoding="utf-8")),
-                        providers["frozen_evidence"],
-                    )
-                    self.assertEqual(
-                        json.loads(native_path.read_text(encoding="utf-8")),
-                        native["native_report_set"],
-                    )
-                    self.assertEqual(
-                        audit["fingerprint"],
-                        readiness["qualification_fingerprint"],
-                    )
-                    self.assertEqual(
-                        audit["fingerprint"],
-                        readiness["qualification"]["fingerprint"],
-                    )
-                    self.assertEqual(
-                        audit["readiness_ledger"]["fingerprint"],
-                        readiness["readiness_fingerprint"],
-                    )
-                    self.assertEqual(
-                        "not_run",
-                        readiness["readiness"]["executed_evidence_status"],
-                    )
-                    member_kinds = {
-                        row["member_kind"]
-                        for row in native["native_report_set"]["members"]
-                    }
-                    if target_profile == "software":
-                        self.assertIn("implementation", member_kinds)
-                        self.assertIn(
-                            "typescript:src/order.ts#transition",
-                            {
-                                row["member_id"]
-                                for row in native["native_report_set"]["members"]
-                            },
-                        )
-                    else:
-                        self.assertNotIn("implementation", member_kinds)
-                        self.assertIn("transition", member_kinds)
-
-    def test_target_system_blueprint_export_preserves_blocked_readiness(self):
-        with self.assertRaises(SystemExit):
-            main(["target-system-blueprint-export"])
-        return
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            descriptor, frozen, native = self._target_artifacts("software")
-            blocked_results = (
-                replace(
-                    frozen.provider_results[0],
-                    status="blocked",
-                    findings=("synthetic provider blocker",),
-                ),
-                *frozen.provider_results[1:],
-            )
-            blocked_snapshot = capture_target_system_snapshot(
-                "snapshot:software:blocked",
-                descriptor,
-                frozen.provider_registry,
-                blocked_results,
-            )
-            blocked_frozen = replace(
-                frozen,
-                provider_results=blocked_results,
-                snapshot=blocked_snapshot,
-            )
-            blocked_native = replace(
-                native,
-                frozen_evidence_fingerprint=blocked_frozen.fingerprint,
-            )
-            descriptor_path = self._write_json(
-                root, "blocked-descriptor.json", descriptor.to_dict()
-            )
-            frozen_path = self._write_json(
-                root, "blocked-frozen.json", blocked_frozen.to_dict()
-            )
-            native_path = self._write_json(
-                root, "blocked-native.json", blocked_native.to_dict()
-            )
-            output = root / "blocked-export"
-            command_output = StringIO()
-            with redirect_stdout(command_output):
-                exit_code = main(
-                    self._target_export_cli_args(
-                        descriptor_path,
-                        frozen_path,
-                        native_path,
-                        output,
-                    )
-                )
-            result = json.loads(command_output.getvalue())
-            self.assertEqual(0, exit_code)
-            self.assertTrue(result["materialization_ok"])
-            self.assertEqual("blocked", result["model_readiness_status"])
-            readiness = self._projection_payload(output, "readiness")
-            self.assertEqual("blocked", readiness["model_readiness_status"])
-            self.assertGreater(readiness["gap_count"], 0)
-            self.assertEqual(
-                "blocked",
-                readiness["qualification"]["readiness_ledger"]["status"],
-            )
+    def test_retired_target_system_blueprint_export_route_is_rejected(self):
+        self._assert_retired_compact_route(
+            "target-system-blueprint-export",
+            "--descriptor",
+            "descriptor.json",
+            "--frozen-evidence",
+            "frozen.json",
+            "--native-report-set",
+            "native.json",
+            "--output",
+            "projection",
+        )
 
     def test_target_system_blueprint_export_verification_fails_closed(self):
         descriptor, frozen, native = self._target_artifacts("software")
@@ -816,168 +621,41 @@ class BlueprintCliRouteTests(unittest.TestCase):
                 {finding.code for finding in rebound.findings},
             )
 
-    def test_target_system_blueprint_export_rejects_tamper_missing_and_profile(self):
-        with self.assertRaises(SystemExit):
-            main(["target-system-blueprint-export"])
-        return
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            descriptor, frozen, native = self._target_artifacts("software")
-            descriptor_path, frozen_path, native_path = self._write_target_artifacts(
-                root, "software"
-            )
-
-            tampered_native = json.loads(native_path.read_text(encoding="utf-8"))
-            tampered_native["fingerprint"] = "sha256:" + "0" * 64
-            tampered_path = self._write_json(
-                root, "tampered-native.json", tampered_native
-            )
-            variants = (
-                ("tampered", descriptor_path, frozen_path, tampered_path),
-                (
-                    "missing",
-                    descriptor_path,
-                    frozen_path,
-                    root / "missing-native.json",
-                ),
-                (
-                    "profile",
-                    self._write_json(
-                        root,
-                        "profile-descriptor.json",
-                        replace(
-                            descriptor,
-                            target_profile="non_code_workflow",
-                        ).to_dict(),
-                    ),
-                    frozen_path,
-                    native_path,
-                ),
-            )
-            for name, descriptor_value, frozen_value, native_value in variants:
-                with self.subTest(name=name):
-                    command_output = StringIO()
-                    with redirect_stdout(command_output):
-                        exit_code = main(
-                            self._target_export_cli_args(
-                                descriptor_value,
-                                frozen_value,
-                                native_value,
-                                root / f"rejected-{name}",
-                            )
-                        )
-                    result = json.loads(command_output.getvalue())
-                    self.assertEqual(2, exit_code)
-                    self.assertFalse(result["materialization_ok"])
-                    self.assertEqual("blocked", result["materialization_status"])
-                    self.assertEqual("not_available", result["model_readiness_status"])
-
-            noncanonical_plan = TargetSystemLayerPlan(
-                plan_id="target-system-layer-plan:software:shortened",
-                target_profile="software",
-                layer_ids=frozen.layer_plan.layer_ids[:-1],
-                claim_boundary="Deliberately incomplete plan fixture.",
-            )
-            plan_frozen = replace(frozen, layer_plan=noncanonical_plan)
-            plan_native = replace(
-                native,
-                frozen_evidence_fingerprint=plan_frozen.fingerprint,
-            )
-            plan_frozen_path = self._write_json(
-                root, "plan-frozen.json", plan_frozen.to_dict()
-            )
-            plan_native_path = self._write_json(
-                root, "plan-native.json", plan_native.to_dict()
-            )
-            plan_output = StringIO()
-            with redirect_stdout(plan_output):
-                plan_exit = main(
-                    self._target_export_cli_args(
-                        descriptor_path,
-                        plan_frozen_path,
-                        plan_native_path,
-                        root / "plan-blocked-export",
-                    )
+    def test_retired_target_system_blueprint_export_rejects_legacy_artifacts(self):
+        for arguments in (
+            ("--descriptor", "tampered.json"),
+            ("--frozen-evidence", "missing.json"),
+            ("--native-report-set", "stale.json"),
+            ("--scope", "affected"),
+        ):
+            with self.subTest(arguments=arguments):
+                self._assert_retired_compact_route(
+                    "target-system-blueprint-export", *arguments
                 )
-            plan_result = json.loads(plan_output.getvalue())
-            self.assertEqual(0, plan_exit)
-            self.assertTrue(plan_result["materialization_ok"])
-            self.assertEqual("blocked", plan_result["model_readiness_status"])
 
-    def test_target_system_blueprint_audit_rejects_strict_artifact_tampering(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            descriptor, frozen, native = self._write_target_artifacts(
-                root, "software"
-            )
-            variants = []
-            unexpected = json.loads(native.read_text(encoding="utf-8"))
-            unexpected["downstream_layers"] = [
-                {
-                    "layer": "static_blueprint",
-                    "status": "pass",
-                }
-            ]
-            variants.append(("caller-layer-status", unexpected, "downstream_layers"))
+    def test_retired_target_system_blueprint_audit_rejects_legacy_artifacts(self):
+        for arguments in (
+            ("--status", "pass"),
+            ("--downstream-layer", "static_blueprint:pass"),
+            ("--request", "legacy.json"),
+            ("--scope", "affected"),
+        ):
+            with self.subTest(arguments=arguments):
+                self._assert_retired_compact_route(
+                    "target-system-blueprint-audit", *arguments
+                )
 
-            stale_member = json.loads(native.read_text(encoding="utf-8"))
-            stale_member["members"][0]["status"] = "pass"
-            variants.append(("invalid-native-member-status", stale_member, "status"))
-
-            bad_fingerprint = json.loads(native.read_text(encoding="utf-8"))
-            bad_fingerprint["fingerprint"] = "sha256:" + "0" * 64
-            variants.append(("native-fingerprint-drift", bad_fingerprint, "fingerprint"))
-
-            for name, payload_value, marker in variants:
-                with self.subTest(name=name):
-                    tampered = self._write_json(root, f"{name}.json", payload_value)
-                    output = StringIO()
-                    with redirect_stdout(output):
-                        exit_code = main(
-                            self._target_cli_args(descriptor, frozen, tampered)
-                        )
-                    payload = json.loads(output.getvalue())
-                    self.assertEqual(2, exit_code)
-                    self.assertEqual("invalid", payload["status"])
-                    self.assertIn(marker, payload["findings"][0]["message"])
-
-    def test_target_system_blueprint_audit_has_no_caller_authored_status_route(self):
-        with tempfile.TemporaryDirectory() as directory:
-            descriptor, frozen, native = self._write_target_artifacts(
-                Path(directory), "software"
-            )
-            for forbidden_args in (
-                ("--status", "pass"),
-                ("--downstream-layer", "static_blueprint:pass"),
-                ("--request", "legacy.json"),
-                ("--scope", "affected"),
-            ):
-                with self.subTest(forbidden_args=forbidden_args):
-                    stderr = StringIO()
-                    with redirect_stderr(stderr), self.assertRaises(SystemExit) as caught:
-                        main(
-                            [
-                                *self._target_cli_args(descriptor, frozen, native),
-                                *forbidden_args,
-                            ]
-                        )
-                    self.assertEqual(2, caught.exception.code)
-                    self.assertIn("unrecognized arguments", stderr.getvalue())
-
-    def test_help_distinguishes_provider_neutral_and_python_convenience_routes(self):
-        target_help = StringIO()
-        with redirect_stdout(target_help), self.assertRaises(SystemExit) as target_exit:
-            main(["target-system-blueprint-audit", "--help"])
-        self.assertEqual(0, target_exit.exception.code)
-        self.assertIn("provider-neutral", target_help.getvalue())
-        self.assertIn("strict frozen native artifacts", target_help.getvalue())
-
-        project_help = StringIO()
-        with redirect_stdout(project_help), self.assertRaises(SystemExit) as project_exit:
-            main(["project-blueprint-audit", "--help"])
-        self.assertEqual(0, project_exit.exception.code)
-        self.assertIn("Python-software convenience adapter", project_help.getvalue())
-        self.assertIn("target-system-blueprint-audit", project_help.getvalue())
+    def test_compact_help_exposes_only_current_routes(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main(["--help"])
+        help_text = output.getvalue()
+        self.assertEqual(0, exit_code)
+        self.assertIn("{read,change,release}", help_text)
+        self.assertIn("read (side-effect free)", help_text)
+        self.assertIn("legacy profiles and command names are rejected", help_text)
+        self.assertNotIn("target-system-blueprint-audit", help_text)
+        self.assertNotIn("project-blueprint-audit", help_text)
 
     def _affected_understanding_artifacts(self):
         shard_payloads = {
@@ -1069,204 +747,60 @@ class BlueprintCliRouteTests(unittest.TestCase):
         )
         return projection, index, shard_payloads, dict(objects)
 
-    def test_affected_understanding_cli_is_strict_read_only_and_affected_first(self):
-        projection, index, shards, objects = self._affected_understanding_artifacts()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            index_path = self._write_json(root, "index.json", index.to_dict())
-            shard_path = self._write_json(root, "shards.json", shards)
-            object_path = self._write_json(root, "objects.json", objects)
-            output = StringIO()
-            with patch(
-                "flowguard.project_blueprint.build_project_blueprint",
-                side_effect=AssertionError("whole project builder invoked"),
-            ), patch(
-                "flowguard.target_system_blueprint.project_blueprint_understanding",
-                side_effect=AssertionError("whole summary invoked"),
-            ), redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--index",
-                        str(index_path),
-                        "--shard-store",
-                        str(shard_path),
-                        "--object-store",
-                        str(object_path),
-                        "--affected-id",
-                        "surface:a",
-                        "--json",
-                    ]
-                )
-        payload = json.loads(output.getvalue())
-        self.assertEqual(0, exit_code)
-        self.assertEqual("affected", payload["scope"])
-        self.assertEqual("target:cli", payload["target_system_id"])
-        self.assertEqual("software", payload["target_profile"])
-        self.assertEqual(["surface:a"], payload["affected_ids"])
-        self.assertEqual(
-            ["implementation_inventory", "model_code_test"],
-            [row["layer"] for row in payload["layer_statuses"]],
-        )
-        self.assertEqual("model_code_test", payload["deepest_proven_layer"])
-        self.assertEqual(0, payload["gap_count"])
-        self.assertTrue(payload["implementation_admitted"])
-        projection.to_dict.assert_not_called()
-
-    def test_affected_understanding_cli_batches_seed_ids_and_reuses_store_indexes(self):
-        _projection, index, shards, objects = self._affected_understanding_artifacts()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            index_path = self._write_json(root, "index.json", index.to_dict())
-            shard_path = self._write_json(root, "shards.json", shards)
-            object_path = self._write_json(root, "objects.json", objects)
-            build_contexts = []
-            original_build_index = _JsonObjectStoreLocator._build_index
-
-            def counted_build_index(locator):
-                if locator._offsets is None:
-                    build_contexts.append(locator.context)
-                return original_build_index(locator)
-
-            output = StringIO()
-            with patch.object(
-                _JsonObjectStoreLocator,
-                "_build_index",
-                new=counted_build_index,
-            ), redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--index",
-                        str(index_path),
-                        "--shard-store",
-                        str(shard_path),
-                        "--object-store",
-                        str(object_path),
-                        "--affected-id",
-                        "surface:a",
-                        "--affected-id",
-                        "behavior:a",
-                        "--json",
-                    ]
-                )
-        payload = json.loads(output.getvalue())
-        self.assertEqual(0, exit_code)
-        self.assertEqual(
-            ["behavior:a", "surface:a"],
-            payload["task_context"]["requested_seed_ids"],
-        )
-        self.assertEqual(
-            sorted(
-                [
-                    "affected blueprint shard store",
-                    "affected blueprint object store",
-                ]
-            ),
-            sorted(build_contexts),
-        )
-
-    def test_projection_affected_ids_and_changed_paths_are_merged_before_read(self):
-        fixture_authority = SimpleNamespace(
-            snapshot=SimpleNamespace(
-                fingerprint="sha256:fixture-snapshot",
-                subject_revision="revision:fixture",
-            ),
-            head=SimpleNamespace(
-                fingerprint="sha256:fixture-head",
-                subject_revision="revision:fixture",
-                accepted_revision_set_fingerprint="sha256:fixture-revisions",
-            ),
-            accepted_revision=None,
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            with patch.object(
-                sys.modules[__name__],
-                "load_current_model_authority_state",
-                return_value=fixture_authority,
-            ), patch(
-                "flowguard.model_authority_store.load_current_model_authority_state",
-                return_value=fixture_authority,
-            ):
-                projection_root = self._write_selective_projection_fixture(Path(directory))
-            output = StringIO()
-            with patch(
-                "flowguard.model_authority_store.load_current_model_authority_state",
-                return_value=fixture_authority,
-            ), redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--root",
-                        str(Path.cwd()),
-                        "--projection-root",
-                        str(projection_root),
-                        "--affected-id",
-                        "surface:a",
-                        "--changed-path",
-                        "src/a.py",
-                        "--json",
-                    ]
-                )
-            payload = json.loads(output.getvalue())
-            self.assertEqual(0, exit_code)
-            self.assertEqual(
-                ["surface:a"],
-                payload["task_context"]["requested_seed_ids"],
-            )
-
-            output = StringIO()
-            with patch(
-                "flowguard.model_authority_store.load_current_model_authority_state",
-                return_value=fixture_authority,
-            ), redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--root",
-                        str(Path.cwd()),
-                        "--projection-root",
-                        str(projection_root),
-                        "--affected-id",
-                        "surface:a",
-                        "--changed-path",
-                        "src/not-registered.py",
-                        "--json",
-                    ]
-                )
-            payload = json.loads(output.getvalue())
-        self.assertEqual(2, exit_code)
-        self.assertIn("unknown_change_point", payload["findings"][0]["message"])
-
-    def test_affected_understanding_cli_rejects_unknown_index_fields(self):
-        _projection, index, shards, objects = self._affected_understanding_artifacts()
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            index_payload = index.to_dict()
-            index_payload["fallback_summary"] = "forbidden"
-            index_path = self._write_json(root, "index.json", index_payload)
-            shard_path = self._write_json(root, "shards.json", shards)
-            object_path = self._write_json(root, "objects.json", objects)
-            output = StringIO()
-            with redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--index",
-                        str(index_path),
-                        "--shard-store",
-                        str(shard_path),
-                        "--object-store",
-                        str(object_path),
-                        "--affected-id",
-                        "surface:a",
-                        "--json",
-                    ]
-                )
+    def _assert_retired_affected_understanding_route(self, *arguments: str) -> None:
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main([
+                "affected-blueprint-understanding",
+                *arguments,
+                "--json",
+            ])
         payload = json.loads(output.getvalue())
         self.assertEqual(2, exit_code)
-        self.assertEqual("invalid", payload["status"])
-        self.assertIn("fallback_summary", payload["findings"][0]["message"])
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(
+            "unknown operation: affected-blueprint-understanding",
+            payload["error"],
+        )
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
+    def _assert_retired_compact_route(
+        self, operation: str, *arguments: str
+    ) -> None:
+        """Retired pre-compact routes must fail before any producer starts."""
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main([operation, *arguments, "--json"])
+        payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
+    def test_retired_affected_understanding_cli_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--index", "missing-index.json", "--affected-id", "surface:a"
+        )
+
+    def test_retired_affected_understanding_batch_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--affected-id", "surface:a", "--affected-id", "behavior:a"
+        )
+
+    def test_retired_affected_projection_merge_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--projection-root", "projection", "--changed-path", "src/a.py"
+        )
+
+    def test_retired_affected_index_validation_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--index", "index.json", "--shard-store", "shards.json",
+            "--object-store", "objects.json", "--affected-id", "surface:a",
+        )
 
     def _write_selective_projection_fixture(self, directory: Path) -> Path:
         _projection, index, shard_payloads, objects = self._affected_understanding_artifacts()
@@ -1333,97 +867,20 @@ class BlueprintCliRouteTests(unittest.TestCase):
         write_canonical_blueprint_projection(projection, output)
         return output
 
-    def test_affected_understanding_cli_reads_projection_root_selectively(self):
-        with tempfile.TemporaryDirectory() as directory:
-            projection_root = self._write_selective_projection_fixture(Path(directory))
-            output = StringIO()
-            with patch(
-                "flowguard.implementation_blueprint.load_canonical_blueprint_projection",
-                side_effect=AssertionError("whole projection loader invoked"),
-            ), redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--root",
-                        str(Path.cwd()),
-                        "--projection-root",
-                        str(projection_root),
-                        "--affected-id",
-                        "surface:a",
-                        "--json",
-                    ]
-                )
-            payload = json.loads(output.getvalue())
-        self.assertEqual(0, exit_code)
-        self.assertEqual("affected", payload["scope"])
-        self.assertEqual("surface:a", payload["affected_ids"][0])
-        self.assertEqual(
-            payload["projection"]["authority_snapshot_fingerprint"],
-            load_current_model_authority_state(Path.cwd()).snapshot.fingerprint,
+    def test_retired_affected_projection_reader_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--projection-root", "projection", "--affected-id", "surface:a"
         )
 
-    def test_cli_rejects_caller_snapshot_verified_flag(self):
-        output = StringIO()
-        with redirect_stdout(output):
-            exit_code = main(
-                [
-                    "affected-blueprint-understanding",
-                    "--accepted-snapshot-verified",
-                    "--json",
-                ]
-            )
-
-        payload = json.loads(output.getvalue())
-        self.assertEqual(2, exit_code)
-        self.assertEqual("invalid", payload["status"])
-        self.assertEqual(
-            "caller_snapshot_verification_not_accepted",
-            payload["findings"][0]["code"],
+    def test_retired_affected_snapshot_verification_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--accepted-snapshot-verified", "--affected-id", "surface:a"
         )
-        self.assertEqual(0, payload["producer_count"])
 
-    def test_projection_root_rejects_traversal_and_unknown_entries_without_producer(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            projection_root = self._write_selective_projection_fixture(root)
-            (projection_root / "unexpected.json").write_text("{}", encoding="utf-8")
-            output = StringIO()
-            with redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--root",
-                        str(Path.cwd()),
-                        "--projection-root",
-                        str(projection_root),
-                        "--affected-id",
-                        "surface:a",
-                        "--json",
-                    ]
-                )
-            payload = json.loads(output.getvalue())
-            self.assertEqual(2, exit_code)
-            self.assertEqual(0, payload["producer_count"])
-            self.assertIn("projection_unknown_entry", payload["findings"][0]["message"])
-
-            output = StringIO()
-            with redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "affected-blueprint-understanding",
-                        "--root",
-                        str(Path.cwd()),
-                        "--projection-root",
-                        "..\\outside",
-                        "--affected-id",
-                        "surface:a",
-                        "--json",
-                    ]
-                )
-            payload = json.loads(output.getvalue())
-        self.assertEqual(2, exit_code)
-        self.assertEqual(0, payload["producer_count"])
-        self.assertIn("projection_path_traversal", payload["findings"][0]["message"])
+    def test_retired_affected_projection_path_validation_route_is_rejected(self):
+        self._assert_retired_affected_understanding_route(
+            "--projection-root", "..\\outside", "--affected-id", "surface:a"
+        )
 
     def test_json_object_store_locator_reuses_one_index_and_resets_after_close(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -1529,187 +986,50 @@ class BlueprintCliRouteTests(unittest.TestCase):
             "--json",
         ]
 
-    def test_model_revision_build_loads_exact_native_owner_evidence(self):
-        with tempfile.TemporaryDirectory() as directory:
-            evidence_path = self._write_json(
-                Path(directory), "native-owner.json", self._native_owner_evidence()
-            )
-            report = SimpleNamespace(to_dict=lambda: {"status": "pass"})
-            output = StringIO()
-            with patch(
-                "flowguard.model_revision_builder.build_current_model_revision",
-                return_value=report,
-            ) as build, redirect_stdout(output):
-                exit_code = main(
-                    self._model_revision_args()
-                    + ["--native-owner-evidence", str(evidence_path)]
-                )
-            self.assertEqual(0, exit_code)
-            kwargs = build.call_args.kwargs
-            self.assertIsInstance(
-                kwargs["native_owner_contracts"][0], ValidationOwnerContract
-            )
-            self.assertIsInstance(
-                kwargs["native_owner_receipts"][0], EvidenceReceipt
-            )
-            self.assertIsInstance(
-                kwargs["native_owner_verification_results"][0],
-                ReceiptVerificationResult,
-            )
-            self.assertIsInstance(
-                kwargs["native_owner_verification_results"][0].findings[0],
-                ReceiptFinding,
-            )
-
-    def test_native_owner_evidence_rejects_missing_and_unknown_fields(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            variants = []
-            missing = self._native_owner_evidence()
-            del missing["contracts"][0]["required"]
-            variants.append(("missing", missing, "required"))
-            unknown = self._native_owner_evidence()
-            unknown["verification_results"][0]["findings"][0]["extra"] = True
-            variants.append(("unknown", unknown, "extra"))
-            for name, payload, marker in variants:
-                with self.subTest(name=name):
-                    evidence_path = self._write_json(
-                        root, f"{name}.json", payload
-                    )
-                    output = StringIO()
-                    with patch(
-                        "flowguard.model_revision_builder.build_current_model_revision"
-                    ) as build, redirect_stdout(output):
-                        exit_code = main(
-                            self._model_revision_args()
-                            + ["--native-owner-evidence", str(evidence_path)]
-                        )
-                    result = json.loads(output.getvalue())
-                    self.assertEqual(1, exit_code)
-                    self.assertEqual("blocked", result["status"])
-                    self.assertIn(marker, result["error"])
-                    build.assert_not_called()
-
-    def test_model_revision_build_without_leaf_evidence_passes_empty_inputs(self):
-        report = SimpleNamespace(to_dict=lambda: {"status": "incomplete"})
-        output = StringIO()
-        with patch(
-            "flowguard.model_revision_builder.build_current_model_revision",
-            return_value=report,
-        ) as build, redirect_stdout(output):
-            exit_code = main(self._model_revision_args())
-        self.assertEqual(0, exit_code)
-        self.assertEqual("incomplete", json.loads(output.getvalue())["status"])
-        self.assertEqual((), build.call_args.kwargs["native_owner_contracts"])
-        self.assertEqual((), build.call_args.kwargs["native_owner_receipts"])
-        self.assertEqual(
-            (), build.call_args.kwargs["native_owner_verification_results"]
+    def test_retired_model_revision_build_route_is_rejected(self):
+        self._assert_retired_compact_route(
+            "model-revision-build",
+            "--model-parent-receipt",
+            "parent.json",
+            "--revision-set-id",
+            "revision:cli-evidence",
+            "--task-id",
+            "task:cli-evidence",
+            "--snapshot-id",
+            "snapshot-cli-evidence",
         )
 
-    def test_model_revision_build_loads_exact_refinement_transitions(self):
-        transition = EffectiveIntentTransition(
-            prior_contribution_id="intent:current:alpha",
-            prior_contribution_fingerprint="sha256:" + "a" * 64,
-            action="retain",
-            replacement_contribution_ids=(),
-            reason=(
-                "The exact current alpha contribution remains active in this "
-                "bounded refinement."
-            ),
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            intent_path = self._write_json(
-                Path(directory),
-                "intent.json",
-                {
-                    "contributions": [],
-                    "dispositions": [],
-                    "effective_intent_transitions": [transition.to_dict()],
-                },
-            )
-            report = SimpleNamespace(to_dict=lambda: {"status": "incomplete"})
-            output = StringIO()
-            with patch(
-                "flowguard.model_revision_builder.build_current_model_revision",
-                return_value=report,
-            ) as build, redirect_stdout(output):
-                exit_code = main(
-                    self._model_revision_args()
-                    + ["--intent-inventory", str(intent_path)]
-                )
-
-        self.assertEqual(0, exit_code)
-        self.assertEqual(
-            (transition,),
-            build.call_args.kwargs["effective_intent_transitions"],
+    def test_retired_model_revision_build_rejects_native_owner_arguments(self):
+        self._assert_retired_compact_route(
+            "model-revision-build",
+            "--native-owner-evidence",
+            "native-owner.json",
         )
 
-    def test_model_revision_build_rejects_pre_v5_intent_payload_shape(self):
-        with tempfile.TemporaryDirectory() as directory:
-            intent_path = self._write_json(
-                Path(directory),
-                "old-intent.json",
-                {"contributions": [], "dispositions": []},
-            )
-            output = StringIO()
-            with patch(
-                "flowguard.model_revision_builder.build_current_model_revision"
-            ) as build, redirect_stdout(output):
-                exit_code = main(
-                    self._model_revision_args()
-                    + ["--intent-inventory", str(intent_path)]
-                )
+    def test_retired_model_revision_build_rejects_without_leaf_evidence(self):
+        self._assert_retired_compact_route("model-revision-build")
 
-        payload = json.loads(output.getvalue())
-        self.assertEqual(1, exit_code)
-        self.assertEqual("blocked", payload["status"])
-        self.assertIn("effective_intent_transitions", payload["error"])
-        build.assert_not_called()
+    def test_retired_model_revision_build_rejects_intent_inventory(self):
+        self._assert_retired_compact_route(
+            "model-revision-build",
+            "--intent-inventory",
+            "intent.json",
+        )
 
-    def test_compact_self_commands_delegate_without_full_serialization(self):
-        bundle = SimpleNamespace(ok=True)
-        self_payload = {"projection_kind": "self_qualification", "ok": True}
-        output = StringIO()
-        with patch(
-            "flowguard.self_blueprint.build_flowguard_self_blueprint",
-            return_value=bundle,
-        ), patch(
-            "flowguard.blueprint_compact_projection.BlueprintCompactProjection.self_qualification",
-            return_value=self_payload,
-        ) as project_self, redirect_stdout(output):
-            exit_code = main(
-                ["flowguard-self-blueprint-check", "--compact", "--json"]
-            )
-        self.assertEqual(0, exit_code)
-        self.assertEqual(self_payload, json.loads(output.getvalue()))
-        project_self.assert_called_once_with(bundle)
+    def test_retired_model_revision_build_rejects_legacy_intent_shape(self):
+        self._assert_retired_compact_route(
+            "model-revision-build",
+            "--intent-inventory",
+            "old-intent.json",
+        )
 
-        class ReductionReport:
-            ok = True
-
-            def to_dict(self):
-                raise AssertionError("compact CLI must not serialize the full review")
-
-        reduction = ReductionReport()
-        reduction_payload = {"projection_kind": "reduction", "ok": True}
-        output = StringIO()
-        with patch(
-            "flowguard.self_architecture_reduction.review_flowguard_self_architecture_reduction",
-            return_value=reduction,
-        ), patch(
-            "flowguard.blueprint_compact_projection.BlueprintCompactProjection.reduction",
-            return_value=reduction_payload,
-        ) as project_reduction, redirect_stdout(output):
-            exit_code = main(
-                [
-                    "flowguard-self-architecture-reduction-review",
-                    "--compact",
-                    "--json",
-                ]
-            )
-        self.assertEqual(0, exit_code)
-        self.assertEqual(reduction_payload, json.loads(output.getvalue()))
-        project_reduction.assert_called_once_with(reduction)
+    def test_retired_compact_self_commands_are_rejected(self):
+        self._assert_retired_compact_route(
+            "flowguard-self-blueprint-check", "--compact"
+        )
+        self._assert_retired_compact_route(
+            "flowguard-self-architecture-reduction-review", "--compact"
+        )
 
 if __name__ == "__main__":
     unittest.main()

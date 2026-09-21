@@ -1,170 +1,161 @@
-# FlowGuard public-route execution contract
+# FlowGuard lifecycle execution contract
 
-This document is the shared AI-facing operating contract for the fifteen
-public FlowGuard routes. It does not add a route, a checker, a model
-authority, or a second receipt store. The executable ownership source remains
-`flowguard.self_maintenance.PUBLIC_ROUTE_ADMISSION` together with
-`default_flowguard_route_profiles()`; this document makes the same boundary
-and execution rules visible before a route-specific protocol is loaded.
+FlowGuard has one public skill and exactly three public operations: `read`,
+`change`, and `release`. This document is the shared execution contract for
+those operations. It does not add a route, checker, model authority, or
+receipt store. The current public boundary is declared by the root skill,
+`references/route_index.md`, and the current consumer release manifest.
 
-## 1. Route selection and shared context
+## 1. Subject and operation selection
 
-The first read is always `references/route_index.md`. Select exactly one
-public owner from the structured positive and forbidden conditions in the
-current `RouteProfile`. A zero-match or multi-match result is respectively
-`no_match` or `conflict`; keyword similarity, declaration order, a caller's
-assertion, or a broad “run every route” request cannot resolve it.
+Read `references/route_index.md` before selecting a subject. Select exactly
+one domain subject from that index and exactly one lifecycle operation from
+`read`, `change`, or `release`. A zero-match subject is `no_match`; conflicting
+facts are `conflict`. Keyword similarity, declaration order, a caller's
+assertion, or a request to run everything cannot resolve the selection.
+
+Domain folders under `references/domains/` are on-demand reference material
+inside the single public skill. They are not discoverable skills, aliases, or
+forwarding entrypoints. After a subject is selected, read its `SKILL.md` and
+the first protocol named by its local material routing. Load deeper material
+only when the selected protocol names a concrete trigger.
+
+The public operation boundary is fixed:
+
+| Operation | Meaning | Side effects |
+| --- | --- | --- |
+| `read` | Read the accepted current model, selected domain material, and currentness evidence. | No execution, mutation, acceptance, installation, or publication. |
+| `change` | Freeze the declared request and affected owners, execute the required native checks, and accept one current result through the compare-and-swap boundary. | Only the declared change and its owned evidence may be written. |
+| `release` | Verify the declared release scope, reuse exact valid evidence, fill missing release obligations, and verify the actual projection. | Only the declared release projection may be activated. |
+
+Every other historical command, profile, or mode is rejected as an unknown
+operation. There is no compatibility alias, fallback route, alternate reader,
+or alternate automatic success path.
+
+## 2. Shared context and ownership
 
 After selection, pass one immutable `RouteContext` envelope to the selected
-owner. The envelope contains only the current task boundary and the fields
-needed by the route:
+domain owner. It contains only the current task boundary and the fields needed
+for that operation:
 
-- `task_facts` and `task_coverage_demand`, including request spans and
-  preserved unknown/contradictory/scoped facts;
-- project root, accepted observed-model snapshot, accepted revision/head, the
-  exact current owner denominator and bindings, and affected ids;
-- claim boundary, execution profile (`light|affected|full`), and modeling mode
-  (`read_only_audit|model_first_change|model_maintenance|layered_boundary_proof`);
-- active OpenSpec change ids and task-scope status when the work is a governed
-  change, plus toolchain/environment identity and the private evidence root;
-- current source/contract/check fingerprints and the existing receipt refs
-  required by this owner.
+- task facts and coverage demand, including preserved unknown, contradictory,
+  and scoped facts;
+- the real project root, accepted observed-model snapshot, accepted
+  revision/head, exact current owner denominator, bindings, and affected ids;
+- the claim boundary and selected subject, plus the active OpenSpec change and
+  task status when the work is governed;
+- current source, contract, check, toolchain, and environment fingerprints;
+- the private evidence root and exact receipt references required by the
+  selected owner.
 
-The context is shared metadata, not shared semantic ownership. A route may
-consume a sibling's exact receipt or typed handoff, but it must not copy the
-sibling's semantics, invent a child receipt, or turn a related-plane row into
-an instruction. Ordinary work reads only the affected model/evidence
+The context is shared metadata, not shared semantic ownership. A domain owner
+may consume an exact sibling receipt or typed handoff, but it must not copy
+the sibling's semantics, invent a child receipt, or turn a related-plane row
+into an instruction. Ordinary work reads only the affected model/evidence
 neighborhood. Whole-target materialization requires an explicit whole-system,
-release, integration, export, or self-qualification fact.
-
-`light` is the default for read-only interpretation and currentness checks;
-`affected` is the default for an ordinary change; `full` is reserved for an
-explicit whole-system, integration, or release claim after source, model,
-OpenSpec scope, owner DAG, formal/shadow/installed projections, and reverse
-semantic inputs are frozen. Selecting a specialist route never upgrades its
-execution profile.
-
-## 2. Lazy reference loading
-
-Reference loading is staged and bounded:
-
-1. Before selection, load only `route_index.md`.
-2. After one route is selected, load that route's `SKILL.md` and the first
-   reference named by its `Local Material Routing`/profile row.
-3. Load a conditional reference only when the named trigger in the row is
-   present (for example, a transition cell, reuse request, long check, release
-   gate, partition, reattachment, or payload boundary).
-4. Load a downstream route only after the current owner emits its typed
-   handoff. Do not preload all fifteen skills, all protocol files, all model
-   shards, or all receipt trees.
-
-Lazy loading is an input-cost rule, not an evidence shortcut. A skipped
-conditional reference remains visible as `not_triggered`; a required but
-unavailable reference is `blocked`.
+integration, export, self-qualification, or release fact.
 
 ## 3. Producer, reuse, and terminal rules
 
-Every selected owner classifies its declared work before starting a process:
+Every operation classifies its declared work before starting a process:
 
 `execute | reuse_current | blocked | not_run`.
 
-- A plan-only/read-only route does not reserve a lease, create a run
-  directory, write a receipt, activate a pointer, install a projection, or
-  launch a model/test/heavy producer.
-- Before `execute`, freeze route, unit/member, task and coverage identities,
-  source/model/contract/check/toolchain/environment identities, claim boundary,
-  owner inputs, dependencies, and evidence root. An unmapped or ambiguous
-  component stops before any producer and is not converted to run-all.
+- A `read` operation does not reserve a lease, create a run directory, write a
+  receipt, activate a pointer, install a projection, or launch a model/test or
+  heavy producer.
+- Before `execute`, freeze operation, subject, unit/member, task and coverage
+  identities, source/model/contract/check/toolchain/environment identities,
+  claim boundary, owner inputs, dependencies, and evidence root. An unmapped
+  or ambiguous component stops before any producer and is not converted to
+  run-all.
 - `reuse_current` is legal only for an exact current terminal receipt in the
-  same declared unit and route boundary with identical subject, owner,
+  same declared unit and operation boundary with identical subject, owner,
   request, inputs, dependencies, producer, toolchain, environment, policy,
-  covered obligations, and required child receipts. Reuse performs verification
-  and composition only: producer count remains zero and no new run directory,
-  lease, or receipt is created.
-- A parent/aggregate receipt cannot be relabeled as an independently executed
-  leaf receipt. Each route preserves its native evidence owner.
-- A routine local functional cycle permits one bounded producer observation and
-  then closes; an exact-current parent is read-only and is never reopened just
-  to refresh a pointer. A separate formal qualification or release projection
-  is admitted only when explicitly requested, with its own frozen inputs and
-  one owner. Output paths, timestamps, log locations, display projections, and
-  timeout policy changes do not reopen functional evidence.
-- After timeout, cancellation, or interruption, the whole descendant process
-  tree must be confirmed absent before evidence can be accepted or another
-  owner can start. Progress, PID, log text, old receipt, or a checkbox is not a
-  terminal.
+  covered obligations, and required child receipts. Reuse verifies and
+  composes only: producer count remains zero and no new run directory, lease,
+  or receipt is created.
+- A parent or aggregate receipt cannot be relabeled as an independently
+  executed leaf receipt. Each owner preserves its native evidence authority.
+- A routine functional cycle permits one bounded producer observation and then
+  closes. Formal qualification or release projection is admitted only when
+  explicitly requested, with its own frozen inputs and one owner.
+- After timeout, cancellation, or interruption, confirm the entire descendant
+  process tree is absent before accepting evidence or starting another owner.
+  Progress, a PID, log text, an old receipt, or a checkbox is not a terminal.
 
-Working evidence is allowed to remain under the governed private work root
-while an invocation is in progress or under review. Such temporary material is
-explicitly non-authoritative and release-excluded; publication/authority
-projections must omit it, and cleanup is a separate explicit, gated action.
-Route admission must not force immediate deletion or move evidence outside the
-controlled work root merely to satisfy package boundaries.
+Universal stop conditions return a typed reason and stop at the current owner.
+Do not retry by changing output paths, creating a new epoch, loading a
+fallback route, or starting a broader operation:
 
-The following are universal stop conditions. Return the typed reason and stop
-at the current owner; do not retry by changing output paths, creating a new
-epoch, loading a fallback route, or starting full:
-
-- source/model/contract/toolchain/environment drift after freeze;
+- source, model, contract, toolchain, or environment drift after freeze;
 - missing, stale, foreign, malformed, duplicate, ambiguous, in-flight, or
   cleanup-unconfirmed evidence;
-- missing owner, unknown component, unresolved reverse binding, or scope that
-  exceeds the admitted route/claim boundary;
-- skipped/not-run/blocked required members under a declared-complete claim;
+- missing owner, unknown component, unresolved reverse binding, or a scope that
+  exceeds the selected subject or claim boundary;
+- skipped, not-run, or blocked required members under a declared-complete
+  claim;
 - no current parent for a `--reuse-only` request;
-- a symlink-capability failure (`WinError 1314` or equivalent) for the gate
-  that requires a real reparse-point probe;
+- a real reparse-point gate that cannot be probed because of `WinError 1314` or
+  an equivalent capability failure;
 - active OpenSpec scope drift or an unavailable required external owner.
 
-## 4. Governed acceptance alignment
+Working evidence may remain under the governed private work root while an
+invocation is in progress or under review. It is non-authoritative and
+release-excluded until the declared projection verifies it. Cleanup is a
+separate explicit, gated action.
 
-When a task has OpenSpec scope, read its active task artifacts directly; this
-shared contract deliberately does not embed historical change IDs or become a
-second task authority. On a symlink-capable runner, a governed final gate may
-reserve at most one producer and then one same-parent `--reuse-only` check.
-If the capability probe returns `WinError 1314`, stop before either run.
-External CI, provider, UI, install, release, and remote operations stay typed `blocked`/`not_run`
-unless separately admitted. A current receipt and the
-task's own completion evidence are still required; this document never closes
-an OpenSpec task by itself.
+## 4. OpenSpec and external boundaries
 
-## 5. Fifteen public route rows
+When a task has OpenSpec scope, read its active task artifacts directly. This
+contract does not embed historical change IDs or become a second task
+authority. On a symlink-capable runner, a governed final gate may reserve at
+most one producer and then one same-parent `--reuse-only` check. If the
+capability probe returns `WinError 1314`, stop before either run.
 
-The first two columns mirror the executable route profile's trigger and
-minimal-input boundary. The reference column is lazy: it is not loaded until
-the row's `load trigger` is true. The producer column names the route-native
-owner; the universal producer/reuse/stop rules above always apply.
+External CI, provider, UI, installation, release, and remote operations remain
+typed `blocked`/`not_run` unless separately admitted. A current receipt and
+the task's own completion evidence are still required; this document never
+closes an OpenSpec task by itself.
 
-| Public route | Trigger boundary | Shared context required | Lazy reference and load trigger | Native producer / reuse / route-specific stop |
-| --- | --- | --- | --- | --- |
-| `model_first_function_flow` | Ordinary behavior/state modeling, unclear owner, or cross-route coordination; exclude trivial work and a clear satellite owner. | Task intent, observable behavior boundary, existing model evidence, current owner bindings. | `references/modeling_protocol.md` after kernel selection; deeper core/evidence protocols only for the selected model/check. | Model-first check/maturation owner; reuse exact current model/evidence identity. Stop on unresolved owner, missing finite boundary, or missing protected failure/oracle. |
-| `existing_model_preflight` | Existing modeled system needs current ownership lookup; exclude greenfield without model context. | Project root, candidate change boundary, accepted snapshot/revision, affected owner denominator. | `references/existing_model_preflight_protocol.md` after route selection. | Read-only authority/owner lookup; reuse exact snapshot/path-quality/owner closure. Stop on stale authority, ambiguous duplicate boundary, or missing binding; hand implementation to the selected downstream owner. |
-| `behavior_commitment_ledger` | Broad external promises or commitment coverage must be inventoried; exclude helper-only inventories. | Change mode, bounded source surfaces, commitments, owner models, path sensitivity. | `references/behavior_commitment_ledger_protocol.md` after route selection. | Canonical live source-identity and ledger producer; reuse exact source inventory/PPA/ledger fingerprints. Stop on unsafe/unanchored globs, duplicate members, stale source, owner overlap, or PPA gap. |
-| `architecture_reduction` | An existing modeled implementation may contract or retire without behavior change; exclude greenfield structure and unproved change. | Observable contract, candidate reductions, current callers/consumers/tests, model/admission identity. | `references/architecture_reduction_protocol.md` only for an explicit contraction, retirement, or full audit. | Finite proof-batch producer; reuse one exact current aggregate proof. Stop on missing necessity/equivalence/caller/facade/replacement evidence or an unresolved candidate; never refactor directly. |
-| `code_structure_recommendation` | A model must drive pre-code module/function/facade/adapter/field/effect ownership; exclude existing large refactors. | FunctionBlocks, state/field/effect owners, model and admission fingerprints, public entrypoints. | `references/code_structure_recommendation_protocol.md` after admission. | Recommendation projection only; reuse exact model/admission identity. Stop on omitted/duplicate element, reverse-obligation gap, or identity drift; send existing-code work to StructureMesh. |
-| `contract_exhaustion_mesh` | A declared finite boundary needs canonical bad cases, combinations, oracles, shards, or receipts; exclude open-ended discovery. | Contract dimensions, coverage universe, seeds, oracles, model axes, interaction groups, declaring owner. | `references/contract_exhaustion_mesh_protocol.md` after positive admission. | Finite case/oracle/shard producer; reuse exact universe, seed, checker, and receipt identities. Stop on unbounded boundary, missing actionable oracle/feedback, stale universe, or missing consumer handoff; never claim all bugs are covered. |
-| `development_process_flow` | Staged work, risk-admitted agent-workflow ordering, freshness, sync, install, release, or final process claim; exclude one specialist semantic check. Multiple skills/tools or an external-effect label alone do not admit the internal `agent_workflow` mode; simple read-only, single-owner, single-tool, targeted-test work is `not_triggered`. | Process actions, artifacts, peers, evidence, owner DAG, OpenSpec scope, toolchain/environment, and the explicit admission facts. | `references/development_process_flow_protocol.md` after route selection; `references/agent_workflow_protocol.md` only for explicit/cross-owner/shared-write/post-validation-invalidating/route-change/multi-owner-irreversible facts; `references/distribution_release_protocol.md` only for distribution/release identity. | Shared planner/readiness/process producer; reuse exact frozen plan/readiness/terminal parent. Stop on drift, unknown owner, missing sibling evidence, unauthorized external side effect, or final claim before freeze. |
-| `field_lifecycle_mesh` | Fields/schema keys/config/prompt/payload/persisted attributes are added, removed, renamed, migrated, replaced, externalized, preserved, or audited; exclude no field change. | Field boundary, field rows/groups, readers/writers, projections, old-field disposition. | `references/field_lifecycle_mesh_protocol.md` after admission. | Field inventory/projection producer; reuse exact live field inventory and lifecycle fingerprints. Stop on missing field, reader/writer, projection, or old-field disposition; hand behavior cases to ContractExhaustion/MTA/TestMesh. |
-| `model_mesh_maintenance` | Affected topology crosses model boundaries, parent/child governance changes, child evidence is stale, or a whole-flow mesh claim is requested; count alone is not a trigger. | Parent/children, partition items, affected relations, coverage receipts, required child receipts. | `references/model_mesh_protocol.md` after admission; partition/reattachment/closure refs only for their named triggers. | Parent/child topology and reattachment producer; reuse exact current parent/child receipts and topology fingerprint. Stop on overlap, stale child, missing direct-child receipt, or parent that relabels a child result. |
-| `model_miss_review` | Current runtime/test/replay/UI evidence exposes a missed behavior class or needs generalized repair; exclude no observed failure. | Concrete miss, root cause evidence, commitment/owner, same-class bad case and combination ids. | `references/model_miss_protocol.md` after admission. | Target-aware replay/same-class case producer; reuse only exact current miss/class evidence, never a point-green result. Stop on absent concrete failure, unsupported cause, unknown old-path disposition, or missing owner-code/test binding. |
-| `model_test_alignment` | Model obligations, owner code contracts, and tests need direct comparison; exclude test hierarchy alone. | Model obligations, current-intent bindings, code contracts, exact test/native members, oracles, case ids. | `references/model_test_alignment_protocol.md` after admission; transition/field/payload refs only for their named boundaries. | Binding/alignment producer; reuse exact model/code/test/oracle fingerprints and leaf receipts. Stop on opaque/stale/skipped/cross-owner evidence, missing oracle, orphan helper, duplicate binding, or parent-only receipt. |
-| `model_topology_hazard_review` | A locally green topology needs anchored future-use hazard review before broad confidence; exclude an observed runtime failure. | Usage intent, topology digest, business path, hazard candidates, BCL/preflight owner anchors. | `references/topology_hazard_protocol.md` after route selection. | Bounded topology hazard review; reuse exact topology/usage-intent digest. Stop anchored hazards lacking current owner/evidence; unanchored concerns remain observation-only and do not trigger a producer. |
-| `structure_mesh_maintenance` | Existing large module/package/API/facade/config/plugin surface needs a behavior-preserving split; exclude pre-code planning. | Parent module, partition items, public entrypoints, facade/consumer/dependency/config inventory. | `references/structure_mesh_protocol.md` after admission. | Structure/parity evidence producer; reuse exact inventory/facade/equivalence fingerprints. Stop on omitted surface, missing facade/owner/cycle/config/parity evidence, or stale ArchitectureReduction handoff. |
-| `test_mesh_maintenance` | Validation is large, slow, stale, skipped, background, release-only, or requires parent/child evidence; exclude semantic alignment alone. | Parent claims, child suites/scripts, required cases/shards, freshness evidence, evidence owners. | `references/test_mesh_protocol.md` after admission; reuse/long-check/release refs only for their named triggers. | Child test/evidence producer; reuse only an exact current `TestResultReuseTicket`/`ProofArtifactRef` in the same boundary. Stop on stale/foreign/malformed/in-flight evidence, hidden skips, incomplete accounting, or missing child owner. |
-| `ui_flow_structure` | UI states, journeys, controls, hierarchy, operability, product language, or runnable surface evidence is in scope; exclude non-UI work. | UI states, controls, journeys, surface inventory, stable ids/fingerprints, task/state/recovery evidence. | `references/ui_flow_structure_protocol.md` after route selection. | Surface/journey/evidence producer; reuse exact surface inventory and runnable evidence fingerprints. Stop on unclassified/internal render, unmapped/conflicting disposition, missing item fingerprint, stale source/recovery evidence, or blindspot. |
+## 5. Domain reference map
 
-## 6. Handoff and completion vocabulary
+The following subjects are internal reference domains selected through the
+single public skill. They do not create additional public operations or public
+skill entries.
 
-The selected route owns its domain decision. A typed handoff names the next
-public owner and the exact affected ids; it does not run that owner eagerly.
-`not_triggered` means the named conditional reference or downstream route was
+| Subject | Reference directory | Typical trigger |
+| --- | --- | --- |
+| `existing-model` | `references/domains/existing-model-preflight/` | Existing model ownership or currentness lookup. |
+| `behavior-commitment` | `references/domains/behavior-commitment-ledger/` | External promise/source coverage and one owner. |
+| `architecture-reduction` | `references/domains/architecture-reduction/` | Behavior-preserving implementation reduction or retirement proof. |
+| `code-structure` | `references/domains/code-structure-recommendation/` | Model-driven pre-code ownership. |
+| `contract-exhaustion` | `references/domains/contract-exhaustion-mesh/` | Declared finite cases, combinations, oracles, and shards. |
+| `development-process` | `references/domains/development-process-flow/` | Staging, freshness, synchronization, installation, or release. |
+| `field-lifecycle` | `references/domains/field-lifecycle-mesh/` | Field, schema, prompt, payload, or persisted-attribute change. |
+| `model-mesh` | `references/domains/model-mesh/` | Cross-model topology, parent/child evidence, or stale relation. |
+| `model-miss` | `references/domains/model-miss-review/` | Concrete runtime or test miss after model confidence. |
+| `model-test` | `references/domains/model-test-alignment/` | Model obligations, code contracts, and tests need comparison. |
+| `topology-hazard` | `references/domains/model-topology-hazard-review/` | Anchored future-use hazard before broad confidence. |
+| `structure-mesh` | `references/domains/structure-mesh/` | Existing public surface needs parity-aware partitioning. |
+| `test-mesh` | `references/domains/test-mesh/` | Large, stale, layered, or release-only validation. |
+| `ui-flow` | `references/domains/ui-flow-structure/` | UI states, journeys, controls, and operability. |
+
+If no domain subject is clear, keep the subject as `model-first` and use the
+core references for ordinary behavior/state modeling or cross-subject work.
+
+## 6. Completion vocabulary
+
+The selected domain owner owns its decision. A typed handoff names the next
+owner and exact affected ids; it does not execute that owner eagerly.
+`not_triggered` means a named conditional reference or downstream domain was
 not required by current facts. `not_run` means it was required by a broader
 claim but intentionally not executed, such as external CI/provider/release
-work in local completion task 9.3. `blocked` means a required gate prevented
-execution. None of these states may be silently converted to pass by a parent
-aggregate or by re-reading an old receipt.
+work in a local task. `blocked` means a required gate prevented execution.
+None of these states may be silently converted to pass by a parent aggregate
+or by re-reading an old receipt.
 
-The final report must keep route evidence, execution profile, model currentness,
-receipt reuse, external scope, and release/install identity separate. A route
-contract or a static route-doc test proves only documentation alignment; it
-does not create a model/test pass or close an OpenSpec task.
+The final report keeps domain evidence, operation, model currentness, receipt
+reuse, external scope, and release/install identity separate. A route contract
+or static documentation test proves only documentation alignment; it does not
+create a model/test pass or close an OpenSpec task.

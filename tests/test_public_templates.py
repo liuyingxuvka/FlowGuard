@@ -46,6 +46,12 @@ from flowguard.templates import (
     workflow_step_contracts_template_files,
     write_template_files,
 )
+from flowguard.risk_templates import (
+    TemplateHarvestReview,
+    harvest_risk_template_candidate,
+    review_template_harvest_closure,
+    search_risk_templates,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -803,114 +809,75 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("schema_version", combined)
 
     def test_template_cli_prints_and_writes_new_templates(self):
+        factories = {
+            factory.__name__.removesuffix("_template_files"): factory
+            for factory in PUBLIC_TEMPLATE_FACTORIES
+        }
+        factories["project_adoption"] = project_adoption_template_files
+        factories["risk_intent_check_plan"] = risk_intent_template_files
+        factories["model_miss_review_full"] = model_miss_review_full_template_files
+        factories["model_test_alignment_full"] = model_test_alignment_full_template_files
+        factories["ui_flow_structure_full"] = ui_flow_structure_full_template_files
+        factories["test_mesh"] = mesh_template_files_factory
+        factories["model_topology_hazard_review"] = topology_hazard_template_files
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
-            help_code, help_stdout, help_stderr = self.run_cli([command, "--help"])
-            self.assertEqual(0, help_code, help_stderr)
-            self.assertIn("--output", help_stdout)
-            self.assertIn("--force", help_stdout)
-
-            printed_code, printed_stdout, printed_stderr = self.run_cli([command])
-            self.assertEqual(0, printed_code, printed_stderr)
-            data = json.loads(printed_stdout)
-            self.assertEqual(template_name, data["template"])
-            self.assertTrue(data["files"])
+            self.assertIn(template_name, factories, command)
+            files = factories[template_name]()
+            self.assertTrue(files, command)
 
             with tempfile.TemporaryDirectory() as directory:
-                written_code, written_stdout, written_stderr = self.run_cli(
-                    [command, "--output", directory]
-                )
-                self.assertEqual(0, written_code, written_stderr)
-                report = json.loads(written_stdout)
-                self.assertEqual("flowguard_template_write", report["artifact_type"])
-                self.assertEqual(template_name, report["template"])
+                write_template_files(directory, files)
+                written_paths = tuple(Path(directory).rglob("*"))
+                self.assertTrue(written_paths, command)
+
+        # These former CLI names are deliberately outside the compact public
+        # lifecycle. They must reject without invoking a producer.
+        code, stdout, _stderr = self.run_cli(["project-template"])
+        self.assertEqual(2, code)
+        self.assertEqual("blocked", json.loads(stdout)["status"])
 
     def test_risk_template_cli_searches_and_harvests(self):
-        search = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "flowguard",
-                "risk-template-search",
-                "completion evidence",
-                "--no-local",
-                "--json",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
+        search_report = search_risk_templates(
+            "completion evidence",
+            include_local=False,
         )
-        self.assertEqual(0, search.returncode, search.stderr)
-        search_report = json.loads(search.stdout)
-        self.assertEqual(["public"], search_report["searched_layers"])
-        self.assertEqual("completion_requires_evidence", search_report["matches"][0]["template"]["template_id"])
+        self.assertEqual(("public",), search_report.searched_layers)
+        self.assertEqual(
+            "completion_requires_evidence",
+            search_report.matches[0].template.template_id,
+        )
 
-        harvest = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "flowguard",
-                "risk-template-harvest",
-                "--template-id",
-                "cli_sample",
-                "--title",
-                "CLI sample",
-                "--summary",
-                "CLI sample.",
-                "--protected-error-class",
-                "premature_completion",
-                "--required-state",
-                "completed",
-                "--required-evidence",
-                "completion_receipt",
-                "--known-bad-case",
-                "ack_only",
-                "--known-bad-proof",
-                json.dumps(
-                    {
-                        "case_id": "ack_only",
-                        "protected_error_class": "premature_completion",
-                        "method": "broken_workflow_variant",
-                        "observed_status": "failed",
-                        "observed_failure": "ack-only completion was rejected",
-                        "evidence_id": "cli:known-bad",
-                    }
-                ),
-                "--no-write",
-                "--json",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
+        harvest_report = harvest_risk_template_candidate(
+            template_id="cli_sample",
+            title="CLI sample",
+            summary="CLI sample.",
+            protected_error_classes=("premature_completion",),
+            required_state=("completed",),
+            required_evidence=("completion_receipt",),
+            known_bad_cases=("ack_only",),
+            known_bad_proofs=(
+                {
+                    "case_id": "ack_only",
+                    "protected_error_class": "premature_completion",
+                    "method": "broken_workflow_variant",
+                    "observed_status": "failed",
+                    "observed_failure": "ack-only completion was rejected",
+                    "evidence_id": "cli:known-bad",
+                },
+            ),
+            write=False,
         )
-        self.assertEqual(0, harvest.returncode, harvest.stderr)
-        harvest_report = json.loads(harvest.stdout)
-        self.assertTrue(harvest_report["ok"])
-        self.assertEqual("candidate_ready", harvest_report["status"])
-        self.assertEqual("", harvest_report["path"])
+        self.assertTrue(harvest_report.ok)
+        self.assertEqual("candidate_ready", harvest_report.status)
+        self.assertEqual("", harvest_report.path)
 
-        closure = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "flowguard",
-                "risk-template-harvest-review",
-                "--disposition",
-                "duplicate_linked",
-                "--linked-template-id",
-                "completion_requires_evidence",
-                "--json",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
+        closure = review_template_harvest_closure(
+            TemplateHarvestReview(
+                disposition="duplicate_linked",
+                linked_template_ids=("completion_requires_evidence",),
+            )
         )
-        self.assertEqual(0, closure.returncode, closure.stderr)
-        closure_report = json.loads(closure.stdout)
-        self.assertEqual("duplicate_linked", closure_report["review"]["disposition"])
-        self.assertTrue(closure_report["report"]["ok"])
+        self.assertTrue(closure.ok)
 
     def test_public_templates_do_not_contain_local_project_markers(self):
         home_name = Path.home().name

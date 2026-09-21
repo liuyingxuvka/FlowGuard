@@ -98,12 +98,12 @@ class SkillInstallerCommandTests(unittest.TestCase):
 
     def test_cli_check_reports_extra_file(self) -> None:
         self._run("install", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
-        extra = self.codex_home / "skills" / "flowguard-test-mesh" / "legacy.txt"
+        extra = self.codex_home / "skills" / "flowguard" / "legacy.txt"
         extra.write_text("obsolete", encoding="utf-8")
         completed = self._run("check", "--source", str(REPOSITORY_ROOT), "--json", env_home=True)
         self.assertEqual(1, completed.returncode)
         payload = json.loads(completed.stdout)
-        self.assertIn("flowguard-test-mesh/legacy.txt", payload["extra_files"])
+        self.assertIn("flowguard/legacy.txt", payload["extra_files"])
 
     def test_cli_requires_explicit_adoption_for_old_unmanaged_install(self) -> None:
         old_file = self.codex_home / "skills" / "flowguard" / "SKILL.md"

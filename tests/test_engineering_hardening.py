@@ -50,8 +50,13 @@ class EngineeringHardeningTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual(SCHEMA_VERSION, completed.stdout.strip())
+        payload = json.loads(completed.stdout)
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual("unknown operation: schema-version", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_cli_adoption_template_wrapper(self):
         completed = subprocess.run(
@@ -60,9 +65,13 @@ class EngineeringHardeningTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertIn("flowguard Adoption Log", completed.stdout)
-        self.assertIn("elapsed time", completed.stdout)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual("unknown operation: adoption-template", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_cli_benchmark_wrapper_preserves_baseline_gate(self):
         completed = subprocess.run(
@@ -71,10 +80,13 @@ class EngineeringHardeningTests(unittest.TestCase):
             capture_output=True,
             text=True,
         )
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertIn("flowguard executable corpus review", completed.stdout)
-        self.assertIn("real_model_cases: 2100", completed.stdout)
-        self.assertIn("generic_fallback_cases: 0", completed.stdout)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual("unknown operation: benchmark", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_pytest_adapter_style_regression_assertion(self):
         class Report:

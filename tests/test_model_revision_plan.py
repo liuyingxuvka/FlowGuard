@@ -155,6 +155,18 @@ class ModelRevisionPlanTests(unittest.TestCase):
                 )
         return tuple(rows)
 
+    def _assert_retired_compact_route(self, operation: str, *arguments: str) -> None:
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main([operation, *arguments, "--json"])
+        payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
     def test_exact_64_to_60_preview_and_cli_are_read_only(self):
         retired = self._retire_last_four()
         before = self._tree_identity()
@@ -283,38 +295,14 @@ class ModelRevisionPlanTests(unittest.TestCase):
         )
         self.assertEqual(before, self._tree_identity())
 
-        output = StringIO()
-        with redirect_stdout(output):
-            exit_code = main(
-                [
-                    "model-revision-plan",
-                    "--root",
-                    str(self.root),
-                    "--snapshot-id",
-                    "candidate:revision-plan-64-to-60",
-                    "--json",
-                ]
-            )
-        self.assertEqual(0, exit_code)
-        cli_payload = json.loads(output.getvalue())
-        self.assertEqual(payload, cli_payload)
-        self.assertEqual(before, self._tree_identity())
-
-        compact_output = StringIO()
-        with redirect_stdout(compact_output):
-            compact_exit_code = main(
-                [
-                    "model-revision-plan",
-                    "--root",
-                    str(self.root),
-                    "--snapshot-id",
-                    "candidate:revision-plan-64-to-60",
-                    "--compact",
-                    "--json",
-                ]
-            )
-        self.assertEqual(0, compact_exit_code)
-        self.assertEqual(compact, json.loads(compact_output.getvalue()))
+        self._assert_retired_compact_route(
+            "model-revision-plan",
+            "--root",
+            str(self.root),
+            "--snapshot-id",
+            "candidate:revision-plan-64-to-60",
+            "--compact",
+        )
         self.assertEqual(before, self._tree_identity())
 
     def test_stale_live_manifest_is_blocked_without_writes(self):
@@ -452,6 +440,18 @@ class ModelRevisionPlanTests(unittest.TestCase):
 
 
 class ModelRevisionPlanMissingAuthorityTests(unittest.TestCase):
+    def _assert_retired_compact_route(self, operation: str, *arguments: str) -> None:
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main([operation, *arguments, "--json"])
+        payload = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
     def test_missing_observed_authority_is_visibly_blocked(self):
         with tempfile.TemporaryDirectory() as tempdir:
             root = Path(tempdir)
@@ -469,30 +469,14 @@ class ModelRevisionPlanMissingAuthorityTests(unittest.TestCase):
             )
             self.assertEqual(before, tuple(root.rglob("*")))
 
-            output = StringIO()
-            with redirect_stdout(output):
-                exit_code = main(
-                    [
-                        "model-revision-plan",
-                        "--root",
-                        str(root),
-                        "--snapshot-id",
-                        "candidate:no-authority",
-                        "--compact",
-                        "--json",
-                    ]
-                )
-            self.assertEqual(1, exit_code)
-            cli_payload = json.loads(output.getvalue())
-            self.assertEqual("blocked", cli_payload["status"])
-            self.assertEqual(
-                "observed_authority_unavailable",
-                cli_payload["blockers"][0]["code"],
+            self._assert_retired_compact_route(
+                "model-revision-plan",
+                "--root",
+                str(root),
+                "--snapshot-id",
+                "candidate:no-authority",
+                "--compact",
             )
-            self.assertNotIn("snapshot_diff", cli_payload)
-            self.assertNotIn("affected_closure", cli_payload)
-            self.assertFalse(cli_payload["writes_performed"])
-            self.assertFalse(cli_payload["models_executed"])
             self.assertEqual(before, tuple(root.rglob("*")))
 
 

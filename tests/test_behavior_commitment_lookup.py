@@ -288,7 +288,7 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
             flowguard.FLOWGUARD_ROUTE_API["existing_model_preflight"],
         )
 
-    def test_read_only_cli_matches_api_result_and_does_not_change_ledger(self):
+    def test_lookup_api_remains_current_and_retired_cli_route_does_not_mutate_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             target = root / ".flowguard" / "behavior" / "inventory" / "ledger.json"
@@ -322,10 +322,17 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
                 check=False,
             )
 
-            self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
+            self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
             payload = json.loads(completed.stdout)
-            self.assertEqual(api.to_dict()["primary_hits"], payload["primary_hits"])
-            self.assertEqual(api.ledger_fingerprint, payload["ledger_fingerprint"])
+            self.assertEqual("blocked", payload["status"])
+            self.assertEqual("block", payload["decision"])
+            self.assertEqual(0, payload["producer_count"])
+            self.assertEqual(
+                "unknown operation: behavior-commitment-query",
+                payload["error"],
+            )
+            self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+            self.assertTrue(api.to_dict()["primary_hits"])
             self.assertEqual(before, target.read_bytes())
 
     def test_existing_model_preflight_uses_plane_lookup_before_path_inventory(self):

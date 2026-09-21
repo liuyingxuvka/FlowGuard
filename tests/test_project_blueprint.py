@@ -1899,13 +1899,13 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         capture_output=True,
         check=False,
     )
-    assert result.returncode == 0, result.stderr + result.stdout
+    assert result.returncode == 2, result.stderr + result.stdout
     payload = json.loads(result.stdout)
-    assert payload["ok"] is True
-    assert payload["target_system_report"]["status"] == "pass"
-    assert payload["canonical_projection_complete"] is True
-    assert payload["readiness_ledger"]["executed_evidence_status"] == "not_run"
-    assert "empirical_status" not in payload["qualification"]
+    assert payload["status"] == "blocked"
+    assert payload["decision"] == "block"
+    assert payload["producer_count"] == 0
+    assert payload["error"] == "unknown operation: project-blueprint-audit"
+    assert payload["allowed_operations"] == ["read", "change", "release"]
     assert before == after
 
     canonical_projection = project_canonical_software_blueprint(bundle)
@@ -2206,8 +2206,13 @@ def test_external_python_project_uses_generic_read_only_builder(tmp_path: Path):
         capture_output=True,
         check=False,
     )
-    assert export_result.returncode != 0
-    assert "invalid choice" in export_result.stderr
+    assert export_result.returncode == 2
+    export_payload = json.loads(export_result.stdout)
+    assert export_payload["status"] == "blocked"
+    assert export_payload["decision"] == "block"
+    assert export_payload["producer_count"] == 0
+    assert export_payload["error"] == "unknown operation: project-blueprint-export"
+    assert export_payload["allowed_operations"] == ["read", "change", "release"]
     assert not export_root.exists()
 
     stale_native = replace(

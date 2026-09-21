@@ -37,6 +37,16 @@ from flowguard.project_adoption import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _assert_retired_compact_process(testcase: unittest.TestCase, result, operation: str) -> None:
+    payload = json.loads(result.stdout)
+    testcase.assertEqual(2, result.returncode, result.stdout + result.stderr)
+    testcase.assertEqual("blocked", payload["status"])
+    testcase.assertEqual("block", payload["decision"])
+    testcase.assertEqual(0, payload["producer_count"])
+    testcase.assertEqual(f"unknown operation: {operation}", payload["error"])
+    testcase.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
+
 def _passing_suite_evidence():
     return project_adoption._SuiteEvidence(
         True,
@@ -317,10 +327,7 @@ class ProjectAdoptionTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-            self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-            payload = json.loads(completed.stdout)
-            self.assertTrue(payload["ok"])
-            self.assertEqual("pass", payload["suite_status"])
+            _assert_retired_compact_process(self, completed, "project-audit")
 
     def test_audit_reports_newer_and_older_version_states(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -756,7 +763,7 @@ class ProjectAdoptionTests(unittest.TestCase):
                 {finding.category for finding in blocked.findings},
             )
 
-    def test_noneditable_package_upgrade_writes_from_empty_project_without_author_suite(self):
+    def test_noneditable_package_projection_excludes_author_suite(self):
         with (
             tempfile.TemporaryDirectory() as directory,
             tempfile.TemporaryDirectory() as home_directory,
@@ -771,11 +778,11 @@ class ProjectAdoptionTests(unittest.TestCase):
             package_install = subprocess.run(
                 [
                     sys.executable,
-                    "-m",
-                    "pip",
-                    "install",
-                    "--no-deps",
-                    "--target",
+                    '-m',
+                    'pip',
+                    'install',
+                    '--no-deps',
+                    '--target',
                     str(site_root),
                     str(ROOT),
                 ],
@@ -784,27 +791,23 @@ class ProjectAdoptionTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-            self.assertEqual(
-                0,
-                package_install.returncode,
-                package_install.stdout + package_install.stderr,
-            )
+            self.assertEqual(0, package_install.returncode, package_install.stdout + package_install.stderr)
             runtime_env = {
                 **os.environ,
-                "CODEX_HOME": str(codex_home),
-                "PYTHONNOUSERSITE": "1",
-                "PYTHONPATH": str(site_root),
+                'CODEX_HOME': str(codex_home),
+                'PYTHONNOUSERSITE': '1',
+                'PYTHONPATH': str(site_root),
             }
-            runtime_env.pop("PYTHONHOME", None)
+            runtime_env.pop('PYTHONHOME', None)
             probe = subprocess.run(
                 [
                     sys.executable,
-                    "-S",
-                    "-c",
+                    '-S',
+                    '-c',
                     (
-                        "import importlib.metadata as metadata, json, pathlib, flowguard; "
-                        "authority = pathlib.Path(flowguard.__file__).with_name("
-                        f"{CONSUMER_SUITE_AUTHORITY_MANIFEST!r}); "
+                        'import importlib.metadata as metadata, json, pathlib, flowguard; '
+                        'authority = pathlib.Path(flowguard.__file__).with_name('
+                        f'{CONSUMER_SUITE_AUTHORITY_MANIFEST!r}); '
                         "distribution_files = [str(item).replace('\\\\', '/') "
                         "for item in (metadata.files('flowguard') or ())]; "
                         "print(json.dumps({'module_file': flowguard.__file__, "
@@ -821,42 +824,32 @@ class ProjectAdoptionTests(unittest.TestCase):
             )
             self.assertEqual(0, probe.returncode, probe.stdout + probe.stderr)
             probe_payload = json.loads(probe.stdout)
-            self.assertTrue(probe_payload["authority_exists"])
-            self.assertTrue(
-                Path(probe_payload["module_file"]).resolve().is_relative_to(
-                    site_root.resolve()
-                )
-            )
-            self.assertFalse((site_root / ".skillguard").exists())
-            self.assertFalse(
-                any(
-                    ".skillguard" in path.relative_to(site_root).parts
-                    for path in site_root.rglob("*")
-                )
-            )
-            self.assertFalse(tuple(site_root.rglob("suite-map.json")))
+            self.assertTrue(probe_payload['authority_exists'])
+            self.assertTrue(Path(probe_payload['module_file']).resolve().is_relative_to(site_root.resolve()))
+            self.assertFalse((site_root / '.skillguard').exists())
+            self.assertFalse(tuple(site_root.rglob('suite-map.json')))
             self.assertIn(
-                f"flowguard/{CONSUMER_SUITE_AUTHORITY_MANIFEST}",
-                probe_payload["distribution_files"],
+                f'flowguard/{CONSUMER_SUITE_AUTHORITY_MANIFEST}',
+                probe_payload['distribution_files'],
             )
             self.assertFalse(
                 any(
-                    ".skillguard" in Path(relative).parts
-                    or Path(relative).name == "suite-map.json"
-                    for relative in probe_payload["distribution_files"]
+                    '.skillguard' in Path(relative).parts
+                    or Path(relative).name == 'suite-map.json'
+                    for relative in probe_payload['distribution_files']
                 )
             )
 
-            upgrade = subprocess.run(
+            retired = subprocess.run(
                 [
                     sys.executable,
-                    "-S",
-                    "-m",
-                    "flowguard",
-                    "project-upgrade",
-                    "--root",
-                    ".",
-                    "--json",
+                    '-S',
+                    '-m',
+                    'flowguard',
+                    'project-upgrade',
+                    '--root',
+                    '.',
+                    '--json',
                 ],
                 cwd=project_root,
                 env=runtime_env,
@@ -864,209 +857,9 @@ class ProjectAdoptionTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-            self.assertEqual(0, upgrade.returncode, upgrade.stdout + upgrade.stderr)
-            upgrade_payload = json.loads(upgrade.stdout)
-            self.assertTrue(upgrade_payload["ok"], upgrade_payload)
-            self.assertEqual("pass", upgrade_payload["suite_status"])
-            self.assertTrue(upgrade_payload["written_files"])
-            self.assertTrue((project_root / "AGENTS.md").is_file())
-            self.assertTrue((project_root / FLOWGUARD_PROJECT_MANIFEST).is_file())
-            self.assertFalse((project_root / ".agents" / "skills").exists())
-            self.assertFalse((project_root / ".skillguard").exists())
-            self.assertFalse((project_root / "scripts").exists())
-
-            audit = subprocess.run(
-                [
-                    sys.executable,
-                    "-S",
-                    "-m",
-                    "flowguard",
-                    "project-audit",
-                    "--root",
-                    ".",
-                    "--json",
-                ],
-                cwd=project_root,
-                env=runtime_env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(0, audit.returncode, audit.stdout + audit.stderr)
-            audit_payload = json.loads(audit.stdout)
-            self.assertTrue(audit_payload["ok"], audit_payload)
-            self.assertEqual("pass", audit_payload["suite_status"])
-
-            (project_root / "AGENTS.md").write_text(
-                build_flowguard_agents_block(package_version="0.1.0"),
-                encoding="utf-8",
-            )
-            (project_root / FLOWGUARD_PROJECT_MANIFEST).write_text(
-                current_project_manifest_text(package_version="0.1.0"),
-                encoding="utf-8",
-            )
-            target_fixture = (
-                project_root
-                / "tests"
-                / "fixtures"
-                / "kb_retrieval_eval_cases.json"
-            )
-            target_fixture.parent.mkdir(parents=True)
-            target_fixture.write_bytes(
-                b'{\n  "schema_version": 1,\n  "cases": [{"query": "target-owned"}]\n}\n'
-            )
-            target_fixture_before = target_fixture.read_bytes()
-            target_fixture_hash = hashlib.sha256(target_fixture_before).hexdigest()
-            registered_artifact = (
-                project_root
-                / ".flowguard"
-                / "behavior_commitment_ledger"
-                / "ledger.json"
-            )
-            registered_artifact.parent.mkdir()
-            registered_artifact.write_text(
-                json.dumps(_legacy_behavior_ledger()),
-                encoding="utf-8",
-            )
-            ownership_upgrade = subprocess.run(
-                [
-                    sys.executable,
-                    "-S",
-                    "-m",
-                    "flowguard",
-                    "project-upgrade",
-                    "--root",
-                    ".",
-                    "--json",
-                ],
-                cwd=project_root,
-                env=runtime_env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(
-                1,
-                ownership_upgrade.returncode,
-                ownership_upgrade.stdout + ownership_upgrade.stderr,
-            )
-            ownership_payload = json.loads(ownership_upgrade.stdout)
-            self.assertFalse(ownership_payload["ok"], ownership_payload)
-            self.assertIsNone(ownership_payload["artifact_upgrade_report"])
-            self.assertIn(
-                "project_layout_invalid",
-                {finding["category"] for finding in ownership_payload["findings"]},
-            )
-            target_fixture_after = target_fixture.read_bytes()
-            self.assertEqual(target_fixture_before, target_fixture_after)
-            self.assertEqual(
-                target_fixture_hash,
-                hashlib.sha256(target_fixture_after).hexdigest(),
-            )
-            self.assertEqual(
-                json.dumps(_legacy_behavior_ledger()),
-                registered_artifact.read_text(encoding="utf-8"),
-            )
-
-            packaged_authority = Path(probe_payload["authority_file"])
-            authority_bytes = packaged_authority.read_bytes()
-            packaged_authority.unlink()
-            blocked_local = project_root / "blocked-local-authority"
-            local_map = (
-                blocked_local
-                / ".skillguard"
-                / "flowguard-suite"
-                / "suite-map.json"
-            )
-            local_map.parent.mkdir(parents=True)
-            local_map.write_text('{"included_skills": []}\n', encoding="utf-8")
-            local_skill = (
-                blocked_local
-                / ".agents"
-                / "skills"
-                / "flowguard"
-                / "SKILL.md"
-            )
-            local_skill.parent.mkdir(parents=True)
-            local_skill.write_text("# local legacy suite\n", encoding="utf-8")
-            before_blocked_local = _tree_snapshot(blocked_local)
-            missing_authority = subprocess.run(
-                [
-                    sys.executable,
-                    "-S",
-                    "-m",
-                    "flowguard",
-                    "project-upgrade",
-                    "--root",
-                    ".",
-                    "--json",
-                ],
-                cwd=blocked_local,
-                env=runtime_env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(
-                1,
-                missing_authority.returncode,
-                missing_authority.stdout + missing_authority.stderr,
-            )
-            missing_payload = json.loads(missing_authority.stdout)
-            self.assertEqual("blocked", missing_payload["suite_status"])
-            self.assertEqual([], missing_payload["written_files"])
-            self.assertEqual(
-                before_blocked_local,
-                _tree_snapshot(blocked_local),
-            )
-            packaged_authority.write_bytes(authority_bytes)
-
-            ownership = (
-                codex_home
-                / "skills"
-                / ".flowguard-skill-suite-ownership.json"
-            )
-            ownership_bytes = ownership.read_bytes()
-            ownership.unlink()
-            blocked_ownership = project_root / "blocked-ownership"
-            blocked_ownership.mkdir()
-            missing_ownership = subprocess.run(
-                [
-                    sys.executable,
-                    "-S",
-                    "-m",
-                    "flowguard",
-                    "project-upgrade",
-                    "--root",
-                    ".",
-                    "--json",
-                ],
-                cwd=blocked_ownership,
-                env=runtime_env,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            self.assertEqual(
-                1,
-                missing_ownership.returncode,
-                missing_ownership.stdout + missing_ownership.stderr,
-            )
-            ownership_payload = json.loads(missing_ownership.stdout)
-            self.assertEqual("blocked", ownership_payload["suite_status"])
-            self.assertEqual([], ownership_payload["written_files"])
-            self.assertEqual({}, _tree_snapshot(blocked_ownership))
-            ownership.write_bytes(ownership_bytes)
-
-            authority = load_consumer_suite_authority()
-            installed_flowguard_dirs = {
-                path.name
-                for path in (codex_home / "skills").iterdir()
-                if path.is_dir()
-                and (path.name == "flowguard" or path.name.startswith("flowguard-"))
-            }
-            self.assertEqual(set(authority.member_ids), installed_flowguard_dirs)
-
+            _assert_retired_compact_process(self, retired, 'project-upgrade')
+            self.assertFalse((project_root / 'AGENTS.md').exists())
+            self.assertFalse((project_root / FLOWGUARD_PROJECT_MANIFEST).exists())
     def test_successful_upgrade_log_contains_before_after_hashes_and_checks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -1109,14 +902,9 @@ class ProjectAdoptionTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            payload = json.loads(result.stdout)
-            self.assertEqual("flowguard_project_adoption_report", payload["artifact_type"])
-            self.assertEqual("adopt", payload["action"])
-            self.assertTrue(payload["ok"])
-            self.assertTrue((Path(directory) / "AGENTS.md").exists())
-            self.assertTrue((Path(directory) / FLOWGUARD_PROJECT_MANIFEST).exists())
+            _assert_retired_compact_process(self, result, "project-adopt")
+            self.assertFalse((Path(directory) / "AGENTS.md").exists())
+            self.assertFalse((Path(directory) / FLOWGUARD_PROJECT_MANIFEST).exists())
 
     def test_project_upgrade_cli_accepts_records_only(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
@@ -1144,16 +932,11 @@ class ProjectAdoptionTests(unittest.TestCase):
                 env={**os.environ, "CODEX_HOME": home_directory},
             )
 
-            self.assertEqual(1, result.returncode, result.stdout + result.stderr)
-            payload = json.loads(result.stdout)
-            self.assertIsNone(payload["artifact_upgrade_report"])
-            categories = {finding["category"] for finding in payload["findings"]}
-            self.assertIn("suite_inventory_unresolved", categories)
-            self.assertIn(
-                "Artifact/model/test upgrade scanning was scoped out by records-only mode.",
-                payload["skipped_steps"],
+            _assert_retired_compact_process(self, result, "project-upgrade")
+            self.assertEqual(
+                build_flowguard_agents_block(package_version="0.1.0"),
+                (root / "AGENTS.md").read_text(encoding="utf-8"),
             )
-            self.assertEqual([], payload["written_files"])
 
     def test_project_upgrade_cli_dry_run_is_non_mutating_when_blocked(self):
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
@@ -1188,17 +971,11 @@ class ProjectAdoptionTests(unittest.TestCase):
                 env={**os.environ, "CODEX_HOME": home_directory},
             )
 
-            self.assertEqual(1, result.returncode, result.stdout + result.stderr)
-            payload = json.loads(result.stdout)
-            self.assertTrue(payload["dry_run"])
-            self.assertEqual("blocked", payload["status"])
-            self.assertIn(
-                "suite_inventory_unresolved",
-                {finding["category"] for finding in payload["findings"]},
-            )
-            self.assertEqual([], payload["written_files"])
+            _assert_retired_compact_process(self, result, "project-upgrade")
             self.assertEqual(before, _tree_snapshot(root))
 
 
 if __name__ == "__main__":
     unittest.main()
+
+\n

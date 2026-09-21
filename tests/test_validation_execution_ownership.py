@@ -79,6 +79,14 @@ def evidence_files(receipt_root: Path) -> tuple[str, ...]:
 
 
 class ValidationExecutionOwnershipTests(unittest.TestCase):
+    def test_owner_required_wire_boolean_cannot_change_protection_denominator(self):
+        values = contract("owner").to_dict()
+        for invalid in (None, 0, 1, "false"):
+            with self.subTest(required=invalid):
+                values["required"] = invalid
+                with self.assertRaisesRegex(ValueError, "required must be boolean"):
+                    ValidationOwnerContract.from_dict(values)
+
     def test_nested_owner_selection_blocks_duplicate_launch_without_fuzzy_matching(self):
         selected = ("model:child", "named:nested")
         self.assertEqual(

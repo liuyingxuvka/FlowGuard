@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from contextlib import redirect_stdout
 import json
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
@@ -393,7 +395,7 @@ class ModelMaturationReceiptTests(unittest.TestCase):
             result.receipt_verification.finding_codes,
         )
 
-    def test_cli_independently_verifies_canonical_receipt(self) -> None:
+    def test_current_owner_independently_verifies_receipt_and_retired_cli_route_is_rejected(self) -> None:
         with TemporaryDirectory() as directory:
             output = Path(directory)
             receipt = build_model_maturation_receipt(self.report, self.publication)
@@ -455,19 +457,29 @@ class ModelMaturationReceiptTests(unittest.TestCase):
                     "required_receipt_fingerprint": receipt.fingerprint,
                 },
             }
+            verification = verify_model_maturation_receipt(
+                ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
+                context,
+                output_directory=output,
+            )
+            self.assertIsNotNone(verification.verified_maturation)
+
             context_path = output / "verification-context.json"
             context_path.write_text(json.dumps(payload), encoding="utf-8")
-            exit_code = main(
-                [
-                    "model-maturation-receipt-verify",
-                    "--context",
-                    str(context_path),
-                    "--receipt-root",
-                    str(output),
-                    "--json",
-                ]
-            )
-        self.assertEqual(0, exit_code)
+
+            # Receipt verification remains owned by the current model receipt
+            # API.  The compact public CLI deliberately exposes only
+            # read/change/release and must reject the retired command without
+            # creating a producer or alternate reader.
+            output_text = StringIO()
+            with redirect_stdout(output_text):
+                exit_code = main(["model-maturation-receipt-verify", "--json"])
+            terminal = json.loads(output_text.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", terminal["status"])
+        self.assertEqual("block", terminal["decision"])
+        self.assertEqual(0, terminal["producer_count"])
+        self.assertEqual(["read", "change", "release"], terminal["allowed_operations"])
 
     def test_reference_fingerprint_mismatch_is_visible(self) -> None:
         with TemporaryDirectory() as directory:

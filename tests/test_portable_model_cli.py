@@ -9,12 +9,16 @@ import unittest
 
 from flowguard.portable_model import (
     PortableModel,
+    PortableModelError,
     PortableState,
     PortableTemporalObligation,
     PortableTransition,
     RefinementBinding,
+    load_portable_model,
+    validate_portable_model,
     write_portable_model,
 )
+from flowguard.portable_checker import check_portable_model, check_refinement
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -49,35 +53,45 @@ class PortableModelCliTests(unittest.TestCase):
             check=False,
         )
 
+    def assert_retired_operation(self, result: subprocess.CompletedProcess[str], operation: str) -> None:
+        self.assertEqual(2, result.returncode, result.stderr + result.stdout)
+        payload = json.loads(result.stdout)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
     def test_validate_and_check_share_status_and_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             path = write_portable_model(model("cli-model"), Path(directory) / "model.json")
+            current = load_portable_model(path)
+            self.assertEqual((), validate_portable_model(current))
+            direct = check_portable_model(current)
+            self.assertEqual("pass", direct.status)
+            self.assertEqual(current.fingerprint, direct.model_fingerprint)
             validate = self.run_cli("portable-model-validate", str(path), "--json")
             check = self.run_cli("portable-model-check", str(path), "--json")
-            self.assertEqual(0, validate.returncode, validate.stderr)
-            self.assertEqual(0, check.returncode, check.stderr)
-            validate_payload = json.loads(validate.stdout)
-            check_payload = json.loads(check.stdout)
-            self.assertEqual("pass", validate_payload["status"])
-            self.assertEqual(validate_payload["model_fingerprint"], check_payload["model_fingerprint"])
+            self.assert_retired_operation(validate, "portable-model-validate")
+            self.assert_retired_operation(check, "portable-model-check")
 
     def test_human_projection_is_concise(self):
         with tempfile.TemporaryDirectory() as directory:
             path = write_portable_model(model("human-model"), Path(directory) / "model.json")
+            projection = check_portable_model(load_portable_model(path)).format_text()
+            self.assertIn("=== flowguard portable check ===", projection)
+            self.assertIn("status: pass", projection)
             result = self.run_cli("portable-model-check", str(path))
-            self.assertEqual(0, result.returncode, result.stderr)
-            self.assertIn("=== flowguard portable check ===", result.stdout)
-            self.assertIn("status: pass", result.stdout)
+            self.assert_retired_operation(result, "portable-model-check")
 
     def test_invalid_artifact_is_nonzero_canonical_report(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "bad.json"
             path.write_text('{"schema_version":"old"}', encoding="utf-8")
+            with self.assertRaises(PortableModelError):
+                load_portable_model(path)
             result = self.run_cli("portable-model-validate", str(path), "--json")
-            self.assertNotEqual(0, result.returncode)
-            payload = json.loads(result.stdout)
-            self.assertEqual("invalid", payload["status"])
-            self.assertEqual("portable_artifact_invalid", payload["findings"][0]["finding_id"])
+            self.assert_retired_operation(result, "portable-model-validate")
 
     def test_refinement_cli_uses_explicit_binding(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -109,8 +123,8 @@ class PortableModelCliTests(unittest.TestCase):
                 str(binding_path),
                 "--json",
             )
-            self.assertEqual(0, result.returncode, result.stderr + result.stdout)
-            self.assertEqual("pass", json.loads(result.stdout)["status"])
+            self.assertEqual("pass", check_refinement(parent, child, binding).status)
+            self.assert_retired_operation(result, "portable-model-refinement")
 
 
 if __name__ == "__main__":

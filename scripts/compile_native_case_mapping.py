@@ -25,6 +25,7 @@ SCENARIO_NAME = "MAPPING_SCENARIO.md"
 FORMAL_NAME = "MAPPING_FORMAL.md"
 CUSTOM_NAME = "MAPPING_CUSTOM.md"
 BENCHMARK_NAME = "MAPPING_BENCHMARK.md"
+PRODUCER_OVERRIDES_NAME = "native-case-producer-overrides.json"
 
 SCENARIO_OWNERS = frozenset(
     {
@@ -763,6 +764,58 @@ def _surface_ids(root: Path) -> dict[str, str]:
     return result
 
 
+def _producer_override_bindings(path: Path, binding_type: Any) -> tuple[Any, ...]:
+    """Load the small, current producer-to-blueprint additions.
+
+    The scenario annexes describe the historical seven projections per owner.
+    A current producer can also expose a real leaf that was not present in
+    those frozen annex tables.  Such a leaf must be declared in the repository
+    beside the generated mapping; silently deriving it from a runner would
+    make the denominator depend on execution.  The rows are parsed through the
+    same typed ``NativeCaseBinding`` constructor as the annex compiler.
+    """
+
+    if path.is_symlink() or not path.is_file():
+        raise CompileError(f"producer override source is missing or a symlink: {path}")
+    payload = _read_json(path)
+    if payload.get("schema_version") != "flowguard.native_case_producer_overrides.v1":
+        raise CompileError("producer override schema is not current")
+    raw_bindings = payload.get("bindings")
+    if not isinstance(raw_bindings, list) or not raw_bindings:
+        raise CompileError("producer override bindings must be a non-empty array")
+    allowed = {
+        "owner_id",
+        "blueprint_case_id",
+        "blueprint_source_case_id",
+        "native_case_ids",
+        "case_kind",
+        "evidence_scope",
+        "covered_dimensions",
+        "expected_status",
+        "expected_observed_status",
+        "protected_failure_ids",
+        "expected_finding_codes",
+        "required_child_case_ids",
+        "required_trace_labels",
+    }
+    result: list[Any] = []
+    for index, raw in enumerate(raw_bindings):
+        if not isinstance(raw, Mapping):
+            raise CompileError(f"producer override bindings[{index}] is not an object")
+        unknown = sorted(set(raw) - allowed)
+        missing = sorted(allowed - set(raw))
+        if unknown or missing:
+            raise CompileError(
+                f"producer override bindings[{index}] fields mismatch: "
+                f"missing={missing}; unknown={unknown}"
+            )
+        try:
+            result.append(binding_type(**dict(raw)))
+        except (TypeError, ValueError) as exc:
+            raise CompileError(f"invalid producer override bindings[{index}]: {exc}") from exc
+    return tuple(result)
+
+
 def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
     # Import the package from the requested source root, not from a similarly
     # named checkout.  This keeps the compiler's identity tied to the target.
@@ -790,10 +843,13 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
     from flowguard.source_identity import source_file_fingerprint
 
     source_manifest_fingerprint = source_file_fingerprint(manifest)
+    producer_override_path = root / ".flowguard" / "models" / PRODUCER_OVERRIDES_NAME
+    producer_overrides = _producer_override_bindings(producer_override_path, NativeCaseBinding)
     source_paths = tuple(
         item.replace("\\", "/")
         for item in (
             ".flowguard/models/regression-manifest.json",
+            ".flowguard/models/" + PRODUCER_OVERRIDES_NAME,
             str((audit_root / CATALOG_NAME).resolve()),
             str((audit_root / SCENARIO_NAME).resolve()),
             str((audit_root / FORMAL_NAME).resolve()),
@@ -886,6 +942,35 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
                 )
             )
 
+    existing_blueprints = {row.blueprint_case_id for row in bindings_without_fp}
+    existing_native = {
+        (row.owner_id, native_id)
+        for row in bindings_without_fp
+        for native_id in row.native_case_ids
+    }
+    for index, binding in enumerate(producer_overrides):
+        if binding.blueprint_case_id in existing_blueprints:
+            raise CompileError(
+                f"producer override bindings[{index}] duplicates blueprint case: "
+                f"{binding.blueprint_case_id}"
+            )
+        duplicate_native = [
+            native_id
+            for native_id in binding.native_case_ids
+            if (binding.owner_id, native_id) in existing_native
+        ]
+        if duplicate_native:
+            raise CompileError(
+                f"producer override bindings[{index}] duplicates native rows: "
+                f"{duplicate_native}"
+            )
+        existing_blueprints.add(binding.blueprint_case_id)
+        existing_native.update(
+            (binding.owner_id, native_id)
+            for native_id in binding.native_case_ids
+        )
+        bindings_without_fp.append(binding)
+
     diagnostic_selectors: dict[str, set[str]] = {
         owner: set(values)
         for owner, values in EXPLICIT_DIAGNOSTIC_SELECTORS.items()
@@ -930,11 +1015,14 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
         diagnostic_native_case_ids=diagnostic_native_case_ids,
     )
     payload = registry.to_dict()
-    if len(bindings) != 357:
-        raise CompileError(f"compiled binding count is {len(bindings)}, expected 357")
+    expected_binding_count = len(catalog) * 7 + len(producer_overrides)
+    if len(bindings) != expected_binding_count:
+        raise CompileError(
+            f"compiled binding count is {len(bindings)}, expected {expected_binding_count}"
+        )
     # Ensure every catalog declaration is represented exactly once and the
     # three boundary namespaces remain one stable case per owner.
-    expected_blueprints = 51 * 7
+    expected_blueprints = expected_binding_count
     if len(registry.blueprint_case_ids) != expected_blueprints:
         raise CompileError(f"compiled blueprint case count is {len(registry.blueprint_case_ids)}, expected {expected_blueprints}")
     return payload

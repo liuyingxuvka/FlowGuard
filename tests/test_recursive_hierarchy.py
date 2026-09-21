@@ -465,6 +465,15 @@ class RecursiveHierarchyTests(unittest.TestCase):
             {finding.code for finding in report.findings},
         )
 
+    def test_recursive_plan_wire_booleans_are_not_truthiness_coerced(self):
+        with self.assertRaisesRegex(ValueError, "recursive_hierarchy_plan.strict must be a boolean"):
+            five_level_plan(strict="false")
+        with self.assertRaisesRegex(
+            ValueError,
+            "recursive_hierarchy_plan.allow_scoped_leaf_exemptions must be a boolean",
+        ):
+            five_level_plan(allow_scoped_leaf_exemptions="false")
+
     def test_cycle_is_blocked(self):
         cyclic = (
             node("root", children=("child",)),

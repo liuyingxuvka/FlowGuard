@@ -194,11 +194,16 @@ class PortableSystemTests(unittest.TestCase):
             for path in component_paths:
                 command.extend(("--component", str(path)))
             completed = subprocess.run(command, capture_output=True, text=True, check=False)
-        self.assertEqual(0, completed.returncode, completed.stderr)
+        self.assertEqual(2, completed.returncode, completed.stderr + completed.stdout)
         actual = json.loads(completed.stdout)
-        self.assertEqual(expected.status, actual["status"])
-        self.assertEqual(expected.slice_fingerprint, actual["slice_fingerprint"])
-        self.assertEqual(expected.compiled_model_fingerprint, actual["compiled_model_fingerprint"])
+        self.assertEqual("blocked", actual["status"])
+        self.assertEqual("block", actual["decision"])
+        self.assertEqual(0, actual["producer_count"])
+        self.assertEqual("unknown operation: portable-system-check", actual["error"])
+        self.assertEqual(["read", "change", "release"], actual["allowed_operations"])
+        # The direct composition result above remains the functional authority;
+        # the retired standalone CLI cannot replace it with a compatibility route.
+        self.assertEqual("pass", expected.status)
 
 
 if __name__ == "__main__":

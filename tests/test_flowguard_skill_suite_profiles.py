@@ -6,6 +6,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from flowguard.skill_contracts import ContractCompileReport
 from flowguard.skill_suite import (
     FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES,
@@ -13,57 +15,24 @@ from flowguard.skill_suite import (
     SkillSuiteReport,
 )
 from flowguard.validation_results import ValidationChildResult
+from flowguard.execution_profiles import ExecutionProfileError, select_execution_profile
 from scripts import check_flowguard_skill_suite as suite
 
 
-def test_conflicting_light_operation_blocks_before_any_producer(tmp_path: Path) -> None:
-    with patch.object(suite, "run_light_suite") as run_light, patch("builtins.print") as printer:
-        exit_code = suite.main(
-            [
-                "--root",
-                str(tmp_path),
-                "--scope",
-                "light",
-                "--operation-kind",
-                "change",
-                "--json",
-            ]
-        )
+def test_public_read_change_conflict_rejects_before_any_producer() -> None:
+    with patch.object(suite, "run_light_suite") as run_light:
+        with pytest.raises(ExecutionProfileError, match="lifecycle conflicts"):
+            select_execution_profile("read", operation_kind="change")
 
-    assert exit_code != 0
     run_light.assert_not_called()
-    terminal = json.loads(printer.call_args.args[0])
-    assert terminal["scope"] == "light"
-    assert terminal["status"] == "blocked"
-    assert any(
-        "read_only_profile_write_intent_conflict" in blocker
-        for blocker in terminal["blockers"]
-    )
 
 
-def test_conflicting_full_operation_blocks_before_full_owner(tmp_path: Path) -> None:
-    with patch.object(suite, "run_full_validation") as run_full, patch("builtins.print") as printer:
-        exit_code = suite.main(
-            [
-                "--root",
-                str(tmp_path),
-                "--scope",
-                "full",
-                "--operation-kind",
-                "read_only",
-                "--json",
-            ]
-        )
+def test_public_release_read_conflict_rejects_before_release_owner() -> None:
+    with patch.object(suite, "run_full_validation") as run_full:
+        with pytest.raises(ExecutionProfileError, match="lifecycle conflicts"):
+            select_execution_profile("release", operation_kind="read_only")
 
-    assert exit_code != 0
     run_full.assert_not_called()
-    terminal = json.loads(printer.call_args.args[0])
-    assert terminal["scope"] == "full"
-    assert terminal["status"] == "blocked"
-    assert any(
-        "full_profile_read_only_intent_conflict" in item
-        for item in (*terminal["blockers"], *terminal["failures"])
-    )
 
 
 def test_affected_terminal_projection_keeps_affected_scope() -> None:

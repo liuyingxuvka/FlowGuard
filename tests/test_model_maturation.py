@@ -2,7 +2,9 @@ import hashlib
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from dataclasses import replace
+from io import StringIO
 from pathlib import Path
 
 from flowguard import (
@@ -1106,17 +1108,25 @@ class ModelMaturationTests(unittest.TestCase):
         self.assertIn("invalid_resolution_class", {item.code for item in report.findings})
         self.assertEqual(report.decision, MODEL_MATURATION_DECISION_UPGRADE_REQUIRED)
 
-    def test_cli_reports_current_result_and_rejects_old_payload(self):
+    def test_current_owner_result_is_kept_and_retired_cli_route_is_rejected(self):
         plan = _plan()
         plan = replace(plan, signals=(_verified_signal(plan),))
-        with tempfile.TemporaryDirectory() as tmp:
-            current_path = Path(tmp) / "current.json"
-            current_path.write_text(json.dumps(plan.to_dict()), encoding="utf-8")
-            self.assertEqual(main(["model-maturation-review", "--plan", str(current_path), "--json"]), 0)
+        report = review_model_maturation_loop(plan)
+        self.assertTrue(report.ok)
+        self.assertEqual(report.decision, MODEL_MATURATION_DECISION_CLOSED_FOR_TASK)
 
-            old_path = Path(tmp) / "old.json"
-            old_path.write_text(json.dumps({"plan_id": "old"}), encoding="utf-8")
-            self.assertEqual(main(["model-maturation-review", "--plan", str(old_path), "--json"]), 1)
+        # Model maturation remains a domain-owned result.  The compact public
+        # boundary admits only read/change/release; it must reject the retired
+        # command without reading a plan or starting a producer.
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main(["model-maturation-review", "--json"])
+        terminal = json.loads(output.getvalue())
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", terminal["status"])
+        self.assertEqual("block", terminal["decision"])
+        self.assertEqual(0, terminal["producer_count"])
+        self.assertEqual(["read", "change", "release"], terminal["allowed_operations"])
 
     def test_signal_can_override_the_default_model_action(self):
         report = review_model_maturation_loop(

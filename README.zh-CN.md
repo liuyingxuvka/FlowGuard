@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.5` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.6` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -30,8 +30,8 @@
 FlowGuard 是面向 AI 辅助软件开发的一层 model-first 预检。
 
 它面向 agent 的主要入口是 `.agents/skills/`：先从
-`.agents/skills/flowguard/SKILL.md` 开始，并让其他 FlowGuard 技能保持可用，
-这样 kernel 才能选择范围最小且真正匹配的路线。
+`.agents/skills/flowguard/SKILL.md` 开始，并让按需 domain reference 保持可用，
+这样 kernel 只加载范围最小且真正匹配的路线。
 
 这套技能附带可执行检查脚本。Python 包是这些技能使用的检查引擎；
 它本身不是技能安装。
@@ -676,6 +676,10 @@ Purge 前可以 Restore，且只有在 Current 和 pinned runs 仍然通过后�
 计划应放在保留 evidence root 之外；对于明确绑定的旧 root 要重复 `--preserve`，并且清理前必须
 没有未分类字节。普通验证不会自动调用持久化清理。
 
+```powershell
+python -m flowguard read --root . --request read.json --json
+```
+
 技能安装器把单一的 author projection 与 consumer projection 分开维护，并记录自己拥有的文件。
 把 `FLOWGUARD_AUTHOR_SHADOW_SKILLS` 指向维护者工作区明确的 `.agents/skills` 目录；`author-sync` 不会指向
 `CODEX_HOME`，也不会复制周围仓库：
@@ -703,7 +707,7 @@ distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`�
 模板文件由选中的 skill route 按需加载，不是公共 CLI 操作。运行 `python -m flowguard --help`
 查看当前精确的三个操作。
 
-FlowGuard v0.69.5 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.6 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 公共 `release` 只在本地核验已接受 current；打 tag 和 GitHub 发布是独立维护事务：

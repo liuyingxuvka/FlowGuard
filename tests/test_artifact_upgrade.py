@@ -475,7 +475,7 @@ class ArtifactUpgradeTests(unittest.TestCase):
                 test_file.read_text(encoding="utf-8"),
             )
 
-    def test_cli_reports_json(self):
+    def test_retired_artifact_upgrade_cli_route_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifact = (
@@ -498,11 +498,14 @@ class ArtifactUpgradeTests(unittest.TestCase):
                 check=False,
             )
 
-            self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+            self.assertEqual(2, result.returncode, result.stdout + result.stderr)
             payload = json.loads(result.stdout)
-            self.assertEqual("flowguard_artifact_upgrade_report", payload["artifact_type"])
-            self.assertEqual(0, payload["upgraded_count"])
-            self.assertEqual(1, payload["blocked_count"])
+            self.assertEqual("flowguard_compact_operation", payload["artifact_type"])
+            self.assertEqual("blocked", payload["status"])
+            self.assertEqual("block", payload["decision"])
+            self.assertEqual(0, payload["producer_count"])
+            self.assertEqual("unknown operation: artifact-upgrade", payload["error"])
+            self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
 
 if __name__ == "__main__":

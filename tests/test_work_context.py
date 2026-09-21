@@ -470,10 +470,10 @@ required = true
                 capture_output=True,
                 check=False,
             )
-            self.assertEqual(0, completed.returncode, completed.stderr)
+            self.assertEqual(2, completed.returncode, completed.stderr)
             payload = json.loads(completed.stdout)
-            self.assertTrue(payload["ok"])
-            self.assertTrue(payload["context"]["read_only"])
+            self.assertEqual("blocked", payload["status"])
+            self.assertIn("unknown operation", payload["error"])
 
             help_result = subprocess.run(
                 [sys.executable, "-m", "flowguard", "--help"],
@@ -484,7 +484,7 @@ required = true
             )
             self.assertEqual(0, help_result.returncode)
             self.assertNotIn("spec-context", help_result.stdout)
-            self.assertIn("work-context", help_result.stdout)
+            self.assertNotIn("work-context", help_result.stdout)
 
 
 if __name__ == "__main__":

@@ -122,7 +122,7 @@ class ProcessOptimizationZeroResidualTests(unittest.TestCase):
         skills = ROOT / ".agents" / "skills"
         self.assertFalse((skills / "flowguard-plan-detailing-compiler").exists())
         self.assertFalse((skills / "flowguard-agent-workflow-rehearsal").exists())
-        dpf = skills / "flowguard-development-process-flow"
+        dpf = skills / "flowguard" / "references" / "domains" / "development-process-flow"
         self.assertTrue((dpf / "references" / "plan_detailing_protocol.md").is_file())
         self.assertTrue((dpf / "references" / "agent_workflow_protocol.md").is_file())
 

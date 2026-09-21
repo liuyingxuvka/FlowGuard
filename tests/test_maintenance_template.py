@@ -54,39 +54,16 @@ class MaintenanceWorkflowTemplateTests(unittest.TestCase):
             capture_output=True,
             check=False,
         )
-        self.assertEqual(0, help_result.returncode, help_result.stderr)
-        self.assertIn("--output", help_result.stdout)
-        self.assertIn("--force", help_result.stdout)
-
-        printed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "maintenance-template"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
+        payload = json.loads(help_result.stdout)
+        self.assertEqual(2, help_result.returncode, help_result.stderr)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(
+            "unknown operation: maintenance-template",
+            payload["error"],
         )
-        self.assertEqual(0, printed.returncode, printed.stderr)
-        data = json.loads(printed.stdout)
-        self.assertEqual("maintenance_workflow", data["template"])
-        self.assertIn(
-            ".flowguard/models/owners/maintenance_workflow/model.py",
-            {item["path"] for item in data["files"]},
-        )
-
-        with tempfile.TemporaryDirectory() as directory:
-            result = subprocess.run(
-                [sys.executable, "-m", "flowguard", "maintenance-template", "--output", directory],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-            self.assertEqual(0, result.returncode, result.stderr)
-            write_report = json.loads(result.stdout)
-            self.assertEqual("flowguard_template_write", write_report["artifact_type"])
-            self.assertTrue((Path(directory) / ".flowguard" / "models" / "owners" / "maintenance_workflow" / "model.py").exists())
-            self.assertTrue((Path(directory) / "docs" / "flowguard_maintenance_workflow.md").exists())
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_template_write_refuses_overwrite_by_default(self):
         with tempfile.TemporaryDirectory() as directory:

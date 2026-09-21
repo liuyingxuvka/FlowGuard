@@ -24,6 +24,7 @@ class ProofArtifactBindingTests(unittest.TestCase):
                 {
                     "artifact_id": "source",
                     "hash_policy": "raw",
+                    "exists": True,
                     "raw_sha256": "sha256:source",
                 }
             ],
@@ -70,6 +71,7 @@ class ProofArtifactBindingTests(unittest.TestCase):
                 {
                     "artifact_id": "source",
                     "hash_policy": "raw",
+                    "exists": True,
                     "raw_sha256": "sha256:source",
                 }
             ],
@@ -100,6 +102,7 @@ class ProofArtifactBindingTests(unittest.TestCase):
                 {
                     "artifact_id": "source",
                     "hash_policy": "raw",
+                    "exists": True,
                     "raw_sha256": "sha256:source",
                 }
             ],

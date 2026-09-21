@@ -69,18 +69,17 @@ class DocumentationCommandTests(unittest.TestCase):
         cls.concept = _read(CONCEPT)
         cls.suite = json.loads(_read(SUITE_MAP))
 
-    def test_english_and_chinese_tables_match_canonical_fifteen_member_inventory(self):
+    def test_english_and_chinese_tables_match_current_member_inventory(self):
         canonical = tuple(item["name"] for item in self.suite["included_skills"])
-        self.assertEqual(15, len(canonical))
+        self.assertGreater(len(canonical), 0)
         self.assertEqual(len(canonical), len(set(canonical)))
 
         for language, (path, start, end) in TABLE_MARKERS.items():
             with self.subTest(language=language):
                 documented = _table_skill_ids(_read(path), start, end)
-                self.assertEqual(15, len(documented))
+                self.assertEqual(len(canonical), len(documented))
                 self.assertEqual(set(canonical), set(documented))
                 self.assertEqual(len(documented), len(set(documented)))
-                self.assertIn("flowguard-behavior-commitment-ledger", documented)
 
         self.assertIn("Behavior Commitment Ledger", self.readmes["english"])
         self.assertIn("Behavior Commitment Ledger", self.readmes["chinese"])

@@ -38,6 +38,7 @@ from flowguard.consumer_wire import (
     consumer_release_canonical_json_bytes,
     consumer_release_wire_hash,
 )
+from flowguard.suite_contract import FLOWGUARD_EXPECTED_MEMBER_COUNT
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHOR_MEMBERS = tuple(
@@ -73,7 +74,7 @@ class AuthorSyncFixture(unittest.TestCase):
         self.source = self.root / "author" / ".agents" / "skills"
         self.target = self.root / "shadow" / ".agents" / "skills"
         self.members = AUTHOR_MEMBERS
-        self.assertEqual(15, len(self.members))
+        self.assertEqual(FLOWGUARD_EXPECTED_MEMBER_COUNT, len(self.members))
         for member in self.members:
             member_root = self.source / member
             (member_root / "agents").mkdir(parents=True)
@@ -504,6 +505,60 @@ class DistributionLifecycleTests(DistributionFixture):
         self.assertIn(f"{self.members[0]}/SKILL.md", report.copied_files)
         self.assertEqual(source_file.read_bytes(), target_file.read_bytes())
 
+    def test_install_transaction_preserves_third_party_bytes_and_cleans_stage(self) -> None:
+        unrelated = self.target / "researchguard" / "SKILL.md"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_bytes(b"third-party\r\nbytes\n")
+        peer = self.target.parent / "peer.txt"
+        peer.write_bytes(b"peer bytes\x00")
+        before_unrelated = unrelated.read_bytes()
+        before_peer = peer.read_bytes()
+
+        report = install_skill_suite(self.source, self.target, member_ids=self.members)
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual("activated", report.transaction_status)
+        self.assertEqual(before_unrelated, unrelated.read_bytes())
+        self.assertEqual(before_peer, peer.read_bytes())
+        self.assertFalse(tuple(self.target.parent.glob(".fgcs-*")))
+        self.assertFalse(tuple(self.target.parent.glob(".fgcb-*")))
+
+    def test_install_post_activation_failure_restores_managed_and_third_party_bytes(self) -> None:
+        first = install_skill_suite(self.source, self.target, member_ids=self.members)
+        self.assertTrue(first.ok, first.to_dict())
+        unrelated = self.target / "researchguard" / "SKILL.md"
+        unrelated.parent.mkdir(parents=True)
+        unrelated.write_bytes(b"preserve me\n")
+        managed_before = {
+            path.relative_to(self.target).as_posix(): path.read_bytes()
+            for path in self.target.rglob("*")
+            if path.is_file()
+        }
+        source_file = self.source / self.members[0] / "SKILL.md"
+        source_file.write_text("# changed source\n", encoding="utf-8")
+
+        with patch(
+            "flowguard.distribution_sync._verify_consumer_projection",
+            side_effect=ValueError("forced post-activation failure"),
+        ):
+            report = install_skill_suite(self.source, self.target, member_ids=self.members)
+
+        self.assertFalse(report.ok, report.to_dict())
+        self.assertEqual("rolled_back", report.transaction_status)
+        self.assertIn(
+            "install_activation_rolled_back",
+            {finding.code for finding in report.findings},
+        )
+        managed_after = {
+            path.relative_to(self.target).as_posix(): path.read_bytes()
+            for path in self.target.rglob("*")
+            if path.is_file()
+        }
+        self.assertEqual(managed_before, managed_after)
+        self.assertEqual(b"preserve me\n", unrelated.read_bytes())
+        self.assertFalse(tuple(self.target.parent.glob(".fgcs-*")))
+        self.assertFalse(tuple(self.target.parent.glob(".fgcb-*")))
+
     def test_user_modified_file_is_preserved_as_conflict(self) -> None:
         install_skill_suite(self.source, self.target, member_ids=self.members)
         target_file = self.target / self.members[0] / "SKILL.md"
@@ -662,7 +717,10 @@ class AuthorProjectionSyncTests(AuthorSyncFixture):
             {f"{member}/consumer-release.json" for member in self.members},
             set(report.removed_files),
         )
-        self.assertEqual(45, len([path for path in report.copied_files if "/.skillguard/" in path]))
+        self.assertEqual(
+            3 * FLOWGUARD_EXPECTED_MEMBER_COUNT,
+            len([path for path in report.copied_files if "/.skillguard/" in path]),
+        )
         self.assertEqual(("researchguard",), report.preserved_paths)
         self.assertEqual(before, self.snapshot())
 

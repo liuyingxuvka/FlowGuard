@@ -791,128 +791,37 @@ class ModelRevisionBuilderTests(unittest.TestCase):
                 **self._no_intent_kwargs(),
             )
 
-    def test_cli_emits_activation_ready_paths_but_keeps_head(self):
-        self._write_current_model("VALUE = 2\n")
-        report = self._current_parent("cli-parent")
-        head_before, _base = load_observed_model_system(self.root)
-        bootstrap_input = self._write_intent_bootstrap_input("cli-builder")
+    def _assert_retired_compact_route(self, operation: str, *arguments: str) -> None:
         output = StringIO()
-
         with redirect_stdout(output):
-            exit_code = main(
-                [
-                    "model-revision-intent-bootstrap",
-                    "--root",
-                    str(self.root),
-                    "--model-parent-receipt",
-                    report.parent_receipt_path,
-                    "--revision-set-id",
-                    "revision:cli-builder",
-                    "--task-id",
-                    "task:cli-builder",
-                    "--snapshot-id",
-                    "observed-cli-builder",
-                    "--intent-bootstrap-input",
-                    str(bootstrap_input),
-                    "--no-declared-intent-rationale-id",
-                    "no-intent:builder-cli-fixture",
-                    "--no-declared-intent-evidence-fingerprints",
-                    json.dumps({"fixture_manifest": file_fingerprint(
-                        self.root / ".flowguard" / "models" / "regression-manifest.json"
-                    )}),
-                    "--no-declared-intent-rationale",
-                    (
-                        "This isolated CLI fixture has no external product intent "
-                        "beyond exercising its declared test boundary."
-                    ),
-                    "--json",
-                ]
-            )
-
+            exit_code = main([operation, *arguments, "--json"])
         payload = json.loads(output.getvalue())
-        head_after, _still_base = load_observed_model_system(self.root)
-        self.assertEqual(0, exit_code)
-        self.assertEqual("incomplete", payload["status"])
-        self.assertTrue(Path(payload["candidate_snapshot_path"]).is_file())
-        self.assertTrue(Path(payload["revision_set_path"]).is_file())
-        self.assertEqual(head_before, head_after)
+        self.assertEqual(2, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual(f"unknown operation: {operation}", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
-    def test_cli_accepts_only_exact_current_path_quality_material(self):
-        snapshot_id = "observed-cli-path-quality"
-        self._write_current_model("VALUE = 2\n")
-        report = self._current_parent("cli-path-quality-parent")
-        head_before, _base = load_observed_model_system(self.root)
-        bootstrap_input = self._write_intent_bootstrap_input(
-            "cli-path-quality"
+    def test_retired_model_revision_intent_bootstrap_route_is_rejected(self):
+        self._assert_retired_compact_route(
+            "model-revision-intent-bootstrap",
+            "--root",
+            str(self.root),
+            "--model-parent-receipt",
+            "parent.json",
+            "--snapshot-id",
+            "observed-cli-builder",
         )
-        owner_evidence = (
-            self.root / "outputs" / "cli-native-owner-evidence.json"
-        )
-        produce_model_revision_owner_evidence(
-            self.root,
-            model_parent_receipt=report.parent_receipt_path,
-            snapshot_id=snapshot_id,
-            output_path=owner_evidence,
-        )
-        path_quality = self._write_path_quality_material(
-            snapshot_id,
-            "cli-path-quality",
-        )
-        output = StringIO()
 
-        with redirect_stdout(output):
-            exit_code = main(
-                [
-                    "model-revision-intent-bootstrap",
-                    "--root",
-                    str(self.root),
-                    "--model-parent-receipt",
-                    report.parent_receipt_path,
-                    "--revision-set-id",
-                    "revision:cli-path-quality",
-                    "--task-id",
-                    "task:cli-path-quality",
-                    "--snapshot-id",
-                    snapshot_id,
-                    "--intent-bootstrap-input",
-                    str(bootstrap_input),
-                    "--native-owner-evidence",
-                    str(owner_evidence),
-                    "--path-quality-material",
-                    str(path_quality),
-                    "--no-declared-intent-rationale-id",
-                    "no-intent:builder-cli-path-quality-fixture",
-                    "--no-declared-intent-evidence-fingerprints",
-                    json.dumps(
-                        {
-                            "fixture_manifest": file_fingerprint(
-                                self.root
-                                / ".flowguard"
-                                / "models" / "regression-manifest.json"
-                            )
-                        }
-                    ),
-                    "--no-declared-intent-rationale",
-                    (
-                        "This isolated CLI fixture has no external product intent "
-                        "beyond exercising its exact current path-quality boundary."
-                    ),
-                    "--json",
-                ]
-            )
-
-        payload = json.loads(output.getvalue())
-        head_after, _still_base = load_observed_model_system(self.root)
-        self.assertEqual(0, exit_code)
-        self.assertEqual("pass", payload["status"])
-        revision = ModelRevisionSet.from_dict(
-            json.loads(
-                Path(payload["revision_set_path"]).read_text(encoding="utf-8")
-            )
+    def test_retired_model_revision_intent_bootstrap_rejects_path_quality_arguments(self):
+        self._assert_retired_compact_route(
+            "model-revision-intent-bootstrap",
+            "--path-quality-material",
+            "path-quality.json",
+            "--native-owner-evidence",
+            "native-owner.json",
         )
-        self.assertEqual("accepted", revision.status)
-        self.assertTrue(revision.path_quality_acceptance_ready)
-        self.assertEqual(head_before, head_after)
 
 
 if __name__ == "__main__":

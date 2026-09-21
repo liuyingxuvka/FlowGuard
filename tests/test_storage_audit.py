@@ -50,7 +50,7 @@ class StorageAuditTests(unittest.TestCase):
         self.assertEqual(0, report.directory_walk_count)
         self.assertIn("root_missing", {item["code"] for item in report.findings})
 
-    def test_gc_plan_can_explicitly_run_storage_audit_first(self):
+    def test_retired_gc_plan_route_is_rejected_without_fallback(self):
         with tempfile.TemporaryDirectory() as directory:
             evidence = Path(directory) / ".flowguard" / "evidence"
             evidence.mkdir(parents=True)
@@ -67,22 +67,9 @@ class StorageAuditTests(unittest.TestCase):
                 )
             payload = json.loads(output.getvalue())
 
-            self.assertEqual(0, exit_code)
-            self.assertEqual("flowguard.evidence_gc_plan.v1", payload["schema_version"])
-            self.assertEqual("passed", payload["storage_audit"]["status"])
-            self.assertEqual(1, payload["storage_audit"]["directory_walk_count"])
-            self.assertEqual(0, payload["storage_audit"]["content_hash_read_count"])
-
-            # The optional storage observation is part of the exact plan
-            # identity, so the public storage-audit -> apply route must remain
-            # consumable rather than producing an unverifiable plan.
-            receipt = apply_evidence_gc(evidence, payload)
-            self.assertEqual("pass", receipt["status"])
-
-            tampered = json.loads(json.dumps(payload))
-            tampered["storage_audit"]["directory_walk_count"] = 2
-            with self.assertRaisesRegex(EvidenceLifecycleError, "fingerprint mismatch"):
-                apply_evidence_gc(evidence, tampered)
+            self.assertEqual(2, exit_code)
+            self.assertEqual("blocked", payload["status"])
+            self.assertIn("unknown operation", payload["error"])
 
     @unittest.skipUnless(os.name == "nt", "Windows extended paths are the subject of this regression")
     def test_long_history_path_uses_metadata_only_extended_path(self):

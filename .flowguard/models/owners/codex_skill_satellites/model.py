@@ -27,6 +27,10 @@ KERNEL_ROLE = "kernel_router"
 SATELLITE_ROLE = "public_satellite"
 PUBLIC_ROUTE_ROLE = "public_owner"
 PUBLIC_ENTRY_POLICY = "direct"
+# Internal route rows remain in the current registry for routing, but they are
+# delegated through the one public kernel and must never be rediscovered as
+# public skill members.
+INTERNAL_ROUTE_ROLE = "internal_route"
 
 TOPOLOGY_NOT_RUN = "not_run"
 TOPOLOGY_CURRENT = "current"

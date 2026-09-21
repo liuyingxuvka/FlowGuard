@@ -68,9 +68,10 @@ class ProjectIntegrationTests(unittest.TestCase):
             / "modeling_evidence_protocol.md"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("role: `kernel`", skill)
-        self.assertIn("Use a clear peer satellite directly", skill)
-        self.assertIn("references/modeling_protocol.md", skill)
+        self.assertIn("one public skill", skill)
+        self.assertIn("The only public operations are `read`, `change`, and `release`", skill)
+        self.assertIn("references/domains/<subject>/", skill)
+        self.assertIn("No mode/fallback path is", skill)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', core)
         self.assertIn("AGENTS.md managed adoption record", core)
         self.assertIn("blocked/partial", core)
@@ -127,8 +128,13 @@ class ProjectIntegrationTests(unittest.TestCase):
             text=True,
         )
 
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertRegex(completed.stdout.strip(), r"^\d+\.\d+$")
+        payload = json.loads(completed.stdout)
+        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual("block", payload["decision"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual("unknown operation: schema-version", payload["error"])
+        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
 
 if __name__ == "__main__":

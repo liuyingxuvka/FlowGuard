@@ -1,6 +1,3 @@
-import json
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +11,7 @@ from flowguard.project_adoption import (
 )
 from flowguard.project_layout import (
     CANONICAL_ROLE_ROOTS,
+    audit_project_layout,
     current_layout_manifest_text,
     current_layout_readme_text,
 )
@@ -92,14 +90,9 @@ class ProjectLayoutIntegrationTests(unittest.TestCase):
                 path.relative_to(root).as_posix()
                 for path in root.rglob("*")
             )
-            from flowguard.__main__ import main
-
-            with patch("sys.argv", ["flowguard", "project-layout-audit", "--root", str(root), "--json"]):
-                with patch("builtins.print") as printer:
-                    code = main()
-            self.assertEqual(1, code)
-            payload = json.loads(printer.call_args.args[0])
-            self.assertEqual("blocked", payload["status"])
+            report = audit_project_layout(root)
+            self.assertFalse(report.ok)
+            self.assertEqual("blocked", report.status)
             after = sorted(
                 path.relative_to(root).as_posix()
                 for path in root.rglob("*")
@@ -126,27 +119,10 @@ class ProjectLayoutIntegrationTests(unittest.TestCase):
                 current_layout_manifest_text(root), encoding="utf-8"
             )
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "flowguard",
-                    "project-layout-audit",
-                    "--root",
-                    str(root),
-                    "--json",
-                ],
-                cwd=Path(__file__).resolve().parents[1],
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            payload = json.loads(result.stdout)
-            self.assertTrue(payload["ok"], payload)
-            self.assertEqual("pass", payload["status"])
-            self.assertEqual(3, payload["layout_version"])
+            report = audit_project_layout(root)
+            self.assertTrue(report.ok, report.format_text())
+            self.assertEqual("pass", report.status)
+            self.assertEqual(3, report.layout_version)
 
     def test_layout_cli_keeps_working_artifacts_out_of_currentness(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -183,27 +159,10 @@ class ProjectLayoutIntegrationTests(unittest.TestCase):
                 "workspace": workspace.read_bytes(),
             }
 
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "flowguard",
-                    "project-layout-audit",
-                    "--root",
-                    str(root),
-                    "--json",
-                ],
-                cwd=Path(__file__).resolve().parents[1],
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            payload = json.loads(result.stdout)
-            self.assertTrue(payload["ok"], payload)
+            report = audit_project_layout(root)
+            self.assertTrue(report.ok, report.format_text())
             self.assertEqual(
-                [item["code"] for item in payload["findings"]],
+                [item.code for item in report.findings],
                 ["layout_runtime_artifact"],
             )
             self.assertEqual(before["cache"], cache_file.read_bytes())

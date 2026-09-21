@@ -269,6 +269,13 @@ def build_metadata() -> dict[str, Any]:
 
     for name in ("NativeSuiteContext", "prepare_native_suite_context"):
         insert_from_source(name, list(_module_all("flowguard.skill_native_checks", module_cache)))
+    # route_topology gained this public lifecycle discriminator after the
+    # compact facade was first generated. Keep the derived facade in lockstep
+    # with the authoritative route-topology export.
+    insert_from_source(
+        "PUBLIC_LIFECYCLE_IDS",
+        list(_module_all("flowguard.route_topology", module_cache)),
+    )
     governance_history = values.get("FLOWGUARD_GOVERNANCE_API", ())
     governance_source: list[str] = []
     if governance_history:
@@ -293,6 +300,14 @@ def build_metadata() -> dict[str, Any]:
             continue
         insert_from_source(name, source_public if name in source_public else governance_source)
     insert_from_source("implementation_coverage_obligation_id", governance_source or source_public)
+    # This symbol is owned by the governance aggregate and therefore must
+    # precede the portable-verification aggregate in the facade's stable
+    # group order, even when the source-derived order was assembled through
+    # a lazy module comprehension.
+    if "implementation_coverage_obligation_id" in names:
+        names.remove("implementation_coverage_obligation_id")
+        portable_index = names.index("PORTABLE_MODEL_SCHEMA_VERSION") if "PORTABLE_MODEL_SCHEMA_VERSION" in names else len(names)
+        names.insert(portable_index, "implementation_coverage_obligation_id")
 
     owners = dict(current["owners"])
     explicit = _explicit_owners(tree)

@@ -84,7 +84,7 @@ This is an explicit SkillGuard author repository. This block is only a short adm
 Canonical SkillGuard repository: https://github.com/liuyingxuvka/SkillGuard
 
 Managed skills:
-- `.skillguard/author-project.json` is the exact managed inventory (15 member(s)); each row binds one native owner, maintenance unit, and route-evidence path.
+- `.skillguard/author-project.json` is the exact managed inventory (1 member(s)); each row binds one native owner, maintenance unit, and route-evidence path.
 - The target skills keep domain-route, judgment, action, and native-check authority.
 
 Before a source edit or validation, read the target `SKILL.md`, its native route/check contracts, and `references/skillguard-supervisor.md`.
@@ -93,7 +93,7 @@ Use one frozen maintenance unit, exact owner/check identities, private evidence 
 Validation policy: `skillguard.validation_execution_ownership.current`. It is direct-current only: no fallback, migration, alias, dual authority, or cross-unit receipt reuse.
 Consumer projections contain no author contracts, receipts, router, Portfolio, or author-only runtime. Installation, global-router currentness, and release are separate explicit claims; read `references/skillguard-target-installation.md` and `references/skillguard-self-host.md` only for those routes.
 
-Author currentness command: `python <installed-skillguard>/scripts/skillguard.py read --root . --request skillguard-read.json --json`
+Author currentness command: `python <installed-skillguard>/scripts/skillguard.py read --root . --request read.json --json`
 
 This managed block is a routing and maintenance contract. It is not runtime, test, release, or future-behavior proof.
 <!-- END MANAGED SKILLGUARD AUTHOR RULES -->

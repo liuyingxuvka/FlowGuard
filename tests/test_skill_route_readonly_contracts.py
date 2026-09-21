@@ -1,8 +1,10 @@
-"""Static contract checks for the fifteen public FlowGuard route documents.
+"""Current single-skill/read-path contract checks.
 
-These checks deliberately validate routing vocabulary and reference topology,
-not prompt length.  They protect the zero-producer light path and the explicit
-boundary between working evidence and publishable authority.
+The public distribution has one ``flowguard`` skill.  Domain material remains
+on-demand reference content and the only public lifecycle operations are
+``read``, ``change``, and ``release``.  These checks protect that boundary and
+the zero-producer read path without treating retired satellite skills as
+current authorities.
 """
 
 from pathlib import Path
@@ -17,16 +19,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def _route_dirs() -> tuple[Path, ...]:
     inventory = validate_skill_suite(ROOT)
     assert inventory.ok, inventory.to_dict()
-    assert len(inventory.declared_member_ids) == 15
+    assert inventory.declared_member_ids == ("flowguard",)
     return tuple(ROOT / FLOWGUARD_SKILL_ROOT / member_id for member_id in inventory.declared_member_ids)
 
 
-def test_all_fifteen_routes_have_lazy_reference_contracts():
+def test_single_public_skill_has_lazy_reference_contracts():
     for route_dir in _route_dirs():
         skill = route_dir / "SKILL.md"
         text = skill.read_text(encoding="utf-8")
         assert "route" in text.lower(), route_dir.name
-        assert "selection" in text.lower() or "admission" in text.lower(), route_dir.name
+        assert "selected" in text.lower() or "admission" in text.lower(), route_dir.name
         refs = sorted(
             set(re.findall(r"`(references/[^`]+?\.md)`", text))
         )
@@ -35,21 +37,22 @@ def test_all_fifteen_routes_have_lazy_reference_contracts():
             assert (route_dir / relative).is_file(), (route_dir.name, relative)
 
 
-def test_shared_contract_declares_profiles_zero_producer_and_temp_policy():
+def test_shared_contract_declares_lifecycle_zero_producer_and_stop_policy():
     kernel = (ROOT / ".agents/skills/flowguard/SKILL.md").read_text(encoding="utf-8")
     shared = (ROOT / ".agents/skills/flowguard/references/route_execution_contract.md").read_text(
         encoding="utf-8"
     )
-    for marker in ("execution_profile", "light", "affected", "full", "read_only_audit"):
+    for marker in ("one public skill", "read", "change", "release", "No mode/fallback"):
         assert marker in kernel, marker
     for marker in (
+        "Domain folders under `references/domains/` are on-demand reference material",
+        "There is no compatibility alias, fallback route, alternate reader",
         "does not reserve a lease",
         "producer count remains zero",
         "non-authoritative",
         "release-excluded",
-        "cleanup is a separate explicit",
-        "exact-current parent is read-only",
-        "timeout policy changes do not reopen",
+        "Cleanup is a",
+        "source, model, contract, toolchain, or environment drift",
     ):
         assert marker in shared, marker
 
@@ -57,7 +60,7 @@ def test_shared_contract_declares_profiles_zero_producer_and_temp_policy():
 def test_bcl_uses_singular_path_authority_and_rejects_legacy_plural():
     protocol = (
         ROOT
-        / ".agents/skills/flowguard-behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md"
+        / ".agents/skills/flowguard/references/domains/behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md"
     ).read_text(encoding="utf-8")
     assert "path_sensitive=true" in protocol
     assert "primary_path_id" in protocol
@@ -66,7 +69,7 @@ def test_bcl_uses_singular_path_authority_and_rejects_legacy_plural():
 
 
 def test_conditional_details_are_split_and_referenced_only_on_trigger():
-    architecture_root = ROOT / ".agents/skills/flowguard-architecture-reduction"
+    architecture_root = ROOT / ".agents/skills/flowguard/references/domains/architecture-reduction"
     architecture_main = (
         architecture_root / "references/architecture_reduction_protocol.md"
     ).read_text(encoding="utf-8")
@@ -84,7 +87,7 @@ def test_conditional_details_are_split_and_referenced_only_on_trigger():
     assert "## Required Hazards" in architecture_hazards
     assert "## Bounded path preference" in architecture_hazards
 
-    preflight_root = ROOT / ".agents/skills/flowguard-existing-model-preflight"
+    preflight_root = ROOT / ".agents/skills/flowguard/references/domains/existing-model-preflight"
     preflight_main = (
         preflight_root / "references/existing_model_preflight_protocol.md"
     ).read_text(encoding="utf-8")

@@ -44,32 +44,23 @@ reference below the core skill.
   repair, maintenance, cleanup, and release do not enter this route merely to
   produce a completion receipt.
 
-## Public Owner Satellite Skills
+## One public skill and route projections
 
-These route-specific Codex skills are public owner routes. They can be invoked
-directly when the user's request clearly matches their trigger:
+`flowguard` is the only discoverable and installable FlowGuard skill. The
+15 public route ids remain API projections owned by this kernel so existing
+route-level behavior and admission contracts stay addressable without
+recreating 14 public skill identities. A selected domain is loaded from
+`references/domains/<subject>/` on demand; it is not an independent skill,
+alias, forwarder, compatibility reader, or fallback path.
 
-| Satellite skill | Route |
-| --- | --- |
-| `flowguard-model-test-alignment` | `model_test_alignment` |
-| `flowguard-contract-exhaustion-mesh` | `contract_exhaustion_mesh` |
-| `flowguard-development-process-flow` | `development_process_flow` |
-| `flowguard-model-miss-review` | `model_miss_review` |
-| `flowguard-architecture-reduction` | `architecture_reduction` |
-| `flowguard-code-structure-recommendation` | `code_structure_recommendation` |
-| `flowguard-ui-flow-structure` | `ui_flow_structure` |
-| `flowguard-model-topology-hazard-review` | `model_topology_hazard_review` |
-| `flowguard-model-mesh` | `model_mesh_maintenance` |
-| `flowguard-test-mesh` | `test_mesh_maintenance` |
-| `flowguard-structure-mesh` | `structure_mesh_maintenance` |
-
-If a task is ambiguous, cross-route, or starts from a general FlowGuard
-applicability question, use `flowguard` first. Satellite skills route unclear
-work to `flowguard` instead of taking ownership.
+The kernel front door is `model_first_function_flow`. Route-to-route handoffs
+carry the exact route id as an internal typed target, while a handoff back to
+the front door targets the single `flowguard` skill. Route ids and the skill id
+are therefore deliberately separate authorities.
 
 `plan_detailing` and `agent_workflow` are internal DevelopmentProcessFlow
-routes. They are selected inside `flowguard-development-process-flow` and have
-no independent Codex skill, alias, forwarding entrypoint, or fallback path.
+routes. They are selected inside `development_process_flow` and have no
+independent Codex skill, alias, forwarding entrypoint, or fallback path.
 `agent_workflow` is risk-admitted only; ordinary work, capability labels, or a
 multi-skill description without an explicit workflow-risk fact stays
 `not_triggered` and must not load the rehearsal protocol.

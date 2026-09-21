@@ -1569,6 +1569,8 @@ class ValidationOwnerContract:
     required: bool = True
 
     def __post_init__(self) -> None:
+        if type(self.required) is not bool:
+            raise ValueError("validation owner required must be boolean")
         raw_resource_options = tuple(
             str(item).strip()
             for item in self.resource_argv_options
@@ -1763,7 +1765,7 @@ class ValidationOwnerContract:
             termination_policy=str(
                 value.get("termination_policy", DEFAULT_TERMINATION_POLICY)
             ),
-            required=bool(value.get("required", True)),
+            required=value.get("required", True),
         )
 
 

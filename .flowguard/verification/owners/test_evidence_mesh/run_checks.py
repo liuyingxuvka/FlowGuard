@@ -19,11 +19,13 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from model import run_review  # noqa: E402
 
-from flowguard.native_case_runner import native_main
-def _native_owner_main() -> int:
+from flowguard.native_case_runner import native_main, native_results_from_scenario_report
+def _native_owner_main() -> tuple:
     report = run_review()
-    print(report.format_text())
-    return 0 if report.ok else 1
+    print(f"scenario_report: status={'pass' if report.ok else 'blocked'} cases={len(report.results)}")
+    return native_results_from_scenario_report(
+        "model:test_evidence_mesh", report
+    )
 
 
 if __name__ == "__main__":

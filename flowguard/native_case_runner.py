@@ -27,9 +27,11 @@ import traceback
 from typing import Any, Callable, Mapping, Sequence
 
 from .native_case_protocol import (
+    CASE_DIMENSIONS,
     GOOD_DIMENSIONS,
     NATIVE_CASE_RESULT_SCHEMA,
     NativeModelCaseResult,
+    NativeCaseProtocolError,
     fingerprint_payload,
 )
 from .native_case_mapping import (
@@ -69,6 +71,19 @@ _SCENARIO_OWNERS = frozenset(
     }
 )
 _BENCHMARK_OWNER = "bounded_system_composition_benchmark"
+# These five owners are the finite scenario producers whose report is now
+# converted to the typed native tuple by the owner itself.  They deliberately
+# bypass the historical capture bridge below: stdout, globals, and an
+# existing JSON file are never evidence for these owners.
+_STRICT_NATIVE_OWNER_IDS = frozenset(
+    {
+        "architecture_reduction",
+        "hierarchical_model_mesh",
+        "mesh_target_split_derivation",
+        "structure_refactor_mesh",
+        "test_evidence_mesh",
+    }
+)
 _SUMMARY_CASE_NAMES = frozenset(
     {
         "status", "result", "decision", "outcome", "observed", "expected", "evidence",
@@ -1502,6 +1517,316 @@ def _runtime_case_mapping(
     return registry, index, ""
 
 
+def _required_environment_fingerprint(name: str) -> str:
+    """Read one producer identity without manufacturing a fallback hash.
+
+    The model-regression launcher supplies all six values from its frozen
+    owner observation.  A strict producer invoked outside that launcher must
+    fail closed instead of turning the current process, stdout, or a guessed
+    model name into an input identity.
+    """
+
+    value = _valid_text(os.environ.get(name))
+    if not value.startswith("sha256:") or len(value) != 71:
+        raise NativeCaseProtocolError(
+            f"strict native producer requires canonical {name}"
+        )
+    try:
+        int(value[7:], 16)
+    except ValueError as exc:
+        raise NativeCaseProtocolError(
+            f"strict native producer requires canonical {name}"
+        ) from exc
+    return value
+
+
+def _scenario_result_status(result: Any) -> tuple[str, bool]:
+    """Convert the report's oracle status to native outcome semantics.
+
+    ``expected_violation_observed`` is a passing *oracle* result: the model
+    intentionally observed a violation.  The native row therefore has
+    ``outcome=pass`` while retaining ``observed_status=violation``.  Any
+    unresolved or mismatched report status is blocked and cannot be promoted
+    by an exit code or a transcript.
+    """
+
+    status = _valid_text(getattr(result, "status", "")).lower()
+    if status in {"pass", "expected_violation_observed"}:
+        return "pass", True
+    return "blocked", False
+
+
+def _scenario_trace_labels(result: Any) -> tuple[str, ...]:
+    run = getattr(result, "scenario_run", None)
+    traces = getattr(run, "traces", ()) if run is not None else ()
+    labels: list[str] = []
+    for trace in traces or ():
+        for label in getattr(trace, "labels", ()) or ():
+            text = _valid_text(label)
+            if text and text not in labels:
+                labels.append(text)
+    return tuple(labels)
+
+
+def _scenario_observed_findings(result: Any) -> tuple[str, ...]:
+    run = getattr(result, "scenario_run", None)
+    values = getattr(run, "observed_violation_names", ()) if run is not None else ()
+    findings: list[str] = []
+    for value in values or ():
+        text = _valid_text(value)
+        if text and text not in findings:
+            findings.append(text)
+    return tuple(findings)
+
+
+def native_results_from_scenario_report(
+    owner_id: str,
+    report: Any,
+) -> tuple[NativeModelCaseResult, ...]:
+    """Convert one real ``ScenarioReviewReport`` to the strict native tuple.
+
+    The conversion is intentionally producer-side and one-shot.  It requires
+    the current checked-in mapping, uses the exact scenario names as native
+    IDs, preserves the model's observed status/finding/trace data, and emits
+    the boundary aggregate only after every declared child was returned by
+    this same report.  No stdout, global callback, directory scan, or count
+    inference participates in the result.
+    """
+
+    owner = _valid_text(owner_id)
+    if not owner.startswith("model:"):
+        owner = "model:" + owner
+    owner_key = owner.removeprefix("model:")
+    if owner_key not in _STRICT_NATIVE_OWNER_IDS:
+        raise NativeCaseProtocolError(
+            f"scenario report producer is not registered for {owner}"
+        )
+    report_rows = getattr(report, "results", None)
+    if not isinstance(report_rows, tuple):
+        raise NativeCaseProtocolError(
+            "strict scenario producer must return one ScenarioReviewReport tuple"
+        )
+    mapping, mapping_index, mapping_error = _runtime_case_mapping(owner)
+    if mapping is None or mapping_error:
+        raise NativeCaseProtocolError(
+            mapping_error or "strict native producer requires current native mapping"
+        )
+    input_fp = _required_environment_fingerprint("FLOWGUARD_INPUT_FINGERPRINT")
+    model_fp = _required_environment_fingerprint("FLOWGUARD_MODEL_FINGERPRINT")
+    code_fp = _required_environment_fingerprint("FLOWGUARD_CODE_FINGERPRINT")
+    test_fp = _required_environment_fingerprint("FLOWGUARD_TEST_FINGERPRINT")
+    tool_fp = _required_environment_fingerprint("FLOWGUARD_TOOLCHAIN_FINGERPRINT")
+    env_fp = _required_environment_fingerprint("FLOWGUARD_ENVIRONMENT_FINGERPRINT")
+    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", "")).resolve()
+    if not str(output_dir) or str(output_dir) == str(Path.cwd().resolve()):
+        raise NativeCaseProtocolError(
+            "strict native producer requires an explicit FLOWGUARD_OUTPUT_DIR"
+        )
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source_path = output_dir / "native-source.json"
+
+    # The report itself is the raw immutable producer artifact.  It is written
+    # before rows are constructed so every row can bind to its exact bytes.
+    report_payload = _structured_to_payload(report)
+    source_payload = {
+        "schema_version": NATIVE_CASE_RESULT_SCHEMA,
+        "owner_id": owner,
+        "producer": "scenario_review_report",
+        "mapping_fingerprint": mapping.mapping_fingerprint,
+        "report": report_payload,
+    }
+    source_bytes = _json_bytes(source_payload) + b"\n"
+    source_path.write_bytes(source_bytes)
+    source_fp = _sha256_bytes(source_bytes)
+
+    expected_leaf_ids = {
+        key.split("\x00", 1)[1]
+        for key, binding in mapping_index.items()
+        if key.startswith(owner + "\x00") and binding.case_kind != "boundary"
+    }
+    rows_by_id: dict[str, NativeModelCaseResult] = {}
+    for report_row in report_rows:
+        scenario_name = _valid_text(getattr(report_row, "scenario_name", ""))
+        if not scenario_name:
+            raise NativeCaseProtocolError("scenario report has an unnamed result")
+        native_id = f"native-scenario:{owner_key}:{scenario_name}"
+        if native_id in rows_by_id:
+            raise NativeCaseProtocolError(f"duplicate strict native scenario: {native_id}")
+        binding = mapping_index.get(f"{owner}\x00{native_id}")
+        if binding is None or binding.case_kind == "boundary":
+            raise NativeCaseProtocolError(f"unmapped strict native scenario: {native_id}")
+        run = getattr(report_row, "scenario_run", None)
+        observed_status = _valid_text(getattr(run, "observed_status", ""))
+        if not observed_status:
+            raise NativeCaseProtocolError(f"scenario has no observed status: {native_id}")
+        outcome, oracle_ok = _scenario_result_status(report_row)
+        findings = _scenario_observed_findings(report_row)
+        trace_labels = _scenario_trace_labels(report_row)
+        dimensions = tuple(binding.covered_dimensions)
+        oracle_fp = fingerprint_payload(
+            {
+                "scenario_name": scenario_name,
+                "expected_status": binding.expected_status,
+                "expected_observed_status": binding.expected_observed_status,
+                "expected_finding_codes": list(binding.expected_finding_codes),
+                "observed_status": observed_status,
+                "observed_finding_codes": list(findings),
+                "trace_labels": list(trace_labels),
+            }
+        )
+        rows_by_id[native_id] = NativeModelCaseResult(
+            owner_id=owner,
+            source_case_id=native_id,
+            outcome=outcome,
+            observed_status=observed_status,
+            observed_finding_codes=findings,
+            executed_dimensions=dimensions,
+            oracle_results=tuple(
+                {
+                    "dimension": dimension,
+                    "oracle_member_id": f"{owner}:{native_id}:{dimension}",
+                    "status": observed_status,
+                    "ok": oracle_ok,
+                    "finding_codes": list(findings),
+                    "observed": {"trace_labels": list(trace_labels)},
+                }
+                for dimension in dimensions
+            ),
+            result_artifact_fingerprint=source_fp,
+            input_fingerprint=input_fp,
+            model_fingerprint=model_fp,
+            code_fingerprint=code_fp,
+            test_fingerprint=test_fp,
+            oracle_fingerprint=oracle_fp,
+            toolchain_fingerprint=tool_fp,
+            environment_fingerprint=env_fp,
+            raw_artifact_path="native-source.json",
+        )
+    actual_leaf_ids = set(rows_by_id)
+    if actual_leaf_ids != expected_leaf_ids:
+        missing = sorted(expected_leaf_ids - actual_leaf_ids)
+        extra = sorted(actual_leaf_ids - expected_leaf_ids)
+        raise NativeCaseProtocolError(
+            f"strict native denominator mismatch: missing={missing}, extra={extra}"
+        )
+
+    boundary_bindings = {
+        binding.native_case_ids[0]: binding
+        for key, binding in mapping_index.items()
+        if key.startswith(owner + "\x00") and binding.case_kind == "boundary"
+    }
+    for boundary_id, binding in sorted(boundary_bindings.items()):
+        child_ids = tuple(binding.required_child_case_ids)
+        missing = tuple(child for child in child_ids if child not in rows_by_id)
+        failed = tuple(
+            child
+            for child in child_ids
+            if child in rows_by_id and rows_by_id[child].outcome != "pass"
+        )
+        boundary_ok = bool(child_ids) and not missing and not failed
+        status = "ok" if boundary_ok else "blocked"
+        findings = tuple(
+            item
+            for item in (
+                "boundary_child_result_missing" if missing else "",
+                "boundary_child_result_failed" if failed else "",
+            )
+            if item
+        )
+        rows_by_id[boundary_id] = NativeModelCaseResult(
+            owner_id=owner,
+            source_case_id=boundary_id,
+            outcome="pass" if boundary_ok else "blocked",
+            observed_status=status,
+            observed_finding_codes=findings,
+            executed_dimensions=tuple(binding.covered_dimensions),
+            oracle_results=tuple(
+                {
+                    "dimension": dimension,
+                    "oracle_member_id": f"{owner}:{boundary_id}:{dimension}",
+                    "status": status,
+                    "ok": boundary_ok,
+                    "finding_codes": list(findings),
+                    "observed": {"child_case_ids": list(child_ids)},
+                }
+                for dimension in binding.covered_dimensions
+            ),
+            result_artifact_fingerprint=source_fp,
+            input_fingerprint=input_fp,
+            model_fingerprint=model_fp,
+            code_fingerprint=code_fp,
+            test_fingerprint=test_fp,
+            oracle_fingerprint=fingerprint_payload(
+                {"boundary": boundary_id, "children": list(child_ids), "status": status}
+            ),
+            toolchain_fingerprint=tool_fp,
+            environment_fingerprint=env_fp,
+            raw_artifact_path="native-source.json",
+            child_case_ids=child_ids,
+        )
+    return tuple(rows_by_id[key] for key in sorted(rows_by_id))
+
+
+def _write_strict_native_results(
+    owner_id: str,
+    results: tuple[NativeModelCaseResult, ...],
+    output_dir: Path,
+) -> Path:
+    """Persist a typed producer tuple after exact mapping validation."""
+
+    owner = _valid_text(owner_id)
+    if not owner.startswith("model:"):
+        owner = "model:" + owner
+    mapping, mapping_index, mapping_error = _runtime_case_mapping(owner)
+    if mapping is None or mapping_error:
+        raise NativeCaseProtocolError(
+            mapping_error or "strict native result requires current native mapping"
+        )
+    if not results or any(not isinstance(row, NativeModelCaseResult) for row in results):
+        raise NativeCaseProtocolError(
+            "strict native producer must return tuple[NativeModelCaseResult, ...]"
+        )
+    keys = [(row.owner_id, row.source_case_id) for row in results]
+    if len(keys) != len(set(keys)):
+        raise NativeCaseProtocolError("strict native producer returned duplicate rows")
+    if any(row.owner_id != owner for row in results):
+        raise NativeCaseProtocolError("strict native producer returned a foreign owner")
+    declared_keys = {
+        (key.split("\x00", 1)[0], key.split("\x00", 1)[1])
+        for key in mapping_index
+    }
+    actual_keys = set(keys)
+    if actual_keys != declared_keys:
+        missing = sorted(declared_keys - actual_keys)
+        extra = sorted(actual_keys - declared_keys)
+        raise NativeCaseProtocolError(
+            f"strict native result mapping mismatch: missing={missing}, extra={extra}"
+        )
+    source_path = output_dir / "native-source.json"
+    if source_path.is_symlink() or not source_path.is_file():
+        raise NativeCaseProtocolError("strict native producer did not write native-source.json")
+    source_fp = _sha256_bytes(source_path.read_bytes())
+    for row in results:
+        raw_path = Path(row.raw_artifact_path)
+        if raw_path.is_absolute() or raw_path.parts != ("native-source.json",):
+            raise NativeCaseProtocolError("strict native row raw artifact path is not current")
+        if row.result_artifact_fingerprint != source_fp:
+            raise NativeCaseProtocolError(
+                f"strict native row artifact fingerprint mismatch: {row.source_case_id}"
+            )
+    target = output_dir / "native-case-results.json"
+    target.write_bytes(
+        _json_bytes(
+            {
+                "schema_version": NATIVE_CASE_RESULT_SCHEMA,
+                "results": [row.to_dict() for row in results],
+            }
+        )
+        + b"\n"
+    )
+    return target
+
+
 def _write_results(
     owner_id: str,
     cases: Sequence[Mapping[str, Any]],
@@ -1528,6 +1853,40 @@ def _write_results(
         if mapping is not None
         else frozenset()
     )
+
+    # A path-quality consumer is allowed to use a producer's real executed
+    # report graph, but only when the producer returned one explicit report
+    # with named results and trace/final-state material.  The normal captured
+    # call envelope is intentionally bounded; this separate, exact projection
+    # preserves the graph needed by the downstream path-quality owner without
+    # scanning stdout or inventing a report from case counts.
+    report_payload: Mapping[str, Any] | None = None
+    for captured in structured_reports:
+        candidate = (
+            captured.result
+            if isinstance(captured, _CapturedCall)
+            else captured
+        )
+        payload = _structured_to_payload(candidate)
+        if not isinstance(payload, Mapping):
+            continue
+        report_rows = payload.get("results")
+        if not isinstance(report_rows, list) or not report_rows:
+            continue
+        if not all(
+            isinstance(row, Mapping)
+            and isinstance(row.get("scenario_name"), str)
+            and bool(row.get("scenario_name", "").strip())
+            and isinstance(row.get("scenario_run"), Mapping)
+            and isinstance(row["scenario_run"].get("traces"), list)
+            and bool(row["scenario_run"].get("traces"))
+            and isinstance(row["scenario_run"].get("final_states"), list)
+            and bool(row["scenario_run"].get("final_states"))
+            for row in report_rows
+        ):
+            continue
+        report_payload = payload
+        break
     normalized_cases: list[tuple[str, Mapping[str, Any]]] = []
     for raw in cases:
         qualified = _qualified_case_id(owner, raw)
@@ -1655,6 +2014,8 @@ def _write_results(
             _structured_to_payload(item) for item in structured_reports
         ],
     }
+    if report_payload is not None:
+        source_payload["report"] = report_payload
     source_path = output_dir / "native-source.json"
     source_bytes = _json_bytes(source_payload) + b"\n"
     source_path.write_bytes(source_bytes)
@@ -1866,6 +2227,35 @@ def native_main(owner_id: str, main: Callable[[], Any]) -> int:
     """Run one existing owner entrypoint and emit its producer evidence."""
 
     output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path.cwd())).resolve()
+    owner_key = _valid_text(owner_id).removeprefix("model:")
+    if owner_key in _STRICT_NATIVE_OWNER_IDS:
+        # Strict scenario owners return the typed tuple directly.  No wrapper
+        # globals, stdout parser, existing JSON scan, or exit-code inference
+        # is entered for this path.
+        try:
+            value = main()
+            if type(value) is not tuple:
+                raise NativeCaseProtocolError(
+                    "strict native owner must return an exact tuple"
+                )
+            typed_results = tuple(value)
+            result_path = _write_strict_native_results(
+                owner_id,
+                typed_results,
+                output_dir,
+            )
+            marker_ids = [row.source_case_id for row in typed_results]
+            print(
+                "FLOWGUARD_EXECUTED_CASE_IDS="
+                + json.dumps(marker_ids, ensure_ascii=False)
+            )
+            return 0 if all(row.outcome == "pass" for row in typed_results) else 1
+        except (OSError, TypeError, ValueError, NativeCaseProtocolError) as exc:
+            print(
+                "strict native producer rejected: " + str(exc),
+                file=sys.stderr,
+            )
+            return 1
     # Establish the file boundary before entering the owner.  Only files
     # created/replaced by this invocation may contribute JSON case rows;
     # retained output from an earlier invocation is evidence history, not a
@@ -1882,7 +2272,6 @@ def native_main(owner_id: str, main: Callable[[], Any]) -> int:
     global_namespace = main.__globals__
     wrapped_globals: list[tuple[str, Any]] = []
     call_stack: list[str] = []
-    owner_key = _valid_text(owner_id).removeprefix("model:")
     capture_names = tuple(
         dict.fromkeys(
             (
@@ -1928,12 +2317,29 @@ def native_main(owner_id: str, main: Callable[[], Any]) -> int:
 
         wrapped_globals.append((name, original))
         global_namespace[name] = _capture
+    # ``main`` is commonly passed as a function object looked up by the
+    # owner's module before this bridge enters ``native_main`` (for example,
+    # ``native_main("model:alpha", run_review)``).  Replacing the module
+    # global alone therefore does not change that already-resolved object;
+    # calling it directly would silently bypass the capture wrapper and lose
+    # the producer's structured report graph.  Re-resolve the entrypoint by
+    # its registered global name after installing wrappers.  An entrypoint
+    # that is not a captured global keeps its original callable identity.
+    entrypoint_name = _valid_text(getattr(main, "__name__", ""))
+    entrypoint = global_namespace.get(entrypoint_name)
+    if not callable(entrypoint):
+        entrypoint = main
     exit_code = 1
     try:
         with redirect_stdout(captured):
             try:
-                value = main()
-                exit_code = int(value) if isinstance(value, int) else 0
+                value = entrypoint()
+                if isinstance(value, int):
+                    exit_code = int(value)
+                elif isinstance(value, Mapping) and type(value.get("exit_code")) is int:
+                    exit_code = int(value["exit_code"])
+                else:
+                    exit_code = 0
             except SystemExit as exc:
                 value = exc.code
                 exit_code = int(value) if isinstance(value, int) else (0 if value in (None, "") else 1)
