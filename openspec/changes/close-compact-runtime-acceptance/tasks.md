@@ -82,5 +82,5 @@
 
 ## C13 — Publish the authorized patch release
 
-- [ ] After all implementation and verification gates pass, prepare the authorized patch release; historical tags remain unchanged.
-- [ ] Verify final branch/commit, remote identity, tag, release notes, and GitHub release for v0.69.7; synchronize the installed FlowGuard version only after final source validation.
+- [x] After all implementation and verification gates passed, publish the authorized patch release; historical tags remain unchanged. FlowGuard commit `02f1c556961e1182393a572bb98e08e1f2ee184b` was pushed to `main`, tagged `v0.69.7`, and published at https://github.com/liuyingxuvka/FlowGuard/releases/tag/v0.69.7.
+- [x] Verify final branch/commit, remote identity, tag, release notes, and GitHub release for v0.69.7; installed FlowGuard was synchronized only after final source validation and parity passed with zero issues.
