@@ -15,7 +15,7 @@ from .export import to_jsonable
 
 
 DEVELOPMENT_PROCESS_SIMULATOR_ROUTE = "development_process_simulator"
-DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL = "flowguard-development-process-flow"
+DEVELOPMENT_PROCESS_FRONT_DOOR_SKILL = "flowguard"
 
 SIMULATOR_MODE_PLAN_DETAILING = "plan_detailing"
 SIMULATOR_MODE_STRATEGY_SELECTION = "strategy_selection"

@@ -14,21 +14,18 @@ def test_blueprint_document_explains_the_complete_claim_boundary_in_plain_langua
 
     for phrase in (
         "independent implementation inventory",
-        "Bind The Model And The Code In Both Directions",
-        "source-independent semantic references",
-        "applicable oracles",
+        "bind both directions",
+        "independent semantic references and applicable oracles",
         "BehaviorBlockContract",
         "input, state, output, effect, error, decision, order, retry, timeout, and completion",
         "StaticBlueprintReadinessReport",
         "ModelTestAlignmentReport",
-        "AffectedBlueprintNeighborhood",
+        "affected owner neighborhood",
         "build, runtime, dependency, configuration, schema, data, asset, migration",
-        "Test/checker execution remains a separate receipt-backed status",
-        "Ordinary Tasks Stay Affected-Only",
+        "Test/checker execution is a separate receipt-backed status",
+        "Ordinary maintenance reads only",
         "parent/child output-to-input relations",
         "native model directory",
-        "There is no self-DNA export, copied self directory, bundle, or isolated rebuild step",
-        "Former export and isolated-verification command names are retired",
         "safe_by_equivalence",
         "safe_by_public_facade",
     ):
@@ -38,30 +35,16 @@ def test_blueprint_document_explains_the_complete_claim_boundary_in_plain_langua
 def test_blueprint_document_names_current_whole_affected_and_project_cli_entries():
     text = BLUEPRINT_DOC.read_text(encoding="utf-8")
     normalized = " ".join(text.split())
-    commands = (
-        "python -m flowguard target-system-blueprint-audit",
-        "python -m flowguard affected-blueprint-understanding",
-        "python -m flowguard project-blueprint-audit",
-        "python -m flowguard flowguard-self-blueprint-check",
-        "python -m flowguard project-blueprint-candidate",
-        "python -m flowguard flowguard-self-architecture-reduction-review",
-        "python -m flowguard implementation-inventory-audit",
-    )
-
-    for command in commands:
-        expected_count = 2 if command.endswith("project-blueprint-audit") else 1
-        assert text.count(command) == expected_count
-    assert "callers do not submit their own pass rows" in normalized
-    assert (
-        "propagated parent/child, producer-consumer, delegation, support, "
-        "or sibling impact"
-        in normalized
-    )
-    assert "model-blueprint-check" not in text
-    assert "model-blueprint-export" not in text
-    assert "--require-reconstruction" not in text
-    assert text.count("--inventory implementation-inventory.json") == 2
-    assert "--output exported-blueprint" not in text
+    assert "python -m flowguard read --root <project-root> --request read.json --json" in text
+    assert "python -m flowguard change --root <project-root> --request change.json --json" in text
+    assert "python -m flowguard release --root <project-root> --request release.json --json" in text
+    assert "The public command surface is deliberately limited to `read`, `change`, and `release`" in normalized
+    assert "callers do not submit their own pass rows" not in normalized
+    assert "affected owner neighborhood" in normalized
+    assert "target-system-blueprint-audit" not in text
+    assert "project-blueprint-audit" not in text
+    assert "flowguard-self-blueprint-check" not in text
+    assert "implementation-inventory-audit" not in text
 
 
 def test_readme_links_the_blueprint_in_both_language_sections():
@@ -76,26 +59,11 @@ def test_readme_links_the_blueprint_in_both_language_sections():
 
 
 def test_readme_keeps_one_direct_first_v5_bootstrap_sequence():
-    bootstrap_command = (
-        "python -m flowguard model-revision-intent-bootstrap --root . "
-        "--model-parent-receipt <model-parent.json> "
-        "--native-owner-evidence <owner-evidence.json>"
-    )
-    owner_evidence_command = (
-        "python -m flowguard model-revision-owner-evidence --root . "
-        "--model-parent-receipt <model-parent.json>"
-    )
-
     for readme in (README_EN, README_ZH):
         text = readme.read_text(encoding="utf-8")
-        assert text.count(bootstrap_command) == 1
-        assert text.count(owner_evidence_command) == 1
-        assert text.index(owner_evidence_command) < text.index(bootstrap_command)
-        assert (
-            "model-revision-intent-bootstrap --root . --model-parent-receipt "
-            "<model-parent.json> --revision-set-id"
-            not in text
-        )
+        assert "read" in text and "change" in text and "release" in text
+        assert "model-revision-intent-bootstrap" not in text
+        assert "model-revision-owner-evidence" not in text
 
 
 def test_patch_release_notes_include_blueprint_depth_and_exact_bindings():

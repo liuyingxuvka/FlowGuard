@@ -580,14 +580,6 @@ class ExistingModelPreflight:
             tuple(dict(item) for item in self.work_contexts),
         )
 
-    @property
-    def selected_currentness(self) -> str:
-        return self.selected_source_currentness
-
-    @property
-    def execution_status(self) -> str:
-        return self.execution_evidence_status
-
     def to_dict(self) -> dict[str, Any]:
         return {
             "preflight_id": self.preflight_id,
@@ -605,11 +597,8 @@ class ExistingModelPreflight:
             "authority_gap_ids": list(self.authority_gap_ids),
             "authority_integrity": self.authority_integrity,
             "selected_source_currentness": self.selected_source_currentness,
-            "selected_currentness": self.selected_source_currentness,
             "execution_evidence_status": self.execution_evidence_status,
-            "execution_status": self.execution_evidence_status,
             "as_of": to_jsonable(dict(self.as_of)),
-            "as_of_map": to_jsonable(dict(self.as_of)),
             "stale_obligations": list(self.stale_obligations),
             "stale_obligation_details": [
                 to_jsonable(dict(item)) for item in self.stale_obligation_details

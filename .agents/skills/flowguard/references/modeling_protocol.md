@@ -4,27 +4,27 @@ This index owns ordinary `core_modeling` routing. It no longer duplicates
 selected domain protocols, development-process simulator rules, framework
 benchmarks, adoption setup, or long-check mechanics.
 
-## Select the boundary
+## Select the operation boundary
 
-Select execution depth independently from modeling semantics.  The machine
-entry contract is:
+The machine-facing public boundary has exactly three operations:
 
 ```text
-execution_profile = light | affected | full
-modeling_mode = read_only_audit | model_first_change
-              | model_maintenance | layered_boundary_proof
+operation = read | change | release
 ```
 
-Use `light` for read-only analysis, `affected` for an ordinary change, and
-`full` only for release/integration/whole-system work after governed writes,
-all projections, OpenSpec, the owner DAG, and reverse semantic input are
-frozen.  A specialist route is not an execution-depth escalation.  Every
-decision returns `claim_boundary`, `selection_reason`, `closed_obligations`,
-`not_run_obligations`, and `escalation_triggers`; a missing gate is a blocked
-decision, never an implicit fallback to another profile.
+`read` inspects the accepted current model and selected page without creating
+producers or writes. `change` freezes the affected owner closure and runs only
+the required current owners. `release` verifies an already accepted current
+and its declared release projection. Subject protocols are selected inside an
+operation; they are not additional public routes. Every decision returns
+`claim_boundary`, `selection_reason`, `closed_obligations`,
+`not_run_obligations`, and `escalation_triggers`; a missing gate blocks the
+selected operation instead of selecting another route.
 
 - Read `modeling_core_protocol.md` for Risk Intent, finite state/functions, `Input x State -> Set(Output x State)`, invariants, formal checks, counterexamples, scenarios, per-model path quality, implementation, and replay.
-- Read `modeling_evidence_protocol.md` for lightest-mode selection, compact path-quality/currentness evidence, claim boundaries, model-miss/maturation/maintenance handoffs, and completion reporting.
+- Read `modeling_evidence_protocol.md` for operation-bound evidence selection,
+  compact path-quality/currentness evidence, claim boundaries,
+  model-miss/maturation/maintenance handoffs, and completion reporting.
 - Read `route_index.md` and the matching domain reference whenever the subject
   is clear; the core coordinates only ordinary, unclear, or cross-subject work.
 - Load the `development-process-flow` domain reference for non-trivial rough plans, lifecycle freshness, install/sync, release/archive/publish, or final process claims. It may delegate internal PlanDetailing only for rough/underspecified plans and internal AgentWorkflowRehearsal only after its explicit risk gate. Ordinary non-trivial work, multi-skill labels, or external-effect labels alone remain `not_triggered`; neither internal mode is a standalone public skill.

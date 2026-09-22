@@ -57,21 +57,21 @@ after the change.
 
 The complete view reverifies its intent sources, binds every independently
 derived current model owner exactly once, and records an explicit transition
-for each affected prior contribution. A new modeled project first uses
-`model-system-bootstrap` to establish generation-one observed authority. That
-project, or an existing v4 project, separately uses one ancestry-audited
-`model-revision-intent-bootstrap` and `EffectiveIntentBootstrapReceipt` to
-establish its first cumulative v5 intent view. Normal later revisions refine
-the accepted view directly. The revision and its evidence are persisted before
-the sole project pointer moves.
+for each affected prior contribution. A new modeled project establishes
+generation-one observed authority through the internal current-model builder.
+The first cumulative v5 intent view uses one ancestry-audited
+`EffectiveIntentBootstrapReceipt`; later revisions refine the accepted view
+directly. These builders are selected by `change`, and the revision and its
+evidence are persisted before the sole project pointer moves. No bootstrap or
+migration command is exposed.
 
 ```mermaid
 flowchart LR
-    A["Observed target and native evidence"] --> J["Generation-one observed authority bootstrap"]
+    A["Observed target and native evidence"] --> J["Generation-one observed authority"]
     J --> B["Current model snapshot"]
     B --> C["Revision-local delta"]
     C --> D{"First v5 intent view?"}
-    D -->|"yes"| E["Explicit ancestry-audited bootstrap"]
+    D -->|"yes"| E["Explicit ancestry-audited intent receipt"]
     D -->|"no"| F["Refine accepted current view"]
     E --> G["Complete current-effective-intent view"]
     F --> G

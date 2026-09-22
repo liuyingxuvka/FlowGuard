@@ -9,9 +9,9 @@ python -m flowguard release --root <project-root> --request release.json --json
 ```
 
 Every request file is an ordinary JSON file below `--root`. The dispatcher
-does not search for another project, load a legacy request, invoke
-`legacy_main`, or select a fallback validator. A malformed request is blocked
-before any owner producer starts.
+uses only the explicit operation and root in that request. A malformed request
+is blocked before any owner producer starts; there is no legacy command,
+compatibility reader, or fallback validator.
 
 ## `read`
 
@@ -67,7 +67,6 @@ must have the exact `flowguard.revision_preparation.v1` fields below:
   "snapshot_id": "snapshot:planning-tool-v13-1",
   "revision_set_id": "revision:planning-tool-v13-1",
   "task_id": "task:planning-tool-v13-1",
-  "activation_receipt_id": "activation:planning-tool-v13-1",
   "decision_reason": "<bounded reason for this revision>",
   "intent_contributions": [],
   "intent_dispositions": [],
@@ -75,7 +74,6 @@ must have the exact `flowguard.revision_preparation.v1` fields below:
   "removal_dispositions": [],
   "current_design_intent_contributions": [],
   "accepted_boundary_contract_ref": null,
-  "path_quality_outputs": [],
   "bootstrap_staging_root": ".flowguard/work/bootstrap/<request-id>"
 }
 ```
@@ -83,10 +81,10 @@ must have the exact `flowguard.revision_preparation.v1` fields below:
 The bootstrap shape requires `base_head_fingerprint: null`, an existing
 non-symlink staging directory under `.flowguard/work/bootstrap/`, and non-empty
 `current_design_intent_contributions`. It contains no current-revision
-transitions or path-quality outputs. The existing-current shape requires the
-opposite boundary: `base_head_fingerprint` must equal `expected_current`,
-`bootstrap_staging_root` must be `null`, and its effective transitions and
-changed-owner path-quality slots must be explicit.
+transitions. The activation receipt identity is generated from the accepted
+read-projection index; callers never provide it. The existing-current shape
+requires the opposite boundary: `base_head_fingerprint` must equal
+`expected_current` and `bootstrap_staging_root` must be `null`.
 
 For either shape, the dispatcher freezes the request and source identities,
 runs the declared native model owners, retains their leaf and parent evidence,

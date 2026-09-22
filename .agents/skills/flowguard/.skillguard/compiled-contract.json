@@ -1,5 +1,5 @@
 {
-  "check_declarations_hash": "sha256:82f7cb5929e51276271755fab18f32de69baa54128aaee943ef1a2246c23bcbc",
+  "check_declarations_hash": "sha256:0200ed7189ebdfa1ab83b479c201773d5aefce1feb9cc4242e82eb0c1c96ecee",
   "checks": [
     {
       "args": [
@@ -35,7 +35,7 @@
     {
       "args": [
         "-c",
-        "from pathlib import Path; assert Path('references/route_execution_common.md').is_file() and Path('references/domains/model-mesh/SKILL.md').is_file()"
+        "from pathlib import Path; assert Path('references/route_execution_common.md').is_file() and Path('references/domains/model-mesh/protocol.md').is_file()"
       ],
       "check_id": "check:flowguard:release-projection",
       "command": "{{python}}",
@@ -49,7 +49,7 @@
       "kind": "command"
     }
   ],
-  "claim_boundary": "Compilation derives one contract from the explicit source; it does not execute checks or prove installation or publication.",
+  "claim_boundary": "Compilation validates one explicit source and does not execute checks.",
   "consumer_projection": {
     "file_paths": [
       "agents/openai.yaml",
@@ -59,69 +59,54 @@
       "assets/model_template/run_checks.py",
       "assets/toolchain_preflight.py",
       "references/adoption_protocol.md",
-      "references/code_structure_recommendation_protocol.md",
       "references/conformance_adoption_protocol.md",
-      "references/development_process_flow_protocol.md",
-      "references/domains/architecture-reduction/agents/openai.yaml",
+      "references/domains/architecture-reduction/protocol.md",
       "references/domains/architecture-reduction/references/architecture_reduction_hazard_details.md",
       "references/domains/architecture-reduction/references/architecture_reduction_proof_details.md",
       "references/domains/architecture-reduction/references/architecture_reduction_protocol.md",
-      "references/domains/architecture-reduction/SKILL.md",
-      "references/domains/behavior-commitment-ledger/agents/openai.yaml",
+      "references/domains/behavior-commitment-ledger/protocol.md",
       "references/domains/behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md",
-      "references/domains/behavior-commitment-ledger/SKILL.md",
-      "references/domains/code-structure-recommendation/agents/openai.yaml",
+      "references/domains/code-structure-recommendation/protocol.md",
       "references/domains/code-structure-recommendation/references/code_structure_recommendation_protocol.md",
-      "references/domains/code-structure-recommendation/SKILL.md",
-      "references/domains/contract-exhaustion-mesh/agents/openai.yaml",
+      "references/domains/contract-exhaustion-mesh/protocol.md",
       "references/domains/contract-exhaustion-mesh/references/contract_exhaustion_mesh_protocol.md",
-      "references/domains/contract-exhaustion-mesh/SKILL.md",
-      "references/domains/development-process-flow/agents/openai.yaml",
+      "references/domains/development-process-flow/protocol.md",
       "references/domains/development-process-flow/references/agent_workflow_protocol.md",
       "references/domains/development-process-flow/references/development_process_flow_protocol.md",
       "references/domains/development-process-flow/references/distribution_release_protocol.md",
       "references/domains/development-process-flow/references/failure_triage_protocol.md",
       "references/domains/development-process-flow/references/plan_detailing_protocol.md",
       "references/domains/development-process-flow/references/process_optimization_protocol.md",
-      "references/domains/development-process-flow/SKILL.md",
-      "references/domains/existing-model-preflight/agents/openai.yaml",
+      "references/domains/existing-model-preflight/protocol.md",
       "references/domains/existing-model-preflight/references/existing_model_preflight_change_details.md",
       "references/domains/existing-model-preflight/references/existing_model_preflight_protocol.md",
-      "references/domains/existing-model-preflight/SKILL.md",
-      "references/domains/field-lifecycle-mesh/agents/openai.yaml",
+      "references/domains/field-lifecycle-mesh/protocol.md",
       "references/domains/field-lifecycle-mesh/references/field_lifecycle_mesh_protocol.md",
-      "references/domains/field-lifecycle-mesh/SKILL.md",
-      "references/domains/model-mesh/agents/openai.yaml",
+      "references/domains/model-mesh/protocol.md",
       "references/domains/model-mesh/references/model_mesh_closure_protocol.md",
       "references/domains/model-mesh/references/model_mesh_partition_protocol.md",
       "references/domains/model-mesh/references/model_mesh_protocol.md",
       "references/domains/model-mesh/references/model_mesh_reattachment_protocol.md",
       "references/domains/model-mesh/references/templates/model_mesh_prompt_template.md",
-      "references/domains/model-mesh/SKILL.md",
-      "references/domains/model-miss-review/agents/openai.yaml",
+      "references/domains/model-miss-review/protocol.md",
       "references/domains/model-miss-review/references/model_miss_protocol.md",
-      "references/domains/model-miss-review/SKILL.md",
-      "references/domains/model-test-alignment/agents/openai.yaml",
+      "references/domains/model-test-alignment/protocol.md",
       "references/domains/model-test-alignment/references/model_test_alignment_protocol.md",
       "references/domains/model-test-alignment/references/model_test_field_protocol.md",
       "references/domains/model-test-alignment/references/model_test_payload_protocol.md",
       "references/domains/model-test-alignment/references/model_test_transition_protocol.md",
       "references/domains/model-test-alignment/references/templates/model_test_alignment_prompt_template.md",
-      "references/domains/model-test-alignment/SKILL.md",
-      "references/domains/model-topology-hazard-review/agents/openai.yaml",
+      "references/domains/model-topology-hazard-review/protocol.md",
       "references/domains/model-topology-hazard-review/references/templates/topology_hazard_prompt_template.md",
       "references/domains/model-topology-hazard-review/references/topology_hazard_protocol.md",
-      "references/domains/model-topology-hazard-review/SKILL.md",
-      "references/domains/structure-mesh/agents/openai.yaml",
+      "references/domains/structure-mesh/protocol.md",
       "references/domains/structure-mesh/references/structure_mesh_protocol.md",
-      "references/domains/structure-mesh/SKILL.md",
-      "references/domains/test-mesh/agents/openai.yaml",
+      "references/domains/test-mesh/protocol.md",
       "references/domains/test-mesh/references/test_mesh_long_check_protocol.md",
       "references/domains/test-mesh/references/test_mesh_protocol.md",
       "references/domains/test-mesh/references/test_mesh_release_protocol.md",
       "references/domains/test-mesh/references/test_mesh_reuse_protocol.md",
-      "references/domains/test-mesh/SKILL.md",
-      "references/domains/ui-flow-structure/agents/openai.yaml",
+      "references/domains/ui-flow-structure/protocol.md",
       "references/domains/ui-flow-structure/references/ui_capability_interaction_protocol.md",
       "references/domains/ui-flow-structure/references/ui_flow_structure_protocol.md",
       "references/domains/ui-flow-structure/references/ui_geometry_transition_protocol.md",
@@ -129,420 +114,24 @@
       "references/domains/ui-flow-structure/references/ui_implementation_evidence_protocol.md",
       "references/domains/ui-flow-structure/references/ui_journey_structure_text_protocol.md",
       "references/domains/ui-flow-structure/references/ui_observed_surface_protocol.md",
-      "references/domains/ui-flow-structure/SKILL.md",
       "references/framework_upgrade_protocol.md",
       "references/invariant_examples.md",
       "references/long_check_protocol.md",
-      "references/model_mesh_protocol.md",
-      "references/model_miss_protocol.md",
-      "references/model_test_alignment_protocol.md",
       "references/modeling_core_protocol.md",
       "references/modeling_evidence_protocol.md",
       "references/modeling_protocol.md",
       "references/project_integration.md",
       "references/route_execution_common.md",
-      "references/route_execution_contract.md",
       "references/route_index.md",
       "references/routes/model_first_function_flow.md",
       "references/skill_kernel_protocol.md",
-      "references/structure_mesh_protocol.md",
-      "references/test_mesh_protocol.md",
       "SKILL.md"
     ],
     "projection_id": "projection:consumer-distribution",
-    "release_manifest_path": "consumer-release.json"
+    "release_manifest_path": "consumer-release.json",
+    "root_path": "."
   },
-  "content_impact_plan": {
-    "inventory": [
-      {
-        "install_disposition": "copy",
-        "path": "SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "assets/adoption_log_template.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "assets/guard_closure_contract.py"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "assets/model_template/model.py"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "assets/model_template/run_checks.py"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "assets/toolchain_preflight.py"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/adoption_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/code_structure_recommendation_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/conformance_adoption_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/development_process_flow_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/architecture-reduction/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/architecture-reduction/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/architecture-reduction/references/architecture_reduction_hazard_details.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/architecture-reduction/references/architecture_reduction_proof_details.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/architecture-reduction/references/architecture_reduction_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/behavior-commitment-ledger/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/behavior-commitment-ledger/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/behavior-commitment-ledger/references/behavior_commitment_ledger_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/code-structure-recommendation/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/code-structure-recommendation/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/code-structure-recommendation/references/code_structure_recommendation_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/contract-exhaustion-mesh/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/contract-exhaustion-mesh/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/contract-exhaustion-mesh/references/contract_exhaustion_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/agent_workflow_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/development_process_flow_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/distribution_release_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/failure_triage_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/plan_detailing_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/development-process-flow/references/process_optimization_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/existing-model-preflight/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/existing-model-preflight/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/existing-model-preflight/references/existing_model_preflight_change_details.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/existing-model-preflight/references/existing_model_preflight_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/field-lifecycle-mesh/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/field-lifecycle-mesh/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/field-lifecycle-mesh/references/field_lifecycle_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/references/model_mesh_closure_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/references/model_mesh_partition_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/references/model_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/references/model_mesh_reattachment_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-mesh/references/templates/model_mesh_prompt_template.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-miss-review/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-miss-review/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-miss-review/references/model_miss_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/references/model_test_alignment_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/references/model_test_field_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/references/model_test_payload_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/references/model_test_transition_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-test-alignment/references/templates/model_test_alignment_prompt_template.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-topology-hazard-review/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-topology-hazard-review/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-topology-hazard-review/references/templates/topology_hazard_prompt_template.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/model-topology-hazard-review/references/topology_hazard_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/structure-mesh/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/structure-mesh/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/structure-mesh/references/structure_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/references/test_mesh_long_check_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/references/test_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/references/test_mesh_release_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/test-mesh/references/test_mesh_reuse_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/SKILL.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/agents/openai.yaml"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_capability_interaction_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_flow_structure_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_geometry_transition_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_human_operability_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_implementation_evidence_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_journey_structure_text_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/domains/ui-flow-structure/references/ui_observed_surface_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/framework_upgrade_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/invariant_examples.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/long_check_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/model_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/model_miss_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/model_test_alignment_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/modeling_core_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/modeling_evidence_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/modeling_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/project_integration.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/route_execution_common.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/route_execution_contract.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/route_index.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/routes/model_first_function_flow.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/skill_kernel_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/structure_mesh_protocol.md"
-      },
-      {
-        "install_disposition": "copy",
-        "path": "references/test_mesh_protocol.md"
-      }
-    ],
-    "member_root_path": ".",
-    "schema_version": "skillguard.content_impact_plan.v3"
-  },
-  "contract_hash": "sha256:02d3b84a706b6caed4f407e674c930a65fffcd3248dac345e61da6f983c5f287",
+  "contract_hash": "sha256:c432877d49c918f63a57ee8c4443f9e195f079738b57023c4cc91e3f22cc0afa",
   "inputs": [
     {
       "id": "input:1",
@@ -570,7 +159,7 @@
     },
     {
       "id": "input:5",
-      "path": "references/domains/model-mesh/SKILL.md",
+      "path": "references/domains/model-mesh/protocol.md",
       "required": true,
       "role": "runtime_source"
     }
@@ -652,14 +241,7 @@
   "schema_version": "skillguard.compiled_contract.v3",
   "skill_id": "flowguard",
   "source_identity": {
-    "content_hash": "sha256:22f660b0f5dfa2d8ba4528ca9386cbb922958af89f6f572aacb65a64d9686750",
-    "input_fingerprints": {
-      "input:1": "sha256:b7254f2ec4b89e92bcd7c54d73b963083507f6f47e73e6c9521dc9a85e7979fb",
-      "input:2": "sha256:e21c02759d8f4ac66b27e6d06384c215225b7878e04cd069630cd556c39141e4",
-      "input:3": "sha256:1597bbf0a0b1f006d154020665a0f40772f1d4b73d87923c967553519696583e",
-      "input:4": "sha256:06a272ea96b53012370c1d54a8d683d7b46347bb48308bb18faa32abb5aecca7",
-      "input:5": "sha256:f3f2ee42ddb9eadcde9574bf485936baf649aa16bf733cd6818d95526613399e"
-    },
+    "content_hash": "sha256:d935432ade241cbfd5ca764dda048173dfe53208e8f6d88f02f5ae789021c711",
     "path": ".skillguard/contract-source.json"
   },
   "steps": [

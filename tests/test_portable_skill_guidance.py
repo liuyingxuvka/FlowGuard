@@ -27,7 +27,7 @@ class PortableSkillGuidanceTests(unittest.TestCase):
         self.assertIn("There is no alternate reader or prose fallback", reference)
 
     def test_mesh_consumes_explicit_refinement_instead_of_reimplementing_checker(self):
-        skill = (DOMAINS / "model-mesh" / "SKILL.md").read_text(encoding="utf-8")
+        skill = (DOMAINS / "model-mesh" / "protocol.md").read_text(encoding="utf-8")
         reference = (
             DOMAINS / "model-mesh" / "references" / "model_mesh_protocol.md"
         ).read_text(encoding="utf-8")
@@ -36,7 +36,7 @@ class PortableSkillGuidanceTests(unittest.TestCase):
 
     def test_topology_consumes_same_identity_and_executable_temporal_receipt(self):
         skill = (
-            DOMAINS / "model-topology-hazard-review" / "SKILL.md"
+            DOMAINS / "model-topology-hazard-review" / "protocol.md"
         ).read_text(encoding="utf-8")
         reference = (
             DOMAINS
@@ -44,16 +44,12 @@ class PortableSkillGuidanceTests(unittest.TestCase):
             / "references"
             / "topology_hazard_protocol.md"
         ).read_text(encoding="utf-8")
-        self.assertIn("same graph", skill)
+        self.assertIn("canonical checker report for the exact model fingerprint", reference)
         self.assertIn("Weak fairness may exclude", reference)
         self.assertIn("canonical checker report", reference)
 
     def test_contract_sources_track_portable_runtime_as_affected_input(self):
-        contract_paths = {
-            "flowguard": KERNEL / ".skillguard" / "contract-source.json",
-            "flowguard-model-mesh": DOMAINS / "model-mesh" / ".skillguard" / "contract-source.json",
-            "flowguard-model-topology-hazard-review": DOMAINS / "model-topology-hazard-review" / ".skillguard" / "contract-source.json",
-        }
+        contract_paths = {"flowguard": KERNEL / ".skillguard" / "contract-source.json"}
         for skill_id, contract_path in contract_paths.items():
             payload = json.loads(
                 contract_path.read_text(encoding="utf-8")
@@ -61,12 +57,9 @@ class PortableSkillGuidanceTests(unittest.TestCase):
             if skill_id == "flowguard":
                 self.assertEqual(["flowguard"], payload["member_skill_ids"])
                 self.assertIn(
-                    "references/domains/model-mesh/SKILL.md",
+                    "references/domains/model-mesh/protocol.md",
                     payload["consumer_projection"]["file_paths"],
                 )
-            else:
-                self.assertIn("flowguard/portable_model.py", payload["implementation_paths"])
-                self.assertIn("flowguard/portable_checker.py", payload["implementation_paths"])
 
     def test_generated_skill_contracts_are_current(self):
         report = compile_skill_suite(ROOT, write=False)

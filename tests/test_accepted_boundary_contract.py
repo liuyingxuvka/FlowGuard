@@ -356,7 +356,6 @@ def test_real_boundary_contract_save_reload_and_activation_uses_same_authority_e
                 root,
                 candidate,
                 accepted_revision,
-                receipt_id="activation:boundary-contract",
             )
 
         current = load_current_model_authority_state(root)

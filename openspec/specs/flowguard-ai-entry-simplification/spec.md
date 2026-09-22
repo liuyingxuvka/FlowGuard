@@ -571,3 +571,11 @@ context.
   contraction, retirement, release, or other explicit trigger
 - **THEN** the detail SHALL be reported as triggered expansion
 - **AND** the ordinary route SHALL remain within its persistent-context budget
+### Compact direct-current boundary (2026-09-22)
+
+The public entry remains one FlowGuard skill with exactly `read`, `change`, and `release` operations. Domain material is selected by explicit subject and operation; missing, ambiguous, or contradictory facts block. Retired commands, execution profiles, forwarding files, compatibility readers, aliases, and fallback routes are not interpreted or silently selected.
+
+#### Scenario: Retired entry is supplied
+
+- **WHEN** a request names a former route, profile, satellite, alias, or fallback
+- **THEN** FlowGuard returns a typed rejection with zero producers and zero writes.

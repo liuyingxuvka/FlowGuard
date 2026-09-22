@@ -182,15 +182,17 @@ new current pointer or mutating tracked authority.
 
 ### Requirement: Measurements and publication remain separate claims
 
-The four performance and installation measurements MUST be tied to the final
-freeze and include exact details hashes, cost counters, privacy checks, and
-platform/not-run boundaries. Packaging and future patch publication MUST NOT be
-claimed from source or CI evidence alone.
+One acceptance result MUST contain both the performance and installation
+sections. Both sections MUST reference the same final freeze identity and
+include their own exact details hash, cost counters or transaction facts,
+privacy checks, and platform/not-run boundaries. Separate legacy measurement
+files or a handoff-delivery platform MUST NOT be required. Packaging and
+future patch publication MUST NOT be claimed from source or CI evidence alone.
 
-#### Scenario: Frozen measurements and installation pass
+#### Scenario: Frozen performance and installation sections pass
 
-- **WHEN** all four measurement receipts and isolated installation cases match
-  the frozen source and evidence identities
+- **WHEN** the performance and installation sections in one acceptance result
+  match the frozen source and evidence identities
 - **THEN** a clean candidate package may be produced with explicit claim
   boundaries and no private evidence
 
@@ -200,3 +202,53 @@ claimed from source or CI evidence alone.
   later release authorization is absent
 - **THEN** the candidate or publication claim remains blocked or scoped and the
   existing release remains unchanged
+
+### Requirement: Evidence is proportional to the selected operation
+
+The necessity gate MUST require per-element good, bad, and draft evidence only
+for an explicit architecture reduction or candidate comparison. An ordinary
+change MUST use the real protected-failure native checks and program-derived
+structure coverage already owned by the selected model. A read operation MUST
+not create new good, bad, or draft evidence. Missing budget inputs or missing
+required evidence MUST fail closed.
+
+#### Scenario: Ordinary change uses existing native evidence
+
+- **WHEN** a bounded change does not declare reduction or candidate comparison
+- **THEN** the operation runs the selected protected-failure native checks and
+  derived structure coverage without creating a new evidence bundle
+
+#### Scenario: Read lacks an evidence budget or required input
+
+- **WHEN** a read request omits a required page budget, selected identity, or
+  required source input
+- **THEN** the read rejects with zero producers and zero writes
+
+### Requirement: Route changes preserve leaf evidence identity
+
+Changing a route name, admission condition, or obligation requires a fresh
+admission decision and current plan or accepted identity. When the actual
+check, input, dependency, toolchain, and environment are unchanged, a route
+rename MUST NOT change the leaf execution key or create a duplicate producer.
+The read boundary MUST expose explicit pagination and the SkillGuard operation
+fact MUST agree with the selected operation, owner, and result.
+
+#### Scenario: Route metadata changes while the leaf is unchanged
+
+- **WHEN** route or obligation metadata changes but the concrete leaf inputs and
+  execution identity remain exact
+- **THEN** admission and plan identity are refreshed while the existing leaf
+  execution key remains reusable within the same maintenance unit
+
+#### Scenario: Execution fails after process start
+
+- **WHEN** a started owner exits with failure, cancellation, timeout, or cleanup
+  error
+- **THEN** the recorded execution count reflects the real process start and the
+  result remains failed or incomplete; it cannot be promoted to pass
+
+
+
+## 2026-09-22 audit delta
+
+The earlier checked receipts describe the historical v0.69.6 state and are not current proof for the next patch. This change remains open until the direct-current compact contract is revalidated after the final source edits. The current public surface is exactly `read`, `change`, and `release`; retired commands, route catalogs, migration metadata, aliases, compatibility readers, and fallback paths are removed rather than interpreted. The selected-read/owner evidence, current model or contract identity, one final Windows 3.12 full-suite owner, installation parity, and release identity must all be re-established on one frozen source revision. Documentation and CI are part of that frozen source identity.

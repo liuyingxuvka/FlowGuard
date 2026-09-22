@@ -801,10 +801,15 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn(".flowguard/project.toml", paths)
         self.assertIn("docs/flowguard_adoption_log.md", paths)
         self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
-        self.assertIn("project-audit", combined)
-        self.assertIn("project-upgrade", combined)
+        self.assertIn(
+            "flowguard read --root . --request .flowguard/read-request.json --json",
+            combined,
+        )
+        self.assertIn("single current FlowGuard public owner", combined)
+        self.assertNotIn("project-audit", combined)
+        self.assertNotIn("project-upgrade", combined)
         self.assertIn("latest-schema-first", combined)
-        self.assertIn("full `project-upgrade` scanning and affected revalidation", combined)
+        self.assertIn("affected owners", combined)
         self.assertIn("adopted_package_version", combined)
         self.assertIn("schema_version", combined)
 

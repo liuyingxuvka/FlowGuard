@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.6` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.7` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -379,7 +379,8 @@ FlowGuard 会明确分开三种很容易混淆的含义：
 
 1. 冻结精确的 Current base，并在已声明的 affected closure 上物化一份独立 Candidate revision；
 2. 修改拟议的 transition、ownership、structure 或 relation；
-3. 运行模型检查和 known-bad case；
+3. 运行 Candidate 声明的检查；只有明确要求候选比较时，才添加逐元素的
+   good/bad evidence；
 4. 检查 counterexample 和 affected-neighborhood gap；
 5. 另行实现并收集当前 code/test evidence；
 6. 只有所需证据完全匹配时，才接受一个完整 revision set；
@@ -401,13 +402,6 @@ flowchart TB
 [建模协议](./docs/modeling_protocol.md) 与
 [实现蓝图](./docs/implementation_blueprint.md)；整个过程中，测试设计是否齐全始终与
 当前执行证据是否通过分开。
-
-第一次 current-only v5 sequence 只有一条直接主线：
-
-```powershell
-python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
-python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
-```
 
 ## 共同演进：软件与模型一起变化
 
@@ -467,7 +461,7 @@ cd FlowGuard
 1. 读取 `AGENTS.md`；
 2. 按照宿主 agent 的技能机制，加载或复制 `.agents/skills/` 下的全部技能；
 3. 从 `.agents/skills/flowguard/SKILL.md` 开始；
-4. 保持其他 FlowGuard 技能可见，让 kernel 能够路由到它们；
+4. 保持唯一的 FlowGuard 技能和选中的 domain protocol 可见；
 5. 只有需要当前可执行证据时，才运行检查脚本。
 
 运行一个小检查，对比正确模型和几个坏版本：
@@ -486,8 +480,8 @@ python examples/job_matching/run_checks.py
 这个例子故意保持抽象。它不会搜索真实 job，也不会调用 AI model。
 它只展示重复输入、状态写入、invariant 和 counterexample。
 
-运行 `python -m flowguard --help` 可以查看当前命令列表。这个命令用于执行检查和 helper；
-它不是 AI-agent skill installation surface。
+运行 `python -m flowguard --help` 可以查看唯一的三个公开操作；它不是
+AI-agent skill installation surface。
 
 ## 接入另一个项目
 
@@ -516,8 +510,8 @@ python -m flowguard release --root <target-project> --request release.json --jso
 -> 查询已有 Current owner
 -> 描述 Input、State、Output、副作用、owner 和完成证据
 -> 添加一项 invariant 或 scenario
--> 添加一个 known-bad case
--> 运行检查
+-> 运行 protected-failure 检查和派生结构覆盖
+-> 只有明确做 reduction 或 candidate comparison 时，才添加必要的 good/bad case
 -> 检查 counterexample
 -> 修改模型、计划、代码、测试、UI 或声明
 ```
@@ -638,19 +632,8 @@ FlowGuard 会刻意分开三种不同的 green 结果：
 如果 prompt、contract、checker、model、code binding、test、fixture 或 covered input 发生变化，
 旧证据就可能过期。
 
-模型回归分为三个 tier：
-
-- `fast` 用于较窄的日常开发反馈；
-- `focused` 用于范围更广的选定 surface；
-- `full` 用于每个必需且未明确排除的模型。
-
-只有 Current、已到达终态的 full-tier pass 才能参与 release claim。
-
-日常 FlowGuard 的执行档位与上述模型回归 tier 分开：`light` 只做便宜的
-当前性和布局检查，`affected` 按明确的变更成员闭包执行，`full` 才执行声明的
-全体 owner 闭包。专业 route 不会因为被触发就偷偷升级成全量扫描。详细的
-档位、轻量存储审计、紧凑布局和可复用分支模板见
-[FlowGuard 执行档位与分支种子](./docs/flowguard_execution_profiles.md)。
+施工期间，`change` 只执行明确变更影响到的 owner 闭包；发布门禁只执行一次
+冻结后的最终 owner。任何操作都不会静默扩大范围，也不会回退到旧 route 或旧档位。
 
 公共 dispatcher 只有三个生命周期操作；native runner 由明确的 `change` 请求选择，
 不会再暴露第二套公共命令目录：
@@ -707,7 +690,7 @@ distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`�
 模板文件由选中的 skill route 按需加载，不是公共 CLI 操作。运行 `python -m flowguard --help`
 查看当前精确的三个操作。
 
-FlowGuard v0.69.6 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.7 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 公共 `release` 只在本地核验已接受 current；打 tag 和 GitHub 发布是独立维护事务：
@@ -776,7 +759,6 @@ python -m flowguard release --root . --request release.json --json
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence confidence boundary |
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | 完整使用 FlowGuard 的 closure contract |
 | [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | validation tier、evidence layer、monitoring、skill distribution 与 release lifecycle |
-| [`docs/flowguard_execution_profiles.md`](./docs/flowguard_execution_profiles.md) | light/affected/full 档位、紧凑布局、存储审计与分支种子 |
 | [`docs/github_release_checklist.md`](./docs/github_release_checklist.md) | 仅发布源码的 GitHub release checklist |
 
 ## 仓库结构

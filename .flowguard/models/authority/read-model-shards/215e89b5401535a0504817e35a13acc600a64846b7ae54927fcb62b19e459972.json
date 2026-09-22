@@ -1,0 +1,205 @@
+{
+  "boundary_nodes": [
+    {
+      "endpoint_id": "boundary-contract:behavior-commitment-ledger:partition-v1",
+      "endpoint_kind": "boundary_contract",
+      "fingerprint": "sha256:f1ca70d96ab058392f476238616e8381051fe10fd69d127b3379af6b335a73f5",
+      "owner_route": "authoritative_model_system"
+    },
+    {
+      "endpoint_id": "purpose:skill_kernel_modularization",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:95e12d6153fb70cc10f8ae1cc4cfaeb8214c6ebb6a3af5a1c96ddad47bce5709",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "semantic-parent:agent-guidance-and-skills",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:994e66b5a7cff42ac48f6c6de3257fd29d621fa8417fb9476d5075cc71670666",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "semantic-parent:architecture-and-lifecycle",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:6a2e6e50374b78ee6cf9dd3a8219f6021551dd4a0ba8d1549a0031b87c27474b",
+      "owner_route": "model_mesh_maintenance"
+    }
+  ],
+  "candidate_snapshot_fingerprint": "sha256:801ef63622b9c2e93e6dc4836c5c50f3339729ac6e488d5bce55831c162d48ea",
+  "fingerprint": "sha256:215e89b5401535a0504817e35a13acc600a64846b7ae54927fcb62b19e459972",
+  "intent_refs": [
+    {
+      "authority_kind": "project_file",
+      "contribution_id": "current-design:revision:flowguard:compact-runtime-20260922:skill_kernel_modularization:1",
+      "logical_model_id": "skill_kernel_modularization",
+      "source_fingerprint": "sha256:858e3c514ccbcb2ffa45d331b15bd5c562503d85f3403500697b3032be4e93f9",
+      "source_ref": "openspec/specs/flowguard-skill-kernel/spec.md"
+    }
+  ],
+  "logical_model_id": "skill_kernel_modularization",
+  "model": {
+    "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+    "input_inventory_fingerprint": "sha256:ba4a150f85effedc09d229acba8ed9717794715414ddf9a6a0036aa16111eba5",
+    "inputs": [
+      {
+        "path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:fe12518dd2b393279f97ad97084aa7996d0e3a9da9acff49e0516b4ce1160b8b"
+      },
+      {
+        "path": ".flowguard/verification/owners/skill_kernel_modularization/run_checks.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:648802173f3ff7a9bb82d1e93f892fcd5e1c7c4369b00306d483677fa5910823"
+      },
+      {
+        "path": "flowguard/native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:f2728fb4e9715d5a2251e98ea382b63c4df86e9574ad8a523a301c423495fd48"
+      },
+      {
+        "path": "openspec/specs/flowguard-skill-kernel/spec.md",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:858e3c514ccbcb2ffa45d331b15bd5c562503d85f3403500697b3032be4e93f9"
+      },
+      {
+        "path": "pyproject.toml",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:79291a4086ca2f2a0357c4efd621bed5e47e25ddf0732e744a73751b3cc1e19b"
+      },
+      {
+        "path": "scripts/run_flowguard_model_regressions.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3"
+      }
+    ],
+    "logical_model_id": "skill_kernel_modularization",
+    "model_kind": "executable_workflow",
+    "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+    "model_sha256": "sha256:fe12518dd2b393279f97ad97084aa7996d0e3a9da9acff49e0516b4ce1160b8b",
+    "purpose_closure_fingerprint": "sha256:95e12d6153fb70cc10f8ae1cc4cfaeb8214c6ebb6a3af5a1c96ddad47bce5709",
+    "runner_path": ".flowguard/verification/owners/skill_kernel_modularization/run_checks.py",
+    "runner_sha256": "sha256:648802173f3ff7a9bb82d1e93f892fcd5e1c7c4369b00306d483677fa5910823",
+    "schema": "flowguard.model_instance_ref.v2"
+  },
+  "relations": [
+    {
+      "evidence_fingerprints": [
+        "sha256:95e12d6153fb70cc10f8ae1cc4cfaeb8214c6ebb6a3af5a1c96ddad47bce5709"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-purpose:skill_kernel_modularization",
+      "source": {
+        "endpoint_id": "model:skill_kernel_modularization",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+        "model_id": "skill_kernel_modularization",
+        "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "purpose:skill_kernel_modularization",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:95e12d6153fb70cc10f8ae1cc4cfaeb8214c6ebb6a3af5a1c96ddad47bce5709",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "depends_on",
+      "relation_id": "relation:semantic-cross-boundary-support:skill_kernel_modularization:semantic-parent:agent-guidance-and-skills",
+      "source": {
+        "endpoint_id": "model:skill_kernel_modularization",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+        "model_id": "skill_kernel_modularization",
+        "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "semantic-parent:agent-guidance-and-skills",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:994e66b5a7cff42ac48f6c6de3257fd29d621fa8417fb9476d5075cc71670666",
+        "owner_route": "model_mesh_maintenance"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:skill_kernel_modularization:codex_skill_satellites",
+      "source": {
+        "endpoint_id": "model:skill_kernel_modularization",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+        "model_id": "skill_kernel_modularization",
+        "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:codex_skill_satellites",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:5b70faeb833a89f5df31818f0a3e0da4fffdccbeb8111aa70f29cb660c21214a",
+        "model_id": "codex_skill_satellites",
+        "model_path": ".flowguard/models/owners/codex_skill_satellites/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:skill_kernel_modularization:structure_refactor_mesh",
+      "source": {
+        "endpoint_id": "model:skill_kernel_modularization",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+        "model_id": "skill_kernel_modularization",
+        "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:structure_refactor_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:00694abb4686cdab2323c462603fedbe04b0c5d5db08a0d32f5b24290ce5c480",
+        "model_id": "structure_refactor_mesh",
+        "model_path": ".flowguard/models/owners/structure_refactor_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "contains",
+      "relation_id": "relation:semantic-parent-contains-model:semantic-parent:architecture-and-lifecycle:skill_kernel_modularization",
+      "source": {
+        "endpoint_id": "semantic-parent:architecture-and-lifecycle",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:6a2e6e50374b78ee6cf9dd3a8219f6021551dd4a0ba8d1549a0031b87c27474b",
+        "owner_route": "model_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:skill_kernel_modularization",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c66a258ef4513f3624cf6731518fa2105c7fc8dab8e60edd143bbc596f15286d",
+        "model_id": "skill_kernel_modularization",
+        "model_path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    }
+  ],
+  "schema": "flowguard.read_model_shard.v1",
+  "source_paths": {
+    ".flowguard/models/owners/skill_kernel_modularization/model.py": "sha256:fe12518dd2b393279f97ad97084aa7996d0e3a9da9acff49e0516b4ce1160b8b",
+    ".flowguard/verification/owners/skill_kernel_modularization/run_checks.py": "sha256:648802173f3ff7a9bb82d1e93f892fcd5e1c7c4369b00306d483677fa5910823",
+    "flowguard/native_case_runner.py": "sha256:f2728fb4e9715d5a2251e98ea382b63c4df86e9574ad8a523a301c423495fd48",
+    "openspec/specs/flowguard-skill-kernel/spec.md": "sha256:858e3c514ccbcb2ffa45d331b15bd5c562503d85f3403500697b3032be4e93f9",
+    "pyproject.toml": "sha256:79291a4086ca2f2a0357c4efd621bed5e47e25ddf0732e744a73751b3cc1e19b",
+    "scripts/run_flowguard_model_regressions.py": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3"
+  },
+  "system_id": "flowguard"
+}

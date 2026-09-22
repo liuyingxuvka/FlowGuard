@@ -342,8 +342,11 @@ author-maintenance dependency.
 
 #### Scenario: Required revalidation is generated
 - **WHEN** project adoption, audit, or upgrade emits required revalidation
-- **THEN** `python -m flowguard project-audit --root . --json` is the
-  package-owned executable project audit
+- **THEN** it tells the caller to create an explicit read request containing
+  `operation=read`, the target id, and a non-empty selected model scope
+- **AND** `python -m flowguard read --root . --request
+  .flowguard/read-request.json --json` is the package-owned executable
+  current-model read
 - **AND** no executable item requires a checkout-local `python scripts/`,
   target-local suite map, or project-local FlowGuard skill tree
 

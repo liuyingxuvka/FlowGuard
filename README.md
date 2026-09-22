@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.6` | `1.0` | Python standard library only | MIT |
+| `v0.69.7` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,7 +51,7 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.6 candidate self-model contains an exact inventory of 51 current
+The v0.69.7 candidate self-model contains an exact inventory of 51 current
 owners. Fourteen historical, task-local, or completed construction routes were removed from current
 authority after their still-useful protections were reattached: Model Angle
 Deliberation, Maintenance Scan Router, standalone Model Similarity
@@ -82,10 +82,9 @@ The native model directory is the DNA. It stays beside the software it
 describes and contains the versioned models, parent/child interfaces,
 code/test bindings, and their current evidence. FlowGuard audits that directory
 in place and reports ownership, fingerprints, readiness, gaps, and freshness.
-A model can be lightweight or deep, but it remains the same native directory
-and the same source of truth. The public action surface is the current
-model/check/impact/update path, with one clear route and no second DNA
-authority.
+A model remains in the same native directory and remains the sole source of
+truth. The public action surface is exactly `read`, `change`, and `release`;
+there is no second command catalogue or DNA authority.
 
 ## Why FlowGuard Exists
 
@@ -427,7 +426,8 @@ accepted:
 1. freeze the exact Current base and materialize a separate Candidate revision
    over the declared affected closure;
 2. change the proposed transitions, ownership, structure, or relations;
-3. run model checks and known-bad cases;
+3. run the checks declared by the candidate; add per-element good/bad evidence
+   only when the candidate comparison explicitly requires it;
 4. inspect counterexamples and affected-neighborhood gaps;
 5. implement and collect current code/test evidence separately;
 6. accept one complete revision set only when the required evidence matches;
@@ -449,13 +449,6 @@ See [Modeling Protocol](./docs/modeling_protocol.md) and
 [Implementation Blueprint](./docs/implementation_blueprint.md) for authority,
 revision, rollback, and parent/child output-to-input relations; test design stays
 separate from current execution evidence throughout that process.
-
-The first current-only v5 sequence is explicit and direct:
-
-```powershell
-python -m flowguard model-revision-owner-evidence --root . --model-parent-receipt <model-parent.json> --snapshot-id <snapshot-id> --output <owner-evidence.json> --json
-python -m flowguard model-revision-intent-bootstrap --root . --model-parent-receipt <model-parent.json> --native-owner-evidence <owner-evidence.json> --revision-set-id <revision-id> --task-id <task-id> --snapshot-id <snapshot-id> --intent-bootstrap-input <bootstrap-input.json> --json
-```
 
 ## Co-evolution: Software and Model Change Together
 
@@ -520,7 +513,7 @@ For AI agents, complete setup means:
 2. load or copy every skill under `.agents/skills/` according to the host
    agent's skill mechanism;
 3. start from `.agents/skills/flowguard/SKILL.md`;
-4. keep the sibling FlowGuard skills available so the kernel can route to them;
+4. keep the one FlowGuard skill and its selected domain protocols available;
 5. run executable check scripts only when current evidence is needed.
 
 Run a small check that compares a correct model with broken variants:
@@ -540,8 +533,8 @@ The example is intentionally abstract. It does not search real jobs or call an
 AI model. It demonstrates repeated inputs, state writes, invariants, and
 counterexamples.
 
-Run `python -m flowguard --help` for the current command list. The command
-executes checks and helpers; it is not the AI-agent skill installation surface.
+Run `python -m flowguard --help` to see the exact three-operation public
+surface. It is not the AI-agent skill installation surface.
 
 ## Use It in Another Project
 
@@ -575,8 +568,8 @@ choose one risky boundary
 -> query the existing Current owner
 -> describe Input, State, Output, effects, owners, and completion evidence
 -> add one invariant or scenario
--> add one known-bad case
--> run the check
+-> run the protected-failure checks and derived structure coverage
+-> for an explicit reduction or candidate comparison, add the required good/bad cases
 -> inspect the counterexample
 -> revise the model, plan, code, tests, UI, or claim
 ```
@@ -702,21 +695,9 @@ FlowGuard deliberately separates three kinds of green result:
 If a prompt, contract, checker, model, code binding, test, fixture, or covered
 input changes, older evidence may become stale.
 
-Model regressions use three tiers:
-
-- `fast` for narrow development feedback;
-- `focused` for a wider selected surface;
-- `full` for every required non-excluded model.
-
-Only a current, terminal full-tier pass can contribute to a release claim.
-
-The everyday FlowGuard execution profiles are a separate routing depth from
-these model-regression tiers: `light` checks cheap currentness and layout,
-`affected` closes an exact changed-member set, and `full` closes the declared
-whole-system owner set. A specialist route does not silently become a full
-scan. See [FlowGuard execution profiles and reusable branch seeds](./docs/flowguard_execution_profiles.md)
-for the profile boundary, compact layout, read-light storage audit, and exact
-template-seed policy.
+During implementation, `change` runs only the exact affected owner closure.
+The release gate runs one final frozen owner. Neither operation silently
+expands its declared scope or falls back to an older route.
 
 The compact dispatcher is the public lifecycle boundary. Native model runners
 are selected by the explicit `change` request and are not exposed as a second
@@ -783,7 +764,7 @@ The internal domain references and template files are loaded by the selected
 skill route; they are not public CLI operations. Run `python -m flowguard
 --help` to see the exact three-operation public surface.
 
-FlowGuard v0.69.6 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.7 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 
@@ -854,7 +835,6 @@ The descriptor-driven route is reusable for any software target; see
 | [`docs/risk_evidence_ledger.md`](./docs/risk_evidence_ledger.md) | risk-to-model-to-code-to-evidence confidence boundary |
 | [`docs/flowguard_closure_contract.md`](./docs/flowguard_closure_contract.md) | closure contract for complete FlowGuard use |
 | [`docs/validation_and_distribution.md`](./docs/validation_and_distribution.md) | validation tiers, evidence layers, monitoring, skill distribution, and release lifecycle |
-| [`docs/flowguard_execution_profiles.md`](./docs/flowguard_execution_profiles.md) | light/affected/full execution profiles, compact layout, storage audit, and reusable branch seeds |
 | [`docs/github_release_checklist.md`](./docs/github_release_checklist.md) | source-only GitHub release checklist |
 
 ## Repository Layout

@@ -1,5 +1,5 @@
 {
-  "check_declarations_hash": "sha256:82f7cb5929e51276271755fab18f32de69baa54128aaee943ef1a2246c23bcbc",
+  "check_declarations_hash": "sha256:0200ed7189ebdfa1ab83b479c201773d5aefce1feb9cc4242e82eb0c1c96ecee",
   "checks": [
     {
       "args": [
@@ -35,7 +35,7 @@
     {
       "args": [
         "-c",
-        "from pathlib import Path; assert Path('references/route_execution_common.md').is_file() and Path('references/domains/model-mesh/SKILL.md').is_file()"
+        "from pathlib import Path; assert Path('references/route_execution_common.md').is_file() and Path('references/domains/model-mesh/protocol.md').is_file()"
       ],
       "check_id": "check:flowguard:release-projection",
       "command": "{{python}}",
@@ -49,9 +49,10 @@
       "kind": "command"
     }
   ],
-  "claim_boundary": "The manifest preserves declared commands, arguments, inputs and oracles; it does not claim their execution.",
-  "contract_hash": "sha256:02d3b84a706b6caed4f407e674c930a65fffcd3248dac345e61da6f983c5f287",
-  "manifest_hash": "sha256:100040df7693c9d8bd960fc1882d4b00c3dab8d2345a407c8466cd33f404deea",
+  "claim_boundary": "The manifest declares exact checks and does not claim execution.",
+  "contract_hash": "sha256:c432877d49c918f63a57ee8c4443f9e195f079738b57023c4cc91e3f22cc0afa",
+  "maintenance_unit_id": "unit:flowguard-suite",
+  "manifest_hash": "sha256:e37f6b7245e663351446b6bcff61be592d9208e27a5468703a416812c1b54797",
   "schema_version": "skillguard.check_manifest.v3",
   "skill_id": "flowguard"
 }

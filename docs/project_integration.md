@@ -1,225 +1,72 @@
 # Project Integration
 
-This document explains how a target repository should use FlowGuard as an
-AI-agent skill suite with executable check scripts.
+FlowGuard has one clean consumer surface and three public lifecycle operations.
+The target agent reads the installed skill, while the Python package supplies
+the executable check engine.
 
-FlowGuard source repository:
+## Current consumer surface
 
-```text
-https://github.com/liuyingxuvka/FlowGuard
+Start at `$CODEX_HOME/skills/flowguard/SKILL.md`. Once a request names a
+subject, load only `references/domains/<subject>/protocol.md` and its explicit
+dependencies. The target repository does not copy the author checkout, author
+receipts, or a second suite map into its own skill tree.
+
+The installed projection and the source identity in the request must agree. A
+missing, stale, foreign, or contradictory projection blocks the operation.
+
+## Public operations
+
+Read the accepted current map without side effects:
+
+```powershell
+python -m flowguard read --root <target-project> --request read.json --json
 ```
 
-## Agent Skill Suite Setup
+Change a declared source or model scope through the current compare-and-swap
+boundary:
 
-For AI-agent use, FlowGuard setup means the agent can read the skill suite, not
-that a Python package has been installed.
+```powershell
+python -m flowguard change --root <target-project> --request change.json --json
+```
 
-The required agent-visible surface is:
+Verify an already accepted current and its declared release projection:
 
-- `AGENTS.md`
-- `$CODEX_HOME/skills/flowguard/SKILL.md`
-- all sibling FlowGuard `SKILL.md` files under `$CODEX_HOME/skills/`
-- any referenced `references/`, `assets/`, and check scripts used by the
-  selected route
+```powershell
+python -m flowguard release --root <target-project> --request release.json --json
+```
 
-Start from `flowguard`. Use a direct FlowGuard sibling skill
-when the route is obvious, and use the kernel when route selection is unclear.
-The target repository does not vendor a second project-local FlowGuard suite,
-does not copy the suite into `.agents/skills/`, and does not own
-`.skillguard/flowguard-suite/suite-map.json`. The author repository owns that
-maintenance map. The installed package instead ships one deterministic
-clean-consumer authority, and the current Codex skills root owns the one clean
-consumer projection.
+`read` starts zero producers and writes. Its request must include a selected
+identity and explicit page budget. `change` runs only the required current
+owners. Normal changes use protected-failure native checks and derived
+structure coverage; per-element good, bad, and draft evidence is added only for
+an explicit architecture reduction or candidate comparison. `release` reports
+what it actually verified and does not publish GitHub artifacts by itself.
 
-Project audit and upgrade use exactly one consumer-validation path: packaged
-authority to `$CODEX_HOME/skills/` plus its ownership manifest. They do not
-read an author checkout, project-local suite, `.skillguard` state, alternate
-manifest, or fallback reader. Missing or mismatched current authority is a
-visible blocker before any project-upgrade write.
+## Engine preflight
 
-If the agent can read the skills but cannot run executable checks yet, record
-that as scoped or partial evidence. Do not treat package metadata, a passing
-project audit, or a directory named `flowguard` as proof that the AI-agent
-skill suite is installed.
-
-## Executable Check Preflight
-
-Before claiming executable FlowGuard evidence in another repository, run:
+Before claiming executable evidence, run:
 
 ```powershell
 python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 ```
 
-This checks the local executable check engine and prints the artifact schema
-version, not the GitHub release version. For example, FlowGuard can be released
-as `v0.52.2` while the trace/report schema remains `1.0`.
+If this fails, record the operation as blocked or partial. Do not substitute a
+local mini-framework, a stale source tree, or an alternate reader. A local
+checkout may be selected explicitly for the check engine; its identity belongs
+in the result.
 
-If this fails, do not create a temporary local mini-framework and claim the
-project used FlowGuard. Connect the real check engine first, or record the task
-as blocked or partial.
+## Evidence and handoff boundary
 
-If the import preflight succeeds but the target project has no FlowGuard model
-yet, create one. Existing production code or a prewritten model script is not a
-requirement. The agent should write or adapt a model script from the current
-plan, run it, inspect counterexamples, and strengthen it when the customer's
-risk is not yet visible.
+Every result keeps unknown, blocked, not-run, skipped, stale, failed, and
+scoped states visible. The operation, subject, page budget, owner, source bytes,
+toolchain, and result must agree. A log, checkbox, package version, or clean
+directory does not prove executable evidence.
 
-## Local Check Engine Source
+Route or obligation changes reopen admission and plan identity. When the actual
+check, input, dependency, toolchain, and environment are unchanged, the leaf
+execution key can be reused within the same maintenance unit. Performance and
+installation evidence belongs in one acceptance result with two sections that
+share the frozen identity; no separate delivery handoff service is needed.
 
-When the check engine must be run from a local FlowGuard checkout, point the
-agent or shell at that source tree explicitly:
-
-```powershell
-$env:FLOWGUARD_SOURCE = "<path-to-your-FlowGuard-checkout>"
-$env:PYTHONPATH = "$env:FLOWGUARD_SOURCE;$env:PYTHONPATH"
-python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
-```
-
-The repository exposes `python -m flowguard ...` as the current command
-surface for checks, templates, and project records. That surface is a
-check-execution convenience; it is not the AI-agent skill install surface.
-
-If a development environment deliberately wants editable metadata for those
-current commands, it may run:
-
-```powershell
-python -m pip install -e $env:FLOWGUARD_SOURCE
-```
-
-Record that as check-engine command setup, not as FlowGuard skill setup.
-
-## Toolchain Preflight Helper
-
-The Skill includes a standard-library helper for active Python environments
-that cannot import FlowGuard yet:
-
-```powershell
-python <path-to-flowguard-skill>\assets\toolchain_preflight.py --json
-```
-
-If the helper reports `mode: pythonpath_available`, the source tree is usable
-but the active environment has not been permanently connected yet. Run one of
-the recommended check-engine commands before treating executable evidence as
-current.
-
-To point the helper at a local source tree:
-
-```powershell
-python <path-to-flowguard-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --json
-```
-
-To let it prepare editable metadata for current commands:
-
-```powershell
-python <path-to-flowguard-skill>\assets\toolchain_preflight.py --source <path-to-your-FlowGuard-checkout> --install-editable --json
-```
-
-The helper does not replace skill-suite setup or import preflight. After it
-succeeds, still run:
-
-```powershell
-python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
-```
-
-## What Not To Do
-
-Do not:
-
-- copy only a few FlowGuard concepts into the target repository and call it
-  FlowGuard;
-- write a one-off mini framework and mark the task as fully checked;
-- hide import failures behind prose;
-- treat skipped check-engine setup as a passed model-first check;
-- treat package metadata as proof that the global FlowGuard consumer skills are
-  available to the AI agent.
-
-If an AI wrote a model-shaped draft before `flowguard` was available, treat
-that draft as an exploratory sketch only, not as FlowGuard evidence. It cannot
-count as FlowGuard executable evidence until the real check engine is connected
-and the checks run against it. Record that state as:
-
-```text
-skill_decision: blocked_or_partial
-status: blocked
-friction: flowguard check engine was not connected to this repository
-next_action: make the FlowGuard skills visible and connect the check engine
-```
-
-## Project AGENTS.md And Records
-
-After the target agent can see the skill suite, add the rule from
-`docs/agents_snippet.md` to the target project's `AGENTS.md`. The low-friction
-current command is:
-
-```powershell
-python -m flowguard project-adopt --root .
-```
-
-This creates or updates only the managed FlowGuard block in `AGENTS.md`, writes
-`.flowguard/project.toml`, and appends adoption records under `.flowguard/` and
-`docs/`. The managed block includes the FlowGuard GitHub URL so future agents
-know where the skill suite and check engine come from.
-
-That project rule should require:
-
-- FlowGuard repository URL: `https://github.com/liuyingxuvka/FlowGuard`;
-- FlowGuard skill-suite visibility under `$CODEX_HOME/skills/`;
-- `flowguard` executable check preflight;
-- installed check-engine version comparison against `.flowguard/project.toml`
-  when version freshness matters;
-- AI-created model scripts when no model exists yet;
-- model-first checks before production edits;
-- Model-Miss Review for non-trivial bug repairs and for tests, replay, logs, or
-  manual validation that expose a new issue after FlowGuard already passed;
-- adoption log entries for real use;
-- explicit blocked status when the skill suite or check engine is unavailable.
-
-Use a read-only audit when you only need to check adoption state:
-
-```powershell
-python -m flowguard project-audit --root .
-```
-
-If the installed check-engine version is newer than the project record, stop
-before broad confidence claims and directly update the project record/model
-under the current FlowGuard authority. There is no compatibility reader or
-automatic artifact migration path:
-
-```powershell
-python -m flowguard project-audit --root .
-```
-
-An old artifact is a hard blocker. `artifact-upgrade` is an audit-only,
-fail-closed diagnostic retained for identifying stale files; its former
-`--apply` behavior is disabled. Rewrite the current source/model directly,
-regenerate affected tests and receipts under one frozen identity, and only
-then rerun the audit. Before any write, prove exact parity between the
-authority shipped in the installed package, the current manifest-declared
-consumer projection, and the distribution ownership manifest.
-
-Then check release notes or the changelog, rerun affected FlowGuard models and
-tests, and record the evidence. If the installed check-engine version is older
-than the project record, connect a current FlowGuard check engine first.
-
-FlowGuard is latest-schema-first and current-schema-only. Old artifacts are detected and rejected;
-normal route logic and maintenance commands must not preserve compatibility
-branches for obsolete fields, aliases, wrappers, or alternate success paths.
-
-If the target project also uses a spec/SPAC-style planning or orchestration
-skill, treat that tool's plan as optional FlowGuard handoff context. The handoff
-should name planned steps, state fields, side effects, parallel ownership,
-repeat or retry points, skipped checks with reasons, and completion evidence.
-Missing planner support does not change FlowGuard's current authority; the
-agent uses the normal standalone model-first path directly.
-
-When `python -m flowguard` is available, the lightweight adoption CLI can reduce
-manual log drift:
-
-```powershell
-python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
-python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
-```
-
-These commands append `.flowguard/adoption_log.jsonl` and
-`docs/flowguard_adoption_log.md`. They are evidence helpers, not a substitute
-for executable model checks.
+Git tags and GitHub publication remain separate transactions after `release`
+has verified the current projection.

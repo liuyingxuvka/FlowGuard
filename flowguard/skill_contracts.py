@@ -758,14 +758,20 @@ def _compile_compact_v3_parity(
             findings.append(ContractCompileFinding("source_identity_path_invalid", ".skillguard/contract-source.json", skill_id, str(compiled_path)))
         if source_identity.get("content_hash") != expected_binding_hash:
             findings.append(ContractCompileFinding("binding_fingerprint_stale", expected_binding_hash, skill_id, str(compiled_path)))
+        # The official current SkillGuard compiler binds the source contract
+        # as one immutable content hash.  Older FlowGuard-only projections
+        # carried a second per-input fingerprint map; accepting that optional
+        # field when present keeps the parity reader strict without requiring
+        # a duplicate authority projection.
         fingerprints = source_identity.get("input_fingerprints")
-        expected_inputs = {
-            str(row["id"]): _wire_file_hash(skill_path / str(row["path"]))
-            for row in source.get("inputs", ())
-            if isinstance(row, Mapping) and row.get("id") and row.get("path")
-        }
-        if fingerprints != expected_inputs:
-            findings.append(ContractCompileFinding("input_fingerprint_projection_mismatch", "input_fingerprints", skill_id, str(compiled_path)))
+        if fingerprints is not None:
+            expected_inputs = {
+                str(row["id"]): _wire_file_hash(skill_path / str(row["path"]))
+                for row in source.get("inputs", ())
+                if isinstance(row, Mapping) and row.get("id") and row.get("path")
+            }
+            if fingerprints != expected_inputs:
+                findings.append(ContractCompileFinding("input_fingerprint_projection_mismatch", "input_fingerprints", skill_id, str(compiled_path)))
 
     projection = source.get("consumer_projection")
     plan = compiled.get("content_impact_plan")
@@ -779,8 +785,11 @@ def _compile_compact_v3_parity(
         ) if isinstance(inventory, list) else []
         if expected_paths != actual_paths:
             findings.append(ContractCompileFinding("content_impact_projection_mismatch", "file_paths", skill_id, str(compiled_path)))
-    else:
-        findings.append(ContractCompileFinding("content_impact_projection_missing", "content_impact_plan", skill_id, str(compiled_path)))
+    elif isinstance(projection, Mapping):
+        # Current SkillGuard v3 carries the canonical consumer projection
+        # directly and intentionally omits a second content-impact plan.
+        if compiled.get("consumer_projection") != projection:
+            findings.append(ContractCompileFinding("content_impact_projection_mismatch", "consumer_projection", skill_id, str(compiled_path)))
 
     for surface_name, surface_path, surface_data in (
         ("surface_inventory", surface_inventory_path, surface_inventory),

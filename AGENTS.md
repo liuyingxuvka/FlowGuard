@@ -21,20 +21,21 @@ or publish outside the exact authorized boundary.
 
 ## FlowGuard routing
 
-For non-trivial work choose the smallest public owner: a clear satellite is a
-direct peer; ordinary behavior/state or unclear cross-route work uses
-`flowguard`. Read the entry skill, then only the route map and selected route
-fragment. Use the read-only route query when the owner is not already known:
+For non-trivial work use the single public `flowguard` skill. Read its entry
+skill, then the route index and the one selected domain protocol. Domain
+directories are reference material, not independent public skills. Select one
+of the three lifecycle operations directly:
 
 ```powershell
-python -m flowguard route-reference <route-or-skill-name> --json
 python -m flowguard read --root . --request <request.json> --json
+python -m flowguard change --root . --request <request.json> --json
+python -m flowguard release --root . --request <request.json> --json
 ```
 
 `use_flowguard`, `skip_with_reason`, and `needs_human_review` remain separate
-from execution profile (`light|affected|full`) and modeling mode. A clean
-static or normative artifact is not runtime, UI, external-service, release,
-or future-behavior proof. Do not create a fake local FlowGuard replacement.
+from the lifecycle operation. A clean static or normative artifact is not
+runtime, UI, external-service, release, or future-behavior proof. Do not create
+a fake local FlowGuard replacement.
 
 ## Execution phase boundary
 
@@ -44,13 +45,16 @@ or future-behavior proof. Do not create a fake local FlowGuard replacement.
 - Source-change freezes the affected owner closure and runs only declared
   FlowGuard/model/test checks. It does not install a consumer or self-optimize.
 - Installation, global-router currentness, and GitHub publication are separate
-  explicit claims. `full` source evidence does not imply any of them.
+  explicit claims. Broad source evidence does not imply any of them.
 
 ## Model and evidence gates
 
 Preserve unknown, contradictory, unmapped, stale, skipped, blocked, and
-out-of-scope states. Bind protected failures to native good/bad-per-failure,
-oracle, current implementation, owner, test, and receipt evidence. Broad
+out-of-scope states. Ordinary changes bind protected failures to the real
+native checks, oracle, current implementation, owner, test, and receipt
+evidence. Per-element good/bad/draft evidence is required only for an explicit
+architecture reduction or candidate comparison; read creates no new evidence.
+Broad
 behavior claims require the BehaviorCommitmentLedger; path-sensitive claims
 require one Primary Path Authority; field changes require FieldLifecycleMesh;
 large or stale validation requires TestMesh. DevelopmentProcessFlow owns staged

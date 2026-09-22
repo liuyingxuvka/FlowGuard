@@ -20,28 +20,21 @@ class ProjectIntegrationTests(unittest.TestCase):
     def test_project_integration_doc_separates_skill_suite_from_check_engine(self):
         text = (ROOT / "docs" / "project_integration.md").read_text(encoding="utf-8")
 
-        self.assertIn("AI-agent skill suite", text)
-        self.assertIn("Agent Skill Suite Setup", text)
-        self.assertIn("`$CODEX_HOME/skills/`", text)
-        self.assertIn("`$CODEX_HOME/skills/flowguard/SKILL.md`", text)
-        self.assertIn("does not vendor a second project-local FlowGuard suite", text)
-        self.assertNotIn("`.agents/skills/flowguard/SKILL.md`", text)
-        self.assertIn("not the AI-agent skill install surface", text)
-        self.assertIn("check-execution convenience", text)
-        self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', text)
-        self.assertIn("toolchain_preflight.py", text)
-        self.assertIn("temporary local mini-framework", text)
-        self.assertIn("one-off mini framework", text)
-        self.assertIn("blocked_or_partial", text)
-        self.assertIn("Model-Miss Review for non-trivial bug repairs", text)
-        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
-        self.assertIn("project-adopt", text)
-        self.assertIn("project-audit", text)
-        self.assertIn("project-upgrade", text)
-        self.assertIn("artifact-upgrade", text)
-        self.assertIn("latest-schema-first", text)
-        self.assertIn(".flowguard/project.toml", text)
-        self.assertLess(text.index("Agent Skill Suite Setup"), text.index("python -m pip install -e"))
+        for phrase in (
+            "one clean consumer surface",
+            "three public lifecycle operations",
+            "`$CODEX_HOME/skills/flowguard/SKILL.md`",
+            "Python package supplies",
+            "does not copy the author checkout",
+            "`read` starts zero producers and writes",
+            "per-element good, bad, and draft evidence is added only",
+            "Git tags and GitHub publication remain separate transactions",
+        ):
+            self.assertIn(phrase, text)
+        self.assertNotIn("project-adopt", text)
+        self.assertNotIn("project-audit", text)
+        self.assertNotIn("project-upgrade", text)
+        self.assertNotIn("artifact-upgrade", text)
 
     def test_skill_requires_import_preflight_and_rejects_substitute(self):
         skill = (

@@ -55,5 +55,3 @@ def test_prepared_plan_rejects_caller_scope_selection_before_execution(
             prepared_plan=plan,
             receipt_dir=staging / "work" / "model-owner-receipts",
         )
-
-\n

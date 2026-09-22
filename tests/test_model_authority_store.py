@@ -35,11 +35,13 @@ from flowguard.model_revision_set import (
     derive_revision_snapshot_diff,
 )
 from flowguard.model_authority_store import (
+    _load_bound_read_projection,
     _collect_rebuild_reachable_artifacts,
     activate_model_revision_set,
     audit_model_authority,
     bootstrap_model_authority,
     load_current_accepted_revision_set,
+    load_current_model_authority_state,
     load_observed_model_system,
     rollback_observed_model_system,
 )
@@ -377,7 +379,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_one,
                     accepted_one,
-                    receipt_id="activation:store-one",
                 )
 
             candidate_two = snapshot("git:" + "c" * 40, SHA_C, "observed-c")
@@ -390,7 +391,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_two,
                     accepted_two,
-                    receipt_id="activation:store-two",
                 )
 
             loaded_head, loaded_snapshot = load_observed_model_system(root)
@@ -400,19 +400,24 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                 loaded_snapshot,
             )
             self.assertEqual(head_three, loaded_head)
-            self.assertEqual(
-                {
-                    ("bootstraps", head_one.accepted_revision_set_fingerprint),
-                    ("revisions", accepted_one.fingerprint),
-                    ("revisions", accepted_two.fingerprint),
-                    ("activations", head_two.activation_receipt_fingerprint),
-                    ("activations", head_three.activation_receipt_fingerprint),
-                    ("snapshots", base.fingerprint),
-                    ("snapshots", candidate_one.fingerprint),
-                    ("snapshots", candidate_two.fingerprint),
-                },
-                reachable,
-            )
+            expected = {
+                ("bootstraps", head_one.accepted_revision_set_fingerprint),
+                ("revisions", accepted_one.fingerprint),
+                ("revisions", accepted_two.fingerprint),
+                ("activations", head_two.activation_receipt_fingerprint),
+                ("activations", head_three.activation_receipt_fingerprint),
+                ("snapshots", base.fingerprint),
+                ("snapshots", candidate_one.fingerprint),
+                ("snapshots", candidate_two.fingerprint),
+            }
+            for generation_head in (head_two, head_three):
+                projection = _load_bound_read_projection(root, generation_head)
+                expected.add(
+                    ("read-projection-indexes", projection["index_fingerprint"])
+                )
+                for row in projection["index"]["models"].values():
+                    expected.add(("read-model-shards", row["shard_fingerprint"]))
+            self.assertEqual(expected, reachable)
 
     def test_bootstrap_and_activation_update_pointer_last(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -440,7 +445,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:store",
                 )
 
             loaded_head, loaded_snapshot = load_observed_model_system(root)
@@ -480,7 +484,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:frozen-binding-replay",
                 )
 
             regression_manifest = (
@@ -553,7 +556,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:live-binding-check",
                 )
 
             self.assertGreaterEqual(live_manifest_load.call_count, 1)
@@ -588,7 +590,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:first",
                 )
                 with self.assertRaisesRegex(
                     ModelAuthorityError,
@@ -598,7 +599,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:stale",
                     )
 
     def test_activation_replays_lineage_instead_of_trusting_base_fingerprint(self):
@@ -623,7 +623,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     first,
-                    receipt_id="activation:lineage-base",
                 )
 
             next_candidate = snapshot(
@@ -667,7 +666,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     next_candidate,
                     forged_revision,
-                    receipt_id="activation:lineage-bypass",
                 )
 
             self.assertEqual(before, manifest.read_bytes())
@@ -700,7 +698,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:injected",
                     )
 
             self.assertEqual(before, manifest.read_bytes())
@@ -743,7 +740,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:drift",
                     )
 
             self.assertEqual(before, manifest.read_bytes())
@@ -777,7 +773,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:pointer-failure",
                     )
 
             self.assertEqual(before, manifest.read_bytes())
@@ -819,7 +814,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_b,
                     revision_b,
-                    receipt_id="activation:winner",
                 )
             with patch(
                 "flowguard.model_system_inventory.build_manifest_model_system_snapshot",
@@ -833,7 +827,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate_c,
                         revision_c,
-                        receipt_id="activation:loser",
                     )
 
             loaded_head, loaded_snapshot = load_observed_model_system(root)
@@ -863,7 +856,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     forward,
-                    receipt_id="activation:forward",
                 )
             contract = ModelRollbackContract(
                 contract_id="rollback:store",
@@ -948,13 +940,12 @@ class ModelAuthorityStoreTests(unittest.TestCase):
             loaded_head, loaded_snapshot = load_observed_model_system(root)
             self.assertEqual(3, rolled_head.generation)
             self.assertEqual(reverse.fingerprint, rolled_head.accepted_revision_set_fingerprint)
-            self.assertEqual(
-                rollback_receipt.fingerprint,
-                rolled_head.activation_receipt_fingerprint,
+            self.assertTrue(
+                rolled_head.activation_receipt_fingerprint.startswith("sha256:")
             )
             self.assertNotEqual(
                 rollback_receipt.fingerprint,
-                rolled_head.accepted_revision_set_fingerprint,
+                rolled_head.activation_receipt_fingerprint,
             )
             self.assertEqual(rolled_head, loaded_head)
             self.assertEqual(base, loaded_snapshot)
@@ -970,6 +961,13 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     snapshot=loaded_snapshot,
                 ),
             )
+            current_state = load_current_model_authority_state(
+                root,
+                head=loaded_head,
+                snapshot=loaded_snapshot,
+            )
+            self.assertEqual("rollback", current_state.transition_kind)
+            self.assertEqual(rollback_receipt, current_state.rollback_receipt)
             rollback_path = (
                 root
                 / ".flowguard"
@@ -1013,7 +1011,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:locked",
                     )
 
     def test_generation_one_audit_requires_explicit_intent_bootstrap(self):
@@ -1365,7 +1362,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:audit-current-revision",
                 )
 
             with patch(
@@ -1418,7 +1414,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:audit-missing-receipt",
                 )
             next_candidate = snapshot(
                 "git:" + "c" * 40,
@@ -1452,7 +1447,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     next_candidate,
                     next_revision,
-                    receipt_id="activation:must-validate-current-producer",
                 )
 
             with patch(
@@ -1492,7 +1486,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:audit-stale-source",
                 )
             source = root / "docs" / "authority-current-design.md"
             source.write_text(
@@ -1535,7 +1528,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_one,
                     accepted_one,
-                    receipt_id="activation:source-replacement-base",
                 )
 
             candidate_two = snapshot("git:" + "c" * 40, SHA_C, "observed-c")
@@ -1570,7 +1562,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_two,
                     retained_revision,
-                    receipt_id="activation:stale-retain-must-block",
                 )
 
             replacement = replace(
@@ -1641,7 +1632,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate_two,
                     replacement_revision,
-                    receipt_id="activation:current-source-replacement",
                 )
 
             self.assertEqual(3, replacement_head.generation)
@@ -1676,7 +1666,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id=f"activation:audit-source-{mutation}",
                     )
                 source = root / "docs" / "authority-current-design.md"
                 source.unlink()
@@ -1731,7 +1720,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:peer-preserve",
                 )
 
             self.assertIn(
@@ -1781,7 +1769,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                         root,
                         candidate,
                         accepted,
-                        receipt_id="activation:authority-cas",
                     )
 
     def test_audit_keeps_leaf_reuse_and_live_staleness_as_parallel_blockers(self):
@@ -1806,7 +1793,6 @@ class ModelAuthorityStoreTests(unittest.TestCase):
                     root,
                     candidate,
                     accepted,
-                    receipt_id="activation:audit-leaf-reuse",
                 )
 
             revision_path = (

@@ -1161,6 +1161,9 @@ class ApiSurfaceTests(unittest.TestCase):
             "load_current_accepted_revision_set",
             "ModelRevisionPlan",
             "preview_current_model_revision",
+        ):
+            self.assertIn(name, text)
+        for retired_command in (
             "model-system-bootstrap",
             "model-revision-intent-bootstrap",
             "model-system-audit",
@@ -1169,19 +1172,21 @@ class ApiSurfaceTests(unittest.TestCase):
             "model-revision-build",
             "model-revision-activate",
             "model-revision-rollback",
+            "model-understanding-status",
+            "behavior-commitment-query",
         ):
-            self.assertIn(name, text)
+            self.assertNotIn(retired_command, text)
         normalized = " ".join(text.split())
         self.assertIn(
             "software, services, workflows, agents, pipelines, and mixed systems",
             normalized,
         )
         self.assertIn(
-            "`model-system-bootstrap` establishes generation-one observed authority",
+            "selected internally by the public `read`, `change`, and `release` operations",
             normalized,
         )
         self.assertIn(
-            "`model-revision-intent-bootstrap` moves an existing generation-one or legacy v4 lineage into its first cumulative v5 intent view",
+            "no alternate command or compatibility reader is exposed",
             normalized,
         )
 

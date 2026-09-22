@@ -5,7 +5,7 @@ selection and sequencing across skills, tools, plugins, or external actions.
 Requests explicitly naming AgentWorkflowRehearsal or carrying an admitted
 cross-owner/shared-write, post-validation-invalidating-write, agent/route
 workflow-change, or multiple-independent-owner irreversible-risk fact enter
-`flowguard-development-process-flow`; no public alias exists. Capability labels
+`DevelopmentProcessFlow`; no public alias exists. Capability labels
 alone stay `not_triggered`.
 
 The route references other skills, tools, plugins, or external actions as

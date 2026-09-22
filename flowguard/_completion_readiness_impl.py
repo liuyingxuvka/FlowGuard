@@ -513,10 +513,20 @@ def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
         "gate_fingerprint": fingerprint_payload(reverse_body),
     }
 
-    project_audit = _run_gate(
+    current_read = _run_gate(
         root,
-        "project-audit",
-        (sys.executable, "-m", "flowguard", "project-audit", "--root", str(root), "--json"),
+        "current-read",
+        (
+            sys.executable,
+            "-m",
+            "flowguard",
+            "read",
+            "--root",
+            str(root),
+            "--request",
+            str(root / ".flowguard" / "read-request.json"),
+            "--json",
+        ),
         timeout=args.gate_timeout,
     )
     owner_body = {
@@ -530,10 +540,10 @@ def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
             for contract in owner_plan.contracts
             for dependency in contract.dependency_owner_ids
         ],
-        "project_audit_gate_fingerprint": project_audit["gate_fingerprint"],
+        "current_read_gate_fingerprint": current_read["gate_fingerprint"],
     }
     gates["owner_dag"] = {**owner_body, "gate_fingerprint": fingerprint_payload(owner_body)}
-    gates["project_audit"] = project_audit
+    gates["current_read"] = current_read
 
     repair_link_path = ""
     repair_group_path = ""

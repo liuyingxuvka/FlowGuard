@@ -1,0 +1,630 @@
+{
+  "boundary_nodes": [
+    {
+      "endpoint_id": "commitment:task-coverage-demand",
+      "endpoint_kind": "behavior_commitment",
+      "fingerprint": "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "endpoint_id": "boundary-contract:behavior-commitment-ledger:partition-v1",
+      "endpoint_kind": "boundary_contract",
+      "fingerprint": "sha256:f1ca70d96ab058392f476238616e8381051fe10fd69d127b3379af6b335a73f5",
+      "owner_route": "authoritative_model_system"
+    },
+    {
+      "endpoint_id": "contract:contract:compile-task-coverage-demand",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:78112c60bd5f33a2893bce30f76e015bc99ef36df2542061aec47802e24f9ec1",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "contract:owner-contract:.flowguard/models/owners/task_coverage_demand/model.py",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:c71e6d3f3b46bbbd1b8f8faf8c73a2d2a860ec03bb38e59bb06099d8d704a0e4",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "field-or-effect:task_coverage_demand",
+      "endpoint_kind": "field_inventory",
+      "fingerprint": "sha256:7bc030abf56044f15d1d3edb2f10a3631578b9a95926b3ade826c55b9164b78b",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "endpoint_id": "purpose:task_coverage_demand",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:5112f156e933a439f95087dd668adf7e492be10a1f319d2b9df3bbf2143dd3fd",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "semantic-parent:authority-and-understanding",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:9f1675f87355675d034e8e3a7125c95a17a7b2b48d02b97a68341eb9a7948d31",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "runtime:flowguard.compile_task_coverage_demand",
+      "endpoint_kind": "runtime_entry",
+      "fingerprint": "sha256:87e4c3250fbea7ba4cee402eab986bd50d64be934ca0c6ba75ccd7fcf81193b7",
+      "owner_route": "affected_authority_inventory"
+    },
+    {
+      "endpoint_id": "source:flowguard/task_coverage_demand.py",
+      "endpoint_kind": "source_owner",
+      "fingerprint": "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5",
+      "owner_route": "affected_authority_inventory"
+    },
+    {
+      "endpoint_id": "evidence:.flowguard/verification/owners/task_coverage_demand/run_checks.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6",
+      "owner_route": "affected_authority_inventory"
+    },
+    {
+      "endpoint_id": "evidence:tests/test_task_coverage_demand.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:9840107b882a40fffca1a8b5f1ea60e6c7d002c632ecb33814727fc946034d70",
+      "owner_route": "affected_authority_inventory"
+    },
+    {
+      "endpoint_id": "test:.flowguard/verification/owners/self_maintenance_mesh/run_checks.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:b951e54c7b8a5bb1e00ce76c1c18e476e13119b69aecd16417d9c201e0375a4d",
+      "owner_route": "test_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "test:tests/test_task_coverage_demand.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:edb7aca5afe89c3f898387abb131da07d22de0106f63ddc2d60b5b93b24d4a26",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "candidate_snapshot_fingerprint": "sha256:801ef63622b9c2e93e6dc4836c5c50f3339729ac6e488d5bce55831c162d48ea",
+  "fingerprint": "sha256:9baee60bd19ee50776dec36836cdbf0b550a05bd2c4fa870920a7af6f81358d4",
+  "intent_refs": [
+    {
+      "authority_kind": "project_file",
+      "contribution_id": "current-design:revision:flowguard:compact-runtime-20260922:task_coverage_demand:1",
+      "logical_model_id": "task_coverage_demand",
+      "source_fingerprint": "sha256:87048e9223a873ea896d871fb49d329e9d9a90a88c667c4a5124b875ed815232",
+      "source_ref": "openspec/specs/task-coverage-demand/spec.md"
+    }
+  ],
+  "logical_model_id": "task_coverage_demand",
+  "model": {
+    "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+    "input_inventory_fingerprint": "sha256:2a8a9fcb277a3e90d87d9c8d74d542f4681eac8dabc95a518421b19106785b61",
+    "inputs": [
+      {
+        "path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:45e1e78ef2067dbc7c4e81ccef4f9dea3f0b2345461e75c9036cc126fa853e9a"
+      },
+      {
+        "path": ".flowguard/verification/owners/task_coverage_demand/run_checks.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6"
+      },
+      {
+        "path": "flowguard/native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:f2728fb4e9715d5a2251e98ea382b63c4df86e9574ad8a523a301c423495fd48"
+      },
+      {
+        "path": "flowguard/task_coverage_demand.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5"
+      },
+      {
+        "path": "openspec/specs/task-coverage-demand/spec.md",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:87048e9223a873ea896d871fb49d329e9d9a90a88c667c4a5124b875ed815232"
+      },
+      {
+        "path": "pyproject.toml",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:79291a4086ca2f2a0357c4efd621bed5e47e25ddf0732e744a73751b3cc1e19b"
+      },
+      {
+        "path": "scripts/run_flowguard_model_regressions.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3"
+      },
+      {
+        "path": "tests/test_task_coverage_demand.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9840107b882a40fffca1a8b5f1ea60e6c7d002c632ecb33814727fc946034d70"
+      }
+    ],
+    "logical_model_id": "task_coverage_demand",
+    "model_kind": "executable_workflow",
+    "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+    "model_sha256": "sha256:45e1e78ef2067dbc7c4e81ccef4f9dea3f0b2345461e75c9036cc126fa853e9a",
+    "purpose_closure_fingerprint": "sha256:5112f156e933a439f95087dd668adf7e492be10a1f319d2b9df3bbf2143dd3fd",
+    "runner_path": ".flowguard/verification/owners/task_coverage_demand/run_checks.py",
+    "runner_sha256": "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6",
+    "schema": "flowguard.model_instance_ref.v2"
+  },
+  "relations": [
+    {
+      "evidence_fingerprints": [
+        "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6",
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:evidence-validates-model:understanding:task-coverage-demand:.flowguard/verification/owners/task_coverage_demand/run_checks.py",
+      "source": {
+        "endpoint_id": "evidence:.flowguard/verification/owners/task_coverage_demand/run_checks.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6",
+        "owner_route": "affected_authority_inventory"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:9840107b882a40fffca1a8b5f1ea60e6c7d002c632ecb33814727fc946034d70",
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:evidence-validates-model:understanding:task-coverage-demand:tests/test_task_coverage_demand.py",
+      "source": {
+        "endpoint_id": "evidence:tests/test_task_coverage_demand.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:9840107b882a40fffca1a8b5f1ea60e6c7d002c632ecb33814727fc946034d70",
+        "owner_route": "affected_authority_inventory"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:model-affects-sibling:understanding:model-maturation-receipt:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:model_maturation_loop",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:299f5dc7661f654f549e20a25558fa3eb0a9d1079571075bb12d271b14b49b27",
+        "model_id": "model_maturation_loop",
+        "model_path": ".flowguard/models/owners/model_maturation_loop/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:model-affects-sibling:understanding:task-coverage-demand:model_maturation_loop",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:model_maturation_loop",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:299f5dc7661f654f549e20a25558fa3eb0a9d1079571075bb12d271b14b49b27",
+        "model_id": "model_maturation_loop",
+        "model_path": ".flowguard/models/owners/model_maturation_loop/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:model-affects-sibling:understanding:task-coverage-demand:self_maintenance_mesh",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:self_maintenance_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:508c8098ba91c0f8c1004d12b93f650ba318daf94c3432a05586a08b5ab5de02",
+        "model_id": "self_maintenance_mesh",
+        "model_path": ".flowguard/models/owners/self_maintenance_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "consumes",
+      "relation_id": "relation:model-consumes-model:understanding:model-maturation-receipt:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:model_maturation_loop",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:299f5dc7661f654f549e20a25558fa3eb0a9d1079571075bb12d271b14b49b27",
+        "model_id": "model_maturation_loop",
+        "model_path": ".flowguard/models/owners/model_maturation_loop/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "invokes",
+      "relation_id": "relation:model-invokes-runtime:understanding:task-coverage-demand:flowguard.compile_task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "runtime:flowguard.compile_task_coverage_demand",
+        "endpoint_kind": "runtime_entry",
+        "fingerprint": "sha256:87e4c3250fbea7ba4cee402eab986bd50d64be934ca0c6ba75ccd7fcf81193b7",
+        "owner_route": "affected_authority_inventory"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:task_coverage_demand--code_contract:contract:contract:compile-task-coverage-demand",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:contract:compile-task-coverage-demand",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:78112c60bd5f33a2893bce30f76e015bc99ef36df2542061aec47802e24f9ec1",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:task_coverage_demand--code_contract:contract:owner-contract:.flowguard/models/owners/task_coverage_demand/model.py",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:owner-contract:.flowguard/models/owners/task_coverage_demand/model.py",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:c71e6d3f3b46bbbd1b8f8faf8c73a2d2a860ec03bb38e59bb06099d8d704a0e4",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-commitment:commitment:task-coverage-demand",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "commitment:task-coverage-demand",
+        "endpoint_kind": "behavior_commitment",
+        "fingerprint": "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "owner_route": "behavior_commitment_ledger"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-field_inventory:model_instance:model:task_coverage_demand--field_inventory:field-or-effect:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "field-or-effect:task_coverage_demand",
+        "endpoint_kind": "field_inventory",
+        "fingerprint": "sha256:7bc030abf56044f15d1d3edb2f10a3631578b9a95926b3ade826c55b9164b78b",
+        "owner_route": "field_lifecycle_mesh"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:5112f156e933a439f95087dd668adf7e492be10a1f319d2b9df3bbf2143dd3fd"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-purpose:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "purpose:task_coverage_demand",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:5112f156e933a439f95087dd668adf7e492be10a1f319d2b9df3bbf2143dd3fd",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "refines",
+      "relation_id": "relation:model-refines-model:understanding:task-coverage-demand:self_maintenance_mesh",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:self_maintenance_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:508c8098ba91c0f8c1004d12b93f650ba318daf94c3432a05586a08b5ab5de02",
+        "model_id": "self_maintenance_mesh",
+        "model_path": ".flowguard/models/owners/self_maintenance_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:model-validates-test_evidence:model_instance:model:task_coverage_demand--test_evidence:test:.flowguard/verification/owners/self_maintenance_mesh/run_checks.py",
+      "source": {
+        "endpoint_id": "test:.flowguard/verification/owners/self_maintenance_mesh/run_checks.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:b951e54c7b8a5bb1e00ce76c1c18e476e13119b69aecd16417d9c201e0375a4d",
+        "owner_route": "test_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:eb26126d52ef32c9c3f58e2ee66cd0932fa8d318f331cba99aaf55d443600697",
+        "sha256:ffad3ce4166e9638a444c245b9b6da7a172488943f0f96dcc99f66cf1e515e3e"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:model-validates-test_evidence:model_instance:model:task_coverage_demand--test_evidence:test:tests/test_task_coverage_demand.py",
+      "source": {
+        "endpoint_id": "test:tests/test_task_coverage_demand.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:edb7aca5afe89c3f898387abb131da07d22de0106f63ddc2d60b5b93b24d4a26",
+        "owner_route": "test_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:existing_model_preflight:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:existing_model_preflight",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:c22594bb696e1dab15bb85cc7e64c26949f9f865552ce5a3bf7c7c3c7e01ab34",
+        "model_id": "existing_model_preflight",
+        "model_path": ".flowguard/models/owners/existing_model_preflight/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:minimum_valuable_model_entry:task_coverage_demand",
+      "source": {
+        "endpoint_id": "model:minimum_valuable_model_entry",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:5e08d6c1bd5987f100a82329a635f600299ad77aebc9b1769617354dafb0653a",
+        "model_id": "minimum_valuable_model_entry",
+        "model_path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:task_coverage_demand:model_maturation_loop",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:model_maturation_loop",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:299f5dc7661f654f549e20a25558fa3eb0a9d1079571075bb12d271b14b49b27",
+        "model_id": "model_maturation_loop",
+        "model_path": ".flowguard/models/owners/model_maturation_loop/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:task_coverage_demand:self_maintenance_mesh",
+      "source": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:self_maintenance_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:508c8098ba91c0f8c1004d12b93f650ba318daf94c3432a05586a08b5ab5de02",
+        "model_id": "self_maintenance_mesh",
+        "model_path": ".flowguard/models/owners/self_maintenance_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:990a761a869463ebff40d97cd3a76a6e531cfa2ecc3c3b228d4b663f86ecfd46"
+      ],
+      "kind": "contains",
+      "relation_id": "relation:semantic-parent-contains-model:semantic-parent:authority-and-understanding:task_coverage_demand",
+      "source": {
+        "endpoint_id": "semantic-parent:authority-and-understanding",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:9f1675f87355675d034e8e3a7125c95a17a7b2b48d02b97a68341eb9a7948d31",
+        "owner_route": "model_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5",
+        "sha256:b83c8e3ae4c2c20c29a2806b46b59b3f791847096203b68c1e7aba0a878b4ea2"
+      ],
+      "kind": "implements",
+      "relation_id": "relation:source-implements-model:understanding:task-coverage-demand",
+      "source": {
+        "endpoint_id": "source:flowguard/task_coverage_demand.py",
+        "endpoint_kind": "source_owner",
+        "fingerprint": "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5",
+        "owner_route": "affected_authority_inventory"
+      },
+      "target": {
+        "endpoint_id": "model:task_coverage_demand",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:01895b6501b86fd5275abf3232fd8d9fb4d93461d4ae50becff59c17250e4267",
+        "model_id": "task_coverage_demand",
+        "model_path": ".flowguard/models/owners/task_coverage_demand/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    }
+  ],
+  "schema": "flowguard.read_model_shard.v1",
+  "source_paths": {
+    ".flowguard/models/owners/task_coverage_demand/model.py": "sha256:45e1e78ef2067dbc7c4e81ccef4f9dea3f0b2345461e75c9036cc126fa853e9a",
+    ".flowguard/verification/owners/task_coverage_demand/run_checks.py": "sha256:26a5947c247b7bae7157102d6d998f0627581bbc96231f29b4ee43ab297715d6",
+    "flowguard/native_case_runner.py": "sha256:f2728fb4e9715d5a2251e98ea382b63c4df86e9574ad8a523a301c423495fd48",
+    "flowguard/task_coverage_demand.py": "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5",
+    "openspec/specs/task-coverage-demand/spec.md": "sha256:87048e9223a873ea896d871fb49d329e9d9a90a88c667c4a5124b875ed815232",
+    "pyproject.toml": "sha256:79291a4086ca2f2a0357c4efd621bed5e47e25ddf0732e744a73751b3cc1e19b",
+    "scripts/run_flowguard_model_regressions.py": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3",
+    "tests/test_task_coverage_demand.py": "sha256:9840107b882a40fffca1a8b5f1ea60e6c7d002c632ecb33814727fc946034d70"
+  },
+  "system_id": "flowguard"
+}

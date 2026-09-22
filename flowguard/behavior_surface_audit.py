@@ -916,7 +916,7 @@ def build_public_behavior_surface_gap_report(
     manifest_evidence: Mapping[str, Any],
     manifest_path: Path | None = None,
     authority_status: str = "not_provided",
-    authority_reason: str = "Attach a current project-audit result before a broad current claim.",
+    authority_reason: str = "Attach a current selected-model read result before a broad current claim.",
 ) -> dict[str, Any]:
     """Build a blocked report without expanding the independent denominator."""
 
@@ -1086,7 +1086,7 @@ def build_public_behavior_surface_gap_report(
             },
             {
                 "owner": "current-model-authority-owner",
-                "action": "Repair and freeze one current model-authority head, then rerun the project-audit and bind its identity to the inventory review.",
+                "action": "Repair and freeze one current model-authority head, then run one explicit selected-model read and bind its identity to the inventory review.",
             },
             {
                 "owner": "behavior-commitment-ledger-owner",

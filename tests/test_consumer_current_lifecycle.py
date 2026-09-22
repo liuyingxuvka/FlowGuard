@@ -475,7 +475,6 @@ def _publish_initial(
         receipt_root=receipt_root,
         revision_set_id="revision:consumer-current",
         task_id="task:consumer-current",
-        activation_receipt_id="activation:consumer-current",
         current_design_intent_contributions=_design_contributions(
             staging, include_beta=include_beta
         ),
@@ -830,7 +829,6 @@ def test_public_change_bootstrap_runs_three_real_owners_and_publishes_current(
         "snapshot_id": "snapshot:public-bootstrap",
         "revision_set_id": "revision:public-bootstrap",
         "task_id": "task:public-bootstrap",
-        "activation_receipt_id": "activation:public-bootstrap",
         "decision_reason": "Accept the three finite current consumer owners.",
         "intent_contributions": [],
         "intent_dispositions": [],
@@ -840,7 +838,6 @@ def test_public_change_bootstrap_runs_three_real_owners_and_publishes_current(
             item.to_dict() for item in _design_contributions(staging)
         ],
         "accepted_boundary_contract_ref": None,
-        "path_quality_outputs": [],
         "bootstrap_staging_root": staging.relative_to(target).as_posix(),
     }
     preparation_raw = json.dumps(preparation, sort_keys=True).encode("utf-8")
@@ -949,7 +946,6 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
         "snapshot_id": "snapshot:public-alpha-current",
         "revision_set_id": "revision:public-alpha-current",
         "task_id": "task:public-alpha-current",
-        "activation_receipt_id": "activation:public-alpha-current",
         "decision_reason": "Accept the current alpha refinement and dependent connection proof.",
         "intent_contributions": [],
         "intent_dispositions": [],
@@ -959,15 +955,6 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
         "removal_dispositions": [],
         "current_design_intent_contributions": [],
         "accepted_boundary_contract_ref": None,
-        "path_quality_outputs": [
-            {
-                "model_id": model_id,
-                "producer_owner_id": f"model:{model_id}",
-                "case_id": f"native-case-set:{model_id}",
-                "artifact_id": f"path-quality:{model_id}",
-            }
-            for model_id in ("alpha", "alpha_beta_connection")
-        ],
         "bootstrap_staging_root": None,
     }
     preparation_raw = json.dumps(preparation, sort_keys=True).encode("utf-8")
@@ -1041,12 +1028,11 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
     drift_preparation = dict(preparation)
     drift_preparation.update(
         {
-            "base_head_fingerprint": accepted_head.fingerprint,
-            "snapshot_id": "snapshot:public-alpha-drift",
-            "revision_set_id": "revision:public-alpha-drift",
-            "task_id": "task:public-alpha-drift",
-            "activation_receipt_id": "activation:public-alpha-drift",
-            "effective_intent_transitions": [
+                "base_head_fingerprint": accepted_head.fingerprint,
+                "snapshot_id": "snapshot:public-alpha-drift",
+                "revision_set_id": "revision:public-alpha-drift",
+                "task_id": "task:public-alpha-drift",
+                "effective_intent_transitions": [
                 item.to_dict() for item in _current_intent_retain_transitions(target)
             ],
         }
@@ -1169,6 +1155,38 @@ def test_public_read_returns_bounded_selected_map_without_writing(tmp_path: Path
     assert payload["map"]["models"][0]["input_paths"]
     assert payload["map"]["intents"]
     assert _file_inventory(authority_root) == before
+
+
+def test_public_change_null_preparation_is_repeated_read_only_no_change(tmp_path: Path):
+    target, staging = _consumer_roots(tmp_path)
+    _adopt(target, staging)
+    head, _snapshot = load_observed_model_system(target)
+    request_path = target / "no-change-request.json"
+    request = {
+        "operation": "change",
+        "target_id": head.system_id,
+        "scope": ["alpha"],
+        "expected_current": head.fingerprint,
+        "bootstrap": False,
+        "revision_input": None,
+    }
+    request_path.write_text(json.dumps(request, sort_keys=True), encoding="utf-8")
+    before = _file_inventory(target / ".flowguard")
+    for _ in range(3):
+        completed = _run_public_change(target, request_path)
+        assert completed.returncode == 0, completed.stderr or completed.stdout
+        payload = json.loads(completed.stdout)
+        assert payload["status"] == "pass"
+        assert payload["reason"] == "no_change"
+        assert payload["producer_count"] == 0
+        assert payload["run_count"] == 0
+        assert payload["reused_count"] == 0
+        assert payload["write_count"] == 0
+        assert payload["authority_write_count"] == 0
+        assert payload["current_revision_fingerprint"] == head.accepted_revision_set_fingerprint
+        assert payload["head"]["fingerprint"] == head.fingerprint
+        assert _file_inventory(target / ".flowguard") == before
+        assert load_observed_model_system(target)[0] == head
 
 
 def test_public_read_preserves_stale_state_and_rejects_invalid_scope_without_writing(
@@ -1387,7 +1405,6 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
         target,
         candidate,
         revision,
-        receipt_id="activation:consumer-affected-update",
     )
     assert current_head.generation == original_head.generation + 1
     assert read_selected_model_closure(
@@ -1404,7 +1421,6 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
             target,
             candidate,
             revision,
-            receipt_id="activation:consumer-affected-update-loser",
         )
     assert load_observed_model_system(target)[0] == current_head
 

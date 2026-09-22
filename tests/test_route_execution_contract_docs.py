@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-CONTRACT = ROOT / ".agents" / "skills" / "flowguard" / "references" / "route_execution_contract.md"
+CONTRACT = ROOT / ".agents" / "skills" / "flowguard" / "references" / "route_execution_common.md"
 ROUTE_INDEX = ROOT / ".agents" / "skills" / "flowguard" / "references" / "route_index.md"
 KERNEL_SKILL = ROOT / ".agents" / "skills" / "flowguard" / "SKILL.md"
 
@@ -39,8 +39,8 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
         text = CONTRACT.read_text(encoding="utf-8")
         index = ROUTE_INDEX.read_text(encoding="utf-8")
         skill = KERNEL_SKILL.read_text(encoding="utf-8")
-        self.assertIn("one public skill", text)
-        self.assertIn("exactly three public operations", text)
+        self.assertIn("three public FlowGuard operations", text)
+        self.assertIn("one public skill", skill)
         for operation in CURRENT_OPERATIONS:
             with self.subTest(operation=operation):
                 self.assertIn(f"`{operation}`", text)
@@ -48,7 +48,6 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
                 self.assertIn(f"`{operation}`", skill)
         for domain in CURRENT_DOMAINS:
             with self.subTest(domain=domain):
-                self.assertIn(f"references/domains/{domain}/", text)
                 self.assertIn(f"references/domains/{domain}/", index)
 
     def test_shared_contract_contains_finite_execution_and_governed_gates(self) -> None:
@@ -56,12 +55,12 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
         required_fragments = (
             "RouteContext",
             "execute | reuse_current | blocked | not_run",
-            "producer count remains zero",
-            "--reuse-only",
-            "WinError 1314",
-            "historical change IDs",
-            "same-parent",
-            "typed `blocked`/`not_run`",
+            "Read-only or plan-only work has zero producer invocations",
+            "reuse_current",
+            "Freeze source, model, contract, check, toolchain, environment",
+            "Unknown or ambiguous ownership stops before any producer",
+            "unconfirmed descendant cleanup",
+            "out_of_scope",
         )
         for fragment in required_fragments:
             with self.subTest(fragment=fragment):
@@ -71,7 +70,7 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
         self.assertTrue(KERNEL_SKILL.is_file())
         text = KERNEL_SKILL.read_text(encoding="utf-8")
         self.assertIn("references/route_index.md", text)
-        self.assertIn("references/domains/<subject>/", text)
+        self.assertIn("references/domains/<subject>/protocol.md", text)
         self.assertIn("read", text)
         self.assertIn("change", text)
         self.assertIn("release", text)

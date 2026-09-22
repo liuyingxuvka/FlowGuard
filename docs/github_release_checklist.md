@@ -71,10 +71,9 @@ self-maintenance check. It builds one exact self-blueprint and passes the same
 in-memory bundle to architecture-reduction review:
 
 ```powershell
-python -m flowguard flowguard-self-blueprint-check `
+python -m flowguard release `
   --root . `
-  --include-architecture-reduction `
-  --compact `
+  --request release.json `
   --json
 ```
 

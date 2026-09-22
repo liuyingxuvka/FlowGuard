@@ -9,8 +9,8 @@ def test_agents_and_skill_guidance_include_primary_path_authority_policy():
         (ROOT / "AGENTS.md").read_text(encoding="utf-8"),
         (ROOT / "docs" / "agents_snippet.md").read_text(encoding="utf-8"),
         (ROOT / ".agents" / "skills" / "flowguard" / "SKILL.md").read_text(encoding="utf-8"),
-        (ROOT / ".agents" / "skills" / "flowguard" / "references" / "domains" / "behavior-commitment-ledger" / "SKILL.md").read_text(encoding="utf-8"),
-        (ROOT / ".agents" / "skills" / "flowguard" / "references" / "domains" / "contract-exhaustion-mesh" / "SKILL.md").read_text(encoding="utf-8"),
+        (ROOT / ".agents" / "skills" / "flowguard" / "references" / "domains" / "behavior-commitment-ledger" / "protocol.md").read_text(encoding="utf-8"),
+        (ROOT / ".agents" / "skills" / "flowguard" / "references" / "domains" / "contract-exhaustion-mesh" / "protocol.md").read_text(encoding="utf-8"),
         (ROOT / ".agents" / "skills" / "flowguard" / "references" / "domains" / "architecture-reduction" / "references" / "architecture_reduction_proof_details.md").read_text(encoding="utf-8"),
     ]
     combined = "\n".join(texts).lower()

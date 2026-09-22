@@ -34,25 +34,25 @@ def test_single_public_skill_has_lazy_reference_contracts():
         )
         assert refs, route_dir.name
         for relative in refs:
+            if "<subject>" in relative:
+                continue
             assert (route_dir / relative).is_file(), (route_dir.name, relative)
 
 
 def test_shared_contract_declares_lifecycle_zero_producer_and_stop_policy():
     kernel = (ROOT / ".agents/skills/flowguard/SKILL.md").read_text(encoding="utf-8")
-    shared = (ROOT / ".agents/skills/flowguard/references/route_execution_contract.md").read_text(
+    shared = (ROOT / ".agents/skills/flowguard/references/route_execution_common.md").read_text(
         encoding="utf-8"
     )
     for marker in ("one public skill", "read", "change", "release", "No mode/fallback"):
         assert marker in kernel, marker
     for marker in (
-        "Domain folders under `references/domains/` are on-demand reference material",
-        "There is no compatibility alias, fallback route, alternate reader",
-        "does not reserve a lease",
-        "producer count remains zero",
-        "non-authoritative",
-        "release-excluded",
-        "Cleanup is a",
-        "source, model, contract, toolchain, or environment drift",
+        "Lazy references are inputs, not evidence shortcuts",
+        "Read-only or plan-only work has zero producer invocations",
+        "reuse_current",
+        "Freeze source, model, contract, check, toolchain, environment",
+        "Stop at the current owner on drift",
+        "`read` is read-only, `change` executes the exact affected owner closure",
     ):
         assert marker in shared, marker
 

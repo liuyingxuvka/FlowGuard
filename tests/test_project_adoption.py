@@ -197,9 +197,9 @@ class ProjectAdoptionTests(unittest.TestCase):
             "Primary Path Authority",
             "FieldLifecycleMesh",
             "`product_runtime`, `agent_operation`,",
-            "lightweight existing-model/commitment lookup",
+            "lightweight existing-model and commitment lookup",
             "UI runnable claims",
-            "flowguard-development-process-flow",
+            "DevelopmentProcessFlow owner",
             "post-change scan signals",
             "Do not create a fake local FlowGuard replacement",
         ):
@@ -273,9 +273,9 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertIn("not the", agents_text)
             self.assertIn("AI-agent skill installation surface", agents_text)
             self.assertIn("FlowGuard check-engine version:", agents_text)
-            self.assertIn("flowguard-development-process-flow", agents_text)
+            self.assertIn("DevelopmentProcessFlow owner", agents_text)
             self.assertIn("post-change scan signals", agents_text)
-            self.assertIn("DevelopmentProcessFlow consume", agents_text)
+            self.assertIn("DevelopmentProcessFlow consumes post-change scan signals", agents_text)
             self.assertIn("Default replacement means dispose the old path", agents_text)
             self.assertIn("FieldLifecycleMesh", agents_text)
             manifest_text = (root / FLOWGUARD_PROJECT_MANIFEST).read_text(encoding="utf-8")
@@ -286,8 +286,8 @@ class ProjectAdoptionTests(unittest.TestCase):
 
     def test_project_adopt_portable_revalidation_commands_in_reports_and_markdown_log(self):
         expected = (
-            "python -m flowguard project-audit --root . --json",
-            "Rerun affected FlowGuard model checks and focused tests before broad confidence.",
+            "Create .flowguard/read-request.json with operation=read, target_id, and a non-empty scope of selected current model ids.",
+            "python -m flowguard read --root . --request .flowguard/read-request.json --json",
         )
         with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as home_directory:
             root = Path(directory, "private project root")
@@ -313,12 +313,30 @@ class ProjectAdoptionTests(unittest.TestCase):
             self.assertNotIn(absolute_root, "\n".join(audit_report.required_revalidation))
             self.assertNotIn(absolute_root, markdown)
             self.assertIn(expected[0], markdown)
+            self.assertIn(expected[1], markdown)
+            self.assertNotIn("project-audit", markdown)
             self.assertNotIn("python scripts/verify_skill_suite_markers.py", markdown)
             self.assertFalse((root / "scripts").exists())
             self.assertFalse((root / ".agents" / "skills").exists())
             self.assertFalse((root / ".skillguard").exists())
 
-            command = adopt_report.required_revalidation[0].split()
+            request_path = root / ".flowguard" / "read-request.json"
+            request_path.parent.mkdir(parents=True, exist_ok=True)
+            request_path.write_text(
+                json.dumps(
+                    {
+                        "operation": "read",
+                        "target_id": "temporary-project",
+                        "scope": ["model:temporary"],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            before_read = {
+                path.relative_to(root).as_posix(): path.read_bytes()
+                for path in root.rglob("*") if path.is_file()
+            }
+            command = adopt_report.required_revalidation[1].split()
             completed = subprocess.run(
                 [sys.executable, *command[1:]],
                 cwd=root,
@@ -327,7 +345,20 @@ class ProjectAdoptionTests(unittest.TestCase):
                 capture_output=True,
                 text=True,
             )
-            _assert_retired_compact_process(self, completed, "project-audit")
+            payload = json.loads(completed.stdout)
+            self.assertEqual(1, completed.returncode, completed.stdout + completed.stderr)
+            self.assertEqual("read", payload["operation"])
+            self.assertEqual("blocked", payload["status"])
+            self.assertEqual("current_model_missing", payload["reason"])
+            self.assertEqual(0, payload["producer_count"])
+            self.assertEqual(0, payload["write_count"])
+            self.assertEqual(
+                before_read,
+                {
+                    path.relative_to(root).as_posix(): path.read_bytes()
+                    for path in root.rglob("*") if path.is_file()
+                },
+            )
 
     def test_audit_reports_newer_and_older_version_states(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -977,5 +1008,3 @@ class ProjectAdoptionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-\n

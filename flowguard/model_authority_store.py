@@ -6,9 +6,11 @@ from dataclasses import dataclass, field, replace
 from functools import lru_cache
 import hashlib
 import json
+import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import stat
+import tempfile
 import tomllib
 from typing import Any, Iterable, Mapping
 
@@ -48,7 +50,7 @@ from .model_intent_authority import (
     validate_current_effective_intent_view,
 )
 from .model_intent import ModelIntentSourceIdentity, verify_model_intent_sources
-from .source_identity import CANONICAL_TEXT_SUFFIXES
+from .source_identity import CANONICAL_TEXT_SUFFIXES, functional_source_fingerprint
 from .project_manifest import (
     ProjectManifestError,
     manifest_text_fingerprint,
@@ -66,6 +68,26 @@ MODEL_AUTHORITY_STATUS_BLOCKED = "blocked"
 _SECTION_RE = re.compile(
     r"(?ms)^\[model_authority\]\s*\n.*?(?=^\[[^\]]+\]\s*$|\Z)"
 )
+_READ_PROJECTION_INDEX_SCHEMA = "flowguard.accepted_read_projection.v1"
+_READ_PROJECTION_SHARD_SCHEMA = "flowguard.read_model_shard.v1"
+_ACTIVATION_PROJECTION_ID_RE = re.compile(r"^activation:([0-9a-f]{64})$")
+
+
+def _windows_io_path(path: Path) -> Path:
+    """Use the Windows extended path form for deep staging artifacts."""
+
+    if os.name != "nt":
+        return path
+    value = str(path)
+    # Keep both sides of an atomic replace in the same Win32 namespace.  A
+    # short temporary name can still be paired with a long destination; using
+    # the extended form for both avoids WinError 3 on Windows when the parent
+    # project path is already near MAX_PATH.
+    if value.startswith("\\\\?\\"):
+        return path
+    if value.startswith("\\\\"):
+        return Path("\\\\?\\UNC\\" + value.lstrip("\\"))
+    return Path("\\\\?\\" + value)
 
 
 @dataclass(frozen=True)
@@ -235,27 +257,15 @@ class SelectedModelClosureRead:
             MODEL_AUTHORITY_STATUS_PASS_WITH_GAPS,
         }
 
-    @property
-    def selected_currentness(self) -> str:
-        return self.selected_source_currentness
-
-    @property
-    def execution_status(self) -> str:
-        return self.execution_evidence_status
-
     def to_dict(self) -> dict[str, Any]:
-        """Serialize with stable aliases used by the CLI and older callers."""
+        """Serialize the current selected-read result."""
 
         as_of = dict(self.as_of)
         stale = list(self.stale_obligations)
         return {
             "authority_integrity": self.authority_integrity,
             "selected_source_currentness": self.selected_source_currentness,
-            # Short aliases keep the result convenient for lightweight clients
-            # while the long names remain the canonical contract.
-            "selected_currentness": self.selected_source_currentness,
             "execution_evidence_status": self.execution_evidence_status,
-            "execution_status": self.execution_evidence_status,
             "ok": self.ok,
             "snapshot_fingerprint": self.snapshot_fingerprint,
             "subject_revision": self.subject_revision,
@@ -272,7 +282,6 @@ class SelectedModelClosureRead:
             "selected_contract_refs": [dict(item) for item in self.selected_contract_refs],
             "relations": [dict(item) for item in self.relations],
             "as_of": as_of,
-            "as_of_map": as_of,
             "stale_obligations": stale,
             "stale_obligation_details": [
                 dict(item) for item in self.stale_obligation_details
@@ -560,15 +569,37 @@ def _write_immutable_json(
         indent=2,
         sort_keys=True,
     ) + "\n"
-    if path.exists():
-        if path.read_text(encoding="utf-8") != text:
+    io_path = _windows_io_path(path)
+    if io_path.exists():
+        if io_path.read_text(encoding="utf-8") != text:
             raise ModelAuthorityError(
                 f"immutable {category} path contains different bytes"
             )
         return path
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(text, encoding="utf-8")
-    temporary.replace(path)
+    # The projection writers can run concurrently while independent owners
+    # finish.  A shared ``<digest>.json.tmp`` lets one writer remove another
+    # writer's temporary path between ``write`` and ``replace``.  Give every
+    # immutable write its own same-directory temporary inode instead.
+    descriptor, temporary_name = tempfile.mkstemp(
+        # Keep the temporary basename short: bootstrap staging roots can
+        # already approach Windows MAX_PATH before the content hash is added.
+        # mkstemp supplies the collision-resistant suffix within this one
+        # directory, so the hash does not need to be repeated in the name.
+        prefix=".fg",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+            handle.write(text)
+        os.replace(_windows_io_path(temporary), _windows_io_path(path))
+    except BaseException:
+        try:
+            temporary.unlink()
+        except FileNotFoundError:
+            pass
+        raise
     return path
 
 
@@ -599,7 +630,7 @@ def _read_content_addressed_payload(
     path = _artifact_path(root, category, fingerprint)
     try:
         payload = json.loads(
-            path.read_text(encoding="utf-8"),
+            _windows_io_path(path).read_text(encoding="utf-8"),
             object_pairs_hook=_reject_duplicate_json_keys,
             parse_constant=lambda value: (_ for _ in ()).throw(
                 ModelAuthorityError(f"non-finite JSON number: {value}")
@@ -627,6 +658,351 @@ def _read_content_addressed_payload(
             f"current {category} content fingerprint is stale"
         )
     return payload
+
+
+def _projection_model_id(instance: Any) -> str:
+    model_id = str(getattr(instance, "logical_model_id", "") or "").strip()
+    if not model_id:
+        raise ModelAuthorityError("accepted read projection model has no logical_model_id")
+    return model_id
+
+
+def _projection_endpoint(
+    endpoint: Any,
+    *,
+    instances_by_fingerprint: Mapping[str, Any],
+) -> dict[str, str]:
+    """Serialize one relation endpoint without expanding a neighbor model."""
+
+    kind = str(getattr(endpoint, "endpoint_kind", "") or "")
+    endpoint_id = str(getattr(endpoint, "endpoint_id", "") or "")
+    fingerprint = str(getattr(endpoint, "fingerprint", "") or "")
+    if kind == "model_instance":
+        instance = instances_by_fingerprint.get(fingerprint)
+        if instance is None:
+            raise ModelAuthorityError(
+                f"accepted read projection relation references unknown model fingerprint: {fingerprint}"
+            )
+        model_id = _projection_model_id(instance)
+        if endpoint_id in {"", f"model:{model_id}"}:
+            endpoint_id = f"model:{model_id}"
+        return {
+            "endpoint_kind": kind,
+            "endpoint_id": endpoint_id,
+            "model_id": model_id,
+            "model_path": str(getattr(instance, "model_path", "")).replace("\\", "/"),
+            "fingerprint": fingerprint,
+            "owner_route": str(getattr(endpoint, "owner_route", "") or ""),
+        }
+    return {
+        "endpoint_kind": kind,
+        "endpoint_id": endpoint_id,
+        "fingerprint": fingerprint,
+        "owner_route": str(getattr(endpoint, "owner_route", "") or ""),
+    }
+
+
+def _projection_intent_refs(
+    revision_set: ModelRevisionSet | None,
+    model_id: str,
+) -> tuple[dict[str, str], ...]:
+    """Select only active intent identities owned by one model."""
+
+    if revision_set is None:
+        return ()
+    view = revision_set.current_effective_intent_view
+    identities = {
+        str(getattr(item, "contribution_id", "")): item
+        for item in getattr(view, "verified_source_identities", ())
+    }
+    rows: list[dict[str, str]] = []
+    for contribution in getattr(view, "active_contributions", ()):
+        owner = str(getattr(contribution, "logical_model_id", "") or "")
+        owner = owner.removeprefix("model:")
+        if owner != model_id:
+            continue
+        contribution_id = str(getattr(contribution, "contribution_id", "") or "")
+        identity = identities.get(contribution_id)
+        source_ref = str(
+            getattr(identity, "source_ref", "")
+            if identity is not None
+            else getattr(contribution, "source_ref", "")
+        ).replace("\\", "/")
+        source_fingerprint = str(
+            getattr(identity, "source_fingerprint", "")
+            if identity is not None
+            else getattr(contribution, "source_fingerprint", "")
+        )
+        authority_kind = str(
+            getattr(identity, "authority_kind", "")
+            if identity is not None
+            else getattr(contribution, "source_kind", "")
+        )
+        rows.append(
+            {
+                "contribution_id": contribution_id,
+                "authority_kind": authority_kind,
+                "source_ref": source_ref,
+                "source_fingerprint": source_fingerprint,
+                "logical_model_id": model_id,
+            }
+        )
+    return tuple(sorted(rows, key=lambda item: (item["contribution_id"], item["source_ref"])))
+
+
+def _build_accepted_read_projection(
+    head: ModelAuthorityHead,
+    candidate_snapshot: ModelSystemSnapshot,
+    revision_set: ModelRevisionSet | None,
+    *,
+    transition_evidence: Mapping[str, Any] | None = None,
+    inherited_evidence_revision_fingerprint: str = "",
+) -> tuple[str, dict[str, Any], tuple[tuple[str, dict[str, Any]], ...]]:
+    """Derive the one immutable selected-read index and its model shards.
+
+    The projection is a transport view of the accepted candidate.  It has no
+    independent current pointer: the activation receipt ID is derived from
+    the index identity and the existing head points to that receipt.
+    """
+
+    instances = tuple(sorted(candidate_snapshot.model_instances, key=_projection_model_id))
+    model_ids = tuple(_projection_model_id(item) for item in instances)
+    if len(model_ids) != len(set(model_ids)):
+        raise ModelAuthorityError("accepted read projection contains duplicate model IDs")
+    by_fingerprint = {
+        str(getattr(item, "fingerprint", "")): item for item in instances
+    }
+    by_model_id = { _projection_model_id(item): item for item in instances }
+    boundary_rows: dict[tuple[str, str, str], dict[str, str]] = {}
+    for endpoint in getattr(candidate_snapshot, "owner_artifact_refs", ()):
+        if str(getattr(endpoint, "endpoint_kind", "")) != "boundary_contract":
+            continue
+        value = _projection_endpoint(endpoint, instances_by_fingerprint=by_fingerprint)
+        boundary_rows[(value["endpoint_kind"], value["endpoint_id"], value["fingerprint"])] = value
+
+    relations_by_model: dict[str, list[dict[str, Any]]] = {model_id: [] for model_id in model_ids}
+    boundaries_by_model: dict[str, dict[tuple[str, str, str], dict[str, str]]] = {
+        model_id: {} for model_id in model_ids
+    }
+    for relation in getattr(candidate_snapshot, "relations", ()):
+        source = _projection_endpoint(
+            getattr(relation, "source", None),
+            instances_by_fingerprint=by_fingerprint,
+        )
+        target = _projection_endpoint(
+            getattr(relation, "target", None),
+            instances_by_fingerprint=by_fingerprint,
+        )
+        row = {
+            "relation_id": str(getattr(relation, "relation_id", "") or ""),
+            "kind": str(getattr(relation, "kind", "") or ""),
+            "source": source,
+            "target": target,
+            "evidence_fingerprints": sorted(
+                str(item) for item in getattr(relation, "evidence_fingerprints", ())
+            ),
+        }
+        model_endpoints = {
+            str(source.get("model_id", "")),
+            str(target.get("model_id", "")),
+        } & set(model_ids)
+        for model_id in sorted(model_endpoints):
+            relations_by_model[model_id].append(row)
+            for endpoint in (source, target):
+                if endpoint.get("endpoint_kind") != "model_instance":
+                    key = (
+                        str(endpoint.get("endpoint_kind", "")),
+                        str(endpoint.get("endpoint_id", "")),
+                        str(endpoint.get("fingerprint", "")),
+                    )
+                    boundaries_by_model[model_id][key] = endpoint
+
+    for model_id in model_ids:
+        boundaries_by_model[model_id].update(boundary_rows)
+
+    shards: list[tuple[str, dict[str, Any]]] = []
+    index_models: dict[str, dict[str, str]] = {}
+    for model_id in model_ids:
+        instance = by_model_id[model_id]
+        source_paths: dict[str, str] = {}
+        for path, expected in (
+            (getattr(instance, "model_path", ""), getattr(instance, "model_sha256", "")),
+            (getattr(instance, "runner_path", ""), getattr(instance, "runner_sha256", "")),
+        ):
+            if str(path).strip() and str(expected).strip():
+                source_paths[str(path).replace("\\", "/")] = str(expected)
+        for item in getattr(instance, "inputs", ()):
+            path = str(getattr(item, "path", "") or "").replace("\\", "/")
+            expected = str(getattr(item, "sha256", "") or "")
+            if path and expected:
+                previous = source_paths.get(path)
+                if previous is not None and previous != expected:
+                    raise ModelAuthorityError(
+                        f"accepted read projection has conflicting source fingerprints: {path}"
+                    )
+                source_paths[path] = expected
+        intent_refs = _projection_intent_refs(revision_set, model_id)
+        for intent in intent_refs:
+            if intent["authority_kind"] == "project_file" and intent["source_ref"]:
+                source_paths[intent["source_ref"]] = intent["source_fingerprint"]
+        contract_refs = tuple(
+            dict(item)
+            for item in sorted(
+                boundaries_by_model[model_id].values(),
+                key=lambda item: (
+                    str(item.get("endpoint_kind", "")),
+                    str(item.get("endpoint_id", "")),
+                    str(item.get("fingerprint", "")),
+                ),
+            )
+        )
+        shard_identity: dict[str, Any] = {
+            "schema": _READ_PROJECTION_SHARD_SCHEMA,
+            "system_id": candidate_snapshot.system_id,
+            "candidate_snapshot_fingerprint": candidate_snapshot.fingerprint,
+            "logical_model_id": model_id,
+            "model": _selected_model_mapping(instance),
+            "intent_refs": [dict(item) for item in intent_refs],
+            "relations": sorted(
+                relations_by_model[model_id],
+                key=lambda item: str(item.get("relation_id", "")),
+            ),
+            "boundary_nodes": list(contract_refs),
+            "source_paths": dict(sorted(source_paths.items())),
+        }
+        shard_fingerprint = canonical_fingerprint(shard_identity)
+        shard_payload = {**shard_identity, "fingerprint": shard_fingerprint}
+        shards.append((shard_fingerprint, shard_payload))
+        index_models[model_id] = {
+            "model_path": str(getattr(instance, "model_path", "")).replace("\\", "/"),
+            "model_fingerprint": str(getattr(instance, "fingerprint", "")),
+            "shard_fingerprint": shard_fingerprint,
+        }
+
+    index_identity: dict[str, Any] = {
+        "schema": _READ_PROJECTION_INDEX_SCHEMA,
+        "system_id": candidate_snapshot.system_id,
+        "candidate_snapshot_fingerprint": candidate_snapshot.fingerprint,
+        "revision_set_fingerprint": str(
+            getattr(revision_set, "fingerprint", "") or head.accepted_revision_set_fingerprint
+        ),
+        "expected_head_fingerprint": head.fingerprint,
+        "previous_snapshot_fingerprint": head.snapshot_fingerprint,
+        "subject_revision": candidate_snapshot.subject_revision,
+        "next_generation": head.generation + 1,
+        "coverage_status": candidate_snapshot.coverage_status,
+        "unresolved_gap_count": len(candidate_snapshot.unresolved_gap_ids),
+        "inherited_evidence_revision_fingerprint": inherited_evidence_revision_fingerprint,
+        "transition_evidence": (
+            dict(transition_evidence) if transition_evidence is not None else None
+        ),
+        "models": {model_id: index_models[model_id] for model_id in sorted(index_models)},
+    }
+    index_fingerprint = canonical_fingerprint(index_identity)
+    return index_fingerprint, {**index_identity, "fingerprint": index_fingerprint}, tuple(shards)
+
+
+def _persist_accepted_read_projection(
+    root: Path,
+    index_fingerprint: str,
+    index_payload: Mapping[str, Any],
+    shards: Iterable[tuple[str, Mapping[str, Any]]],
+) -> None:
+    """Persist immutable shards before their single index becomes reachable."""
+
+    for fingerprint, payload in shards:
+        _write_immutable_json(root, "read-model-shards", fingerprint, payload)
+    _write_immutable_json(root, "read-projection-indexes", index_fingerprint, index_payload)
+
+
+def _load_bound_read_projection(
+    root: Path,
+    head: ModelAuthorityHead,
+) -> dict[str, Any]:
+    """Load the only projection bound by the current activation receipt."""
+
+    receipt = _load_activation_receipt(root, head.activation_receipt_fingerprint)
+    match = _ACTIVATION_PROJECTION_ID_RE.fullmatch(receipt.receipt_id)
+    if match is None:
+        raise ModelAuthorityError(
+            "current activation receipt is not bound to an accepted read projection"
+        )
+    index_fingerprint = f"sha256:{match.group(1)}"
+    index = _read_content_addressed_payload(
+        root,
+        "read-projection-indexes",
+        index_fingerprint,
+    )
+    expected = {
+        "system_id": head.system_id,
+        "candidate_snapshot_fingerprint": head.snapshot_fingerprint,
+        "revision_set_fingerprint": head.accepted_revision_set_fingerprint,
+        "expected_head_fingerprint": receipt.expected_head_fingerprint,
+        "previous_snapshot_fingerprint": receipt.previous_snapshot_fingerprint,
+        "subject_revision": head.subject_revision,
+        "next_generation": head.generation,
+    }
+    for field_name, expected_value in expected.items():
+        if index.get(field_name) != expected_value:
+            raise ModelAuthorityError(
+                f"accepted read projection {field_name} does not match current authority"
+            )
+    if receipt.system_id != head.system_id or receipt.next_generation != head.generation:
+        raise ModelAuthorityError("current activation receipt is not bound to current head")
+    if receipt.candidate_snapshot_fingerprint != head.snapshot_fingerprint:
+        raise ModelAuthorityError("current activation candidate does not match current head")
+    if receipt.revision_set_fingerprint != head.accepted_revision_set_fingerprint:
+        raise ModelAuthorityError("current activation revision does not match current head")
+    if receipt.subject_revision != head.subject_revision:
+        raise ModelAuthorityError("current activation subject revision does not match current head")
+    models = index.get("models")
+    if not isinstance(models, Mapping) or not models:
+        raise ModelAuthorityError("accepted read projection has no model index")
+    return {
+        "receipt": receipt,
+        "index_fingerprint": index_fingerprint,
+        "index": index,
+    }
+
+
+def _load_selected_read_shards(
+    root: Path,
+    projection: Mapping[str, Any],
+    selected_model_ids: Iterable[str],
+) -> tuple[Mapping[str, Any], ...]:
+    """Load exactly the requested shard objects; never discover neighbors."""
+
+    index = projection.get("index")
+    models = index.get("models") if isinstance(index, Mapping) else None
+    if not isinstance(models, Mapping):
+        raise ModelAuthorityError("accepted read projection model index is invalid")
+    rows: list[Mapping[str, Any]] = []
+    for raw_model_id in selected_model_ids:
+        model_id = str(raw_model_id).strip()
+        row = models.get(model_id)
+        if not isinstance(row, Mapping):
+            raise ModelAuthorityError(f"selected model is not present in accepted read projection: {model_id}")
+        fingerprint = str(row.get("shard_fingerprint", ""))
+        shard = _read_content_addressed_payload(root, "read-model-shards", fingerprint)
+        shard_model = shard.get("model")
+        if not isinstance(shard_model, Mapping):
+            raise ModelAuthorityError(
+                f"selected read projection shard model is invalid: {model_id}"
+            )
+        if (
+            shard.get("schema") != _READ_PROJECTION_SHARD_SCHEMA
+            or shard.get("system_id") != index.get("system_id")
+            or shard.get("candidate_snapshot_fingerprint")
+            != index.get("candidate_snapshot_fingerprint")
+            or shard.get("logical_model_id") != model_id
+        ):
+            raise ModelAuthorityError(f"selected read projection shard is not bound: {model_id}")
+        if shard.get("fingerprint") != fingerprint:
+            raise ModelAuthorityError(f"selected read projection shard fingerprint is stale: {model_id}")
+        if shard_model.get("fingerprint") != row.get("model_fingerprint"):
+            raise ModelAuthorityError(f"selected read projection model fingerprint is stale: {model_id}")
+        rows.append(shard)
+    return tuple(rows)
 
 
 def _selected_json_value(value: Any) -> Any:
@@ -750,8 +1126,27 @@ def _selected_file_bytes(root: Path, relative: str) -> bytes:
         ) from exc
 
 
-def _selected_source_fingerprint(relative: str, payload: bytes) -> str:
-    """Match ``source_file_fingerprint`` without performing another read."""
+def _selected_source_fingerprint(
+    root: Path,
+    relative: str,
+    payload: bytes,
+) -> str:
+    """Match the fingerprint used when the model input was frozen.
+
+    Model-instance inputs are created by ``build_model_instance_ref`` from
+    ``functional_source_fingerprint``.  That projection intentionally
+    ignores non-functional OpenSpec task checkbox and line-ending churn.  The
+    projection reader must use the same identity; comparing those inputs with
+    a raw byte hash falsely marks an otherwise current authority as stale.
+    ``payload`` is retained for the ordinary source path fast path so the
+    selected file is still read exactly once by the caller.
+    """
+
+    if (
+        str(relative).replace("\\", "/").startswith("openspec/changes/")
+        and str(relative).replace("\\", "/").endswith("/tasks.md")
+    ):
+        return functional_source_fingerprint(root, relative)
 
     canonical = payload
     if PurePosixPath(relative).suffix.casefold() in CANONICAL_TEXT_SUFFIXES:
@@ -833,7 +1228,7 @@ def _selected_source_status(
                 actual = read_cache[normalized]
             else:
                 payload = _selected_file_bytes(root, normalized)
-                actual = _selected_source_fingerprint(normalized, payload)
+                actual = _selected_source_fingerprint(root, normalized, payload)
                 read_cache[normalized] = actual
                 read_counts[normalized] = read_counts.get(normalized, 0) + 1
         except (ModelAuthorityError, OSError, ValueError) as exc:
@@ -1249,7 +1644,9 @@ def read_selected_model_closure(
                 MODEL_BOUNDARY_CONTRACT_ARTIFACT_CATEGORY,
                 endpoint_fingerprint,
             )
-            relative = _selected_path_relative_to_root(root_path, contract_path)
+            relative = _selected_path_relative_to_root(
+                root_path, _windows_io_path(contract_path)
+            )
             selected_contract_paths.append(relative)
             selected_contract_refs.append(
                 {
@@ -1345,6 +1742,207 @@ def read_selected_model_closure(
     )
 
 
+def read_selected_model_projection(
+    root: str | Path,
+    *,
+    head: ModelAuthorityHead,
+    projection: Mapping[str, Any],
+    selected_model_ids: Iterable[str],
+) -> SelectedModelClosureRead:
+    """Read selected models from the bound projection without ancestry loads.
+
+    This is the production reader used by the compact public ``read`` route.
+    The older snapshot-backed reader above remains an internal fixture and
+    model-authority helper; it is never used by the public route once the
+    projection is required.
+    """
+
+    root_path = Path(root).resolve()
+    findings: list[dict[str, Any]] = []
+    stale_details: list[dict[str, Any]] = []
+    stale_obligations: list[str] = []
+    read_cache: dict[str, str] = {}
+    read_counts: dict[str, int] = {}
+    requested = tuple(str(item).strip() for item in selected_model_ids)
+    try:
+        shards = _load_selected_read_shards(root_path, projection, requested)
+    except (ModelAuthorityError, OSError, ValueError) as exc:
+        return SelectedModelClosureRead(
+            authority_integrity=MODEL_AUTHORITY_STATUS_BLOCKED,
+            selected_source_currentness=SELECTED_SOURCE_UNAVAILABLE,
+            execution_evidence_status=EXECUTION_EVIDENCE_NOT_RUN,
+            authority_head_fingerprint=head.fingerprint,
+            findings=(
+                {
+                    "code": "read_projection_invalid",
+                    "severity": "blocked",
+                    "message": str(exc),
+                },
+            ),
+            stale_obligations=("read_projection_invalid",),
+            producer_count=0,
+            write_count=0,
+        )
+
+    index = projection["index"]
+    selected_models: list[Mapping[str, Any]] = []
+    selected_model_paths: list[str] = []
+    selected_runner_paths: list[str] = []
+    selected_input_paths: set[str] = set()
+    selected_intent_refs: list[Mapping[str, Any]] = []
+    selected_intent_paths: list[str] = []
+    selected_contract_refs: list[Mapping[str, Any]] = []
+    selected_contract_paths: list[str] = []
+    relation_values: list[Mapping[str, Any]] = []
+    relation_ids: set[str] = set()
+    boundary_keys: set[tuple[str, str, str]] = set()
+    expected_sources: dict[str, str] = {}
+    for shard in shards:
+        model = shard.get("model")
+        if not isinstance(model, Mapping):
+            findings.append(
+                {
+                    "code": "read_projection_model_invalid",
+                    "severity": "blocked",
+                    "message": f"model shard has no object body: {shard.get('logical_model_id')}",
+                }
+            )
+            continue
+        selected_models.append(dict(model))
+        model_path = str(model.get("model_path", "")).replace("\\", "/")
+        runner_path = str(model.get("runner_path", "")).replace("\\", "/")
+        selected_model_paths.append(model_path)
+        selected_runner_paths.append(runner_path)
+        for input_ref in model.get("inputs", ()):
+            if isinstance(input_ref, Mapping):
+                path = str(input_ref.get("path", "")).replace("\\", "/")
+                if path:
+                    selected_input_paths.add(path)
+        for item in shard.get("intent_refs", ()):
+            if isinstance(item, Mapping):
+                ref = dict(item)
+                selected_intent_refs.append(ref)
+                if str(ref.get("authority_kind", "")) == "project_file":
+                    path = str(ref.get("source_ref", "")).replace("\\", "/")
+                    if path:
+                        selected_intent_paths.append(path)
+        for path, expected in (
+            shard.get("source_paths", {})
+            if isinstance(shard.get("source_paths"), Mapping)
+            else {}
+        ).items():
+            path_value = str(path).replace("\\", "/")
+            expected_value = str(expected)
+            if path_value in expected_sources and expected_sources[path_value] != expected_value:
+                findings.append(
+                    {
+                        "code": "shared_source_fingerprint_conflict",
+                        "path": path_value,
+                        "severity": "blocked",
+                        "message": "selected projection declares conflicting source fingerprints",
+                    }
+                )
+            else:
+                expected_sources[path_value] = expected_value
+        for relation in shard.get("relations", ()):
+            if not isinstance(relation, Mapping):
+                continue
+            relation_id = str(relation.get("relation_id", ""))
+            if relation_id in relation_ids:
+                continue
+            relation_ids.add(relation_id)
+            relation_values.append(dict(relation))
+            for endpoint_name in ("source", "target"):
+                endpoint = relation.get(endpoint_name)
+                if isinstance(endpoint, Mapping) and endpoint.get("endpoint_kind") != "model_instance":
+                    boundary_keys.add(
+                        (
+                            str(endpoint.get("endpoint_kind", "")),
+                            str(endpoint.get("endpoint_id", "")),
+                            str(endpoint.get("fingerprint", "")),
+                        )
+                    )
+        for endpoint in shard.get("boundary_nodes", ()):
+            if not isinstance(endpoint, Mapping):
+                continue
+            key = (
+                str(endpoint.get("endpoint_kind", "")),
+                str(endpoint.get("endpoint_id", "")),
+                str(endpoint.get("fingerprint", "")),
+            )
+            if key not in boundary_keys:
+                boundary_keys.add(key)
+            selected_contract_refs.append(dict(endpoint))
+            path = str(endpoint.get("path", "")).replace("\\", "/")
+            if path:
+                selected_contract_paths.append(path)
+
+    _selected_source_status(
+        root=root_path,
+        paths=expected_sources,
+        findings=findings,
+        stale_details=stale_details,
+        read_cache=read_cache,
+        read_counts=read_counts,
+    )
+    if stale_details:
+        selected_currentness = SELECTED_SOURCE_STALE
+        for detail in stale_details:
+            path = detail.get("path") or detail.get("endpoint_id") or "selected"
+            stale_obligations.append(
+                f"{detail.get('code', 'selected_source_stale')}:{path}"
+            )
+    else:
+        selected_currentness = SELECTED_SOURCE_CURRENT
+    stale_obligations.extend(
+        f"authority_gap:{index.get('unresolved_gap_count')}"
+        for _ in range(1 if int(index.get("unresolved_gap_count", 0) or 0) else 0)
+    )
+    authority_integrity = (
+        MODEL_AUTHORITY_STATUS_PASS_WITH_GAPS
+        if int(index.get("unresolved_gap_count", 0) or 0)
+        else MODEL_AUTHORITY_STATUS_PASS
+    )
+    as_of = {
+        "subject_revision": str(index.get("subject_revision", "")),
+        "snapshot_fingerprint": str(index.get("candidate_snapshot_fingerprint", "")),
+        "authority_head_fingerprint": head.fingerprint,
+        "accepted_revision_set_fingerprint": str(index.get("revision_set_fingerprint", "")),
+        "read_projection_index_fingerprint": str(projection.get("index_fingerprint", "")),
+    }
+    return SelectedModelClosureRead(
+        authority_integrity=(
+            MODEL_AUTHORITY_STATUS_BLOCKED if any(
+                item.get("severity") == "blocked" for item in findings
+            ) else authority_integrity
+        ),
+        selected_source_currentness=selected_currentness,
+        execution_evidence_status=EXECUTION_EVIDENCE_NOT_RUN,
+        snapshot_fingerprint=str(index.get("candidate_snapshot_fingerprint", "")),
+        subject_revision=str(index.get("subject_revision", "")),
+        authority_head_fingerprint=head.fingerprint,
+        accepted_revision_set_fingerprint=str(index.get("revision_set_fingerprint", "")),
+        selected_model_ids=tuple(requested),
+        selected_models=tuple(selected_models),
+        selected_model_paths=tuple(selected_model_paths),
+        selected_runner_paths=tuple(selected_runner_paths),
+        selected_input_paths=tuple(sorted(selected_input_paths)),
+        selected_intent_paths=tuple(dict.fromkeys(selected_intent_paths)),
+        selected_contract_paths=tuple(dict.fromkeys(selected_contract_paths)),
+        selected_intent_refs=tuple(selected_intent_refs),
+        selected_contract_refs=tuple(selected_contract_refs),
+        relations=tuple(relation_values),
+        as_of=as_of,
+        stale_obligations=tuple(dict.fromkeys(stale_obligations)),
+        stale_obligation_details=tuple(stale_details),
+        findings=tuple(findings),
+        read_paths=tuple(sorted(set(read_cache) | set(read_counts))),
+        read_counts=tuple(sorted(read_counts.items())),
+        producer_count=0,
+        write_count=0,
+    )
+
+
 def _payload_without_fingerprint(
     payload: Mapping[str, Any],
 ) -> dict[str, Any]:
@@ -1359,7 +1957,7 @@ def _load_snapshot_by_fingerprint(
 ) -> ModelSystemSnapshot:
     path = _artifact_path(root, "snapshots", fingerprint)
     try:
-        snapshot = load_model_system_snapshot(path)
+        snapshot = load_model_system_snapshot(_windows_io_path(path))
     except (OSError, ModelAuthorityError, ValueError) as exc:
         raise ModelAuthorityError(
             f"authority ancestry snapshot is invalid: {exc}"
@@ -1407,7 +2005,7 @@ def _load_accepted_boundary_contract(
         ref.fingerprint,
     )
     try:
-        contract = load_accepted_boundary_contract(path)
+        contract = load_accepted_boundary_contract(_windows_io_path(path))
     except (OSError, ModelAuthorityError, ValueError) as exc:
         raise ModelAuthorityError(
             f"current boundary contract is invalid: {exc}"
@@ -1891,6 +2489,88 @@ def _validate_current_typed_transition(
             raise ModelAuthorityError(
                 "current activation receipt does not produce the exact authority head"
             )
+        projection = _load_bound_read_projection(root, head)
+        transition_evidence = projection["index"].get("transition_evidence")
+        if transition_evidence is not None:
+            if not isinstance(transition_evidence, Mapping) or set(transition_evidence) != {
+                "kind",
+                "rollback_receipt_fingerprint",
+                "rollback_contract_fingerprint",
+            }:
+                raise ModelAuthorityError(
+                    "current activation projection transition evidence is not exact"
+                )
+            if transition_evidence["kind"] != "rollback":
+                raise ModelAuthorityError(
+                    "current activation projection has an unsupported transition kind"
+                )
+            rollback_receipt_fingerprint = str(
+                transition_evidence["rollback_receipt_fingerprint"]
+            )
+            rollback_contract_fingerprint = str(
+                transition_evidence["rollback_contract_fingerprint"]
+            )
+            rollback_receipt = _load_rollback_receipt(
+                root, rollback_receipt_fingerprint
+            )
+            rollback_contract = _load_rollback_contract(
+                root, rollback_contract_fingerprint
+            )
+            if (
+                rollback_receipt.contract_fingerprint
+                != rollback_contract.fingerprint
+                or rollback_receipt.reverse_revision_set_fingerprint
+                != revision_set.fingerprint
+                or rollback_receipt_fingerprint != rollback_receipt.fingerprint
+                or rollback_contract_fingerprint != rollback_contract.fingerprint
+            ):
+                raise ModelAuthorityError(
+                    "current rollback projection transition evidence is stale"
+                )
+            if rollback_contract.expected_head_fingerprint != predecessor.fingerprint:
+                raise ModelAuthorityError(
+                    "current rollback contract predecessor does not match activation"
+                )
+            rollback_base_snapshot = _load_snapshot_by_fingerprint(
+                root, rollback_contract.from_snapshot_fingerprint
+            )
+            _validate_revision_intent_activation(
+                root,
+                predecessor,
+                rollback_base_snapshot,
+                snapshot,
+                revision_set,
+                reverify_sources=False,
+            )
+            expected_rollback = validate_operational_rollback(
+                predecessor,
+                rollback_contract,
+                revision_set,
+                completed_evidence_fingerprints=(
+                    rollback_receipt.completed_evidence_fingerprints
+                ),
+                requested_result=rollback_receipt.result,
+                receipt_id=rollback_receipt.receipt_id,
+                reason=rollback_receipt.reason,
+            )
+            if expected_rollback != rollback_receipt:
+                raise ModelAuthorityError(
+                    "current rollback receipt is not exactly reproducible"
+                )
+            return CurrentModelAuthorityState(
+                head=head,
+                snapshot=snapshot,
+                accepted_revision=revision_set,
+                transition_kind="rollback",
+                accepted_boundary_contract=accepted_boundary_contract,
+                predecessor_head=predecessor,
+                activation_receipt=receipt,
+                rollback_contract=rollback_contract,
+                rollback_receipt=rollback_receipt,
+                verified_source_identities=(
+                    revision_set.current_effective_intent_view.verified_source_identities
+                ),
+            )
         return CurrentModelAuthorityState(
             head=head,
             snapshot=snapshot,
@@ -1904,77 +2584,8 @@ def _validate_current_typed_transition(
             ),
         )
 
-    rollback_receipt = _load_rollback_receipt(root, fingerprint)
-    rollback_contract = _load_rollback_contract(
-        root,
-        rollback_receipt.contract_fingerprint,
-    )
-    predecessor = _find_exact_predecessor_head(
-        root,
-        system_id=head.system_id,
-        generation=head.generation - 1,
-        expected_fingerprint=rollback_contract.expected_head_fingerprint,
-    )
-    if rollback_receipt.result == ROLLBACK_RESULT_FORWARD_REPAIR:
-        raise ModelAuthorityError(
-            "forward-repair receipt cannot establish a new authority head"
-        )
-    base_snapshot = _load_snapshot_by_fingerprint(
-        root,
-        rollback_contract.from_snapshot_fingerprint,
-    )
-    _validate_revision_intent_activation(
-        root,
-        predecessor,
-        base_snapshot,
-        snapshot,
-        revision_set,
-        reverify_sources=False,
-    )
-    expected_receipt = validate_operational_rollback(
-        predecessor,
-        rollback_contract,
-        revision_set,
-        completed_evidence_fingerprints=(
-            rollback_receipt.completed_evidence_fingerprints
-        ),
-        requested_result=rollback_receipt.result,
-        receipt_id=rollback_receipt.receipt_id,
-        reason=rollback_receipt.reason,
-    )
-    if expected_receipt != rollback_receipt:
-        raise ModelAuthorityError(
-            "current rollback receipt is not exactly reproducible"
-        )
-    activation_head, _synthetic_receipt = validate_activation_plan(
-        predecessor,
-        base_snapshot,
-        snapshot,
-        revision_set,
-        live_candidate_snapshot=snapshot,
-        receipt_id=f"authority-audit:{rollback_receipt.receipt_id}",
-    )
-    expected_head = replace(
-        activation_head,
-        accepted_revision_set_fingerprint=revision_set.fingerprint,
-        activation_receipt_fingerprint=rollback_receipt.fingerprint,
-    )
-    if expected_head != head:
-        raise ModelAuthorityError(
-            "current rollback transition does not produce the exact authority head"
-        )
-    return CurrentModelAuthorityState(
-        head=head,
-        snapshot=snapshot,
-        accepted_revision=revision_set,
-        transition_kind="rollback",
-        accepted_boundary_contract=accepted_boundary_contract,
-        predecessor_head=predecessor,
-        rollback_contract=rollback_contract,
-        rollback_receipt=rollback_receipt,
-        verified_source_identities=(
-            revision_set.current_effective_intent_view.verified_source_identities
-        ),
+    raise ModelAuthorityError(
+        "current rollback transition is not bound to an accepted read projection"
     )
 
 
@@ -2088,6 +2699,14 @@ def load_observed_model_system(
     root_path = Path(root).resolve()
     text = read_manifest_text(root_path / ".flowguard" / "project.toml")
     return _load_observed_from_manifest_text(root_path, text)
+
+
+def load_observed_model_head(root: str | Path) -> ModelAuthorityHead:
+    """Read only the current manifest head for the bounded public reader."""
+
+    root_path = Path(root).resolve()
+    text = read_manifest_text(root_path / ".flowguard" / "project.toml")
+    return _head_from_section(_section(text))
 
 
 def _load_observed_from_manifest_text(
@@ -2610,7 +3229,6 @@ def bootstrap_initial_current_model_authority(
     receipt_root: str | Path | None,
     revision_set_id: str,
     task_id: str,
-    activation_receipt_id: str,
     system_id: str = "",
     current_design_intent_contributions: Iterable[Any],
     legacy_entry_dispositions: Iterable[Any] = (),
@@ -2761,7 +3379,6 @@ def bootstrap_initial_current_model_authority(
         staging_path,
         final_candidate,
         revision,
-        receipt_id=activation_receipt_id,
     )
     if stage_head.generation != 2:
         raise ModelAuthorityError(
@@ -2812,21 +3429,36 @@ def _copy_rebuild_artifact(
 ) -> Path:
     source = _artifact_path(staging_root, category, fingerprint)
     target = _artifact_path(target_root, category, fingerprint)
-    if not source.is_file():
+    source_io = _windows_io_path(source)
+    target_io = _windows_io_path(target)
+    if not source_io.is_file():
         raise ModelAuthorityError(
             f"rebuild package is missing current {category} artifact: {fingerprint}"
         )
     target.parent.mkdir(parents=True, exist_ok=True)
-    source_bytes = source.read_bytes()
-    if target.exists():
-        if target.read_bytes() != source_bytes:
+    source_bytes = source_io.read_bytes()
+    if target_io.exists():
+        if target_io.read_bytes() != source_bytes:
             raise ModelAuthorityError(
                 f"immutable {category} target contains different bytes: {fingerprint}"
             )
     else:
-        temporary = target.with_suffix(".json.tmp")
-        temporary.write_bytes(source_bytes)
-        temporary.replace(target)
+        descriptor, temporary_name = tempfile.mkstemp(
+            prefix=".fg",
+            suffix=".tmp",
+            dir=target.parent,
+        )
+        temporary = Path(temporary_name)
+        try:
+            with os.fdopen(descriptor, "wb") as handle:
+                handle.write(source_bytes)
+            os.replace(_windows_io_path(temporary), target_io)
+        except BaseException:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            raise
     return target
 
 
@@ -2880,12 +3512,45 @@ def _collect_rebuild_reachable_artifacts(
         )
         if activation_path.is_file() and not rollback_path.is_file():
             reachable.add(("activations", transition_fingerprint))
+            projection = _load_bound_read_projection(staging_root, current_head)
+            index = projection["index"]
+            reachable.add(("read-projection-indexes", projection["index_fingerprint"]))
+            models = index.get("models") if isinstance(index, Mapping) else None
+            if not isinstance(models, Mapping):
+                raise ModelAuthorityError(
+                    "staging accepted read projection has no model index"
+                )
+            for row in models.values():
+                if not isinstance(row, Mapping):
+                    raise ModelAuthorityError(
+                        "staging accepted read projection model row is invalid"
+                    )
+                shard_fingerprint = str(row.get("shard_fingerprint", ""))
+                if not re.fullmatch(r"sha256:[0-9a-f]{64}", shard_fingerprint):
+                    raise ModelAuthorityError(
+                        "staging accepted read projection shard fingerprint is invalid"
+                    )
+                reachable.add(("read-model-shards", shard_fingerprint))
+            transition_evidence = index.get("transition_evidence")
+            if isinstance(transition_evidence, Mapping) and transition_evidence.get(
+                "kind"
+            ) == "rollback":
+                reachable.add(
+                    (
+                        "rollbacks",
+                        str(transition_evidence["rollback_receipt_fingerprint"]),
+                    )
+                )
+                reachable.add(
+                    (
+                        "rollback-contracts",
+                        str(transition_evidence["rollback_contract_fingerprint"]),
+                    )
+                )
         elif rollback_path.is_file() and not activation_path.is_file():
-            reachable.add(("rollbacks", transition_fingerprint))
-            rollback = _load_rollback_receipt(
-                staging_root, transition_fingerprint
+            raise ModelAuthorityError(
+                "staging rollback transition is not bound to an accepted read projection"
             )
-            reachable.add(("rollback-contracts", rollback.contract_fingerprint))
         else:
             raise ModelAuthorityError(
                 "staging authority transition is missing or ambiguous at "
@@ -3246,8 +3911,6 @@ def activate_model_revision_set(
     root: str | Path,
     candidate_snapshot: ModelSystemSnapshot,
     revision_set: ModelRevisionSet,
-    *,
-    receipt_id: str,
 ) -> tuple[ModelAuthorityHead, ModelActivationReceipt]:
     """Persist immutable records and update the sole pointer last under one lock."""
 
@@ -3302,13 +3965,21 @@ def activate_model_revision_set(
             lifecycle=candidate_snapshot.lifecycle,
             accepted_boundary_contract=candidate_boundary_contract,
         )
+        projection_fingerprint, projection_payload, projection_shards = (
+            _build_accepted_read_projection(
+                current_head,
+                candidate_snapshot,
+                revision_set,
+            )
+        )
+        generated_receipt_id = "activation:" + projection_fingerprint.split(":", 1)[1]
         next_head, receipt = validate_activation_plan(
             current_head,
             base_snapshot,
             candidate_snapshot,
             revision_set,
             live_candidate_snapshot=live_candidate,
-            receipt_id=receipt_id,
+            receipt_id=generated_receipt_id,
         )
         write_content_addressed_snapshot(root_path, candidate_snapshot)
         _write_immutable_json(
@@ -3316,6 +3987,12 @@ def activate_model_revision_set(
             "revisions",
             revision_set.fingerprint,
             revision_set.to_dict(),
+        )
+        _persist_accepted_read_projection(
+            root_path,
+            projection_fingerprint,
+            projection_payload,
+            projection_shards,
         )
         _write_immutable_json(
             root_path,
@@ -3435,13 +4112,26 @@ def rollback_observed_model_system(
             lifecycle=candidate_snapshot.lifecycle,
             accepted_boundary_contract=candidate_boundary_contract,
         )
-        next_head, _ = validate_activation_plan(
+        projection_fingerprint, projection_payload, projection_shards = (
+            _build_accepted_read_projection(
+                current_head,
+                candidate_snapshot,
+                reverse_revision_set,
+                transition_evidence={
+                    "kind": "rollback",
+                    "rollback_receipt_fingerprint": receipt.fingerprint,
+                    "rollback_contract_fingerprint": contract.fingerprint,
+                },
+            )
+        )
+        generated_receipt_id = "activation:" + projection_fingerprint.split(":", 1)[1]
+        next_head, activation_receipt = validate_activation_plan(
             current_head,
             current_snapshot,
             candidate_snapshot,
             reverse_revision_set,
             live_candidate_snapshot=live_candidate,
-            receipt_id=f"reverse-activation:{receipt_id}",
+            receipt_id=generated_receipt_id,
         )
         write_content_addressed_snapshot(root_path, candidate_snapshot)
         _write_immutable_json(
@@ -3456,16 +4146,23 @@ def rollback_observed_model_system(
             reverse_revision_set.fingerprint,
             reverse_revision_set.to_dict(),
         )
+        _persist_accepted_read_projection(
+            root_path,
+            projection_fingerprint,
+            projection_payload,
+            projection_shards,
+        )
         _write_immutable_json(
             root_path,
             "rollbacks",
             receipt.fingerprint,
             {**receipt.to_dict(), "fingerprint": receipt.fingerprint},
         )
-        next_head = replace(
-            next_head,
-            accepted_revision_set_fingerprint=reverse_revision_set.fingerprint,
-            activation_receipt_fingerprint=receipt.fingerprint,
+        _write_immutable_json(
+            root_path,
+            "activations",
+            activation_receipt.fingerprint,
+            {**activation_receipt.to_dict(), "fingerprint": activation_receipt.fingerprint},
         )
         final_live_candidate = build_manifest_model_system_snapshot(
             root_path,
@@ -3524,8 +4221,10 @@ __all__ = [
     "rebuild_model_authority",
     "load_current_accepted_revision_set",
     "load_current_model_authority_state",
+    "load_observed_model_head",
     "load_observed_model_system",
     "read_selected_model_closure",
+    "read_selected_model_projection",
     "render_model_authority_section",
     "replace_model_authority_section",
     "rollback_observed_model_system",

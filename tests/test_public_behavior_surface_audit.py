@@ -150,9 +150,13 @@ def test_public_surface_audit_stays_fail_closed_without_authority_even_with_expl
     assert report["declaration_summary"]["declarations"]["python_public_import"][
         "declared_name_count"
     ] > 0
+    # The compact parser intentionally dispatches one fixed tuple rather than
+    # constructing a second argparse command registry.  The public operation
+    # inventory is asserted by the lifecycle tests and the unknown-operation
+    # boundary below; a zero literal parser declaration is therefore current.
     assert report["declaration_summary"]["declarations"]["cli_command"][
         "literal_parser_declarations"
-    ]["declared_count"] > 0
+    ]["declared_count"] == 0
     assert all(
         identity["source_path"] in {"flowguard/__init__.py", "flowguard/__main__.py", "pyproject.toml"}
         for identity in report["declaration_summary"]["source_identities"]

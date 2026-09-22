@@ -229,7 +229,14 @@ class FullValidationCompositionTests(unittest.TestCase):
             if "--include-architecture-reduction" in command:
                 return "self_maintenance_review"
             return "self_blueprint"
-        if "project-audit" in command:
+        if (
+            "project-audit" in command
+            or (
+                "flowguard" in command
+                and "read" in command
+                and "--request" in command
+            )
+        ):
             return "project_audit"
         if (
             "check_flowguard_skill_suite.py" in joined

@@ -215,7 +215,7 @@ class ProjectLayoutReport:
             "Stop before reading old layout paths as current authority.",
             "Manually classify every blocked entry into one current role or an explicit retirement/history record.",
             "Create a new current .flowguard/layout.toml and rebuild affected model, contract, test, and evidence identities.",
-            "Rerun project-layout-audit before project-audit, model work, or execution claims.",
+            "Prepare an explicit current-model read request and run `python -m flowguard read --root . --request .flowguard/read-request.json --json` before model work or execution claims.",
         )
 
     def to_dict(self) -> dict[str, Any]:

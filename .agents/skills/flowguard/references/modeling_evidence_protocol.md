@@ -2,29 +2,24 @@
 
 Use this protocol to classify the modeling mode, preserve current evidence semantics, and route post-check gaps without expanding the kernel.
 
-## Lightest mode
+## Operation-bound evidence
 
-Execution depth and modeling mode are orthogonal.  Emit both on every entry
-decision and keep their claims separate:
+The public operation is exactly one of `read`, `change`, or `release`.
+`read` inspects selected current evidence with zero producers and zero writes;
+`change` runs the required current owner closure; `release` verifies an already
+accepted current and its declared projection. Subject protocols and internal
+evidence depth are selected inside the operation and are not public routes.
+Return `claim_boundary`, `selection_reason`, `closed_obligations`,
+`not_run_obligations`, and `escalation_triggers`; a missing gate blocks the
+selected operation instead of selecting another route.
 
-| execution_profile | default modeling_mode | boundary |
-| --- | --- | --- |
-| `light` | `read_only_audit` | read-only shape/currentness; no native producer |
-| `affected` | `model_first_change` | exact changed-path closure and explicit owners |
-| `full` | `layered_boundary_proof` | frozen whole-system owner DAG and terminal evidence |
-
-`model_maintenance` may be selected for a stale artifact while remaining
-`light` or `affected`; a specialist route does not upgrade to `full`.  Full
-admission requires governed writes, formal/shadow/installed projections,
-OpenSpec, owner DAG, and reverse semantic input to be frozen.  Return
-`claim_boundary`, `selection_reason`, `closed_obligations`,
-`not_run_obligations`, and `escalation_triggers`; never hide a missing gate by
-falling back to another profile.
-
-- `read_only_audit`: inspect existing models/replays/adoption and stale fallbacks; do not create a model solely for read-only work.
-- `model_first_change`: create/update a fit-for-risk model before production behavior changes.
+- `read`: inspect existing models/replays/adoption and stale evidence; do not
+  create a model solely for read-only work.
+- `change` modeling: create or update a fit-for-risk model before production
+  behavior changes.
 - `model_maintenance`: upgrade stale model, replay, adoption, or old-schema artifacts before trusting them.
-- `layered_boundary_proof`: join parent coverage, child disjointness, child reattachment, and finite leaf boundary rows through ModelMesh/MTA/TestMesh.
+- layered boundary proof is internal evidence assembled by ModelMesh, MTA, and
+  TestMesh when a release claim explicitly requires it.
 
 Other clear risks route to the direct public owner: existing preflight, Behavior Commitment Ledger/PPA, FieldLifecycleMesh, ContractExhaustionMesh, Architecture Reduction, Code Structure Recommendation, UI Flow Structure, Model Topology Hazard Review, Model-Test Alignment, ModelMesh, TestMesh, StructureMesh, DevelopmentProcessFlow, or Model-Miss Review.
 
@@ -143,8 +138,8 @@ fingerprint and checks only identity, material presence, and terminal integrity.
 
 ## Blueprint Depth Evidence
 
-When blueprint scope is explicit, consume one frozen layer plan whose profile
-matches the target. A software plan contains the canonical implementation,
+When blueprint scope is explicit, consume one frozen layer plan whose declared
+scope matches the target. A software plan contains the canonical implementation,
 traceability, semantics, model-code-test, resource/intent/oracle, and final
 qualification layers; a non-code workflow plan contains its real boundary,
 actors, input/state/transition/output, resource, intent, and verification

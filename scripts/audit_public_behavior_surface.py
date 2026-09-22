@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--authority-reason",
-        default="Attach a current project-audit result before a broad current claim.",
+        default="Attach a current selected-model read result before a broad current claim.",
     )
     parser.add_argument(
         "--surface-map",

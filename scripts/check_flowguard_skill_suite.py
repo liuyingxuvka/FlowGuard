@@ -2379,7 +2379,17 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
     specs = (
         ChildSpec(
             "project_audit",
-            (sys.executable, "-m", "flowguard", "project-audit", "--root", str(root), "--json"),
+            (
+                sys.executable,
+                "-m",
+                "flowguard",
+                "read",
+                "--root",
+                str(root),
+                "--request",
+                str(root / ".flowguard" / "read-request.json"),
+                "--json",
+            ),
             (
                 "AGENTS.md",
                 ".flowguard/project.toml",
@@ -2387,7 +2397,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "flowguard/project_adoption.py",
                 "flowguard/skill_suite.py",
             ),
-            ("validation:project_audit",),
+            ("validation:current_read",),
         ),
         ChildSpec(
             "skill_suite_light",

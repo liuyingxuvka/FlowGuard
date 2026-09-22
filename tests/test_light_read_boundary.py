@@ -7,6 +7,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import pytest
+
 from flowguard.skill_contracts import ContractCompileReport
 from flowguard.skill_suite import (
     FLOWGUARD_AUTHOR_REQUIRED_MEMBER_FILES,
@@ -14,6 +16,7 @@ from flowguard.skill_suite import (
     SkillSuiteReport,
 )
 from flowguard.model_authority_store import read_selected_model_closure
+from flowguard.__main__ import _bounded_read_page
 from scripts import check_flowguard_skill_suite as suite
 
 
@@ -188,6 +191,91 @@ def test_selected_model_closure_is_read_only_and_deduplicates_shared_input(tmp_p
     assert result.authority_integrity == "pass"
     assert result.selected_source_currentness == "current"
     assert result.execution_evidence_status == "not_run"
+    serialized = result.to_dict()
+    assert "selected_currentness" not in serialized
+    assert "execution_status" not in serialized
+    assert "as_of_map" not in serialized
+    assert serialized["selected_source_currentness"] == "current"
+    assert serialized["execution_evidence_status"] == "not_run"
+    assert serialized["as_of"] == dict(result.as_of)
     assert dict(result.read_counts)[shared.relative_to(tmp_path).as_posix()] == 1
     assert result.producer_count == 0
     assert result.write_count == 0
+
+
+def test_bounded_read_page_paginates_large_input_inventory_without_duplicates():
+    base_payload = {
+        "operation": "read",
+        "status": "pass",
+        "target_id": "flowguard",
+        "requested_model_ids": ["alpha"],
+        "selected_model_ids": ["alpha"],
+        "as_of": {"authority_head_fingerprint": "sha256:" + "a" * 64},
+        "authority_integrity": "pass",
+        "selected_source_currentness": "current",
+        "execution_evidence_status": "not_run",
+        "required_count": 0,
+        "run_count": 0,
+        "reused_count": 0,
+        "producer_count": 0,
+        "write_count": 0,
+        "stale_obligations": [],
+        "blockers": [],
+        "claim_boundary": "bounded selected projection read",
+    }
+    input_paths = [
+        f".flowguard/inputs/{index:03d}-{'x' * 80}.json"
+        for index in range(120)
+    ]
+    compact_map = {
+        "models": [
+            {
+                "model_id": "alpha",
+                "model_path": ".flowguard/models/alpha.py",
+                "runner_path": ".flowguard/runners/alpha.py",
+                "input_paths": input_paths,
+            }
+        ],
+        "intents": [],
+        "relations": [],
+        "boundary_nodes": [],
+    }
+    head_fingerprint = "sha256:" + "b" * 64
+    cursor = None
+    seen: list[str] = []
+    pages = 0
+    while True:
+        page = _bounded_read_page(
+            base_payload,
+            compact_map,
+            head_fingerprint=head_fingerprint,
+            scope=("alpha",),
+            cursor=cursor,
+        )
+        encoded = json.dumps(
+            page, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        assert len(encoded) + 1 <= 8192
+        rows = page["map"]["models"]
+        assert len(rows) == 1
+        seen.extend(rows[0]["input_paths"])
+        pages += 1
+        next_cursor = page["next_cursor"]
+        if next_cursor is None:
+            break
+        assert next_cursor != cursor
+        cursor = next_cursor
+        assert pages < 120
+
+    assert pages > 1
+    assert seen == input_paths
+    assert len(seen) == len(set(seen)) == 120
+
+    with pytest.raises(ValueError, match="another authority head"):
+        _bounded_read_page(
+            base_payload,
+            compact_map,
+            head_fingerprint="sha256:" + "c" * 64,
+            scope=("alpha",),
+            cursor=cursor,
+        )

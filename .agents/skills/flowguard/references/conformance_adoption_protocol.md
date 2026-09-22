@@ -103,8 +103,9 @@ Preferred local records:
 - `.flowguard/adoption_log.jsonl`;
 - `docs/flowguard_adoption_log.md`.
 
-The CLI helpers `adoption-start` and `adoption-finish` can create structured
-entries, but logging does not replace executable validation.
+The selected lifecycle result can append the structured adoption entry, but
+there is no separate start/finish command and logging never replaces
+executable validation.
 
 ## Release Sync
 

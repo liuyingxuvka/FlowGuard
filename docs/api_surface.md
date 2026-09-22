@@ -68,8 +68,9 @@ Use these names when the verification subject is a declared finite subsystem
 rather than one portable component. The system definition, request, and slice
 have separate canonical fingerprints. The checker validates and compiles the
 exact declared dependency closure, produces one stage-aware report, and never
-claims coverage of undeclared or unknown components. The command-line surface
-is `python -m flowguard portable-system-check`.
+claims coverage of undeclared or unknown components. The result is selected by
+the public `read`, `change`, or `release` operation; there is no separate
+portable-system command.
 
 ## Model System Authority API
 
@@ -121,21 +122,12 @@ evidence about how the system changed, not a substitute current view.
 full model-regression parent receipt whose exact child receipts independently
 verify against the current manifest, inputs, obligations, toolchain, and
 environment. It derives the canonical diff and affected closure, writes one
-content-addressed candidate/revision pair, and never activates authority. The
-corresponding thin command-line surfaces are
-`model-system-bootstrap`, `model-revision-intent-bootstrap`,
-`model-system-audit`,
-`model-revision-plan`, `model-revision-owner-evidence`,
-`model-revision-build`, `model-revision-activate`, and
-`model-revision-rollback`. These are two separate bootstrap boundaries:
-`model-system-bootstrap` establishes generation-one observed authority for a
-new modeled project, while `model-revision-intent-bootstrap` moves an existing
-generation-one or legacy v4 lineage into its first cumulative v5 intent view.
-Ordinary accepted v5 changes use build, refinement validation, and activation.
-These commands preserve the
-existing ModelMesh, preflight, behavior-commitment, field-lifecycle,
-model-test-alignment, TestMesh, and DevelopmentProcessFlow ownership; this API
-does not create another modeling route.
+content-addressed candidate/revision pair, and never activates authority.
+These helpers preserve the existing ModelMesh, preflight,
+behavior-commitment, field-lifecycle, model-test-alignment, TestMesh, and
+DevelopmentProcessFlow ownership. They are selected internally by the public
+`read`, `change`, and `release` operations; no alternate command or
+compatibility reader is exposed.
 
 ## Whole-Target DNA Completion Gate
 
@@ -170,8 +162,8 @@ lane. It requires an independently generated finite case denominator,
 root-cause and user-visible outcome fields, terminal and recovery results, and
 content-addressed producer receipts for executed rows. A matrix count,
 synthetic fault profile, caller-supplied hash prefix, or summary status cannot
-authorize a fault claim. The CLI equivalent is
-`python -m flowguard fault-matrix-review --matrix <artifact.json>`.
+authorize a fault claim. The fault lane is selected as a release obligation;
+`fault-matrix-review` is not a public command.
 
 ## Independent Behavior Discovery Owner
 
@@ -208,8 +200,8 @@ resolutions, maturation report, independent receipt verification, admission,
 and user choice. They report three independent values: understanding
 sufficiency, user execution choice, and FlowGuard implementation admission.
 
-The matching `model-understanding-status` CLI accepts explicit JSON paths. The
-API and command do not execute an owner, verify a receipt, resume a run,
+The selected domain can use this internal API during `read`. It does not
+execute an owner, verify a receipt, resume a run,
 publish evidence, switch model authority, or write files. Missing inputs remain
 `not_run` or `unresolved`; mismatched current identities become `stale`; direct
 user execution never upgrades understanding or FlowGuard admission. This is a
@@ -276,14 +268,9 @@ authority.
 The three canonical plane values are `product_runtime`, `agent_operation`, and
 `development_process`. Existing Model Preflight reports primary, related, and
 ambiguous candidate hits separately with lookup status and ledger fingerprint;
-typed related context cannot become a primary owner. The matching read-only CLI
-is:
-
-```powershell
-python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
-```
-
-The command explains recall; it does not execute a commitment, create a route,
+typed related context cannot become a primary owner. The selected domain uses
+the existing `BehaviorLookupQuery` API during `read`, with the explicit plane
+and lookup terms. This lookup explains recall; it does not execute a commitment, create a route,
 force every ordinary action to run a model, or guarantee future AI behavior.
 
 Template defaults follow the same rule. `model-miss-template`,
@@ -831,13 +818,12 @@ Reporting helpers help an AI agent explain what was checked and what was not:
 - `FlowGuardFindingLedger`, `build_finding_ledger`, and summary-derived
   `maintenance_obligations` for flattening all section findings and
   skipped/not-run gaps before deciding or inheriting a repair path
-- adoption logging and `audit_flowguard_adoption`
-- thin adoption logging commands such as `adoption-start` and
-  `adoption-finish`
-- artifact/project upgrade helpers such as `ArtifactUpgradeReport`,
-  `review_artifact_upgrades()`, and the audit-only `artifact-upgrade` command
-  for detecting old FlowGuard artifacts and reporting a direct-current-rewrite
-  blocker. They never apply migrations or add runtime compatibility branches.
+- adoption logging and `audit_flowguard_adoption`; records are emitted by the
+  selected lifecycle result rather than a separate logging command
+- artifact/project upgrade helpers such as `ArtifactUpgradeReport` and
+  `review_artifact_upgrades()` remain internal maintenance evidence. They
+  report a direct-current-rewrite blocker and never add a migration, command,
+  or runtime compatibility branch.
 - project adoption/version helpers such as `audit_project_adoption()`,
   `adopt_project()`, and `upgrade_project()` for writing the managed
   FlowGuard `AGENTS.md` block, `.flowguard/project.toml`, and adoption records

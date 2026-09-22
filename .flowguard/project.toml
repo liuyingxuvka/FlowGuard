@@ -1,9 +1,9 @@
 [flowguard]
 repository = "https://github.com/liuyingxuvka/FlowGuard"
-adopted_package_version = "0.69.2"
+adopted_package_version = "0.69.7"
 schema_version = "1.0"
 last_verified_at = "2026-09-20T07:52:46+00:00"
-last_verified_by = "FlowGuard project-upgrade"
+last_verified_by = "FlowGuard project adoption"
 agents_path = "AGENTS.md"
 
 [policy]
@@ -33,12 +33,12 @@ skill_native_checks = 3600
 
 [model_authority]
 system_id = "flowguard"
-observed_snapshot_path = ".flowguard/models/authority/snapshots/cf8a4a55ef324f3a0a7678c3440aa9dda5a5fbe2b3708359e28c31e96ef772cd.json"
-observed_snapshot_fingerprint = "sha256:cf8a4a55ef324f3a0a7678c3440aa9dda5a5fbe2b3708359e28c31e96ef772cd"
-subject_revision = "source-inventory:987d33357ba0631bd6c73a23ff0315faee0c81780ee3641c4c83348db2d52549"
+observed_snapshot_path = ".flowguard/models/authority/snapshots/801ef63622b9c2e93e6dc4836c5c50f3339729ac6e488d5bce55831c162d48ea.json"
+observed_snapshot_fingerprint = "sha256:801ef63622b9c2e93e6dc4836c5c50f3339729ac6e488d5bce55831c162d48ea"
+subject_revision = "source-inventory:78ec99b6e0d9a7301a9fc5110b412e52b6cf88a4d8685546ed01be979f93f378"
 coverage_status = "complete_within_declared_boundary"
-generation = 103
-accepted_revision_set_fingerprint = "sha256:21467572bd269e227d242af94aef27d15b55e9511fea7061d31c2d7cc91d69ce"
-previous_snapshot_fingerprint = "sha256:341e0d06faec9fc7955ba43b0a10045077687a255d39ddd0ef1549839e7f00d4"
-activation_receipt_fingerprint = "sha256:4537528dc94cf740ad044aec6a3e9b7bd8a2c7eaadf0a50ace14d167a365e053"
-head_fingerprint = "sha256:b194ec6517ec2eadd00fe22a0bf53032bd13ea1242ee31a69a9a04e21d17ba55"
+generation = 108
+accepted_revision_set_fingerprint = "sha256:fbaad9982d71381ae9d4228138cacd70875ffb1f38f4743d1f0cedfe5fb57b4a"
+previous_snapshot_fingerprint = "sha256:9004fe86e6ded60be912257b134ebf1618d17b45f06011ab9c113870cb47c5b4"
+activation_receipt_fingerprint = "sha256:bdc0b8fe42b98426c6764a334c8e71f06a24158062af3be62b93e62e25274869"
+head_fingerprint = "sha256:aea3ea6d4a40a236ad9cd49580e1ebc3fc6027a84cf2d2b8ac7308b2d0f47294"

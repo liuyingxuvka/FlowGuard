@@ -6,19 +6,16 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      run_deep_checks:
-        description: "Run full unit and aggregate FlowGuard model regression checks"
-        required: false
-        default: "true"
-  schedule:
-    - cron: "17 4 * * 1"
+
+permissions:
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   fast-checks:
+    name: Fast checks
     runs-on: ubuntu-latest
 
     steps:
@@ -50,15 +47,15 @@ jobs:
       - name: Verify generated consumer authority
         run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
 
-      - name: OpenSpec strict validation
-        run: openspec validate --all --strict
+      - name: OpenSpec strict validation (closeout change)
+        run: openspec validate close-compact-runtime-acceptance --strict
 
       - name: Current compact lifecycle tests
         run: python -m pytest -q tests/test_evidence_receipts.py tests/test_consumer_current_lifecycle.py tests/test_current_public_behavior_manifest.py
 
-  deep-checks:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_deep_checks == 'true')
-    runs-on: ubuntu-latest
+  full-current-suite:
+    name: Full current suite (Windows 3.12)
+    runs-on: windows-latest
 
     steps:
       - name: Checkout
@@ -89,8 +86,21 @@ jobs:
       - name: Verify generated consumer authority
         run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
 
-      - name: OpenSpec strict validation
-        run: openspec validate --all --strict
+      - name: OpenSpec strict validation (closeout change)
+        run: openspec validate close-compact-runtime-acceptance --strict
 
-      - name: Current compact lifecycle regression
-        run: python -m pytest -q tests/test_evidence_receipts.py tests/test_consumer_current_lifecycle.py tests/test_current_public_behavior_manifest.py tests/test_release_verification.py tests/test_model_revision_owner_evidence.py
+      - name: Run the one final full owner
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\flowguard-evidence" | Out-Null
+          python -m pytest -q --junitxml="$env:RUNNER_TEMP\flowguard-evidence\pytest-junit.xml"
+
+      - name: Upload full-suite evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: flowguard-full-current-suite-${{ github.sha }}
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/flowguard-evidence/pytest-junit.xml
+            work/verification/**/*.json

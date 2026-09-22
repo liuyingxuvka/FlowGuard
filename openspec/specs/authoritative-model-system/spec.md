@@ -455,3 +455,11 @@ the affected snapshot, owner evidence, and pointer.
 - **WHEN** a current layout and affected source/model inputs are frozen
 - **THEN** one accepted revision set MAY replace the observed head and produce
   a new current snapshot and activation receipt
+### Compact direct-current boundary (2026-09-22)
+
+The compact closeout keeps one FlowGuard skill and exactly three public operations: `read`, `change`, and `release`. A selected subject loads only its concrete protocol and explicitly named accepted model or evidence. Retired commands, profiles, satellite entrypoints, forwarding files, aliases, compatibility readers, migrations, and fallback routes are removed from the current surface; they are not interpreted or selected as a secondary success path.
+
+#### Scenario: Missing or retired selection blocks
+
+- **WHEN** a request has no unique current subject, names a retired entry, or omits a required accepted identity
+- **THEN** FlowGuard reports a typed blocker with zero producer and zero write effects; it does not widen the scope or try another route.

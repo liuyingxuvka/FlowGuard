@@ -889,7 +889,7 @@ def main() -> int:
                 raise RuntimeError("prepare-only requires a current boundary contract")
             _write_json(boundary_output, boundary_contract.to_dict())
             manifest = {
-                "schema_version": "flowguard.direct_model_rebuild_inputs.v1",
+                "schema_version": "flowguard.direct_model_rebuild_inputs.v2",
                 "boundary_contract_path": str(boundary_output),
                 "intent_inventory_path": str(intent_output),
                 "path_quality_material_path": str(path_quality_output),
@@ -919,72 +919,52 @@ def main() -> int:
                 manifest.update(
                     {
                         "model_parent_receipt_path": str(parent),
-                        "owner_evidence_argv": [
-                            sys.executable,
-                            "-B",
-                            "-m",
-                            "flowguard",
-                            "model-revision-owner-evidence",
-                            "--root",
-                            str(args.root.resolve()),
-                            "--model-parent-receipt",
-                            str(parent),
-                            "--snapshot-id",
-                            args.snapshot_id,
-                            "--receipt-root",
-                            str(receipt_root),
-                            "--boundary-contract",
-                            str(boundary_output),
-                            "--output",
-                            str(native_output),
-                            "--json",
-                        ],
-                        "revision_build_argv": [
-                            sys.executable,
-                            "-B",
-                            "-m",
-                            "flowguard",
-                            "model-revision-build",
-                            "--root",
-                            str(args.root.resolve()),
-                            "--model-parent-receipt",
-                            str(parent),
-                            "--snapshot-id",
-                            args.snapshot_id,
-                            "--revision-set-id",
-                            str(args.revision_token),
-                            "--task-id",
-                            str(args.task_id),
-                            "--receipt-root",
-                            str(receipt_root),
-                            "--boundary-contract",
-                            str(boundary_output),
-                            "--native-owner-evidence",
-                            str(native_output),
-                            "--path-quality-material",
-                            str(path_quality_output),
-                            "--intent-inventory",
-                            str(intent_output),
-                            "--output-root",
-                            str(args.output_root.resolve() / "revision-artifacts"),
-                            "--json",
-                        ],
-                        "activation_argv_template": [
-                            sys.executable,
-                            "-B",
-                            "-m",
-                            "flowguard",
-                            "model-revision-activate",
-                            "--root",
-                            str(args.root.resolve()),
-                            "--candidate-snapshot",
-                            "<candidate_snapshot_path>",
-                            "--revision-set",
-                            "<revision_set_path>",
-                            "--receipt-id",
-                            args.activation_receipt_id,
-                            "--json",
-                        ],
+                        # Revision maintenance is intentionally a typed
+                        # author-side API flow.  The public dispatcher has
+                        # only read/change/release, so never emit retired
+                        # command-line argv that a caller could mistake for a
+                        # supported route.
+                        "owner_evidence_api": {
+                            "module": "flowguard.model_revision_owner_evidence",
+                            "callable": "produce_model_revision_owner_evidence",
+                            "input_paths": {
+                                "root": str(args.root.resolve()),
+                                "model_parent_receipt": str(parent),
+                                "snapshot_id": args.snapshot_id,
+                                "receipt_root": str(receipt_root),
+                                "accepted_boundary_contract": str(boundary_output),
+                                "output_path": str(native_output),
+                            },
+                        },
+                        "revision_build_api": {
+                            "module": "flowguard.model_revision_builder",
+                            "callable": "build_current_model_revision",
+                            "input_paths": {
+                                "root": str(args.root.resolve()),
+                                "model_parent_receipt": str(parent),
+                                "snapshot_id": args.snapshot_id,
+                                "revision_set_id": str(args.revision_token),
+                                "task_id": str(args.task_id),
+                                "receipt_root": str(receipt_root),
+                                "accepted_boundary_contract": str(boundary_output),
+                                "native_owner_evidence": str(native_output),
+                                "path_quality_material": str(path_quality_output),
+                                "intent_inventory": str(intent_output),
+                                "output_root": str(
+                                    args.output_root.resolve() / "revision-artifacts"
+                                ),
+                            },
+                        },
+                        "activation_api": {
+                            "module": "flowguard.model_authority_store",
+                            "callable": "activate_model_revision_set",
+                            "input_paths": {
+                                "root": str(args.root.resolve()),
+                                "candidate_snapshot": "<candidate_snapshot_path>",
+                                "revision_set": "<revision_set_path>",
+                            },
+                            "activation_receipt_id": args.activation_receipt_id,
+                        },
                     }
                 )
             _write_json(args.output_root.resolve() / "inputs-manifest.json", manifest)

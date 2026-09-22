@@ -4,7 +4,7 @@ Plan detailing is an internal `development_process_flow` route. It answers one
 question before ordinary execution: is the plan detailed enough to check?
 
 Requests for PlanDetailing, rough-plan expansion, or structured planning enter
-`flowguard-development-process-flow`. The public owner records the
+`DevelopmentProcessFlow`. The public owner records the
 `plan_detailing` mode, builds the rows below, and consumes
 `review_plan_detail(...)` evidence. There is no independent Codex skill,
 forwarding entrypoint, alias, or fallback route for this mode.

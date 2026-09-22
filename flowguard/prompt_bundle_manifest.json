@@ -42,7 +42,7 @@
           "claim": "kernel route fragment"
         },
         {
-          "path": ".agents/skills/flowguard/references/domains/<subject>/SKILL.md",
+          "path": ".agents/skills/flowguard/references/domains/<subject>/protocol.md",
           "stage": "triggered_expansion",
           "mandatory": false,
           "trigger": "one explicit domain subject selected",

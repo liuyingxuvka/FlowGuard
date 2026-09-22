@@ -163,7 +163,7 @@ FLOWGUARD_MANAGED_RULES: tuple[ManagedAdoptionRule, ...] = (
         "project.scope",
         """## FlowGuard Project Rules
 
-For non-trivial work, select the smallest current FlowGuard public owner; clear satellites are direct peers and unclear ordinary behavior/state work uses `flowguard`.""",
+For non-trivial work, use the single current FlowGuard public owner; after the subject is explicit, load only its selected domain protocol and the bounded references required for that request.""",
     ),
     ManagedAdoptionRule(
         "project.repository",
@@ -184,7 +184,7 @@ For non-trivial work, select the smallest current FlowGuard public owner; clear 
     ),
     ManagedAdoptionRule(
         "project.preflight_version_gate",
-        """Before non-trivial work run `python -m flowguard project-audit --root .`; if the installed engine is newer, run full `project-upgrade` scanning and affected revalidation, and if older connect the current engine.""",
+        """Before non-trivial work, prepare an explicit current-model read request with `operation=read`, the target id, and a non-empty selected model scope, then run `python -m flowguard read --root . --request .flowguard/read-request.json --json`; if the request is blocked, stop at its reported current-model boundary instead of using another command or fallback.""",
     ),
     ManagedAdoptionRule(
         "runtime.latest_schema_first",
@@ -240,7 +240,7 @@ For non-trivial work, select the smallest current FlowGuard public owner; clear 
     ),
     ManagedAdoptionRule(
         "process.development_process_flow",
-        """Plans, staged/multi-skill work, sync, release, publish, and final process claims use `flowguard-development-process-flow`: start with lightweight existing-model/commitment lookup, preserve peers, revalidate affected owners, and reserve one full gate for frozen source.""",
+        """Plans, staged or multi-skill work, sync, release, publish, and final process claims use the DevelopmentProcessFlow owner: start with lightweight existing-model and commitment lookup, preserve peers, revalidate affected owners, and reserve one full gate for frozen source.""",
     ),
     ManagedAdoptionRule(
         "process.work_context_read_only",
@@ -491,7 +491,7 @@ class ProjectAdoptionReport:
             "skipped_count": len(self.skipped_steps),
             "blockers": bounded_blockers,
             "claim_boundary": clip(self.claim_boundary, 560),
-            "detail_command": "python -m flowguard project-audit --root <ROOT> --json --full-output",
+            "detail_command": "python -m flowguard read --root <ROOT> --request <REQUEST> --json",
             "truncation": {
                 "applied": len(all_blockers) > 5,
                 "omitted_blockers": max(0, len(all_blockers) - 5),
@@ -590,7 +590,7 @@ def current_project_manifest_text(
     *,
     package_version: str | None = None,
     schema_version: str = SCHEMA_VERSION,
-    verified_by: str = "FlowGuard project-adopt",
+    verified_by: str = "FlowGuard project adoption",
     model_authority: Mapping[str, Any] | None = None,
 ) -> str:
     """Build the canonical ``.flowguard/project.toml`` text."""
@@ -778,7 +778,7 @@ def audit_project_adoption(root: str | Path = ".") -> ProjectAdoptionReport:
                 "blocked",
                 "project_layout_invalid",
                 "The target .flowguard layout is not current; model and evidence authority was not read.",
-                "Manually rewrite the target into the current role layout, then rerun project-audit. No migration or fallback reader is available.",
+                "Manually rewrite the target into the current role layout, then run an explicit current-model read request. No migration or fallback reader is available.",
                 str(root_path / ".flowguard"),
                 metadata=layout_report.to_dict(),
             )
@@ -863,7 +863,7 @@ def audit_project_adoption(root: str | Path = ".") -> ProjectAdoptionReport:
 def adopt_project(
     root: str | Path = ".",
     *,
-    verified_by: str = "FlowGuard project-adopt",
+    verified_by: str = "FlowGuard project adoption",
 ) -> ProjectAdoptionReport:
     """Write target-project FlowGuard records after generator preflight."""
 
@@ -877,7 +877,7 @@ def adopt_project(
 def upgrade_project(
     root: str | Path = ".",
     *,
-    verified_by: str = "FlowGuard project-upgrade",
+    verified_by: str = "FlowGuard project maintenance",
     records_only: bool = False,
     dry_run: bool = False,
 ) -> ProjectAdoptionReport:
@@ -1152,7 +1152,7 @@ def _write_project_adoption(
                 "warning",
                 "artifact_upgrade_scan_scoped_out",
                 "Artifact/model/test upgrade scanning was scoped out by records-only mode.",
-                "Run project-upgrade without --records-only before broad confidence claims.",
+                "Run the complete current maintenance owner before broad confidence claims.",
             )
         )
     if artifact_upgrade_report is not None and not artifact_upgrade_report.ok:
@@ -1360,7 +1360,7 @@ def _audit_findings(
                 "blocked",
                 "missing_agents_block",
                 "Target project does not have one complete managed FlowGuard AGENTS block.",
-                "Run project-adopt or preview project-upgrade before non-trivial FlowGuard work.",
+                "Complete the explicit project adoption maintenance step before non-trivial FlowGuard work.",
                 str(agents_path),
             )
         )
@@ -1370,7 +1370,7 @@ def _audit_findings(
                 "blocked",
                 "missing_project_manifest",
                 "Target project does not have a readable .flowguard/project.toml.",
-                "Run project-adopt or preview project-upgrade to establish the version record.",
+                "Complete the explicit project adoption maintenance step to establish the version record.",
                 str(manifest_path),
             )
         )
@@ -1399,7 +1399,7 @@ def _audit_findings(
                 "blocked",
                 "manifest_package_version_missing",
                 "Project manifest does not record the adopted FlowGuard package version.",
-                "Preview project-upgrade and restore the canonical version record.",
+                "Refresh the canonical version record through the explicit project maintenance writer.",
                 str(manifest_path),
             )
         )
@@ -1409,7 +1409,7 @@ def _audit_findings(
                 "blocked",
                 "manifest_schema_version_missing",
                 "Project manifest does not record the adopted FlowGuard schema version.",
-                "Preview project-upgrade and restore the canonical schema record.",
+                "Refresh the canonical schema record through the explicit project maintenance writer.",
                 str(manifest_path),
             )
         )
@@ -1419,7 +1419,7 @@ def _audit_findings(
                 "blocked",
                 "schema_version_mismatch",
                 "Project manifest schema version differs from the installed FlowGuard schema.",
-                "Preview project-upgrade and rerun affected evidence before broad confidence.",
+                "Refresh the current project record and rerun affected evidence before broad confidence.",
                 str(manifest_path),
                 {"manifest_schema_version": manifest_schema, "installed_schema_version": SCHEMA_VERSION},
             )
@@ -1460,9 +1460,9 @@ def _audit_findings(
                         else "Installed FlowGuard is newer than the project-recorded version, but the project schema is not current."
                     ),
                     (
-                        "Continue the ordinary task without an automatic upgrade; run project-upgrade only for an explicit author/project-maintenance request."
+                        "Continue the ordinary task without an automatic rewrite; refresh the project record only for an explicit project-maintenance request."
                         if manifest_schema == SCHEMA_VERSION
-                        else "Preview and run project-upgrade, then rerun the minimum revalidation."
+                        else "Rewrite the current project record, then rerun the minimum read revalidation."
                     ),
                     str(manifest_path),
                     {
@@ -1506,9 +1506,9 @@ def _audit_findings(
                         else "Managed AGENTS version does not agree with installed and manifest versions."
                     ),
                     (
-                        "Keep ordinary consumer work on its current project boundary; refresh the managed record only through an explicit project-upgrade."
+                        "Keep ordinary consumer work on its current project boundary; refresh the managed record only through an explicit project-maintenance request."
                         if newer_compatible
-                        else "Preview project-upgrade and inspect the semantic diff before writing."
+                        else "Inspect the semantic diff before writing the current managed record."
                     ),
                     str(agents_path),
                     {
@@ -1538,7 +1538,7 @@ def _audit_findings(
                     "blocked",
                     "rendered_schema_version_mismatch",
                     "Managed AGENTS schema version does not agree with installed and manifest schemas.",
-                    "Regenerate the managed block and rerun project-audit.",
+                    "Regenerate the managed block and rerun the explicit current-model read request.",
                     str(agents_path),
                     {
                         "rendered_schema_version": rendered_schema,
@@ -1569,7 +1569,7 @@ def _audit_findings(
                     "blocked",
                     "managed_block_semantic_drift",
                     "Managed AGENTS block differs semantically from the installed generator.",
-                    "Review project-upgrade --dry-run --json before replacing the managed block.",
+                    "Review the explicit project-maintenance dry run before replacing the managed block.",
                     str(agents_path),
                     {
                         "actual_semantic_hash": managed_block_semantic_hash(managed_block),
@@ -1651,7 +1651,7 @@ def _write_preflight_blockers(
             ProjectAdoptionFinding(
                 "blocked",
                 "suite_inventory_unresolved",
-                "Writing project-upgrade is blocked until package/global consumer validation passes.",
+                "Writing the current project record is blocked until package/global consumer validation passes.",
                 "Resolve installed membership, ownership, and file findings before retrying.",
                 metadata={"suite_status": suite.status, "inventory_hash": suite.inventory_hash},
             )
@@ -1818,8 +1818,8 @@ def _adoption_state(
 
 def _minimum_revalidation() -> tuple[str, ...]:
     return (
-        "python -m flowguard project-audit --root . --json",
-        "Rerun affected FlowGuard model checks and focused tests before broad confidence.",
+        "Create .flowguard/read-request.json with operation=read, target_id, and a non-empty scope of selected current model ids.",
+        "python -m flowguard read --root . --request .flowguard/read-request.json --json",
     )
 
 

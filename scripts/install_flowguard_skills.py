@@ -106,7 +106,7 @@ def _summary_payload(payload: dict[str, Any], *, full_report_path: str = "") -> 
         "source_schema_version": str(payload.get("schema_version", "")),
         "artifact_type": "flowguard_skill_distribution_summary",
         "action": payload.get("action", "parity"),
-        "status": payload.get("status", "blocked"),
+        "status": payload.get("status", "pass" if payload.get("ok") else "blocked"),
         "ok": bool(payload.get("ok", False)),
         "target": payload.get("target") or payload.get("source") or "configured-trees",
         "member_count": len(payload.get("authority_member_ids", ())),

@@ -1871,12 +1871,20 @@ def lightweight_path_review(
         intake_gaps.add("stale_retained_element_inventory")
     if retained != derived_retained:
         intake_gaps.add("retained_element_inventory_mismatch")
-    witness_gaps = validate_necessity_witnesses(
-        subject,
-        retained,
-        necessity_witnesses,
-        expected_currentness_id=currentness_id,
-        active_obligation_ids=active_obligation_ids,
+    # Ordinary path review proves native structural coverage and source
+    # currentness.  A per-element necessity witness is an explicit candidate
+    # comparison concern; accepting one here would manufacture a second proof
+    # obligation for every state/field and inflate normal changes.
+    witness_gaps = (
+        validate_necessity_witnesses(
+            subject,
+            retained,
+            necessity_witnesses,
+            expected_currentness_id=currentness_id,
+            active_obligation_ids=active_obligation_ids,
+        )
+        if explicit_deep_request
+        else ()
     )
     measured = {
         str(dimension): float(value)
@@ -1930,10 +1938,14 @@ def lightweight_path_review(
             "subject_fingerprint": subject.fingerprint,
             "model_facts": normalized_facts,
             "retained_elements": dict(retained),
-            "witness_fingerprints": [
-                row.fingerprint
-                for row in sorted(necessity_witnesses, key=lambda item: item.witness_id)
-            ],
+            "witness_fingerprints": (
+                [
+                    row.fingerprint
+                    for row in sorted(necessity_witnesses, key=lambda item: item.witness_id)
+                ]
+                if explicit_deep_request
+                else []
+            ),
             "finding_ids": findings,
             "trigger_ids": triggers,
             "trigger_evidence": trigger_evidence_rows,
@@ -1960,7 +1972,11 @@ def lightweight_path_review(
         comparison_boundary_id="",
         candidate_set_fingerprint="",
         rewrite_set_fingerprint="",
-        necessity_witness_set_fingerprint=_witness_set_fingerprint(necessity_witnesses),
+        necessity_witness_set_fingerprint=(
+            _witness_set_fingerprint(necessity_witnesses)
+            if explicit_deep_request
+            else _witness_set_fingerprint(())
+        ),
         detail_evidence_fingerprint=detail_fingerprint,
         producer_id=producer_id,
         currentness_id=currentness_id,

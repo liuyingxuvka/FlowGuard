@@ -148,16 +148,10 @@ logs are kept visible as suggestions. These findings do not make the model fail
 by themselves; they prevent overclaiming current FlowGuard adoption from stale
 evidence.
 
-For low-friction logging, the CLI can append start and finish entries:
-
-```powershell
-python -m flowguard adoption-start --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>"
-python -m flowguard adoption-finish --task-id <id> --task-summary "<summary>" --trigger-reason "<reason>" --command "<check command>"
-```
-
-The start command records `in_progress`; the finish command appends the final
-entry. This is a reporting helper only. It does not replace model checks,
-scenario review, conformance replay, or test execution.
+Adoption records are emitted by the selected lifecycle result with the task,
+trigger, command identity, and final evidence fields. There is no separate
+start/finish command. Logging remains a reporting helper and never replaces
+model checks, scenario review, conformance replay, or test execution.
 
 ## DevelopmentProcessFlow Front Door
 
@@ -463,58 +457,24 @@ hidden requirements, or replace explicit domain modeling.
 
 ## Starter Templates
 
-FlowGuard includes small public templates that are safe to copy into another
-project:
-
-```powershell
-python -m flowguard project-template --output .
-python -m flowguard project-adoption-template --output .
-python -m flowguard risk-intent-template --output .
-python -m flowguard risk-template-library-template --output .
-python -m flowguard plan-detailing-template --output .
-python -m flowguard model-miss-template --output .
-python -m flowguard model-test-alignment-template --output .
-python -m flowguard development-process-flow-template --output .
-```
-
-The project adoption template writes the target-project AGENTS block,
-`.flowguard/project.toml`, and starter adoption notes with the FlowGuard GitHub
-URL and version policy. The basic project template demonstrates validation,
-rejection, duplicate input, source-trace invariants, completion evidence, and a
-known-bad variant that must fail. The Risk Intent template shows how to bind a
-`RiskIntent`, `RiskProfile`, minimum model contract, current `KnownBadProof`,
-and `FlowGuardCheckPlan` before running `run_model_first_checks(...)`. The risk
-template library template is the single strict route scaffold for an explicit
-reuse/publication request or current executable evidence of a bounded stable
-pattern intended for use outside the target project. Once triggered, it shows
-how to search packaged public templates, reference the per-machine local
-library, prepare a local candidate, and close harvest as written, merged,
-duplicate-linked, or not-harvestable without hard-coding a developer path.
-Ordinary modeling, repair, maintenance, cleanup, and release do not run it.
-The plan-detailing template shows how to turn a
-rough plan into explicit PlanDetail rows and broken variants before projecting
-to PlanIntake, WorkflowStepContracts, and DevelopmentProcessFlow. The
-model-miss template models the feedback loop
-used when runtime, tests, replay, or manual validation finds a problem after a
-FlowGuard pass. The model-test alignment template compares explicit
-`ModelObligation` rows with plain `TestEvidence` rows so a project can see
-whether model scenarios, invariants, hazards, transitions, or contracts have
-matching current tests. The development process flow template models
-non-trivial staged development or modification with validation, lifecycle
-ordering, artifact overwrite, validation freshness, V-style validation pairs,
-and minimum revalidation before safe continuation, done, or release claims.
-DevelopmentProcessFlow consumes changed artifacts, remembered obligations,
-skipped checks, stale evidence, and structure/reduction signals directly.
-
-These are scaffolds, not reusable business logic. Rename every state field,
-input, output, invariant, and blindspot to match the target project before
-claiming confidence.
-
-The development process flow helper is the simulator front door and
-execution-freshness owner. It can reference evidence produced by ModelMesh,
-TestMesh, StructureMesh, Model-Test Alignment, LongCheck, or Conformance
-Adoption through evidence ids and artifact-version metadata, but it does not
-inspect or supervise those route owners.
+FlowGuard keeps compact templates under the installed skill's assets and
+domain references. A selected `change` request may explicitly ask for one
+template; the operation loads only that template and records its use. Templates
+are not separate command routes and they never replace validation. The basic
+project template demonstrates validation, rejection, duplicate input,
+source-trace invariants, completion evidence, and a known-bad variant that must
+fail. The Risk Intent template binds a `RiskIntent`, `RiskProfile`, minimum
+model contract, current `KnownBadProof`, and `FlowGuardCheckPlan` before
+`run_model_first_checks(...)`. The risk-template library is entered only for
+explicit reuse/publication scope or current executable evidence of a bounded
+stable pattern intended outside the target project; an untriggered task does
+not search it.
+The domain references also include the plan-detailing, model-miss,
+model-test-alignment, and development-process-flow scaffolds. They are
+scaffolds, not reusable business logic: rename every state field, input,
+output, invariant, and blindspot to match the target project before claiming
+confidence. The development-process helper consumes evidence ids and artifact
+versions from its typed owners; it does not supervise those owners.
 
 ## Maintenance Workflow Template
 

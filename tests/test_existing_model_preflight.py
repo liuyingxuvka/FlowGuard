@@ -943,6 +943,21 @@ class ExistingModelPreflightTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         field_names = set(ExistingModelPreflight.__dataclass_fields__)
         serialized = preflight.to_dict()
+        for retired_alias in (
+            "selected_currentness",
+            "execution_status",
+            "as_of_map",
+        ):
+            self.assertNotIn(retired_alias, serialized)
+        self.assertEqual(
+            preflight.selected_source_currentness,
+            serialized["selected_source_currentness"],
+        )
+        self.assertEqual(
+            preflight.execution_evidence_status,
+            serialized["execution_evidence_status"],
+        )
+        self.assertEqual(dict(preflight.as_of), serialized["as_of"])
         for retired_field in (
             "model_angle_review_required",
             "model_angle_deliberations",

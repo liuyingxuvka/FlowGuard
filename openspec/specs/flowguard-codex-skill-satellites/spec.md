@@ -572,3 +572,11 @@ The retained `codex_skill_satellites` model SHALL derive kernel, public-satellit
 #### Scenario: Suite model watches only itself
 - **WHEN** suite-map, governed skills, contracts, suite code/scripts, distribution checks, or suite tests change while only the model and runner fingerprints remain unchanged
 - **THEN** current suite-topology evidence is stale and the model SHALL NOT claim release readiness
+### Compact direct-current boundary (2026-09-22)
+
+The compact closeout keeps one FlowGuard skill and exactly three public operations: `read`, `change`, and `release`. A selected subject loads only its concrete protocol and explicitly named accepted model or evidence. Retired commands, profiles, satellite entrypoints, forwarding files, aliases, compatibility readers, migrations, and fallback routes are removed from the current surface; they are not interpreted or selected as a secondary success path.
+
+#### Scenario: Missing or retired selection blocks
+
+- **WHEN** a request has no unique current subject, names a retired entry, or omits a required accepted identity
+- **THEN** FlowGuard reports a typed blocker with zero producer and zero write effects; it does not widen the scope or try another route.

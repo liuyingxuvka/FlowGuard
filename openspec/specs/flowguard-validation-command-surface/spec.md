@@ -214,3 +214,11 @@ The native command's terminal report SHALL separately expose requested, passed, 
 #### Scenario: Mixed execute and reuse
 - **WHEN** some selected members have exact-current receipts and others are missing or stale
 - **THEN** the terminal report SHALL distinguish the reused members from the executed members and SHALL retain every non-pass member result
+### Compact direct-current boundary (2026-09-22)
+
+The compact closeout keeps one FlowGuard skill and exactly three public operations: `read`, `change`, and `release`. A selected subject loads only its concrete protocol and explicitly named accepted model or evidence. Retired commands, profiles, satellite entrypoints, forwarding files, aliases, compatibility readers, migrations, and fallback routes are removed from the current surface; they are not interpreted or selected as a secondary success path.
+
+#### Scenario: Missing or retired selection blocks
+
+- **WHEN** a request has no unique current subject, names a retired entry, or omits a required accepted identity
+- **THEN** FlowGuard reports a typed blocker with zero producer and zero write effects; it does not widen the scope or try another route.

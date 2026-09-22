@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.69.7 - 2026-09-22
+
+- Retired the legacy FlowGuard command parser and route-reference entry so the
+  executable surface is only `read`, `change`, and `release`.
+- Bound selected reads to the accepted projection shards and kept unchanged
+  changes side-effect free while preserving the evolving current information
+  map.
+- Published the compact source-only patch with direct-current evidence and no
+  compatibility or fallback path.
+
 ## v0.69.6 - 2026-09-22
 
 - Closed the compact one-skill route boundary: the public `flowguard` entry remains the sole installable skill, while domain material is loaded on demand through typed route projections.

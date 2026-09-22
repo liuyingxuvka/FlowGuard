@@ -16,8 +16,11 @@ Never select by keyword score or declaration order. A narrow entry reduces initi
 
 After selecting the kernel, state the protected failure and claim boundary,
 model each block as `Input x State -> Set(Output x State)`, include state, side
-effects, completion evidence, and a known-bad case, then run the declared checks
-and inspect counterexamples. A current public/local risk template is consulted
+effects, completion evidence, and run the declared checks. Per-element good,
+bad, and draft evidence is required only for an explicit architecture
+reduction or candidate comparison; an ordinary change uses its real protected
+failure checks and derived structure coverage, and `read` creates no new
+evidence. A current public/local risk template is consulted
 only when the user explicitly requests template reuse/publication or current
 executable evidence identifies a bounded stable pattern intended for use
 outside the target project.
@@ -39,9 +42,16 @@ Read the selected skill's `Local Material Routing`. Its first protocol owns rout
 
 ### Hard Gates
 
-- Require the real FlowGuard check engine and current AGENTS/project record. Use `project-audit`; use full `project-upgrade` when installed/current versions differ. Never build a fake replacement.
+- Require the real FlowGuard check engine and current AGENTS/project record. Use
+  the current `read`, `change`, or `release` operation with an explicit request
+  file. A missing or stale project record is a blocker; do not invent an
+  adoption or upgrade command.
 - Existing currentness comes only from the sole observed snapshot and its accepted `ModelRevisionSet`. Keep the revision-local delta distinct from the complete `CurrentEffectiveIntentView`, require every current model owner to have one exact effective-intent binding, and never use history, a root intent, or the latest delta as a current fallback.
-- Before model change, freeze task-specific protected failures/boundary and bind native good, bad-per-failure, oracle, and current evidence. Reusable types are not fixed-purpose; there is no weak mode or fallback.
+- Before an explicit architecture reduction or candidate comparison, freeze
+  task-specific protected failures/boundary and bind the required native good,
+  bad-per-failure, oracle, and current evidence. Ordinary changes use their
+  existing protected-failure checks; `read` creates no evidence. There is no
+  weak mode, compatibility path, or fallback.
 - Broad behavior uses the current Behavior Commitment Ledger and Primary Path Authority where path-sensitive. Replacements dispose old fields, aliases, wrappers, and alternate success paths.
 - Missing, failed, stale, skipped, `not_run`, progress-only, or scoped evidence cannot support broad done/release confidence. Risk Evidence Ledger and route-native closure remain required when triggered.
 - Ordinary modeling, repair, maintenance, cleanup, and release do not require
@@ -52,4 +62,6 @@ Read the selected skill's `Local Material Routing`. Its first protocol owns rout
   is required.
 - Plans, peer writes, affected revalidation, sync, install, Git, and release freshness remain owned by DevelopmentProcessFlow; progress is not completion.
 
-For adoption, run target-owned `project-adopt` or `project-upgrade`, then rerun affected model and test owners. Source, package, installed skills, local repository, Git, tag, and release are separate evidence domains.
+For a source or project change, use the declared `change` request and rerun its
+affected model and test owners. Source, package, installed skills, local
+repository, Git, tag, and release are separate evidence domains.

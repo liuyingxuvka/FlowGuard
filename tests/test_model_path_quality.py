@@ -947,7 +947,7 @@ def test_provider_neutral_facts_require_no_python_or_source_language_fields() ->
     assert "python" not in result.to_json().lower()
 
 
-def test_empty_or_witnessless_fact_sets_cannot_claim_one_clear_path() -> None:
+def test_empty_facts_block_but_ordinary_review_does_not_require_witnesses() -> None:
     empty_owner = subject(_model_facts={}, _active_obligation_ids=())
     empty = lightweight_path_review(empty_owner, {})
     assert empty.conclusion == "unresolved"
@@ -956,11 +956,9 @@ def test_empty_or_witnessless_fact_sets_cannot_claim_one_clear_path() -> None:
     facts = clean_facts()
     owner = subject(_model_facts=facts)
     witnessless = lightweight_path_review(owner, facts)
-    assert witnessless.conclusion == "unresolved"
-    assert "active_obligation_inventory_missing" in witnessless.unresolved_ids
-    assert any(
-        gap.startswith("missing_necessity_witness:") for gap in witnessless.unresolved_ids
-    )
+    assert witnessless.conclusion == "single_clear_path"
+    assert witnessless.unresolved_ids == ()
+    assert witnessless.necessity_witness_set_fingerprint == canonical_fingerprint([])
 
 
 def test_caller_cannot_shrink_the_retained_element_denominator() -> None:
