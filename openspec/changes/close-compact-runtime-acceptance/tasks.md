@@ -70,7 +70,7 @@
 
 ## C11 — Run one final full test owner and read-only qualification
 
-- [x] Run the single final FlowGuard pytest owner in the declared Windows CPython environment and confirm no descendants remain; record the actual result for this frozen revision and require exit 0. The only initial failure was the migrated stale public-template assertion, which passed on its targeted rerun.
+- [x] Run the single final FlowGuard pytest owner in the declared Windows CPython environment and confirm no descendants remain; the final current revision produced 3115 passed tests and 915 subtests with exit 0 in 1308.70 seconds. The earlier stale public-template assertion was migrated before this final run.
 - [x] Run read-only current-authority and reverse-surface checks; no read operation creates a new current pointer, receipt, or project metadata mutation.
 - [x] Require full collection success, current native/self evidence, and explicit unrun platform boundaries; no platform-specific claim is made from local Windows evidence.
 
