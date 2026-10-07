@@ -524,10 +524,10 @@
       "surface_count": 25
     },
     {
-      "source_bytes": 186554,
-      "source_fingerprint": "sha256:a62f230abd71b9c738414893f49435a4f2ca72fc5e1e20f04d30edbed7be044f",
+      "source_bytes": 197853,
+      "source_fingerprint": "sha256:c88b257e866697c0990634497153687a15125d022460c0733abc67452235a50c",
       "source_path": "flowguard/__main__.py",
-      "surface_count": 426
+      "surface_count": 446
     },
     {
       "source_bytes": 37530,
@@ -986,10 +986,10 @@
       "surface_count": 381
     },
     {
-      "source_bytes": 248663,
-      "source_fingerprint": "sha256:48626684407008794675ab70e253bac4bb5624d202132ff7895e5da5021eb432",
+      "source_bytes": 254043,
+      "source_fingerprint": "sha256:59ba5e9fd505df3b574ae9b66074115188c8f6778453637295c4941f5e21891f",
       "source_path": "flowguard/model_authority_store.py",
-      "surface_count": 778
+      "surface_count": 788
     },
     {
       "source_bytes": 36119,
@@ -1839,7 +1839,7 @@
     },
     {
       "source_bytes": 1260,
-      "source_fingerprint": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca",
+      "source_fingerprint": "sha256:9be6eeed65fa97c06679770e578d0c6666ba8e3ded9786dadde4b6b3ce648b3a",
       "source_path": "pyproject.toml",
       "surface_count": 3
     },
@@ -2128,13 +2128,13 @@
   ],
   "findings": [],
   "max_rows": 5000,
-  "plan_fingerprint": "sha256:c82c43f847069036bf3a321fbee44b462732002d431c014840d317f781d45a1c",
+  "plan_fingerprint": "sha256:bc6fd5654274298c5552d74244f76d0d538ef41a0d8d39fa7d137f54a60c0d47",
   "schema_version": "flowguard.implementation_surface_shard_plan.v1",
   "shards": [
     {
-      "estimated_surface_count": 4614,
+      "estimated_surface_count": 4634,
       "shard_id": "implementation-surface-0000",
-      "source_bytes": 1661489,
+      "source_bytes": 1672788,
       "source_file_count": 109,
       "source_paths": [
         "examples/__init__.py",
@@ -2320,9 +2320,9 @@
       ]
     },
     {
-      "estimated_surface_count": 4428,
+      "estimated_surface_count": 4438,
       "shard_id": "implementation-surface-0003",
-      "source_bytes": 1587241,
+      "source_bytes": 1592621,
       "source_file_count": 15,
       "source_paths": [
         "flowguard/model_authority_store.py",

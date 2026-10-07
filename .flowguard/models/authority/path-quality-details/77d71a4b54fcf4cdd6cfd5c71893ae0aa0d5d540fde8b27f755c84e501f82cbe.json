@@ -1,0 +1,295 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:73789762aeb425b0b7ac92c5ba055622be9b50c52af67eedb4a28451ed04dbfe",
+        "effective_intent_view_fingerprint": "sha256:651a26b26d91bf12c6045c78324bcaf2821e20b0533b2d93ab3a9068fb1237a7",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/flowguard_closure_contract/model.py",
+            "source_fingerprint": "sha256:0012171bd7bcac5150f2463d8cdf450868b79b8ecb94d43eb8d2daa2e2021d4d"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:admission_maturation_receipt_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:admission_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:completion_claim",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:maturation_receipt_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:maturation_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:risk_confidence",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:risk_decision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:risk_maturation_receipt_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:flowguard_closure_contract:task_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "writes_by": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ClosureAction",
+          "effects": [],
+          "id": "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract",
+          "inputs": [
+            "external-input:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569"
+          ],
+          "outputs": [
+            "output:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:flowguard_closure_contract:task_id",
+            "field:flowguard_closure_contract:maturation_receipt_id",
+            "field:flowguard_closure_contract:maturation_status",
+            "field:flowguard_closure_contract:admission_maturation_receipt_id",
+            "field:flowguard_closure_contract:admission_status",
+            "field:flowguard_closure_contract:risk_maturation_receipt_id",
+            "field:flowguard_closure_contract:risk_decision",
+            "field:flowguard_closure_contract:risk_confidence"
+          ],
+          "state_input": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0",
+          "state_output": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:1",
+          "validations": [
+            "validation:flowguard_closure_contract:invariant:accepted_closure_requires_exact_upstream_terminals"
+          ],
+          "writes": [
+            "field:flowguard_closure_contract:task_id",
+            "field:flowguard_closure_contract:maturation_receipt_id",
+            "field:flowguard_closure_contract:maturation_status",
+            "field:flowguard_closure_contract:admission_maturation_receipt_id",
+            "field:flowguard_closure_contract:admission_status",
+            "field:flowguard_closure_contract:risk_maturation_receipt_id",
+            "field:flowguard_closure_contract:risk_decision",
+            "field:flowguard_closure_contract:risk_confidence",
+            "field:flowguard_closure_contract:completion_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract",
+          "producer_id": "transition:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract",
+          "outputs": [
+            "output:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract"
+          ],
+          "reads": [
+            "field:flowguard_closure_contract:task_id",
+            "field:flowguard_closure_contract:maturation_receipt_id",
+            "field:flowguard_closure_contract:maturation_status",
+            "field:flowguard_closure_contract:admission_maturation_receipt_id",
+            "field:flowguard_closure_contract:admission_status",
+            "field:flowguard_closure_contract:risk_maturation_receipt_id",
+            "field:flowguard_closure_contract:risk_decision",
+            "field:flowguard_closure_contract:risk_confidence"
+          ],
+          "source": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0",
+          "target": "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:1",
+          "trigger": "ClosureAction",
+          "validations": [
+            "validation:flowguard_closure_contract:invariant:accepted_closure_requires_exact_upstream_terminals"
+          ],
+          "writes": [
+            "field:flowguard_closure_contract:task_id",
+            "field:flowguard_closure_contract:maturation_receipt_id",
+            "field:flowguard_closure_contract:maturation_status",
+            "field:flowguard_closure_contract:admission_maturation_receipt_id",
+            "field:flowguard_closure_contract:admission_status",
+            "field:flowguard_closure_contract:risk_maturation_receipt_id",
+            "field:flowguard_closure_contract:risk_decision",
+            "field:flowguard_closure_contract:risk_confidence",
+            "field:flowguard_closure_contract:completion_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:flowguard_closure_contract",
+          "id": "validation:flowguard_closure_contract:invariant:accepted_closure_requires_exact_upstream_terminals",
+          "obligation_id": "obligation:native-invariant:flowguard_closure_contract:accepted_closure_requires_exact_upstream_terminals",
+          "oracle_id": "oracle:native-invariant:flowguard_closure_contract:accepted_closure_requires_exact_upstream_terminals",
+          "subject_fingerprint": "sha256:1295609188070a2e9afdd426a774914e71ad3e2a1ecd17232f1cb84fbf9ae43c"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:flowguard_closure_contract:admission_maturation_receipt_id": "field",
+      "field:flowguard_closure_contract:admission_status": "field",
+      "field:flowguard_closure_contract:completion_claim": "field",
+      "field:flowguard_closure_contract:maturation_receipt_id": "field",
+      "field:flowguard_closure_contract:maturation_status": "field",
+      "field:flowguard_closure_contract:risk_confidence": "field",
+      "field:flowguard_closure_contract:risk_decision": "field",
+      "field:flowguard_closure_contract:risk_maturation_receipt_id": "field",
+      "field:flowguard_closure_contract:task_id": "field",
+      "function-block:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract": "function_block",
+      "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0": "state",
+      "state:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:1": "state",
+      "transition:workflow:flowguard_closure_contract:thin_closure_contract:0:3e905c6d9569:0:ThinClosureContract": "transition",
+      "validation:flowguard_closure_contract:invariant:accepted_closure_requires_exact_upstream_terminals": "validation"
+    },
+    "subject_fingerprint": "sha256:5035e8532b90ebdd0cc03a04431d5f9a7cb8d1601dd8df4c86a044213dab94cd",
+    "trigger_currentness_id": "sha256:2a54da9d46f93daccff9dd930c84398c9dd3578cc69825f1fe32ee40bb4c70c6",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:77d71a4b54fcf4cdd6cfd5c71893ae0aa0d5d540fde8b27f755c84e501f82cbe",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

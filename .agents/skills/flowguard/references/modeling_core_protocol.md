@@ -189,6 +189,7 @@ no automatic blueprint work.
 Missing or wrong required types are input blockers. Missing verifier evidence,
 native material, target bindings or currentness stays a missing outcome/gap;
 malformed selectors and identity errors are blockers, never successful closure.
+Start ordinary selected software reads with the first-page functional summary: current, target, three gaps, temporary compromises and unknowns. Use the actual selected-scope denominators; missing task ID fields remain unobserved null counts. Typed compromises retain their affected outcomes, obligations and revisit conditions; they do not prove required outcomes. Use the first gap's actual state, detail reference and next owner; unresolved details or an incomplete decision basis require the current referenced detail/cursor. Read only verdict-changing references, and request the complete selected batch only when that closure is required. Preserve the original functional scope, deepest-known layer and stopping decision.
 Return `requested_outcome_ids`, `satisfied_outcome_ids`, `missing_outcome_ids`,
 `required_obligation_ids`, `required_owner_ids`, `gap_ids`, `next_actions` and
 `stopping_disposition`. Follow only the first gap's actual next owner/material

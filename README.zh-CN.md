@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.8` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.9` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -711,7 +711,7 @@ distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`�
 模板文件由选中的 skill route 按需加载，不是公共 CLI 操作。运行 `python -m flowguard --help`
 查看当前精确的三个操作。
 
-FlowGuard v0.69.8 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.9 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 公共 `release` 只在本地核验已接受 current；打 tag 和 GitHub 发布是独立维护事务：

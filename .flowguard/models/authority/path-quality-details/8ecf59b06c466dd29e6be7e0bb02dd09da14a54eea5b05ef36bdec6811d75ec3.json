@@ -1,0 +1,98 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:7ab980b0f5e2566a0c6c1e3179e604a1fa823bf98e8753e662b8b8bdc6f2262b",
+        "effective_intent_view_fingerprint": "sha256:651a26b26d91bf12c6045c78324bcaf2821e20b0533b2d93ab3a9068fb1237a7",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/harden_ui_content_visibility_validation/model.py",
+            "source_fingerprint": "sha256:80fb67522e218fb35143411faa18e7ee58dd4abd458f69885cbe26f84fcea00e"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "declaration": "def contract_exhaustion_plan() -> ContractExhaustionPlan:\n    axis_ids = (\"visibility_class\", \"mapping_target\", \"ui_state\", \"user_need_ref\")\n    axes = (\n        ContractAxis(\n            \"visibility_class\",\n            model_id=\"ui_flow_structure_skill\",\n            values=(\"user_visible\", \"user_on_demand\", \"internal\", \"unknown\"),\n        ),\n        ContractAxis(\n            \"mapping_target\",\n            model_id=\"ui_flow_structure_skill\",\n            values=(\"none\", \"display\", \"visible_surface\", \"text\", \"observed\"),\n        ),\n        ContractAxis(\n            \"ui_state\",\n            model_id=\"ui_flow_structure_skill\",\n            values=(\"closed\", \"revealed\"),\n        ),\n        ContractAxis(\n            \"user_need_ref\",\n            model_id=\"ui_flow_structure_skill\",\n            values=(\"absent\", \"present\"),\n        ),\n    )\n    return ContractExhaustionPlan(\n        \"ui-content-visibility-matrix\",\n        model_id=\"ui_flow_structure_skill\",\n        axes=axes,\n        interaction_groups=(\n            ContractInteractionGroup(\n                \"content-admission\",\n                model_id=\"ui_flow_structure_skill\",\n                axis_ids=axis_ids,\n                required_routes=(\n                    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,\n                    CONTRACT_ROUTE_TEST_MESH,\n                    CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,\n                ),\n                oracle_status=CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,\n                description=\"Each tuple is resolved by the executable 80-case reviewer oracle.\",\n            ),\n        ),\n        require_model_coverage_receipt=True,\n        coverage_universe=ContractCoverageUniverse(\n            \"ui-content-admission-universe\",\n            claim_scope=\"finite-matrix\",\n            source_refs=(\n                \"openspec:ui-content-visibility-classification\",\n                \"openspec:ui-content-visibility-enforcement\",\n            ),\n            required_axis_ids=axis_ids,\n            required_interaction_group_ids=(\"content-admission\",),\n            required_coverage_receipt_ids=(CONTRACT_COVERAGE_RECEIPT_ID,),\n        ),\n        require_coverage_universe=True,\n    )",
+            "evidence_role": "source_contract_only",
+            "source_symbol": "contract_exhaustion_plan"
+          },
+          "id": "function-block:harden_ui_content_visibility_validation:contract:contract_exhaustion_plan"
+        },
+        {
+          "contract": {
+            "declaration": "def model_test_alignment_plan() -> ModelTestAlignmentPlan:\n    core_command = _command_text(CORE_PYTEST_ARGS)\n    obligation = ModelObligation(\n        OBLIGATION_ID,\n        description=(\n            \"Every state-exposing UI candidate is classified as default-visible, \"\n            \"on-demand, or internal before any ordinary UI mapping is accepted.\"\n        ),\n        required_test_kinds=(TEST_KIND_HAPPY_PATH, TEST_KIND_FAILURE_PATH),\n        risk_level=\"high\",\n        external_inputs=(\"candidate content\", \"visibility class\", \"mapping target\", \"interaction state\", \"typed user need\"),\n        external_outputs=(\"admitted display\", \"blocked mapping\", \"on-demand disclosure\"),\n        error_paths=(\"unclassified content\", \"internal mapping\", \"closed-state leak\", \"inaccessible disclosure\"),\n    )\n    contract = CodeContract(\n        CODE_CONTRACT_ID,\n        path=\"flowguard/ui_structure.py\",\n        symbol=\"review_ui_content_visibility\",\n        role=CODE_CONTRACT_ROLE_OWNER,\n        implements_obligations=(OBLIGATION_ID,),\n        external_inputs=obligation.external_inputs,\n        external_outputs=obligation.external_outputs,\n        error_paths=obligation.error_paths,\n    )\n    return ModelTestAlignmentPlan(\n        \"ui-content-visibility-admission\",\n        obligations=(obligation,),\n        code_contracts=(contract,),\n        test_evidence=(\n            TestEvidence(\n                TEST_EVIDENCE_IDS[0],\n                test_name=\"UI content admission positive and task-control cases\",\n                path=\"tests/test_ui_structure.py\",\n                command=core_command,\n                result_status=\"passed\",\n                test_kind=TEST_KIND_HAPPY_PATH,\n                covered_obligations=(OBLIGATION_ID,),\n                covered_code_contracts=(CODE_CONTRACT_ID,),\n                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,\n                proof_artifact=_proof(\n                    \"artifact:ui-content-admission:happy\",\n                    CORE_JUNIT,\n                    OBLIGATION_ID,\n                    command=core_command,\n                ),\n            ),\n            TestEvidence(\n                TEST_EVIDENCE_IDS[1],\n                test_name=\"UI content admission semantic false-pass regressions\",\n                path=\"tests/test_ui_structure.py\",\n                command=core_command,\n                result_status=\"passed\",\n                test_kind=TEST_KIND_FAILURE_PATH,\n                covered_obligations=(OBLIGATION_ID,),\n                covered_code_contracts=(CODE_CONTRACT_ID,),\n                assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,\n                proof_artifact=_proof(\n                    \"artifact:ui-content-admission:failure\",\n                    CORE_JUNIT,\n                    OBLIGATION_ID,\n                    command=core_command,\n                ),\n            ),\n        ),\n        require_proof_artifacts=True,\n    )",
+            "evidence_role": "source_contract_only",
+            "source_symbol": "model_test_alignment_plan"
+          },
+          "id": "function-block:harden_ui_content_visibility_validation:contract:model_test_alignment_plan"
+        },
+        {
+          "contract": {
+            "declaration": "def risk_evidence_ledger_plan() -> RiskEvidenceLedgerPlan:\n    proof_specs = (\n        (\"evidence:ui-content-core\", CORE_JUNIT, _command_text(CORE_PYTEST_ARGS), \"flowguard-model-test-alignment\", \"Core admission and semantic false-pass regressions passed.\"),\n        (\"evidence:ui-content-templates\", TEMPLATE_JUNIT, _command_text(TEMPLATE_PYTEST_ARGS), \"flowguard-ui-flow-structure\", \"Public templates preserve the content-admission boundary.\"),\n        (\"evidence:ui-content-matrix\", MATRIX_JUNIT, _command_text(MATRIX_PYTEST_ARGS), \"flowguard-contract-exhaustion-mesh\", \"All 80 declared matrix combinations executed against the real reviewer.\"),\n        (\"evidence:ui-content-owner-model\", UI_MODEL_RESULT, \"python .flowguard/verification/owners/ui_flow_structure_skill/run_checks.py\", \"flowguard-ui-flow-structure\", \"Owner rollout model and known-bad variants passed.\"),\n        (\"evidence:ui-content-real-surface\", REAL_SURFACE_RESULT, \"python .flowguard/verification/owners/harden_ui_real_surface_validation/run_checks.py\", \"flowguard-ui-flow-structure\", \"Allowed-versus-observed real-surface model passed.\"),\n        (\"evidence:ui-content-behavior-ledger\", BEHAVIOR_LEDGER_RESULT, \"python .flowguard/verification/owners/behavior_commitment_ledger/run_checks.py\", \"flowguard-behavior-commitment-ledger\", \"Behavior commitment ledger passed with canonical bindings.\"),\n        (\"evidence:ui-content-field-handoff\", FIELD_LIFECYCLE_RESULT, \"python .flowguard/verification/owners/default_replacement_field_lifecycle/run_checks.py\", \"flowguard-field-lifecycle-mesh\", \"Ordinary-UI reader field handoff model and concrete contract passed.\"),\n    )\n    proofs = tuple(\n        RiskEvidenceProof(\n            evidence_id,\n            result_status=RISK_PROOF_STATUS_PASSED,\n            producer_route=producer_route,\n            command=command,\n            summary=summary,\n            proof_artifact=_proof(\n                f\"artifact:risk:{evidence_id.removeprefix('evidence:')}\",\n                path,\n                OBLIGATION_ID,\n                command=command,\n                producer_route=producer_route,\n            ),\n        )\n        for evidence_id, path, command, producer_route, summary in proof_specs\n    )\n    return RiskEvidenceLedgerPlan(\n        \"ledger:harden-ui-content-visibility\",\n        rows=(\n            RiskEvidenceRow(\n                \"risk:internal-or-unclassified-content-leaks-to-ordinary-ui\",\n                model_obligation_id=OBLIGATION_ID,\n                code_contract_id=CODE_CONTRACT_ID,\n                proof_evidence_ids=tuple(item.evidence_id for item in proofs),\n                gates=(\n                    RiskEvidenceGate(RISK_GATE_UI_IMPLEMENTATION, \"ui:content-admission-implementation\"),\n                    RiskEvidenceGate(RISK_GATE_UI_REAL_SURFACE, \"ui:allowed-vs-observed-content\"),\n                    RiskEvidenceGate(RISK_GATE_UI_FUNCTIONAL_CHAIN, \"ui:on-demand-reveal-return\"),\n                    RiskEvidenceGate(RISK_GATE_UI_HUMAN_OPERABILITY, \"ui:keyboard-focus-dismiss\"),\n                    RiskEvidenceGate(RISK_GATE_CONTRACT_COVERAGE_SHARD, CONTRACT_SHARD_ID),\n                    RiskEvidenceGate(RISK_GATE_TEST_SPLIT, \"testmesh:harden-ui-content-visibility\"),\n                ),\n            ),\n        ),\n        proof_evidence=proofs,\n        require_proof_artifacts=True,\n        allow_scoped_confidence=False,\n    )",
+            "evidence_role": "source_contract_only",
+            "source_symbol": "risk_evidence_ledger_plan"
+          },
+          "id": "function-block:harden_ui_content_visibility_validation:contract:risk_evidence_ledger_plan"
+        },
+        {
+          "contract": {
+            "declaration": "def test_mesh_plan() -> TestMeshPlan:\n    core_command = _command_text(CORE_PYTEST_ARGS)\n    template_command = _command_text(TEMPLATE_PYTEST_ARGS)\n    matrix_command = _command_text(MATRIX_PYTEST_ARGS)\n    items = (\n        TestPartitionItem(\"ui-content-core\", owner_suite_id=\"ui-content-core\"),\n        TestPartitionItem(\"ui-content-templates\", owner_suite_id=\"ui-content-templates\"),\n        TestPartitionItem(\n            CONTRACT_SHARD_ID,\n            item_type=\"contract_coverage_shard\",\n            owner_suite_id=\"ui-content-contract-matrix\",\n        ),\n    )\n    suites = (\n        TestSuiteEvidence(\n            \"ui-content-core\",\n            command=core_command,\n            result_status=\"passed\",\n            evidence_tier=EVIDENCE_CONFORMANCE_GREEN,\n            test_count=_junit_test_count(CORE_JUNIT),\n            selected_count=_junit_test_count(CORE_JUNIT),\n            exit_code=0,\n            result_path=_artifact_path(CORE_JUNIT),\n            proof_artifact=_proof(\n                \"artifact:testmesh:ui-content-core\",\n                CORE_JUNIT,\n                \"ui-content-core\",\n                command=core_command,\n            ),\n        ),\n        TestSuiteEvidence(\n            \"ui-content-templates\",\n            command=template_command,\n            result_status=\"passed\",\n            evidence_tier=EVIDENCE_CONFORMANCE_GREEN,\n            test_count=_junit_test_count(TEMPLATE_JUNIT),\n            selected_count=_junit_test_count(TEMPLATE_JUNIT),\n            exit_code=0,\n            result_path=_artifact_path(TEMPLATE_JUNIT),\n            proof_artifact=_proof(\n                \"artifact:testmesh:ui-content-templates\",\n                TEMPLATE_JUNIT,\n                \"ui-content-templates\",\n                command=template_command,\n            ),\n        ),\n        TestSuiteEvidence(\n            \"ui-content-contract-matrix\",\n            command=matrix_command,\n            layer=TEST_LAYER_CONTRACT_COMBINATION_SHARD,\n            result_status=\"passed\",\n            evidence_tier=EVIDENCE_CONFORMANCE_GREEN,\n            test_count=_junit_test_count(MATRIX_JUNIT),\n            selected_count=_junit_test_count(MATRIX_JUNIT),\n            exit_code=0,\n            result_path=_artifact_path(MATRIX_JUNIT),\n            owned_coverage_shard_ids=(CONTRACT_SHARD_ID,),\n            proof_artifact=_proof(\n                \"artifact:testmesh:ui-content-contract-matrix\",\n                MATRIX_JUNIT,\n                CONTRACT_SHARD_ID,\n                command=matrix_command,\n                producer_route=\"flowguard-contract-exhaustion-mesh\",\n            ),\n        ),\n    )\n    return TestMeshPlan(\n        \"harden-ui-content-visibility\",\n        partition_items=items,\n        child_suites=suites,\n        target_split_derivation=TestTargetSplitDerivation(\n            \"ui-content-visibility-admission\",\n            target_suite_ids=tuple(item.suite_id for item in suites),\n            covered_partition_item_ids=tuple(item.item_id for item in items),\n            source_model_path=\".flowguard/models/owners/ui_flow_structure_skill/model.py\",\n            rationale=\"Separate core contract, public template, and finite matrix evidence.\",\n        ),\n        required_coverage_shard_ids=(CONTRACT_SHARD_ID,),\n        required_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,\n        require_proof_artifacts=True,\n        decision_scope=\"high_risk\",\n        release_deferred_allowed=False,\n    )",
+            "evidence_role": "source_contract_only",
+            "source_symbol": "test_mesh_plan"
+          },
+          "id": "function-block:harden_ui_content_visibility_validation:contract:test_mesh_plan"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:harden_ui_content_visibility_validation:contract:contract_exhaustion_plan": "function_block",
+      "function-block:harden_ui_content_visibility_validation:contract:model_test_alignment_plan": "function_block",
+      "function-block:harden_ui_content_visibility_validation:contract:risk_evidence_ledger_plan": "function_block",
+      "function-block:harden_ui_content_visibility_validation:contract:test_mesh_plan": "function_block"
+    },
+    "subject_fingerprint": "sha256:0b772d1ab705000e0eef952765aab6e68ea9d8c39dd88d99b603e77c7466fb17",
+    "trigger_currentness_id": "sha256:2a54da9d46f93daccff9dd930c84398c9dd3578cc69825f1fe32ee40bb4c70c6",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:8ecf59b06c466dd29e6be7e0bb02dd09da14a54eea5b05ef36bdec6811d75ec3",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

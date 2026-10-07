@@ -1,0 +1,1406 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:2f1a18f61151c31319ca113fbba3a74a41fd9cb2e95817f49cec9e45249fb0f5",
+        "effective_intent_view_fingerprint": "sha256:651a26b26d91bf12c6045c78324bcaf2821e20b0533b2d93ab3a9068fb1237a7",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/architecture_reduction/model.py",
+            "source_fingerprint": "sha256:474e4e93281ec8c810cc4bf03b903710ec5a0f602a022dd1a8289d9c6e232e04"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:ArchitectureReductionPolicy",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:action_authorized_candidate_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:affected_object_reference_denominator_indexed_once",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:all_reduction_signal_families_dispositioned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_auto_discovery_one_exact_current_canonical_aggregate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_duplicate_current_aggregate_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_injected_registry_rejected",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_proof_batch_reuse_explicit_finite",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:audit_stale_history_ignored",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:caller_edges_canonical_and_unambiguous",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:caller_relations_indexed_once",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidate_evidence_neighborhoods_content_addressed_once",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidate_evidence_references_exact_and_fail_closed",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidate_retain_authority_is_independent",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidate_signal_dispositions_are_relation_aware",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidate_tests_are_semantically_executed",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:candidates_classified",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:canonical_relation_provenance_materialized",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:cleanup_release_ready",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:code_mapping_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:compact_projection_avoids_full_expansion",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:companion_route_triggers",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:comparison_candidate_batches_finite_and_bounded",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:completed_candidates_not_requeued",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:conflicting_member_actions_have_unique_primary",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:existing_model_grounded",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:expected_candidate_inventory_declared",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:expected_candidates_materialized",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:external_promise_exact_model_code_test_binding",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:facade_delegation_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:facade_evidence_derived_from_current_authorities",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:facade_has_no_independent_success",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:final_blueprint_denominator_rebuilt",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:identifier_only_semantic_difference_rejected",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:large_immutable_report_fingerprints_cached",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:large_payload_fingerprints_streamed",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:maintenance_candidate_requires_exact_related_multi_surface",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:maintenance_lexical_name_is_signal_only",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:no_direct_code_rewrite",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:observable_contract_declared",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:on_demand_triggers_explicit",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:ordinary_contraction_behavior_equivalent",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:parity_replays_bound_behavior_oracles",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:proof_status_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:public_entrypoint_structuremesh_gate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:public_role_without_promise_rejected",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_mode",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_proof_execution_unique_per_candidate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_proof_store_is_canonical",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_proof_store_is_confined_non_reparse",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_proofs_independently_verified",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_proofs_use_executed_child_receipts",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:reduction_review_final_currentness_rechecked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retain_and_unresolved_dispositions_independently_evidenced",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retained_implementation_necessity_witness_current_and_independent",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retained_route_internal_steps_classified",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_has_no_compatibility_survival",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_negative_cases_preserved",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_proof_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_proof_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_replacement_owners_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:retirement_responsibilities_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:review_and_proof_execution_are_separate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:review_status",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:risky_candidates_kept_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:same_commitment_candidates_stay_unresolved",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:self_blueprint_identity_exact_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:self_maintenance_blueprint_built_once",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:step_action_vocabulary_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:step_cost_evidence_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:step_cost_is_priority_only",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:step_decision_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:target_structure_handoff",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:test_and_model_validation_evidence_namespaces_separate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:unique_safety_responsibilities_preserved",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:unresolved_candidate_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:unresolved_step_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:architecture_reduction:validation_gates_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ArchitectureReductionCase",
+          "effects": [],
+          "id": "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan",
+          "inputs": [
+            "external-input:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78"
+          ],
+          "outputs": [
+            "output:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:architecture_reduction:ArchitectureReductionPolicy"
+          ],
+          "state_input": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0",
+          "state_output": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:1",
+          "validations": [
+            "validation:architecture_reduction:invariant:existing_model_is_grounded",
+            "validation:architecture_reduction:invariant:observable_contract_exists",
+            "validation:architecture_reduction:invariant:code_mapping_exists",
+            "validation:architecture_reduction:invariant:candidates_and_proofs_are_visible",
+            "validation:architecture_reduction:invariant:risky_candidates_are_not_deleted_silently",
+            "validation:architecture_reduction:invariant:public_entrypoints_use_structuremesh_gate",
+            "validation:architecture_reduction:invariant:target_structure_handoff_exists",
+            "validation:architecture_reduction:invariant:completed_candidates_leave_active_queue",
+            "validation:architecture_reduction:invariant:companion_route_triggers_exist",
+            "validation:architecture_reduction:invariant:architecture_reduction_does_not_rewrite_code",
+            "validation:architecture_reduction:invariant:validation_gates_remain_visible",
+            "validation:architecture_reduction:invariant:behavior_change_requires_complete_current_retirement_proof",
+            "validation:architecture_reduction:invariant:expected_candidate_inventory_is_complete",
+            "validation:architecture_reduction:invariant:retained_route_steps_use_evidence_bound_actions",
+            "validation:architecture_reduction:invariant:self_reduction_claim_is_independently_evidence_bound",
+            "validation:architecture_reduction:invariant:retained_implementation_requires_semantic_necessity",
+            "validation:architecture_reduction:invariant:public_role_is_not_a_current_promise",
+            "validation:architecture_reduction:invariant:maintenance_lexical_signal_requires_exact_relation",
+            "validation:architecture_reduction:invariant:read_only_audit_uses_one_current_aggregate_proof",
+            "validation:architecture_reduction:invariant:canonical_relation_provenance_is_materialized",
+            "validation:architecture_reduction:invariant:retained_facades_delegate_only",
+            "validation:architecture_reduction:invariant:self_reduction_execution_is_single_pass",
+            "validation:architecture_reduction:invariant:audit_completion_is_distinct_from_cleanup_authorization"
+          ],
+          "writes": [
+            "field:architecture_reduction:case_name",
+            "field:architecture_reduction:existing_model_grounded",
+            "field:architecture_reduction:observable_contract_declared",
+            "field:architecture_reduction:code_mapping_present",
+            "field:architecture_reduction:candidates_classified",
+            "field:architecture_reduction:proof_status_visible",
+            "field:architecture_reduction:risky_candidates_kept_visible",
+            "field:architecture_reduction:public_entrypoint_structuremesh_gate",
+            "field:architecture_reduction:target_structure_handoff",
+            "field:architecture_reduction:completed_candidates_not_requeued",
+            "field:architecture_reduction:companion_route_triggers",
+            "field:architecture_reduction:no_direct_code_rewrite",
+            "field:architecture_reduction:validation_gates_visible",
+            "field:architecture_reduction:reduction_mode",
+            "field:architecture_reduction:retirement_proof_present",
+            "field:architecture_reduction:retirement_proof_current",
+            "field:architecture_reduction:retirement_responsibilities_complete",
+            "field:architecture_reduction:retirement_replacement_owners_current",
+            "field:architecture_reduction:retirement_negative_cases_preserved",
+            "field:architecture_reduction:retirement_has_no_compatibility_survival",
+            "field:architecture_reduction:ordinary_contraction_behavior_equivalent",
+            "field:architecture_reduction:expected_candidate_inventory_declared",
+            "field:architecture_reduction:expected_candidates_materialized",
+            "field:architecture_reduction:all_reduction_signal_families_dispositioned",
+            "field:architecture_reduction:self_blueprint_identity_exact_current",
+            "field:architecture_reduction:retain_and_unresolved_dispositions_independently_evidenced",
+            "field:architecture_reduction:candidate_signal_dispositions_are_relation_aware",
+            "field:architecture_reduction:candidate_retain_authority_is_independent",
+            "field:architecture_reduction:same_commitment_candidates_stay_unresolved",
+            "field:architecture_reduction:retained_implementation_necessity_witness_current_and_independent",
+            "field:architecture_reduction:test_and_model_validation_evidence_namespaces_separate",
+            "field:architecture_reduction:identifier_only_semantic_difference_rejected",
+            "field:architecture_reduction:public_role_without_promise_rejected",
+            "field:architecture_reduction:external_promise_exact_model_code_test_binding",
+            "field:architecture_reduction:maintenance_lexical_name_is_signal_only",
+            "field:architecture_reduction:maintenance_candidate_requires_exact_related_multi_surface",
+            "field:architecture_reduction:reduction_proofs_independently_verified",
+            "field:architecture_reduction:reduction_proofs_use_executed_child_receipts",
+            "field:architecture_reduction:candidate_tests_are_semantically_executed",
+            "field:architecture_reduction:parity_replays_bound_behavior_oracles",
+            "field:architecture_reduction:reduction_proof_store_is_canonical",
+            "field:architecture_reduction:reduction_proof_store_is_confined_non_reparse",
+            "field:architecture_reduction:reduction_proof_execution_unique_per_candidate",
+            "field:architecture_reduction:facade_evidence_derived_from_current_authorities",
+            "field:architecture_reduction:caller_edges_canonical_and_unambiguous",
+            "field:architecture_reduction:conflicting_member_actions_have_unique_primary",
+            "field:architecture_reduction:reduction_review_final_currentness_rechecked",
+            "field:architecture_reduction:final_blueprint_denominator_rebuilt",
+            "field:architecture_reduction:review_and_proof_execution_are_separate",
+            "field:architecture_reduction:audit_auto_discovery_one_exact_current_canonical_aggregate",
+            "field:architecture_reduction:audit_proof_batch_reuse_explicit_finite",
+            "field:architecture_reduction:audit_injected_registry_rejected",
+            "field:architecture_reduction:audit_stale_history_ignored",
+            "field:architecture_reduction:audit_duplicate_current_aggregate_blocked",
+            "field:architecture_reduction:canonical_relation_provenance_materialized",
+            "field:architecture_reduction:facade_delegation_current",
+            "field:architecture_reduction:facade_has_no_independent_success",
+            "field:architecture_reduction:caller_relations_indexed_once",
+            "field:architecture_reduction:self_maintenance_blueprint_built_once",
+            "field:architecture_reduction:compact_projection_avoids_full_expansion",
+            "field:architecture_reduction:large_immutable_report_fingerprints_cached",
+            "field:architecture_reduction:large_payload_fingerprints_streamed",
+            "field:architecture_reduction:candidate_evidence_neighborhoods_content_addressed_once",
+            "field:architecture_reduction:comparison_candidate_batches_finite_and_bounded",
+            "field:architecture_reduction:candidate_evidence_references_exact_and_fail_closed",
+            "field:architecture_reduction:affected_object_reference_denominator_indexed_once",
+            "field:architecture_reduction:retained_route_internal_steps_classified",
+            "field:architecture_reduction:step_action_vocabulary_current",
+            "field:architecture_reduction:step_cost_evidence_current",
+            "field:architecture_reduction:step_cost_is_priority_only",
+            "field:architecture_reduction:unique_safety_responsibilities_preserved",
+            "field:architecture_reduction:on_demand_triggers_explicit",
+            "field:architecture_reduction:audit_complete",
+            "field:architecture_reduction:step_decision_complete",
+            "field:architecture_reduction:action_authorized_candidate_ids",
+            "field:architecture_reduction:unresolved_candidate_ids",
+            "field:architecture_reduction:unresolved_step_ids",
+            "field:architecture_reduction:cleanup_release_ready",
+            "field:architecture_reduction:review_status"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan",
+          "producer_id": "transition:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan",
+          "outputs": [
+            "output:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan"
+          ],
+          "reads": [
+            "field:architecture_reduction:ArchitectureReductionPolicy"
+          ],
+          "source": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0",
+          "target": "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:1",
+          "trigger": "ArchitectureReductionCase",
+          "validations": [
+            "validation:architecture_reduction:invariant:existing_model_is_grounded",
+            "validation:architecture_reduction:invariant:observable_contract_exists",
+            "validation:architecture_reduction:invariant:code_mapping_exists",
+            "validation:architecture_reduction:invariant:candidates_and_proofs_are_visible",
+            "validation:architecture_reduction:invariant:risky_candidates_are_not_deleted_silently",
+            "validation:architecture_reduction:invariant:public_entrypoints_use_structuremesh_gate",
+            "validation:architecture_reduction:invariant:target_structure_handoff_exists",
+            "validation:architecture_reduction:invariant:completed_candidates_leave_active_queue",
+            "validation:architecture_reduction:invariant:companion_route_triggers_exist",
+            "validation:architecture_reduction:invariant:architecture_reduction_does_not_rewrite_code",
+            "validation:architecture_reduction:invariant:validation_gates_remain_visible",
+            "validation:architecture_reduction:invariant:behavior_change_requires_complete_current_retirement_proof",
+            "validation:architecture_reduction:invariant:expected_candidate_inventory_is_complete",
+            "validation:architecture_reduction:invariant:retained_route_steps_use_evidence_bound_actions",
+            "validation:architecture_reduction:invariant:self_reduction_claim_is_independently_evidence_bound",
+            "validation:architecture_reduction:invariant:retained_implementation_requires_semantic_necessity",
+            "validation:architecture_reduction:invariant:public_role_is_not_a_current_promise",
+            "validation:architecture_reduction:invariant:maintenance_lexical_signal_requires_exact_relation",
+            "validation:architecture_reduction:invariant:read_only_audit_uses_one_current_aggregate_proof",
+            "validation:architecture_reduction:invariant:canonical_relation_provenance_is_materialized",
+            "validation:architecture_reduction:invariant:retained_facades_delegate_only",
+            "validation:architecture_reduction:invariant:self_reduction_execution_is_single_pass",
+            "validation:architecture_reduction:invariant:audit_completion_is_distinct_from_cleanup_authorization"
+          ],
+          "writes": [
+            "field:architecture_reduction:case_name",
+            "field:architecture_reduction:existing_model_grounded",
+            "field:architecture_reduction:observable_contract_declared",
+            "field:architecture_reduction:code_mapping_present",
+            "field:architecture_reduction:candidates_classified",
+            "field:architecture_reduction:proof_status_visible",
+            "field:architecture_reduction:risky_candidates_kept_visible",
+            "field:architecture_reduction:public_entrypoint_structuremesh_gate",
+            "field:architecture_reduction:target_structure_handoff",
+            "field:architecture_reduction:completed_candidates_not_requeued",
+            "field:architecture_reduction:companion_route_triggers",
+            "field:architecture_reduction:no_direct_code_rewrite",
+            "field:architecture_reduction:validation_gates_visible",
+            "field:architecture_reduction:reduction_mode",
+            "field:architecture_reduction:retirement_proof_present",
+            "field:architecture_reduction:retirement_proof_current",
+            "field:architecture_reduction:retirement_responsibilities_complete",
+            "field:architecture_reduction:retirement_replacement_owners_current",
+            "field:architecture_reduction:retirement_negative_cases_preserved",
+            "field:architecture_reduction:retirement_has_no_compatibility_survival",
+            "field:architecture_reduction:ordinary_contraction_behavior_equivalent",
+            "field:architecture_reduction:expected_candidate_inventory_declared",
+            "field:architecture_reduction:expected_candidates_materialized",
+            "field:architecture_reduction:all_reduction_signal_families_dispositioned",
+            "field:architecture_reduction:self_blueprint_identity_exact_current",
+            "field:architecture_reduction:retain_and_unresolved_dispositions_independently_evidenced",
+            "field:architecture_reduction:candidate_signal_dispositions_are_relation_aware",
+            "field:architecture_reduction:candidate_retain_authority_is_independent",
+            "field:architecture_reduction:same_commitment_candidates_stay_unresolved",
+            "field:architecture_reduction:retained_implementation_necessity_witness_current_and_independent",
+            "field:architecture_reduction:test_and_model_validation_evidence_namespaces_separate",
+            "field:architecture_reduction:identifier_only_semantic_difference_rejected",
+            "field:architecture_reduction:public_role_without_promise_rejected",
+            "field:architecture_reduction:external_promise_exact_model_code_test_binding",
+            "field:architecture_reduction:maintenance_lexical_name_is_signal_only",
+            "field:architecture_reduction:maintenance_candidate_requires_exact_related_multi_surface",
+            "field:architecture_reduction:reduction_proofs_independently_verified",
+            "field:architecture_reduction:reduction_proofs_use_executed_child_receipts",
+            "field:architecture_reduction:candidate_tests_are_semantically_executed",
+            "field:architecture_reduction:parity_replays_bound_behavior_oracles",
+            "field:architecture_reduction:reduction_proof_store_is_canonical",
+            "field:architecture_reduction:reduction_proof_store_is_confined_non_reparse",
+            "field:architecture_reduction:reduction_proof_execution_unique_per_candidate",
+            "field:architecture_reduction:facade_evidence_derived_from_current_authorities",
+            "field:architecture_reduction:caller_edges_canonical_and_unambiguous",
+            "field:architecture_reduction:conflicting_member_actions_have_unique_primary",
+            "field:architecture_reduction:reduction_review_final_currentness_rechecked",
+            "field:architecture_reduction:final_blueprint_denominator_rebuilt",
+            "field:architecture_reduction:review_and_proof_execution_are_separate",
+            "field:architecture_reduction:audit_auto_discovery_one_exact_current_canonical_aggregate",
+            "field:architecture_reduction:audit_proof_batch_reuse_explicit_finite",
+            "field:architecture_reduction:audit_injected_registry_rejected",
+            "field:architecture_reduction:audit_stale_history_ignored",
+            "field:architecture_reduction:audit_duplicate_current_aggregate_blocked",
+            "field:architecture_reduction:canonical_relation_provenance_materialized",
+            "field:architecture_reduction:facade_delegation_current",
+            "field:architecture_reduction:facade_has_no_independent_success",
+            "field:architecture_reduction:caller_relations_indexed_once",
+            "field:architecture_reduction:self_maintenance_blueprint_built_once",
+            "field:architecture_reduction:compact_projection_avoids_full_expansion",
+            "field:architecture_reduction:large_immutable_report_fingerprints_cached",
+            "field:architecture_reduction:large_payload_fingerprints_streamed",
+            "field:architecture_reduction:candidate_evidence_neighborhoods_content_addressed_once",
+            "field:architecture_reduction:comparison_candidate_batches_finite_and_bounded",
+            "field:architecture_reduction:candidate_evidence_references_exact_and_fail_closed",
+            "field:architecture_reduction:affected_object_reference_denominator_indexed_once",
+            "field:architecture_reduction:retained_route_internal_steps_classified",
+            "field:architecture_reduction:step_action_vocabulary_current",
+            "field:architecture_reduction:step_cost_evidence_current",
+            "field:architecture_reduction:step_cost_is_priority_only",
+            "field:architecture_reduction:unique_safety_responsibilities_preserved",
+            "field:architecture_reduction:on_demand_triggers_explicit",
+            "field:architecture_reduction:audit_complete",
+            "field:architecture_reduction:step_decision_complete",
+            "field:architecture_reduction:action_authorized_candidate_ids",
+            "field:architecture_reduction:unresolved_candidate_ids",
+            "field:architecture_reduction:unresolved_step_ids",
+            "field:architecture_reduction:cleanup_release_ready",
+            "field:architecture_reduction:review_status"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:architecture_reduction_does_not_rewrite_code",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:architecture_reduction_does_not_rewrite_code",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:architecture_reduction_does_not_rewrite_code",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:audit_completion_is_distinct_from_cleanup_authorization",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:audit_completion_is_distinct_from_cleanup_authorization",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:audit_completion_is_distinct_from_cleanup_authorization",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:behavior_change_requires_complete_current_retirement_proof",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:behavior_change_requires_complete_current_retirement_proof",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:behavior_change_requires_complete_current_retirement_proof",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:candidates_and_proofs_are_visible",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:candidates_and_proofs_are_visible",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:candidates_and_proofs_are_visible",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:canonical_relation_provenance_is_materialized",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:canonical_relation_provenance_is_materialized",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:canonical_relation_provenance_is_materialized",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:code_mapping_exists",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:code_mapping_exists",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:code_mapping_exists",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:companion_route_triggers_exist",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:companion_route_triggers_exist",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:companion_route_triggers_exist",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:completed_candidates_leave_active_queue",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:completed_candidates_leave_active_queue",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:completed_candidates_leave_active_queue",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:existing_model_is_grounded",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:existing_model_is_grounded",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:existing_model_is_grounded",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:expected_candidate_inventory_is_complete",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:expected_candidate_inventory_is_complete",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:expected_candidate_inventory_is_complete",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:maintenance_lexical_signal_requires_exact_relation",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:maintenance_lexical_signal_requires_exact_relation",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:maintenance_lexical_signal_requires_exact_relation",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:observable_contract_exists",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:observable_contract_exists",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:observable_contract_exists",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:public_entrypoints_use_structuremesh_gate",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:public_entrypoints_use_structuremesh_gate",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:public_entrypoints_use_structuremesh_gate",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:public_role_is_not_a_current_promise",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:public_role_is_not_a_current_promise",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:public_role_is_not_a_current_promise",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:read_only_audit_uses_one_current_aggregate_proof",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:read_only_audit_uses_one_current_aggregate_proof",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:read_only_audit_uses_one_current_aggregate_proof",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:retained_facades_delegate_only",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:retained_facades_delegate_only",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:retained_facades_delegate_only",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:retained_implementation_requires_semantic_necessity",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:retained_implementation_requires_semantic_necessity",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:retained_implementation_requires_semantic_necessity",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:retained_route_steps_use_evidence_bound_actions",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:retained_route_steps_use_evidence_bound_actions",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:retained_route_steps_use_evidence_bound_actions",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:risky_candidates_are_not_deleted_silently",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:risky_candidates_are_not_deleted_silently",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:risky_candidates_are_not_deleted_silently",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:self_reduction_claim_is_independently_evidence_bound",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:self_reduction_claim_is_independently_evidence_bound",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:self_reduction_claim_is_independently_evidence_bound",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:self_reduction_execution_is_single_pass",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:self_reduction_execution_is_single_pass",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:self_reduction_execution_is_single_pass",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:target_structure_handoff_exists",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:target_structure_handoff_exists",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:target_structure_handoff_exists",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        },
+        {
+          "evidence_boundary_id": "native-runner:architecture_reduction",
+          "id": "validation:architecture_reduction:invariant:validation_gates_remain_visible",
+          "obligation_id": "obligation:native-invariant:architecture_reduction:validation_gates_remain_visible",
+          "oracle_id": "oracle:native-invariant:architecture_reduction:validation_gates_remain_visible",
+          "subject_fingerprint": "sha256:c4a8930c0a8a15d442deca8417b4a45918c2aea348ea7c6b43039713543d8277"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:architecture_reduction:ArchitectureReductionPolicy": "field",
+      "field:architecture_reduction:action_authorized_candidate_ids": "field",
+      "field:architecture_reduction:affected_object_reference_denominator_indexed_once": "field",
+      "field:architecture_reduction:all_reduction_signal_families_dispositioned": "field",
+      "field:architecture_reduction:audit_auto_discovery_one_exact_current_canonical_aggregate": "field",
+      "field:architecture_reduction:audit_complete": "field",
+      "field:architecture_reduction:audit_duplicate_current_aggregate_blocked": "field",
+      "field:architecture_reduction:audit_injected_registry_rejected": "field",
+      "field:architecture_reduction:audit_proof_batch_reuse_explicit_finite": "field",
+      "field:architecture_reduction:audit_stale_history_ignored": "field",
+      "field:architecture_reduction:caller_edges_canonical_and_unambiguous": "field",
+      "field:architecture_reduction:caller_relations_indexed_once": "field",
+      "field:architecture_reduction:candidate_evidence_neighborhoods_content_addressed_once": "field",
+      "field:architecture_reduction:candidate_evidence_references_exact_and_fail_closed": "field",
+      "field:architecture_reduction:candidate_retain_authority_is_independent": "field",
+      "field:architecture_reduction:candidate_signal_dispositions_are_relation_aware": "field",
+      "field:architecture_reduction:candidate_tests_are_semantically_executed": "field",
+      "field:architecture_reduction:candidates_classified": "field",
+      "field:architecture_reduction:canonical_relation_provenance_materialized": "field",
+      "field:architecture_reduction:case_name": "field",
+      "field:architecture_reduction:cleanup_release_ready": "field",
+      "field:architecture_reduction:code_mapping_present": "field",
+      "field:architecture_reduction:compact_projection_avoids_full_expansion": "field",
+      "field:architecture_reduction:companion_route_triggers": "field",
+      "field:architecture_reduction:comparison_candidate_batches_finite_and_bounded": "field",
+      "field:architecture_reduction:completed_candidates_not_requeued": "field",
+      "field:architecture_reduction:conflicting_member_actions_have_unique_primary": "field",
+      "field:architecture_reduction:existing_model_grounded": "field",
+      "field:architecture_reduction:expected_candidate_inventory_declared": "field",
+      "field:architecture_reduction:expected_candidates_materialized": "field",
+      "field:architecture_reduction:external_promise_exact_model_code_test_binding": "field",
+      "field:architecture_reduction:facade_delegation_current": "field",
+      "field:architecture_reduction:facade_evidence_derived_from_current_authorities": "field",
+      "field:architecture_reduction:facade_has_no_independent_success": "field",
+      "field:architecture_reduction:final_blueprint_denominator_rebuilt": "field",
+      "field:architecture_reduction:identifier_only_semantic_difference_rejected": "field",
+      "field:architecture_reduction:large_immutable_report_fingerprints_cached": "field",
+      "field:architecture_reduction:large_payload_fingerprints_streamed": "field",
+      "field:architecture_reduction:maintenance_candidate_requires_exact_related_multi_surface": "field",
+      "field:architecture_reduction:maintenance_lexical_name_is_signal_only": "field",
+      "field:architecture_reduction:no_direct_code_rewrite": "field",
+      "field:architecture_reduction:observable_contract_declared": "field",
+      "field:architecture_reduction:on_demand_triggers_explicit": "field",
+      "field:architecture_reduction:ordinary_contraction_behavior_equivalent": "field",
+      "field:architecture_reduction:parity_replays_bound_behavior_oracles": "field",
+      "field:architecture_reduction:proof_status_visible": "field",
+      "field:architecture_reduction:public_entrypoint_structuremesh_gate": "field",
+      "field:architecture_reduction:public_role_without_promise_rejected": "field",
+      "field:architecture_reduction:reduction_mode": "field",
+      "field:architecture_reduction:reduction_proof_execution_unique_per_candidate": "field",
+      "field:architecture_reduction:reduction_proof_store_is_canonical": "field",
+      "field:architecture_reduction:reduction_proof_store_is_confined_non_reparse": "field",
+      "field:architecture_reduction:reduction_proofs_independently_verified": "field",
+      "field:architecture_reduction:reduction_proofs_use_executed_child_receipts": "field",
+      "field:architecture_reduction:reduction_review_final_currentness_rechecked": "field",
+      "field:architecture_reduction:retain_and_unresolved_dispositions_independently_evidenced": "field",
+      "field:architecture_reduction:retained_implementation_necessity_witness_current_and_independent": "field",
+      "field:architecture_reduction:retained_route_internal_steps_classified": "field",
+      "field:architecture_reduction:retirement_has_no_compatibility_survival": "field",
+      "field:architecture_reduction:retirement_negative_cases_preserved": "field",
+      "field:architecture_reduction:retirement_proof_current": "field",
+      "field:architecture_reduction:retirement_proof_present": "field",
+      "field:architecture_reduction:retirement_replacement_owners_current": "field",
+      "field:architecture_reduction:retirement_responsibilities_complete": "field",
+      "field:architecture_reduction:review_and_proof_execution_are_separate": "field",
+      "field:architecture_reduction:review_status": "field",
+      "field:architecture_reduction:risky_candidates_kept_visible": "field",
+      "field:architecture_reduction:same_commitment_candidates_stay_unresolved": "field",
+      "field:architecture_reduction:self_blueprint_identity_exact_current": "field",
+      "field:architecture_reduction:self_maintenance_blueprint_built_once": "field",
+      "field:architecture_reduction:step_action_vocabulary_current": "field",
+      "field:architecture_reduction:step_cost_evidence_current": "field",
+      "field:architecture_reduction:step_cost_is_priority_only": "field",
+      "field:architecture_reduction:step_decision_complete": "field",
+      "field:architecture_reduction:target_structure_handoff": "field",
+      "field:architecture_reduction:test_and_model_validation_evidence_namespaces_separate": "field",
+      "field:architecture_reduction:unique_safety_responsibilities_preserved": "field",
+      "field:architecture_reduction:unresolved_candidate_ids": "field",
+      "field:architecture_reduction:unresolved_step_ids": "field",
+      "field:architecture_reduction:validation_gates_visible": "field",
+      "function-block:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan": "function_block",
+      "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0": "state",
+      "state:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:1": "state",
+      "transition:workflow:architecture_reduction:architecture_reduction_rollout:0:ad5c688d5e78:0:EvaluateArchitectureReductionPlan": "transition",
+      "validation:architecture_reduction:invariant:architecture_reduction_does_not_rewrite_code": "validation",
+      "validation:architecture_reduction:invariant:audit_completion_is_distinct_from_cleanup_authorization": "validation",
+      "validation:architecture_reduction:invariant:behavior_change_requires_complete_current_retirement_proof": "validation",
+      "validation:architecture_reduction:invariant:candidates_and_proofs_are_visible": "validation",
+      "validation:architecture_reduction:invariant:canonical_relation_provenance_is_materialized": "validation",
+      "validation:architecture_reduction:invariant:code_mapping_exists": "validation",
+      "validation:architecture_reduction:invariant:companion_route_triggers_exist": "validation",
+      "validation:architecture_reduction:invariant:completed_candidates_leave_active_queue": "validation",
+      "validation:architecture_reduction:invariant:existing_model_is_grounded": "validation",
+      "validation:architecture_reduction:invariant:expected_candidate_inventory_is_complete": "validation",
+      "validation:architecture_reduction:invariant:maintenance_lexical_signal_requires_exact_relation": "validation",
+      "validation:architecture_reduction:invariant:observable_contract_exists": "validation",
+      "validation:architecture_reduction:invariant:public_entrypoints_use_structuremesh_gate": "validation",
+      "validation:architecture_reduction:invariant:public_role_is_not_a_current_promise": "validation",
+      "validation:architecture_reduction:invariant:read_only_audit_uses_one_current_aggregate_proof": "validation",
+      "validation:architecture_reduction:invariant:retained_facades_delegate_only": "validation",
+      "validation:architecture_reduction:invariant:retained_implementation_requires_semantic_necessity": "validation",
+      "validation:architecture_reduction:invariant:retained_route_steps_use_evidence_bound_actions": "validation",
+      "validation:architecture_reduction:invariant:risky_candidates_are_not_deleted_silently": "validation",
+      "validation:architecture_reduction:invariant:self_reduction_claim_is_independently_evidence_bound": "validation",
+      "validation:architecture_reduction:invariant:self_reduction_execution_is_single_pass": "validation",
+      "validation:architecture_reduction:invariant:target_structure_handoff_exists": "validation",
+      "validation:architecture_reduction:invariant:validation_gates_remain_visible": "validation"
+    },
+    "subject_fingerprint": "sha256:f10d38951d2731ccfbef9d9abd4639f2d92fd7a889fb434f520551429d30e683",
+    "trigger_currentness_id": "sha256:2a54da9d46f93daccff9dd930c84398c9dd3578cc69825f1fe32ee40bb4c70c6",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:7102e4f7f3400e0424d0f08a9c38998f7a090fe2117fe3cd7da6d33aed829297",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

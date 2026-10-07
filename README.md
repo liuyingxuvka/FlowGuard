@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.8` | `1.0` | Python standard library only | MIT |
+| `v0.69.9` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -784,7 +784,7 @@ The internal domain references and template files are loaded by the selected
 skill route; they are not public CLI operations. Run `python -m flowguard
 --help` to see the exact three-operation public surface.
 
-FlowGuard v0.69.8 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.9 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 

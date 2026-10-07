@@ -291,13 +291,6 @@ def _write_consumer(root: Path) -> None:
         ),
     }
     runner_prelude = (
-        "import sys, types\n"
-        "if 'flowguard' not in sys.modules:\n"
-        "    _pkg = types.ModuleType('flowguard')\n"
-        "    _pkg.__path__ = [__import__('pathlib').Path(__file__).resolve().parents[4].joinpath('flowguard').as_posix()]\n"
-        "    _pkg.__package__ = 'flowguard'\n"
-        "    sys.modules['flowguard'] = _pkg\n"
-        "\n"
         "def make_report(cases, function_name):\n"
         "    results = []\n"
         "    for case in cases:\n"

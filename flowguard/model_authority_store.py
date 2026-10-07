@@ -5249,11 +5249,13 @@ def derive_architecture_read_projection(root, *, head, projection, selected_mode
                             if key not in {"effective_intent_view_fingerprint", "source_identity_fingerprint"}}
                            for objective in objectives)
     result = ArchitectureReadProjection(head.fingerprint, head.accepted_revision_set_fingerprint, head.snapshot_fingerprint, projection["index_fingerprint"], requested, tuple(scopes), view_fp, objective_refs, tuple(finding_refs), tuple(suggestions), tuple(sorted(observations)), tuple(sorted(improvements)), confidence, improvement_pointers=tuple(pointer_refs), scope_proof_refs=tuple(scope_proofs))
-    return replace(result, summary=_architecture_understanding_summary(result.to_dict(), context))
+    return replace(result, summary=_architecture_understanding_summary(result.to_dict(), context,
+        selected_model_ids=selected))
 
 
-def _architecture_understanding_summary(architecture, context, *, growth_gaps=(),
-                                       live_detection="NOT_OBSERVED", functional_understanding=None):
+def _architecture_understanding_summary(architecture, context, *, selected_model_ids,
+                                       growth_gaps=(), live_detection="NOT_OBSERVED",
+                                       functional_understanding=None):
     """Bounded current/target/gap/action/scope navigation, never new authority."""
     scopes = architecture.get("facts_scope", ())
     pointers = architecture.get("improvement_pointers", ())
@@ -5267,15 +5269,88 @@ def _architecture_understanding_summary(architecture, context, *, growth_gaps=()
             elif surface.surface_id in inventory.required_surface_ids and surface.surface_id not in bound:
                 unknown.add(surface.surface_id)
     functional = dict(functional_understanding or {})
-    return {"current": {"selected_model_count": len(scopes),
+
+    def functional_count(field):
+        # Missing task material is unobserved, not a proven empty denominator.
+        values = functional.get(field)
+        return len(set(values)) if isinstance(values, (list, tuple)) else None
+
+    selected = sorted(set(selected_model_ids))
+    targets = sorted({row["objective"]["objective_id"] for row in architecture.get("objective_refs", ())})
+    observation_gaps = list(architecture.get("observation_gap_ids", ()))
+    improvement_gaps = list(architecture.get("improvement_gap_ids", ()))
+    growth_gap_ids = sorted({row["gap_id"] for row in growth_gaps})
+
+    def distinct_refs(rows):
+        # Original records keep all raw, receipt and as-of fields. This only
+        # removes exact duplicates; it neither resolves nor reads a reference.
+        return list({canonical_fingerprint(row): dict(row) for row in rows}.values())
+
+    compromises = []
+    for pointer in pointers:
+        if pointer["kind"] == "temporary_compromise":
+            _validate_architecture_pointer_read_reference(pointer)
+            compromises.append(pointer)
+    compromise_ids = sorted({row["pointer_id"] for row in compromises})
+    compromise_refs = distinct_refs(row["detail_ref"] for row in compromises)
+    task_refs = [*functional.get("detail_refs", ()), *functional.get("evidence_refs", ())]
+    for key in ("gap_report_ref", "growth_report_ref"):
+        if isinstance(functional.get(key), Mapping):
+            task_refs.append(functional[key])
+    detail_refs = distinct_refs([*task_refs,
+        *(row["detail_ref"] for row in scopes),
+        *(row["detail_ref"] for row in pointers)])
+
+    first_gap = functional.get("first_gap")
+    if isinstance(first_gap, Mapping):
+        first_gap = _selected_json_value(first_gap)
+        report_ref = functional.get("gap_report_ref")
+    elif growth_gaps:
+        first_gap = _selected_json_value(growth_gaps[0])
+        report_ref = functional.get("growth_report_ref")
+    else:
+        first_gap = None
+        report_ref = None
+
+    def raw_ref(value):
+        if (isinstance(value, Mapping) and isinstance(value.get("path"), str)
+                and value["path"] and isinstance(value.get("sha256"), str)
+                and re.fullmatch(r"[0-9a-f]{64}", value["sha256"])):
+            return dict(value)
+        return None
+
+    first_gap_ref = raw_ref(report_ref)
+    if first_gap is not None and first_gap_ref is None:
+        first_gap_ref = raw_ref(first_gap.get("detail_ref")) or raw_ref(first_gap.get("input_ref"))
+        input_path = first_gap.get("input_ref", first_gap.get("path"))
+        if first_gap_ref is None and isinstance(input_path, str):
+            first_gap_ref = next((ref for row in detail_refs
+                if (ref := raw_ref(row)) is not None and ref["path"] == input_path), None)
+            # A growth row can name an actually observed Source file without a
+            # separate report. Use only this invocation's materialized bytes;
+            # missing/unavailable paths never gain a made-up raw fingerprint.
+            if (first_gap_ref is None and input_path not in getattr(context, "missing_paths", ())
+                    and first_gap.get("observed_state") not in {"missing", "unavailable"}):
+                payload = getattr(context, "payloads", {}).get(input_path)
+                if payload is not None:
+                    first_gap_ref = {"path": input_path, "sha256": hashlib.sha256(payload).hexdigest()}
+    unresolved = bool(observation_gaps or improvement_gaps or growth_gap_ids or unknown
+        or compromise_ids or functional.get("gap_ids") or functional.get("missing_outcome_ids"))
+    first_gap_state = "present" if first_gap is not None else "unresolved_details" if unresolved else "none"
+    next_owner = first_gap.get("next_owner_id") if first_gap is not None else None
+    next_owners = ([next_owner] if isinstance(next_owner, str) and next_owner else
+        sorted({owner for row in pointers for owner in row["next_owner_ids"]}))
+    if first_gap_ref is not None:
+        detail_refs = distinct_refs([*detail_refs, first_gap_ref])
+    return {"current": {"selected_model_count": len(selected),
         "responsibility_count": sum(row["responsibility_count"] for row in scopes),
         "behavior_model_count": statuses.count("behavior_model_only"),
         "native_check_count": statuses.count("native_check_only"),
         "functional_model_count": statuses.count("functional_scope_proven")},
-        "target": sorted({row["objective"]["objective_id"] for row in architecture.get("objective_refs", ())}),
-        "gap": {"observation_gap_ids": list(architecture.get("observation_gap_ids", ())),
-                "improvement_gap_ids": list(architecture.get("improvement_gap_ids", ())),
-                "growth_gap_ids": sorted({row["gap_id"] for row in growth_gaps}),
+        "target": targets,
+        "gap": {"observation_gap_ids": observation_gaps,
+                "improvement_gap_ids": improvement_gaps,
+                "growth_gap_ids": growth_gap_ids,
                 "task_first_gap_ref": functional.get("gap_report_ref")},
         "action": {"pointer_ids": sorted({row["pointer_id"] for row in pointers}),
             "action_target_count": sum(row["action_target_count"] for row in pointers),
@@ -5284,8 +5359,24 @@ def _architecture_understanding_summary(architecture, context, *, growth_gaps=()
                 (pointer["detail_ref"] for pointer in pointers)}.values()]},
         "scope": {"claim_scope": "finite_selected_models", "scoped_out_surface_count": len(scoped_out),
             "unknown_surface_count": len(unknown), "live_unregistered_file_detection": live_detection,
-            "deepest_proven_layer": functional.get("deepest_proven_layer", "unknown")}}
-
+            "deepest_proven_layer": functional.get("deepest_proven_layer", "unknown")},
+        "denominator": {"selected_model_ids": selected, "selected_model_count": len(selected),
+            "target_count": len(targets),
+            "requested_outcome_count": functional_count("requested_outcome_ids"),
+            "satisfied_outcome_count": functional_count("satisfied_outcome_ids"),
+            "missing_outcome_count": functional_count("missing_outcome_ids"),
+            "required_obligation_count": functional_count("required_obligation_ids"),
+            "required_owner_count": functional_count("required_owner_ids"),
+            "observation_gap_count": len(set(observation_gaps)),
+            "improvement_gap_count": len(set(improvement_gaps)),
+            "growth_gap_count": len(growth_gap_ids),
+            "unknown_surface_count": len(unknown), "scoped_out_surface_count": len(scoped_out)},
+        "compromise": {"count": len(compromise_ids), "pointer_ids": compromise_ids,
+            "detail_refs": compromise_refs},
+        "navigation": {"first_gap": first_gap, "first_gap_ref": first_gap_ref,
+            "first_gap_state": first_gap_state, "next_owner_ids": next_owners,
+            "stopping_disposition": functional.get("stopping_disposition", "not_evaluated"),
+            "detail_refs": detail_refs}}
 
 def refresh_architecture_read_understanding(selected_read, context, *, functional_understanding=None):
     """Refresh derived navigation after task/native/growth consumption, no projection."""
@@ -5303,6 +5394,6 @@ def refresh_architecture_read_understanding(selected_read, context, *, functiona
         scopes.append(row)
     architecture["facts_scope"] = scopes
     architecture["summary"] = _architecture_understanding_summary(architecture, context,
-        growth_gaps=selected_read.growth_gaps, live_detection=selected_read.live_unregistered_file_detection,
+        selected_model_ids=selected_read.selected_model_ids, growth_gaps=selected_read.growth_gaps, live_detection=selected_read.live_unregistered_file_detection,
         functional_understanding=functional)
     return replace(selected_read, architecture=architecture)

@@ -1,0 +1,285 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:c816b282535256f9c3068b2b6d8da485ff24a8928eb92aa3860b720b56c47cdb",
+        "effective_intent_view_fingerprint": "sha256:651a26b26d91bf12c6045c78324bcaf2821e20b0533b2d93ab3a9068fb1237a7",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/ai_route_handoffs/model.py",
+            "source_fingerprint": "sha256:c29d8fc13b4283010c1b3ca5c612864fbce100a6ef85f6626a61da70051cb260"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:action_created",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:final_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:owner_action_bound",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:owner_proof_seen",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:owner_route",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:specialist_route_seen",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_route_handoffs:summary_gap_seen",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "HandoffInput",
+          "effects": [],
+          "id": "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff",
+          "inputs": [
+            "external-input:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0"
+          ],
+          "outputs": [
+            "output:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:ai_route_handoffs:summary_gap_seen",
+            "field:ai_route_handoffs:owner_route",
+            "field:ai_route_handoffs:action_created",
+            "field:ai_route_handoffs:owner_action_bound",
+            "field:ai_route_handoffs:specialist_route_seen",
+            "field:ai_route_handoffs:owner_proof_seen",
+            "field:ai_route_handoffs:final_claim"
+          ],
+          "state_input": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0",
+          "state_output": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:1",
+          "validations": [
+            "validation:ai_route_handoffs:invariant:summary_gap_gets_existing_owner_route",
+            "validation:ai_route_handoffs:invariant:action_hint_reaches_selected_owner",
+            "validation:ai_route_handoffs:invariant:full_claim_requires_owner_proof"
+          ],
+          "writes": [
+            "field:ai_route_handoffs:summary_gap_seen",
+            "field:ai_route_handoffs:owner_route",
+            "field:ai_route_handoffs:action_created",
+            "field:ai_route_handoffs:owner_action_bound",
+            "field:ai_route_handoffs:specialist_route_seen",
+            "field:ai_route_handoffs:owner_proof_seen",
+            "field:ai_route_handoffs:final_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff",
+          "producer_id": "transition:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff",
+          "outputs": [
+            "output:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff"
+          ],
+          "reads": [
+            "field:ai_route_handoffs:summary_gap_seen",
+            "field:ai_route_handoffs:owner_route",
+            "field:ai_route_handoffs:action_created",
+            "field:ai_route_handoffs:owner_action_bound",
+            "field:ai_route_handoffs:specialist_route_seen",
+            "field:ai_route_handoffs:owner_proof_seen",
+            "field:ai_route_handoffs:final_claim"
+          ],
+          "source": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0",
+          "target": "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:1",
+          "trigger": "HandoffInput",
+          "validations": [
+            "validation:ai_route_handoffs:invariant:summary_gap_gets_existing_owner_route",
+            "validation:ai_route_handoffs:invariant:action_hint_reaches_selected_owner",
+            "validation:ai_route_handoffs:invariant:full_claim_requires_owner_proof"
+          ],
+          "writes": [
+            "field:ai_route_handoffs:summary_gap_seen",
+            "field:ai_route_handoffs:owner_route",
+            "field:ai_route_handoffs:action_created",
+            "field:ai_route_handoffs:owner_action_bound",
+            "field:ai_route_handoffs:specialist_route_seen",
+            "field:ai_route_handoffs:owner_proof_seen",
+            "field:ai_route_handoffs:final_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:ai_route_handoffs",
+          "id": "validation:ai_route_handoffs:invariant:action_hint_reaches_selected_owner",
+          "obligation_id": "obligation:native-invariant:ai_route_handoffs:action_hint_reaches_selected_owner",
+          "oracle_id": "oracle:native-invariant:ai_route_handoffs:action_hint_reaches_selected_owner",
+          "subject_fingerprint": "sha256:482242ba2dcc4fdf52af828c59feddae5868d7ae4eed9cdda2da232f504d9a00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ai_route_handoffs",
+          "id": "validation:ai_route_handoffs:invariant:full_claim_requires_owner_proof",
+          "obligation_id": "obligation:native-invariant:ai_route_handoffs:full_claim_requires_owner_proof",
+          "oracle_id": "oracle:native-invariant:ai_route_handoffs:full_claim_requires_owner_proof",
+          "subject_fingerprint": "sha256:482242ba2dcc4fdf52af828c59feddae5868d7ae4eed9cdda2da232f504d9a00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ai_route_handoffs",
+          "id": "validation:ai_route_handoffs:invariant:summary_gap_gets_existing_owner_route",
+          "obligation_id": "obligation:native-invariant:ai_route_handoffs:summary_gap_gets_existing_owner_route",
+          "oracle_id": "oracle:native-invariant:ai_route_handoffs:summary_gap_gets_existing_owner_route",
+          "subject_fingerprint": "sha256:482242ba2dcc4fdf52af828c59feddae5868d7ae4eed9cdda2da232f504d9a00"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:ai_route_handoffs:action_created": "field",
+      "field:ai_route_handoffs:final_claim": "field",
+      "field:ai_route_handoffs:owner_action_bound": "field",
+      "field:ai_route_handoffs:owner_proof_seen": "field",
+      "field:ai_route_handoffs:owner_route": "field",
+      "field:ai_route_handoffs:specialist_route_seen": "field",
+      "field:ai_route_handoffs:summary_gap_seen": "field",
+      "function-block:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff": "function_block",
+      "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0": "state",
+      "state:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:1": "state",
+      "transition:workflow:ai_route_handoffs:ai_route_handoff_correct:0:ab05adcb56f0:0:CorrectRouteHandoff": "transition",
+      "validation:ai_route_handoffs:invariant:action_hint_reaches_selected_owner": "validation",
+      "validation:ai_route_handoffs:invariant:full_claim_requires_owner_proof": "validation",
+      "validation:ai_route_handoffs:invariant:summary_gap_gets_existing_owner_route": "validation"
+    },
+    "subject_fingerprint": "sha256:f6258520fa589f957ae0b93a365735d1c4f77e7d718a53228db80cc0ced71ea8",
+    "trigger_currentness_id": "sha256:2a54da9d46f93daccff9dd930c84398c9dd3578cc69825f1fe32ee40bb4c70c6",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:e124ee51c0352c3639b5a97358873a7e3bb9e8b026b3704b2e86f6f3fbfcc1ff",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

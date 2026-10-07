@@ -108,6 +108,23 @@ def test_r9_diagnostic_context_rejects_foreign_head_stale_input_and_forged_close
     view = result["pages"][0]["functional_understanding"]
     assert view["stopping_disposition"] == "needs_evidence"
     assert view["gap_ids"] == ["functional_task_context_invalid"], result
+    unknown_fields = (("requested_outcome_count", "requested_outcome_ids"),
+        ("satisfied_outcome_count", "satisfied_outcome_ids"),
+        ("missing_outcome_count", "missing_outcome_ids"),
+        ("required_obligation_count", "required_obligation_ids"),
+        ("required_owner_count", "required_owner_ids"))
+    for counter, field in unknown_fields:
+        assert field not in view, "Invalid context supplies no proven task denominator"
+        assert result["pages"][0]["architecture"]["summary"]["denominator"][counter] is None
+        assert all(page["understanding_navigation"]["denominator"][counter] is None
+                   for page in result["pages"])
+    navigation = result["pages"][0]["architecture"]["summary"]["navigation"]
+    assert navigation["first_gap"] == view["first_gap"]
+    assert navigation["first_gap_state"] == "present"
+    assert navigation["stopping_disposition"] == view["stopping_disposition"]
+    assert all(page["understanding_transport"]["decision_basis_complete"] is False
+               for page in result["pages"])
+    assert result["understanding_transport"]["decision_basis_complete"] is False
     if damage == "missing_plane":
         assert "four independent source planes" in view["first_gap"]["reason"]
 
@@ -169,6 +186,24 @@ def test_r8_task_context_first_gap_is_actionable_without_producer(tmp_path):
     assert result["stopping_disposition"] == "needs_evidence"
     assert result["first_gap"]["input_ref"] == "missing.json"
     assert result["first_gap"]["next_owner_id"] == "task-model-maturation"
+    from flowguard.model_authority_store import _architecture_understanding_summary
+    summary = _architecture_understanding_summary(
+        {"facts_scope": [], "objective_refs": [], "observation_gap_ids": [],
+         "improvement_gap_ids": [], "improvement_pointers": []},
+        _SelectedReadContext(tmp_path), selected_model_ids=(),
+        functional_understanding=result)
+    assert summary["navigation"]["first_gap"] == result["first_gap"]
+    assert summary["navigation"]["first_gap_ref"] is None
+    assert summary["navigation"]["first_gap_state"] == "present"
+    assert summary["navigation"]["next_owner_ids"] == ["task-model-maturation"]
+    assert summary["navigation"]["stopping_disposition"] == result["stopping_disposition"]
+    for counter, field in (("requested_outcome_count", "requested_outcome_ids"),
+                          ("satisfied_outcome_count", "satisfied_outcome_ids"),
+                          ("missing_outcome_count", "missing_outcome_ids"),
+                          ("required_obligation_count", "required_obligation_ids"),
+                          ("required_owner_count", "required_owner_ids")):
+        assert field not in result
+        assert summary["denominator"][counter] is None
 
 
 def test_r8_task_context_rejects_unknown_forged_or_unsafe_wire(tmp_path):
@@ -220,6 +255,13 @@ def test_r8_task_cursor_is_bound_and_all_functional_lanes_are_lossless(functiona
     batch = _read_operation(root, dict(request, read_batch=True), {})
     assert cursors, "This real finite material must exercise pagination and cursor validation"
     assert batch["pages"] == pages
+    assert all(page["understanding_transport"]["details_complete"] is False for page in pages)
+    assert pages[-1]["next_cursor"] is None
+    assert batch["understanding_transport"]["details_complete"] is True
+    for kind in ("summary", "functional"):
+        assert batch["understanding_transport"][kind + "_record_total"] == pages[0]["understanding_transport"][kind + "_record_total"]
+        assert batch["understanding_transport"][kind + "_record_transported_count"] == sum(
+            page["understanding_transport"][kind + "_record_transported_count"] for page in pages)
     context = _SelectedReadContext(root)
     _, selected, _, _, _ = _current_selected_state(root, "alpha", context, required_model_ids=("beta",))
     from flowguard.functional_read import load_functional_read_context

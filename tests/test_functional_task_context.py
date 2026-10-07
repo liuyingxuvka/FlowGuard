@@ -110,25 +110,18 @@ def functional_case(tmp_path_factory):
         finite_current_design_contributions, prepare_finite_functional_authority,
         prepare_functional_task_request, produce_functional_task_context,
     )
-    original_root = os.environ.get("FLOWGUARD_R8_ORIGINAL_FINITE_ROOT")
-    if original_root:
-        root = Path(original_root).resolve()
-        assert not (root / ".skillguard").exists()
-        assert (root / ".flowguard/work/original/report.json").is_file()
-        from flowguard.model_authority_store import load_current_model_authority_state
-        state = load_current_model_authority_state(root)
-        assert {row.logical_model_id for row in state.snapshot.model_instances} == {"alpha", "beta"}
-    else:
-        root = tmp_path_factory.mktemp("actual-functional")
-        write_r8_finite_native_fixture(root)
-        contributions = finite_current_design_contributions(root)
-        parent = run_manifest_regressions(root, tier="full", jobs=1,
-            output_dir=root / ".flowguard/work/original",
-            receipt_dir=root / ".flowguard/evidence/model-owner-receipts",
-            require_executed_case_ids=True)
-        assert parent.status == "pass", parent.to_dict()
-        state = prepare_finite_functional_authority(repository_root=root, parent=parent,
-            current_design_contributions=contributions)
+    assert not os.environ.get("FLOWGUARD_R8_ORIGINAL_FINITE_ROOT"), (
+        "functional tests must own a fresh module-scoped finite target; protected original reuse is forbidden")
+    root = tmp_path_factory.mktemp("actual-functional")
+    write_r8_finite_native_fixture(root)
+    contributions = finite_current_design_contributions(root)
+    parent = run_manifest_regressions(root, tier="full", jobs=1,
+        output_dir=root / ".flowguard/work/original",
+        receipt_dir=root / ".flowguard/evidence/model-owner-receipts",
+        require_executed_case_ids=True)
+    assert parent.status == "pass", parent.to_dict()
+    state = prepare_finite_functional_authority(repository_root=root, parent=parent,
+        current_design_contributions=contributions)
     for row in state.accepted_revision.path_quality_results:
         assert (root / ".flowguard/models/authority/path-quality-details" / (row.detail_evidence_fingerprint.removeprefix("sha256:") + ".json")).is_file()
     from flowguard.model_authority_store import _SelectedReadContext

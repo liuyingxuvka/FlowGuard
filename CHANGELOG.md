@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.69.9 - 2026-10-06
+
+- Start selected software reads with current/target/gap/temporary-compromise/unknown understanding and actual nullable task denominators.
+- Expose genuine first-gap details and next owner while preserving the original functional scope and stopping decision.
+- Preserve complete cursor/batch transport, the 8192-byte page limit and one projection/one final drift guard.
+
 ## v0.69.8 - 2026-10-02
 
 - Reduce repeated model input scans, raw evidence hashing, and native case

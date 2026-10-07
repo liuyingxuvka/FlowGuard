@@ -1,0 +1,294 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:cff736e97b33c16d32d0276b2116ec9e0137cdfe626c8b2abc9a64d747950e57",
+        "effective_intent_view_fingerprint": "sha256:651a26b26d91bf12c6045c78324bcaf2821e20b0533b2d93ab3a9068fb1237a7",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/primary_path_authority/model.py",
+            "source_fingerprint": "sha256:295ba44dc0053d8fd728ddefa77fdfa10565090554b432452a3ef0608ca7fe14"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "allowed_error_state_ids": [],
+            "authority_role": "primary",
+            "behavior_commitment_id": "commitment:submit-order",
+            "business_intent": "submit order",
+            "business_intent_id": "intent:submit-order",
+            "business_path_id": "submit_order",
+            "evidence_ids": [
+              "runtime:submit-order:no-fallback"
+            ],
+            "expected_terminal": "accepted_or_visible_error",
+            "failure_policy": "fail_closed",
+            "metadata": {},
+            "old_primary_path_disposition": "",
+            "owner_code_contract_id": "orders.submit.contract",
+            "owner_model_id": "orders.submit.model",
+            "preconditions": [],
+            "primary_entrypoint_id": "orders.submit.primary",
+            "proof_artifact": {
+              "artifact_fingerprints": {
+                "orders.submit.contract": "sha256:current"
+              },
+              "artifact_id": "proof:submit-order-primary",
+              "assertion_scope": "external_contract",
+              "cleanup_state": "",
+              "cleanup_verified": null,
+              "command": "python -m pytest tests/test_primary_path_authority.py -q",
+              "covered_obligation_ids": [
+                "obligation:submit-order-primary"
+              ],
+              "current": true,
+              "environment_fingerprint": "",
+              "execution_owner_id": "",
+              "exit_code": 0,
+              "finished_at": "",
+              "metadata": {
+                "behavior_commitment_id": "commitment:submit-order",
+                "business_intent_id": "intent:submit-order",
+                "expected_terminal": "accepted_or_visible_error",
+                "primary_path_id": "submit_order"
+              },
+              "model_fingerprint": "",
+              "producer_route": "runtime_path_evidence",
+              "progress_only": false,
+              "receipt_fingerprint": "",
+              "receipt_id": "",
+              "receipt_path": "",
+              "result_fingerprint": "",
+              "result_path": ".flowguard/evidence/submit-order-primary.json",
+              "result_status": "passed",
+              "route_evidence_current": true,
+              "route_gap_codes": [],
+              "source_fingerprint": "",
+              "stale_reasons": [],
+              "started_at": "",
+              "subject_fingerprint": "",
+              "subject_id": "",
+              "terminal_state": "",
+              "toolchain_fingerprint": ""
+            },
+            "replacement_evidence_ids": [],
+            "replaces_primary_path_id": "",
+            "required_obligation_ids": [
+              "obligation:submit-order-primary"
+            ],
+            "runtime_evidence_state": "current_pass",
+            "runtime_observation_ids": [
+              "runtime:submit-order:no-fallback"
+            ],
+            "side_effects": [],
+            "source_surface_ids": [
+              "surface:orders-primary"
+            ],
+            "state_writes": []
+          },
+          "id": "function-block:primary_path_authority:contract:primary"
+        },
+        {
+          "contract": {
+            "behavior_commitment_ledger_id": "ledger:orders",
+            "claim_scope": "full",
+            "coverage_case_ids": [
+              "ppa.core_no_fallback.submit_order.exception.legacy.primary_failure.return_success"
+            ],
+            "coverage_receipt_ids": [
+              "contract_coverage:primary_path_authority"
+            ],
+            "coverage_shard_ids": [
+              "contract_shard:primary_path_authority:core_no_fallback"
+            ],
+            "existing_current_path_ids": [
+              "submit_order"
+            ],
+            "expected_business_intent_ids": [
+              "intent:submit-order"
+            ],
+            "expected_business_intents": [],
+            "expected_candidate_ids": [
+              "orders.submit.v1"
+            ],
+            "expected_surface_ids": [
+              "surface:orders-primary",
+              "surface:orders-v1"
+            ],
+            "fallback_candidates": [
+              {
+                "behavior_commitment_id": "commitment:submit-order",
+                "business_intent": "submit order",
+                "business_intent_id": "intent:submit-order",
+                "candidate_behavior": "delegate_to_primary",
+                "candidate_path_id": "orders.submit.v1",
+                "candidate_surface": "compatibility_facade",
+                "candidate_trigger": "never",
+                "classification": "external_facade",
+                "compatibility_intent": "external API keeps old entrypoint while delegating to primary path",
+                "delegates_to_path_id": "submit_order",
+                "disposition": "preserve_facade",
+                "evidence_refs": [
+                  "test:legacy-api-delegates-to-primary"
+                ],
+                "expected_terminal": "",
+                "fallback_for_path_id": "submit_order",
+                "in_scope": true,
+                "invokes_on_primary_failure": false,
+                "metadata": {},
+                "proof_artifact": null,
+                "returns_success_after_primary_failure": false,
+                "runtime_observation_ids": [],
+                "scoped_out_reason": "",
+                "shares_business_intent": true,
+                "side_effects": [],
+                "source_surface_id": "surface:orders-v1",
+                "state_writes": []
+              }
+            ],
+            "inventory_evidence_ids": [
+              "inventory:orders-surfaces:v1"
+            ],
+            "inventory_revision": "orders-surface-inventory:v1",
+            "metadata": {},
+            "plan_id": "complete-primary-path-authority",
+            "preflight_id": "preflight:submit-order",
+            "primary_paths": [
+              {
+                "allowed_error_state_ids": [],
+                "authority_role": "primary",
+                "behavior_commitment_id": "commitment:submit-order",
+                "business_intent": "submit order",
+                "business_intent_id": "intent:submit-order",
+                "business_path_id": "submit_order",
+                "evidence_ids": [
+                  "runtime:submit-order:no-fallback"
+                ],
+                "expected_terminal": "accepted_or_visible_error",
+                "failure_policy": "fail_closed",
+                "metadata": {},
+                "old_primary_path_disposition": "",
+                "owner_code_contract_id": "orders.submit.contract",
+                "owner_model_id": "orders.submit.model",
+                "preconditions": [],
+                "primary_entrypoint_id": "orders.submit.primary",
+                "proof_artifact": {
+                  "artifact_fingerprints": {
+                    "orders.submit.contract": "sha256:current"
+                  },
+                  "artifact_id": "proof:submit-order-primary",
+                  "assertion_scope": "external_contract",
+                  "cleanup_state": "",
+                  "cleanup_verified": null,
+                  "command": "python -m pytest tests/test_primary_path_authority.py -q",
+                  "covered_obligation_ids": [
+                    "obligation:submit-order-primary"
+                  ],
+                  "current": true,
+                  "environment_fingerprint": "",
+                  "execution_owner_id": "",
+                  "exit_code": 0,
+                  "finished_at": "",
+                  "metadata": {
+                    "behavior_commitment_id": "commitment:submit-order",
+                    "business_intent_id": "intent:submit-order",
+                    "expected_terminal": "accepted_or_visible_error",
+                    "primary_path_id": "submit_order"
+                  },
+                  "model_fingerprint": "",
+                  "producer_route": "runtime_path_evidence",
+                  "progress_only": false,
+                  "receipt_fingerprint": "",
+                  "receipt_id": "",
+                  "receipt_path": "",
+                  "result_fingerprint": "",
+                  "result_path": ".flowguard/evidence/submit-order-primary.json",
+                  "result_status": "passed",
+                  "route_evidence_current": true,
+                  "route_gap_codes": [],
+                  "source_fingerprint": "",
+                  "stale_reasons": [],
+                  "started_at": "",
+                  "subject_fingerprint": "",
+                  "subject_id": "",
+                  "terminal_state": "",
+                  "toolchain_fingerprint": ""
+                },
+                "replacement_evidence_ids": [],
+                "replaces_primary_path_id": "",
+                "required_obligation_ids": [
+                  "obligation:submit-order-primary"
+                ],
+                "runtime_evidence_state": "current_pass",
+                "runtime_observation_ids": [
+                  "runtime:submit-order:no-fallback"
+                ],
+                "side_effects": [],
+                "source_surface_ids": [
+                  "surface:orders-primary"
+                ],
+                "state_writes": []
+              }
+            ],
+            "require_cartesian_coverage": true,
+            "require_complete_candidate_inventory": false,
+            "require_material_runtime_evidence": false,
+            "risk_gate_ids": [
+              "risk_gate:primary_path_authority",
+              "risk_gate:primary_path_authority_cartesian_coverage"
+            ]
+          },
+          "id": "function-block:primary_path_authority:contract:primary_delegation_failure_plan"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:primary_path_authority:contract:primary": "function_block",
+      "function-block:primary_path_authority:contract:primary_delegation_failure_plan": "function_block"
+    },
+    "subject_fingerprint": "sha256:c1d520660856bd8c4bc8bc0e0aac2d47bbbf05a9e7468a21d81258afacad9455",
+    "trigger_currentness_id": "sha256:2a54da9d46f93daccff9dd930c84398c9dd3578cc69825f1fe32ee40bb4c70c6",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:e55d0129d2b3575f24533b463634a695a22e107fb80ecf782db966934481ad05",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

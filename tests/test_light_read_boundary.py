@@ -135,7 +135,11 @@ def test_r8_read_batch_request_rejects_foreign_or_conflicting_fields(tmp_path, r
 def test_r8_complete_selected_batch_constructs_once_and_preserves_all_lanes(tmp_path, drift):
     import flowguard.__main__ as entry
     from flowguard.model_authority import ModelAuthorityHead, canonical_fingerprint
-    from flowguard.model_authority_store import _artifact_path, render_model_authority_section, SelectedModelClosureRead
+    from flowguard.model_authority_store import (
+        _artifact_path, _architecture_pointer_read_reference,
+        render_model_authority_section, SelectedModelClosureRead,
+    )
+    from flowguard.model_path_quality import ArchitectureImprovementPointer
     head = ModelAuthorityHead("fixture", "sha256:"+"a"*64, "fixture", 1,
         "sha256:"+"b"*64, "", "sha256:"+"c"*64)
     manifest=tmp_path/".flowguard/project.toml"
@@ -151,13 +155,33 @@ def test_r8_complete_selected_batch_constructs_once_and_preserves_all_lanes(tmp_
     source.write_bytes(b"value = 1\n")
     fields=("facts_scope","objective_refs","finding_refs","suggestion_refs","observation_gap_ids","improvement_gap_ids","improvement_pointers","scope_proof_refs")
     architecture={field:[{"id":field+":"+str(i),"detail":"x"*90} for i in range(30)] for field in fields}
-    architecture["facts_scope"] = [dict(row, understanding_status="native_check_only",
-        responsibility_count=0, target_count=0) for row in architecture["facts_scope"]]
+    # Synthetic transport records retain the complete production compact shape;
+    # they are not accepted architecture or native-evidence authority.
+    architecture["facts_scope"] = [{
+        "model_id": "alpha", "claim_scope": "declared_model", "graph_scope": "native_check_contract",
+        "detail_evidence_fingerprint": "sha256:" + f"{i:064x}",
+        "understanding_status": "native_check_only", "responsibility_count": 0,
+        "target_count": 0, "gap_count": 0, "action_count": 0,
+        "detail_ref": {"path": f".flowguard/models/authority/path-quality-details/{i:064x}.json",
+                       "sha256": "a" * 64},
+    } for i in range(30)]
+    for field in ("observation_gap_ids", "improvement_gap_ids"):
+        architecture[field] = [row["id"] for row in architecture[field]]
     architecture["objective_refs"] = [dict(row, objective={"objective_id": row["id"]})
                                       for row in architecture["objective_refs"]]
-    architecture["improvement_pointers"] = [dict(row, pointer_id=row["id"],
-        action_target_count=0, next_owner_ids=[],
-        detail_ref={"path": "detail/" + str(i) + ".json", "sha256": "a" * 64})
+    architecture["improvement_pointers"] = [_architecture_pointer_read_reference(
+        ArchitectureImprovementPointer(
+            pointer_id="", kind="model_gap", status="needs_evidence", lane="normative_target",
+            model_ids=("alpha",), responsibility_ids=(), affected_element_ids=(),
+            applicable_input_class_ids=(), remaining_contexts=(),
+            observed_subject_fingerprints={"alpha": head.fingerprint}, source_refs=(),
+            objective_refs=(), retained_obligation_ids=(), native_case_refs=(),
+            missing_input_refs=({"kind": "boundary_manifest", "model_id": "alpha",
+                "responsibility_id": "", "reference_id": row["id"], "next_owner_id": ""},),
+            next_owner_ids=(), revisit_triggers=(),
+        ).to_dict(),
+        detail_ref={"path": f".flowguard/models/authority/path-quality-details/{i:064x}.json",
+                    "sha256": "a" * 64})
         for i, row in enumerate(architecture["improvement_pointers"])]
     calls=[]
     def selected(root, **kwargs):
@@ -1095,6 +1119,40 @@ def test_bounded_read_page_paginates_stale_obligations_without_loss_or_duplicate
 
 from test_functional_task_context import functional_case
 
+
+@pytest.fixture
+def _r9_source_mutation_scope(functional_case):
+    """Restore this test's source mutations on the shared finite target.
+
+    Keep the original target and native receipts: copying a root or producing
+    another parent would change the evidence being tested. Each deliberate
+    growth/drift remains observable until the mutating test has finished.
+    """
+    import os
+    root, _, _ = functional_case
+    before = {}
+    for relative in ("src/alpha.py", "src/w3.py", "src/deleted_unknown.py"):
+        path = root / relative
+        if path.exists():
+            stat = path.stat()
+            before[relative] = (path.read_bytes(), stat.st_atime_ns, stat.st_mtime_ns)
+        else:
+            before[relative] = None
+    try:
+        yield
+    finally:
+        for relative, original in before.items():
+            path = root / relative
+            if original is None:
+                if path.exists():
+                    path.unlink()
+            else:
+                raw, atime_ns, mtime_ns = original
+                if not path.exists() or path.read_bytes() != raw:
+                    path.write_bytes(raw)
+                os.utime(path, ns=(atime_ns, mtime_ns))
+
+
 def _r9_growth_public_fixture(functional_case):
     from test_functional_task_context import _r9_prepare_task, _r9_run_task_cli
     root, _, _ = functional_case
@@ -1107,7 +1165,7 @@ def _r9_growth_public_fixture(functional_case):
     return root, produced
 
 
-def test_r9_public_growth_batch_consumes_one_original_observation_without_reprojection(functional_case, capsys):
+def test_r9_public_growth_batch_consumes_one_original_observation_without_reprojection(functional_case, capsys, _r9_source_mutation_scope):
     import flowguard.model_authority_store as store
     from flowguard.__main__ import main
     root, produced = _r9_growth_public_fixture(functional_case)
@@ -1141,7 +1199,7 @@ def test_r9_public_growth_batch_consumes_one_original_observation_without_reproj
 
 
 @pytest.mark.parametrize("damage", ("wrong_hash", "foreign_task", "present_drift", "missing_drift", "not_observed"))
-def test_r9_growth_ref_rejects_wrong_hash_foreign_task_drift_and_fake_selected_paths(functional_case, damage):
+def test_r9_growth_ref_rejects_wrong_hash_foreign_task_drift_and_fake_selected_paths(functional_case, damage, _r9_source_mutation_scope):
     from flowguard.__main__ import _read_operation
     from flowguard.functional_read import functional_task_growth_reference, read_root_reference
     from flowguard.model_authority_store import _SelectedReadContext
@@ -1175,7 +1233,7 @@ def test_r9_growth_ref_rejects_wrong_hash_foreign_task_drift_and_fake_selected_p
             "scope": ["alpha", "beta"], "growth_observation": ref, "read_batch": True}, {})
 
 
-def test_r9_growth_gap_closes_only_with_current_native_bound_finite_inventory(functional_case):
+def test_r9_growth_gap_closes_only_with_current_native_bound_finite_inventory(functional_case, _r9_source_mutation_scope):
     from dataclasses import replace
     from flowguard.functional_task_context import _current_selected_state, _finite_native_material
     from flowguard.functional_read import read_root_reference
@@ -1622,3 +1680,386 @@ def test_r9_generation125_whole_scope_transport_retains_real_goals_and_metadata_
                == summary["gap"]["task_first_gap_ref"] for page in pages)
     assert all(page["architecture"]["summary"]["action"]["action_target_count"]
                == summary["action"]["action_target_count"] for page in pages)
+
+
+# R11 oracles use complete original lanes or independently published finite
+# task material. Pure typed/transport records below are never accepted proofs.
+def _r11_bytes(value):
+    return (json.dumps(value, ensure_ascii=False, sort_keys=True,
+                       separators=(",", ":")) + "\n").encode("utf-8")
+
+
+def _r11_fixture_files(root):
+    return {path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+            for path in root.rglob("*") if path.is_file()}
+
+
+@pytest.fixture(scope="module")
+def _r11_blocked_task(functional_case):
+    from flowguard.functional_task_context import produce_functional_task_context
+    from test_functional_task_context import _r9_prepare_task
+    root, _, _ = functional_case
+    request, output = _r9_prepare_task(functional_case,
+        requested_outcome_ids=("outcome:r11:originally-missing",))
+    with patch("flowguard.model_regressions.run_manifest_regressions",
+               side_effect=AssertionError("consume original finite owners only")):
+        produced = produce_functional_task_context(repository_root=root, request=request,
+            output_directory=output, command="finite-test:r11-original-diagnostic")
+    assert produced["status"] == "blocked" and produced.get("task_context_ref"), produced
+    return produced
+
+
+def _r11_public_request(produced):
+    return {"operation": "read", "target_id": "flowguard", "scope": ["alpha", "beta"],
+            "task_context": produced["task_context_ref"]}
+
+
+def _r11_pure_transport():
+    """Manufactured wire records test transport only; no genuine target exists."""
+    import copy
+    base, compact = _r9_transport_fixture()
+    base = copy.deepcopy(base)
+    summary = base["architecture"]["summary"]
+    gap = {"gap_id": "gap:r11:original", "input_ref": "missing-original.json",
+           "next_owner_id": "owner:r11:original", "reason": "完整原始原因：边界🙂",
+           "obligation_refs": ["obligation:r11:required"]}
+    functional = base["functional_understanding"]
+    functional.update(requested_outcome_ids=["outcome:r11:" + str(i) for i in range(30)],
+        satisfied_outcome_ids=["outcome:r11:" + str(i) for i in range(25)],
+        missing_outcome_ids=["outcome:r11:" + str(i) for i in range(25, 30)],
+        required_obligation_ids=["obligation:r11:" + str(i) for i in range(30)],
+        required_owner_ids=["owner:r11:" + str(i) for i in range(30)],
+        gap_ids=[gap["gap_id"]], next_actions=["Supply original missing evidence"],
+        stopping_disposition="needs_evidence", first_gap=gap)
+    summary["denominator"] = {"selected_model_ids": ["alpha"], "selected_model_count": 1,
+        "target_count": 30, "requested_outcome_count": 30, "satisfied_outcome_count": 25,
+        "missing_outcome_count": 5, "required_obligation_count": 30, "required_owner_count": 30,
+        "observation_gap_count": 30, "improvement_gap_count": 30, "growth_gap_count": 30,
+        "unknown_surface_count": 2, "scoped_out_surface_count": 3}
+    summary["compromise"] = {"count": 2, "pointer_ids": ["compromise:0", "compromise:1"],
+        "detail_refs": summary["action"]["detail_refs"][:2]}
+    summary["navigation"] = {"first_gap": gap, "first_gap_ref": None,
+        "first_gap_state": "present", "next_owner_ids": [gap["next_owner_id"]],
+        "stopping_disposition": "needs_evidence", "detail_refs": summary["action"]["detail_refs"]}
+    return base, compact
+
+
+def _r11_assert_added_summary(pages, expected):
+    list_fields = {"denominator": ("selected_model_ids",),
+        "compromise": ("pointer_ids", "detail_refs"),
+        "navigation": ("next_owner_ids", "detail_refs")}
+    for group, fields in list_fields.items():
+        for field in fields:
+            assert [row for page in pages
+                    for row in page["architecture"]["summary"][group].get(field, [])] == expected[group][field]
+        scalar = {key: value for key, value in expected[group].items() if key not in fields}
+        delivered = [{key: value for key, value in page["architecture"]["summary"][group].items()
+                      if key not in fields} for page in pages]
+        assert [row for row in delivered if row] == [scalar], group
+
+
+def test_r11_first_page_contains_current_target_gap_scope_and_task_decision(functional_case):
+    from flowguard.__main__ import _read_operation
+    from flowguard.functional_read import read_root_reference, parse_task_facts
+    from flowguard.functional_task_context import produce_functional_task_context, _current_selected_state
+    from flowguard.model_authority_store import _SelectedReadContext
+    from test_functional_task_context import _r9_prepare_task
+    root, state, original = functional_case
+    facts = parse_task_facts(read_root_reference(root, original["report_refs"]["facts"]))
+    requested = (facts.requested_outcome_ids[0],)
+    request, output = _r9_prepare_task(functional_case, requested_outcome_ids=requested)
+    with patch("flowguard.model_regressions.run_manifest_regressions",
+               side_effect=AssertionError("do not rerun the finite owner")):
+        produced = produce_functional_task_context(repository_root=root, request=request,
+            output_directory=output, command="finite-test:r11-one-required-outcome")
+    assert produced["status"] == "pass" and produced["verification"]["ok"], produced
+    independent = produced["functional_understanding"]
+    _, selected, _, _, _ = _current_selected_state(root, "alpha", _SelectedReadContext(root),
+                                                  required_model_ids=("beta",))
+    objectives = {row["objective"]["objective_id"] for row in selected.architecture["objective_refs"]}
+    before = _r11_fixture_files(root)
+    public_request = _r11_public_request(produced)
+    assert "read_batch" not in public_request
+    with patch("flowguard.functional_task_context.produce_functional_task_context",
+               side_effect=AssertionError("default read cannot produce")), \
+            patch("flowguard.model_regressions.run_manifest_regressions",
+               side_effect=AssertionError("default read cannot execute native owners")):
+        page = _read_operation(root, public_request, {})
+    assert page["status"] == "pass" and "pages" not in page, page
+    assert len(_r11_bytes(page)) <= 8192
+    assert _r11_fixture_files(root) == before
+    assert page["as_of"]["authority_head_fingerprint"] == state.head.fingerprint
+    assert page["producer_count"] == page["write_count"] == 0
+    summary = page["architecture"]["summary"]
+    assert summary["current"] and summary["scope"]
+    count = page["understanding_navigation"]["denominator"]
+    assert count["selected_model_count"] == 2 and count["target_count"] == len(objectives)
+    for count_key, field in (("requested_outcome_count", "requested_outcome_ids"),
+                            ("satisfied_outcome_count", "satisfied_outcome_ids"),
+                            ("missing_outcome_count", "missing_outcome_ids"),
+                            ("required_obligation_count", "required_obligation_ids"),
+                            ("required_owner_count", "required_owner_ids")):
+        assert count[count_key] == len(set(independent[field]))
+        assert set(page["functional_understanding"][field]) == set(independent[field])
+    assert count["requested_outcome_count"] == count["satisfied_outcome_count"] == 1
+    assert count["missing_outcome_count"] == 0 and summary["compromise"]["count"] == 0
+    assert summary["navigation"]["stopping_disposition"] == independent["stopping_disposition"]
+    assert summary["navigation"]["first_gap"] is None
+    assert summary["navigation"]["first_gap_state"] == "none"
+    assert page["understanding_transport"]["decision_basis_complete"] is True
+
+
+def test_r11_first_page_preserves_original_blocked_gap_and_next_owner(functional_case, _r11_blocked_task):
+    from flowguard.__main__ import _read_operation
+    from flowguard.functional_read import read_root_reference
+    from test_functional_read import _r9_aliased_reference
+    root, _, _ = functional_case
+    original = _r11_blocked_task
+    doc = read_root_reference(root, original["task_context_ref"])
+    diagnostic = read_root_reference(root, doc["diagnostic_ref"])
+    before = _r11_fixture_files(root)
+    with patch("flowguard.functional_task_context.produce_functional_task_context",
+               side_effect=AssertionError("read cannot retry producer")), \
+            patch("flowguard.model_maturation_receipt.publish_model_maturation_receipt",
+               side_effect=AssertionError("diagnostic read cannot publish receipt")):
+        page = _read_operation(root, _r11_public_request(original), {})
+    assert page["status"] == "pass" and "pages" not in page, page
+    assert _r11_fixture_files(root) == before
+    navigation = page["architecture"]["summary"]["navigation"]
+    assert navigation["first_gap"] == diagnostic["first_gap"]
+    assert navigation["first_gap_ref"] == doc["diagnostic_ref"]
+    assert navigation["first_gap_state"] == "present"
+    assert navigation["next_owner_ids"][0] == diagnostic["first_gap"]["next_owner_id"]
+    assert navigation["stopping_disposition"] == original["functional_understanding"]["stopping_disposition"]
+    assert navigation["stopping_disposition"] != "model_maturation_closed_for_task"
+    assert page["functional_understanding"]["first_gap"] == diagnostic["first_gap"]
+    independent = original["functional_understanding"]
+    unknown_fields = (("requested_outcome_count", "requested_outcome_ids"),
+        ("required_obligation_count", "required_obligation_ids"),
+        ("required_owner_count", "required_owner_ids"))
+    for counter, field in unknown_fields:
+        assert field not in independent, "Original diagnostic did not provide this denominator"
+        assert field not in page["functional_understanding"]
+        assert page["architecture"]["summary"]["denominator"][counter] is None
+        assert page["understanding_navigation"]["denominator"][counter] is None
+    assert independent["satisfied_outcome_ids"] == []
+    assert independent["missing_outcome_ids"] == ["outcome:r11:originally-missing"]
+    for counter, field in (("satisfied_outcome_count", "satisfied_outcome_ids"),
+                           ("missing_outcome_count", "missing_outcome_ids")):
+        assert page["understanding_navigation"]["denominator"][counter] == len(set(independent[field]))
+    assert page["understanding_transport"]["decision_basis_complete"] is False
+    forged = dict(diagnostic, status="model_maturation_closed_for_task",
+                  terminal_reason="model_maturation_closed_for_task")
+    directory = Path(original["task_context_ref"]["path"]).parent.as_posix()
+    forged_doc = dict(doc, diagnostic_ref=_r9_aliased_reference(root,
+        directory + "/r11-forged-closed-diagnostic.json", forged))
+    ref = _r9_aliased_reference(root, directory + "/r11-forged-closed-context.json", forged_doc)
+    with patch("flowguard.functional_task_context.produce_functional_task_context",
+               side_effect=AssertionError("forged read cannot produce")):
+        rejected = _read_operation(root, dict(_r11_public_request(original), task_context=ref), {})
+    view = rejected["functional_understanding"]
+    assert view["stopping_disposition"] == "needs_evidence"
+    assert view["gap_ids"] == ["functional_task_context_invalid"]
+    assert rejected["architecture"]["summary"]["navigation"]["first_gap"] == view["first_gap"]
+    assert rejected["producer_count"] == rejected["write_count"] == 0
+    for counter, field in (*unknown_fields, ("satisfied_outcome_count", "satisfied_outcome_ids"),
+                           ("missing_outcome_count", "missing_outcome_ids")):
+        assert field not in view
+        assert rejected["understanding_navigation"]["denominator"][counter] is None
+    assert rejected["understanding_transport"]["decision_basis_complete"] is False
+
+
+def test_r11_summary_counts_are_independent_of_page_slice():
+    base, compact = _r11_pure_transport()
+    expected = base["architecture"]["summary"]
+    pages = _assert_lossless_read_pages(base, compact, "sha256:" + "a"*64, ("alpha",))
+    assert len(pages) > 1
+    count = {key: value for key, value in expected["denominator"].items() if key != "selected_model_ids"}
+    assert all(page["understanding_navigation"]["denominator"] == count for page in pages)
+    assert all(page["understanding_navigation"]["compromise_count"] == expected["compromise"]["count"]
+               for page in pages)
+    metadata_fields = {"summary_record_total", "summary_record_transported_count",
+        "functional_record_total", "functional_record_transported_count",
+        "decision_basis_complete", "details_complete"}
+    assert all(set(page["understanding_transport"]) == metadata_fields for page in pages)
+    assert pages[0]["understanding_transport"]["details_complete"] is False
+    assert pages[-1]["next_cursor"] is None
+    assert pages[-1]["understanding_transport"]["details_complete"] is False
+    _r11_assert_added_summary(pages, expected)
+    totals = [page["understanding_transport"] for page in pages]
+    for kind in ("summary", "functional"):
+        assert len({row[kind + "_record_total"] for row in totals}) == 1
+        assert sum(row[kind + "_record_transported_count"] for row in totals) == totals[0][kind + "_record_total"]
+
+
+def test_r11_temporary_compromise_is_not_a_closed_required_outcome(functional_case, _r11_blocked_task):
+    """Typed pointer/navigation unit; these records are not accepted task proofs."""
+    from dataclasses import replace
+    from flowguard.model_path_quality import ArchitectureImprovementPointer
+    from flowguard.model_authority_store import (_SelectedReadContext,
+        _architecture_pointer_read_reference, _architecture_understanding_summary)
+    from flowguard.source_identity import functional_source_fingerprint
+    root, state, _ = functional_case
+    alpha = next(row for row in state.snapshot.model_instances if row.logical_model_id == "alpha")
+    source = "src/alpha.py"
+    fingerprint = functional_source_fingerprint(root, source)
+    pointer = ArchitectureImprovementPointer(pointer_id="", kind="temporary_compromise",
+        status="deferred", lane="normative_target", model_ids=("alpha",),
+        responsibility_ids=("responsibility:r11:required",),
+        affected_element_ids=("outcome:r11:originally-missing",), applicable_input_class_ids=(),
+        remaining_contexts=(), observed_subject_fingerprints={"alpha": alpha.fingerprint},
+        source_refs=({"path": source, "source_fingerprint": fingerprint},), objective_refs=(),
+        retained_obligation_ids=("obligation:r11:required",), native_case_refs=(),
+        missing_input_refs=(), next_owner_ids=("owner:r11:review",),
+        revisit_triggers=({"trigger_id": "trigger:r11:review", "source_ref": source,
+            "source_fingerprint": fingerprint, "condition_ref": "review-condition:r11:original"},))
+    ordinary = replace(pointer, pointer_id="", kind="model_gap", status="candidate")
+    refs = []
+    for typed in (pointer, ordinary):
+        raw = _r11_bytes(typed.to_dict())
+        path = ".flowguard/models/authority/path-quality-details/" + typed.fingerprint.removeprefix("sha256:") + ".json"
+        artifact = root / path
+        artifact.parent.mkdir(parents=True, exist_ok=True)
+        artifact.write_bytes(raw)
+        refs.append(_architecture_pointer_read_reference(typed.to_dict(),
+            detail_ref={"path": path, "sha256": hashlib.sha256(raw).hexdigest()}))
+    functional = _r11_blocked_task["functional_understanding"]
+    architecture = {"facts_scope": [], "objective_refs": [], "observation_gap_ids": [],
+        "improvement_gap_ids": [], "improvement_pointers": [refs[0], refs[0], refs[1]],
+        "suggestion_refs": [{"description": "temporary_compromise is only text, not a typed pointer"}]}
+    before = _r11_fixture_files(root)
+    summary = _architecture_understanding_summary(architecture, _SelectedReadContext(root),
+        selected_model_ids=("alpha", "beta"), functional_understanding=functional)
+    assert _r11_fixture_files(root) == before
+    assert summary["compromise"] == {"count": 1, "pointer_ids": [pointer.pointer_id],
+        "detail_refs": [refs[0]["detail_ref"]]}
+    assert pointer.affected_element_ids == ("outcome:r11:originally-missing",)
+    assert pointer.retained_obligation_ids == ("obligation:r11:required",)
+    assert pointer.revisit_triggers[0]["condition_ref"] == "review-condition:r11:original"
+    assert summary["denominator"]["missing_outcome_count"] == len(set(functional["missing_outcome_ids"])) == 1
+    assert summary["denominator"]["satisfied_outcome_count"] == len(set(functional["satisfied_outcome_ids"]))
+    assert summary["navigation"]["stopping_disposition"] == functional["stopping_disposition"]
+    assert summary["navigation"]["stopping_disposition"] != "model_maturation_closed_for_task"
+
+
+def test_r11_unknown_scoped_out_and_not_observed_remain_separate(functional_case):
+    """Materialized inventory unit: unbound/scoped-out facts license no full proof."""
+    from dataclasses import replace
+    from flowguard.model_authority_store import _SelectedReadContext, _architecture_understanding_summary
+    from flowguard.functional_task_context import _finite_native_material
+    from flowguard.model_regressions import resolve_current_full_model_regression_parent
+    root, state, _ = functional_case
+    parent = resolve_current_full_model_regression_parent(root,
+        receipt_dir=root / ".flowguard/evidence/model-owner-receipts")
+    native_refs = [{"owner_id": "model:"+model, "receipt_id": leaf.receipt_id,
+                   "receipt_fingerprint": leaf.receipt_fingerprint}
+                   for model, leaf in parent.child_evidence_by_model_id.items()]
+    material = _finite_native_material(root, state, native_refs, _SelectedReadContext(root))
+    inventory, report = material["implementation_inventory"], material["binding_report"]
+    original = next(row for row in inventory.surfaces if row.surface_id in inventory.required_surface_ids)
+    unbound = replace(original, surface_id="surface:r11:required-unbound")
+    excluded = replace(original, surface_id="surface:r11:scoped-out", disposition="scoped_out")
+    inventory = replace(inventory, surfaces=inventory.surfaces+(unbound, excluded))
+    context = _SelectedReadContext(root)
+    context.declared_scopes["r11:inventory-unit"] = (inventory, report)
+    bound = {row.implementation_surface_id for row in report.bindings}
+    expected_unknown = {row.surface_id for row in inventory.surfaces
+                        if row.surface_id in inventory.required_surface_ids and row.surface_id not in bound}
+    expected_excluded = {row.surface_id for row in inventory.surfaces if row.disposition == "scoped_out"}
+    assert unbound.surface_id in expected_unknown and excluded.surface_id not in expected_unknown
+    architecture = {"facts_scope": [], "objective_refs": [], "observation_gap_ids": [],
+        "improvement_gap_ids": [], "improvement_pointers": []}
+    before = _r11_fixture_files(root)
+    summary = _architecture_understanding_summary(architecture, context,
+        selected_model_ids=("alpha", "beta"), live_detection="NOT_OBSERVED")
+    assert _r11_fixture_files(root) == before
+    denominator = summary["denominator"]
+    assert denominator["unknown_surface_count"] == len(expected_unknown)
+    assert denominator["scoped_out_surface_count"] == len(expected_excluded)
+    assert denominator["growth_gap_count"] == 0
+    for counter in ("requested_outcome_count", "satisfied_outcome_count", "missing_outcome_count",
+                    "required_obligation_count", "required_owner_count"):
+        assert denominator[counter] is None, "No task material supplies a proven task denominator"
+    assert summary["scope"]["live_unregistered_file_detection"] == "NOT_OBSERVED"
+    assert summary["scope"]["deepest_proven_layer"] == "unknown"
+    assert summary["navigation"]["stopping_disposition"] == "not_evaluated"
+    assert summary["navigation"]["first_gap"] is None
+    assert summary["navigation"]["first_gap_ref"] is None
+    assert summary["navigation"]["first_gap_state"] == "unresolved_details"
+
+
+def test_r11_priority_transport_preserves_all_lanes_and_cursor_binding():
+    import flowguard.__main__ as entry
+    base, compact = _r11_pure_transport()
+    head = "sha256:" + "a"*64
+    with patch.object(entry, "_prepare_read_transport", wraps=entry._prepare_read_transport) as prepare:
+        prepared = entry._prepare_read_transport(base, compact)
+        pages = _assert_lossless_read_pages(base, compact, head, ("alpha",), prepared_transport=prepared)
+        assert prepare.call_count == 1
+    _r11_assert_added_summary(pages, base["architecture"]["summary"])
+    for key, value in base["functional_understanding"].items():
+        if isinstance(value, list):
+            assert [row for page in pages for row in page["functional_understanding"][key]] == value
+        else:
+            assert all(page["functional_understanding"][key] == value for page in pages)
+    for key in ("growth_gaps", "checked_observed_paths"):
+        assert [row for page in pages for row in page[key]] == base[key]
+    assert all(len(_r11_bytes(page)) <= 8192 for page in pages)
+    assert all(page["understanding_transport"]["details_complete"] is False for page in pages)
+    assert pages[-1]["next_cursor"] is None and len(pages) > 1
+    cursor = pages[0]["next_cursor"]
+    assert cursor is not None
+    for foreign_head, foreign_scope in (("sha256:"+"b"*64, ("alpha",)), (head, ("beta",))):
+        with pytest.raises(ValueError, match="another authority head or scope"):
+            entry._bounded_read_page(base, compact, head_fingerprint=foreign_head, scope=foreign_scope, cursor=cursor)
+    payload = json.loads(base64.urlsafe_b64decode(cursor + "="*((-len(cursor))%4)))
+    payload["relation_offset"] += 1
+    altered = base64.urlsafe_b64encode(_r11_bytes(payload).rstrip(b"\n")).decode().rstrip("=")
+    with pytest.raises(ValueError, match="integrity check failed"):
+        entry._bounded_read_page(base, compact, head_fingerprint=head, scope=("alpha",), cursor=altered)
+
+
+def test_r11_large_indivisible_summary_evidence_is_not_silently_cut():
+    import copy
+    base, compact = _r11_pure_transport()
+    reason = "不可分割的原始缺口原因🙂" * 3000
+    gap = dict(base["architecture"]["summary"]["navigation"]["first_gap"],
+               reason=reason, obligation_refs=["obligation:retain:"+str(i) for i in range(300)])
+    base["architecture"]["summary"]["navigation"]["first_gap"] = gap
+    base["functional_understanding"]["first_gap"] = copy.deepcopy(gap)
+    original = copy.deepcopy(base)
+    with pytest.raises(ValueError, match="record|page|byte|budget|bounded|fit"):
+        _bounded_read_page(base, compact, head_fingerprint="sha256:"+"a"*64,
+                           scope=("alpha",), cursor=None)
+    assert base == original and base["functional_understanding"]["first_gap"]["reason"] == reason
+
+
+def test_r11_default_protocol_requests_summary_before_full_batch(tmp_path):
+    from flowguard.__main__ import _read_operation
+    source = Path(__file__).resolve().parents[1]
+    protocol = (source / ".agents/skills/flowguard/references/route_execution_common.md").read_text(encoding="utf-8")
+    expected = ("Normal read starts with the first-page functional summary. "
+        "Inspect its current/target/gap/compromise/unknown denominators and original first-gap/next-owner. "
+        "If decision_basis_complete is false, follow the required current detail/cursor; an untransported list is not an empty proven set. "
+        "Fetch only verdict-changing references. "
+        "Use read_batch:true only when the task requires the complete selected closure; one prepared projection and one final drift guard still own that explicit batch. "
+        "No recursive public reads and no default cost goal.")
+    assert expected in protocol
+    base, compact = _r9_transport_fixture()
+    page = _bounded_read_page(base, compact, head_fingerprint="sha256:"+"a"*64,
+                             scope=("alpha",), cursor=None)
+    assert "pages" not in page and len(_r11_bytes(page)) <= 8192
+    normal = {"operation": "read", "target_id": "flowguard", "scope": ["alpha"]}
+    complete = dict(normal, read_batch=True)
+    # A project-only manifest has no accepted model, native fixture or proof.
+    # Both request forms must preserve that actual missing-authority boundary.
+    manifest = tmp_path / ".flowguard/project.toml"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text('[project]\nname="r11-protocol-only"\n', encoding="utf-8")
+    before = _r11_fixture_files(tmp_path)
+    for request in (normal, complete):
+        result = _read_operation(tmp_path, request, {})
+        assert result["status"] == "blocked" and result["reason"] == "current_model_missing", result
+        assert result["producer_count"] == result["write_count"] == 0
+    assert "read_batch" not in normal and complete["read_batch"] is True
+    assert _r11_fixture_files(tmp_path) == before

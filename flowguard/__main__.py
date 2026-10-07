@@ -1500,6 +1500,10 @@ class _PreparedReadTransport:
     summary_tag: str
     summary: Any
     summary_paths: tuple
+    summary_dict_fields: tuple
+    summary_record_total: int
+    functional_record_total: int
+    understanding_navigation: Mapping[str, Any]
     stale_obligations: tuple
     page_base_payload: Mapping[str, Any]
 
@@ -1510,12 +1514,10 @@ def _prepare_read_transport(
     """Prepare the selected transport lanes once for this read invocation."""
     models = tuple(item for item in compact_map.get("models", ()) if isinstance(item, Mapping))
     intents = tuple(item for item in compact_map.get("intents", ()) if isinstance(item, Mapping))
-    relations = tuple(item for item in compact_map.get("relations", ()) if isinstance(item, Mapping))
+    original_relations = tuple(item for item in compact_map.get("relations", ()) if isinstance(item, Mapping))
     boundary_nodes = tuple(item for item in compact_map.get("boundary_nodes", ()) if isinstance(item, Mapping))
     architecture = base_payload.get("architecture")
     architecture_fields = ("facts_scope", "objective_refs", "finding_refs", "suggestion_refs", "observation_gap_ids", "improvement_gap_ids", "improvement_pointers", "scope_proof_refs")
-    # Preserve the architecture selection once across context pages. The full
-    # top-level requested/selected IDs and as-of identity still bind each page.
     if isinstance(architecture, Mapping) and "requested_model_ids" in architecture:
         architecture_fields += ("requested_model_ids",)
     architecture_tag = "__flowguard_architecture_transport__"
@@ -1524,40 +1526,72 @@ def _prepare_read_transport(
     summary_tag = "__flowguard_summary_transport__"
     growth_fields = ("growth_gaps", "checked_observed_paths")
     growth_transport = any(field in base_payload for field in growth_fields)
-    if growth_transport:
-        relations += tuple({growth_tag: field, "value": value}
-            for field in growth_fields for value in base_payload.get(field, ()))
+    growth_rows = tuple({growth_tag: field, "value": value}
+        for field in growth_fields for value in base_payload.get(field, ())) if growth_transport else ()
     summary = architecture.get("summary") if isinstance(architecture, Mapping) else None
     summary_paths = (("target",), ("gap", "observation_gap_ids"), ("gap", "improvement_gap_ids"),
         ("gap", "growth_gap_ids"), ("action", "pointer_ids"), ("action", "next_owner_ids"),
         ("action", "detail_refs"))
+    summary_dict_fields = ()
+    summary_metadata_rows = ()
+    summary_detail_rows = ()
+    understanding_navigation = {}
     if isinstance(summary, Mapping) and summary:
-        relations += tuple({summary_tag: ".".join(path), "value": value}
-            for path in summary_paths for value in (summary[path[0]] if len(path) == 1 else summary[path[0]][path[1]]))
-        # These new summary dictionaries are navigation metadata, not the
-        # authority/scope identity repeated on every page. Transport them once
-        # as whole records so a wide scope still leaves room for its exact
-        # compact pointer records. Empty dictionaries on other pages denote
-        # no transported metadata; they never mean an empty accepted scope.
-        relations += tuple({summary_tag: key, "value": dict(summary[key])}
-                           for key in ("current", "scope"))
+        summary_dict_fields = tuple(key for key in
+            ("current", "scope", "denominator", "navigation", "compromise")
+            if isinstance(summary.get(key), Mapping))
+        # Split complete lists into the existing once-only summary lane. The
+        # scalar dictionaries, including the complete original first-gap row,
+        # remain indivisible records; oversized evidence must fail explicitly.
+        summary_paths += tuple((key, field)
+            for key in ("denominator", "compromise", "navigation")
+            if isinstance(summary.get(key), Mapping)
+            for field, value in summary[key].items() if isinstance(value, (list, tuple)))
+        summary_metadata_rows = tuple({summary_tag: key, "value": {
+            field: value for field, value in summary[key].items()
+            if (key, field) not in summary_paths}}
+            for key in summary_dict_fields)
+        summary_detail_rows = tuple({summary_tag: ".".join(path), "value": value}
+            for path in summary_paths
+            for value in (summary[path[0]] if len(path) == 1 else summary[path[0]][path[1]]))
+        denominator = summary.get("denominator", {})
+        navigation = summary.get("navigation", {})
+        if isinstance(denominator, Mapping) and isinstance(navigation, Mapping):
+            first_gap = navigation.get("first_gap")
+            first_gap = first_gap if isinstance(first_gap, Mapping) else {}
+            next_owners = navigation.get("next_owner_ids", ())
+            understanding_navigation = {
+                "denominator": {key: value for key, value in denominator.items()
+                    if not isinstance(value, (list, tuple, Mapping))},
+                "compromise_count": summary.get("compromise", {}).get("count"),
+                "first_gap_ref": navigation.get("first_gap_ref"),
+                "first_gap_id": first_gap.get("gap_id"),
+                "first_gap_input_ref": first_gap.get("input_ref"),
+                "next_owner_id": first_gap.get("next_owner_id") or
+                    (next_owners[0] if next_owners else None),
+                "first_gap_state": navigation.get("first_gap_state"),
+                "stopping_disposition": navigation.get("stopping_disposition"),
+            }
     functional = base_payload.get("functional_understanding")
     functional_fields = tuple(key for key, value in functional.items()
                               if isinstance(value, (list, tuple))) if isinstance(functional, Mapping) else ()
-    if functional_fields:
-        relations += tuple({functional_tag: key, "value": value}
-                           for key in functional_fields for value in functional[key])
+    priority = ("missing_outcome_ids", "gap_ids", "next_actions", "requested_outcome_ids",
+                "satisfied_outcome_ids", "required_owner_ids", "required_obligation_ids")
+    functional_order = tuple(key for key in priority if key in functional_fields) + tuple(
+        key for key in functional_fields if key not in priority)
+    functional_rows = tuple({functional_tag: key, "value": value}
+        for key in functional_order for value in functional[key])
+    navigation_rows = summary_metadata_rows + functional_rows + summary_detail_rows
+    architecture_relations = ()
     if isinstance(architecture, Mapping):
-        # Use the existing context cursor lanes. Architecture records are
-        # transported once, with every exact reference retained across pages;
-        # no large selected-scope list is repeated in each page's metadata.
         def architecture_rows(field):
             return tuple({architecture_tag: field, "value": value} for value in architecture.get(field, ()))
         intents += architecture_rows("objective_refs")
-        relations += tuple(row for field in ("finding_refs", "suggestion_refs", "observation_gap_ids", "improvement_gap_ids", "improvement_pointers") for row in architecture_rows(field))
+        architecture_relations = tuple(row for field in ("finding_refs", "suggestion_refs", "observation_gap_ids", "improvement_gap_ids", "improvement_pointers") for row in architecture_rows(field))
         boundary_nodes += architecture_rows("facts_scope") + architecture_rows("scope_proof_refs")
         if "requested_model_ids" in architecture:
             boundary_nodes += architecture_rows("requested_model_ids")
+    relations = navigation_rows + growth_rows + architecture_relations + original_relations
     stale_obligations = base_payload.get("stale_obligations", ())
     if not isinstance(stale_obligations, (list, tuple)):
         raise ValueError("read stale obligations must be a list")
@@ -1574,8 +1608,131 @@ def _prepare_read_transport(
         models, intents, relations, boundary_nodes, architecture,
         architecture_fields, architecture_tag, functional, functional_fields,
         functional_tag, growth_tag, growth_fields, growth_transport,
-        summary_tag, summary, summary_paths, stale_obligations, page_base_payload,
+        summary_tag, summary, summary_paths, summary_dict_fields,
+        len(summary_metadata_rows) + len(summary_detail_rows), len(functional_rows),
+        understanding_navigation, stale_obligations, page_base_payload,
     )
+
+
+def _read_decision_basis_complete(summary: Mapping[str, Any]) -> bool:
+    """Report whether this material contains the original decision basis."""
+    if not all(isinstance(summary.get(key), Mapping) and summary[key]
+               for key in ("current", "scope", "denominator", "navigation")):
+        return False
+    denominator = summary["denominator"]
+    count_fields = ("selected_model_count", "target_count", "requested_outcome_count",
+        "satisfied_outcome_count", "missing_outcome_count", "required_obligation_count",
+        "required_owner_count", "observation_gap_count", "improvement_gap_count",
+        "growth_gap_count", "unknown_surface_count", "scoped_out_surface_count")
+    if not all(isinstance(denominator.get(key), int) and not isinstance(denominator[key], bool)
+               and denominator[key] >= 0 for key in count_fields):
+        return False
+    navigation = summary["navigation"]
+    if not isinstance(navigation.get("stopping_disposition"), str) or not navigation["stopping_disposition"]:
+        return False
+    state = navigation.get("first_gap_state")
+    if state == "none":
+        return "first_gap" in navigation and navigation["first_gap"] is None
+    if state == "present":
+        return isinstance(navigation.get("first_gap"), Mapping) and bool(navigation["first_gap"])
+    return False
+
+
+def _complete_read_batch_transport(
+    prepared: _PreparedReadTransport, pages: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Verify the returned batch reconstructs every selected transport lane."""
+    position_fields = ("model_index", "input_offset", "intent_offset", "relation_offset",
+                       "boundary_offset", "stale_offset")
+    if not pages or pages[-1]["next_cursor"] is not None or any(
+            pages[0]["page"][key] != 0 for key in position_fields):
+        raise ValueError("read batch does not cover the complete selected transport")
+    tags = (prepared.architecture_tag, prepared.functional_tag, prepared.growth_tag, prepared.summary_tag)
+    for key, wanted in (("intents", prepared.intents), ("relations", prepared.relations),
+                        ("boundary_nodes", prepared.boundary_nodes)):
+        actual = [row for page in pages for row in page["map"][key]]
+        expected = [row for row in wanted if all(tag not in row for tag in tags)]
+        if actual != expected:
+            raise ValueError("read batch did not reconstruct map " + key)
+    model_index, path_offset = 0, 0
+    for row in (row for page in pages for row in page["map"]["models"]):
+        if model_index >= len(prepared.models):
+            raise ValueError("read batch repeated a selected model")
+        wanted = prepared.models[model_index]
+        if {key: value for key, value in row.items() if key != "input_paths"} != {
+                key: value for key, value in wanted.items() if key != "input_paths"}:
+            raise ValueError("read batch changed selected model metadata")
+        expected_paths = list(wanted.get("input_paths", ()))
+        actual_paths = list(row.get("input_paths", ()))
+        if expected_paths:
+            if not actual_paths or actual_paths != expected_paths[path_offset:path_offset + len(actual_paths)]:
+                raise ValueError("read batch did not reconstruct selected model inputs")
+            path_offset += len(actual_paths)
+            if path_offset == len(expected_paths):
+                model_index, path_offset = model_index + 1, 0
+        elif row != wanted:
+            raise ValueError("read batch changed an input-free selected model")
+        else:
+            model_index += 1
+    if model_index != len(prepared.models) or path_offset:
+        raise ValueError("read batch omitted selected model inputs")
+    if [row for page in pages for row in page["stale_obligations"]] != list(prepared.stale_obligations):
+        raise ValueError("read batch did not reconstruct stale obligations")
+    if isinstance(prepared.architecture, Mapping):
+        for field in prepared.architecture_fields:
+            if [value for page in pages for value in page["architecture"][field]] != list(prepared.architecture.get(field, ())):
+                raise ValueError("read batch did not reconstruct architecture " + field)
+        excluded = (*prepared.architecture_fields, "summary")
+        expected_metadata = {key: value for key, value in prepared.architecture.items() if key not in excluded}
+        if any({key: value for key, value in page["architecture"].items() if key not in excluded}
+               != expected_metadata for page in pages):
+            raise ValueError("read batch changed architecture metadata")
+    if prepared.growth_transport:
+        for field in prepared.growth_fields:
+            expected = [row["value"] for row in prepared.relations if row.get(prepared.growth_tag) == field]
+            if [value for page in pages for value in page[field]] != expected:
+                raise ValueError("read batch did not reconstruct growth " + field)
+    summary = prepared.summary
+    reconstructed_summary = {}
+    if isinstance(summary, Mapping) and summary:
+        reconstructed_summary = {key: dict(value) if isinstance(value, Mapping) else value
+                                 for key, value in pages[0]["architecture"]["summary"].items()}
+        for key in prepared.summary_dict_fields:
+            metadata = [{field: value for field, value in page["architecture"]["summary"][key].items()
+                         if (key, field) not in prepared.summary_paths} for page in pages]
+            metadata = [value for value in metadata if value]
+            expected = {field: value for field, value in summary[key].items()
+                        if (key, field) not in prepared.summary_paths}
+            if metadata != ([expected] if expected else []):
+                raise ValueError("read batch did not reconstruct once-only summary " + key)
+            reconstructed_summary[key] = dict(expected)
+        for path in prepared.summary_paths:
+            values = [value for page in pages for value in (
+                page["architecture"]["summary"][path[0]] if len(path) == 1
+                else page["architecture"]["summary"][path[0]][path[1]])]
+            if len(path) == 1:
+                reconstructed_summary[path[0]] = values
+            else:
+                reconstructed_summary[path[0]][path[1]] = values
+        if reconstructed_summary != summary:
+            raise ValueError("read batch did not reconstruct the complete summary")
+    if isinstance(prepared.functional, Mapping):
+        for key, expected in prepared.functional.items():
+            if key in prepared.functional_fields:
+                if [value for page in pages for value in page["functional_understanding"][key]] != list(expected):
+                    raise ValueError("read batch did not reconstruct functional " + key)
+            elif any(page["functional_understanding"][key] != expected for page in pages):
+                raise ValueError("read batch changed functional decision metadata")
+    summary_count = sum(page["understanding_transport"]["summary_record_transported_count"] for page in pages)
+    functional_count = sum(page["understanding_transport"]["functional_record_transported_count"] for page in pages)
+    if summary_count != prepared.summary_record_total or functional_count != prepared.functional_record_total:
+        raise ValueError("read batch did not reconstruct all understanding records")
+    return {"summary_record_total": prepared.summary_record_total,
+            "summary_record_transported_count": summary_count,
+            "functional_record_total": prepared.functional_record_total,
+            "functional_record_transported_count": functional_count,
+            "decision_basis_complete": _read_decision_basis_complete(reconstructed_summary),
+            "details_complete": True}
 
 
 def _bounded_read_page(
@@ -1599,6 +1756,7 @@ def _bounded_read_page(
     growth_transport = prepared.growth_transport
     summary_tag, summary = prepared.summary_tag, prepared.summary
     summary_paths = prepared.summary_paths
+    summary_dict_fields = prepared.summary_dict_fields
     stale_obligations = prepared.stale_obligations
     page_base_payload = prepared.page_base_payload
     start_model, start_offset = (0, 0)
@@ -1681,8 +1839,9 @@ def _bounded_read_page(
             for field in architecture_fields:
                 architecture_page[field] = [row["value"] for row in (*page_intents, *page_relations, *page_boundaries) if row.get(architecture_tag) == field]
             if isinstance(summary, Mapping) and summary:
-                summary_page = {**dict(summary), "gap": dict(summary["gap"]), "action": dict(summary["action"])}
-                for key in ("current", "scope"):
+                summary_page = {key: dict(value) if isinstance(value, Mapping) else value
+                                for key, value in summary.items()}
+                for key in summary_dict_fields:
                     rows = [row["value"] for row in page_relations
                             if row.get(summary_tag) == key]
                     summary_page[key] = dict(rows[0]) if rows else {}
@@ -1697,8 +1856,22 @@ def _bounded_read_page(
         for field in functional_fields:
             functional_page[field] = [row["value"] for row in (*page_intents, *page_relations, *page_boundaries)
                                       if row.get(functional_tag) == field]
+        understanding_transport = {
+            "summary_record_total": prepared.summary_record_total,
+            "summary_record_transported_count": sum(summary_tag in row for row in page_relations),
+            "functional_record_total": prepared.functional_record_total,
+            "functional_record_transported_count": sum(functional_tag in row for row in page_relations),
+            "decision_basis_complete": _read_decision_basis_complete(architecture_page.get("summary", {})),
+            # A terminal cursor describes this suffix, not earlier material.
+            # Only a response starting at the beginning and reaching every
+            # lane's end contains the complete selected details by itself.
+            "details_complete": next_cursor is None and not any((start_model, start_offset,
+                start_intent, start_relation, start_boundary, start_stale)),
+        }
         return {
             **page_base_payload,
+            "understanding_navigation": dict(prepared.understanding_navigation),
+            "understanding_transport": understanding_transport,
             **({field: [row["value"] for row in page_relations if row.get(growth_tag) == field]
                 for field in growth_fields} if growth_transport else {}),
             **({"architecture": architecture_page} if isinstance(architecture, Mapping) else {}),
@@ -1754,8 +1927,8 @@ def _bounded_read_page(
     # Context rows are paged before model rows.  This keeps a large relation or
     # intent map bounded without repeating it on every model page.
     for values, target, offset_name in (
-        (intents, page_intents, "intent"),
         (relations, page_relations, "relation"),
+        (intents, page_intents, "intent"),
         (boundary_nodes, page_boundaries, "boundary"),
     ):
         offset = {
@@ -2120,6 +2293,7 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
                 head_fingerprint=cursor_identity, scope=tuple(scope), cursor=next_cursor,
                 prepared_transport=prepared_transport)
             pages.append(page)
+        batch_transport = _complete_read_batch_transport(prepared_transport, pages)
         guard = verify_selected_read_observation(
             freeze_selected_read_observation(read_context), accounting=read_context.accounting)
         if not guard.ok:
@@ -2131,6 +2305,8 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
         return {"operation": "read", "status": "pass", "target_id": target_id,
                 "as_of": dict(closure.as_of), "read_mode": "complete_selected_batch",
                 "pages": pages, "page_count": len(pages), "terminal_next_cursor": None,
+                "understanding_navigation": dict(prepared_transport.understanding_navigation),
+                "understanding_transport": batch_transport,
                 "producer_count": 0, "write_count": 0,
                 "observation_boundary": "single_invocation_as_of"}
     except ValueError as exc:
