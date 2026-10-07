@@ -1,0 +1,258 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:80e77164bf7803c37c0ababcbae574219ea4a699ae6ec709b67d657907af79b6",
+        "effective_intent_view_fingerprint": "sha256:92c32f2ffe32107a8f4040a0f7f4d409a172bce0a7472604cdf361a101021e48",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/python_function_state_verification/model.py",
+            "source_fingerprint": "sha256:85ef25cb9669722ce0a1ead6e65122fedbceac0348d9b249ec523f405f77c4b3"
+          },
+          {
+            "path": ".flowguard/verification/owners/python_function_state_verification/run_checks.py",
+            "source_fingerprint": "sha256:c01e586c182590f798399ba5b3c9876452307b617232b010ab4c40de68a0152f"
+          },
+          {
+            "path": "flowguard/checks.py",
+            "source_fingerprint": "sha256:588bccb77861fef98068e82b40f7fee2b35501e5d9d847e9170bcb5c8b5eea0d"
+          },
+          {
+            "path": "flowguard/conformance.py",
+            "source_fingerprint": "sha256:0b9dbd5ae66e870821618afbb7534af7a582ab56fac4c7c13b8e3f1aff416b7c"
+          },
+          {
+            "path": "flowguard/contract.py",
+            "source_fingerprint": "sha256:710b09ca56f72dbab6dca52dd65f892f55019cf38ce0c9a8507fef3929b6a762"
+          },
+          {
+            "path": "flowguard/core.py",
+            "source_fingerprint": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4"
+          },
+          {
+            "path": "flowguard/explorer.py",
+            "source_fingerprint": "sha256:3c8e8e52de9a97510ef1ef70c08a7c397bbd4ecffbd59f606ce57d365c555ee5"
+          },
+          {
+            "path": "flowguard/loop.py",
+            "source_fingerprint": "sha256:f8d62617be01594fbc993ac088da80ae83781116d5fb3c3b212abaf8f1ab1620"
+          },
+          {
+            "path": "flowguard/plan.py",
+            "source_fingerprint": "sha256:e8606c13089c166588c2e398e6cb8ad6fcc9cf2b5b0567a7c2bbb0a4bbc4e4c5"
+          },
+          {
+            "path": "flowguard/replay.py",
+            "source_fingerprint": "sha256:41b2abba4725741fc0131ccccbc51ca4fcd373064b2c5292efd8039852269965"
+          },
+          {
+            "path": "flowguard/risk.py",
+            "source_fingerprint": "sha256:b9a7575744a84acf815b5c381ce7a22f3d18aee519a808a5d464597ca57b9179"
+          },
+          {
+            "path": "flowguard/risk_templates.py",
+            "source_fingerprint": "sha256:95efacd076e8ac819e72ec7d3c217b9fcf4481b231580c4dfc51f0b8ffa42e00"
+          },
+          {
+            "path": "flowguard/runner.py",
+            "source_fingerprint": "sha256:f130681390cd728cacbbad7e3797e533c43ef9c259640fba3b693167de1ca64d"
+          },
+          {
+            "path": "flowguard/trace.py",
+            "source_fingerprint": "sha256:c3f95c1f22b2ae5877c908be65121808994afb0d88968404f8703f68c48bdb99"
+          },
+          {
+            "path": "flowguard/workflow.py",
+            "source_fingerprint": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "bad_input_and_state": "independent adapter appends on repeated input",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "duplicate_implementation_effect_rejected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "adapter receives input-only ReplayInput, never expected output/new state; idempotent adapter passes",
+            "protected_failure_id": "engine_conformance_mismatch_or_expectation_leak",
+            "real_library_calls": "ReplayInput.from_trace_step/replay_trace",
+            "required_observation": "second-step projected_state_matches violation"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_conformance_mismatch_or_expectation_leak"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "type-rejected input, zero results, ValueError",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "rejected_empty_and_exception_paths",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "input rejection never calls apply and zero results or exceptions remain visible",
+            "protected_failure_id": "engine_exception_or_dead_path_hidden",
+            "real_library_calls": "Workflow.execute/Explorer.explore",
+            "required_observation": "dead/dead/exception reports and no success"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_exception_or_dead_path_hidden"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "two-sequence scope, max_transitions=1",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "finite_cutoff_is_not_exhaustive_success",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "a caller-requested diagnostic limit never licenses complete exploration",
+            "protected_failure_id": "engine_incomplete_exploration_claimed_complete",
+            "real_library_calls": "Explorer.explore",
+            "required_observation": "ok=False, exploration_complete=False, max_transitions_exhausted, nonempty remaining_scope"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_incomplete_exploration_claimed_complete"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "two repeated inputs, duplicate appender, required absent label",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "invariant_and_unreachable_label_detected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "positive idempotent retry and reachable label both remain covered",
+            "protected_failure_id": "engine_invariant_or_reachability_miss",
+            "real_library_calls": "no_duplicate_values/Explorer.explore",
+            "required_observation": "invariant and reachability failures"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_invariant_or_reachability_miss"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "one nonterminal self-loop",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "nonterminal_bottom_cycle_detected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "two-state finishing graph has reachable terminal success",
+            "protected_failure_id": "engine_loop_nonprogress_hidden",
+            "real_library_calls": "check_loops",
+            "required_observation": "non_terminating_components and ok=False"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_loop_nonprogress_hidden"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "Branch(left,right)",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "unsafe_second_branch_detected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "both branch results must be visited, including the unsafe second result",
+            "protected_failure_id": "engine_nondeterministic_branch_loss",
+            "real_library_calls": "Explorer.explore/Workflow.execute",
+            "required_observation": "right counterexample in violations"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_nondeterministic_branch_loss"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "string, opaque object, unhashable output, unhashable state",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "invalid_result_rejected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "FunctionResult, duck output/state and pair results normalize without losing metadata or generator items",
+            "protected_failure_id": "engine_result_coercion",
+            "real_library_calls": "normalize_function_results/coerce_function_result/FunctionResult",
+            "required_observation": "four TypeErrors"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_result_coercion"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "Record changes forbidden cache in addition to allowed records",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "forbidden_and_undeclared_write_detected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "declared records-only writes pass the same FunctionContract",
+            "protected_failure_id": "engine_step_contract_violation_hidden",
+            "real_library_calls": "check_trace_contracts",
+            "required_observation": "forbidden_write and undeclared_write"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_step_contract_violation_hidden"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "expected first new_state changed to wrong record",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "corrupt_expected_trace_rejected_by_replay",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "original Trace is immutable; ordered steps retain exact input/output/state/label/metadata",
+            "protected_failure_id": "engine_trace_state_corruption",
+            "real_library_calls": "Trace.append/Workflow.execute/replay_trace",
+            "required_observation": "projected_state_matches violation"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_trace_state_corruption"
+        },
+        {
+          "contract": {
+            "bad_input_and_state": "object without apply/run/transition/call",
+            "claim_boundary": "exact finite Python engine fixtures; not arbitrary caller models or the portable JSON interpreter",
+            "known_bad_case_id": "noninvocable_block_rejected",
+            "oracle_symbol": "run_review",
+            "positive_preservation": "apply takes priority over run, transition and callable; all four supported forms remain executable",
+            "protected_failure_id": "engine_unsupported_invocation_hidden",
+            "real_library_calls": "invoke_block",
+            "required_observation": "TypeError"
+          },
+          "id": "function-block:python_function_state_verification:contract:engine_unsupported_invocation_hidden"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:python_function_state_verification:contract:engine_conformance_mismatch_or_expectation_leak": "function_block",
+      "function-block:python_function_state_verification:contract:engine_exception_or_dead_path_hidden": "function_block",
+      "function-block:python_function_state_verification:contract:engine_incomplete_exploration_claimed_complete": "function_block",
+      "function-block:python_function_state_verification:contract:engine_invariant_or_reachability_miss": "function_block",
+      "function-block:python_function_state_verification:contract:engine_loop_nonprogress_hidden": "function_block",
+      "function-block:python_function_state_verification:contract:engine_nondeterministic_branch_loss": "function_block",
+      "function-block:python_function_state_verification:contract:engine_result_coercion": "function_block",
+      "function-block:python_function_state_verification:contract:engine_step_contract_violation_hidden": "function_block",
+      "function-block:python_function_state_verification:contract:engine_trace_state_corruption": "function_block",
+      "function-block:python_function_state_verification:contract:engine_unsupported_invocation_hidden": "function_block"
+    },
+    "subject_fingerprint": "sha256:0ff893682df607b5113d2d2473834018f8cd06effafaee10fa231ff8783b5648",
+    "trigger_currentness_id": "sha256:f2e51d87a2678864d21c841d690f2c087bbd16ef5084603f65542a9ed92551c1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:a50d97a48b85f54ea0dc45c00cfd17dd0c7295c56448aff5f45c182f9d78b136",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

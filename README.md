@@ -21,7 +21,7 @@
 
 | Public release | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.7` | `1.0` | Python standard library only | MIT |
+| `v0.69.8` | `1.0` | Python standard library only | MIT |
 
 [中文说明](./README.zh-CN.md) · [Quick Start](#quick-start) · [Concept](./docs/concept.md) · [Documentation](#documentation-map)
 
@@ -51,20 +51,11 @@ That map is the software's **FlowGuard DNA**.
 The DNA says what the maintained model contains. **Current** says which exact
 version of that DNA is accepted now.
 
-The v0.69.7 candidate self-model contains an exact inventory of 51 current
-owners. Fourteen historical, task-local, or completed construction routes were removed from current
-authority after their still-useful protections were reattached: Model Angle
-Deliberation, Maintenance Scan Router, standalone Model Similarity
-Consolidation, Legacy Compatibility Cleanup, the dedicated Template Harvest
-Closure self-model, OpenSpec Archive Cleanup, README Positioning 20260602,
-Release Visibility Process, Risk Purpose Header, AI Surface Streamlining,
-Reduce Architecture Surface, Simplify FlowGuard Structure, Structure Surface
-Simplification, and Simplify Field Schema. Bug back-propagation now
-follows one bounded chain from the exact commitment and behavior block through
-canonical affected relations, finite ContractExhaustion cases,
-ModelMaturation, and current model/code/test evidence. Explicit risk-template
-reuse and publication remain available when requested; they are not a
-universal completion gate. Old public route names are errors rather than
+Current owner counts, accepted revision identities, and the disposition of
+historical routes are versioned evidence, not fixed README promises. Use
+`python -m flowguard read --root . --request read.json --json` to inspect the
+accepted Current map. That bounded read returns the selected map without
+running its declared owners. Old public route names are errors rather than
 aliases or fallbacks.
 
 FlowGuard then gives an AI agent three capabilities that plain repository
@@ -77,6 +68,36 @@ search does not provide by itself:
    stale or inconsistent;
 3. search the current structure for an existing owner or reusable path before
    adding another handler, module, screen flow, facade, or fallback.
+
+Architecture review checks the complete graph declared by the selected model,
+including branches, state changes, guards, outputs, and implementation bindings.
+Within that finite boundary, it compares responsibilities across their applicable
+contexts and proposes changes against explicit finite goals or verified duplicate
+boundaries. Identical content alone does not prove a shared mechanism. The Current
+read reports facts, goals, findings, suggestions, observation gaps, and improvement
+gaps separately: a faithful map can still contain unfinished improvements. Follow
+each `next_cursor` with the same selected scope until it is null to read every page.
+These results support the declared model boundary; they do not establish complete
+software coverage or a globally optimal architecture.
+
+A task can stop when its requested functional outcomes are linked to the current
+intent, actual implementation bindings, original native evidence, and verified
+maturation, with no required goal left open. Numerical cost ceilings are optional
+explicit goals; they do not determine ordinary understanding. Missing independent
+measurement leaves an explicit cost goal unresolved.
+
+Improvement pointers identify the exact model, elements, shared context, retained
+obligations, missing proof and next owner. If two paths overlap only online, the
+candidate preserves their recovery and batch variants. A temporary compromise
+comes from the same current intent source and remains visible without waiving a
+required target. Recommendations require a separate authorized implementation.
+
+Selected reads share source bytes and identity projections within one invocation.
+A selected full preflight fills the necessary dependency closure without starting
+a whole-repository audit. A complete authenticated frozen inventory is a bounded
+proof: unregistered files added afterward remain unobserved until the relevant
+inventory producer is explicitly invoked. Compact pages preserve the same required
+references; output bytes are an overhead proxy, not a measured LLM token saving.
 
 The native model directory is the DNA. It stays beside the software it
 describes and contains the versioned models, parent/child interfaces,
@@ -510,11 +531,10 @@ cd FlowGuard
 For AI agents, complete setup means:
 
 1. read `AGENTS.md`;
-2. load or copy every skill under `.agents/skills/` according to the host
-   agent's skill mechanism;
-3. start from `.agents/skills/flowguard/SKILL.md`;
-4. keep the one FlowGuard skill and its selected domain protocols available;
-5. run executable check scripts only when current evidence is needed.
+2. load `.agents/skills/flowguard/SKILL.md` through the host agent's skill
+   mechanism;
+3. load the bundled domain references selected by that skill on demand;
+4. run executable check scripts only when current evidence is needed.
 
 Run a small check that compares a correct model with broken variants:
 
@@ -568,8 +588,8 @@ choose one risky boundary
 -> query the existing Current owner
 -> describe Input, State, Output, effects, owners, and completion evidence
 -> add one invariant or scenario
--> run the protected-failure checks and derived structure coverage
--> for an explicit reduction or candidate comparison, add the required good/bad cases
+-> run the protected-failure checks and derived structure coverage for the scoped change
+-> add per-element good/bad comparisons only when an explicit reduction or candidate comparison triggers that deeper review
 -> inspect the counterexample
 -> revise the model, plan, code, tests, UI, or claim
 ```
@@ -713,7 +733,7 @@ Repository-owned runner and evidence scripts remain internal maintenance
 helpers. They do not add aliases, compatibility readers, or fallback routes to
 the public dispatcher.
 
-Default human output is concise. `--json` emits the canonical machine result, while `--full` expands human-readable child details; neither option upgrades the evidence scope. Complete stdout/stderr are retained once as deterministic gzip objects with logical and storage hashes. Child and parent JSON keep bounded diagnostics and references rather than nested full payload copies. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json`, `evidence-run.json`, current-head binding, and terminal child receipts in the selected output directory.
+Within the internal suite runner `scripts/check_flowguard_skill_suite.py`, default human output is concise. `--json` emits that runner's canonical machine result; `--full` expands the human summary of the same owner results without changing the selected owners or evidence scope. The public `python -m flowguard` `read`/`change`/`release` dispatcher also supports `--json` for its own machine result; `--full` belongs only to the maintenance runner. Complete stdout/stderr are retained once as deterministic gzip objects with logical and storage hashes. Child and parent JSON keep bounded diagnostics and references rather than nested full payload copies. During a long foreground or background run, progress events show liveness only. Completion requires the final `report.json`, `evidence-run.json`, current-head binding, and terminal child receipts in the selected output directory.
 
 Persistent evidence cleanup is an internal maintenance operation and is not a
 public lifecycle command. Public `read` never creates or cleans evidence.
@@ -764,7 +784,7 @@ The internal domain references and template files are loaded by the selected
 skill route; they are not public CLI operations. Run `python -m flowguard
 --help` to see the exact three-operation public surface.
 
-FlowGuard v0.69.7 is source-only: the immutable Git tag is the release
+FlowGuard v0.69.8 is source-only: the immutable Git tag is the release
 authority. A release must not contain a wheel, source distribution, or GitHub
 Release asset.
 

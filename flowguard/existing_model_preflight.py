@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
+import ast
 import re
 from typing import Any, Mapping, Sequence
 
@@ -42,6 +43,8 @@ from .model_authority_store import (
     audit_model_authority,
     load_observed_model_system,
     read_selected_model_closure,
+    _SelectedReadContext,
+    _observe_growth_paths,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
 from .task_coverage_demand import (
@@ -423,6 +426,10 @@ class ExistingModelPreflight:
     selected_read_paths: tuple[str, ...] = ()
     selected_read_counts: Mapping[str, int] = field(default_factory=dict)
     selected_closure: Mapping[str, Any] = field(default_factory=dict)
+    growth_gaps: tuple[Mapping[str, Any], ...] = ()
+    checked_observed_paths: tuple[str, ...] = ()
+    observation_fingerprint: str = ""
+    live_unregistered_file_detection: str = "NOT_OBSERVED"
     model_search_performed: bool = False
     search_paths: tuple[str, ...] = ()
     behavior_lookup_required: bool = False
@@ -511,6 +518,8 @@ class ExistingModelPreflight:
             object.__setattr__(self, name, _as_tuple(getattr(self, name)))
         object.__setattr__(self, "selected_read_counts", dict(self.selected_read_counts))
         object.__setattr__(self, "selected_closure", dict(self.selected_closure))
+        object.__setattr__(self, "growth_gaps", tuple(dict(item) for item in self.growth_gaps))
+        object.__setattr__(self, "checked_observed_paths", _as_tuple(self.checked_observed_paths))
         object.__setattr__(self, "search_paths", _as_tuple(self.search_paths))
         object.__setattr__(self, "behavior_lookup_required", bool(self.behavior_lookup_required))
         object.__setattr__(self, "behavior_lookup_status", str(self.behavior_lookup_status))
@@ -611,6 +620,10 @@ class ExistingModelPreflight:
             "selected_read_paths": list(self.selected_read_paths),
             "selected_read_counts": dict(self.selected_read_counts),
             "selected_closure": to_jsonable(dict(self.selected_closure)),
+            "growth_gaps": [dict(row) for row in self.growth_gaps],
+            "checked_observed_paths": list(self.checked_observed_paths),
+            "observation_fingerprint": self.observation_fingerprint,
+            "live_unregistered_file_detection": self.live_unregistered_file_detection,
             "model_search_performed": self.model_search_performed,
             "search_paths": list(self.search_paths),
             "behavior_lookup_required": self.behavior_lookup_required,
@@ -973,7 +986,25 @@ def _class_names(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(re.findall(r"^class\s+([A-Za-z_][A-Za-z0-9_]*)\b", text, re.MULTILINE)))
 
 
-def _purpose_lines(text: str, limit: int = 3) -> tuple[str, ...]:
+def _full_declared_ownership(text: str) -> tuple[tuple[str, ...], tuple[str, ...], tuple[str, ...]]:
+    """Read declared state classes/effect inventories without executing DNA."""
+    tree = ast.parse(text)
+    states, effects, owned_fields = [], [], []
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name.endswith("State"):
+            states.extend(f"{node.name}.{row.target.id}" for row in node.body if isinstance(row, ast.AnnAssign) and isinstance(row.target, ast.Name))
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else (node.target,)
+            for target in targets:
+                if isinstance(target, ast.Name) and target.id in {"state_owned", "side_effects_owned", "fields_owned"}:
+                    value = ast.literal_eval(node.value)
+                    if not isinstance(value, (tuple, list)) or any(not isinstance(item, str) for item in value):
+                        raise ValueError("declared ownership inventory must be exact string identities")
+                    {"state_owned": states, "side_effects_owned": effects, "fields_owned": owned_fields}[target.id].extend(value)
+    return tuple(dict.fromkeys(states)), tuple(dict.fromkeys(effects)), tuple(dict.fromkeys(owned_fields))
+
+
+def _purpose_lines(text: str, limit: int | None = 3) -> tuple[str, ...]:
     lines: list[str] = []
     capture = False
     for raw_line in text.splitlines():
@@ -993,7 +1024,7 @@ def _purpose_lines(text: str, limit: int = 3) -> tuple[str, ...]:
             if lowered.startswith(("guards against:", "use before editing:", "run:")):
                 break
             lines.append(line)
-        if len(lines) >= limit:
+        if limit is not None and len(lines) >= limit:
             break
     return tuple(lines)
 
@@ -1136,14 +1167,15 @@ def _canonical_relations(
     return tuple(relations)
 
 
-def _project_declares_model_authority(root_path: Path) -> bool:
+def _project_declares_model_authority(root_path: Path, *, read_context=None) -> bool:
     """Distinguish a never-adopted target from a broken current authority."""
 
     manifest_path = root_path / ".flowguard" / "project.toml"
     if not manifest_path.is_file():
         return False
     try:
-        manifest_text = manifest_path.read_text(encoding="utf-8", errors="replace")
+        manifest_text = (read_context.artifact_bytes(".flowguard/project.toml").decode("utf-8", errors="replace")
+                         if read_context is not None else manifest_path.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         return True
     return bool(re.search(r"(?m)^\s*\[model_authority\]\s*$", manifest_text))
@@ -1164,6 +1196,7 @@ def existing_model_preflight_from_project(
     error_signatures: Sequence[str] = (),
     workflow_families: Sequence[str] = (),
     ledger_path: str | Path = "",
+    read_context=None,
 ) -> ExistingModelPreflight:
     """Create an ExistingModelPreflight input from lightweight project inventory.
 
@@ -1171,7 +1204,10 @@ def existing_model_preflight_from_project(
     `review_existing_model_preflight(...)` for the actual confidence decision.
     """
 
-    root_path = Path(root)
+    root_path = Path(root).resolve()
+    if read_context is not None and read_context.root != root_path:
+        raise ValueError("preflight read context belongs to another root")
+    read_context = read_context or _SelectedReadContext(root_path)
     search_roots = tuple(
         path
         for path in (
@@ -1191,9 +1227,7 @@ def existing_model_preflight_from_project(
     behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.parent.exists()
     lookup_report = None
     if behavior_lookup_required:
-        lookup_report = query_behavior_commitments_from_path(
-            canonical_ledger_path,
-            BehaviorLookupQuery(
+        lookup_query = BehaviorLookupQuery(
                 task_summary,
                 primary_plane=behavior_plane,
                 canonical_terms=tuple(canonical_terms),
@@ -1201,8 +1235,25 @@ def existing_model_preflight_from_project(
                 tool_ids=tuple(tool_ids),
                 error_signatures=tuple(error_signatures),
                 workflow_families=tuple(workflow_families),
-            ),
-        )
+            )
+        if read_context is None:
+            lookup_report = query_behavior_commitments_from_path(canonical_ledger_path, lookup_query)
+        else:
+            from .behavior_commitment import behavior_commitment_ledger_from_mapping
+            from .behavior_commitment_lookup import query_behavior_commitments, BehaviorLookupReport, BCL_LOOKUP_STATUS_BLOCKED
+            from .functional_read import strict_json_bytes
+            from .model_authority_store import _selected_path_is_missing
+            try:
+                relative = canonical_ledger_path.absolute().relative_to(root_path).as_posix()
+                if _selected_path_is_missing(root_path, relative, accounting=read_context.accounting):
+                    read_context.missing_paths.add(relative)
+                    raise FileNotFoundError("canonical behavior ledger is missing: " + relative)
+                ledger = behavior_commitment_ledger_from_mapping(strict_json_bytes(read_context.artifact_bytes(relative)))
+                lookup_report = query_behavior_commitments(ledger, lookup_query)
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                lookup_report = BehaviorLookupReport(BCL_LOOKUP_STATUS_BLOCKED,
+                    fallback_reason=f"canonical behavior ledger unavailable: {type(exc).__name__}: {exc}",
+                    metadata={"ledger_path": str(canonical_ledger_path)})
     searched_path_values = [
         str(path.relative_to(root_path) if path.is_relative_to(root_path) else path)
         for path in search_roots
@@ -1224,22 +1275,29 @@ def existing_model_preflight_from_project(
         getattr(lookup_report, "candidate_hits", ()) if lookup_report else ()
     )
     lookup_hits = (*primary_lookup_hits, *related_lookup_hits)
-
-    # Light selected navigation must not pay for a whole live inventory audit.
-    # It loads the one saved authority pair, then the selected reader validates
-    # only that finite typed closure.  Full or broad preflight retains the
-    # existing global audit semantics below.
-    light_selected = (
-        mode == PREFLIGHT_MODE_LIGHT
-        and inventory_scope == PREFLIGHT_INVENTORY_SELECTED
+    lookup_status = (
+        lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
     )
+    # Changed paths bound the closure only after required canonical lookup
+    # succeeds. A blocked lookup, including its old owner hints, cannot admit
+    # an authoritative model through path selection or broad materialization.
+    owner_lookup_current = (
+        not behavior_lookup_required or lookup_status == BCL_LOOKUP_STATUS_PERFORMED
+    )
+
+    # Selected navigation must not pay for a whole live inventory audit.
+    # It loads the one saved authority pair, then the selected reader validates
+    # only that finite typed closure. FULL still materializes its complete
+    # ownership details below; breadth and materialization are independent.
+    selected_navigation = inventory_scope == PREFLIGHT_INVENTORY_SELECTED
+    read_context = read_context or _SelectedReadContext(root_path)
     authority_report = None
     authority_snapshot = None
     authority_head = None
     selected_read: SelectedModelClosureRead | None = None
-    if light_selected:
+    if selected_navigation:
         try:
-            authority_head, authority_snapshot = load_observed_model_system(root_path)
+            authority_head, authority_snapshot = load_observed_model_system(root_path, read_context=read_context)
         except Exception:
             # A declared but malformed authority is a modeled-current failure,
             # not permission to fall back to lexical/root discovery.  For a
@@ -1249,9 +1307,9 @@ def existing_model_preflight_from_project(
             authority_snapshot = None
         authority_declared = bool(
             authority_snapshot is not None
-            or _project_declares_model_authority(root_path)
+            or _project_declares_model_authority(root_path, read_context=read_context)
         )
-        if authority_snapshot is not None:
+        if authority_snapshot is not None and owner_lookup_current:
             selected_read = read_selected_model_closure(
                 root_path,
                 selected_owner_ids=tuple(
@@ -1263,6 +1321,7 @@ def existing_model_preflight_from_project(
                 inventory_scope=inventory_scope,
                 head=authority_head,
                 snapshot=authority_snapshot,
+                read_context=read_context,
             )
             authority_ok = selected_read.ok
             authority_status = (
@@ -1277,7 +1336,7 @@ def existing_model_preflight_from_project(
         authority_report = audit_model_authority(root_path)
         authority_ok = bool(authority_report.ok)
         authority_declared = bool(
-            authority_report.ok or _project_declares_model_authority(root_path)
+            authority_report.ok or _project_declares_model_authority(root_path, read_context=read_context)
         )
         authority_status = (
             authority_report.status if authority_declared else "not_adopted"
@@ -1292,14 +1351,14 @@ def existing_model_preflight_from_project(
     authority_gap_ids: tuple[str, ...] = ()
     affected_relations: tuple[CanonicalRelation, ...] = ()
     hits: list[ModelContextHit] = []
-    if authority_ok and authority_snapshot is None:
+    if authority_ok and owner_lookup_current and authority_snapshot is None:
         # Full/broad mode keeps the historical global audit first and then
         # loads the single observed snapshot for materialization.
         try:
-            authority_head, authority_snapshot = load_observed_model_system(root_path)
+            authority_head, authority_snapshot = load_observed_model_system(root_path, read_context=read_context)
         except Exception:
             authority_ok = False
-    if authority_ok and authority_snapshot is not None:
+    if authority_ok and owner_lookup_current and authority_snapshot is not None:
         authority_snapshot_fingerprint = authority_snapshot.fingerprint
         authority_subject_revision = authority_snapshot.subject_revision
         authority_gap_ids = authority_snapshot.unresolved_gap_ids
@@ -1336,10 +1395,11 @@ def existing_model_preflight_from_project(
                 continue
             model_path = root_path / instance.model_path
             model_text = (
-                model_path.read_text(encoding="utf-8", errors="replace")
+                read_context.bytes(instance.model_path).decode("utf-8", errors="replace")
                 if mode == PREFLIGHT_MODE_FULL and model_path.is_file()
                 else ""
             )
+            state_owned, side_effects_owned, fields_owned = _full_declared_ownership(model_text) if mode == PREFLIGHT_MODE_FULL else ((), (), ())
             hits.append(
                 ModelContextHit(
                     model_id=instance.logical_model_id,
@@ -1353,7 +1413,7 @@ def existing_model_preflight_from_project(
                         or selected_read.selected_source_currentness == "current"
                     ),
                     responsibilities=(
-                        _purpose_lines(model_text)
+                        _purpose_lines(model_text, limit=None)
                         if mode == PREFLIGHT_MODE_FULL
                         else (instance.logical_model_id,)
                     )
@@ -1363,6 +1423,9 @@ def existing_model_preflight_from_project(
                         if mode == PREFLIGHT_MODE_FULL
                         else ()
                     ),
+                    fields_owned=fields_owned,
+                    state_owned=state_owned,
+                    side_effects_owned=side_effects_owned,
                     validation_evidence=(
                         authority_snapshot.fingerprint,
                         instance.purpose_closure_fingerprint,
@@ -1386,7 +1449,7 @@ def existing_model_preflight_from_project(
         for path in sorted(flowguard_root.rglob("*.py")):
             if "__pycache__" in path.parts:
                 continue
-            text = path.read_text(encoding="utf-8", errors="replace")
+            text = read_context.bytes(path.relative_to(root_path).as_posix()).decode("utf-8", errors="replace")
             if "FlowGuard" not in text and "Workflow" not in text and "Invariant" not in text:
                 continue
             if not _matches_changed_paths(path, text, changed_paths):
@@ -1437,9 +1500,6 @@ def existing_model_preflight_from_project(
                 for field_id in hit.fields_owned
             ),
         )
-    lookup_status = (
-        lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
-    )
     reuse_decision = (
         REUSE_DECISION_REUSE_EXISTING
         if authority_ok and hits
@@ -1468,6 +1528,7 @@ def existing_model_preflight_from_project(
             "Keep current ownership blocked until canonical commitment or affected-owner "
             "resolution succeeds; repository matches cannot substitute for it."
         )
+    growth = selected_read.to_dict() if selected_read is not None else _observe_growth_paths(read_context, changed_paths)
     return ExistingModelPreflight(
         preflight_id or "project-inventory-preflight",
         task_summary,
@@ -1532,6 +1593,10 @@ def existing_model_preflight_from_project(
         selected_closure=(
             selected_read.to_dict() if selected_read is not None else {}
         ),
+        growth_gaps=tuple(growth["growth_gaps"]),
+        checked_observed_paths=tuple(growth["checked_observed_paths"]),
+        observation_fingerprint=growth["observation_fingerprint"],
+        live_unregistered_file_detection=growth["live_unregistered_file_detection"],
         model_search_performed=True,
         search_paths=searched_paths,
         behavior_lookup_required=behavior_lookup_required,
@@ -1566,6 +1631,10 @@ def review_existing_model_preflight(
     """Review an existing-model preflight report."""
 
     findings: list[ExistingModelPreflightFinding] = []
+    for gap in preflight.growth_gaps:
+        findings.append(ExistingModelPreflightFinding("model_growth_unbound",
+            "An observed changed path lacks current declared inventory and binding.",
+            metadata=dict(gap)))
 
     if preflight.grounding_state not in PREFLIGHT_GROUNDING_STATES:
         findings.append(

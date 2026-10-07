@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import unittest
 
 from flowguard.development_process_strategy import (
@@ -206,7 +206,7 @@ class DevelopmentProcessStrategyTrajectoryTests(unittest.TestCase):
             ProcessOptimizationDecision(
                 "decision:parallel",
                 _contract(self.boundary_first),
-                activation_reasons=("multiple_equivalent_routes",),
+                activation_reasons=("diagnostic_boundary_choice",),
                 candidates=(parallel,),
                 selected_candidate_id=parallel.candidate_id,
                 input_revision="trace:r1",
@@ -220,7 +220,23 @@ class DevelopmentProcessStrategyTrajectoryTests(unittest.TestCase):
                 selection_rationale="independent shards reduce coordination handoffs",
             )
         )
-        self.assertTrue(report.ok)
+        self.assertTrue(report.ok, report.to_dict())
+        for field in ("dependency_isolation_evidence_ids", "state_isolation_evidence_ids",
+                      "side_effect_isolation_evidence_ids", "execution_owner_isolation_evidence_ids"):
+            with self.subTest(missing=field):
+                rejected = review_process_optimization(replace(
+                    ProcessOptimizationDecision(
+                        "decision:parallel", _contract(self.boundary_first),
+                        activation_reasons=("diagnostic_boundary_choice",),
+                        candidates=(parallel,), selected_candidate_id=parallel.candidate_id,
+                        input_revision="trace:r1",
+                        current_evidence_ids=("evidence:required", "evidence:material",
+                                              "evidence:trace:candidate:boundary-first") + isolation,
+                        material_evidence_ids=("evidence:material",),
+                    ), candidates=(replace(parallel, **{field: ()}),)))
+                self.assertFalse(rejected.ok)
+                self.assertTrue(any("parallel_isolation_evidence_missing" in code
+                                    for code in rejected.rejected_candidate_finding_codes), rejected.to_dict())
 
     def test_non_test_workflow_can_use_the_same_general_rule(self) -> None:
         repeated_doc_edits = ProcessTrace(

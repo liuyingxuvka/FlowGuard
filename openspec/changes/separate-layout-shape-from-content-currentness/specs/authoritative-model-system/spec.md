@@ -27,3 +27,8 @@ The current observed model head SHALL bind a compact layout-shape identity and t
 
 - **WHEN** a current layout and affected source/model inputs are frozen
 - **THEN** one accepted revision set MAY replace the observed head and produce a new current snapshot and activation receipt
+
+#### Scenario: Missing or retired selection blocks
+
+- **WHEN** a request has no unique current subject, names a retired entry, or omits a required accepted identity
+- **THEN** FlowGuard reports a typed blocker with zero producer and zero write effects; it does not widen the scope or try another route.

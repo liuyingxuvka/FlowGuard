@@ -11,7 +11,7 @@ Include:
 - `flowguard/consumer-suite-authority.json`;
 - the manifest-declared, `required_public` model sources and native runners
   under `.flowguard/`, including the authoritative semantic self-model;
-- the exact 15 `.agents/skills/flowguard*` members declared by
+- the single public `.agents/skills/flowguard` member declared by
   `.skillguard/flowguard-suite/suite-map.json`;
 - `docs/`
 - `examples/job_matching/`
@@ -19,6 +19,7 @@ Include:
 - `examples/risk_evidence_ledger/`
 - `tests/`
 - `README.md`
+- `README.zh-CN.md`
 - `CHANGELOG.md`
 - `ROADMAP.md`
 - `LICENSE`
@@ -66,119 +67,155 @@ Get-ChildItem -Recurse -Force | Where-Object {
 
 ## Required Validation
 
-Before the final validation owner starts, run the composed read-only
-self-maintenance check. It builds one exact self-blueprint and passes the same
-in-memory bundle to architecture-reduction review:
+First complete the shared README review against the current source. Resolve
+claims, entrypoint commands, versions and the privacy boundary before release
+version or Git mutations. Recheck the same README owner after relevant changes.
+
+Use an isolated implementation checkout and an external evidence directory.
+Select the interpreter, installed SkillGuard script, author-state root, author
+shadow and private consumer skills root explicitly; a release does not update
+system Python, global `CODEX_HOME`, or a live consumer installation. Define the
+following variables from the task's frozen workspace manifest rather than
+copying someone else's absolute paths:
+
+- `$SourceRoot`, `$EvidenceRoot`, `$Python`, `$SkillGuardCli`;
+- `$AuthorStateRoot`, `$ShadowRoot`, `$InstalledRoot`;
+- `$CompletionWorkId`, `$ObjectiveChange`, `$CompletionReadiness`,
+  `$CompletionRunManifest`, `$CompletionReadinessDir`.
+
+The author-state directory must already exist outside the repository. The exact
+source/check/toolchain identity and current author contract are frozen before
+validation. Current contract parity uses the read-only target checker:
 
 ```powershell
-python -m flowguard release `
-  --root . `
-  --request release.json `
-  --json
+& $Python "$SourceRoot/scripts/compile_flowguard_skill_contracts.py" --root $SourceRoot --check --json
 ```
 
-Before that audit, run the self-blueprint definition compiler in its default
-read-only check mode. If it reports only mechanical source-identity drift,
-refresh explicitly, inspect the exact changed owners, then re-run check mode:
+This parity reader does not generate contract authorities. Do not pass it
+`--write`, and do not invoke removed generic SkillGuard compiler/supervisor
+commands. A changed consumer source/version requires the target-owned
+`scripts/compile_flowguard_consumer_suite_authority.py --root $SourceRoot --write --json`
+before source freeze. The author wrapper's native checks remain distinct from
+the full parent's domain checks.
+
+Keep private readiness records under
+`$SourceRoot/.flowguard/evidence/completion-readiness/<run-key>/` so the full
+parent consumes the exact local artifacts. They are runtime evidence and must
+remain untracked and excluded from publication. The canonical model-owner
+receipt store is `$SourceRoot/.flowguard/evidence/model-owner-receipts`; pass
+that same path to readiness, plan-only, and the one final full invocation.
+`$EvidenceRoot/validation-owners` is the separate external store for validation
+owner receipts and reports. Do not substitute an empty
+`$EvidenceRoot/model-owner-receipts` directory for the canonical model store.
+
+If isolated author/consumer projection updates are authorized, prepare them
+before final freeze using explicit destinations:
 
 ```powershell
-python scripts/compile_flowguard_self_blueprint_definition.py
-python scripts/compile_flowguard_self_blueprint_definition.py --write
-python scripts/compile_flowguard_self_blueprint_definition.py
+& $Python "$SourceRoot/scripts/install_flowguard_skills.py" author-sync --source $SourceRoot --target $ShadowRoot --json
+& $Python "$SourceRoot/scripts/install_flowguard_skills.py" install --source $SourceRoot --target $InstalledRoot --json
 ```
 
-Require the internal child `static_manifest_status=complete`, a current
-topology report, a real ModelTestAlignmentReport identity, and no unresolved
-canonical target/project readiness gap. Never treat the child manifest status
-as the whole result.
+Freeze source, exact model authority, external projection hashes, toolchain and
+the reviewed Git index. Before preparing release readiness, archive the named
+OpenSpec change. Release readiness requires exactly one valid dated archive
+and no active copy; an empty name, active-only change, active-plus-archive
+duplicate, duplicate archive, invalid date, or reparse-point archive blocks
+before any readiness gate or output. The canonical objective identity stays
+the same when a valid active change is archived. Local validation may run
+before archiving, but it cannot be described as release-ready.
+Release full/plan-only admission independently repeats the positive archive
+check after readiness; moving the same-content objective back to active state
+must block before a child owner starts.
 
-The nested reduction result uses that exact current blueprint and
-implementation-inventory fingerprint to inventory repeated routes, branches,
-adapters, wrappers, helpers, and validation paths. Declare the observable
-API/CLI/state/side-effect contract, run ArchitectureReduction and
-CodeStructureRecommendation, and use
-StructureMesh for structural moves or public entrypoints. Apply ordinary
-contraction only with `safe_by_equivalence` or current
-`safe_by_public_facade`; apply intentional behavior removal only with
-`retire_behavior` plus a complete current retirement-responsibility proof.
-Every other candidate must remain explicitly unresolved or retained. Re-run
-the affected parity and responsibility-transfer tests after any contraction or
-retirement and rebuild the self blueprint before the unique final full
-validation.
+Prepare `.flowguard/read-request.json` from the frozen current observed model
+head and bound read-projection index. It must contain exactly `operation`,
+`target_id`, and `scope`; use `operation: read`, the current head's system id,
+and every model id in the current bound index once in sorted order. Readiness
+checks this file before any gate or output, and the `project_audit` owner binds
+its exact content in its semantic input identity. A later request-content
+change invalidates that owner and the frozen owner plan.
 
-Freeze and compile the single public FlowGuard author unit once. The FlowGuard
-native runner is the semantic execution owner; do not launch a second generic
-SkillGuard supervisor over the same native commands:
+Set `$CompletionReadinessDir` to one repository-local path under
+`.flowguard/evidence/completion-readiness/` using a filesystem-safe run key;
+set `$CompletionReadiness` to its `readiness.json` and
+`$CompletionRunManifest` to its `completion-run-manifest.json`. Produce the
+real plan-bound artifacts through the private source-checkout entry point:
 
 ```powershell
-$SkillGuardCli = Join-Path $env:CODEX_HOME 'skills\skillguard\scripts\skillguard.py'
-$SkillGuardCompiler = Join-Path $env:CODEX_HOME 'skills\skillguard\scripts\skillguard_compile.py'
-$SuiteMap = Get-Content -Raw '.skillguard\flowguard-suite\suite-map.json' | ConvertFrom-Json
-$FlowguardMembers = @($SuiteMap.included_skills.name)
-
-foreach ($Member in $FlowguardMembers) {
-  python $SkillGuardCompiler ".agents\skills\$Member" --repository-root .
-  if ($LASTEXITCODE -ne 0) { throw "SkillGuard compile failed: $Member" }
-}
-
-python $SkillGuardCli maintainer-audit --root .
-python scripts/compile_flowguard_consumer_suite_authority.py --root . --write --json
-python scripts/compile_flowguard_consumer_suite_authority.py --root . --check --json
-python scripts/check_flowguard_skill_suite.py --scope static --root . --skillguard $SkillGuardCli --json
-python scripts/run_flowguard_skill_native_checks.py --root . --output-dir .flowguard/evidence/skill-native-receipts --resume --json
-python scripts/check_flowguard_self_governance.py --root . --output-directory .flowguard/evidence/skill-native-receipts --json
+& $Python "$SourceRoot/scripts/prepare_flowguard_completion_readiness.py" `
+  --root $SourceRoot --claim-scope release `
+  --maintenance-unit-id unit:flowguard-suite --completion-work-id $CompletionWorkId `
+  --completion-objective-change $ObjectiveChange --author-state-root $AuthorStateRoot `
+  --skillguard $SkillGuardCli --formal-root $SourceRoot `
+  --shadow-root $ShadowRoot --installed-root $InstalledRoot `
+  --receipt-dir "$EvidenceRoot/validation-owners" `
+  --model-receipt-dir "$SourceRoot/.flowguard/evidence/model-owner-receipts" `
+  --require-executed-evidence --output-dir $CompletionReadinessDir --json
 ```
 
-Synchronize the explicit author shadow, install the separate clean consumer
-projection and editable package, then prove the four domains independently.
-`FLOWGUARD_AUTHOR_SHADOW_SKILLS` must name the intended maintainer workspace's
-`.agents/skills` directory; do not use a whole-repository copy helper:
+The readiness producer runs its finite preflight gates and writes the
+readiness/run-manifest handoff. It does not execute the full parent owners.
+Readiness, plan-only, and final full invocations must use the same source,
+read request, author-state root, formal/shadow/installed roots, receipt roots,
+maintenance unit, work id, objective name, and semantic options. A plan-only
+result or invented fingerprint is not readiness. Pass the exact artifacts as
+`$CompletionReadiness` and `$CompletionRunManifest`.
+
+Exactly one foreground final parent owns all required child validation:
 
 ```powershell
-python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --dry-run --json
-python scripts/install_flowguard_skills.py author-sync --source . --target $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --json
-python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --dry-run --json
-python scripts/install_flowguard_skills.py install --source . --codex-home $env:CODEX_HOME --json
-python scripts/install_flowguard_skills.py check --source . --codex-home $env:CODEX_HOME --json
-python -m pip install -e .
-python scripts/install_flowguard_skills.py parity --source . --formal .agents/skills --shadow $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS --installed $env:CODEX_HOME\skills --json
+& $Python "$SourceRoot/scripts/check_flowguard_skill_suite.py" `
+  --scope full --claim-scope release --root $SourceRoot `
+  --skillguard $SkillGuardCli --author-state-root $AuthorStateRoot `
+  --formal-root $SourceRoot --shadow-root $ShadowRoot --installed-root $InstalledRoot `
+  --maintenance-unit-id unit:flowguard-suite --completion-work-id $CompletionWorkId `
+  --completion-objective-change $ObjectiveChange --completion-readiness $CompletionReadiness `
+  --completion-run-manifest $CompletionRunManifest --require-executed-evidence `
+  --output-dir "$EvidenceRoot/final-full" --receipt-dir "$EvidenceRoot/validation-owners" `
+  --model-receipt-dir "$SourceRoot/.flowguard/evidence/model-owner-receipts" --json
 ```
 
-After all source, model authority, OpenSpec archive paths, external projections,
-toolchain identities, and the reviewed Git index are frozen, run exactly one
-foreground full release parent. It owns pytest, examples, model regressions,
-OpenSpec strict validation, the single-skill checks, self-maintenance, and
-distribution parity; do not repeat those child commands manually:
+Before that one full execution, run the same frozen arguments with
+`--plan-only --json`. Plan-only is an expected partial result with exit code
+6. Admit it only when the JSON reports `scope: full-plan-only`, no blockers,
+   zero blocked rows, zero completed rows, `completion_epoch_admission.status:
+   admitted`, admission `ok: true`, no admission blockers, a non-empty readiness
+   fingerprint, and no artifact paths. Compare the exact owner IDs, obligation
+   IDs, dependency edges, and semantic commands against the frozen ChildSpec
+   plan and run manifest. The frozen plan is the denominator; earlier owner or
+   obligation counts are only historical comparison values. Snapshot the output
+   and receipt directories before and after; plan-only JSON has no producer
+   count field, so a missing field does not prove zero producers. Do not start
+   the full parent if any gate differs.
 
-```powershell
-python scripts/check_flowguard_skill_suite.py `
-  --scope full `
-  --root . `
-  --skillguard $SkillGuardCli `
-  --formal-root .agents/skills `
-  --shadow-root $env:FLOWGUARD_AUTHOR_SHADOW_SKILLS `
-  --installed-root $env:CODEX_HOME\skills `
-  --model-jobs 4 `
-  --model-timeout 900 `
-  --output-dir .flowguard/evidence/full-validation/v<VERSION>-final `
-  --receipt-dir .flowguard/evidence/validation-owners `
-  --json
-```
+Do not separately run SkillGuard change/release, native checks, self-governance,
+model regressions, pytest, OpenSpec strict validation, distribution parity or
+the self-maintenance child before/after this parent for the same qualification.
+The self-maintenance child runs `scripts/check_self_maintenance_review.py` once;
+it consumes the model receipts and produces compact self/reduction identities.
+It is not a fourth public `python -m flowguard` operation.
 
-The final parent must remain in the foreground. If it times out or is
-interrupted, confirm the complete descendant process tree is gone before
-starting another owner. Bind the resulting parent receipt to the frozen local
-candidate with `scripts/verify_flowguard_release.py`; after that succeeds, do
-not edit, install, synchronize, stage, or change any OpenSpec checkbox again.
+Retain every child status and immutable receipt. All required obligations must
+be terminal success under the same frozen identities. A timeout or interruption
+requires confirmation that the entire descendant process tree is gone before
+any evidence reuse or another owner starts. Diagnose the failed or stale owner;
+do not silently repeat a full run or change paths to obtain a fresh budget.
 
-This is an explicit post-archive gate. The source-controlled OpenSpec change
-must already be archived before the command above starts. The final parent,
-commit, tag, publication, published-identity comparison, and predictive-KB
-postflight are output evidence and release operations; none may be made to
-look complete by editing `openspec/changes/**/tasks.md` after the parent runs.
-If a post-archive operation discovers a governed source or specification
-defect, stop and create a new version/change; never move the tag or reopen the
-completed source task list inside the same completion epoch.
+The final full is post-archive. Do not change tracked checkboxes, source,
+versions, models, external projections or toolchain after it and retain the
+old qualification. External reports and publication receipts are outputs. A
+necessary source repair invalidates its exact affected owner closure and must
+be reconciled before a candidate can pass.
+
+Use `scripts/verify_flowguard_release.py` with an explicit complete target
+descriptor and actual successful parent receipt: local-candidate first, then
+an annotated local tag and tag verification, then branch/tag push and GitHub
+Release creation, then published verification. The frozen descriptor's required
+check IDs are parent `covered_obligations`, not owner subject IDs. Never reduce
+them to a convenient passing subset. Verify the remote main commit, peeled tag,
+published release and empty asset list independently. See
+`docs/release_target_descriptor.md` for the supported verifier parameters.
 
 ## Source-only Release
 

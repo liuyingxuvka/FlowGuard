@@ -1,0 +1,277 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:f4a0f58000daa1c630596fb3466fe05b83b54b1b920aa4b5bbe42457b7d187d0",
+        "effective_intent_view_fingerprint": "sha256:11e9e3e5a0178735f036e95d899d5a2feb3998dc54593d977858a7dfdd1dabea",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/guard_closure_contract/model.py",
+            "source_fingerprint": "sha256:248e03626f7d3f889734cfec44eaad0fee197638696635f50dd6d76a05298038"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guard_closure_contract:clean_reports",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "writes_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guard_closure_contract:done_claims",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guard_closure_contract:obligations",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "writes_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guard_closure_contract:scoped_claims",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ClosureReportInput",
+          "effects": [],
+          "id": "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+          "inputs": [
+            "external-input:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7"
+          ],
+          "outputs": [
+            "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ],
+          "state_input": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0",
+          "state_output": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1",
+          "validations": [],
+          "writes": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ]
+        },
+        {
+          "accepted_input": "ClosureAccepted",
+          "effects": [],
+          "id": "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion",
+          "inputs": [
+            "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ],
+          "outputs": [
+            "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ],
+          "state_input": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1",
+          "state_output": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:2",
+          "validations": [
+            "validation:guard_closure_contract:invariant:no_done_claim_from_obligation",
+            "validation:guard_closure_contract:invariant:all_non_pass_reports_have_next_action"
+          ],
+          "writes": [
+            "field:guard_closure_contract:done_claims",
+            "field:guard_closure_contract:scoped_claims"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "id": "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+          "producer_id": "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion",
+          "producer_id": "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:2",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:2"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport",
+          "outputs": [
+            "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport"
+          ],
+          "reads": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ],
+          "source": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0",
+          "target": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1",
+          "trigger": "ClosureReportInput",
+          "validations": [],
+          "writes": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion",
+          "outputs": [
+            "output:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion"
+          ],
+          "reads": [
+            "field:guard_closure_contract:clean_reports",
+            "field:guard_closure_contract:obligations"
+          ],
+          "source": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1",
+          "target": "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:2",
+          "trigger": "ClosureAccepted",
+          "validations": [
+            "validation:guard_closure_contract:invariant:no_done_claim_from_obligation",
+            "validation:guard_closure_contract:invariant:all_non_pass_reports_have_next_action"
+          ],
+          "writes": [
+            "field:guard_closure_contract:done_claims",
+            "field:guard_closure_contract:scoped_claims"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:guard_closure_contract",
+          "id": "validation:guard_closure_contract:invariant:all_non_pass_reports_have_next_action",
+          "obligation_id": "obligation:native-invariant:guard_closure_contract:all_non_pass_reports_have_next_action",
+          "oracle_id": "oracle:native-invariant:guard_closure_contract:all_non_pass_reports_have_next_action",
+          "subject_fingerprint": "sha256:5e66a1e91981daae4cb18b5f8a64c7beb42f810821e0484212e4937fa41b1f56"
+        },
+        {
+          "evidence_boundary_id": "native-runner:guard_closure_contract",
+          "id": "validation:guard_closure_contract:invariant:no_done_claim_from_obligation",
+          "obligation_id": "obligation:native-invariant:guard_closure_contract:no_done_claim_from_obligation",
+          "oracle_id": "oracle:native-invariant:guard_closure_contract:no_done_claim_from_obligation",
+          "subject_fingerprint": "sha256:5e66a1e91981daae4cb18b5f8a64c7beb42f810821e0484212e4937fa41b1f56"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:guard_closure_contract:clean_reports": "field",
+      "field:guard_closure_contract:done_claims": "field",
+      "field:guard_closure_contract:obligations": "field",
+      "field:guard_closure_contract:scoped_claims": "field",
+      "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport": "function_block",
+      "function-block:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion": "function_block",
+      "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0": "state",
+      "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1": "state",
+      "state:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:2": "state",
+      "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:0:ReviewClosureReport": "transition",
+      "transition:workflow:guard_closure_contract:guard_closure_contract:0:841cbf66b1d7:1:ClaimCompletion": "transition",
+      "validation:guard_closure_contract:invariant:all_non_pass_reports_have_next_action": "validation",
+      "validation:guard_closure_contract:invariant:no_done_claim_from_obligation": "validation"
+    },
+    "subject_fingerprint": "sha256:7488f00284492e29e8c53e850a2d97731a8e4993d144ad9c6cbc394f1ea93eae",
+    "trigger_currentness_id": "sha256:353fddb18901587f18bd02af535a5c875db1233909018b494029a735ac6604dd",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:3aec13ed67d107177792d0957847c26f3b501f0f0d8749008ac924e5f8b54310",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

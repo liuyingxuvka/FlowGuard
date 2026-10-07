@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.69.8 - 2026-10-02
+
+- Reduce repeated model input scans, raw evidence hashing, and native case
+  projection work inside bounded validation runs.
+- Reuse exact-current successful owner receipts without changing required
+  obligation coverage or cleanup safety.
+- Bind cached completion readiness to the current full owner plan; preserve
+  immutable evidence when source, test, or toolchain identity changes.
+- Audit the complete declared model graph, including branch, state, guard,
+  output, and implementation bindings; incomplete declarations cannot support
+  a faithful graph or whole-software coverage claim.
+- Compare responsibility relations across applicable contexts and propose
+  finite architecture changes from explicit goals or verified duplicate
+  boundaries. Matching content hashes alone do not prove a shared mechanism.
+- Bind typed architecture objectives to the admitted intent sources and expose
+  facts, goals, findings, suggestions, observation gaps, and improvement gaps
+  through bounded read pages. Consumers follow the cursor to the terminal page.
+- Keep faithful Current observation separate from improvement completion;
+  required architecture gaps block their declared completion claim. This
+  finite review does not establish a globally optimal architecture.
+- Close a requested function only when current implementation bindings,
+  native evidence and verified maturation prove every requested outcome;
+  unrelated functions do not expand that task's evidence scope.
+- Preserve unmodeled implementation writers, context remainders and current
+  temporary compromises in actionable architecture pointers. Invalid model
+  ownership or wholly unassigned goal scope blocks rather than hiding debt.
+- Share source bytes and identity projections within one read, while each new
+  invocation observes current bytes. Ordinary task completion has no default
+  cost ceiling; explicit cost goals require independent measurement evidence.
+- Keep the efficiency change scoped to its affected models and workflows.
+  A complete reverse implementation semantic inventory remains a separate
+  authoring task and is not claimed by this release.
+- Retain the public read/change/release lifecycle and source-only release
+  boundary. Overall PlanningTool runtime speedup has not been measured.
+
 ## v0.69.7 - 2026-09-22
 
 - Retired the legacy FlowGuard command parser and route-reference entry so the

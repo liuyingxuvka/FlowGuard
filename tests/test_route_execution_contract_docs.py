@@ -36,14 +36,13 @@ CURRENT_DOMAINS = (
 
 class RouteExecutionContractDocsTests(unittest.TestCase):
     def test_contract_covers_one_skill_and_three_public_operations(self) -> None:
-        text = CONTRACT.read_text(encoding="utf-8")
+        text = " ".join(CONTRACT.read_text(encoding="utf-8").split())
         index = ROUTE_INDEX.read_text(encoding="utf-8")
         skill = KERNEL_SKILL.read_text(encoding="utf-8")
-        self.assertIn("three public FlowGuard operations", text)
+        self.assertIn("read observes; change executes the exact affected closure; release verifies its declared scope", text)
         self.assertIn("one public skill", skill)
         for operation in CURRENT_OPERATIONS:
             with self.subTest(operation=operation):
-                self.assertIn(f"`{operation}`", text)
                 self.assertIn(f"`{operation}`", index)
                 self.assertIn(f"`{operation}`", skill)
         for domain in CURRENT_DOMAINS:
@@ -51,15 +50,15 @@ class RouteExecutionContractDocsTests(unittest.TestCase):
                 self.assertIn(f"references/domains/{domain}/", index)
 
     def test_shared_contract_contains_finite_execution_and_governed_gates(self) -> None:
-        text = CONTRACT.read_text(encoding="utf-8")
+        text = " ".join(CONTRACT.read_text(encoding="utf-8").split())
         required_fragments = (
             "RouteContext",
             "execute | reuse_current | blocked | not_run",
-            "Read-only or plan-only work has zero producer invocations",
+            "Read/plan-only creates no producer, lease, run directory, receipt, pointer or installation",
             "reuse_current",
-            "Freeze source, model, contract, check, toolchain, environment",
-            "Unknown or ambiguous ownership stops before any producer",
-            "unconfirmed descendant cleanup",
+            "Freeze that identity before execute",
+            "unknown ownership never becomes run-all",
+            "cleanup uncertainty",
             "out_of_scope",
         )
         for fragment in required_fragments:

@@ -285,3 +285,19 @@ def external_inputs():
 
 
 terminal_predicate = lambda current_output, state, trace: bool(state.terminal)
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Project explicitly selected source contracts; run no check or review."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+    from flowguard.workflow import Workflow
+
+    root = Path(__file__).resolve().parents[4]
+    return compile_declared_path_quality_source(
+        model_id='model_mesh_closure_model', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=tuple({"path": path, "source_fingerprint": functional_source_fingerprint(root, path)} for path in ('.flowguard/models/owners/model_mesh_closure_model/model.py',)),
+        workflows=(Workflow(build_blocks(), name='whole_system_understanding_closure'),), invariants=invariants,
+    )

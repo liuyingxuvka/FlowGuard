@@ -10,9 +10,10 @@ case projection is stale, never a passing shortcut.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -72,6 +73,164 @@ def _reject_duplicate_json_keys(
 
 class NativeCaseProtocolError(ValueError):
     """The native case contract/result cannot support a closure claim."""
+
+
+ARCHITECTURE_MATERIAL_SCHEMA = "flowguard.native_architecture_material.v1"
+
+
+def parse_native_architecture_material(value):
+    """Parse receipt-free, current architecture inputs from original native bytes."""
+    from .implementation_inventory import ImplementationSurfaceInventory
+    from .model_path_quality import (
+        HARD_SEMANTIC_DIMENSIONS, ARCHITECTURE_HARD_DIMENSION_PROJECTION,
+        parse_architecture_binding_report,
+    )
+    from .model_test_alignment import CodeContract
+    from .model_authority import ModelInputRef
+    names = {"schema", "model_id", "source_refs", "observed_source_inputs",
+             "resolved_manifest_rows", "implementation_inventory", "binding_report",
+             "code_contracts", "native_case_contracts", "responsibility_context_rows"}
+    if not isinstance(value, Mapping) or set(value) != names:
+        raise NativeCaseProtocolError("architecture material fields must be exact")
+    _strict_json(value)
+    def reject_episode_authority(item):
+        if isinstance(item, Mapping):
+            if {"receipt_id", "owner_receipt_id", "receipt_fingerprint", "owner_receipt_fingerprint", "current_context", "accepted_head", "head_id"} & set(item):
+                raise NativeCaseProtocolError("architecture material cannot contain episode receipt/current authority")
+            for child in item.values():
+                reject_episode_authority(child)
+        elif isinstance(item, (list, tuple)):
+            for child in item:
+                reject_episode_authority(child)
+        elif isinstance(item, str) and item.startswith("receipt:"):
+            raise NativeCaseProtocolError("architecture material cannot contain receipt references")
+    reject_episode_authority(value)
+    if value["schema"] != ARCHITECTURE_MATERIAL_SCHEMA:
+        raise NativeCaseProtocolError("architecture material schema mismatch")
+    model = _text(value["model_id"], field_name="model_id")
+    inventory = ImplementationSurfaceInventory.from_dict(value["implementation_inventory"])
+    report = parse_architecture_binding_report(value["binding_report"])
+    if report.inventory_id != inventory.inventory_id or report.inventory_fingerprint != inventory.fingerprint:
+        raise NativeCaseProtocolError("architecture material inventory/binding identity mismatch")
+    from .portable_model import canonical_identity
+    for name, key in (("source_refs", "source_fingerprint"),
+                      ("observed_source_inputs", "sha256"), ("resolved_manifest_rows", "sha256")):
+        rows = value[name]
+        if not isinstance(rows, list) or not rows:
+            raise NativeCaseProtocolError(name + " must be a nonempty array")
+        for row in rows:
+            if not isinstance(row, Mapping) or set(row) != {"path", key}:
+                raise NativeCaseProtocolError(name + " row fields must be exact")
+            ModelInputRef(row["path"], row[key])
+        paths = [row["path"] for row in rows]
+        if paths != sorted(set(paths)):
+            raise NativeCaseProtocolError(name + " paths must be canonical and unique")
+    if canonical_identity(value["resolved_manifest_rows"]) != inventory.manifest_fingerprint:
+        raise NativeCaseProtocolError("architecture material manifest identity mismatch")
+    observed = {row["path"]: row["sha256"] for row in value["observed_source_inputs"]}
+    if any(observed.get(row["path"]) != row["sha256"] for row in value["resolved_manifest_rows"]):
+        raise NativeCaseProtocolError("architecture production inputs missing from observation")
+    contracts = {}
+    for raw in value["code_contracts"]:
+        if not isinstance(raw, Mapping) or set(raw) != {f.name for f in fields(CodeContract)}:
+            raise NativeCaseProtocolError("CodeContract requires complete current wire")
+        for f in fields(CodeContract):
+            if "bool" in str(f.type) and type(raw[f.name]) is not bool:
+                raise NativeCaseProtocolError("CodeContract boolean must be exact")
+        contract = CodeContract(**raw)
+        if contract.to_dict() != dict(raw) or contract.code_contract_id in contracts:
+            raise NativeCaseProtocolError("invalid/duplicate CodeContract")
+        contracts[contract.code_contract_id] = contract
+    natives = {}
+    for raw in value["native_case_contracts"]:
+        contract = NativeModelCaseContract.from_dict(raw)
+        if contract.owner_id != "model:" + model or contract.source_case_id in natives:
+            raise NativeCaseProtocolError("foreign/duplicate architecture native contract")
+        if contract.evidence_scope != "implementation_boundary" or "input" not in contract.covered_dimensions:
+            raise NativeCaseProtocolError("architecture native contract must execute input at implementation boundary")
+        expected_prefix = "native-scenario:" if model == "authoritative_model_system" else "case:"
+        if not contract.source_case_id.startswith(expected_prefix + model + ":"):
+            raise NativeCaseProtocolError("architecture native case namespace mismatch")
+        natives[contract.source_case_id] = contract
+    rows = value["responsibility_context_rows"]
+    if not isinstance(rows, list) or not rows or not contracts or not natives:
+        raise NativeCaseProtocolError("architecture context/contracts missing")
+    contexts = {}
+    exact = {"responsibility_id", "hard_dimension_id", "input_class_id", "code_contract_id",
+             "semantic_spec_id", "oracle_id", "source_case_ids"}
+    for row in rows:
+        if not isinstance(row, Mapping) or set(row) != exact:
+            raise NativeCaseProtocolError("architecture context row fields must be exact")
+        for name in exact - {"source_case_ids"}:
+            _text(row[name], field_name=name)
+        if row["hard_dimension_id"] not in HARD_SEMANTIC_DIMENSIONS or row["code_contract_id"] not in contracts:
+            raise NativeCaseProtocolError("unknown architecture dimension/CodeContract")
+        cases = row["source_case_ids"]
+        if not isinstance(cases, list) or not cases or cases != sorted(set(cases)) or not set(cases) <= set(natives):
+            raise NativeCaseProtocolError("unknown/duplicate architecture native case")
+        if not any(row["oracle_id"] == f"{natives[case].owner_id}:{case}:input" for case in cases):
+            raise NativeCaseProtocolError("architecture oracle must be an actual input member")
+        key = (row["responsibility_id"], row["input_class_id"])
+        dimensions = contexts.setdefault(key, set())
+        if row["hard_dimension_id"] in dimensions:
+            raise NativeCaseProtocolError("duplicate architecture hard context")
+        dimensions.add(row["hard_dimension_id"])
+        oracle = next((x for x in report.oracles if x.oracle_id == row["oracle_id"]), None)
+        spec = next((x for x in report.semantic_specs if x.semantic_spec_id == row["semantic_spec_id"]), None)
+        if oracle is None or spec is None or set(oracle.covered_dimensions) != set(ARCHITECTURE_HARD_DIMENSION_PROJECTION) or set(spec.covered_dimensions) != set(ARCHITECTURE_HARD_DIMENSION_PROJECTION):
+            raise NativeCaseProtocolError("architecture input oracle/spec must cover all nine semantic groups")
+        if dict(oracle.semantics) != dict(spec.semantics):
+            raise NativeCaseProtocolError("architecture oracle/spec semantics differ")
+    if any(dimensions != set(HARD_SEMANTIC_DIMENSIONS) for dimensions in contexts.values()):
+        raise NativeCaseProtocolError("architecture context lacks exact 23 hard dimensions")
+    return json.loads(json.dumps(value, allow_nan=False))
+
+
+def _current_wire(cls, value, schema, fingerprint_field=""):
+    """Read the complete current wire without coercing malformed containers."""
+    if not isinstance(value, Mapping):
+        raise NativeCaseProtocolError("native wire must be an object")
+    expected = {item.name for item in fields(cls)} | {"schema_version"}
+    if fingerprint_field:
+        expected.add(fingerprint_field)
+    if set(value) != expected or value["schema_version"] != schema:
+        raise NativeCaseProtocolError("native wire fields/schema must be exact")
+    _strict_json(value)
+    arguments = {item.name: value[item.name] for item in fields(cls)}
+    for item in fields(cls):
+        row = arguments[item.name]
+        if "tuple" in str(item.type):
+            if not isinstance(row, (list, tuple)):
+                raise NativeCaseProtocolError(item.name + " must be an array")
+            if item.name != "oracle_results" and (
+                any(not isinstance(x, str) or not x.strip() for x in row)
+                or len(row) != len(set(row))
+            ):
+                raise NativeCaseProtocolError(item.name + " contains invalid/duplicate identities")
+        elif not isinstance(row, str):
+            raise NativeCaseProtocolError(item.name + " must be a string")
+    result = cls(**arguments)
+    if fingerprint_field and value[fingerprint_field] != result.fingerprint:
+        raise NativeCaseProtocolError("native wire derived fingerprint mismatch")
+    if result.to_dict() != dict(value):
+        raise NativeCaseProtocolError("native wire is not canonical current data")
+    return result
+
+
+def _strict_json(value):
+    if value is None or type(value) in (str, bool, int):
+        return
+    if type(value) is float and math.isfinite(value):
+        return
+    if isinstance(value, Mapping) and all(isinstance(k, str) for k in value):
+        for item in value.values():
+            _strict_json(item)
+        return
+    if isinstance(value, (list, tuple)):
+        for item in value:
+            _strict_json(item)
+        return
+    raise NativeCaseProtocolError("native material contains non-finite or non-JSON data")
 
 
 @dataclass(frozen=True)
@@ -200,6 +359,10 @@ class NativeCaseBinding:
             payload["binding_fingerprint"] = self.fingerprint
         return payload
 
+
+    @classmethod
+    def from_dict(cls, value):
+        return _current_wire(cls, value, NATIVE_CASE_BINDING_SCHEMA, 'binding_fingerprint')
 
 @dataclass(frozen=True)
 class NativeBindingVerification:
@@ -414,6 +577,10 @@ class NativeModelCaseContract:
         return payload
 
 
+    @classmethod
+    def from_dict(cls, value):
+        return _current_wire(cls, value, NATIVE_CASE_PROTOCOL_SCHEMA, 'contract_fingerprint')
+
 @dataclass(frozen=True)
 class NativeModelCaseResult:
     """One producer-written result backed by an immutable raw artifact."""
@@ -489,6 +656,10 @@ class NativeModelCaseResult:
         }
 
 
+    @classmethod
+    def from_dict(cls, value):
+        return _current_wire(cls, value, NATIVE_CASE_RESULT_SCHEMA, '')
+
 @dataclass(frozen=True)
 class NativeCaseVerification:
     """Deterministic comparison of frozen contracts and producer results."""
@@ -529,6 +700,7 @@ def verify_native_model_cases(
     contracts: Sequence[NativeModelCaseContract],
     results: Sequence[NativeModelCaseResult],
     *,
+    read_context=None,
     raw_artifact_root: str | Path | None = None,
     require_current_inputs: bool = True,
     available_case_keys: Sequence[str] | None = None,
@@ -596,7 +768,13 @@ def verify_native_model_cases(
                 if not artifact.is_file() or root not in artifact.parents:
                     findings.append(f"raw_artifact_missing:{label}")
                 else:
-                    digest = "sha256:" + hashlib.sha256(artifact.read_bytes()).hexdigest()
+                    try:
+                        raw = (read_context.artifact_bytes(raw_artifact.absolute().relative_to(read_context.root).as_posix())
+                               if read_context is not None else artifact.read_bytes())
+                    except (OSError, ValueError) as exc:
+                        findings.append(f"raw_artifact_missing:{label}")
+                        continue
+                    digest = "sha256:" + hashlib.sha256(raw).hexdigest()
                     if digest != result.result_artifact_fingerprint:
                         findings.append(f"raw_artifact_fingerprint_mismatch:{label}")
         if contract.is_aggregate:
@@ -899,15 +1077,16 @@ def verify_native_case_bindings(
     )
 
 
-def load_native_model_case_results(path: str | Path) -> tuple[NativeModelCaseResult, ...]:
+def load_native_model_case_results(path: str | Path, *, read_context=None) -> tuple[NativeModelCaseResult, ...]:
     """Load only the current strict result envelope; never infer from text."""
 
-    result_path = Path(path).expanduser().resolve()
+    result_path = Path(path).expanduser().absolute()
     if result_path.is_symlink() or not result_path.is_file():
         raise NativeCaseProtocolError("native result artifact is missing or a symlink")
     try:
         payload = json.loads(
-            result_path.read_text(encoding="utf-8"),
+            (read_context.artifact_bytes(result_path.relative_to(read_context.root).as_posix()).decode("utf-8")
+             if read_context is not None else result_path.read_text(encoding="utf-8")),
             object_pairs_hook=_reject_duplicate_json_keys,
             parse_constant=lambda item: (_ for _ in ()).throw(
                 NativeCaseProtocolError(f"non-finite JSON number: {item}")

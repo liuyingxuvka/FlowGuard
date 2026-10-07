@@ -2,6 +2,310 @@ import hashlib
 import json
 import tempfile
 import unittest
+import pytest
+
+
+@pytest.mark.parametrize("mutation", ("none", "omitted_owner", "forged_row", "foreign_basis", "changed_facts", "changed_proof"))
+def test_r8_closed_demand_preserves_original_resolution_basis_exactly(mutation):
+    from dataclasses import replace
+    from flowguard.task_coverage_demand import project_owner_resolution_to_demand
+    helper = ModelMaturationTests()
+    facts = TaskFacts("task-compile", "compile independent pre-code coverage",
+                      read_only=True, source_snapshots=_complete_source_snapshots())
+    original = compile_task_coverage_demand(facts)
+    seed = helper._intake(*(helper._contribution(owner, owner_route=owner)
+                            for owner in original.required_owner_ids))
+    contributions = []
+    closed = original
+    for contribution in sorted(seed.contributions, key=lambda c: c.owner_route):
+        obligations = tuple(v for row in original.rows
+                            if row.triggered and row.owner_route == contribution.owner_route
+                            for v in row.coverage_ids)
+        resolution = replace(contribution.owner_resolution,
+                             demand_id=original.demand_id,
+                             demand_fingerprint=original.fingerprint,
+                             obligation_ids=obligations)
+        proof = replace(contribution.evidence_ref,
+                        producer_route=contribution.owner_route,
+                        subject_fingerprint=resolution.fingerprint,
+                        covered_obligation_ids=obligations)
+        contributions.append(replace(contribution, owner_resolution=resolution,
+                                     evidence_ref=proof, coverage_ids=obligations,
+                                     required_probe_ids=tuple("probe:" + v for v in obligations)))
+        closed = project_owner_resolution_to_demand(closed, resolution)
+    intake = replace(seed, task_facts=facts, coverage_demand=closed,
+                     contributions=tuple(contributions))
+    if mutation == "omitted_owner":
+        intake = replace(intake, contributions=intake.contributions[:-1])
+    elif mutation == "forged_row":
+        intake = replace(intake, coverage_demand=replace(closed,
+            rows=(replace(closed.rows[0], reason="forged satisfied row"), *closed.rows[1:])))
+    elif mutation == "foreign_basis":
+        intake = replace(intake, coverage_demand=replace(closed,
+                         resolution_basis_fingerprint=canonical_fingerprint({"foreign": True})))
+    elif mutation == "changed_facts":
+        intake = replace(intake, task_facts=replace(facts, release_requested=True))
+    elif mutation == "changed_proof":
+        intake = replace(intake, contributions=(replace(contributions[0],
+            evidence_ref=replace(contributions[0].evidence_ref,
+                                 subject_fingerprint=canonical_fingerprint({"foreign": True}))),
+            *contributions[1:]))
+    if mutation in {"omitted_owner", "forged_row", "foreign_basis", "changed_facts"}:
+        with pytest.raises(ValueError):
+            compile_model_maturation_plan(intake)
+        return
+    plan = compile_model_maturation_plan(intake)
+    assert plan.coverage_demand_fingerprint == closed.fingerprint
+    assert plan.coverage_resolution_basis_fingerprint == original.fingerprint
+    report = review_model_maturation_loop(plan)
+    if mutation == "changed_proof":
+        assert not report.ok
+    else:
+        assert report.ok, [f.code for f in report.findings]
+        roundtrip = ModelMaturationPlan.from_dict(plan.to_dict())
+        assert review_model_maturation_loop(roundtrip).ok
+
+
+def _r7_functional_fixture(root, *, requested_outcome_ids=("outcome:save",),
+                           declared_output_ids=("outcome:save",)):
+    from flowguard.task_coverage_demand import TaskFacts, TaskCoverageDemand, CoverageDemandRow
+    from flowguard.model_authority_store import SelectedModelClosureRead
+    from flowguard.model_intent_authority import CurrentEffectiveIntentView
+    from flowguard.model_maturation_receipt import publish_model_maturation_receipt, verify_model_maturation_receipt
+    from tests.test_model_maturation_receipt import ModelMaturationReceiptTests, _path_quality_material
+    from tests.test_model_intent_authority import _snapshot, _contribution, _bootstrap_view, SHA_B
+    from tests.test_model_path_quality import _r7_inventory, _r7_native_material
+    inventory, bindings = _r7_inventory(root)
+    w1 = next(row for row in inventory.surfaces if row.symbol == "W1")
+    facts = TaskFacts("task:save", "Save the current function", requested_outcome_ids=requested_outcome_ids, affected_surface_ids=(w1.surface_id,), related_model_ids=("alpha",), implementation_requested=True)
+    row = CoverageDemandRow("row:save", "rule:save", "model_first_function_flow", ("obligation:save",), True, "satisfied", "Original admitted finite owner", evidence_ids=("evidence:owner",), evidence_fingerprints=(_fingerprint("owner"),))
+    unrelated = CoverageDemandRow("row:unrelated", "rule:unrelated", "structure_refactor_mesh", ("obligation:unrelated",), False, "not_triggered", "Function B has no dependency on A.")
+    demand = TaskCoverageDemand("demand:save", facts.task_id, facts.fingerprint, "ordinary", (row, unrelated))
+    candidate = _snapshot(("alpha", "beta"), snapshot_id="candidate", model_sha=SHA_B)
+    contribution = replace(_contribution(root, "alpha"), target_obligation_ids=tuple(binding.model_element_id for binding in bindings.bindings), target_invariant_ids=("invariant:other-function",), target_output_ids=declared_output_ids)
+    beta = _contribution(root, "beta", text="Unrelated function B remains outside the task A closure.\n")
+    unrelated_path = root / "unrelated-B.py"
+    unrelated_path.write_text("def B(value):\n    return value + 1\n", encoding="utf-8")
+    view = _bootstrap_view(root, _snapshot(("alpha", "beta"), snapshot_id="base"), candidate, (contribution, beta))
+    instance = next(row for row in candidate.model_instances if row.logical_model_id == "alpha")
+    subject, result = _path_quality_material("alpha", instance.fingerprint)
+    subject = replace(subject, intent_fingerprint=view.fingerprint, currentness_id=candidate.fingerprint)
+    result = replace(result, subject_fingerprint=subject.fingerprint, currentness_id=subject.currentness_id)
+    fixture = ModelMaturationReceiptTests(); fixture.setUp()
+    fixture.report = replace(fixture.report, model_id="alpha", task_id=facts.task_id, coverage_universe_id=demand.demand_id, coverage_demand_fingerprint=demand.fingerprint,
+        candidate_model_fingerprint=instance.fingerprint, required_path_quality_model_ids=("alpha",), path_quality_subjects=(subject,), path_quality_results=(result,), path_quality_subject_fingerprints=(), path_quality_result_fingerprints=(), path_quality_result_set_fingerprint="")
+    receipt_root = root / "maturation-receipts"
+    reference = publish_model_maturation_receipt(fixture.report, fixture.publication, output_directory=receipt_root)
+    verification = verify_model_maturation_receipt(reference, fixture._contexts(receipt_root), output_directory=receipt_root)
+    assert verification.ok and verification.verified_maturation.supports_full_confidence()
+    selected = SelectedModelClosureRead("pass", "current", snapshot_fingerprint=candidate.fingerprint, subject_revision=candidate.subject_revision, authority_head_fingerprint=_fingerprint("head"), accepted_revision_set_fingerprint=_fingerprint("revision"),
+        selected_model_ids=("alpha",), selected_models=(instance.to_dict(),), relations=tuple(relation.to_dict() for relation in candidate.relations), architecture={"effective_intent_view_fingerprint": view.fingerprint})
+    native = _r7_native_material(root / "native")
+    from flowguard.model_test_alignment import CodeContract
+    native["code_contracts"] = (CodeContract("contract:save", path="src/writers.py", symbol="W1",
+        implements_obligations=("element:W1", "element:module"), external_outputs=declared_output_ids),)
+    target = "element:W1"
+    refs = ({"outcome_id": "outcome:save", "contribution_id": contribution.contribution_id, "target_kind": "obligation", "target_id": target,
+        "binding_fingerprints": [binding.fingerprint for binding in bindings.bindings], "native_case_binding_fingerprints": [native["native_bindings"][0].fingerprint]},)
+    return {"task_facts": facts, "coverage_demand": demand, "maturation_report": fixture.report, "verified_maturation": verification.verified_maturation, "selected_read": selected, "current_effective_intent_view": view,
+        "binding_report": bindings, "implementation_inventory": inventory, "outcome_refs": refs, "native_materials": native}
+
+
+def test_function_scope_closes_without_unrelated_architecture_expansion(tmp_path, monkeypatch):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path)
+    from pathlib import Path
+    reads = []
+    original = Path.read_bytes
+    def tracked(path):
+        reads.append(path)
+        assert path.name != "unrelated-B.py" and "beta" not in path.name
+        return original(path)
+    monkeypatch.setattr(Path, "read_bytes", tracked)
+    result = derive_functional_understanding(**values)
+    assert result["stopping_disposition"] == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK, str(result["gap_ids"])
+    assert result["satisfied_outcome_ids"] == ["outcome:save"] and result["selected_model_ids"] == ["alpha"]
+    assert result["deepest_proven_layer"] == "unknown" and not result["missing_outcome_ids"]
+    assert len(values["current_effective_intent_view"].active_contributions) == 2
+    assert not values["coverage_demand"].rows[1].triggered and values["selected_read"].producer_count == 0
+    assert reads and not any(path.name == "unrelated-B.py" for path in reads)
+
+
+@pytest.mark.parametrize("summary_kind", ("foreign_target", "stale_revision", "same_identity_forged_depth"))
+def test_unverified_blueprint_summary_cannot_promote_functional_depth(tmp_path, summary_kind):
+    from flowguard.model_maturation import derive_functional_understanding
+    from flowguard.target_system_blueprint import BlueprintUnderstandingSummary, SOFTWARE_BLUEPRINT_LAYER_ORDER
+    values = _r7_functional_fixture(tmp_path)
+    baseline = derive_functional_understanding(**values)
+    summary = BlueprintUnderstandingSummary(
+        scope="selected_dependency_closure",
+        target_system_id="alpha",
+        target_profile="software",
+        subject_revision=values["selected_read"].subject_revision,
+        descriptor_fingerprint=values["current_effective_intent_view"].fingerprint,
+        blueprint_fingerprint=values["binding_report"].fingerprint,
+        layer_plan_id="plan:constructed",
+        layer_plan_fingerprint=values["coverage_demand"].fingerprint,
+        layer_statuses=tuple((layer, "complete") for layer in SOFTWARE_BLUEPRINT_LAYER_ORDER),
+        status="complete",
+        deepest_proven_layer=SOFTWARE_BLUEPRINT_LAYER_ORDER[-1],
+        first_gap=None,
+        gap_count=0,
+        implementation_admitted=True,
+        affected_surface_ids=values["task_facts"].affected_surface_ids,
+        required_path_quality_model_ids=values["maturation_report"].required_path_quality_model_ids,
+    )
+    if summary_kind == "foreign_target":
+        summary = replace(summary, target_system_id="target:foreign")
+    elif summary_kind == "stale_revision":
+        summary = replace(summary, subject_revision="revision:stale")
+    # Even matching all available task identities is not canonical blueprint
+    # proof. The supplied layer/status and fingerprints are constructed data.
+    result = derive_functional_understanding(**values, blueprint_summary=summary)
+    assert result == baseline
+    assert result["deepest_proven_layer"] == "unknown"
+    assert result["stopping_disposition"] == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+    assert result["satisfied_outcome_ids"] == ["outcome:save"] and not result["gap_ids"]
+
+
+@pytest.mark.parametrize("mutation", ("forged_report", "missing_verified", "foreign_task_demand", "stale_selected_source", "foreign_result_set", "foreign_owner_resolution"))
+def test_missing_function_obligation_blocks_stopping(tmp_path, mutation):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path)
+    if mutation == "forged_report": values["maturation_report"] = replace(values["maturation_report"], evidence_id="evidence:forged")
+    elif mutation == "missing_verified": values["verified_maturation"] = None
+    elif mutation == "foreign_task_demand": values["task_facts"] = replace(values["task_facts"], task_id="task:foreign")
+    elif mutation == "stale_selected_source": values["selected_read"] = replace(values["selected_read"], selected_source_currentness="stale")
+    elif mutation == "foreign_result_set":
+        report = values["maturation_report"]
+        result = replace(report.path_quality_results[0], detail_evidence_fingerprint="sha256:" + _fingerprint("foreign-detail"))
+        values["maturation_report"] = replace(report, path_quality_results=(result,), path_quality_result_fingerprints=(), path_quality_result_set_fingerprint="")
+    else: values["maturation_report"] = replace(values["maturation_report"], owner_resolution_fingerprints=(_fingerprint("foreign-owner"),))
+    result = derive_functional_understanding(**values)
+    assert result["stopping_disposition"] != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK and result["missing_outcome_ids"] == ["outcome:save"]
+
+
+@pytest.mark.parametrize("terminal", ("model_maturation_scope_excluded", "model_maturation_iteration_limit"))
+def test_scoped_out_or_iteration_limit_is_not_function_completion(tmp_path, terminal):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path)
+    values["maturation_report"] = replace(values["maturation_report"], decision=terminal, terminal_reason=terminal)
+    assert derive_functional_understanding(**values)["stopping_disposition"] == terminal
+
+
+@pytest.mark.parametrize("callable_symbol", ("W1", "foreign_function"))
+def test_distinct_native_source_case_joins_actual_function_contract(tmp_path, callable_symbol):
+    from flowguard.model_maturation import derive_functional_understanding
+    from flowguard.model_test_alignment import CodeContract
+    values = _r7_functional_fixture(tmp_path)
+    material = dict(values["native_materials"])
+    binding = replace(material["native_bindings"][0],
+                      blueprint_source_case_id="native-source:alpha:save")
+    material["native_bindings"] = (binding,)
+    material["native_contracts"] = tuple(replace(row,
+        callable_ref="src/writers.py#" + callable_symbol)
+        for row in material["native_contracts"])
+    owner_contract_id = values["binding_report"].bindings[0].owner_contract_id
+    material["code_contracts"] = (CodeContract(owner_contract_id,
+        path="src/writers.py", symbol="W1",
+        implements_obligations=("element:W1", "element:module"), external_outputs=("outcome:save",)),)
+    values["native_materials"] = material
+    values["outcome_refs"] = ({**values["outcome_refs"][0],
+        "native_case_binding_fingerprints": [binding.fingerprint]},)
+    result = derive_functional_understanding(**values)
+    assert (result["stopping_disposition"] == MODEL_MATURATION_DECISION_CLOSED_FOR_TASK) == (callable_symbol == "W1")
+
+
+def test_other_function_binding_cannot_satisfy_current_invariant_outcome(tmp_path):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path)
+    values["outcome_refs"] = ({**values["outcome_refs"][0], "target_kind": "invariant", "target_id": "invariant:other-function"},)
+    result = derive_functional_understanding(**values)
+    assert result["missing_outcome_ids"] == ["outcome:save"] and "outcome_declared_output_mapping_missing:outcome:save" in result["gap_ids"]
+
+
+@pytest.mark.parametrize("mutation", ("none", "undeclared_output", "wrong_contract_output",
+    "cross_owner", "missing_binding", "wrong_native_binding"))
+def test_external_outcome_requires_declared_same_owner_code_mapping(tmp_path, mutation):
+    """Pure mapping boundary; native and maturation fixtures remain labelled fixtures."""
+    from flowguard.model_maturation import review_functional_outcome_bindings
+    values = _r7_functional_fixture(tmp_path)
+    fields = ("task_facts", "selected_read", "current_effective_intent_view", "binding_report",
+              "implementation_inventory", "outcome_refs", "native_materials")
+    inputs = {name:values[name] for name in fields}
+    material = dict(inputs["native_materials"])
+    if mutation == "undeclared_output":
+        inputs["task_facts"] = replace(inputs["task_facts"], requested_outcome_ids=("outcome:r8:invented",))
+        inputs["outcome_refs"] = ({**inputs["outcome_refs"][0], "outcome_id":"outcome:r8:invented"},)
+    elif mutation == "wrong_contract_output":
+        material["code_contracts"] = (replace(material["code_contracts"][0], external_outputs=("outcome:r8:other",)),)
+    elif mutation == "cross_owner":
+        from flowguard.implementation_blueprint import review_model_implementation_bindings
+        report = inputs["binding_report"]
+        changed = tuple(replace(row, implementation_owner_id="model:beta") for row in report.bindings)
+        inputs["binding_report"] = review_model_implementation_bindings(inputs["implementation_inventory"],
+            required_model_element_ids=report.required_model_element_ids, bindings=changed,
+            semantic_specs=report.semantic_specs, oracles=report.oracles)
+        inputs["outcome_refs"] = ({**inputs["outcome_refs"][0],
+            "binding_fingerprints":[row.fingerprint for row in changed]},)
+    elif mutation == "missing_binding":
+        inputs["outcome_refs"] = ({**inputs["outcome_refs"][0], "binding_fingerprints":[]},)
+    elif mutation == "wrong_native_binding":
+        inputs["outcome_refs"] = ({**inputs["outcome_refs"][0], "native_case_binding_fingerprints":["sha256:"+"0"*64]},)
+    inputs["native_materials"] = material
+    result = review_functional_outcome_bindings(**inputs)
+    assert result["ok"] == (mutation == "none"), result
+    if mutation != "none":
+        assert result["missing_outcome_ids"] == list(inputs["task_facts"].requested_outcome_ids)
+
+
+def test_each_external_output_of_one_contribution_requires_its_own_ref(tmp_path):
+    from flowguard.model_maturation import review_functional_outcome_bindings
+    names = ("outcome:r8:save", "outcome:r8:inspect")
+    values = _r7_functional_fixture(tmp_path, requested_outcome_ids=names, declared_output_ids=names)
+    material = dict(values["native_materials"])
+    material["code_contracts"] = (replace(material["code_contracts"][0], external_outputs=names),)
+    # The contribution has two obligations; this output's real binding covers
+    # W1 only. Its code/native proof still retains the full declared code scope.
+    w1 = next(row for row in values["binding_report"].bindings if row.model_element_id=="element:W1")
+    ref = {**values["outcome_refs"][0], "binding_fingerprints":[w1.fingerprint]}
+    inputs = {name:values[name] for name in ("selected_read", "current_effective_intent_view",
+        "binding_report", "implementation_inventory")}
+    inputs.update(native_materials=material)
+    for name in names:
+        result = review_functional_outcome_bindings(**inputs,
+            task_facts=replace(values["task_facts"], requested_outcome_ids=(name,)),
+            outcome_refs=({**ref,"outcome_id":name},))
+        assert result["ok"], result
+    facts = replace(values["task_facts"], requested_outcome_ids=names)
+    missing = review_functional_outcome_bindings(**inputs, task_facts=facts,
+        outcome_refs=({**ref,"outcome_id":names[0]},))
+    assert missing["missing_outcome_ids"] == [names[1]] and not missing["ok"]
+    complete = review_functional_outcome_bindings(**inputs, task_facts=facts,
+        outcome_refs=tuple({**ref,"outcome_id":name} for name in names))
+    assert complete["ok"], complete
+
+
+def test_verified_maturation_still_needs_each_requested_outcome(tmp_path):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path, requested_outcome_ids=("outcome:save", "outcome:other"))
+    result = derive_functional_understanding(**values)
+    assert result["satisfied_outcome_ids"] == ["outcome:save"]
+    assert result["missing_outcome_ids"] == ["outcome:other"]
+    assert result["stopping_disposition"] != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+
+
+def test_model_policy_case_does_not_close_implementation_outcome(tmp_path):
+    from flowguard.model_maturation import derive_functional_understanding
+    values = _r7_functional_fixture(tmp_path)
+    material = dict(values["native_materials"])
+    policy_binding = replace(material["native_bindings"][0], evidence_scope="model_policy")
+    material["native_bindings"] = (policy_binding,)
+    material["native_contracts"] = tuple(replace(row, evidence_scope="model_policy") for row in material["native_contracts"])
+    values["native_materials"] = material
+    values["outcome_refs"] = ({**values["outcome_refs"][0], "native_case_binding_fingerprints": [policy_binding.fingerprint]},)
+    result = derive_functional_understanding(**values)
+    assert result["missing_outcome_ids"] == ["outcome:save"] and result["stopping_disposition"] != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
 from contextlib import redirect_stdout
 from dataclasses import replace
 from io import StringIO
@@ -1158,3 +1462,49 @@ class ModelMaturationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_required_architecture_gap_blocks_improvement_completion():
+    from flowguard.model_maturation_receipt import _path_quality_closure_findings
+    subject, result = _path_quality("model:fixture", "sha256:" + "a" * 64, "revision:fixture")
+    gap = "required_architecture_objective_unmet:objective:fixture:service-layer-writer"
+    result = replace(result, finding_ids=(gap,), unresolved_ids=(gap,), conclusion="unresolved")
+    assert not result.observation_gap_ids and result.improvement_gap_ids == (gap,)
+    findings = _path_quality_closure_findings((subject.model_id,), (subject,), (result,), primary_model_id=subject.model_id, candidate_model_fingerprint=subject.model_fingerprint)
+    assert "maturation_path_quality_improvement_incomplete" in findings
+    assert "maturation_path_quality_unresolved" in findings
+
+
+def test_architecture_direction_has_no_unrestricted_optimum_claim(tmp_path):
+    from flowguard.model_intent import derive_architecture_objective_projection
+    from flowguard.model_path_quality import evaluate_architecture_objectives
+    from tests.test_model_intent import _r6_objective_view
+    from tests.test_model_path_quality import _r6_fact
+    view, contribution, source = _r6_objective_view(tmp_path)
+    goals = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: source})
+    facts = (_r6_fact(model="alpha", layer="layer:UI"),)
+    # Match the exact declared responsibility, without renaming runtime facts.
+    facts = (replace(facts[0], responsibility_id="responsibility:writer"),)
+    result = evaluate_architecture_objectives(goals, facts)
+    assert result["suggestions"][0]["action"] == "relocate_responsibility"
+    assert result["suggestions"][0]["lane"] == "normative_target"
+    assert result["architecture_objective_status"] == "blocked"
+    assert not any(word in json.dumps(result) for word in ("global_optimum", "unrestricted_optimum"))
+
+
+def test_generic_architecture_direction_uses_current_facts_and_finite_goal(tmp_path):
+    from flowguard.model_intent import derive_architecture_objective_projection
+    from flowguard.model_path_quality import evaluate_architecture_objectives
+    from tests.test_model_intent import _r6_objective_view
+    from tests.test_model_path_quality import _r6_fact
+    view, contribution, source = _r6_objective_view(tmp_path)
+    goals = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: source})
+    writer = replace(_r6_fact(model="alpha", layer="layer:UI"), responsibility_id="responsibility:writer")
+    before = writer.to_dict()
+    unmet = evaluate_architecture_objectives(goals, (writer,))
+    assert unmet["improvement_gap_ids"] == ["required_architecture_objective_unmet:objective:fixture:service-layer-writer"]
+    assert writer.to_dict() == before
+    moved = replace(writer, layer_id="layer:service")
+    satisfied = evaluate_architecture_objectives(goals, (moved,))
+    assert satisfied["satisfied_objective_ids"] == ["objective:fixture:service-layer-writer"]
+    assert not satisfied["improvement_gap_ids"] and not satisfied["suggestions"]

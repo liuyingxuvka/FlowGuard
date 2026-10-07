@@ -1,5 +1,13 @@
 # Existing Model Preflight change and composition details
 
+## Finite growth and reuse
+
+Observe the task's finite changed paths, including deleted paths and both rename
+ends. Selection of an existing model does not erase an unknown neighboring path.
+Expose `model_growth_unbound:<path>` with the actual observation, missing boundary,
+inventory/binding inputs and next owner. Without path observations report
+`NOT_OBSERVED`. Read-only discovery never refreshes or creates the missing proof.
+
 This reference is conditional. Load it only for an implementation/model change, a missing current intent, an explicit whole-target claim, or an executable composition/path-quality handoff. The main protocol remains the compact authority-first lookup and read-only boundary.
 
 ## Path-Quality Lookup And Handoff
@@ -20,15 +28,56 @@ supplies an exact deep-review trigger, but it does not enumerate candidates,
 compare costs, create necessity witnesses, or decide model path quality.
 
 Keep `observed` current behavior separate from a cleaner `normative_target`.
+Use the exact current declared-source and immutable detail identities to
+report scope/confidence, complete declared structure, observed coverage,
+responsibility context, verified goal references and separate observation
+blockers/improvement gaps. Missing architecture detail is
+`architecture_detail_missing`, not permission to reconstruct it. A trace-only
+projection cannot establish the declared denominator. A `native_check_contract`
+cannot establish software behavior completeness, and declared/scoped facts
+cannot establish whole-software confidence without the existing independent
+implementation inventory and reverse binding coverage.
+
+Goal lookup consumes actual independently verified normative source bytes,
+the complete effective intent and exact admitted `target_invariant_ids`.
+Never infer targets from prose or names, create a default backend objective,
+or trim a required goal to the request intersection. Read only exact selected
+facts, full required goal scope and typed neighbors; unresolved scope remains
+visible. Responsibility similarity is a candidate handoff only: independent
+hard semantics, current native conformance and nonempty context intersection
+are required for duplication; disjoint context preserves variants. Equal-copy
+hashes do not establish shared-primary delegation. Accepted faithful current
+observation with an unmet required target is not improvement completion.
+
 The same provider-neutral lookup applies to other programming languages and to
 non-code workflows; a path or Python symbol is never required as semantic
 authority. Preflight reads current model authority only; it never creates
-another authority, route, CLI, reader, or pointer.
+another authority, route, CLI, reader, or pointer. Existing improvement pointers
+are observations from matching accepted detail, not new suggestions or proof
+of implementation. Show each duplicate's overlapping contexts and retained
+variant remainder; keep deferred compromises, revisit triggers and required
+gaps visible. Missing proof yields the actual input/owner pointer.
+
+Return compact accepted head/revision/as-of identity, requested function,
+actual closure, scope/confidence, finding ids and exact detail/evidence refs.
+Load the first unresolved reference that can change the task conclusion;
+never return a truncated required set as complete. Reuse source bytes only
+within the same verified read invocation; the next read rechecks currentness.
+Function completion belongs to verifier-backed ModelMaturation's existing
+`model_maturation_closed_for_task` decision and terminal reason, not preflight
+`ok`. Public read without a typed task stays a map.
 
 ## Full Mode
 
 Full mode is required before implementation, OpenSpec proposal, major
-architecture changes, or risky behavior changes.
+architecture changes, or risky behavior changes. FULL with SELECTED inventory
+scope completes the actual selected dependency closure: owner snapshots,
+current sources, fields/state/effects and required downstream contracts. It
+keeps mode=FULL; it does not audit unrelated global authority or relabel a light
+note. Required objectives retain their complete scopes, including actual
+neighbors outside the initial request. Unknown ownership, bad accepted head
+or selected-source drift blocks; unrelated independent drift does not widen
+this task. Only explicit BROAD/whole qualification consumes the global audit.
 
 Use `ExistingModelPreflight` and `review_existing_model_preflight(...)` when
 possible. A full report should include:
@@ -186,4 +235,3 @@ independent owner denominator, provider/profile identity, and subject revision.
 Report static, portable, and execution status separately and keep compact
 omitted counts and unresolved ids. Do not copy inventories into a second
 authority or replace a target's real adapter with Python.
-

@@ -1,0 +1,689 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:3d686cb50667a2b2f084f20e733863f11e0f133030a212c019af8267b3b32461",
+        "effective_intent_view_fingerprint": "sha256:6eeabd9cedcfd79b5a620ef3233dc8712f89b4171ffb1fb34017d628b6264e92",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/validation_evidence_gates/model.py",
+            "source_fingerprint": "sha256:afe3cf9ba25f3db6c94c2d6c574441d47de145f3c25dc7f90c3397c5d8c531aa"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:case",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:claim_active",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:claim_invalidated",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:compact_evidence_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:compact_evidence_projection",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:decision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:evidence_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:lifecycle_decision",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:validation_evidence_gates:lifecycle_request",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "CompactEvidenceProjection",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection",
+          "inputs": [
+            "external-input:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0",
+          "state_output": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:1",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:compact_evidence_projection",
+            "field:validation_evidence_gates:compact_evidence_current"
+          ]
+        },
+        {
+          "accepted_input": "EvidenceCase",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+          "inputs": [
+            "external-input:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0",
+          "state_output": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:evidence_current",
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ]
+        },
+        {
+          "accepted_input": "FrozenEvidenceCase",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+          "inputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:validation_evidence_gates:case"
+          ],
+          "state_input": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1",
+          "state_output": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:evidence_current"
+          ]
+        },
+        {
+          "accepted_input": "ClassifiedEvidenceCase",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+          "inputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:evidence_current"
+          ],
+          "state_input": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2",
+          "state_output": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ]
+        },
+        {
+          "accepted_input": "ClaimDecidedCase",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim",
+          "inputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ],
+          "state_input": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3",
+          "state_output": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:4",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:evidence_current",
+            "field:validation_evidence_gates:claim_active",
+            "field:validation_evidence_gates:claim_invalidated"
+          ]
+        },
+        {
+          "accepted_input": "LifecycleRequest",
+          "effects": [],
+          "id": "function-block:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest",
+          "inputs": [
+            "external-input:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460"
+          ],
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0",
+          "state_output": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:1",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:lifecycle_request",
+            "field:validation_evidence_gates:lifecycle_decision"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0",
+        "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0",
+        "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection",
+          "producer_id": "transition:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence"
+          ],
+          "id": "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+          "producer_id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "id": "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+          "producer_id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "id": "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+          "producer_id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim",
+          "producer_id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest",
+          "producer_id": "transition:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:1",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:4",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:1",
+        "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:4",
+        "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection"
+          ],
+          "reads": [],
+          "source": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0",
+          "target": "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:1",
+          "trigger": "CompactEvidenceProjection",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:compact_evidence_projection",
+            "field:validation_evidence_gates:compact_evidence_current"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase"
+          ],
+          "reads": [],
+          "source": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0",
+          "target": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1",
+          "trigger": "EvidenceCase",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:evidence_current",
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence"
+          ],
+          "reads": [
+            "field:validation_evidence_gates:case"
+          ],
+          "source": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1",
+          "target": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2",
+          "trigger": "FrozenEvidenceCase",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:evidence_current"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim"
+          ],
+          "reads": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:evidence_current"
+          ],
+          "source": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2",
+          "target": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3",
+          "trigger": "ClassifiedEvidenceCase",
+          "validations": [],
+          "writes": [
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim"
+          ],
+          "reads": [
+            "field:validation_evidence_gates:case",
+            "field:validation_evidence_gates:decision",
+            "field:validation_evidence_gates:claim_active"
+          ],
+          "source": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3",
+          "target": "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:4",
+          "trigger": "ClaimDecidedCase",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:evidence_current",
+            "field:validation_evidence_gates:claim_active",
+            "field:validation_evidence_gates:claim_invalidated"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest",
+          "outputs": [
+            "output:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest"
+          ],
+          "reads": [],
+          "source": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0",
+          "target": "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:1",
+          "trigger": "LifecycleRequest",
+          "validations": [
+            "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+            "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+            "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+            "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+            "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+            "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+            "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+            "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces"
+          ],
+          "writes": [
+            "field:validation_evidence_gates:lifecycle_request",
+            "field:validation_evidence_gates:lifecycle_decision"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:claim_requires_bounded_observation_reuse",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:claim_requires_bounded_observation_reuse",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:claim_requires_current_exact_proof",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:claim_requires_current_exact_proof",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:claim_requires_exact_execution_owner",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:claim_requires_exact_execution_owner",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:claim_requires_terminal_pass",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:claim_requires_terminal_pass",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:claim_scope_is_exact",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:claim_scope_is_exact",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:claim_scope_is_exact",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:compact_evidence_forbids_inline_raw_traces",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:compact_evidence_forbids_inline_raw_traces",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:current_kernel_inputs_are_bound",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:current_kernel_inputs_are_bound",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        },
+        {
+          "evidence_boundary_id": "native-runner:validation_evidence_gates",
+          "id": "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner",
+          "obligation_id": "obligation:native-invariant:validation_evidence_gates:persistent_cleanup_requires_lifecycle_owner",
+          "oracle_id": "oracle:native-invariant:validation_evidence_gates:persistent_cleanup_requires_lifecycle_owner",
+          "subject_fingerprint": "sha256:3a887e0e1617daa56096deeaee900bd0670c2d37a1c7b696ad57b2a287637916"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:validation_evidence_gates:case": "field",
+      "field:validation_evidence_gates:claim_active": "field",
+      "field:validation_evidence_gates:claim_invalidated": "field",
+      "field:validation_evidence_gates:compact_evidence_current": "field",
+      "field:validation_evidence_gates:compact_evidence_projection": "field",
+      "field:validation_evidence_gates:decision": "field",
+      "field:validation_evidence_gates:evidence_current": "field",
+      "field:validation_evidence_gates:lifecycle_decision": "field",
+      "field:validation_evidence_gates:lifecycle_request": "field",
+      "function-block:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection": "function_block",
+      "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase": "function_block",
+      "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence": "function_block",
+      "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim": "function_block",
+      "function-block:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim": "function_block",
+      "function-block:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest": "function_block",
+      "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0": "state",
+      "state:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:1": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:4": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0": "state",
+      "state:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:1": "state",
+      "transition:workflow:validation_evidence_gates:compact_validation_evidence_projection:2:0461b933ebee:0:ReviewCompactEvidenceProjection": "transition",
+      "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:0:FreezeEvidenceCase": "transition",
+      "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:1:ClassifyEvidence": "transition",
+      "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:2:DecideClaim": "transition",
+      "transition:workflow:validation_evidence_gates:validation_evidence_kernel:0:678f42412b87:3:RefreshAfterClaim": "transition",
+      "transition:workflow:validation_evidence_gates:validation_evidence_lifecycle_handoff:1:402e998c2460:0:ReviewLifecycleRequest": "transition",
+      "validation:validation_evidence_gates:invariant:claim_requires_bounded_observation_reuse": "validation",
+      "validation:validation_evidence_gates:invariant:claim_requires_current_exact_proof": "validation",
+      "validation:validation_evidence_gates:invariant:claim_requires_exact_execution_owner": "validation",
+      "validation:validation_evidence_gates:invariant:claim_requires_terminal_pass": "validation",
+      "validation:validation_evidence_gates:invariant:claim_scope_is_exact": "validation",
+      "validation:validation_evidence_gates:invariant:compact_evidence_forbids_inline_raw_traces": "validation",
+      "validation:validation_evidence_gates:invariant:current_kernel_inputs_are_bound": "validation",
+      "validation:validation_evidence_gates:invariant:persistent_cleanup_requires_lifecycle_owner": "validation"
+    },
+    "subject_fingerprint": "sha256:c4333de7d56bf208efa56b07a7ffd7a8a98963b230ee10b8dced737ed41973e8",
+    "trigger_currentness_id": "sha256:8d40ea036d05e5635d80eed7a4e824c77e46ec43660e37765af1ca6013428f96",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:03d5a308430015ba16a104897ce5f07dec0a0f8a3879daeac6f64ced8cbd40f0",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

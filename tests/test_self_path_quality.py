@@ -497,3 +497,26 @@ def test_required_denominator_and_trigger_scope_reject_foreign_ids(tmp_path: Pat
             required_model_ids=("workflow_owner",),
             high_cost_model_ids=("export_owner",),
         )
+
+
+def test_self_and_public_declaration_share_exact_workflow_projection():
+    from types import SimpleNamespace
+    from flowguard import Workflow
+    from flowguard.model_path_quality import compile_declared_path_quality_source, canonical_fingerprint
+    from flowguard.self_path_quality import _workflow_projection
+    class Block:
+        name = "declared_block"
+        accepted_input_type = str
+        reads = ("request",)
+        writes = ("result",)
+    entry = SimpleNamespace(model_id="fixture", model_path="model.py", runner=("python", "runner.py"))
+    instance = SimpleNamespace(fingerprint=canonical_fingerprint("instance"), runner_sha256=canonical_fingerprint("runner"))
+    workflows = (Workflow((Block(),), name="finite"),)
+    shared = _workflow_projection(entry, instance, workflows, ())
+    source = compile_declared_path_quality_source(model_id=entry.model_id, model_instance_fingerprint=instance.fingerprint,
+        source_refs=[{"path": "model.py", "source_fingerprint": canonical_fingerprint("model")}, {"path": "runner.py", "source_fingerprint": instance.runner_sha256}], workflows=workflows)
+    for key, value in shared.facts.items():
+        assert source.model_facts[key] == value
+    assert source.model_facts["branches"] == []
+    assert source.model_facts["responsibilities"] == []
+    assert set(source.declared_element_ids) == set(shared.element_groundings)

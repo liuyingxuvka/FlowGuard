@@ -48,6 +48,11 @@ from .model_authority import (
     build_model_instance_ref,
 )
 from .model_purpose import ModelPurposeClosure, ModelPurposeError, validate_unique_model_instances
+from .native_case_mapping import (
+    NativeCaseMappingError,
+    _reject_duplicate_json_keys,
+    load_native_case_mapping,
+)
 from .native_case_protocol import (
     NATIVE_CASE_RESULT_SCHEMA,
     NativeCaseProtocolError,
@@ -60,7 +65,18 @@ from .native_case_protocol import (
     verify_native_case_bindings,
     verify_native_model_cases,
 )
-from .source_identity import functional_source_fingerprint, source_file_fingerprint
+from .source_identity import (
+    functional_source_fingerprint,
+    model_input_fingerprint,
+    source_file_fingerprint,
+)
+from .runtime_artifacts import is_governed_source_in_runtime_cache
+from .reverse_surface_map_identity import (
+    CURRENT_SURFACE_DISCOVERY_PATH,
+    IMPLEMENTATION_SURFACE_MAP_PATH,
+    load_current_reverse_surface_map_with_semantic_fingerprint,
+    require_regular_implementation_surface_map,
+)
 from .execution_profiles import ValidationExecutionPolicy
 from .process_supervision import (
     SupervisedCommandResult,
@@ -87,10 +103,16 @@ from .validation_ownership import (
     OWNER_EXECUTE,
     OWNER_RECEIPT_KIND,
     OWNER_REUSE_CURRENT,
+    GitQueryAborted,
+    GitQueryCleanupUnconfirmed,
+    GitQueryTimeout,
     ValidationOwnerContract,
     ValidationOwnerObservation,
     ValidationObservationFreshness,
     _assert_owner_receipt_integrity,
+    _assert_validation_owner_current_fresh,
+    _is_evidence_output,
+    _matches_declared_pattern,
     assert_validation_owner_observation_fresh,
     assert_validation_owner_observation_receipts_fresh,
     build_child_bound_owner_receipt_context,
@@ -100,6 +122,7 @@ from .validation_ownership import (
     child_from_owner_receipt,
     filter_resolved_input_manifest,
     observe_validation_owners,
+    resolve_input_paths,
     record_validation_owner_nonpass,
     refresh_validation_owner_observation_receipts,
     save_child_bound_owner_receipt,
@@ -177,6 +200,117 @@ class ModelRegressionEvidenceError(ValueError):
 
 class ModelRegressionParentNotCurrentError(ModelRegressionEvidenceError):
     """Raised when only structurally valid but stale parent wrappers remain."""
+
+
+@dataclass(frozen=True)
+class CurrentReverseSurfaceAdmission:
+    """Exact current discovery/map identity captured before change preview."""
+
+    discovery_proof: Any
+    map_authoring_fingerprint: str
+
+
+def audit_selected_reverse_surface_map_currentness(
+    root: str | Path,
+    manifest: "ModelRegressionManifest",
+    entries: Sequence["ModelRegressionEntry"],
+    *,
+    admission: CurrentReverseSurfaceAdmission | None = None,
+) -> tuple[str, ...]:
+    """Live-audit discovery once before any selected map consumer can run."""
+
+    errors, _proof = verify_selected_reverse_surface_map_currentness(
+        root,
+        manifest,
+        entries,
+        admission=admission,
+    )
+    return errors
+
+
+def verify_selected_reverse_surface_map_currentness(
+    root: str | Path,
+    manifest: "ModelRegressionManifest",
+    entries: Sequence["ModelRegressionEntry"],
+    *,
+    admission: CurrentReverseSurfaceAdmission | None = None,
+) -> tuple[tuple[str, ...], CurrentReverseSurfaceAdmission | None]:
+    """Verify current map admission and return a reusable in-process proof."""
+
+    selected_map_consumers = tuple(
+        entry.model_id
+        for entry in entries
+        if IMPLEMENTATION_SURFACE_MAP_PATH
+        in set(
+            (
+                *entry.effective_input_patterns,
+                *manifest.owner_patterns_for(entry.model_id),
+            )
+        )
+    )
+    if not selected_map_consumers:
+        return (), None
+    root_path = Path(root).resolve()
+    try:
+        from .behavior_surface_audit import (
+            capture_current_implementation_surface_discovery,
+        )
+
+        if admission is None:
+            discovery_proof = capture_current_implementation_surface_discovery(
+                root_path
+            )
+            payload, _semantic_fingerprint = load_current_reverse_surface_map_with_semantic_fingerprint(
+                root_path,
+                expected_discovery_fingerprint=discovery_proof.discovery_fingerprint,
+            )
+            map_authoring_fingerprint = str(
+                payload.get("authoring_fingerprint", "")
+            ).strip()
+        else:
+            discovery_proof = admission.discovery_proof
+            map_authoring_fingerprint = admission.map_authoring_fingerprint
+            _revalidate_current_reverse_surface_admission(root_path, admission)
+    except (OSError, TypeError, UnicodeError, ValueError, RuntimeError) as exc:
+        return (
+            (
+                "implementation_surface_map: live discovery/map currentness failed "
+                "before model-owner admission for "
+                f"{', '.join(selected_map_consumers)} ({type(exc).__name__}: {exc})",
+            ),
+            None,
+        )
+    return (
+        (),
+        CurrentReverseSurfaceAdmission(
+            discovery_proof=discovery_proof,
+            map_authoring_fingerprint=map_authoring_fingerprint,
+        ),
+    )
+
+
+def _revalidate_current_reverse_surface_admission(
+    root: Path,
+    admission: CurrentReverseSurfaceAdmission,
+) -> None:
+    """Recheck the frozen discovery sources and authored map bytes at owner start."""
+
+    from .behavior_surface_audit import revalidate_current_implementation_surface_proof
+
+    revalidate_current_implementation_surface_proof(
+        root,
+        admission.discovery_proof,
+    )
+    payload, _semantic_fingerprint = load_current_reverse_surface_map_with_semantic_fingerprint(
+        root,
+        expected_discovery_fingerprint=admission.discovery_proof.discovery_fingerprint,
+    )
+    if str(payload.get("authoring_fingerprint", "")).strip() != (
+        admission.map_authoring_fingerprint
+    ):
+        raise ValueError(
+            "implementation surface map changed after current map admission"
+        )
 
 
 def audit_selected_model_source_inventories(
@@ -424,6 +558,8 @@ def _resolve_native_raw_artifact(
     raw = Path(raw_artifact_path).expanduser()
     if not raw.is_absolute():
         raw = artifact_path.parent / raw
+    if raw.is_symlink():
+        raise ValueError("native raw result artifact must not be a symlink")
     return raw.resolve()
 
 
@@ -452,6 +588,9 @@ def _verify_native_case_result_rows(
     duplicate: list[str] = []
     seen: set[tuple[str, str]] = set()
     labels: list[str] = []
+    # Immutable raw files commonly back many native cases. Cache only this
+    # invocation's actual digest; every row still checks its declared identity.
+    raw_fingerprints: dict[Path, str] = {}
 
     if artifact_path is None:
         findings.append("native_result_artifact_missing")
@@ -507,7 +646,9 @@ def _verify_native_case_result_rows(
                 ):
                     findings.append(f"native_result_raw_artifact_missing:{label}")
                 else:
-                    digest = _file_sha256(raw_path)
+                    if raw_path not in raw_fingerprints:
+                        raw_fingerprints[raw_path] = _file_sha256(raw_path)
+                    digest = raw_fingerprints[raw_path]
                     if digest != row.result_artifact_fingerprint:
                         findings.append(
                             f"native_result_raw_artifact_fingerprint_mismatch:{label}"
@@ -545,6 +686,7 @@ def _load_native_case_result_artifact(
     *,
     owner_id: str,
     marker_case_ids: Sequence[str],
+    read_context=None,
 ) -> tuple[
     tuple[NativeModelCaseResult, ...],
     Path,
@@ -559,7 +701,9 @@ def _load_native_case_result_artifact(
             "native result artifact is missing or a symlink"
         )
     try:
-        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+        artifact_bytes = (read_context.artifact_bytes(artifact_path.relative_to(read_context.root).as_posix())
+                          if read_context is not None else artifact_path.read_bytes())
+        payload = json.loads(artifact_bytes.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise ModelRegressionEvidenceError(
             f"native result artifact is unreadable: {exc}"
@@ -584,7 +728,7 @@ def _load_native_case_result_artifact(
     return (
         rows,
         artifact_path,
-        _file_sha256(artifact_path),
+        "sha256:" + hashlib.sha256(artifact_bytes).hexdigest(),
         verification,
     )
 
@@ -810,6 +954,20 @@ class ModelRegressionEntry:
     model_kind: str = "executable_workflow"
     purpose_closure: ModelPurposeClosure | None = None
     shard_safety_proof: Mapping[str, Any] = field(default_factory=dict)
+    functional_obligation_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        values = self.functional_obligation_ids
+        if not isinstance(values, (tuple, list)) or any(
+            not isinstance(v, str) or not v.strip() or v != v.strip()
+            or v.startswith("model-regression:") for v in values
+        ) or len(values) != len(set(values)):
+            raise ModelRegressionManifestError("invalid functional obligation identities")
+        object.__setattr__(self, "functional_obligation_ids", tuple(values))
+
+    @property
+    def validation_obligation_ids(self) -> tuple[str, ...]:
+        return (f"model-regression:{self.model_id}", *self.functional_obligation_ids)
 
     @classmethod
     def from_dict(cls, payload: Mapping[str, Any]) -> "ModelRegressionEntry":
@@ -830,6 +988,7 @@ class ModelRegressionEntry:
             "model_kind",
             "purpose_closure",
             "shard_safety_proof",
+            "functional_obligation_ids",
         }
         unknown = sorted(set(payload) - allowed)
         if unknown:
@@ -862,6 +1021,7 @@ class ModelRegressionEntry:
             ),
             purpose_closure=purpose,
             shard_safety_proof=dict(payload.get("shard_safety_proof", {})),
+            functional_obligation_ids=payload.get("functional_obligation_ids", ()),
         )
 
     @property
@@ -918,6 +1078,14 @@ class ModelRegressionManifest:
             payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise ModelRegressionManifestError(f"cannot read model regression manifest: {exc}") from exc
+        return cls.from_payload(payload, root=root_path, path=manifest_path)
+
+    @classmethod
+    def from_payload(cls, payload, *, root=".", path=None) -> "ModelRegressionManifest":
+        root_path = Path(root).resolve()
+        manifest_path = Path(path).resolve() if path else root_path / ".flowguard/models/regression-manifest.json"
+        if not isinstance(payload, Mapping):
+            raise ModelRegressionManifestError("model regression manifest must be an object")
         if payload.get("schema_version") != MANIFEST_SCHEMA:
             raise ModelRegressionManifestError(f"unsupported manifest schema: {payload.get('schema_version')!r}")
         allowed = {
@@ -987,6 +1155,75 @@ class ModelRegressionManifest:
         entry: ModelRegressionEntry,
         *,
         root: str | Path | None = None,
+        read_context=None,
+    ) -> str:
+        return self.owner_projection_fingerprints((entry,), root=root, read_context=read_context)[entry.model_id]
+
+    def owner_projection_fingerprints(
+        self,
+        entries: Sequence[ModelRegressionEntry],
+        *,
+        root: str | Path | None = None,
+        read_context=None,
+    ) -> Mapping[str, str]:
+        """Validate one complete current registry per request, then project owners.
+
+        The checked payload lives only in this call. A different call reloads
+        it; a stale or malformed row belonging to any owner blocks the batch.
+        Portable fixtures with no declared mapping retain their empty projection.
+        """
+
+        mapping_payload: Mapping[str, Any] | None = None
+        if root is not None:
+            root_path = Path(root).resolve()
+            mapping_path = root_path / ".flowguard/models/native-case-mapping.json"
+            mapping_declared = any(
+                ".flowguard/models/native-case-mapping.json" in group.globs
+                for group in self.shared_input_groups
+            )
+            if mapping_declared or mapping_path.exists() or mapping_path.is_symlink():
+                try:
+                    if read_context is None:
+                        raw_payload = mapping_path.read_bytes()
+                        registry = load_native_case_mapping(mapping_path)
+                        registry.assert_current_manifest(root_path)
+                        after_payload = mapping_path.read_bytes()
+                    else:
+                        raw_payload = read_context.artifact_bytes(mapping_path.relative_to(root_path).as_posix())
+                        from .native_case_mapping import NativeCaseMappingRegistry
+                        registry = NativeCaseMappingRegistry.from_payload(json.loads(raw_payload.decode("utf-8"), object_pairs_hook=_reject_duplicate_json_keys))
+                        manifest_raw = read_context.artifact_bytes(self.path.relative_to(root_path).as_posix())
+                        canonical = manifest_raw.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+                        if "sha256:" + hashlib.sha256(canonical).hexdigest() != registry.source_manifest_fingerprint:
+                            raise NativeCaseMappingError("native case mapping manifest is stale")
+                        after_payload = raw_payload
+                except OSError as exc:
+                    raise NativeCaseMappingError(f"native case mapping is missing or unreadable: {mapping_path}") from exc
+                if after_payload != raw_payload:
+                    raise NativeCaseMappingError("native case mapping changed during owner projection validation")
+                # Keep the same validated source fields, not a typed serializer's
+                # subset. Unknown public fields still fail in the official loader.
+                mapping_payload = json.loads(
+                    raw_payload.decode("utf-8"),
+                    object_pairs_hook=_reject_duplicate_json_keys,
+                    parse_constant=lambda value: (_ for _ in ()).throw(
+                        NativeCaseMappingError(f"non-finite JSON number: {value}")
+                    ),
+                )
+        return {
+            entry.model_id: self._owner_projection_fingerprint(
+                entry, root=root, native_case_mapping_payload=mapping_payload, read_context=read_context
+            )
+            for entry in entries
+        }
+
+    def _owner_projection_fingerprint(
+        self,
+        entry: ModelRegressionEntry,
+        *,
+        root: str | Path | None,
+        native_case_mapping_payload: Mapping[str, Any] | None,
+        read_context=None,
     ) -> str:
         """Project only the manifest semantics consumed by one model owner."""
 
@@ -1012,6 +1249,8 @@ class ModelRegressionManifest:
             "purpose_closure": purpose,
             "shard_safety_proof": dict(entry.shard_safety_proof),
         }
+        if entry.functional_obligation_ids:
+            entry_payload["functional_obligation_ids"] = list(entry.functional_obligation_ids)
         shared_groups = tuple(
             {
                 "component_id": group.component_id,
@@ -1029,18 +1268,26 @@ class ModelRegressionManifest:
 
             def load_owner_rows(relative_path: str, key: str, owner_keys: set[str]) -> tuple[Mapping[str, Any], ...]:
                 path = root_path / relative_path
-                try:
-                    payload = json.loads(path.read_text(encoding="utf-8"))
-                except FileNotFoundError:
-                    # Small portable fixtures may not declare the optional
-                    # native-owner projection files.  The empty projection is
-                    # part of that fixture's explicit identity; it is not a
-                    # reason to reach into the canonical checkout.
-                    return ()
-                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-                    raise ModelRegressionManifestError(
-                        f"cannot read owner projection input {relative_path}: {type(exc).__name__}"
-                    ) from exc
+                if relative_path == ".flowguard/models/native-case-mapping.json":
+                    if native_case_mapping_payload is None:
+                        return ()
+                    payload = native_case_mapping_payload
+                else:
+                    if read_context is not None:
+                        from .model_authority_store import _selected_path_is_missing
+                        if _selected_path_is_missing(root_path, relative_path, accounting=read_context.accounting):
+                            read_context.missing_paths.add(relative_path)
+                            return ()
+                    try:
+                        payload = json.loads(read_context.artifact_bytes(relative_path).decode("utf-8") if read_context is not None else path.read_text(encoding="utf-8"))
+                    except FileNotFoundError:
+                        # A fixture's absent optional owner table remains an
+                        # explicit empty projection, never an alternate root.
+                        return ()
+                    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                        raise ModelRegressionManifestError(
+                            f"cannot read owner projection input {relative_path}: {type(exc).__name__}"
+                        ) from exc
                 if not isinstance(payload, Mapping):
                     raise ModelRegressionManifestError(
                         f"owner projection input {relative_path} must be an object"
@@ -1062,7 +1309,11 @@ class ModelRegressionManifest:
                         isinstance(row_owner_ids, list)
                         and entry.model_id in {str(value) for value in row_owner_ids}
                     ) or row_owner_id in owner_keys:
-                        selected.append(dict(row))
+                        selected.append({
+                            key: value for key, value in row.items()
+                            if relative_path != ".flowguard/models/native-case-mapping.json"
+                            or key not in {"mapping_fingerprint", "binding_fingerprint"}
+                        })
                 return tuple(
                     sorted(
                         selected,
@@ -1364,9 +1615,7 @@ def prepare_model_regression_plan(
         if receipt_dir is not None
         else root_path / ".flowguard" / "evidence" / "model-owner-receipts"
     )
-    contracts = tuple(
-        _model_owner_contract(root_path, manifest, entry) for entry in selected
-    )
+    contracts = _model_owner_contracts(root_path, manifest, selected)
     parent_contract = _model_parent_owner_contract(
         manifest, selected, claim_scope="full", tier="full"
     )
@@ -1382,31 +1631,13 @@ def prepare_model_regression_plan(
     entries_by_owner = {
         f"model:{entry.model_id}": entry for entry in selected
     }
-    # The changed scope is an additional invalidation boundary.  Source
-    # currentness remains authoritative: a caller cannot use this list to
-    # narrow the complete denominator or mark a stale row reusable.
+    # Affected scope records obligations relative to the accepted candidate;
+    # it neither narrows the denominator nor invalidates an independently
+    # verified receipt for these exact current inputs. The strict native,
+    # resource and model-identity gates below remain authoritative.
     affected = tuple(
         sorted({str(item).strip() for item in affected_ids if str(item).strip()})
     )
-    affected_tokens = set(affected)
-    forced_rows: list[Any] = []
-    for row in rows:
-        model_id = row.owner_id.removeprefix("model:")
-        forced = row.owner_id in affected_tokens or model_id in affected_tokens
-        if forced and row.disposition == OWNER_REUSE_CURRENT:
-            forced_rows.append(
-                replace(
-                    row,
-                    disposition=OWNER_EXECUTE,
-                    reason="prepared plan affected owner",
-                    receipt_id="",
-                    receipt_fingerprint="",
-                )
-            )
-            reusable_receipts.pop(row.owner_id, None)
-        else:
-            forced_rows.append(row)
-    rows = tuple(forced_rows)
     if require_executed_case_ids:
         strict_rows: list[Any] = []
         for row in rows:
@@ -2121,6 +2352,7 @@ class CurrentModelRegressionChildEvidence:
     model_id: str
     receipt_id: str
     receipt_fingerprint: str
+    expected_validation_obligation_ids: tuple[str, ...] = field(default=(), compare=False, repr=False)
     model_instance_id: str = ""
     model_instance_fingerprint: str = ""
     input_inventory_fingerprint: str = ""
@@ -2314,6 +2546,7 @@ class ModelOwnerExecutionEvidence:
 
     owner_id: str
     model_id: str
+    expected_validation_obligation_ids: tuple[str, ...] = field(default=(), compare=False, repr=False)
     receipt_id: str = ""
     receipt_fingerprint: str = ""
     executed_case_ids: tuple[str, ...] = ()
@@ -2457,7 +2690,9 @@ class ModelOwnerExecutionEvidence:
     @property
     def receipt_is_current_pass(self) -> bool:
         expected_subject = f"validation-owner:{self.owner_id}"
-        expected_obligation = f"model-regression:{self.model_id}"
+        expected_obligations = self.expected_validation_obligation_ids or (
+            f"model-regression:{self.model_id}",
+        )
         return bool(
             self.receipt_is_direct_leaf
             and self.receipt_id == self.receipt.receipt_id
@@ -2468,7 +2703,7 @@ class ModelOwnerExecutionEvidence:
             and self.receipt.result_status == RECEIPT_STATUS_PASS
             and self.receipt.exit_code == 0
             and self.receipt.claim_scope == "full"
-            and self.receipt.covered_obligations == (expected_obligation,)
+            and self.receipt.covered_obligations == expected_obligations
             and not self.receipt.skipped_checks
             and not self.receipt.blockers
             and self.verification is not None
@@ -2973,6 +3208,7 @@ def build_model_regression_execution_evidence(
                 owner_id=owner_id,
                 model_id=model_id,
                 receipt_id=child.receipt_id,
+                expected_validation_obligation_ids=child.expected_validation_obligation_ids,
                 receipt_fingerprint=child.receipt_fingerprint,
                 executed_case_ids=child.executed_case_ids,
                 executed_behavior_case_ids=(
@@ -3275,6 +3511,7 @@ def resolve_entry_input_inventory(
     additional_patterns: Sequence[str] = (),
     _pattern_cache: dict[str, tuple[Path, ...]] | None = None,
     _fingerprint_cache: dict[str, str] | None = None,
+    _selected_input_paths: Mapping[str, Path] | None = None,
 ) -> tuple[dict[str, str], ...]:
     """Resolve manifest selectors to the exact immutable input inventory.
 
@@ -3292,7 +3529,7 @@ def resolve_entry_input_inventory(
     pending_fingerprints: dict[str, Path] = {}
     patterns = tuple(
         dict.fromkeys(
-            pattern
+            str(pattern).replace("\\", "/")
             for pattern in (
                 *entry.effective_input_patterns,
                 *additional_patterns,
@@ -3300,16 +3537,63 @@ def resolve_entry_input_inventory(
             if str(pattern).strip()
         )
     )
+    if _selected_input_paths is None:
+        try:
+            selected_paths = {
+                path.relative_to(root_path).as_posix(): path
+                for path in resolve_input_paths(root_path, patterns)
+            }
+        except (GitQueryAborted, GitQueryCleanupUnconfirmed, GitQueryTimeout):
+            raise
+        except ValueError as exc:
+            raise ModelRegressionManifestError(
+                f"{entry.model_id}: input selection is invalid: {exc}"
+            ) from exc
+    else:
+        selected_paths = _selected_input_paths
+    exact_map_declared = IMPLEMENTATION_SURFACE_MAP_PATH in patterns
     for pattern in patterns:
+        exact_map_pattern = pattern == IMPLEMENTATION_SURFACE_MAP_PATH
         if _pattern_cache is not None and pattern in _pattern_cache:
             paths = _pattern_cache[pattern]
         else:
-            paths = tuple(root_path.glob(pattern))
+            if not any(token in pattern for token in ("*", "?", "[")):
+                path = selected_paths.get(pattern)
+                paths = () if path is None else (path,)
+            else:
+                paths = tuple(
+                    path for relative, path in selected_paths.items()
+                    if _matches_declared_pattern(relative, pattern)
+                )
             if _pattern_cache is not None:
                 _pattern_cache[pattern] = paths
         for path in paths:
             if not path.is_file():
                 continue
+            try:
+                lexical_relative = path.absolute().relative_to(root_path).as_posix()
+            except ValueError as exc:
+                raise ModelRegressionManifestError(
+                    f"{entry.model_id}: input resolves outside repository: {path}"
+                ) from exc
+            if lexical_relative == CURRENT_SURFACE_DISCOVERY_PATH:
+                # The full source discovery is generated evidence consumed by
+                # the exact map's freshness gate, never a model source input.
+                continue
+            if lexical_relative == IMPLEMENTATION_SURFACE_MAP_PATH:
+                if not exact_map_pattern:
+                    # The reverse-surface tree is generated evidence by
+                    # default. Broad model selectors cannot reopen it.
+                    continue
+                try:
+                    # Check every component before resolving. A regular leaf
+                    # reached through a symlinked/reparse parent is not the
+                    # exact declared repository input.
+                    path = require_regular_implementation_surface_map(root_path)
+                except ValueError as exc:
+                    raise ModelRegressionManifestError(
+                        f"{entry.model_id}: exact implementation surface map is not a regular repository file: {exc}"
+                    ) from exc
             resolved = path.resolve()
             try:
                 relative = resolved.relative_to(root_path).as_posix()
@@ -3317,6 +3601,18 @@ def resolve_entry_input_inventory(
                 raise ModelRegressionManifestError(
                     f"{entry.model_id}: input resolves outside repository: {path}"
                 ) from exc
+            if (
+                _is_evidence_output(lexical_relative)
+                and lexical_relative != IMPLEMENTATION_SURFACE_MAP_PATH
+            ):
+                if is_governed_source_in_runtime_cache(lexical_relative):
+                    raise ModelRegressionManifestError(
+                        "governed source cannot be hidden inside runtime cache: "
+                        + lexical_relative
+                    )
+                # Match the owner observation's source/output boundary before
+                # admitting a fingerprint, including invocation-local caches.
+                continue
             if _fingerprint_cache is not None and relative in _fingerprint_cache:
                 inventory[relative] = _fingerprint_cache[relative]
             else:
@@ -3326,16 +3622,29 @@ def resolve_entry_input_inventory(
                 # only removes avoidable Windows per-file I/O serialization.
                 pending_fingerprints.setdefault(relative, resolved)
 
+    if exact_map_declared and (
+        IMPLEMENTATION_SURFACE_MAP_PATH not in inventory
+        and IMPLEMENTATION_SURFACE_MAP_PATH not in pending_fingerprints
+    ):
+        raise ModelRegressionManifestError(
+            f"{entry.model_id}: exact implementation surface map input is missing"
+        )
+
     if pending_fingerprints:
         max_workers = min(8, len(pending_fingerprints))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = {
-                executor.submit(source_file_fingerprint, path): relative
-                for relative, path in pending_fingerprints.items()
+                executor.submit(model_input_fingerprint, root_path, relative): relative
+                for relative in pending_fingerprints
             }
             for future in as_completed(futures):
                 relative = futures[future]
-                fingerprint = future.result()
+                try:
+                    fingerprint = future.result()
+                except ValueError as exc:
+                    raise ModelRegressionManifestError(
+                        f"{entry.model_id}: input identity is invalid for {relative}: {exc}"
+                    ) from exc
                 inventory[relative] = fingerprint
                 if _fingerprint_cache is not None:
                     _fingerprint_cache[relative] = fingerprint
@@ -3487,6 +3796,7 @@ def _run_entry(
             # back to a guessed or parent-level fingerprint.
             "FLOWGUARD_INPUT_FINGERPRINT": inventory_fingerprint,
             "FLOWGUARD_MODEL_FINGERPRINT": entry.purpose_closure.model_sha256,
+            "FLOWGUARD_MODEL_INSTANCE_FINGERPRINT": instance_fingerprint,
             "FLOWGUARD_CODE_FINGERPRINT": fingerprint_payload(
                 {"model": entry.purpose_closure.model_sha256, "inputs": inventory_fingerprint}
             ),
@@ -3533,6 +3843,7 @@ def _run_entry(
     native_case_result_artifact_fingerprint = ""
     native_case_verification: NativeCaseVerification | None = None
     native_case_error: str = ""
+    supervisor_terminal_artifact_error = ""
     try:
         supervised = run_supervised(
             command,
@@ -3558,10 +3869,18 @@ def _run_entry(
             message = str(exc)
         exit_code = supervised.exit_code
         artifact_dir.mkdir(parents=True, exist_ok=True)
-        write_terminal_artifact(
-            artifact_dir / "supervisor-terminal.json",
-            supervised,
-        )
+        try:
+            write_terminal_artifact(
+                artifact_dir / "supervisor-terminal.json",
+                supervised,
+            )
+        except OSError as exc:
+            # The process supervisor has already returned its terminal facts.
+            # A failed diagnostic write must not replace a known cleanup
+            # failure with the generic launch-error path below.
+            supervisor_terminal_artifact_error = (
+                f"could not write supervisor terminal artifact: {exc}"
+            )
         native_result_candidate = artifact_dir / NATIVE_CASE_RESULT_ARTIFACT_NAME
         if native_result_candidate.exists() or require_executed_case_ids:
             try:
@@ -3632,6 +3951,19 @@ def _run_entry(
             message = (
                 f"{message}; native case result evidence is not current: "
                 f"{native_case_error}"
+            )
+        if supervisor_terminal_artifact_error:
+            finding_codes = tuple(
+                dict.fromkeys(
+                    (*finding_codes, "model.supervisor_terminal_artifact_write_error")
+                )
+            )
+            if status == VALIDATION_STATUS_PASS:
+                status = VALIDATION_STATUS_INTERNAL_ERROR
+            message = (
+                f"{message}; {supervisor_terminal_artifact_error}"
+                if message
+                else supervisor_terminal_artifact_error
             )
     except (OSError, ValueError) as exc:
         status = VALIDATION_STATUS_INTERNAL_ERROR
@@ -3743,6 +4075,7 @@ def _tracked_paths(root: Path) -> tuple[Path, ...]:
     if completed.returncode != 0:
         return ()
     output_only_prefixes = (
+        ".agents/skills/flowguard/.skillguard/runtime-requests/full-author-assurance/",
         ".flowguard/models/authority/snapshots/",
         ".flowguard/models/authority/revisions/",
         ".flowguard/models/authority/activations/",
@@ -3910,6 +4243,9 @@ def _model_owner_contract(
     root: Path,
     manifest: ModelRegressionManifest,
     entry: ModelRegressionEntry,
+    *,
+    projection_fingerprint: str | None = None,
+    read_context=None,
 ) -> ValidationOwnerContract:
     return ValidationOwnerContract(
         owner_id=f"model:{entry.model_id}",
@@ -3929,13 +4265,29 @@ def _model_owner_contract(
                 )
             )
         ),
-        obligation_ids=(f"model-regression:{entry.model_id}",),
+        obligation_ids=entry.validation_obligation_ids,
         projected_inputs=(
             (
                 f"model-regression-manifest:{entry.model_id}",
-                manifest.owner_projection_fingerprint(entry, root=root),
+                manifest.owner_projection_fingerprint(entry, root=root, read_context=read_context)
+                if projection_fingerprint is None else projection_fingerprint,
             ),
         ),
+    )
+
+
+def _model_owner_contracts(
+    root: Path,
+    manifest: ModelRegressionManifest,
+    entries: Sequence[ModelRegressionEntry],
+) -> tuple[ValidationOwnerContract, ...]:
+    fingerprints = manifest.owner_projection_fingerprints(entries, root=root)
+    return tuple(
+        _model_owner_contract(
+            root, manifest, entry,
+            projection_fingerprint=fingerprints[entry.model_id],
+        )
+        for entry in entries
     )
 
 
@@ -4293,6 +4645,7 @@ def _persist_model_owner_result(
     all_contracts: Sequence[ValidationOwnerContract],
     started_at: str,
     source_freshness: ValidationObservationFreshness,
+    publication_ledger: list[EvidenceReceipt] | None = None,
 ) -> ModelRunResult:
     child = ValidationChildResult(
         child_id=current.contract.owner_id,
@@ -4342,7 +4695,10 @@ def _persist_model_owner_result(
             all_contracts=all_contracts,
             started_at=started_at,
             finished_at=datetime.now(timezone.utc).isoformat(),
+            source_freshness=source_freshness,
         )
+    if publication_ledger is not None:
+        publication_ledger.append(receipt)
     path = evidence_receipt_path(
         receipt.receipt_id,
         root,
@@ -4355,6 +4711,55 @@ def _persist_model_owner_result(
         producer_invocations=1,
         receipt_fingerprint=receipt.fingerprint,
     )
+
+
+def _model_result_cleanup_confirmed(result: ModelRunResult) -> bool:
+    """Require an explicit positive supervision fact before lease release."""
+
+    supervision = result.supervision
+    return (
+        supervision is not None
+        and getattr(supervision, "cleanup_confirmed", None) is True
+        and "model.cleanup_unconfirmed" not in result.finding_codes
+    )
+
+
+def _model_result_cleanup_not_confirmed(result: ModelRunResult) -> bool:
+    """Treat missing supervision as unknown cleanup, never as confirmation."""
+
+    return not _model_result_cleanup_confirmed(result)
+
+
+def _preserve_model_cleanup_lease(
+    *,
+    entry: ModelRegressionEntry,
+    lease_payloads: Mapping[str, dict[str, Any]],
+    output_path: Path,
+    result: ModelRunResult | None = None,
+) -> None:
+    """Keep the owner lease whenever no trusted cleanup conclusion exists."""
+
+    lease = lease_payloads[entry.model_id]
+    lease["_preserve_residual"] = True
+    supervision = result.supervision if result is not None else None
+    episode_token = getattr(supervision, "episode_token", "")
+    if isinstance(episode_token, str) and episode_token.strip():
+        lease["incident_episode_token"] = episode_token
+        return
+
+    try:
+        terminal_path = (
+            _safe_artifact_dir(output_path, entry.model_id)
+            / "supervisor-terminal.json"
+        )
+        terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError):
+        return
+    if not isinstance(terminal, Mapping):
+        return
+    terminal_episode = terminal.get("episode_token")
+    if isinstance(terminal_episode, str) and terminal_episode.strip():
+        lease["incident_episode_token"] = terminal_episode
 
 
 def _execute_pending_models(
@@ -4373,6 +4778,10 @@ def _execute_pending_models(
     input_inventories: Mapping[str, Sequence[Mapping[str, str]]] | None = None,
     shared_patterns_by_model: Mapping[str, Sequence[str]] | None = None,
     require_executed_case_ids: bool = False,
+    tracked_paths: Sequence[Path] = (),
+    tracked_before: Mapping[str, str] | None = None,
+    execution_metrics: dict[str, int] | None = None,
+    reverse_surface_admission: CurrentReverseSurfaceAdmission | None = None,
 ) -> tuple[list[ModelRunResult], ValidationObservationFreshness]:
     """Preflight every model resource lease, then execute the frozen set."""
 
@@ -4387,6 +4796,20 @@ def _execute_pending_models(
         )
     )
     lease_payloads: dict[str, dict[str, Any]] = {}
+
+    def require_current_map_admission(boundary: str) -> None:
+        if reverse_surface_admission is None:
+            return
+        try:
+            _revalidate_current_reverse_surface_admission(
+                root_path, reverse_surface_admission
+            )
+        except (OSError, TypeError, UnicodeError, ValueError, RuntimeError) as exc:
+            raise ModelRegressionEvidenceError(
+                "model owner execution blocked by stale reverse-surface "
+                f"evidence {boundary}: {type(exc).__name__}: {exc}"
+            ) from exc
+
     with ExitStack() as leases:
         for entry in pending:
             owner_id = f"model:{entry.model_id}"
@@ -4423,41 +4846,25 @@ def _execute_pending_models(
                         f"see {proof_dir / 'result.json'}"
                     )
 
+        if pending and jobs > 1:
+            require_current_map_admission("immediately before owner start")
+
         if jobs == 1:
-            completed: list[tuple[ModelRegressionEntry, str, ModelRunResult]] = []
+            # This ledger contains only receipts actually published here.  The
+            # final whole-selection check still rejects every other inventory
+            # change, and still rechecks source/dependency/toolchain identity.
+            publications: list[EvidenceReceipt] = []
             for entry in pending:
-                owner_started_at = datetime.now(timezone.utc).isoformat()
-                result = _run_entry(
-                    root_path,
-                    entry,
-                    output_path,
-                    timeout_override=timeout,
-                    cancel_event=cancel,
-                    progress=progress,
-                    input_inventory=(input_inventories or {}).get(entry.model_id),
-                    require_executed_case_ids=require_executed_case_ids,
-                    # Each model-regression child is its own execution owner.
-                    # Propagating the complete same-level selection into every
-                    # process made aggregate owners (for example UI content
-                    # visibility) mistake siblings for already-produced
-                    # receipts and fail before their actual callback ran.
-                    # Nested owner guards still receive the current owner as
-                    # the outer claim; same-level receipts are reconciled by
-                    # the parent composition below.
-                    selected_owner_ids=(f"model:{entry.model_id}",),
+                owner_id = f"model:{entry.model_id}"
+                _assert_validation_owner_current_fresh(
+                    planning_observation, owner_id, root_path
                 )
-                completed.append((entry, owner_started_at, result))
-                if cancel.is_set():
-                    break
-        else:
-            completed = []
-            with ThreadPoolExecutor(
-                max_workers=jobs,
-                thread_name_prefix="flowguard-model",
-            ) as executor:
-                futures = {
-                    executor.submit(
-                        _run_entry,
+                if execution_metrics is not None:
+                    execution_metrics["per_leaf_source_current_rebuild_count"] += 1
+                require_current_map_admission("immediately before owner start")
+                owner_started_at = datetime.now(timezone.utc).isoformat()
+                try:
+                    result = _run_entry(
                         root_path,
                         entry,
                         output_path,
@@ -4466,17 +4873,176 @@ def _execute_pending_models(
                         progress=progress,
                         input_inventory=(input_inventories or {}).get(entry.model_id),
                         require_executed_case_ids=require_executed_case_ids,
-                        selected_owner_ids=(f"model:{entry.model_id}",),
-                    ): (
-                        entry,
-                        datetime.now(timezone.utc).isoformat(),
+                        # Each child owns only itself. Siblings are reconciled
+                        # by the parent; they are not already-produced inputs.
+                        selected_owner_ids=(owner_id,),
                     )
-                    for entry in pending
-                }
-                for future in as_completed(futures):
-                    entry, owner_started_at = futures[future]
-                    completed.append((entry, owner_started_at, future.result()))
+                except BaseException:
+                    # Without a terminal result this invocation cannot prove
+                    # descendant cleanup. Earlier durable leaves stay valid.
+                    lease_payloads[entry.model_id]["_preserve_residual"] = True
+                    raise
+                # Preserve an unconfirmed descendant lease before any source
+                # check can raise.  No later owner may start in this episode.
+                if _model_result_cleanup_not_confirmed(result):
+                    _preserve_model_cleanup_lease(
+                        entry=entry,
+                        lease_payloads=lease_payloads,
+                        output_path=output_path,
+                        result=result,
+                    )
+                    results.append(result)
+                    break
+                leaf_freshness = _assert_validation_owner_current_fresh(
+                    planning_observation, owner_id, root_path
+                )
+                if execution_metrics is not None:
+                    execution_metrics["per_leaf_source_current_rebuild_count"] += 1
+                tracked_after = _relative_snapshot(_snapshot(tracked_paths), root_path)
+                if tracked_after != dict(tracked_before or {}):
+                    results.append(
+                        replace(
+                            result,
+                            status=VALIDATION_STATUS_BLOCKED,
+                            finding_codes=(*result.finding_codes, "model.repository_mutation"),
+                            message="Model producer changed a governed tracked file.",
+                        )
+                    )
+                    break
+                results.append(
+                    _persist_model_owner_result(
+                        root_path,
+                        receipt_root,
+                        leaf_freshness.current_by_owner[owner_id],
+                        result,
+                        all_contracts=contracts,
+                        started_at=owner_started_at,
+                        source_freshness=leaf_freshness,
+                        publication_ledger=publications,
+                    )
+                )
+                if result.status != VALIDATION_STATUS_PASS or cancel.is_set():
+                    break
+            require_current_map_admission("at final source boundary")
+            source_freshness = assert_validation_owner_observation_fresh(
+                planning_observation,
+                root_path,
+                receipt_root,
+                published_receipts=publications,
+            )
+            return results, source_freshness
+        else:
+            completed: list[tuple[ModelRegressionEntry, str, ModelRunResult]] = []
+            submitted: dict[Any, tuple[ModelRegressionEntry, str]] = {}
 
+            def retain_unsettled_submissions() -> None:
+                for future, (entry, _owner_started_at) in submitted.items():
+                    # Cancellation is evidence that the callable never ran.
+                    # A completed Future alone is not cleanup evidence: read
+                    # its terminal value and require an explicit supervisor
+                    # cleanup confirmation before releasing its lease.
+                    if future.cancelled():
+                        continue
+                    if not future.done():
+                        if future.cancel():
+                            continue
+                        _preserve_model_cleanup_lease(
+                            entry=entry,
+                            lease_payloads=lease_payloads,
+                            output_path=output_path,
+                        )
+                        continue
+                    try:
+                        result = future.result()
+                    except BaseException:
+                        # The worker ran but supplied no terminal supervision
+                        # result; cleanup is unknown even though Future is done.
+                        _preserve_model_cleanup_lease(
+                            entry=entry,
+                            lease_payloads=lease_payloads,
+                            output_path=output_path,
+                        )
+                        continue
+                    if _model_result_cleanup_not_confirmed(result):
+                        _preserve_model_cleanup_lease(
+                            entry=entry,
+                            lease_payloads=lease_payloads,
+                            output_path=output_path,
+                            result=result,
+                        )
+
+            try:
+                with ThreadPoolExecutor(
+                    max_workers=jobs,
+                    thread_name_prefix="flowguard-model",
+                ) as executor:
+                    try:
+                        # Populate incrementally so a submit-time failure also
+                        # leaves every earlier submitted Future discoverable.
+                        for entry in pending:
+                            owner_started_at = datetime.now(timezone.utc).isoformat()
+                            future = executor.submit(
+                                _run_entry,
+                                root_path,
+                                entry,
+                                output_path,
+                                timeout_override=timeout,
+                                cancel_event=cancel,
+                                progress=progress,
+                                input_inventory=(input_inventories or {}).get(entry.model_id),
+                                require_executed_case_ids=require_executed_case_ids,
+                                selected_owner_ids=(f"model:{entry.model_id}",),
+                            )
+                            submitted[future] = (entry, owner_started_at)
+                        for future in as_completed(submitted):
+                            entry, owner_started_at = submitted[future]
+                            result = future.result()
+                            completed.append((entry, owner_started_at, result))
+                            # Retain immediately.  A later sibling exception
+                            # or interrupted collection must not release this
+                            # already-known unconfirmed owner lease.
+                            if _model_result_cleanup_not_confirmed(result):
+                                _preserve_model_cleanup_lease(
+                                    entry=entry,
+                                    lease_payloads=lease_payloads,
+                                    output_path=output_path,
+                                    result=result,
+                                )
+                    except BaseException:
+                        # Stop queued work when collection is abandoned.  A
+                        # Future that cannot be cancelled may already be
+                        # running; it will be reconciled after executor exit.
+                        for future in submitted:
+                            if not future.done():
+                                future.cancel()
+                        raise
+            except BaseException:
+                # ThreadPoolExecutor has now attempted to join its workers.
+                # Reconcile every accepted submission before ExitStack can
+                # release leases.  Keep the triggering exception unchanged.
+                retain_unsettled_submissions()
+                raise
+
+        # Mark every unconfirmed child before final freshness or terminal
+        # metadata reads can raise and unwind the batch's lease contexts.
+        unconfirmed = [
+            entry
+            for entry, _owner_started_at, result in completed
+            if _model_result_cleanup_not_confirmed(result)
+        ]
+        for entry in unconfirmed:
+            _preserve_model_cleanup_lease(
+                entry=entry,
+                lease_payloads=lease_payloads,
+                output_path=output_path,
+                result=next(
+                    result
+                    for candidate, _started_at, result in completed
+                    if candidate.model_id == entry.model_id
+                ),
+            )
+
+        require_current_map_admission("at final source boundary")
         source_freshness = assert_validation_owner_observation_fresh(
             planning_observation,
             root_path,
@@ -4484,18 +5050,12 @@ def _execute_pending_models(
         )
         fresh_currents = source_freshness.current_by_owner
         for entry, owner_started_at, result in completed:
-            if "model.cleanup_unconfirmed" in result.finding_codes:
-                lease = lease_payloads[entry.model_id]
-                lease["_preserve_residual"] = True
-                terminal_path = (
-                    _safe_artifact_dir(output_path, entry.model_id)
-                    / "supervisor-terminal.json"
-                )
-                if terminal_path.is_file():
-                    terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
-                    lease["incident_episode_token"] = str(
-                        terminal.get("episode_token", lease["lease_token"])
-                    )
+            # Missing supervision is also unknown cleanup.  Keep publication
+            # on the same positive-confirmation predicate used by lease
+            # retention; an unrelated launch error must not authorize a leaf
+            # receipt merely because it lacks the cleanup-specific finding.
+            if _model_result_cleanup_not_confirmed(result):
+                results.append(result)
                 continue
             results.append(
                 _persist_model_owner_result(
@@ -4583,10 +5143,7 @@ def _write_model_parent_receipt(
             raise ValueError(
                 f"passing model parent selects an unknown model: {exc.args[0]}"
             ) from exc
-        child_contracts = tuple(
-            _model_owner_contract(root, manifest, entry)
-            for entry in selected_entries
-        )
+        child_contracts = _model_owner_contracts(root, manifest, selected_entries)
         if child_contracts != planning_observation.contracts:
             raise ValueError(
                 "model parent selection differs from the frozen owner observation"
@@ -4929,7 +5486,7 @@ def _model_parent_children(
     return tuple(rows)
 
 
-def _current_model_parent_artifact_path(parent_dir: Path) -> Path:
+def _current_model_parent_artifact_path(parent_dir: Path, *, read_context=None) -> Path:
     """Resolve the one current parent artifact named by the typed head.
 
     The parent store is append-only evidence.  It is intentionally not a
@@ -4947,7 +5504,8 @@ def _current_model_parent_artifact_path(parent_dir: Path) -> Path:
         )
     try:
         payload = json.loads(
-            head_path.read_text(encoding="utf-8"),
+            (read_context.artifact_bytes(head_path.absolute().relative_to(read_context.root).as_posix()).decode("utf-8")
+             if read_context is not None else head_path.read_text(encoding="utf-8")),
             object_pairs_hook=_reject_duplicate_model_parent_keys,
             parse_constant=_reject_nonfinite_model_parent_number,
         )
@@ -5004,6 +5562,7 @@ def _current_model_parent_artifact_path(parent_dir: Path) -> Path:
 
 def _read_model_parent_artifact(
     path: Path,
+    *, read_context=None,
 ) -> tuple[
     Mapping[str, Any],
     tuple[str, ...],
@@ -5012,7 +5571,8 @@ def _read_model_parent_artifact(
 ]:
     try:
         payload = json.loads(
-            path.read_text(encoding="utf-8"),
+            (read_context.artifact_bytes(path.absolute().relative_to(read_context.root).as_posix()).decode("utf-8")
+             if read_context is not None else path.read_text(encoding="utf-8")),
             object_pairs_hook=_reject_duplicate_model_parent_keys,
             parse_constant=_reject_nonfinite_model_parent_number,
         )
@@ -5213,9 +5773,7 @@ def resolve_current_full_model_regression_parent(
                 "model parent child subject does not match its model: "
                 + model_id
             )
-    contracts = tuple(
-        _model_owner_contract(root_path, manifest, entry) for entry in entries
-    )
+    contracts = _model_owner_contracts(root_path, manifest, entries)
     # The immutable parent names the exact leaf IDs.  Observe those IDs once;
     # never rescan the append-only receipt store or retry the observation for a
     # historical candidate.
@@ -5442,7 +6000,7 @@ def resolve_current_full_model_regression_parent(
             raise ModelRegressionEvidenceError(
                 f"model parent child identity is not exact-current: {model_id}"
             )
-        expected_obligations = (f"model-regression:{model_id}",)
+        expected_obligations = entries_by_model[model_id].validation_obligation_ids
         if (
             receipt.subject_id != f"validation-owner:model:{model_id}"
             or receipt.subject_kind != OWNER_RECEIPT_KIND
@@ -5598,6 +6156,7 @@ def resolve_current_full_model_regression_parent(
         )
         child_evidence.append(
             CurrentModelRegressionChildEvidence(
+                expected_validation_obligation_ids=entry.validation_obligation_ids,
                 model_id=model_id,
                 receipt_id=receipt.receipt_id,
                 receipt_fingerprint=receipt.fingerprint,
@@ -5773,6 +6332,7 @@ def run_manifest_regressions(
     authority_kind: str = "standalone",
     parent_scope: str = "",
     prepared_plan: PreparedModelRegressionPlan | None = None,
+    reverse_surface_admission: CurrentReverseSurfaceAdmission | None = None,
 ) -> ModelRegressionReport:
     """Run the manifest once and publish its terminal run in one scope.
 
@@ -5856,6 +6416,23 @@ def run_manifest_regressions(
             == tuple(entry.model_id for entry in complete_selected)
             else "scoped"
         )
+    map_admission = None
+    if audit.ok and not source_inventory_errors:
+        map_currentness_errors, map_admission = (
+            verify_selected_reverse_surface_map_currentness(
+                root_path,
+                manifest,
+                selected,
+                admission=reverse_surface_admission,
+            )
+        )
+    else:
+        map_currentness_errors = ()
+    if map_currentness_errors:
+        raise ModelRegressionEvidenceError(
+            "model owner admission blocked by stale reverse-surface evidence: "
+            + "; ".join(map_currentness_errors)
+        )
     if any(entry.mutation_policy == "mutating" for entry in selected) and not allow_mutating:
         blocked = tuple(entry.model_id for entry in selected if entry.mutation_policy == "mutating")
         audit = ManifestAudit(
@@ -5879,9 +6456,7 @@ def run_manifest_regressions(
     contracts = (
         prepared_plan.owner_contracts
         if prepared_plan is not None
-        else tuple(
-            _model_owner_contract(root_path, manifest, entry) for entry in selected
-        )
+        else _model_owner_contracts(root_path, manifest, selected)
     )
     parent_contract = _model_parent_owner_contract(
         manifest,
@@ -6145,6 +6720,7 @@ def run_manifest_regressions(
     source_freshness = ValidationObservationFreshness.not_run(
         planning_observation
     )
+    execution_metrics = {"per_leaf_source_current_rebuild_count": 0}
     if audit.ok:
         executed_results, source_freshness = _execute_pending_models(
                 root_path=root_path,
@@ -6164,6 +6740,10 @@ def run_manifest_regressions(
                     for entry in pending
                 },
                 require_executed_case_ids=require_executed_case_ids,
+                tracked_paths=tracked_paths,
+                tracked_before=tracked_before,
+                execution_metrics=execution_metrics,
+                reverse_surface_admission=map_admission,
             )
         results.extend(executed_results)
     results.sort(key=lambda item: item.model_id)
@@ -6242,7 +6822,9 @@ def run_manifest_regressions(
         ),
         final_freshness_seconds=final_freshness.observation_seconds,
         parent_composition_seconds=parent_composition_seconds,
-        per_leaf_source_current_rebuild_count=0,
+        per_leaf_source_current_rebuild_count=(
+            execution_metrics["per_leaf_source_current_rebuild_count"]
+        ),
         per_leaf_receipt_store_scan_count=0,
         receipt_reconciliation_count=(1 if final_freshness.ok else 0),
         initial_observation_fingerprint=(
@@ -6308,6 +6890,7 @@ __all__ = [
     "PreparedModelRegressionPlan",
     "PreparedModelRegressionRow",
     "audit_intent_source_input_bindings",
+    "audit_selected_reverse_surface_map_currentness",
     "audit_selected_model_source_inventories",
     "audit_manifest",
     "build_regression_model_instance",

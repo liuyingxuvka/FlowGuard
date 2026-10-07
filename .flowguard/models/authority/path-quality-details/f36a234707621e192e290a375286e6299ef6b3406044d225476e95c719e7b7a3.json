@@ -1,0 +1,548 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:a782a5b82e35e42778eb8835ab597f3da859d34c9011927655a523071ce94e3a",
+        "effective_intent_view_fingerprint": "sha256:6b0cf2996262d5fdf5b88d108c0a2e7fce48bf85526efe433c80955d816593f3",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/project_adoption_version_gate/model.py",
+            "source_fingerprint": "sha256:75dfbb4486bce2590c565c4c83d6d789af140b4acbb13bb8b45bb80ce5fcab7c"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:adoption_log_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:agents_block_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:artifact_upgrade_authority",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:author_maintenance_dependency_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:consumer_suite_authority",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:currentness_validation_launch_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:flowguard_owned_json_write_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:installed_version_relation",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:manifest_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:project_local_flowguard_skill_write_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:real_package_verified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:revalidation_authority",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:skillguard_project_write_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:target_owned_json_write_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:unsupported_registered_envelope_write_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:project_adoption_version_gate:validation_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ProjectAction",
+          "effects": [],
+          "id": "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate",
+          "inputs": [
+            "external-input:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd"
+          ],
+          "outputs": [
+            "output:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:project_adoption_version_gate:real_package_verified",
+            "field:project_adoption_version_gate:consumer_suite_authority",
+            "field:project_adoption_version_gate:artifact_upgrade_authority",
+            "field:project_adoption_version_gate:flowguard_owned_json_write_count",
+            "field:project_adoption_version_gate:unsupported_registered_envelope_write_count",
+            "field:project_adoption_version_gate:target_owned_json_write_count",
+            "field:project_adoption_version_gate:agents_block_current",
+            "field:project_adoption_version_gate:manifest_current",
+            "field:project_adoption_version_gate:installed_version_relation",
+            "field:project_adoption_version_gate:validation_current",
+            "field:project_adoption_version_gate:revalidation_authority",
+            "field:project_adoption_version_gate:adoption_log_recorded",
+            "field:project_adoption_version_gate:skillguard_project_write_count",
+            "field:project_adoption_version_gate:project_local_flowguard_skill_write_count",
+            "field:project_adoption_version_gate:author_maintenance_dependency_count",
+            "field:project_adoption_version_gate:currentness_validation_launch_count"
+          ],
+          "state_input": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0",
+          "state_output": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:1",
+          "validations": [
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_real_package",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_agents_block",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_manifest",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_current_validation",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_package_owned_revalidation",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_packaged_global_consumer_authority",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_registered_artifact_upgrade_authority",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_target_owned_json_writes",
+            "validation:project_adoption_version_gate:invariant:unsupported_registered_envelopes_have_zero_writes",
+            "validation:project_adoption_version_gate:invariant:older_local_tool_blocks_completion",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_skillguard_writes",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_local_flowguard_skill_writes",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_author_maintenance_dependencies",
+            "validation:project_adoption_version_gate:invariant:currentness_read_launches_zero_validation"
+          ],
+          "writes": [
+            "field:project_adoption_version_gate:real_package_verified",
+            "field:project_adoption_version_gate:consumer_suite_authority",
+            "field:project_adoption_version_gate:artifact_upgrade_authority",
+            "field:project_adoption_version_gate:flowguard_owned_json_write_count",
+            "field:project_adoption_version_gate:unsupported_registered_envelope_write_count",
+            "field:project_adoption_version_gate:target_owned_json_write_count",
+            "field:project_adoption_version_gate:agents_block_current",
+            "field:project_adoption_version_gate:manifest_current",
+            "field:project_adoption_version_gate:installed_version_relation",
+            "field:project_adoption_version_gate:validation_current",
+            "field:project_adoption_version_gate:revalidation_authority",
+            "field:project_adoption_version_gate:adoption_log_recorded",
+            "field:project_adoption_version_gate:skillguard_project_write_count",
+            "field:project_adoption_version_gate:project_local_flowguard_skill_write_count",
+            "field:project_adoption_version_gate:author_maintenance_dependency_count",
+            "field:project_adoption_version_gate:currentness_validation_launch_count"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate",
+          "producer_id": "transition:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate",
+          "outputs": [
+            "output:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate"
+          ],
+          "reads": [
+            "field:project_adoption_version_gate:real_package_verified",
+            "field:project_adoption_version_gate:consumer_suite_authority",
+            "field:project_adoption_version_gate:artifact_upgrade_authority",
+            "field:project_adoption_version_gate:flowguard_owned_json_write_count",
+            "field:project_adoption_version_gate:unsupported_registered_envelope_write_count",
+            "field:project_adoption_version_gate:target_owned_json_write_count",
+            "field:project_adoption_version_gate:agents_block_current",
+            "field:project_adoption_version_gate:manifest_current",
+            "field:project_adoption_version_gate:installed_version_relation",
+            "field:project_adoption_version_gate:validation_current",
+            "field:project_adoption_version_gate:revalidation_authority",
+            "field:project_adoption_version_gate:adoption_log_recorded",
+            "field:project_adoption_version_gate:skillguard_project_write_count",
+            "field:project_adoption_version_gate:project_local_flowguard_skill_write_count",
+            "field:project_adoption_version_gate:author_maintenance_dependency_count",
+            "field:project_adoption_version_gate:currentness_validation_launch_count"
+          ],
+          "source": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0",
+          "target": "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:1",
+          "trigger": "ProjectAction",
+          "validations": [
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_real_package",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_agents_block",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_manifest",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_current_validation",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_package_owned_revalidation",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_packaged_global_consumer_authority",
+            "validation:project_adoption_version_gate:invariant:complete_claim_requires_registered_artifact_upgrade_authority",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_target_owned_json_writes",
+            "validation:project_adoption_version_gate:invariant:unsupported_registered_envelopes_have_zero_writes",
+            "validation:project_adoption_version_gate:invariant:older_local_tool_blocks_completion",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_skillguard_writes",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_local_flowguard_skill_writes",
+            "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_author_maintenance_dependencies",
+            "validation:project_adoption_version_gate:invariant:currentness_read_launches_zero_validation"
+          ],
+          "writes": [
+            "field:project_adoption_version_gate:real_package_verified",
+            "field:project_adoption_version_gate:consumer_suite_authority",
+            "field:project_adoption_version_gate:artifact_upgrade_authority",
+            "field:project_adoption_version_gate:flowguard_owned_json_write_count",
+            "field:project_adoption_version_gate:unsupported_registered_envelope_write_count",
+            "field:project_adoption_version_gate:target_owned_json_write_count",
+            "field:project_adoption_version_gate:agents_block_current",
+            "field:project_adoption_version_gate:manifest_current",
+            "field:project_adoption_version_gate:installed_version_relation",
+            "field:project_adoption_version_gate:validation_current",
+            "field:project_adoption_version_gate:revalidation_authority",
+            "field:project_adoption_version_gate:adoption_log_recorded",
+            "field:project_adoption_version_gate:skillguard_project_write_count",
+            "field:project_adoption_version_gate:project_local_flowguard_skill_write_count",
+            "field:project_adoption_version_gate:author_maintenance_dependency_count",
+            "field:project_adoption_version_gate:currentness_validation_launch_count"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_agents_block",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_agents_block",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_agents_block",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_current_validation",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_current_validation",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_current_validation",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_manifest",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_manifest",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_manifest",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_package_owned_revalidation",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_package_owned_revalidation",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_package_owned_revalidation",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_packaged_global_consumer_authority",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_packaged_global_consumer_authority",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_packaged_global_consumer_authority",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_real_package",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_real_package",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_real_package",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:complete_claim_requires_registered_artifact_upgrade_authority",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:complete_claim_requires_registered_artifact_upgrade_authority",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:complete_claim_requires_registered_artifact_upgrade_authority",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:currentness_read_launches_zero_validation",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:currentness_read_launches_zero_validation",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:currentness_read_launches_zero_validation",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:older_local_tool_blocks_completion",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:older_local_tool_blocks_completion",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:older_local_tool_blocks_completion",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_author_maintenance_dependencies",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_author_maintenance_dependencies",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_author_maintenance_dependencies",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_local_flowguard_skill_writes",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_local_flowguard_skill_writes",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_local_flowguard_skill_writes",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_skillguard_writes",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_skillguard_writes",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_skillguard_writes",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_target_owned_json_writes",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_target_owned_json_writes",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:ordinary_project_has_zero_target_owned_json_writes",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        },
+        {
+          "evidence_boundary_id": "native-runner:project_adoption_version_gate",
+          "id": "validation:project_adoption_version_gate:invariant:unsupported_registered_envelopes_have_zero_writes",
+          "obligation_id": "obligation:native-invariant:project_adoption_version_gate:unsupported_registered_envelopes_have_zero_writes",
+          "oracle_id": "oracle:native-invariant:project_adoption_version_gate:unsupported_registered_envelopes_have_zero_writes",
+          "subject_fingerprint": "sha256:3642fdf3bbee552456b6e6e99bf097d30aed63c9eb0ffc2dc310d511e42c48dc"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:project_adoption_version_gate:adoption_log_recorded": "field",
+      "field:project_adoption_version_gate:agents_block_current": "field",
+      "field:project_adoption_version_gate:artifact_upgrade_authority": "field",
+      "field:project_adoption_version_gate:author_maintenance_dependency_count": "field",
+      "field:project_adoption_version_gate:consumer_suite_authority": "field",
+      "field:project_adoption_version_gate:currentness_validation_launch_count": "field",
+      "field:project_adoption_version_gate:flowguard_owned_json_write_count": "field",
+      "field:project_adoption_version_gate:installed_version_relation": "field",
+      "field:project_adoption_version_gate:manifest_current": "field",
+      "field:project_adoption_version_gate:project_local_flowguard_skill_write_count": "field",
+      "field:project_adoption_version_gate:real_package_verified": "field",
+      "field:project_adoption_version_gate:revalidation_authority": "field",
+      "field:project_adoption_version_gate:skillguard_project_write_count": "field",
+      "field:project_adoption_version_gate:target_owned_json_write_count": "field",
+      "field:project_adoption_version_gate:unsupported_registered_envelope_write_count": "field",
+      "field:project_adoption_version_gate:validation_current": "field",
+      "function-block:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate": "function_block",
+      "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0": "state",
+      "state:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:1": "state",
+      "transition:workflow:project_adoption_version_gate:project_adoption_version_gate:0:5142752040bd:0:ProjectAdoptionGate": "transition",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_agents_block": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_current_validation": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_manifest": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_package_owned_revalidation": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_packaged_global_consumer_authority": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_real_package": "validation",
+      "validation:project_adoption_version_gate:invariant:complete_claim_requires_registered_artifact_upgrade_authority": "validation",
+      "validation:project_adoption_version_gate:invariant:currentness_read_launches_zero_validation": "validation",
+      "validation:project_adoption_version_gate:invariant:older_local_tool_blocks_completion": "validation",
+      "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_author_maintenance_dependencies": "validation",
+      "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_local_flowguard_skill_writes": "validation",
+      "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_skillguard_writes": "validation",
+      "validation:project_adoption_version_gate:invariant:ordinary_project_has_zero_target_owned_json_writes": "validation",
+      "validation:project_adoption_version_gate:invariant:unsupported_registered_envelopes_have_zero_writes": "validation"
+    },
+    "subject_fingerprint": "sha256:544434ff17d4e5bf5b1322d6749144ab8a89175548b96371e0868c2c264400fa",
+    "trigger_currentness_id": "sha256:efe2a9566657d09272845f0e4fe4b53ecef69f7a3b8389072b4667b02d096146",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:f36a234707621e192e290a375286e6299ef6b3406044d225476e95c719e7b7a3",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

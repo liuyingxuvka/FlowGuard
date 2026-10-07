@@ -1,0 +1,858 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:b6d1e3aa4180cf6321c57c06317b241b624937e0ec636d8006a5f6966ee7f2c0",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/hierarchical_model_mesh/model.py",
+            "source_fingerprint": "sha256:a5591e8b7eea0553d254c168b0b2bbcf76c55ff42e07848fdd7a8de7779ee439"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:HierarchyPlan",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:background_completion_evidence",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:bug_class_boundary_not_instance",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:checked_in_declaration_not_child_currentness",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:checked_in_declaration_not_progress_currentness",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:child_boundary_diff_recorded",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:child_receipt_coverage_exact",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:child_receipts_distinct",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:child_receipts_exact_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:child_receipts_owner_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:coverage_check",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:cross_boundary_support_non_structural",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:cross_child_connection_tests",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:feedback_progress_contract_exact_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:feedback_progress_contract_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:feedback_progress_evidence_exact_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:feedback_relation_classification_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:finite_leaf_boundary_execution",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:full_parent_receipt_composition_only",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:global_cartesian_not_materialized",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:legacy_classification",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:legacy_contract_before_trust",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:mesh_per_parent_boundary",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:no_child_graph_expansion",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:overlap_check",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:parent_consumes_subtree_receipts",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:parent_decision_from_boundary_diff",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:parent_rerun_on_contract_drift",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:partition_map_defined",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:recursive_depth_declared",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:release_sync_checks",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:repair_progress_contract_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:retry_progress_contract_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:root_sentinel_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:root_sentinel_unique",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:scale_trigger",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:semantic_topology_trigger",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:sibling_rerun_on_shared_dependency_drift",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:side_effect_ownership_check",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:split_review_decisions",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:stale_and_skipped_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:state_ownership_check",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:hierarchical_model_mesh:structural_parent_unique",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "HierarchyCase",
+          "effects": [],
+          "id": "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan",
+          "inputs": [
+            "external-input:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23"
+          ],
+          "outputs": [
+            "output:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:hierarchical_model_mesh:HierarchyPlan"
+          ],
+          "state_input": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0",
+          "state_output": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:1",
+          "validations": [
+            "validation:hierarchical_model_mesh:invariant:partition_map_and_multilevel_mesh_exist",
+            "validation:hierarchical_model_mesh:invariant:mesh_triggers_are_semantic_and_scale_aware",
+            "validation:hierarchical_model_mesh:invariant:coverage_and_overlap_are_checked",
+            "validation:hierarchical_model_mesh:invariant:ownership_conflicts_are_blockers",
+            "validation:hierarchical_model_mesh:invariant:evidence_and_split_decisions_stay_explicit",
+            "validation:hierarchical_model_mesh:invariant:legacy_models_are_wrapped_before_trust",
+            "validation:hierarchical_model_mesh:invariant:mesh_does_not_expand_child_graphs",
+            "validation:hierarchical_model_mesh:invariant:child_boundary_changes_propagate_upward",
+            "validation:hierarchical_model_mesh:invariant:model_miss_scope_is_bug_class_boundary",
+            "validation:hierarchical_model_mesh:invariant:background_and_release_evidence_required",
+            "validation:hierarchical_model_mesh:invariant:structural_parenthood_is_unique_and_typed",
+            "validation:hierarchical_model_mesh:invariant:child_receipts_are_exact_current_owner_bound_and_distinct",
+            "validation:hierarchical_model_mesh:invariant:recursive_composition_is_finite_and_complete",
+            "validation:hierarchical_model_mesh:invariant:feedback_loops_require_current_progress_contracts",
+            "validation:hierarchical_model_mesh:invariant:checked_in_declarations_cannot_self_certify_currentness"
+          ],
+          "writes": [
+            "field:hierarchical_model_mesh:case_name",
+            "field:hierarchical_model_mesh:partition_map_defined",
+            "field:hierarchical_model_mesh:mesh_per_parent_boundary",
+            "field:hierarchical_model_mesh:semantic_topology_trigger",
+            "field:hierarchical_model_mesh:scale_trigger",
+            "field:hierarchical_model_mesh:coverage_check",
+            "field:hierarchical_model_mesh:overlap_check",
+            "field:hierarchical_model_mesh:state_ownership_check",
+            "field:hierarchical_model_mesh:side_effect_ownership_check",
+            "field:hierarchical_model_mesh:stale_and_skipped_visible",
+            "field:hierarchical_model_mesh:split_review_decisions",
+            "field:hierarchical_model_mesh:legacy_classification",
+            "field:hierarchical_model_mesh:legacy_contract_before_trust",
+            "field:hierarchical_model_mesh:no_child_graph_expansion",
+            "field:hierarchical_model_mesh:child_boundary_diff_recorded",
+            "field:hierarchical_model_mesh:bug_class_boundary_not_instance",
+            "field:hierarchical_model_mesh:parent_decision_from_boundary_diff",
+            "field:hierarchical_model_mesh:parent_rerun_on_contract_drift",
+            "field:hierarchical_model_mesh:sibling_rerun_on_shared_dependency_drift",
+            "field:hierarchical_model_mesh:background_completion_evidence",
+            "field:hierarchical_model_mesh:release_sync_checks",
+            "field:hierarchical_model_mesh:root_sentinel_present",
+            "field:hierarchical_model_mesh:root_sentinel_unique",
+            "field:hierarchical_model_mesh:structural_parent_unique",
+            "field:hierarchical_model_mesh:cross_boundary_support_non_structural",
+            "field:hierarchical_model_mesh:full_parent_receipt_composition_only",
+            "field:hierarchical_model_mesh:child_receipt_coverage_exact",
+            "field:hierarchical_model_mesh:child_receipts_exact_current",
+            "field:hierarchical_model_mesh:child_receipts_owner_bound",
+            "field:hierarchical_model_mesh:child_receipts_distinct",
+            "field:hierarchical_model_mesh:feedback_relation_classification_complete",
+            "field:hierarchical_model_mesh:feedback_progress_contract_present",
+            "field:hierarchical_model_mesh:retry_progress_contract_present",
+            "field:hierarchical_model_mesh:repair_progress_contract_present",
+            "field:hierarchical_model_mesh:feedback_progress_contract_exact_current",
+            "field:hierarchical_model_mesh:feedback_progress_evidence_exact_current",
+            "field:hierarchical_model_mesh:checked_in_declaration_not_child_currentness",
+            "field:hierarchical_model_mesh:checked_in_declaration_not_progress_currentness",
+            "field:hierarchical_model_mesh:recursive_depth_declared",
+            "field:hierarchical_model_mesh:finite_leaf_boundary_execution",
+            "field:hierarchical_model_mesh:parent_consumes_subtree_receipts",
+            "field:hierarchical_model_mesh:cross_child_connection_tests",
+            "field:hierarchical_model_mesh:global_cartesian_not_materialized"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan",
+          "producer_id": "transition:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan",
+          "outputs": [
+            "output:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan"
+          ],
+          "reads": [
+            "field:hierarchical_model_mesh:HierarchyPlan"
+          ],
+          "source": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0",
+          "target": "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:1",
+          "trigger": "HierarchyCase",
+          "validations": [
+            "validation:hierarchical_model_mesh:invariant:partition_map_and_multilevel_mesh_exist",
+            "validation:hierarchical_model_mesh:invariant:mesh_triggers_are_semantic_and_scale_aware",
+            "validation:hierarchical_model_mesh:invariant:coverage_and_overlap_are_checked",
+            "validation:hierarchical_model_mesh:invariant:ownership_conflicts_are_blockers",
+            "validation:hierarchical_model_mesh:invariant:evidence_and_split_decisions_stay_explicit",
+            "validation:hierarchical_model_mesh:invariant:legacy_models_are_wrapped_before_trust",
+            "validation:hierarchical_model_mesh:invariant:mesh_does_not_expand_child_graphs",
+            "validation:hierarchical_model_mesh:invariant:child_boundary_changes_propagate_upward",
+            "validation:hierarchical_model_mesh:invariant:model_miss_scope_is_bug_class_boundary",
+            "validation:hierarchical_model_mesh:invariant:background_and_release_evidence_required",
+            "validation:hierarchical_model_mesh:invariant:structural_parenthood_is_unique_and_typed",
+            "validation:hierarchical_model_mesh:invariant:child_receipts_are_exact_current_owner_bound_and_distinct",
+            "validation:hierarchical_model_mesh:invariant:recursive_composition_is_finite_and_complete",
+            "validation:hierarchical_model_mesh:invariant:feedback_loops_require_current_progress_contracts",
+            "validation:hierarchical_model_mesh:invariant:checked_in_declarations_cannot_self_certify_currentness"
+          ],
+          "writes": [
+            "field:hierarchical_model_mesh:case_name",
+            "field:hierarchical_model_mesh:partition_map_defined",
+            "field:hierarchical_model_mesh:mesh_per_parent_boundary",
+            "field:hierarchical_model_mesh:semantic_topology_trigger",
+            "field:hierarchical_model_mesh:scale_trigger",
+            "field:hierarchical_model_mesh:coverage_check",
+            "field:hierarchical_model_mesh:overlap_check",
+            "field:hierarchical_model_mesh:state_ownership_check",
+            "field:hierarchical_model_mesh:side_effect_ownership_check",
+            "field:hierarchical_model_mesh:stale_and_skipped_visible",
+            "field:hierarchical_model_mesh:split_review_decisions",
+            "field:hierarchical_model_mesh:legacy_classification",
+            "field:hierarchical_model_mesh:legacy_contract_before_trust",
+            "field:hierarchical_model_mesh:no_child_graph_expansion",
+            "field:hierarchical_model_mesh:child_boundary_diff_recorded",
+            "field:hierarchical_model_mesh:bug_class_boundary_not_instance",
+            "field:hierarchical_model_mesh:parent_decision_from_boundary_diff",
+            "field:hierarchical_model_mesh:parent_rerun_on_contract_drift",
+            "field:hierarchical_model_mesh:sibling_rerun_on_shared_dependency_drift",
+            "field:hierarchical_model_mesh:background_completion_evidence",
+            "field:hierarchical_model_mesh:release_sync_checks",
+            "field:hierarchical_model_mesh:root_sentinel_present",
+            "field:hierarchical_model_mesh:root_sentinel_unique",
+            "field:hierarchical_model_mesh:structural_parent_unique",
+            "field:hierarchical_model_mesh:cross_boundary_support_non_structural",
+            "field:hierarchical_model_mesh:full_parent_receipt_composition_only",
+            "field:hierarchical_model_mesh:child_receipt_coverage_exact",
+            "field:hierarchical_model_mesh:child_receipts_exact_current",
+            "field:hierarchical_model_mesh:child_receipts_owner_bound",
+            "field:hierarchical_model_mesh:child_receipts_distinct",
+            "field:hierarchical_model_mesh:feedback_relation_classification_complete",
+            "field:hierarchical_model_mesh:feedback_progress_contract_present",
+            "field:hierarchical_model_mesh:retry_progress_contract_present",
+            "field:hierarchical_model_mesh:repair_progress_contract_present",
+            "field:hierarchical_model_mesh:feedback_progress_contract_exact_current",
+            "field:hierarchical_model_mesh:feedback_progress_evidence_exact_current",
+            "field:hierarchical_model_mesh:checked_in_declaration_not_child_currentness",
+            "field:hierarchical_model_mesh:checked_in_declaration_not_progress_currentness",
+            "field:hierarchical_model_mesh:recursive_depth_declared",
+            "field:hierarchical_model_mesh:finite_leaf_boundary_execution",
+            "field:hierarchical_model_mesh:parent_consumes_subtree_receipts",
+            "field:hierarchical_model_mesh:cross_child_connection_tests",
+            "field:hierarchical_model_mesh:global_cartesian_not_materialized"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:background_and_release_evidence_required",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:background_and_release_evidence_required",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:background_and_release_evidence_required",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:checked_in_declarations_cannot_self_certify_currentness",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:checked_in_declarations_cannot_self_certify_currentness",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:checked_in_declarations_cannot_self_certify_currentness",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:child_boundary_changes_propagate_upward",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:child_boundary_changes_propagate_upward",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:child_boundary_changes_propagate_upward",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:child_receipts_are_exact_current_owner_bound_and_distinct",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:child_receipts_are_exact_current_owner_bound_and_distinct",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:child_receipts_are_exact_current_owner_bound_and_distinct",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:coverage_and_overlap_are_checked",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:coverage_and_overlap_are_checked",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:coverage_and_overlap_are_checked",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:evidence_and_split_decisions_stay_explicit",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:evidence_and_split_decisions_stay_explicit",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:evidence_and_split_decisions_stay_explicit",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:feedback_loops_require_current_progress_contracts",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:feedback_loops_require_current_progress_contracts",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:feedback_loops_require_current_progress_contracts",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:legacy_models_are_wrapped_before_trust",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:legacy_models_are_wrapped_before_trust",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:legacy_models_are_wrapped_before_trust",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:mesh_does_not_expand_child_graphs",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:mesh_does_not_expand_child_graphs",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:mesh_does_not_expand_child_graphs",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:mesh_triggers_are_semantic_and_scale_aware",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:mesh_triggers_are_semantic_and_scale_aware",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:mesh_triggers_are_semantic_and_scale_aware",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:model_miss_scope_is_bug_class_boundary",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:model_miss_scope_is_bug_class_boundary",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:model_miss_scope_is_bug_class_boundary",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:ownership_conflicts_are_blockers",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:ownership_conflicts_are_blockers",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:ownership_conflicts_are_blockers",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:partition_map_and_multilevel_mesh_exist",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:partition_map_and_multilevel_mesh_exist",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:partition_map_and_multilevel_mesh_exist",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:recursive_composition_is_finite_and_complete",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:recursive_composition_is_finite_and_complete",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:recursive_composition_is_finite_and_complete",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:hierarchical_model_mesh",
+          "id": "validation:hierarchical_model_mesh:invariant:structural_parenthood_is_unique_and_typed",
+          "obligation_id": "obligation:native-invariant:hierarchical_model_mesh:structural_parenthood_is_unique_and_typed",
+          "oracle_id": "oracle:native-invariant:hierarchical_model_mesh:structural_parenthood_is_unique_and_typed",
+          "subject_fingerprint": "sha256:c62c5bd8e2dfc8ba13e12a886139988fa22b2bcd8b4250b1fa72bc0222dbef4a"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:hierarchical_model_mesh:HierarchyPlan": "field",
+      "field:hierarchical_model_mesh:background_completion_evidence": "field",
+      "field:hierarchical_model_mesh:bug_class_boundary_not_instance": "field",
+      "field:hierarchical_model_mesh:case_name": "field",
+      "field:hierarchical_model_mesh:checked_in_declaration_not_child_currentness": "field",
+      "field:hierarchical_model_mesh:checked_in_declaration_not_progress_currentness": "field",
+      "field:hierarchical_model_mesh:child_boundary_diff_recorded": "field",
+      "field:hierarchical_model_mesh:child_receipt_coverage_exact": "field",
+      "field:hierarchical_model_mesh:child_receipts_distinct": "field",
+      "field:hierarchical_model_mesh:child_receipts_exact_current": "field",
+      "field:hierarchical_model_mesh:child_receipts_owner_bound": "field",
+      "field:hierarchical_model_mesh:coverage_check": "field",
+      "field:hierarchical_model_mesh:cross_boundary_support_non_structural": "field",
+      "field:hierarchical_model_mesh:cross_child_connection_tests": "field",
+      "field:hierarchical_model_mesh:feedback_progress_contract_exact_current": "field",
+      "field:hierarchical_model_mesh:feedback_progress_contract_present": "field",
+      "field:hierarchical_model_mesh:feedback_progress_evidence_exact_current": "field",
+      "field:hierarchical_model_mesh:feedback_relation_classification_complete": "field",
+      "field:hierarchical_model_mesh:finite_leaf_boundary_execution": "field",
+      "field:hierarchical_model_mesh:full_parent_receipt_composition_only": "field",
+      "field:hierarchical_model_mesh:global_cartesian_not_materialized": "field",
+      "field:hierarchical_model_mesh:legacy_classification": "field",
+      "field:hierarchical_model_mesh:legacy_contract_before_trust": "field",
+      "field:hierarchical_model_mesh:mesh_per_parent_boundary": "field",
+      "field:hierarchical_model_mesh:no_child_graph_expansion": "field",
+      "field:hierarchical_model_mesh:overlap_check": "field",
+      "field:hierarchical_model_mesh:parent_consumes_subtree_receipts": "field",
+      "field:hierarchical_model_mesh:parent_decision_from_boundary_diff": "field",
+      "field:hierarchical_model_mesh:parent_rerun_on_contract_drift": "field",
+      "field:hierarchical_model_mesh:partition_map_defined": "field",
+      "field:hierarchical_model_mesh:recursive_depth_declared": "field",
+      "field:hierarchical_model_mesh:release_sync_checks": "field",
+      "field:hierarchical_model_mesh:repair_progress_contract_present": "field",
+      "field:hierarchical_model_mesh:retry_progress_contract_present": "field",
+      "field:hierarchical_model_mesh:root_sentinel_present": "field",
+      "field:hierarchical_model_mesh:root_sentinel_unique": "field",
+      "field:hierarchical_model_mesh:scale_trigger": "field",
+      "field:hierarchical_model_mesh:semantic_topology_trigger": "field",
+      "field:hierarchical_model_mesh:sibling_rerun_on_shared_dependency_drift": "field",
+      "field:hierarchical_model_mesh:side_effect_ownership_check": "field",
+      "field:hierarchical_model_mesh:split_review_decisions": "field",
+      "field:hierarchical_model_mesh:stale_and_skipped_visible": "field",
+      "field:hierarchical_model_mesh:state_ownership_check": "field",
+      "field:hierarchical_model_mesh:structural_parent_unique": "field",
+      "function-block:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan": "function_block",
+      "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0": "state",
+      "state:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:1": "state",
+      "transition:workflow:hierarchical_model_mesh:hierarchical_model_mesh_rollout:0:c6d5509bbf23:0:EvaluateHierarchyPlan": "transition",
+      "validation:hierarchical_model_mesh:invariant:background_and_release_evidence_required": "validation",
+      "validation:hierarchical_model_mesh:invariant:checked_in_declarations_cannot_self_certify_currentness": "validation",
+      "validation:hierarchical_model_mesh:invariant:child_boundary_changes_propagate_upward": "validation",
+      "validation:hierarchical_model_mesh:invariant:child_receipts_are_exact_current_owner_bound_and_distinct": "validation",
+      "validation:hierarchical_model_mesh:invariant:coverage_and_overlap_are_checked": "validation",
+      "validation:hierarchical_model_mesh:invariant:evidence_and_split_decisions_stay_explicit": "validation",
+      "validation:hierarchical_model_mesh:invariant:feedback_loops_require_current_progress_contracts": "validation",
+      "validation:hierarchical_model_mesh:invariant:legacy_models_are_wrapped_before_trust": "validation",
+      "validation:hierarchical_model_mesh:invariant:mesh_does_not_expand_child_graphs": "validation",
+      "validation:hierarchical_model_mesh:invariant:mesh_triggers_are_semantic_and_scale_aware": "validation",
+      "validation:hierarchical_model_mesh:invariant:model_miss_scope_is_bug_class_boundary": "validation",
+      "validation:hierarchical_model_mesh:invariant:ownership_conflicts_are_blockers": "validation",
+      "validation:hierarchical_model_mesh:invariant:partition_map_and_multilevel_mesh_exist": "validation",
+      "validation:hierarchical_model_mesh:invariant:recursive_composition_is_finite_and_complete": "validation",
+      "validation:hierarchical_model_mesh:invariant:structural_parenthood_is_unique_and_typed": "validation"
+    },
+    "subject_fingerprint": "sha256:4bae34ca68e1169d01577e220e6638902b44154c30e60dd1a6c00721b70a2e30",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:f642b95b5ae7cd7046b86ac88bee0700f4046df7361d21bd0ce1cd7a76b290ab",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

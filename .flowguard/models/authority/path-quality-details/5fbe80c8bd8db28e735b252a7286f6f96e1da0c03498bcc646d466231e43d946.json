@@ -1,0 +1,380 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:9694bcdba10e027311b3d0f1fb88094d78b75b67721d4e697ba39d05268a5aba",
+        "effective_intent_view_fingerprint": "sha256:927ac87dfae746e69a9bfa201ac8c54909970fd54ed9f6841577960dca8de9ef",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/user_facing_model_diagrams/model.py",
+            "source_fingerprint": "sha256:7c858370894e92ef65d81801ac6b87eb14e898edfa491ae415ad9612e8a8cccb"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:checker_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:diagram_used_as_evidence",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:disposition_reason",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:mermaid_text",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:projected_edge_semantics",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:projection_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:projection_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:projection_source_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:projection_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:source",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:source_checker_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:user_facing_model_diagrams:source_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "DiagramAction",
+          "effects": [],
+          "id": "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow",
+          "inputs": [
+            "external-input:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9"
+          ],
+          "outputs": [
+            "output:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:user_facing_model_diagrams:source",
+            "field:user_facing_model_diagrams:source_fingerprint",
+            "field:user_facing_model_diagrams:source_checker_status",
+            "field:user_facing_model_diagrams:checker_status",
+            "field:user_facing_model_diagrams:projection_status",
+            "field:user_facing_model_diagrams:projection_source_fingerprint",
+            "field:user_facing_model_diagrams:projection_fingerprint",
+            "field:user_facing_model_diagrams:mermaid_text",
+            "field:user_facing_model_diagrams:projected_edge_semantics",
+            "field:user_facing_model_diagrams:diagram_used_as_evidence",
+            "field:user_facing_model_diagrams:disposition_reason",
+            "field:user_facing_model_diagrams:projection_claim"
+          ],
+          "state_input": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0",
+          "state_output": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:1",
+          "validations": [
+            "validation:user_facing_model_diagrams:invariant:accepted_projection_matches_canonical_source",
+            "validation:user_facing_model_diagrams:invariant:diagram_never_supplies_checker_evidence",
+            "validation:user_facing_model_diagrams:invariant:accepted_projection_preserves_route_edge_semantics",
+            "validation:user_facing_model_diagrams:invariant:accepted_disposition_is_current_and_explicit"
+          ],
+          "writes": [
+            "field:user_facing_model_diagrams:source",
+            "field:user_facing_model_diagrams:source_fingerprint",
+            "field:user_facing_model_diagrams:source_checker_status",
+            "field:user_facing_model_diagrams:checker_status",
+            "field:user_facing_model_diagrams:projection_status",
+            "field:user_facing_model_diagrams:projection_source_fingerprint",
+            "field:user_facing_model_diagrams:projection_fingerprint",
+            "field:user_facing_model_diagrams:mermaid_text",
+            "field:user_facing_model_diagrams:projected_edge_semantics",
+            "field:user_facing_model_diagrams:diagram_used_as_evidence",
+            "field:user_facing_model_diagrams:disposition_reason",
+            "field:user_facing_model_diagrams:projection_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow",
+          "producer_id": "transition:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow",
+          "outputs": [
+            "output:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow"
+          ],
+          "reads": [
+            "field:user_facing_model_diagrams:source",
+            "field:user_facing_model_diagrams:source_fingerprint",
+            "field:user_facing_model_diagrams:source_checker_status",
+            "field:user_facing_model_diagrams:checker_status",
+            "field:user_facing_model_diagrams:projection_status",
+            "field:user_facing_model_diagrams:projection_source_fingerprint",
+            "field:user_facing_model_diagrams:projection_fingerprint",
+            "field:user_facing_model_diagrams:mermaid_text",
+            "field:user_facing_model_diagrams:projected_edge_semantics",
+            "field:user_facing_model_diagrams:diagram_used_as_evidence",
+            "field:user_facing_model_diagrams:disposition_reason",
+            "field:user_facing_model_diagrams:projection_claim"
+          ],
+          "source": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0",
+          "target": "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:1",
+          "trigger": "DiagramAction",
+          "validations": [
+            "validation:user_facing_model_diagrams:invariant:accepted_projection_matches_canonical_source",
+            "validation:user_facing_model_diagrams:invariant:diagram_never_supplies_checker_evidence",
+            "validation:user_facing_model_diagrams:invariant:accepted_projection_preserves_route_edge_semantics",
+            "validation:user_facing_model_diagrams:invariant:accepted_disposition_is_current_and_explicit"
+          ],
+          "writes": [
+            "field:user_facing_model_diagrams:source",
+            "field:user_facing_model_diagrams:source_fingerprint",
+            "field:user_facing_model_diagrams:source_checker_status",
+            "field:user_facing_model_diagrams:checker_status",
+            "field:user_facing_model_diagrams:projection_status",
+            "field:user_facing_model_diagrams:projection_source_fingerprint",
+            "field:user_facing_model_diagrams:projection_fingerprint",
+            "field:user_facing_model_diagrams:mermaid_text",
+            "field:user_facing_model_diagrams:projected_edge_semantics",
+            "field:user_facing_model_diagrams:diagram_used_as_evidence",
+            "field:user_facing_model_diagrams:disposition_reason",
+            "field:user_facing_model_diagrams:projection_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:user_facing_model_diagrams",
+          "id": "validation:user_facing_model_diagrams:invariant:accepted_disposition_is_current_and_explicit",
+          "obligation_id": "obligation:native-invariant:user_facing_model_diagrams:accepted_disposition_is_current_and_explicit",
+          "oracle_id": "oracle:native-invariant:user_facing_model_diagrams:accepted_disposition_is_current_and_explicit",
+          "subject_fingerprint": "sha256:99e1a28aad3a3b28f5d0eb1bad86da63aa9ed2d75992d3a1cad6ed9ccbaf8063"
+        },
+        {
+          "evidence_boundary_id": "native-runner:user_facing_model_diagrams",
+          "id": "validation:user_facing_model_diagrams:invariant:accepted_projection_matches_canonical_source",
+          "obligation_id": "obligation:native-invariant:user_facing_model_diagrams:accepted_projection_matches_canonical_source",
+          "oracle_id": "oracle:native-invariant:user_facing_model_diagrams:accepted_projection_matches_canonical_source",
+          "subject_fingerprint": "sha256:99e1a28aad3a3b28f5d0eb1bad86da63aa9ed2d75992d3a1cad6ed9ccbaf8063"
+        },
+        {
+          "evidence_boundary_id": "native-runner:user_facing_model_diagrams",
+          "id": "validation:user_facing_model_diagrams:invariant:accepted_projection_preserves_route_edge_semantics",
+          "obligation_id": "obligation:native-invariant:user_facing_model_diagrams:accepted_projection_preserves_route_edge_semantics",
+          "oracle_id": "oracle:native-invariant:user_facing_model_diagrams:accepted_projection_preserves_route_edge_semantics",
+          "subject_fingerprint": "sha256:99e1a28aad3a3b28f5d0eb1bad86da63aa9ed2d75992d3a1cad6ed9ccbaf8063"
+        },
+        {
+          "evidence_boundary_id": "native-runner:user_facing_model_diagrams",
+          "id": "validation:user_facing_model_diagrams:invariant:diagram_never_supplies_checker_evidence",
+          "obligation_id": "obligation:native-invariant:user_facing_model_diagrams:diagram_never_supplies_checker_evidence",
+          "oracle_id": "oracle:native-invariant:user_facing_model_diagrams:diagram_never_supplies_checker_evidence",
+          "subject_fingerprint": "sha256:99e1a28aad3a3b28f5d0eb1bad86da63aa9ed2d75992d3a1cad6ed9ccbaf8063"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:user_facing_model_diagrams:checker_status": "field",
+      "field:user_facing_model_diagrams:diagram_used_as_evidence": "field",
+      "field:user_facing_model_diagrams:disposition_reason": "field",
+      "field:user_facing_model_diagrams:mermaid_text": "field",
+      "field:user_facing_model_diagrams:projected_edge_semantics": "field",
+      "field:user_facing_model_diagrams:projection_claim": "field",
+      "field:user_facing_model_diagrams:projection_fingerprint": "field",
+      "field:user_facing_model_diagrams:projection_source_fingerprint": "field",
+      "field:user_facing_model_diagrams:projection_status": "field",
+      "field:user_facing_model_diagrams:source": "field",
+      "field:user_facing_model_diagrams:source_checker_status": "field",
+      "field:user_facing_model_diagrams:source_fingerprint": "field",
+      "function-block:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow": "function_block",
+      "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0": "state",
+      "state:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:1": "state",
+      "transition:workflow:user_facing_model_diagrams:user_facing_diagram_projection:0:eb90698530d9:0:DiagramProjectionFlow": "transition",
+      "validation:user_facing_model_diagrams:invariant:accepted_disposition_is_current_and_explicit": "validation",
+      "validation:user_facing_model_diagrams:invariant:accepted_projection_matches_canonical_source": "validation",
+      "validation:user_facing_model_diagrams:invariant:accepted_projection_preserves_route_edge_semantics": "validation",
+      "validation:user_facing_model_diagrams:invariant:diagram_never_supplies_checker_evidence": "validation"
+    },
+    "subject_fingerprint": "sha256:cbbfaca56d7c92a0cbb32504c0d9e0871782fbec6855930f20c23c5a6bf524c1",
+    "trigger_currentness_id": "sha256:02904d82e0ad7735d068a9113040051faf7ff20095b0cd2679b18c126587a76c",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:5fbe80c8bd8db28e735b252a7286f6f96e1da0c03498bcc646d466231e43d946",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

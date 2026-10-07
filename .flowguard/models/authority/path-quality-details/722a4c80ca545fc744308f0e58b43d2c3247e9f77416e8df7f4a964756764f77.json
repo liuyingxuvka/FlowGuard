@@ -1,0 +1,295 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:488bef2479d6e997fc56f05cbca631b07d5de051b86449ded7d214a7a593bda8",
+        "effective_intent_view_fingerprint": "sha256:6b0cf2996262d5fdf5b88d108c0a2e7fce48bf85526efe433c80955d816593f3",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/maintenance_obligation_memory/model.py",
+            "source_fingerprint": "sha256:5e8a57590fe035bca38e21520cd77f1aa7e1c7752c1a9369425e0fd13d83578c"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:anchor_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:anchor_touched",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:broad_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:obligation_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:owner_evidence_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:route_reason",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:maintenance_obligation_memory:scope_reason_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "writes_by": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ObligationMemoryInput",
+          "effects": [],
+          "id": "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory",
+          "inputs": [
+            "external-input:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95"
+          ],
+          "outputs": [
+            "output:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:maintenance_obligation_memory:obligation_status",
+            "field:maintenance_obligation_memory:anchor_recorded",
+            "field:maintenance_obligation_memory:anchor_touched",
+            "field:maintenance_obligation_memory:route_reason",
+            "field:maintenance_obligation_memory:owner_evidence_current",
+            "field:maintenance_obligation_memory:scope_reason_recorded",
+            "field:maintenance_obligation_memory:broad_claim"
+          ],
+          "state_input": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0",
+          "state_output": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:1",
+          "validations": [
+            "validation:maintenance_obligation_memory:invariant:anchored_obligation_routes_owner",
+            "validation:maintenance_obligation_memory:invariant:unanchored_observation_is_not_hard_gate",
+            "validation:maintenance_obligation_memory:invariant:resolved_obligation_requires_owner_evidence",
+            "validation:maintenance_obligation_memory:invariant:broad_claim_requires_closed_memory"
+          ],
+          "writes": [
+            "field:maintenance_obligation_memory:obligation_status",
+            "field:maintenance_obligation_memory:anchor_recorded",
+            "field:maintenance_obligation_memory:anchor_touched",
+            "field:maintenance_obligation_memory:route_reason",
+            "field:maintenance_obligation_memory:owner_evidence_current",
+            "field:maintenance_obligation_memory:scope_reason_recorded",
+            "field:maintenance_obligation_memory:broad_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory",
+          "producer_id": "transition:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory",
+          "outputs": [
+            "output:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory"
+          ],
+          "reads": [
+            "field:maintenance_obligation_memory:obligation_status",
+            "field:maintenance_obligation_memory:anchor_recorded",
+            "field:maintenance_obligation_memory:anchor_touched",
+            "field:maintenance_obligation_memory:route_reason",
+            "field:maintenance_obligation_memory:owner_evidence_current",
+            "field:maintenance_obligation_memory:scope_reason_recorded",
+            "field:maintenance_obligation_memory:broad_claim"
+          ],
+          "source": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0",
+          "target": "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:1",
+          "trigger": "ObligationMemoryInput",
+          "validations": [
+            "validation:maintenance_obligation_memory:invariant:anchored_obligation_routes_owner",
+            "validation:maintenance_obligation_memory:invariant:unanchored_observation_is_not_hard_gate",
+            "validation:maintenance_obligation_memory:invariant:resolved_obligation_requires_owner_evidence",
+            "validation:maintenance_obligation_memory:invariant:broad_claim_requires_closed_memory"
+          ],
+          "writes": [
+            "field:maintenance_obligation_memory:obligation_status",
+            "field:maintenance_obligation_memory:anchor_recorded",
+            "field:maintenance_obligation_memory:anchor_touched",
+            "field:maintenance_obligation_memory:route_reason",
+            "field:maintenance_obligation_memory:owner_evidence_current",
+            "field:maintenance_obligation_memory:scope_reason_recorded",
+            "field:maintenance_obligation_memory:broad_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:maintenance_obligation_memory",
+          "id": "validation:maintenance_obligation_memory:invariant:anchored_obligation_routes_owner",
+          "obligation_id": "obligation:native-invariant:maintenance_obligation_memory:anchored_obligation_routes_owner",
+          "oracle_id": "oracle:native-invariant:maintenance_obligation_memory:anchored_obligation_routes_owner",
+          "subject_fingerprint": "sha256:0f47db63fb29c92f8691a1d8cd130cab726f6565aed8da706eff5e4ee934ff2e"
+        },
+        {
+          "evidence_boundary_id": "native-runner:maintenance_obligation_memory",
+          "id": "validation:maintenance_obligation_memory:invariant:broad_claim_requires_closed_memory",
+          "obligation_id": "obligation:native-invariant:maintenance_obligation_memory:broad_claim_requires_closed_memory",
+          "oracle_id": "oracle:native-invariant:maintenance_obligation_memory:broad_claim_requires_closed_memory",
+          "subject_fingerprint": "sha256:0f47db63fb29c92f8691a1d8cd130cab726f6565aed8da706eff5e4ee934ff2e"
+        },
+        {
+          "evidence_boundary_id": "native-runner:maintenance_obligation_memory",
+          "id": "validation:maintenance_obligation_memory:invariant:resolved_obligation_requires_owner_evidence",
+          "obligation_id": "obligation:native-invariant:maintenance_obligation_memory:resolved_obligation_requires_owner_evidence",
+          "oracle_id": "oracle:native-invariant:maintenance_obligation_memory:resolved_obligation_requires_owner_evidence",
+          "subject_fingerprint": "sha256:0f47db63fb29c92f8691a1d8cd130cab726f6565aed8da706eff5e4ee934ff2e"
+        },
+        {
+          "evidence_boundary_id": "native-runner:maintenance_obligation_memory",
+          "id": "validation:maintenance_obligation_memory:invariant:unanchored_observation_is_not_hard_gate",
+          "obligation_id": "obligation:native-invariant:maintenance_obligation_memory:unanchored_observation_is_not_hard_gate",
+          "oracle_id": "oracle:native-invariant:maintenance_obligation_memory:unanchored_observation_is_not_hard_gate",
+          "subject_fingerprint": "sha256:0f47db63fb29c92f8691a1d8cd130cab726f6565aed8da706eff5e4ee934ff2e"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:maintenance_obligation_memory:anchor_recorded": "field",
+      "field:maintenance_obligation_memory:anchor_touched": "field",
+      "field:maintenance_obligation_memory:broad_claim": "field",
+      "field:maintenance_obligation_memory:obligation_status": "field",
+      "field:maintenance_obligation_memory:owner_evidence_current": "field",
+      "field:maintenance_obligation_memory:route_reason": "field",
+      "field:maintenance_obligation_memory:scope_reason_recorded": "field",
+      "function-block:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory": "function_block",
+      "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0": "state",
+      "state:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:1": "state",
+      "transition:workflow:maintenance_obligation_memory:maintenance_obligation_memory_correct:0:77054f342a95:0:CorrectObligationMemory": "transition",
+      "validation:maintenance_obligation_memory:invariant:anchored_obligation_routes_owner": "validation",
+      "validation:maintenance_obligation_memory:invariant:broad_claim_requires_closed_memory": "validation",
+      "validation:maintenance_obligation_memory:invariant:resolved_obligation_requires_owner_evidence": "validation",
+      "validation:maintenance_obligation_memory:invariant:unanchored_observation_is_not_hard_gate": "validation"
+    },
+    "subject_fingerprint": "sha256:11ec3a9028c7a16956c0ffbc3389a38dbb5cbe7d8b840ca82fc4451e28e09ab3",
+    "trigger_currentness_id": "sha256:efe2a9566657d09272845f0e4fe4b53ecef69f7a3b8389072b4667b02d096146",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:722a4c80ca545fc744308f0e58b43d2c3247e9f77416e8df7f4a964756764f77",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

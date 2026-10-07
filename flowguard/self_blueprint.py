@@ -9,7 +9,7 @@ derived view of the observed model system, never a second authority pointer.
 from __future__ import annotations
 
 import ast
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, fields, replace
 from fnmatch import fnmatchcase
 from functools import cached_property
 import json
@@ -58,6 +58,7 @@ from .implementation_inventory import (
     SoftwareBoundary,
     build_implementation_surface_inventory,
     implementation_behavior_surface_ids,
+    implementation_surface_id,
     implementation_surface_key,
 )
 from .implementation_inventory_python import (
@@ -82,11 +83,13 @@ from .model_regressions import (
     _model_owner_contract,
     build_model_regression_execution_evidence,
     resolve_current_full_model_regression_parent,
+    select_entries,
 )
 from .native_case_mapping import (
     NativeCaseMappingError,
     load_native_case_mapping,
 )
+from .native_case_protocol import NativeCaseBinding
 from .self_path_quality import (
     FlowGuardSelfPathQualityMaterial,
     compile_flowguard_self_path_quality_material,
@@ -957,6 +960,78 @@ def _exact_owner_for_path(
     )
 
 
+def validate_completion_source_prerequisites(
+    root: str | Path,
+    *,
+    resolved_manifest: Sequence[Mapping[str, str]],
+    model_receipt_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    """Check declared path owners and existing native proofs without producers.
+
+    The caller supplies its single frozen repository observation.  This is
+    neither a new implementation scan nor a self-blueprint build; the native
+    verifier consumes the current parent and its direct leaves exactly once.
+    """
+
+    root_path = Path(root).resolve()
+    definition = load_flowguard_self_blueprint_definition(root_path)
+    _manifest, entries = _manifest_entries(root_path)
+    overrides = definition["owner_overrides"]
+    if not isinstance(overrides, Mapping):
+        raise FlowGuardSelfBlueprintError("self_blueprint_owner_overrides_invalid")
+    scan_paths = _pattern_paths(resolved_manifest, definition["scan_python_patterns"])
+    if not scan_paths:
+        raise FlowGuardSelfBlueprintError("self_blueprint_source_observation_empty")
+    owner_errors: list[str] = []
+    for path in sorted(scan_paths):
+        try:
+            _exact_owner_for_path(path, entries=entries, overrides=overrides)
+        except FlowGuardSelfBlueprintError as exc:
+            owner_errors.append(str(exc))
+    if owner_errors:
+        raise FlowGuardSelfBlueprintError(
+            "self_blueprint_path_owner_missing: " + "; ".join(owner_errors)
+        )
+
+    registry = load_native_case_mapping(root_path)
+    registry.assert_current_manifest(root_path)
+    expected = tuple(sorted(
+        entry.model_id
+        for entry in select_entries(ModelRegressionManifest.load(root_path), tier="full")
+    ))
+    owner_ids = {"model:" + model_id for model_id in expected}
+    if not expected or len(expected) != len(owner_ids):
+        raise FlowGuardSelfBlueprintError("current_native_model_inventory_invalid")
+    if set(registry.bindings_by_owner) != owner_ids:
+        raise FlowGuardSelfBlueprintError("current_native_registry_owner_inventory_mismatch")
+    parent = resolve_current_full_model_regression_parent(
+        root_path, receipt_dir=model_receipt_dir,
+    )
+    child_ids = tuple(sorted(child.model_id for child in parent.children))
+    if child_ids != expected:
+        raise FlowGuardSelfBlueprintError("current_native_parent_leaf_inventory_mismatch")
+    package = build_model_regression_execution_evidence(
+        parent,
+        native_case_bindings_by_owner=registry.bindings_by_owner,
+        require_native_case_results=True,
+    )
+    if not package.complete or {row.owner_id for row in package.owners} != owner_ids:
+        failures = [
+            row.owner_id + ":" + ",".join(row.finding_codes)
+            for row in package.owners if not row.complete
+        ]
+        raise FlowGuardSelfBlueprintError(
+            "current_native_oracle_or_binding_incomplete: " + "; ".join(failures)
+        )
+    return {
+        "scan_path_count": len(scan_paths),
+        "native_owner_count": package.owner_count,
+        "native_case_count": package.executed_case_count,
+        "producer_count": 0,
+        "write_count": 0,
+    }
+
+
 def _purpose_value(entry: Mapping[str, Any], key: str, default: Any) -> Any:
     purpose = entry.get("purpose_closure", {})
     return purpose.get(key, default) if isinstance(purpose, Mapping) else default
@@ -1069,6 +1144,213 @@ def _exact_owner_composite_surface(
     return candidates[0]
 
 
+def _validate_current_native_producer_declarations(
+    root: Path,
+    manifest: Mapping[str, Any],
+    catalog_owner_ids: set[str],
+    surface_owner_ids: set[str],
+    source: Mapping[str, Any],
+    bindings: Sequence[Any],
+) -> None:
+    """Admit only fully declared current owners beyond the frozen annex.
+
+    Declarations and bindings share one canonical Source document. Neither
+    an owner name nor a similar-looking runner creates an execution selector.
+    Current purpose and real Source files authenticate each declared owner.
+    """
+    from flowguard.model_purpose import ModelPurposeClosure
+
+    def _text(value: Any, *, label: str) -> str:
+        if not isinstance(value, str) or not value or value != value.strip():
+            raise FlowGuardSelfBlueprintError(f"{label} must be nonempty exact text")
+        return value
+
+    if (not isinstance(source, Mapping)
+            or set(source) != {"schema_version", "bindings", "composite_owner_declarations"}
+            or source["schema_version"] != "flowguard.native_case_producer_overrides.v2"):
+        raise FlowGuardSelfBlueprintError("native producer declaration source is not current")
+    models = manifest.get("models")
+    if not isinstance(models, list):
+        raise FlowGuardSelfBlueprintError("current manifest models must be an array")
+    current: dict[str, Mapping[str, Any]] = {}
+    for row in models:
+        if not isinstance(row, Mapping):
+            raise FlowGuardSelfBlueprintError("current manifest model entry must be an object")
+        model = _text(row.get("model_id"), label="current model_id")
+        if model in current:
+            raise FlowGuardSelfBlueprintError(f"duplicate current manifest owner: {model}")
+        current[model] = row
+    if surface_owner_ids != set(current):
+        raise FlowGuardSelfBlueprintError("blueprint composite owners must exactly match current manifest owners")
+    if not catalog_owner_ids.issubset(current):
+        raise FlowGuardSelfBlueprintError("historical annex contains a foreign current owner")
+    raw = source.get("composite_owner_declarations")
+    if not isinstance(raw, list) or not raw:
+        raise FlowGuardSelfBlueprintError("current composite owner declarations must be a non-empty array")
+    fields = {
+        "model_id", "model_path", "runner_path", "composite_surface_key", "native_leaf_case_ids",
+        "good_native_case_ids", "protected_failure_bindings", "boundary_native_case_id",
+    }
+    declarations: dict[str, Mapping[str, Any]] = {}
+    for index, row in enumerate(raw):
+        if not isinstance(row, Mapping) or set(row) != fields:
+            raise FlowGuardSelfBlueprintError(f"composite owner declarations[{index}] fields mismatch")
+        model = _text(row.get("model_id"), label="composite model_id")
+        if model in declarations:
+            raise FlowGuardSelfBlueprintError(f"duplicate composite owner declaration: {model}")
+        declarations[model] = row
+    extra = set(current) - catalog_owner_ids
+    if set(declarations) != extra:
+        raise FlowGuardSelfBlueprintError("explicit composite owner declarations must exactly cover current extra owners")
+    for binding in bindings:
+        if binding.owner_id not in {"model:" + model for model in current}:
+            raise FlowGuardSelfBlueprintError(f"producer override has an unknown current owner: {binding.owner_id}")
+    for model, declaration in declarations.items():
+        entry = current[model]
+        if entry.get("model_kind") != "native_check_contract":
+            raise FlowGuardSelfBlueprintError(f"composite declaration is not a current native check contract: {model}")
+        model_path = _text(declaration["model_path"], label="declared model_path")
+        runner_path = _text(declaration["runner_path"], label="declared runner_path")
+        if entry.get("model_path") != model_path or entry.get("runner") != ["{python}", runner_path]:
+            raise FlowGuardSelfBlueprintError(f"composite owner Source paths do not match manifest: {model}")
+        for relative in (model_path, runner_path):
+            path = root / relative
+            if Path(relative).is_absolute() or path.is_symlink() or not path.is_file():
+                raise FlowGuardSelfBlueprintError(f"composite owner Source file is missing/foreign: {model}:{relative}")
+            if root.resolve() not in path.resolve().parents:
+                raise FlowGuardSelfBlueprintError(f"composite owner Source path escapes root: {model}:{relative}")
+        try:
+            purpose = ModelPurposeClosure.from_dict(entry["purpose_closure"])
+            purpose.validate_current_files(root, model_path=model_path, runner_path=runner_path)
+        except (KeyError, TypeError, ValueError) as exc:
+            raise FlowGuardSelfBlueprintError(f"composite owner purpose/Source identity is invalid: {model}") from exc
+        if purpose.reusable_model_type_id != model:
+            raise FlowGuardSelfBlueprintError(f"composite owner purpose model identity is foreign: {model}")
+        surface_key = declaration["composite_surface_key"]
+        if not isinstance(surface_key, str) or "#" not in surface_key:
+            raise FlowGuardSelfBlueprintError(f"composite owner requires an exact declared surface key: {model}")
+        surface_path, surface_symbol = surface_key.split("#", 1)
+        if not surface_symbol or Path(surface_path).is_absolute() or not (root / surface_path).is_file() or (root / surface_path).is_symlink() or root.resolve() not in (root / surface_path).resolve().parents:
+            raise FlowGuardSelfBlueprintError(f"composite owner surface Source is missing/foreign: {model}")
+        for field in ("native_leaf_case_ids", "good_native_case_ids"):
+            values = declaration[field]
+            if not isinstance(values, list) or not all(isinstance(value, str) and value for value in values):
+                raise FlowGuardSelfBlueprintError(f"composite {field} must be an explicit string array: {model}")
+        leaves = tuple(declaration["native_leaf_case_ids"])
+        goods = tuple(declaration["good_native_case_ids"])
+        if not leaves or len(set(leaves)) != len(leaves) or not goods or len(set(goods)) != len(goods):
+            raise FlowGuardSelfBlueprintError(f"composite owner has missing/duplicate leaf or good declaration: {model}")
+        if not all(isinstance(case, str) and case.startswith("case:" + model + ":") for case in leaves):
+            raise FlowGuardSelfBlueprintError(f"composite owner leaf identity is foreign: {model}")
+        purpose_bad = {row.failure_id: row.known_bad_case_id for row in purpose.failure_bindings}
+        authored_bad = declaration["protected_failure_bindings"]
+        if not isinstance(authored_bad, list) or any(not isinstance(row, Mapping) or set(row) != {"failure_id", "native_case_id"} for row in authored_bad):
+            raise FlowGuardSelfBlueprintError(f"composite protected failure bindings have wrong fields: {model}")
+        if any(not isinstance(row["failure_id"], str) or not isinstance(row["native_case_id"], str) for row in authored_bad):
+            raise FlowGuardSelfBlueprintError(f"composite protected failure binding values must be text: {model}")
+        bad = {row["failure_id"]: row["native_case_id"] for row in authored_bad}
+        if len(bad) != len(authored_bad) or bad != purpose_bad:
+            raise FlowGuardSelfBlueprintError(f"composite protected failures do not exactly match current purpose: {model}")
+        if set(goods).intersection(bad.values()) or set(leaves) != set(goods) | set(bad.values()) or purpose.known_good_case_id not in goods:
+            raise FlowGuardSelfBlueprintError(f"composite good/bad leaf denominator is incomplete: {model}")
+        owner_rows = [row for row in bindings if row.owner_id == "model:" + model]
+        atomic = [row for row in owner_rows if not row.required_child_case_ids]
+        aggregates = [row for row in owner_rows if row.required_child_case_ids]
+        if len(aggregates) != 1 or aggregates[0].case_kind != "boundary":
+            raise FlowGuardSelfBlueprintError(f"composite owner requires exactly one declared boundary: {model}")
+        boundary = aggregates[0]
+        expected_boundary = "case:" + model + ":boundary:finite-domain"
+        if declaration["boundary_native_case_id"] != expected_boundary or boundary.native_case_ids != (expected_boundary,):
+            raise FlowGuardSelfBlueprintError(f"composite boundary identity is not exact: {model}")
+        surface_id = implementation_surface_id(surface_path, surface_symbol, "module")
+        if (boundary.blueprint_source_case_id != "boundary:" + model
+                or boundary.blueprint_case_id != f"behavior-case:{surface_id}:boundary:boundary:{model}"):
+            raise FlowGuardSelfBlueprintError(f"composite boundary blueprint identity is not exact: {model}")
+        if set(boundary.required_child_case_ids) != set(leaves) or len(boundary.required_child_case_ids) != len(leaves):
+            raise FlowGuardSelfBlueprintError(f"composite boundary child closure is incomplete: {model}")
+        if len(atomic) != len(leaves) or {case for row in atomic for case in row.native_case_ids} != set(leaves) or any(len(row.native_case_ids) != 1 for row in atomic):
+            raise FlowGuardSelfBlueprintError(f"composite atomic leaf coverage is missing/ambiguous: {model}")
+        for row in atomic:
+            native = row.native_case_ids[0]
+            expected_kind = "good" if native in goods else "bad"
+            expected_failures = () if expected_kind == "good" else tuple(f for f, case in bad.items() if case == native)
+            if row.case_kind != expected_kind or row.protected_failure_ids != expected_failures or row.blueprint_source_case_id != native:
+                raise FlowGuardSelfBlueprintError(f"composite leaf contract does not match current purpose: {model}:{native}")
+            if row.blueprint_case_id != f"behavior-case:{surface_id}:{expected_kind}:{native}":
+                raise FlowGuardSelfBlueprintError(f"composite leaf blueprint identity is not exact: {model}:{native}")
+
+
+def _declared_native_source_bindings(root: Path) -> tuple[NativeCaseBinding, ...]:
+    """Read current producer declarations without consuming generated mapping."""
+    path = root / ".flowguard/models/native-case-producer-overrides.json"
+    if path.is_symlink() or not path.is_file():
+        raise FlowGuardSelfBlueprintError("native producer declaration source is missing or a symlink")
+
+    def exact_object(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise FlowGuardSelfBlueprintError(f"duplicate native producer declaration key: {key}")
+            result[key] = value
+        return result
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=exact_object,
+                             parse_constant=lambda value: (_ for _ in ()).throw(FlowGuardSelfBlueprintError(f"non-finite native producer declaration: {value}")))
+        if not isinstance(payload, Mapping) or set(payload) != {"schema_version", "bindings", "composite_owner_declarations"} or payload["schema_version"] != "flowguard.native_case_producer_overrides.v2":
+            raise FlowGuardSelfBlueprintError("native producer declaration source is not current")
+        rows = payload["bindings"]
+        if not isinstance(rows, list) or not rows:
+            raise FlowGuardSelfBlueprintError("native producer declarations require a nonempty binding array")
+        fields = {"owner_id", "blueprint_case_id", "blueprint_source_case_id", "native_case_ids", "case_kind", "evidence_scope", "covered_dimensions", "expected_status", "expected_observed_status", "protected_failure_ids", "expected_finding_codes", "required_child_case_ids", "required_trace_labels"}
+        bindings = []
+        identities = set()
+        for row in rows:
+            if not isinstance(row, Mapping) or set(row) != fields:
+                raise FlowGuardSelfBlueprintError("native producer declaration fields are not exact")
+            binding = NativeCaseBinding(**row)
+            identity = (binding.owner_id, binding.blueprint_source_case_id)
+            if identity in identities:
+                raise FlowGuardSelfBlueprintError("native producer declaration source case is duplicated")
+            identities.add(identity)
+            bindings.append(binding)
+        manifest_path = root / ".flowguard/models/regression-manifest.json"
+        definition_path = root / ".flowguard/models/owners/authoritative_model_system/software_blueprint_definition.json"
+        for required in (manifest_path, definition_path):
+            if required.is_symlink() or not required.is_file():
+                raise FlowGuardSelfBlueprintError("current manifest/blueprint declaration Source is missing or a symlink")
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"), object_pairs_hook=exact_object,
+                              parse_constant=lambda value: (_ for _ in ()).throw(FlowGuardSelfBlueprintError(f"non-finite current manifest Source: {value}")))
+        definition = json.loads(definition_path.read_text(encoding="utf-8"), object_pairs_hook=exact_object,
+                                parse_constant=lambda value: (_ for _ in ()).throw(FlowGuardSelfBlueprintError(f"non-finite current blueprint Source: {value}")))
+        contracts = definition.get("composite_behavior_contracts")
+        models = manifest.get("models")
+        if not isinstance(contracts, list) or not isinstance(models, list):
+            raise FlowGuardSelfBlueprintError("current model/composite owner Source arrays are missing")
+        surface_owners = [item.get("owner_id") for item in contracts if isinstance(item, Mapping)]
+        if (len(surface_owners) != len(contracts)
+                or not all(isinstance(owner, str) and owner for owner in surface_owners)
+                or len(set(surface_owners)) != len(surface_owners)):
+            raise FlowGuardSelfBlueprintError("current composite owner Source is missing or ambiguous")
+        if any(not isinstance(item, Mapping) or not isinstance(item.get("model_id"), str) or not item["model_id"] for item in models):
+            raise FlowGuardSelfBlueprintError("current manifest owner Source is missing or malformed")
+        # The explicit manifest kind identifies native fixture contracts. The
+        # historical annex remains immutable; no owner-name heuristic or
+        # absent-declaration fallback creates additional owner authority.
+        legacy_owners = {item["model_id"] for item in models
+                         if isinstance(item, Mapping) and item.get("model_kind", "executable_workflow") != "native_check_contract"}
+        _validate_current_native_producer_declarations(
+            root, manifest, legacy_owners, set(surface_owners), payload, bindings,
+        )
+        surface_keys = {item["owner_id"]: item.get("surface_key") for item in contracts}
+        if any(surface_keys.get(row["model_id"]) != row["composite_surface_key"]
+               for row in payload["composite_owner_declarations"]):
+            raise FlowGuardSelfBlueprintError("current composite declaration surface does not match blueprint Source")
+        return tuple(bindings)
+    except (OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+        raise FlowGuardSelfBlueprintError(f"native producer declaration source is invalid: {exc}") from exc
+
+
 def _project_owners(
     root: Path,
     inventory: ImplementationSurfaceInventory,
@@ -1079,6 +1361,7 @@ def _project_owners(
     ],
     test_inventory: ProjectTestInventory,
     intent_inventory: ProjectIntentInventory,
+    declared_native_bindings: Sequence[NativeCaseBinding] = (),
 ) -> tuple[ProjectBlueprintOwner, ...]:
     """Translate FlowGuard declarations into stable owner obligations.
 
@@ -1088,6 +1371,8 @@ def _project_owners(
     """
 
     grouped: dict[str, list[ImplementationSurface]] = {}
+    if any(binding.owner_id.removeprefix("model:") not in entries for binding in declared_native_bindings):
+        raise FlowGuardSelfBlueprintError("native producer declaration has a foreign model owner")
     for surface in inventory.surfaces:
         owner = _exact_owner_for_path(
             surface.path,
@@ -1113,6 +1398,20 @@ def _project_owners(
             )
 
     behavior_surface_ids = set(implementation_behavior_surface_ids(inventory))
+    # New implementation fixture scopes and true invariant finding codes
+    # require the exact canonical Source declaration, read once for this
+    # whole projection. Legacy protected-failure assertions retain their
+    # stricter check below; caller-supplied green/mutated bindings cannot
+    # authorize a relaxed interpretation.
+    needs_current_source_contract = any(
+        binding.evidence_scope == "implementation_boundary"
+        or (binding.protected_failure_ids and binding.expected_finding_codes != binding.protected_failure_ids)
+        for binding in declared_native_bindings
+    )
+    canonical_source_bindings = {
+        (binding.owner_id, binding.blueprint_source_case_id): binding
+        for binding in (_declared_native_source_bindings(root) if needs_current_source_contract else ())
+    }
     owners: list[ProjectBlueprintOwner] = []
     for owner, owner_surfaces in sorted(grouped.items()):
         entry = entries[owner]
@@ -1334,6 +1633,28 @@ def _project_owners(
             owner_surfaces,
             composite_contract,
         )
+        source_bindings = {}
+        for binding in declared_native_bindings:
+            prefix = f"behavior-case:{primary_surface.surface_id}:"
+            if binding.owner_id != f"model:{owner}" or not binding.blueprint_case_id.startswith(prefix):
+                continue
+            expected_id = f"{prefix}{binding.case_kind}:{binding.blueprint_source_case_id}"
+            if binding.required_child_case_ids:
+                if binding.case_kind != "boundary" or binding.blueprint_source_case_id != f"boundary:{owner}" or binding.blueprint_case_id != expected_id:
+                    raise FlowGuardSelfBlueprintError("native producer aggregate is not one exact current owner boundary")
+                if needs_current_source_contract and canonical_source_bindings.get((binding.owner_id, binding.blueprint_source_case_id)) != binding:
+                    raise FlowGuardSelfBlueprintError("native producer aggregate is not the exact canonical current Source contract")
+                continue
+            special_contract = (binding.evidence_scope == "implementation_boundary"
+                                or (binding.protected_failure_ids and binding.expected_finding_codes != binding.protected_failure_ids))
+            if special_contract and canonical_source_bindings.get((binding.owner_id, binding.blueprint_source_case_id)) != binding:
+                raise FlowGuardSelfBlueprintError("native producer leaf is not the exact canonical current Source contract")
+            allowed_scope = "implementation_boundary" if entry.get("model_kind") == "native_check_contract" else "model_policy"
+            if binding.blueprint_case_id != expected_id or len(binding.native_case_ids) != 1 or binding.evidence_scope != allowed_scope or set(binding.covered_dimensions) != set(BEHAVIOR_CASE_DIMENSIONS[binding.case_kind]):
+                raise FlowGuardSelfBlueprintError("native producer declaration is not one exact current owner leaf")
+            if binding.blueprint_source_case_id in source_bindings:
+                raise FlowGuardSelfBlueprintError("native producer declaration leaf source is duplicated")
+            source_bindings[binding.blueprint_source_case_id] = binding
         known_good_case_id = str(purpose.get("known_good_case_id", ""))
         known_bad_case_ids = tuple(
             str(item.get("known_bad_case_id", ""))
@@ -1482,6 +1803,7 @@ def _project_owners(
                 rule_suffix: str,
                 failure_id: str = "",
                 preserved_failure_ids: tuple[str, ...] = (),
+                observed_finding_codes: tuple[str, ...] | None = None,
             ) -> None:
                 case_id = (
                     f"behavior-case:{surface.surface_id}:{case_kind}:"
@@ -1545,7 +1867,10 @@ def _project_owners(
                         expected_effects=(
                             () if failure_id else surface.side_effect_candidates
                         ),
-                        expected_errors=((failure_id,) if failure_id else ()),
+                        expected_errors=(
+                            observed_finding_codes if observed_finding_codes is not None
+                            else ((failure_id,) if failure_id else ())
+                        ),
                         oracle_id=oracle.oracle_id,
                         case_evidence_id=checker_id,
                         case_evidence_fingerprint=checker_fingerprint,
@@ -1590,6 +1915,39 @@ def _project_owners(
                 for bad_case_id in known_bad_case_ids:
                     failure_id = failure_by_case[bad_case_id]
                     expected_case_kind = failure_case_kind_by_case[bad_case_id]
+                    source_binding = source_bindings.get(bad_case_id)
+                    if source_binding is None:
+                        native_bindings = tuple(
+                            binding for binding in source_bindings.values()
+                            if binding.native_case_ids == (bad_case_id,)
+                        )
+                        if len(native_bindings) > 1:
+                            raise FlowGuardSelfBlueprintError(
+                                "native producer protected case has ambiguous exact native bindings"
+                            )
+                        if native_bindings:
+                            source_binding = native_bindings[0]
+                            if not canonical_source_bindings:
+                                canonical_source_bindings.update({
+                                    (binding.owner_id, binding.blueprint_source_case_id): binding
+                                    for binding in _declared_native_source_bindings(root)
+                                })
+                            if canonical_source_bindings.get((source_binding.owner_id, source_binding.blueprint_source_case_id)) != source_binding:
+                                raise FlowGuardSelfBlueprintError(
+                                    "native producer protected case is not the exact canonical current Source binding"
+                                )
+                    if source_binding is not None:
+                        canonical_special = canonical_source_bindings.get((source_binding.owner_id, source_binding.blueprint_source_case_id)) == source_binding
+                        if source_binding.protected_failure_ids != (failure_id,) or (not canonical_special and (source_binding.expected_finding_codes != (failure_id,) or source_binding.expected_observed_status != "violation")) or source_binding.expected_status != "pass" or expected_case_kind != "bad" or source_binding.case_kind not in {"bad", "boundary"}:
+                            raise FlowGuardSelfBlueprintError("native producer leaf disagrees with the exact protected-failure assertion")
+                        add_declared_case(
+                            source_case_id=source_binding.blueprint_source_case_id,
+                            case_kind=source_binding.case_kind,
+                            rule_suffix=f"protected:{failure_id}",
+                            failure_id=failure_id,
+                            observed_finding_codes=(source_binding.expected_finding_codes if canonical_special else None),
+                        )
+                        continue
                     if expected_case_kind == "good":
                         # A repair-preservation obligation intentionally
                         # reuses a positive native case.  It is a second
@@ -1608,6 +1966,44 @@ def _project_owners(
                             rule_suffix=f"protected:{failure_id}",
                             failure_id=failure_id,
                         )
+                materialized_sources = {case.source_case_id for case in declared_cases}
+                for source_id, source_binding in source_bindings.items():
+                    if source_id in materialized_sources:
+                        continue
+                    if source_binding.protected_failure_ids:
+                        # A purpose chooses one representative bad case per
+                        # failure. Additional independently declared variants
+                        # keep their own exact Source/native identities.
+                        if not canonical_source_bindings:
+                            canonical_source_bindings.update({
+                                (binding.owner_id, binding.blueprint_source_case_id): binding
+                                for binding in _declared_native_source_bindings(root)
+                            })
+                        if (
+                            canonical_source_bindings.get((source_binding.owner_id, source_id)) != source_binding
+                            or len(source_binding.protected_failure_ids) != 1
+                            or source_binding.protected_failure_ids[0] not in protected_failures
+                            or source_binding.expected_finding_codes != source_binding.protected_failure_ids
+                            or source_binding.expected_observed_status != "violation"
+                            or source_binding.expected_status != "pass"
+                            or source_binding.case_kind not in {"bad", "boundary"}
+                        ):
+                            raise FlowGuardSelfBlueprintError("native producer variant disagrees with the exact protected-failure assertion")
+                        add_declared_case(
+                            source_case_id=source_id,
+                            case_kind=source_binding.case_kind,
+                            rule_suffix=f"protected-variant:{source_id}",
+                            failure_id=source_binding.protected_failure_ids[0],
+                            observed_finding_codes=source_binding.expected_finding_codes,
+                        )
+                        continue
+                    if source_binding.protected_failure_ids or source_binding.expected_finding_codes or source_binding.expected_observed_status != "ok" or source_binding.expected_status != "pass" or source_binding.case_kind not in {"good", "boundary"}:
+                        raise FlowGuardSelfBlueprintError("unbound native producer leaf is not ordinary positive conformance")
+                    add_declared_case(
+                        source_case_id=source_id,
+                        case_kind=source_binding.case_kind,
+                        rule_suffix=f"conformance:{source_id}",
+                    )
         primary_binding = next(
             binding
             for binding in portable_behavior_bindings
@@ -1815,11 +2211,22 @@ def _flowguard_delegated_assertion_helpers(
         qualified_parts = qualified_name.split(".")
         matches: list[str] = []
         for node in test_nodes_by_path.get(path, ()):
-            node_parts = str(node.node_id).split("::")[1:]
+            node_parts = str(getattr(node, "pytest_nodeid", node.node_id)).split("::")[1:]
             if node_parts and qualified_parts[: len(node_parts)] == node_parts:
                 matches.append(str(node.node_id))
         if matches:
             return sorted(matches, key=len, reverse=True)[0]
+        # A direct class helper is shared by its lexical class's tests,
+        # not by the first same-named caller anywhere in the repository.
+        class_scope = ".".join(qualified_parts[:-1])
+        class_callers = tuple(sorted({
+            str(node.node_id)
+            for node in test_nodes_by_path.get(path, ())
+            if class_scope and getattr(node, "class_name", "") == class_scope
+            and any(call in {f"self.{leaf}", f"cls.{leaf}"} for call in node.calls)
+        }))
+        if class_callers:
+            return class_callers[0]
         callers = tuple(sorted(set(callers_by_leaf.get(leaf, ()))))
         return (
             callers[0]
@@ -3233,7 +3640,9 @@ def capture_flowguard_self_blueprint_build_input_identity(
     )
 
 
-def _validate_self_blueprint_materialization_invariants(bundle: Any) -> None:
+def _validate_self_blueprint_materialization_invariants(
+    bundle: Any, declared_cases: Sequence[BehaviorCaseContract] = (),
+) -> None:
     """Fail if the real self model grows by cross-product or loses a surface."""
 
     inventory = bundle.inventory
@@ -3301,16 +3710,51 @@ def _validate_self_blueprint_materialization_invariants(bundle: Any) -> None:
     cases_by_block: dict[str, list[BehaviorCaseContract]] = {}
     for case in behavior_report.case_contracts:
         cases_by_block.setdefault(case.behavior_block_id, []).append(case)
+    declared_by_block: dict[str, list[BehaviorCaseContract]] = {}
+    for case in declared_cases:
+        declared_by_block.setdefault(case.behavior_block_id, []).append(case)
+    bindings_by_surface: dict[str, list[Any]] = {}
+    if declared_cases:
+        for binding in bundle.binding_report.bindings:
+            bindings_by_surface.setdefault(binding.implementation_surface_id, []).append(binding)
     expected_case_count = 0
     for contract in behavior_report.contracts:
         cases = cases_by_block.get(contract.behavior_block_id, [])
         kinds = [case.case_kind for case in cases]
-        expected_count = 2 + len(contract.protected_failure_ids)
+        expected_cases = declared_by_block.get(contract.behavior_block_id, [])
+        if declared_cases:
+            bindings = bindings_by_surface.get(contract.implementation_surface_id, ())
+            if len(bindings) != 1:
+                raise FlowGuardSelfBlueprintError(
+                    "self-blueprint case materialization is not block-local and exact: "
+                    f"block={contract.behavior_block_id} conditions=implementation_binding_count"
+                )
+            binding = bindings[0]
+            if (
+                not binding.oracle_ids
+                or binding.oracle_ids != contract.oracle_ids
+                or binding.model_element_id != contract.model_element_id
+                or binding.owner_contract_id != contract.owner_contract_id
+                or binding.implementation_content_fingerprint != contract.source_fingerprint
+            ):
+                raise FlowGuardSelfBlueprintError(
+                    "self-blueprint case materialization is not block-local and exact: "
+                    f"block={contract.behavior_block_id} conditions=implementation_binding_identity "
+                    "fields=oracle_id,model_element_id,owner_contract_id,source_fingerprint"
+                )
+            # The project-neutral producer projects each declared case to its
+            # independent surface binding's oracle. Apply that same sole
+            # projection to the expected declaration, retaining every other
+            # field and checking the complete resulting object exactly.
+            expected_cases = tuple(
+                replace(case, oracle_id=binding.oracle_ids[0])
+                for case in expected_cases
+            )
+        expected_count = len(expected_cases) if declared_cases else 2 + len(contract.protected_failure_ids)
         expected_case_count += expected_count
         protected_failures = {
             failure_id
             for case in cases
-            if case.case_kind in {"bad", "good"}
             for failure_id in case.protected_failure_ids
         }
         primary_good_count = sum(
@@ -3322,7 +3766,40 @@ def _validate_self_blueprint_materialization_invariants(bundle: Any) -> None:
             for case in cases
         )
         bad_count = kinds.count("bad")
-        if (
+        if declared_cases:
+            # Exact declared leaf identities include ordinary positive cases
+            # and protected boundary violations.  Their dimensions follow the
+            # current producer source; the one owner boundary stays distinct.
+            actual_by_id = {case.case_id: case for case in cases}
+            expected_by_id = {case.case_id: case for case in expected_cases}
+            exact_checks = {
+                "case_count": len(cases) == expected_count,
+                "case_fields": actual_by_id == expected_by_id,
+                "protected_failure_set": protected_failures == set(contract.protected_failure_ids),
+                "protected_failure_multiplicity": all(
+                    sum(failure_id in case.protected_failure_ids for case in cases)
+                    == sum(failure_id in case.protected_failure_ids for case in expected_cases)
+                    for failure_id in contract.protected_failure_ids
+                ),
+                "ordinary_good": bool(primary_good_count),
+                "owner_boundary": sum(case.source_case_id == f"boundary:{contract.owner_id.removeprefix('model:')}" and case.case_kind == "boundary" for case in cases) == 1,
+                "case_source_identity": all(case.parameter_case_id == case.case_id and case.source_case_id for case in cases),
+            }
+            failed_checks = tuple(name for name, valid in exact_checks.items() if not valid)
+            if failed_checks:
+                changed_fields = sorted({
+                    field.name
+                    for case_id in actual_by_id.keys() & expected_by_id.keys()
+                    for field in fields(actual_by_id[case_id])
+                    if getattr(actual_by_id[case_id], field.name)
+                    != getattr(expected_by_id[case_id], field.name)
+                })
+                raise FlowGuardSelfBlueprintError(
+                    "self-blueprint case materialization is not block-local and exact: "
+                    f"block={contract.behavior_block_id} "
+                    f"conditions={','.join(failed_checks)} fields={','.join(changed_fields)}"
+                )
+        elif (
             len(cases) != expected_count
             or primary_good_count != 1
             or kinds.count("boundary") != 1
@@ -3462,6 +3939,7 @@ def build_flowguard_self_blueprint(
         composite_contracts,
         test_inventory,
         intent_inventory,
+        declared_native_bindings=_declared_native_source_bindings(root_path),
     )
     resources = _resources(root_path, definition, owners)
     observed_resources = _observed_resources(
@@ -3846,7 +4324,9 @@ def build_flowguard_self_blueprint(
         raise FlowGuardSelfBlueprintError(
             "project-neutral builder did not produce behavior readiness artifacts"
         )
-    _validate_self_blueprint_materialization_invariants(bundle)
+    _validate_self_blueprint_materialization_invariants(
+        bundle, tuple(case for owner in owners for case in owner.behavior_case_contracts),
+    )
     return FlowGuardSelfBlueprintBundle(
         test_inventory=test_inventory,
         inventory=bundle.inventory,

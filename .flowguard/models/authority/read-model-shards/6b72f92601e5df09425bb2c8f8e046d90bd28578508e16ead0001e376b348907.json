@@ -1,0 +1,549 @@
+{
+  "boundary_nodes": [
+    {
+      "endpoint_id": "commitment:understanding-readiness-status",
+      "endpoint_kind": "behavior_commitment",
+      "fingerprint": "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "endpoint_id": "boundary-contract:behavior-commitment-ledger:partition-v1",
+      "endpoint_kind": "boundary_contract",
+      "fingerprint": "sha256:e53410e79e975cedac40b5ce696937613526490930e560f053c5e29ad197c37f",
+      "owner_route": "authoritative_model_system"
+    },
+    {
+      "endpoint_id": "contract:contract:compose-understanding-status-read-only",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:89ffdfac4cb7c91369536efeeb8a7fd79fb4f685e7a0400ee253933a4c41cd7c",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "contract:owner-contract:.flowguard/models/owners/model_mesh_closure_model/model.py",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:adb774bc119497c0fc0b39c8ad8d0a45ea8efb36e11488291024f1423af27345",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "native-owner-route:model_mesh_closure_model",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:a5c833ca83c3bd34fec7ddf7fe7295b1814db73ceafaf2537755519729871c61",
+      "owner_route": "model_mesh_closure_model"
+    },
+    {
+      "endpoint_id": "purpose:model_mesh_closure_model",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:295de08bce80494992fdaa2d42f149d17cc1c1fad010b7db2b45bcb9d9453d3b",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "semantic-parent:authority-and-understanding",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:dcd076f90f064a90fae7b312c53d1c77c3ed25014b58e0f75d9795b1e8f30674",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "semantic-parent:model-mesh-and-composition",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:556d96de8231f9f3d5791dbdefabf7a71ed4de39f385819a1d687eb1d1d26fde",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "test:.flowguard/verification/owners/model_mesh_closure_model/run_checks.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:b849c40d2a3121220964ee179b5e71ca7dae0c71ed5ae77d118319f8af91cb58",
+      "owner_route": "test_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "test:tests/test_understanding_readiness.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:932d155fcafb3751dc0404cfb96d2c5bf8b9eb2ff62dca728dfdb904610c6371",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "candidate_snapshot_fingerprint": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+  "fingerprint": "sha256:6b72f92601e5df09425bb2c8f8e046d90bd28578508e16ead0001e376b348907",
+  "intent_refs": [
+    {
+      "authority_kind": "project_file",
+      "contribution_id": "current-design:snapshot-r9-064:model_mesh_closure_model:1",
+      "logical_model_id": "model_mesh_closure_model",
+      "source_fingerprint": "sha256:7dd7154d4d0f7b747f1a7b4392e0f0cf48579bb8e4b9c172973f47f699b924bd",
+      "source_ref": "openspec/specs/model-mesh-closure-model/spec.md"
+    }
+  ],
+  "logical_model_id": "model_mesh_closure_model",
+  "model": {
+    "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+    "input_inventory_fingerprint": "sha256:20e5fe5f02f5cbd478b78e2d14ba8a8679a934bbdc46411f2c69cd81167813a1",
+    "inputs": [
+      {
+        "path": ".flowguard/models/owners/authoritative_model_system/semantic_model_mesh.json",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      },
+      {
+        "path": ".flowguard/models/owners/model_mesh_closure_model/__init__.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9502ac388fdc5923dda032f7e866af7028144b28972b0f48443aea5eb1522fea"
+      },
+      {
+        "path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:82096bb54e1e96d09be05faf1a60f4f18d56b3f75f05b7178a5bf465579b0256"
+      },
+      {
+        "path": ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:45e337a5fa32c80d4552efb0bce9bfe8237bf620bedc6d2cea4a4a77ad1bdf81"
+      },
+      {
+        "path": "flowguard/__init__.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:47392c5d6dd0969a4da29728322225fb8ce6d5bc43ea6487aa27f42c30258414"
+      },
+      {
+        "path": "flowguard/core.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4"
+      },
+      {
+        "path": "flowguard/formal_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:7170cb7c8dee067d0d5735a62e2ccaafe420569fcc29e9a6da14a8de195928e8"
+      },
+      {
+        "path": "flowguard/hierarchy.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9dc22ec74d1cfbf04e01d0e7ade9f95e447a877ccbbc2cbca755afe261648b23"
+      },
+      {
+        "path": "flowguard/layered_proof.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:88007083fd56956c81b4b0d586b113a2cb75a9c5a27dfd5b458ca014f053b670"
+      },
+      {
+        "path": "flowguard/model_path_quality.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:bad31ad8812336c44a58283ce8949d0caea7e44a316aee420b942f2e238bdc23"
+      },
+      {
+        "path": "flowguard/native_case_mapping.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:efca2eb93a879052816bc06e921a25254ab1cae990383f6cba509a93645f7894"
+      },
+      {
+        "path": "flowguard/native_case_protocol.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:dbcc0829970d49ca6a26a506f695b81c2da93d3b18f639c73b97c4e34a5050fa"
+      },
+      {
+        "path": "flowguard/native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:54e67dae8281a622efdaa2c75fdeec91e1b540a915b810489281c8b85eb3a687"
+      },
+      {
+        "path": "flowguard/recursive_hierarchy.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:d9b851ba63be06668df99d15000d856108563eb1f8a86b0be0f86d0f3f2348cc"
+      },
+      {
+        "path": "flowguard/self_path_quality.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8aded6f2a0e822723d7d35d71c17b94fcddbe13e8f7aa1f5f969695c8610e6d5"
+      },
+      {
+        "path": "flowguard/source_identity.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:ea347bf82406d719891018d0307719bee1828d77d6dfacce88bd856213eb51db"
+      },
+      {
+        "path": "flowguard/work_context_adapters/__init__.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:d60bafd0d2b3e77222b1f8a04841c63af26c8142f56b569d3e3aa872e7c58dfc"
+      },
+      {
+        "path": "flowguard/workflow.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a"
+      },
+      {
+        "path": "openspec/specs/model-mesh-closure-model/spec.md",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:7dd7154d4d0f7b747f1a7b4392e0f0cf48579bb8e4b9c172973f47f699b924bd"
+      },
+      {
+        "path": "pyproject.toml",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca"
+      },
+      {
+        "path": "scripts/run_flowguard_model_regressions.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3"
+      },
+      {
+        "path": "tests/test_native_case_protocol.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:1d779548f96d2f7c64f54ef959285d8f3103075c9b5511a2b6e9f0617ae56aef"
+      },
+      {
+        "path": "tests/test_native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:08d46082d230089bdf8e4ebc9ab466d9e1d131f3a04ec1970a68e4e185e21648"
+      },
+      {
+        "path": "tests/test_self_path_quality_runner_projection.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:64fb04be64156d490ddb9a3e263e26fd2752aefb3002da023eb443662a28cb9e"
+      }
+    ],
+    "logical_model_id": "model_mesh_closure_model",
+    "model_kind": "executable_workflow",
+    "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+    "model_sha256": "sha256:82096bb54e1e96d09be05faf1a60f4f18d56b3f75f05b7178a5bf465579b0256",
+    "purpose_closure_fingerprint": "sha256:295de08bce80494992fdaa2d42f149d17cc1c1fad010b7db2b45bcb9d9453d3b",
+    "runner_path": ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py",
+    "runner_sha256": "sha256:45e337a5fa32c80d4552efb0bce9bfe8237bf620bedc6d2cea4a4a77ad1bdf81",
+    "schema": "flowguard.model_instance_ref.v2"
+  },
+  "relations": [
+    {
+      "evidence_fingerprints": [
+        "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:model_mesh_closure_model--code_contract:contract:contract:compose-understanding-status-read-only",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:contract:compose-understanding-status-read-only",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:89ffdfac4cb7c91369536efeeb8a7fd79fb4f685e7a0400ee253933a4c41cd7c",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:model_mesh_closure_model--code_contract:contract:owner-contract:.flowguard/models/owners/model_mesh_closure_model/model.py",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:owner-contract:.flowguard/models/owners/model_mesh_closure_model/model.py",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:adb774bc119497c0fc0b39c8ad8d0a45ea8efb36e11488291024f1423af27345",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-commitment:commitment:understanding-readiness-status",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "commitment:understanding-readiness-status",
+        "endpoint_kind": "behavior_commitment",
+        "fingerprint": "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "owner_route": "behavior_commitment_ledger"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:928803d5358dd1f1883c5fe593ddbb24c6bcce617969c7c8fa66c8d3d67db053"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-native-owner:model_mesh_closure_model:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "native-owner-route:model_mesh_closure_model",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:a5c833ca83c3bd34fec7ddf7fe7295b1814db73ceafaf2537755519729871c61",
+        "owner_route": "model_mesh_closure_model"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:295de08bce80494992fdaa2d42f149d17cc1c1fad010b7db2b45bcb9d9453d3b"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-purpose:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "purpose:model_mesh_closure_model",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:295de08bce80494992fdaa2d42f149d17cc1c1fad010b7db2b45bcb9d9453d3b",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:model-validates-test_evidence:model_instance:model:model_mesh_closure_model--test_evidence:test:.flowguard/verification/owners/model_mesh_closure_model/run_checks.py",
+      "source": {
+        "endpoint_id": "test:.flowguard/verification/owners/model_mesh_closure_model/run_checks.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:b849c40d2a3121220964ee179b5e71ca7dae0c71ed5ae77d118319f8af91cb58",
+        "owner_route": "test_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:09ce9d445f4e0f213df1d804afc89160278139ed9401c0bba36d5c875fbfdbee",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:model-validates-test_evidence:model_instance:model:model_mesh_closure_model--test_evidence:test:tests/test_understanding_readiness.py",
+      "source": {
+        "endpoint_id": "test:tests/test_understanding_readiness.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:932d155fcafb3751dc0404cfb96d2c5bf8b9eb2ff62dca728dfdb904610c6371",
+        "owner_route": "test_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "depends_on",
+      "relation_id": "relation:semantic-cross-boundary-support:model_mesh_closure_model:semantic-parent:authority-and-understanding",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "semantic-parent:authority-and-understanding",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:dcd076f90f064a90fae7b312c53d1c77c3ed25014b58e0f75d9795b1e8f30674",
+        "owner_route": "model_mesh_maintenance"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:compositional_verification_kernel:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "model:compositional_verification_kernel",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:efe67785c7c7e0e7557f833d6d0a66d01018c97e78d198e2e6adfed2378be0f0",
+        "model_id": "compositional_verification_kernel",
+        "model_path": ".flowguard/models/owners/compositional_verification_kernel/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:hierarchical_model_mesh:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "model:hierarchical_model_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:8b2bff1d0a7552a912bb1bdc22564361038f186e3ee36b61b109d6a117dfa6c2",
+        "model_id": "hierarchical_model_mesh",
+        "model_path": ".flowguard/models/owners/hierarchical_model_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:model_mesh_closure_model:authoritative_model_system",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:authoritative_model_system",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:b6a7a07594321c2970f209689bbb221d744817968b14709ade0b3721a09786e8",
+        "model_id": "authoritative_model_system",
+        "model_path": ".flowguard/models/owners/authoritative_model_system/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:model_mesh_closure_model:self_maintenance_mesh",
+      "source": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:self_maintenance_mesh",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:34bcf6db4e2281348b91bcd0e93e0f99308a317c9e16fdbe87e5664e442a4ed9",
+        "model_id": "self_maintenance_mesh",
+        "model_path": ".flowguard/models/owners/self_maintenance_mesh/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:state_closure_gate:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "model:state_closure_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:fe6d2a7caf296be8c88034431ff96d244bb2e67e160b255791210e4f8d7ee8fe",
+        "model_id": "state_closure_gate",
+        "model_path": ".flowguard/models/owners/state_closure_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "contains",
+      "relation_id": "relation:semantic-parent-contains-model:semantic-parent:model-mesh-and-composition:model_mesh_closure_model",
+      "source": {
+        "endpoint_id": "semantic-parent:model-mesh-and-composition",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:556d96de8231f9f3d5791dbdefabf7a71ed4de39f385819a1d687eb1d1d26fde",
+        "owner_route": "model_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:model_mesh_closure_model",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:ffbf69da33425bc564204fe950792909bfc97947f3e7aa320b00092e37d78b71",
+        "model_id": "model_mesh_closure_model",
+        "model_path": ".flowguard/models/owners/model_mesh_closure_model/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    }
+  ],
+  "schema": "flowguard.read_model_shard.v1",
+  "source_paths": {
+    ".flowguard/models/owners/authoritative_model_system/semantic_model_mesh.json": "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3",
+    ".flowguard/models/owners/model_mesh_closure_model/__init__.py": "sha256:9502ac388fdc5923dda032f7e866af7028144b28972b0f48443aea5eb1522fea",
+    ".flowguard/models/owners/model_mesh_closure_model/model.py": "sha256:82096bb54e1e96d09be05faf1a60f4f18d56b3f75f05b7178a5bf465579b0256",
+    ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py": "sha256:45e337a5fa32c80d4552efb0bce9bfe8237bf620bedc6d2cea4a4a77ad1bdf81",
+    "flowguard/__init__.py": "sha256:47392c5d6dd0969a4da29728322225fb8ce6d5bc43ea6487aa27f42c30258414",
+    "flowguard/core.py": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4",
+    "flowguard/formal_runner.py": "sha256:7170cb7c8dee067d0d5735a62e2ccaafe420569fcc29e9a6da14a8de195928e8",
+    "flowguard/hierarchy.py": "sha256:9dc22ec74d1cfbf04e01d0e7ade9f95e447a877ccbbc2cbca755afe261648b23",
+    "flowguard/layered_proof.py": "sha256:88007083fd56956c81b4b0d586b113a2cb75a9c5a27dfd5b458ca014f053b670",
+    "flowguard/model_path_quality.py": "sha256:bad31ad8812336c44a58283ce8949d0caea7e44a316aee420b942f2e238bdc23",
+    "flowguard/native_case_mapping.py": "sha256:efca2eb93a879052816bc06e921a25254ab1cae990383f6cba509a93645f7894",
+    "flowguard/native_case_protocol.py": "sha256:dbcc0829970d49ca6a26a506f695b81c2da93d3b18f639c73b97c4e34a5050fa",
+    "flowguard/native_case_runner.py": "sha256:54e67dae8281a622efdaa2c75fdeec91e1b540a915b810489281c8b85eb3a687",
+    "flowguard/recursive_hierarchy.py": "sha256:d9b851ba63be06668df99d15000d856108563eb1f8a86b0be0f86d0f3f2348cc",
+    "flowguard/self_path_quality.py": "sha256:8aded6f2a0e822723d7d35d71c17b94fcddbe13e8f7aa1f5f969695c8610e6d5",
+    "flowguard/source_identity.py": "sha256:ea347bf82406d719891018d0307719bee1828d77d6dfacce88bd856213eb51db",
+    "flowguard/work_context_adapters/__init__.py": "sha256:d60bafd0d2b3e77222b1f8a04841c63af26c8142f56b569d3e3aa872e7c58dfc",
+    "flowguard/workflow.py": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a",
+    "openspec/specs/model-mesh-closure-model/spec.md": "sha256:7dd7154d4d0f7b747f1a7b4392e0f0cf48579bb8e4b9c172973f47f699b924bd",
+    "pyproject.toml": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca",
+    "scripts/run_flowguard_model_regressions.py": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3",
+    "tests/test_native_case_protocol.py": "sha256:1d779548f96d2f7c64f54ef959285d8f3103075c9b5511a2b6e9f0617ae56aef",
+    "tests/test_native_case_runner.py": "sha256:08d46082d230089bdf8e4ebc9ab466d9e1d131f3a04ec1970a68e4e185e21648",
+    "tests/test_self_path_quality_runner_projection.py": "sha256:64fb04be64156d490ddb9a3e263e26fd2752aefb3002da023eb443662a28cb9e"
+  },
+  "system_id": "flowguard"
+}

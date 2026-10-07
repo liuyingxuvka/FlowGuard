@@ -1,0 +1,251 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:b2e8c6a11e4365a1653849a90f3c081b5945c652813af66b9b6575a62f91a6df",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/state_closure_gate/model.py",
+            "source_fingerprint": "sha256:09ee84c55cad228cc6d1fdbd8c1eae3d84fde91e483569dd2df6aacc7312e60e"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:state_closure_gate:final_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:state_closure_gate:representative_case_generated",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:state_closure_gate:safe_handling_declared",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:state_closure_gate:side_effect_before_resolution",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:state_closure_gate:unknown_possible",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "StateClosureInput",
+          "effects": [],
+          "id": "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate",
+          "inputs": [
+            "external-input:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee"
+          ],
+          "outputs": [
+            "output:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:state_closure_gate:unknown_possible",
+            "field:state_closure_gate:representative_case_generated",
+            "field:state_closure_gate:safe_handling_declared",
+            "field:state_closure_gate:side_effect_before_resolution",
+            "field:state_closure_gate:final_claim"
+          ],
+          "state_input": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0",
+          "state_output": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:1",
+          "validations": [
+            "validation:state_closure_gate:invariant:unknown_generates_representative_case",
+            "validation:state_closure_gate:invariant:full_claim_requires_safe_handling",
+            "validation:state_closure_gate:invariant:side_effect_blocks_full_claim"
+          ],
+          "writes": [
+            "field:state_closure_gate:unknown_possible",
+            "field:state_closure_gate:representative_case_generated",
+            "field:state_closure_gate:safe_handling_declared",
+            "field:state_closure_gate:side_effect_before_resolution",
+            "field:state_closure_gate:final_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate",
+          "producer_id": "transition:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate",
+          "outputs": [
+            "output:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate"
+          ],
+          "reads": [
+            "field:state_closure_gate:unknown_possible",
+            "field:state_closure_gate:representative_case_generated",
+            "field:state_closure_gate:safe_handling_declared",
+            "field:state_closure_gate:side_effect_before_resolution",
+            "field:state_closure_gate:final_claim"
+          ],
+          "source": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0",
+          "target": "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:1",
+          "trigger": "StateClosureInput",
+          "validations": [
+            "validation:state_closure_gate:invariant:unknown_generates_representative_case",
+            "validation:state_closure_gate:invariant:full_claim_requires_safe_handling",
+            "validation:state_closure_gate:invariant:side_effect_blocks_full_claim"
+          ],
+          "writes": [
+            "field:state_closure_gate:unknown_possible",
+            "field:state_closure_gate:representative_case_generated",
+            "field:state_closure_gate:safe_handling_declared",
+            "field:state_closure_gate:side_effect_before_resolution",
+            "field:state_closure_gate:final_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:state_closure_gate",
+          "id": "validation:state_closure_gate:invariant:full_claim_requires_safe_handling",
+          "obligation_id": "obligation:native-invariant:state_closure_gate:full_claim_requires_safe_handling",
+          "oracle_id": "oracle:native-invariant:state_closure_gate:full_claim_requires_safe_handling",
+          "subject_fingerprint": "sha256:012a2bb99f6efa3a72f96062b0dc18b07dd4519710d5d2bf10f0b4dab9d6d5e7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:state_closure_gate",
+          "id": "validation:state_closure_gate:invariant:side_effect_blocks_full_claim",
+          "obligation_id": "obligation:native-invariant:state_closure_gate:side_effect_blocks_full_claim",
+          "oracle_id": "oracle:native-invariant:state_closure_gate:side_effect_blocks_full_claim",
+          "subject_fingerprint": "sha256:012a2bb99f6efa3a72f96062b0dc18b07dd4519710d5d2bf10f0b4dab9d6d5e7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:state_closure_gate",
+          "id": "validation:state_closure_gate:invariant:unknown_generates_representative_case",
+          "obligation_id": "obligation:native-invariant:state_closure_gate:unknown_generates_representative_case",
+          "oracle_id": "oracle:native-invariant:state_closure_gate:unknown_generates_representative_case",
+          "subject_fingerprint": "sha256:012a2bb99f6efa3a72f96062b0dc18b07dd4519710d5d2bf10f0b4dab9d6d5e7"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:state_closure_gate:final_claim": "field",
+      "field:state_closure_gate:representative_case_generated": "field",
+      "field:state_closure_gate:safe_handling_declared": "field",
+      "field:state_closure_gate:side_effect_before_resolution": "field",
+      "field:state_closure_gate:unknown_possible": "field",
+      "function-block:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate": "function_block",
+      "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0": "state",
+      "state:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:1": "state",
+      "transition:workflow:state_closure_gate:state_closure_gate_correct:0:df5cd3a7d9ee:0:CorrectStateClosureGate": "transition",
+      "validation:state_closure_gate:invariant:full_claim_requires_safe_handling": "validation",
+      "validation:state_closure_gate:invariant:side_effect_blocks_full_claim": "validation",
+      "validation:state_closure_gate:invariant:unknown_generates_representative_case": "validation"
+    },
+    "subject_fingerprint": "sha256:6016f6309714b59b0ddfc0ec1cd0cc5af7a9366e0884e4f77da9206e693a529e",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:8d80180911c559c5081598ed9ee77a681790ea021bc63fb1e5b52b8aa1bef84d",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

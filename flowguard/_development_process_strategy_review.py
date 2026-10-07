@@ -52,6 +52,8 @@ def _has_cycle(nodes: Sequence[str], edges: Sequence[tuple[str, str]]) -> bool:
 def _step_metadata_findings(
     candidate: ProcessOptimizationCandidate,
     prefix: str,
+    *,
+    require_comparison: bool = True,
 ) -> list[str]:
     findings: list[str] = []
     steps = set(candidate.step_ids)
@@ -80,9 +82,9 @@ def _step_metadata_findings(
         for step, cost in candidate.step_effort_costs
     ):
         findings.append(prefix + "step_effort_cost_invalid")
-    if cost_steps and set(cost_steps) != steps:
+    if require_comparison and cost_steps and set(cost_steps) != steps:
         findings.append(prefix + "comparable_step_cost_incomplete")
-    if candidate.comparison_basis == "measured":
+    if require_comparison and candidate.comparison_basis == "measured":
         evidence_steps = tuple(step for step, _ in candidate.step_effort_evidence_ids)
         if set(cost_steps) != steps:
             findings.append(prefix + "measured_step_cost_missing")
@@ -164,6 +166,8 @@ def _derived_selection_rationale(cost_row: tuple[object, ...] | None) -> str:
 def _candidate_findings(
     candidate: ProcessOptimizationCandidate,
     contract: ProcessOptimizationContract,
+    *,
+    require_comparison: bool = True,
 ) -> list[str]:
     prefix = f"candidate:{candidate.candidate_id or '(missing)'}:"
     findings: list[str] = []
@@ -187,9 +191,9 @@ def _candidate_findings(
         findings.append(prefix + "diagnostic_boundary_invalid")
     if candidate.execution_mode not in _EXECUTION_MODES:
         findings.append(prefix + "execution_mode_invalid")
-    if candidate.comparison_basis not in _COMPARISON_BASES:
+    if require_comparison and candidate.comparison_basis not in _COMPARISON_BASES:
         findings.append(prefix + "comparison_basis_invalid")
-    if not candidate.comparison_evidence_ids:
+    if require_comparison and not candidate.comparison_evidence_ids:
         findings.append(prefix + "comparison_evidence_missing")
     nodes = candidate.step_ids + candidate.validation_requirement_ids
     if _duplicates(nodes):
@@ -205,7 +209,13 @@ def _candidate_findings(
         positions = {node: index for index, node in enumerate(nodes)}
         if any(positions[source] >= positions[target] for source, target in candidate.dependency_edges):
             findings.append(prefix + "declared_order_not_dependency_linearization")
-    findings.extend(_step_metadata_findings(candidate, prefix))
+    findings.extend(
+        _step_metadata_findings(
+            candidate,
+            prefix,
+            require_comparison=require_comparison,
+        )
+    )
     if candidate.execution_mode == "safe_parallel":
         isolation_rows = (
             candidate.dependency_isolation_evidence_ids,
@@ -312,6 +322,9 @@ def _review_process_optimization(
     ]
 
     candidate_ids = [candidate.candidate_id for candidate in decision.candidates]
+    single_declared_candidate = len(decision.candidates) == 1
+    if "multiple_equivalent_routes" in reasons and single_declared_candidate:
+        findings.append("multiple_routes_reason_without_multiple_candidates")
     if _duplicates(candidate_ids):
         findings.append("candidate_identity_duplicate")
     if any(not candidate_id for candidate_id in candidate_ids):
@@ -321,7 +334,11 @@ def _review_process_optimization(
     rejected_candidate_findings: list[str] = []
     findings_by_candidate: dict[str, tuple[str, ...]] = {}
     for candidate in decision.candidates:
-        candidate_findings = _candidate_findings(candidate, contract)
+        candidate_findings = _candidate_findings(
+            candidate,
+            contract,
+            require_comparison=not single_declared_candidate,
+        )
         candidate_evidence_references = (
             ("equivalence", candidate.evidence_ids),
             ("comparison", candidate.comparison_evidence_ids),
@@ -386,6 +403,62 @@ def _review_process_optimization(
         for candidate in decision.candidates
         if candidate.candidate_id in eligible
     )
+    if single_declared_candidate:
+        selected = eligible_candidates[0] if len(eligible_candidates) == 1 else None
+        derived_selected_id = selected.candidate_id if selected is not None else ""
+        derived_rationale = (
+            "only declared admissible route; no cost comparison performed"
+            if selected is not None
+            else ""
+        )
+        if findings:
+            evidence_only = all(
+                code.endswith(_EVIDENCE_GAP_SUFFIXES)
+                for code in findings
+            )
+            status = "needs_evidence" if evidence_only else "blocked"
+            return ProcessOptimizationReport(
+                False,
+                status,
+                decision.decision_id,
+                selected_candidate_id=derived_selected_id,
+                eligible_candidate_ids=tuple(eligible),
+                rejected_candidate_ids=tuple(rejected),
+                selected_comparison_basis="",
+                cost_component_ids=(),
+                candidate_cost_rows=(),
+                non_dominated_candidate_ids=(),
+                required_revalidation_ids=tuple(dict.fromkeys(required_revalidation)),
+                finding_codes=tuple(findings),
+                rejected_candidate_finding_codes=tuple(rejected_candidate_findings),
+                selection_rationale=derived_rationale,
+                caller_selection_rationale=decision.selection_rationale,
+                claim_boundary="no process recommendation is valid until every listed gap is closed",
+                summary=f"{status}: {len(findings)} process-optimization gap(s)",
+            )
+        assert selected is not None
+        return ProcessOptimizationReport(
+            True,
+            "selected",
+            decision.decision_id,
+            selected_candidate_id=derived_selected_id,
+            eligible_candidate_ids=tuple(eligible),
+            rejected_candidate_ids=tuple(rejected),
+            selected_comparison_basis="",
+            cost_component_ids=(),
+            candidate_cost_rows=(),
+            non_dominated_candidate_ids=(),
+            required_revalidation_ids=tuple(dict.fromkeys(required_revalidation)),
+            rejected_candidate_finding_codes=tuple(rejected_candidate_findings),
+            selection_rationale=derived_rationale,
+            caller_selection_rationale=decision.selection_rationale,
+            claim_boundary=(
+                "only the declared admissible route satisfies the requested contract; "
+                "no Pareto, minimum, or optimality claim was made"
+            ),
+            summary=f"selected: {derived_selected_id} (single declared route; no cost comparison)",
+        )
+
     bases = {candidate.comparison_basis for candidate in eligible_candidates}
     if len(bases) > 1:
         findings.append("candidate_comparison_basis_incomparable")

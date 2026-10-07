@@ -14,6 +14,7 @@ import json
 import os
 import re
 import tomllib
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Mapping, Sequence
 
@@ -294,6 +295,17 @@ class PublicBehaviorSurfaceAuditError(ValueError):
     """Raised when an audit input cannot be represented safely."""
 
 
+@dataclass(frozen=True)
+class CurrentDiscoveryAdmissionProof:
+    """In-process proof that a complete discovery matched one exact source tree."""
+
+    root: str
+    discovery_fingerprint: str
+    surface_count: int
+    discovery_artifact_fingerprint: str
+    source_identities: tuple[tuple[str, str], ...]
+
+
 def _fingerprint_payload(value: Mapping[str, Any]) -> str:
     encoded = json.dumps(
         value,
@@ -567,6 +579,33 @@ def _load_current_behavior_ledger_join(root: Path) -> dict[str, Any] | None:
             raise PublicBehaviorSurfaceAuditError(
                 "current behavior ledger needs a non-empty commitments array"
             )
+        # Registration supplies authored vocabulary, not a passing execution
+        # claim.  Admit only the explicit current registration contract after
+        # checking its typed semantics and live source inventory.  Broad claims
+        # and explicit execution requirements retain the current-pass gate.
+        registration_only = (
+            value.get("claim_scope") == "registration"
+            and value.get("require_current_evidence") is False
+        )
+        if registration_only:
+            from .behavior_commitment import (
+                behavior_commitment_ledger_from_mapping,
+                review_behavior_commitment_ledger,
+            )
+
+            registration = behavior_commitment_ledger_from_mapping(value)
+            if not registration.require_complete_source_inventory:
+                raise PublicBehaviorSurfaceAuditError(
+                    "registration identity join requires the complete current source inventory"
+                )
+            registration_review = review_behavior_commitment_ledger(
+                registration, project_root=root,
+            )
+            if not registration_review.ok:
+                raise PublicBehaviorSurfaceAuditError(
+                    "registration identity join has invalid or stale authored sources: "
+                    + ", ".join(finding.code for finding in registration_review.findings)
+                )
         commitment_bindings: list[dict[str, Any]] = []
         commitment_ids: list[str] = []
         intent_ids: list[str] = []
@@ -601,9 +640,10 @@ def _load_current_behavior_ledger_join(root: Path) -> dict[str, Any] | None:
                 raise PublicBehaviorSurfaceAuditError(
                     f"current behavior ledger commitment {commitment_id!r} lacks evidence"
                 )
-            if evidence.get("current") is not True or evidence.get(
-                "evidence_state"
-            ) != "current_pass":
+            if not registration_only and (
+                evidence.get("current") is not True
+                or evidence.get("evidence_state") != "current_pass"
+            ):
                 raise PublicBehaviorSurfaceAuditError(
                     f"current behavior ledger commitment {commitment_id!r} does not have current_pass evidence"
                 )
@@ -657,7 +697,7 @@ def _load_current_behavior_ledger_join(root: Path) -> dict[str, Any] | None:
             "status": "current",
             "join_fingerprint": _surface_hash(body),
         }
-    except (OSError, UnicodeError, json.JSONDecodeError, PublicBehaviorSurfaceAuditError) as exc:
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
         return {
             "schema_version": IMPLEMENTATION_SURFACE_CURRENT_BEHAVIOR_LEDGER_JOIN_SCHEMA,
             "status": "blocked",
@@ -2556,7 +2596,7 @@ def discover_implementation_behavior_surfaces(
         except (OSError, UnicodeError) as exc:
             findings.append({"code": "surface_source_read_failure", "severity": "blocker", "source_path": relative_path, "message": str(exc)})
             continue
-        source_fingerprint = _sha256_file(path)
+        source_fingerprint = f"sha256:{hashlib.sha256(source_bytes).hexdigest()}"
         source_stat = path.stat()
         source_identities.append(
             {
@@ -2707,7 +2747,12 @@ def discover_implementation_behavior_surfaces(
         if len(rows) >= _SURFACE_MAX_ROWS:
             break
         relative_path = _surface_relative(bounded_root, path)
-        source_fingerprint = _sha256_file(path)
+        try:
+            source_bytes = path.read_bytes()
+        except OSError as exc:
+            findings.append({"code": "surface_source_read_failure", "severity": "blocker", "source_path": relative_path, "message": str(exc)})
+            continue
+        source_fingerprint = f"sha256:{hashlib.sha256(source_bytes).hexdigest()}"
         source_stat = path.stat()
         source_identities.append(
             {
@@ -2717,7 +2762,7 @@ def discover_implementation_behavior_surfaces(
                 "source_mtime_ns": int(source_stat.st_mtime_ns),
             }
         )
-        source_text = path.read_text(encoding="utf-8", errors="replace")
+        source_text = source_bytes.decode("utf-8", errors="replace")
         source_texts[path] = source_text
         source_fingerprints[path] = source_fingerprint
         span = {"line_start": 1, "line_end": max(1, len(source_text.splitlines())), "column_start": 0, "column_end": 0}
@@ -2950,7 +2995,7 @@ def _surface_source_row_upper_bound(
     try:
         source_bytes = path.read_bytes()
         source_text = source_bytes.decode("utf-8")
-        source_fingerprint = _sha256_file(path)
+        source_fingerprint = f"sha256:{hashlib.sha256(source_bytes).hexdigest()}"
     except (OSError, UnicodeError) as exc:
         return (
             0,
@@ -3271,6 +3316,11 @@ def discover_implementation_surface_shard(
         root,
         source_paths=tuple(shard.get("source_paths", ())),
         shard_id=shard_id,
+        _candidate_paths=tuple(
+            (Path(root).resolve() / str(source_path)).resolve()
+            for source_path in plan.get("source_paths", ())
+            if isinstance(source_path, str)
+        ),
     )
     result["shard_plan_fingerprint"] = plan.get("plan_fingerprint", "")
     result["shard_expected_surface_count"] = shard.get("estimated_surface_count")
@@ -3325,6 +3375,25 @@ def merge_implementation_surface_shards(
                 "code": "surface_shard_plan_invalid",
                 "severity": "blocker",
                 "message": "shard plan schema is not current",
+            }
+        )
+    declared_plan_fingerprint = str(plan.get("plan_fingerprint", "")).strip()
+    plan_payload = {
+        key: value
+        for key, value in plan.items()
+        if key not in {"status", "plan_fingerprint"}
+    }
+    if (
+        not _CURRENT_IDENTITY_FINGERPRINT_RE.fullmatch(
+            declared_plan_fingerprint
+        )
+        or _surface_hash(plan_payload) != declared_plan_fingerprint
+    ):
+        findings.append(
+            {
+                "code": "surface_shard_plan_fingerprint_invalid",
+                "severity": "blocker",
+                "message": "shard plan content does not match its declared fingerprint",
             }
         )
     try:
@@ -3436,6 +3505,13 @@ def merge_implementation_surface_shards(
         for path in plan.get("source_paths", ())
         if isinstance(path, str)
     }
+    planned_source_fingerprints = {
+        str(row.get("source_path", "")): str(
+            row.get("source_fingerprint", "")
+        )
+        for row in plan.get("entries", ())
+        if isinstance(row, Mapping) and str(row.get("source_path", ""))
+    }
     current_paths = set(_surface_relative_paths(bounded_root, _surface_candidate_files(bounded_root)))
     if expected_paths != current_paths:
         findings.append(
@@ -3508,8 +3584,12 @@ def merge_implementation_surface_shards(
             source_file = (bounded_root / source_path).resolve()
             try:
                 source_file.relative_to(bounded_root)
-                current_fingerprint = _sha256_file(source_file)
+                source_bytes = source_file.read_bytes()
+                current_fingerprint = (
+                    f"sha256:{hashlib.sha256(source_bytes).hexdigest()}"
+                )
             except (OSError, ValueError):
+                source_bytes = b""
                 current_fingerprint = ""
             if not current_fingerprint:
                 findings.append(
@@ -3526,13 +3606,23 @@ def merge_implementation_surface_shards(
                 "source_path": source_path,
                 "source_fingerprint": current_fingerprint,
             }
+            if planned_source_fingerprints.get(source_path) != current_fingerprint:
+                findings.append(
+                    {
+                        "code": "surface_shard_plan_source_stale",
+                        "severity": "blocker",
+                        "source_path": source_path,
+                        "shard_id": shard_id,
+                        "message": "source bytes changed after the frozen shard plan was produced",
+                    }
+                )
             if source_file.suffix.casefold() == ".py":
                 try:
                     source_tree = ast.parse(
-                        source_file.read_text(encoding="utf-8"),
+                        source_bytes.decode("utf-8"),
                         filename=source_path,
                     )
-                except (OSError, UnicodeError, SyntaxError) as exc:
+                except (UnicodeError, SyntaxError) as exc:
                     findings.append(
                         {
                             "code": "surface_shard_import_parse_failure",
@@ -3934,6 +4024,7 @@ def merge_implementation_surface_shards(
         "schema_version": IMPLEMENTATION_SURFACE_AUDIT_SCHEMA,
         "shard_id": "merged",
         "source_paths": sorted(expected_paths),
+        "shard_max_rows": max_rows,
         "shard_plan_fingerprint": plan.get("plan_fingerprint", ""),
         "shard_ids": sorted(expected_by_id),
         "source_identities": [
@@ -3954,6 +4045,7 @@ def merge_implementation_surface_shards(
         "schema_version": IMPLEMENTATION_SURFACE_AUDIT_SCHEMA,
         "shard_id": "merged",
         "source_paths": sorted(expected_paths),
+        "shard_max_rows": max_rows,
         "shard_plan_fingerprint": plan.get("plan_fingerprint", ""),
         "shard_ids": sorted(expected_by_id),
         "status": "blocked" if non_typed_blocker else "passed",
@@ -4603,6 +4695,8 @@ def _validate_discovery_snapshot(
     observed: Mapping[str, Any],
     *,
     currentness_profile: str = "full",
+    live_source_identities: Sequence[Mapping[str, Any]] | None = None,
+    live_source_paths: Sequence[str] | None = None,
 ) -> list[dict[str, Any]]:
     """Re-verify a supplied source observation before using its denominator.
 
@@ -4741,6 +4835,11 @@ def _validate_discovery_snapshot(
             }
         )
 
+    live_identity_by_path = {
+        str(row.get("source_path", "")).replace("\\", "/"): row
+        for row in (live_source_identities or ())
+        if isinstance(row, Mapping) and str(row.get("source_path", "")).strip()
+    }
     current_source_identities: dict[str, dict[str, Any]] = {}
     for source_path in source_paths:
         path = (root / source_path).resolve()
@@ -4751,12 +4850,20 @@ def _validate_discovery_snapshot(
             stat = None
         declared = identity_by_path.get(source_path)
         current_fingerprint = ""
-        # Light currentness uses the producer's exact content identity only
-        # when the cheap file pointer (size + mtime) is unchanged.  A changed
-        # pointer, a missing pointer, or the explicit full profile performs
-        # one exact content read.  This keeps normal invocations cheap without
-        # creating a second authority or silently accepting changed files.
-        if (
+        live_identity = live_identity_by_path.get(source_path)
+        if live_source_identities is not None:
+            # The caller has just reproduced the complete observation from
+            # the current source bytes. Reuse those exact hashes rather than
+            # reading every source a second time for structural validation.
+            if stat is not None and isinstance(live_identity, Mapping):
+                candidate_fingerprint = str(
+                    live_identity.get("source_fingerprint", "")
+                )
+                if _CURRENT_IDENTITY_FINGERPRINT_RE.fullmatch(
+                    candidate_fingerprint
+                ):
+                    current_fingerprint = candidate_fingerprint
+        elif (
             currentness_profile == "light"
             and stat is not None
             and isinstance(declared, Mapping)
@@ -4795,6 +4902,12 @@ def _validate_discovery_snapshot(
                     "source_mtime_ns": int(stat.st_mtime_ns),
                 }
             )
+        elif isinstance(live_identity, Mapping):
+            for field in ("source_size", "source_mtime_ns"):
+                if isinstance(live_identity.get(field), int):
+                    current_source_identities[source_path][field] = int(
+                        live_identity[field]
+                    )
         if not isinstance(declared, Mapping) or declared.get("source_fingerprint") != current_fingerprint:
             findings.append(
                 {
@@ -4829,11 +4942,8 @@ def _validate_discovery_snapshot(
                 continue
             rows.append(raw_row)
 
-    # A partitioned/merged observation is allowed to skip the expensive
-    # whole-tree replay only after the shard verifier has established the
-    # complete current production boundary.  Requiring that boundary here
-    # prevents a caller-authored ``merged`` snapshot from omitting a newly
-    # added source file while keeping the bounded shard route intact.
+    # Partitioned observations must be the canonical merge artifact and must
+    # conserve the source boundary established by the fresh replay above.
     partitioned_snapshot = (
         str(observed.get("shard_id", "")) == "merged"
         or "shard_ids" in observed
@@ -4862,6 +4972,20 @@ def _validate_discovery_snapshot(
                     "message": "a merged implementation observation needs a non-empty unique shard id list",
                 }
             )
+        shard_max_rows = observed.get("shard_max_rows")
+        if (
+            not isinstance(shard_max_rows, int)
+            or isinstance(shard_max_rows, bool)
+            or shard_max_rows < 1
+            or shard_max_rows > _SURFACE_MAX_ROWS
+        ):
+            findings.append(
+                {
+                    "code": "implementation_surface_discovery_shard_max_rows_invalid",
+                    "severity": "blocker",
+                    "message": "merged discovery must preserve its valid shard row bound",
+                }
+            )
         plan_fingerprint = str(observed.get("shard_plan_fingerprint", ""))
         if not _CURRENT_IDENTITY_FINGERPRINT_RE.fullmatch(plan_fingerprint):
             findings.append(
@@ -4872,8 +4996,12 @@ def _validate_discovery_snapshot(
                 }
             )
         try:
-            current_boundary = sorted(
-                _surface_relative_paths(root, _surface_candidate_files(root))
+            current_boundary = (
+                sorted(set(str(path) for path in live_source_paths))
+                if live_source_paths is not None
+                else sorted(
+                    _surface_relative_paths(root, _surface_candidate_files(root))
+                )
             )
         except (OSError, ValueError, PublicBehaviorSurfaceAuditError) as exc:
             findings.append(
@@ -5193,6 +5321,7 @@ def _validate_discovery_snapshot(
         "unbound_surface_ids": expected_unbound_ids,
     }
     if shard_id == "merged" or "shard_ids" in observed or "shard_plan_fingerprint" in observed:
+        canonical_payload["shard_max_rows"] = observed.get("shard_max_rows")
         canonical_payload["shard_plan_fingerprint"] = str(
             observed.get("shard_plan_fingerprint", "")
         )
@@ -5237,10 +5366,328 @@ def _discovery_observation_is_usable(observed: Mapping[str, Any]) -> bool:
         or len(shard_ids) != len(set(shard_ids))
     ):
         return False
+    shard_max_rows = observed.get("shard_max_rows")
+    if (
+        not isinstance(shard_max_rows, int)
+        or isinstance(shard_max_rows, bool)
+        or shard_max_rows < 1
+        or shard_max_rows > _SURFACE_MAX_ROWS
+    ):
+        return False
     plan_fingerprint = str(observed.get("shard_plan_fingerprint", "")).strip()
     if not _CURRENT_IDENTITY_FINGERPRINT_RE.fullmatch(plan_fingerprint):
         return False
     return True
+
+
+def _same_current_discovery_observation(
+    observed: Mapping[str, Any],
+    reproduced: Mapping[str, Any],
+) -> bool:
+    """Compare the persisted denominator with its fresh source-only producer."""
+
+    fields = (
+        "schema_version",
+        "shard_id",
+        "source_paths",
+        "status",
+        "claim_boundary",
+        "surfaces",
+        "surface_count",
+        "call_graph",
+        "external_contracts",
+        "unbound_surface_ids",
+        "findings",
+        "discovery_fingerprint",
+    )
+    if any(observed.get(field) != reproduced.get(field) for field in fields):
+        return False
+    observed_identities = observed.get("source_identities")
+    reproduced_identities = reproduced.get("source_identities")
+    if not isinstance(observed_identities, list) or not isinstance(
+        reproduced_identities, list
+    ):
+        return False
+    observed_projection = sorted(
+        (
+            _source_identity_content_projection(row)
+            for row in observed_identities
+            if isinstance(row, Mapping)
+        ),
+        key=lambda row: row["source_path"],
+    )
+    reproduced_projection = sorted(
+        (
+            _source_identity_content_projection(row)
+            for row in reproduced_identities
+            if isinstance(row, Mapping)
+        ),
+        key=lambda row: row["source_path"],
+    )
+    if observed_projection != reproduced_projection:
+        return False
+    if str(observed.get("shard_id", "")) == "merged":
+        return all(
+            observed.get(field) == reproduced.get(field)
+            for field in (
+                "shard_max_rows",
+                "shard_plan_fingerprint",
+                "shard_ids",
+            )
+        )
+    return not any(
+        field in observed
+        for field in ("shard_max_rows", "shard_plan_fingerprint", "shard_ids")
+    )
+
+
+def _replay_current_discovery(
+    root: Path,
+    observed: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Reproduce a full direct or merged discovery from the current source tree."""
+
+    shard_id = str(observed.get("shard_id", ""))
+    if shard_id == "merged":
+        max_rows = observed.get("shard_max_rows")
+        if (
+            not isinstance(max_rows, int)
+            or isinstance(max_rows, bool)
+            or max_rows < 1
+            or max_rows > _SURFACE_MAX_ROWS
+        ):
+            raise PublicBehaviorSurfaceAuditError(
+                "merged current discovery is missing a valid shard_max_rows value"
+            )
+        plan = plan_implementation_surface_shards(root, max_rows=max_rows)
+        if plan.get("status") != "planned":
+            raise PublicBehaviorSurfaceAuditError(
+                "current source tree cannot reproduce a complete shard plan"
+            )
+        if (
+            plan.get("plan_fingerprint")
+            != observed.get("shard_plan_fingerprint")
+        ):
+            raise PublicBehaviorSurfaceAuditError(
+                "current source tree produced a different shard-plan fingerprint"
+            )
+        planned_ids = [
+            str(row.get("shard_id", ""))
+            for row in plan.get("shards", ())
+            if isinstance(row, Mapping)
+        ]
+        if planned_ids != observed.get("shard_ids"):
+            raise PublicBehaviorSurfaceAuditError(
+                "current source tree produced a different shard partition"
+            )
+        shards = [
+            discover_implementation_surface_shard(root, plan, shard_id)
+            for shard_id in planned_ids
+        ]
+        reproduced = merge_implementation_surface_shards(root, plan, shards)
+        if reproduced.get("status") != "passed":
+            raise PublicBehaviorSurfaceAuditError(
+                "current source tree could not reproduce a passing merged discovery"
+            )
+        return reproduced
+    if (
+        shard_id != "full"
+        or "shard_ids" in observed
+        or "shard_plan_fingerprint" in observed
+        or "shard_max_rows" in observed
+    ):
+        raise PublicBehaviorSurfaceAuditError(
+            "current discovery is neither a complete direct observation nor a merged observation"
+        )
+    reproduced = discover_implementation_behavior_surfaces(root, shard_id="full")
+    if reproduced.get("status") != "passed":
+        raise PublicBehaviorSurfaceAuditError(
+            "current source tree could not reproduce a passing direct discovery"
+        )
+    return reproduced
+
+
+def capture_current_implementation_surface_discovery(
+    root: str | Path,
+) -> CurrentDiscoveryAdmissionProof:
+    """Require the checked-in current discovery to match live source inputs.
+
+    A stored ``status=passed`` marker and a map whose declared discovery
+    fingerprint matches that marker are not enough: both can be stale after a
+    source edit.  This is the single full source-currentness gate used before
+    map-consuming model owners start and before persistent reverse-owner
+    authority is published.  Cheap map identity lookups continue to compare
+    declared fingerprints without repeating this complete source walk.
+    """
+
+    from .reverse_surface_map_identity import (
+        CURRENT_SURFACE_DISCOVERY_PATH,
+        require_regular_repository_file,
+    )
+
+    root_path = Path(root).resolve()
+    try:
+        discovery_path = require_regular_repository_file(
+            root_path,
+            CURRENT_SURFACE_DISCOVERY_PATH,
+        )
+        discovery_bytes = discovery_path.read_bytes()
+        observed = json.loads(discovery_bytes.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError) as exc:
+        raise PublicBehaviorSurfaceAuditError(
+            f"current implementation-surface discovery is unreadable or unsafe: {exc}"
+        ) from exc
+    if not isinstance(observed, Mapping):
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery must be an object"
+        )
+    if not _discovery_observation_is_usable(observed):
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery is not a usable terminal observation"
+        )
+    surfaces = observed.get("surfaces")
+    fingerprint = str(observed.get("discovery_fingerprint", "")).strip()
+    if (
+        not isinstance(surfaces, list)
+        or not surfaces
+        or observed.get("surface_count") != len(surfaces)
+        or not _CURRENT_IDENTITY_FINGERPRINT_RE.fullmatch(fingerprint)
+    ):
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery identity or denominator is invalid"
+        )
+    try:
+        reproduced = _replay_current_discovery(root_path, observed)
+    except Exception as exc:
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery is stale or blocked: "
+            f"replay failed ({type(exc).__name__}: {exc})"
+        ) from exc
+    if not _same_current_discovery_observation(observed, reproduced):
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery differs from the complete live source observation"
+        )
+    findings = _validate_discovery_snapshot(
+        root_path,
+        observed,
+        currentness_profile="full",
+        live_source_identities=tuple(
+            row
+            for row in reproduced.get("source_identities", ())
+            if isinstance(row, Mapping)
+        ),
+        live_source_paths=tuple(
+            str(path) for path in reproduced.get("source_paths", ())
+        ),
+    )
+    blockers = sorted(
+        {
+            str(item.get("code", "unknown"))
+            for item in findings
+            if isinstance(item, Mapping)
+            and str(item.get("severity", "")).strip().lower() == "blocker"
+        }
+    )
+    if blockers:
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface discovery is stale or blocked: "
+            + ", ".join(blockers)
+        )
+    source_identities = tuple(
+        sorted(
+            (
+                str(row.get("source_path", "")).replace("\\", "/"),
+                str(row.get("source_fingerprint", "")),
+            )
+            for row in reproduced.get("source_identities", ())
+            if isinstance(row, Mapping)
+        )
+    )
+    if len(source_identities) != len(reproduced.get("source_identities", ())):
+        raise PublicBehaviorSurfaceAuditError(
+            "current implementation-surface replay omitted a source identity"
+        )
+    return CurrentDiscoveryAdmissionProof(
+        root=str(root_path),
+        discovery_fingerprint=fingerprint,
+        surface_count=len(surfaces),
+        discovery_artifact_fingerprint=(
+            f"sha256:{hashlib.sha256(discovery_bytes).hexdigest()}"
+        ),
+        source_identities=source_identities,
+    )
+
+
+def validate_current_implementation_surface_discovery(
+    root: str | Path,
+) -> tuple[str, int]:
+    """Require current discovery and return its exact fingerprint and count."""
+
+    proof = capture_current_implementation_surface_discovery(root)
+    return proof.discovery_fingerprint, proof.surface_count
+
+
+def revalidate_current_implementation_surface_proof(
+    root: str | Path,
+    proof: CurrentDiscoveryAdmissionProof,
+) -> None:
+    """Recheck a captured proof cheaply before a later owner-admission gate.
+
+    The first gate performs the complete direct/sharded replay.  This second
+    gate checks that the exact discovery artifact, source path set, and source
+    bytes are unchanged, avoiding a second parse and merge during one
+    ``change`` command while still blocking drift between preview and owners.
+    """
+
+    from .reverse_surface_map_identity import (
+        CURRENT_SURFACE_DISCOVERY_PATH,
+        require_regular_repository_file,
+    )
+
+    root_path = Path(root).resolve()
+    if proof.root != str(root_path):
+        raise PublicBehaviorSurfaceAuditError(
+            "captured current discovery proof belongs to a different source root"
+        )
+    current_paths = tuple(
+        _surface_relative_paths(root_path, _surface_candidate_files(root_path))
+    )
+    expected_paths = tuple(path for path, _fingerprint in proof.source_identities)
+    if current_paths != expected_paths:
+        raise PublicBehaviorSurfaceAuditError(
+            "current production source path set changed after discovery preview"
+        )
+    for source_path, expected_fingerprint in proof.source_identities:
+        source_file = (root_path / source_path).resolve()
+        try:
+            source_file.relative_to(root_path)
+            source_bytes = source_file.read_bytes()
+        except (OSError, ValueError) as exc:
+            raise PublicBehaviorSurfaceAuditError(
+                f"current source became unavailable after discovery preview: {source_path}"
+            ) from exc
+        actual_fingerprint = f"sha256:{hashlib.sha256(source_bytes).hexdigest()}"
+        if actual_fingerprint != expected_fingerprint:
+            raise PublicBehaviorSurfaceAuditError(
+                f"current source changed after discovery preview: {source_path}"
+            )
+    try:
+        discovery_path = require_regular_repository_file(
+            root_path,
+            CURRENT_SURFACE_DISCOVERY_PATH,
+        )
+        discovery_bytes = discovery_path.read_bytes()
+    except (OSError, ValueError) as exc:
+        raise PublicBehaviorSurfaceAuditError(
+            f"current discovery artifact became unavailable after preview: {exc}"
+        ) from exc
+    actual_discovery_fingerprint = (
+        f"sha256:{hashlib.sha256(discovery_bytes).hexdigest()}"
+    )
+    if actual_discovery_fingerprint != proof.discovery_artifact_fingerprint:
+        raise PublicBehaviorSurfaceAuditError(
+            "current discovery artifact changed after preview"
+        )
 
 
 def _load_surface_map(value: Mapping[str, Any] | str | Path) -> Mapping[str, Any]:
@@ -5459,7 +5906,12 @@ def _expand_component_group_mappings(
     return expanded, summaries, findings
 
 
-def _test_reference_exists(root: Path, reference: str) -> tuple[bool, str]:
+def _test_reference_exists(
+    root: Path,
+    reference: str,
+    *,
+    parsed_files: dict[Path, tuple[ast.AST | None, str]] | None = None,
+) -> tuple[bool, str]:
     if not isinstance(reference, str) or "#" not in reference:
         return False, "test reference must include a repository-relative path and #anchor"
     path_text, anchor = reference.split("#", 1)
@@ -5472,11 +5924,18 @@ def _test_reference_exists(root: Path, reference: str) -> tuple[bool, str]:
         return False, "test reference file is missing"
     if not anchor.strip():
         return False, "test reference anchor is empty"
-    text = path.read_text(encoding="utf-8", errors="replace")
-    try:
-        tree = ast.parse(text, filename=str(path))
-    except SyntaxError as exc:
-        return False, f"test reference file cannot be parsed: {exc}"
+    parsed = parsed_files.get(path) if parsed_files is not None else None
+    if parsed is None:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        try:
+            parsed = (ast.parse(text, filename=str(path)), "")
+        except SyntaxError as exc:
+            parsed = (None, f"test reference file cannot be parsed: {exc}")
+        if parsed_files is not None:
+            parsed_files[path] = parsed
+    tree, parse_reason = parsed
+    if tree is None:
+        return False, parse_reason
     anchor_parts = tuple(part for part in anchor.strip().split(".") if part)
     if not anchor_parts:
         return False, "test reference anchor is empty"
@@ -6115,6 +6574,35 @@ def audit_implementation_behavior_surface(
                 }
                 for item in findings
             )
+        if current_authority_join_valid and any(
+            isinstance(row, Mapping)
+            and row.get("disposition") in {
+                IMPLEMENTATION_SURFACE_DISPOSITION_GOVERNED,
+                IMPLEMENTATION_SURFACE_DISPOSITION_INTERNAL_PROVEN,
+            }
+            for row in mapped_rows
+        ):
+            from .reverse_surface_owner_authority import (
+                ReverseSurfaceOwnerAuthorityError,
+                _load_owner_bindings,
+                validate_reverse_surface_route_model_membership,
+            )
+
+            try:
+                route_bindings, _bindings_fingerprint = _load_owner_bindings(
+                    bounded_root
+                )
+                validate_reverse_surface_route_model_membership(
+                    mapping, route_bindings
+                )
+            except ReverseSurfaceOwnerAuthorityError as exc:
+                findings.append(
+                    {
+                        "code": "implementation_surface_owner_route_model_mismatch",
+                        "severity": "blocker",
+                        "message": str(exc),
+                    }
+                )
     if current_behavior_ledger_join is not None and not current_behavior_ledger_join.get(
         "load_error"
     ):
@@ -6440,6 +6928,28 @@ def audit_implementation_behavior_surface(
                             ),
                         }
                     )
+    # These observations belong only to this audit invocation. All row-level
+    # findings and exact owner joins still execute; no result crosses calls.
+    test_files: dict[Path, tuple[ast.AST | None, str]] = {}
+    test_reference_results: dict[str, tuple[bool, str]] = {}
+    receipt_reference_results: dict[str, tuple[bool, str]] = {}
+    current_model_owner_ids: set[str] = set()
+    current_owner_receipt: set[tuple[str, str, str]] = set()
+    if current_authority_join is not None and current_authority_join_valid:
+        current_model_owner_ids = {
+            str(item)
+            for item in current_authority_join.get("model_owner_ids", ())
+            if str(item).strip()
+        }
+        current_owner_receipt = {
+            (
+                str(item.get("owner_route", "")),
+                str(item.get("receipt_id", "")),
+                str(item.get("receipt_fingerprint", "")),
+            )
+            for item in current_authority_join.get("owner_receipt_identities", ())
+            if isinstance(item, Mapping)
+        }
     for surface_id in sorted(discovered_ids & mapped_ids):
         observed_row = discovered_by_id[surface_id]
         mapped = mapped_by_id[surface_id]
@@ -6631,7 +7141,9 @@ def audit_implementation_behavior_surface(
                 }
             )
         for reference in normalized_receipt_refs:
-            receipt_ok, receipt_reason = _receipt_reference_exists(bounded_root, reference)
+            if reference not in receipt_reference_results:
+                receipt_reference_results[reference] = _receipt_reference_exists(bounded_root, reference)
+            receipt_ok, receipt_reason = receipt_reference_results[reference]
             if not receipt_ok:
                 result["orphan_receipt_references"].append(reference)
                 findings.append(
@@ -6653,7 +7165,11 @@ def audit_implementation_behavior_surface(
         if not normalized_test_refs:
             findings.append({"code": "implementation_surface_test_missing", "severity": "blocker", "surface_id": surface_id, "message": "every observed implementation surface needs at least one explicit test reference"})
         for reference in normalized_test_refs:
-            exists, reason = _test_reference_exists(bounded_root, reference)
+            if reference not in test_reference_results:
+                test_reference_results[reference] = _test_reference_exists(
+                    bounded_root, reference, parsed_files=test_files
+                )
+            exists, reason = test_reference_results[reference]
             if not exists:
                 result["orphan_test_references"].append(reference)
                 findings.append(
@@ -6673,11 +7189,6 @@ def audit_implementation_behavior_surface(
         # owner set.  A missing or stale tuple blocks; it never falls back to
         # the older path-anchor-only check.
         if current_authority_join is not None and current_authority_join_valid:
-            current_model_owner_ids = {
-                str(item)
-                for item in current_authority_join.get("model_owner_ids", ())
-                if str(item).strip()
-            }
             if disposition in {
                 IMPLEMENTATION_SURFACE_DISPOSITION_GOVERNED,
                 IMPLEMENTATION_SURFACE_DISPOSITION_INTERNAL_PROVEN,
@@ -6723,17 +7234,6 @@ def audit_implementation_behavior_surface(
                         }
                     )
                 else:
-                    current_owner_receipt = {
-                        (
-                            str(item.get("owner_route", "")),
-                            str(item.get("receipt_id", "")),
-                            str(item.get("receipt_fingerprint", "")),
-                        )
-                        for item in current_authority_join.get(
-                            "owner_receipt_identities", ()
-                        )
-                        if isinstance(item, Mapping)
-                    }
                     if (
                         owner_route,
                         owner_receipt_id,
@@ -7186,6 +7686,10 @@ __all__ = [
     "PUBLIC_BEHAVIOR_SURFACE_CLASSES",
     "PUBLIC_BEHAVIOR_SURFACE_GAP_SCHEMA",
     "PublicBehaviorSurfaceAuditError",
+    "CurrentDiscoveryAdmissionProof",
+    "capture_current_implementation_surface_discovery",
+    "revalidate_current_implementation_surface_proof",
+    "validate_current_implementation_surface_discovery",
     "build_public_behavior_surface_gap_report",
     "discover_implementation_behavior_surfaces",
     "plan_implementation_surface_shards",

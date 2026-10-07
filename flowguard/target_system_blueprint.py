@@ -184,6 +184,8 @@ class ModelPathQualityBlueprintBinding:
             self.subject_lane == "observed"
             and self.result.current
             and self.result.conclusion != "unresolved"
+            and not self.result.observation_gap_ids
+            and not self.result.improvement_gap_ids
             and self.result.selected_candidate_lane != "normative_target"
         )
 

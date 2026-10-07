@@ -870,3 +870,187 @@ artifact_role = "requirement"
 
 if __name__ == "__main__":
     unittest.main()
+
+from flowguard.model_intent import (
+    ArchitectureObjective, ArchitectureObjectiveSource,
+    derive_architecture_objective_projection,
+)
+
+
+def _r6_objective_view(root, *, values=None, admitted=True):
+    import json
+    from tests.test_model_intent_authority import _snapshot, _contribution, _bootstrap_view
+    objective = ArchitectureObjective("objective:fixture:service-layer-writer", True,
+        ("alpha",), ("responsibility:writer",), ("class:accepted",),
+        "allowed_layers", values or {"layer_ids": ["layer:service"]}, "model:alpha", ("failure:wrong-layer",))
+    text = "Normative source.\n```flowguard-architecture-objectives\n" + json.dumps(ArchitectureObjectiveSource((objective,)).to_dict()) + "\n```\n"
+    contribution_row = _contribution(root, "alpha", text=text)
+    if admitted:
+        contribution_row = replace(contribution_row, target_invariant_ids=(objective.objective_id,))
+    base = _snapshot(("alpha",), snapshot_id="base")
+    candidate = _snapshot(("alpha",), snapshot_id="candidate", model_sha=SHA_B)
+    view = _bootstrap_view(root, base, candidate, (contribution_row,))
+    return view, contribution_row, text.encode("utf-8")
+
+
+def test_objective_projection_preserves_existing_contribution_and_mapping_wire(tmp_path):
+    import json
+    from flowguard.model_intent import WorkContextIntentMapping, MODEL_INTENT_CONTRIBUTION_SCHEMA, MODEL_INTENT_MAPPING_SCHEMA
+    view, source, raw = _r6_objective_view(tmp_path)
+    before = source.to_dict()
+    bound = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={source.contribution_id: raw})
+    assert len(bound) == 1
+    assert bound[0].source_ref == source.source_ref and bound[0].source_fingerprint == source.source_fingerprint
+    assert bound[0].effective_intent_view_fingerprint == view.fingerprint
+    assert source.to_dict() == before and before["schema"] == MODEL_INTENT_CONTRIBUTION_SCHEMA
+    assert MODEL_INTENT_MAPPING_SCHEMA == "flowguard.work_context_intent_mapping.v1"
+    # New document cannot spoof source identity or add unadmitted objectives.
+    payload = ArchitectureObjectiveSource((bound[0].objective,)).to_dict()
+    payload["source_ref"] = "foreign.md"
+    with pytest.raises(ModelAuthorityError): ArchitectureObjectiveSource.from_dict(payload)
+    with pytest.raises(ModelAuthorityError):
+        derive_architecture_objective_projection(view, source_bytes_by_contribution_id={source.contribution_id: raw + b"forged"})
+    with pytest.raises(ModelAuthorityError):
+        ArchitectureObjectiveSource.from_source_bytes(raw.replace(b'"required": true', b'"required": true, "required": false'))
+
+
+def test_architecture_objective_source_scope_and_conflict_are_exact(tmp_path):
+    view, source, raw = _r6_objective_view(tmp_path)
+    with pytest.raises(ModelAuthorityError, match="source_missing"):
+        derive_architecture_objective_projection(view, source_bytes_by_contribution_id={})
+    with pytest.raises(ModelAuthorityError):
+        ArchitectureObjective("objective:fixture:x", True, (), ("responsibility:x",), ("class:a",), "allowed_layers", {"layer_ids": ["layer:service"]}, "model:alpha", ("failure:x",))
+    unadmitted_view, unadmitted_source, unadmitted_raw = _r6_objective_view(tmp_path / "unadmitted", admitted=False)
+    with pytest.raises(ModelAuthorityError, match="unadmitted"):
+        derive_architecture_objective_projection(unadmitted_view, source_bytes_by_contribution_id={unadmitted_source.contribution_id: unadmitted_raw})
+    with pytest.raises(ModelAuthorityError): ArchitectureObjectiveSource.from_source_bytes(raw + raw)
+
+
+@pytest.mark.parametrize("newline", [b"\n", b"\r\n", b"\r"], ids=["LF", "CRLF", "CR"])
+def test_architecture_source_newlines_preserve_verified_objective_and_compromise_projection(tmp_path, newline):
+    from flowguard.model_intent import ArchitectureCompromiseSource, derive_architecture_compromise_projection
+    view, contribution, raw, objectives, facts, subjects = _r7_compromise_view(tmp_path)
+    variant = raw.replace(b"\n", newline)
+    assert ArchitectureObjectiveSource.from_source_bytes(variant).to_dict() == ArchitectureObjectiveSource.from_source_bytes(raw).to_dict()
+    assert ArchitectureCompromiseSource.from_source_bytes(variant).to_dict() == ArchitectureCompromiseSource.from_source_bytes(raw).to_dict()
+    bound = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: variant})
+    assert [item.to_dict() for item in bound] == [item.to_dict() for item in objectives]
+    baseline = derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: raw}, objectives=objectives, responsibilities=facts, subjects=subjects)
+    actual = derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: variant}, objectives=bound, responsibilities=facts, subjects=subjects)
+    assert len(actual) == 1 and actual == baseline
+    assert bound[0].source_fingerprint == contribution.source_fingerprint
+    with pytest.raises(ModelAuthorityError, match="source_invalid"):
+        derive_architecture_objective_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: variant + b"changed content"})
+
+
+@pytest.mark.parametrize("kind", ["objectives", "compromises"])
+def test_architecture_source_newlines_do_not_admit_missing_duplicate_or_malformed_fences(kind):
+    import json
+    from flowguard.model_intent import ArchitectureCompromiseSource
+    source_type = ArchitectureObjectiveSource if kind == "objectives" else ArchitectureCompromiseSource
+    schema = "flowguard.architecture_objective_source.v1" if kind == "objectives" else "flowguard.architecture_compromises.v1"
+    opening = "```flowguard-architecture-" + kind + "\n"
+    payload = json.dumps({"schema": schema, kind: []})
+    valid = (opening + payload + "\n```\n").encode()
+    invalid = [b"No objective or compromise fence.\n", valid + valid,
+               (opening + payload + "\n").encode(), (opening + "{malformed JSON}\n```\n").encode()]
+    for newline in (b"\n", b"\r\n", b"\r"):
+        assert source_type.from_source_bytes(valid.replace(b"\n", newline)).to_dict()[kind] == []
+        for raw in invalid:
+            with pytest.raises(ModelAuthorityError):
+                source_type.from_source_bytes(raw.replace(b"\n", newline))
+
+
+def _r7_compromise_view(root, *, layer="layer:wrong", contribution_id="intent:current-design:alpha", supersedes=()):
+    import json
+    from tests.test_model_intent_authority import _snapshot, _contribution, _bootstrap_view
+    from tests.test_model_path_quality import _r6_fact, subject
+    objective = ArchitectureObjective("objective:fixture:writer", True, ("alpha",), ("responsibility:writer",), ("class:accepted",), "allowed_layers", {"layer_ids": ["layer:service"]}, "model:alpha", ("failure:wrong-layer",))
+    row = {"compromise_id": "compromise:writer", "contribution_id": contribution_id, "objective_ids": [objective.objective_id], "responsibility_ids": ["responsibility:writer"], "element_ids": ["element:writer"], "applicable_input_class_ids": ["class:accepted"],
+        "functional_impact": {"outcome_ids": ["outcome:save"], "obligation_ids": ["obligation:save"], "description": "Save currently retains an implementation in the temporary layer."}, "rationale": "Finite current functional arrangement awaiting the actual service owner.", "next_owner_ids": ["model:alpha"],
+        "revisit_triggers": [{"trigger_id": "trigger:service-ready", "source_ref": "design/alpha-" + contribution_id.replace(":", "_") + ".md", "source_fingerprint": SHA_B, "condition_ref": "#service-ready"}]}
+    text = "Current design.\n## Service ready\n```flowguard-architecture-objectives\n" + json.dumps(ArchitectureObjectiveSource((objective,)).to_dict()) + "\n```\n```flowguard-architecture-compromises\n" + json.dumps({"schema": "flowguard.architecture_compromises.v1", "compromises": [row]}) + "\n```\n"
+    contribution = replace(_contribution(root, "alpha", contribution_id=contribution_id, text=text, supersedes=supersedes), target_invariant_ids=(objective.objective_id,), target_obligation_ids=("obligation:save",), target_output_ids=("outcome:save",))
+    candidate = _snapshot(("alpha",), snapshot_id="candidate", model_sha=SHA_B)
+    view = _bootstrap_view(root, _snapshot(("alpha",), snapshot_id="base"), candidate, (contribution,))
+    raw = text.encode()
+    facts = (_r6_fact("writer", model="alpha", layer=layer, owner="model:alpha"),)
+    subjects = (subject(model_id="alpha", intent_fingerprint=view.fingerprint),)
+    objectives = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: raw})
+    return view, contribution, raw, objectives, facts, subjects
+
+
+@pytest.mark.parametrize("invalid", ["foreign_outcome", "plain_substring", "fenced_anchor"])
+def test_r8_compromise_outcomes_and_anchor_are_current_source_bound(tmp_path, invalid):
+    from flowguard.model_intent import derive_architecture_compromise_projection
+    from tests.test_model_intent_authority import _snapshot, _bootstrap_view
+    view, current, raw, objectives, facts, subjects = _r7_compromise_view(tmp_path)
+    assert derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={current.contribution_id: raw}, objectives=objectives, responsibilities=facts, subjects=subjects)
+    if invalid == "foreign_outcome":
+        raw = raw.replace(b'outcome:save', b'outcome:foreign')
+    elif invalid == "plain_substring":
+        raw = raw.replace(b'## Service ready', b'Ordinary text mentions service-ready')
+    else:
+        raw = raw.replace(b'## Service ready', b'```text\n## Service ready\n```')
+    modified_root = tmp_path / "modified"
+    path = modified_root / current.source_ref
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(raw)
+    current = replace(current, source_fingerprint=source_file_fingerprint(path))
+    view = _bootstrap_view(modified_root, _snapshot(("alpha",), snapshot_id="base"), _snapshot(("alpha",), snapshot_id="candidate", model_sha=SHA_B), (current,))
+    objectives = derive_architecture_objective_projection(view, source_bytes_by_contribution_id={current.contribution_id: raw})
+    subjects = tuple(replace(row, intent_fingerprint=view.fingerprint) for row in subjects)
+    with pytest.raises(ModelAuthorityError, match="scope_unknown|trigger_unknown"):
+        derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={current.contribution_id: raw}, objectives=objectives, responsibilities=facts, subjects=subjects)
+
+
+def test_current_compromise_is_visible_without_closing_required_goal(tmp_path):
+    from flowguard.model_intent import ArchitectureCompromiseSource, derive_architecture_compromise_projection
+    from flowguard.model_path_quality import evaluate_architecture_objectives
+    view, contribution, raw, objectives, facts, subjects = _r7_compromise_view(tmp_path)
+    before = evaluate_architecture_objectives(objectives, facts)
+    bound = derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: raw}, objectives=objectives, responsibilities=facts, subjects=subjects)
+    assert len(bound) == 1 and bound[0]["functional_impact"]["obligation_ids"] == ["obligation:save"]
+    assert bound[0]["revisit_triggers"][0]["source_fingerprint"] == contribution.source_fingerprint
+    assert evaluate_architecture_objectives(objectives, facts) == before
+    assert before["improvement_gap_ids"] == ["required_architecture_objective_unmet:" + objectives[0].objective.objective_id]
+    with pytest.raises(ModelAuthorityError): ArchitectureCompromiseSource.from_source_bytes(raw + raw)
+    with pytest.raises(ModelAuthorityError): derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: raw + b"forged"}, objectives=objectives, responsibilities=facts, subjects=subjects)
+
+
+def test_only_current_source_supersession_changes_compromise_goal(tmp_path):
+    from flowguard.model_intent import derive_architecture_compromise_projection, verify_model_intent_sources
+    from flowguard.model_intent_authority import build_current_effective_intent_view, EffectiveIntentTransition
+    from tests.test_model_intent_authority import _snapshot, _contribution
+    view, contribution, raw, objectives, facts, subjects = _r7_compromise_view(tmp_path)
+    # An annotation cannot change the current objective or remove its gap.
+    assert derive_architecture_compromise_projection(view, source_bytes_by_contribution_id={contribution.contribution_id: raw}, objectives=objectives, responsibilities=facts, subjects=subjects)
+    replacement = _contribution(tmp_path, "alpha", contribution_id="intent:alpha:revised", text="Service owner is now the accepted current arrangement.\n", supersedes=(contribution.contribution_id,))
+    candidate = _snapshot(("alpha",), snapshot_id="next", model_sha=SHA_B)
+    transition = EffectiveIntentTransition(contribution.contribution_id, contribution.fingerprint, "supersede", (replacement.contribution_id,), "Actual accepted source replaces the old normative objective.")
+    next_view = build_current_effective_intent_view(view, candidate, (replacement,), verify_model_intent_sources(tmp_path, (replacement,)), (transition,))
+    assert next_view.fingerprint != view.fingerprint
+    assert derive_architecture_objective_projection(next_view, source_bytes_by_contribution_id={replacement.contribution_id: b"Service owner is now the accepted current arrangement.\n"}) == ()
+    assert derive_architecture_compromise_projection(next_view, source_bytes_by_contribution_id={contribution.contribution_id: raw}) == ()
+
+
+def test_current_source_observation_is_byte_bound_and_hashed_once(tmp_path, monkeypatch):
+    import hashlib
+    from flowguard.model_intent import _ArchitectureSourceObservation, bind_architecture_objective_source
+    view, contribution, raw = _r6_objective_view(tmp_path)
+    identity = view.verified_source_identities[0]
+    view_fp = view.fingerprint
+    actual_hash = hashlib.sha256
+    calls = []
+    def counted(value=b"", **options):
+        calls.append(value)
+        return actual_hash(value, **options)
+    monkeypatch.setattr(hashlib, "sha256", counted)
+    observation = _ArchitectureSourceObservation.from_bytes(raw, "project_file")
+    for _ in range(2):
+        assert bind_architecture_objective_source(contribution, identity, effective_intent_view_fingerprint=view_fp, source_bytes=raw, source_observation=observation)
+    assert calls.count(raw) == 1
+    with pytest.raises(TypeError): _ArchitectureSourceObservation()
+    with pytest.raises(ModelAuthorityError): bind_architecture_objective_source(contribution, identity, effective_intent_view_fingerprint=view_fp, source_bytes=raw + b"different", source_observation=observation)
+    wrong_kind = _ArchitectureSourceObservation.from_bytes(raw, "work_context")
+    with pytest.raises(ModelAuthorityError): bind_architecture_objective_source(contribution, identity, effective_intent_view_fingerprint=view_fp, source_bytes=raw, source_observation=wrong_kind)

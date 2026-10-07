@@ -1,4 +1,6 @@
 import argparse
+import ast
+import hashlib
 import contextlib
 import gzip
 import io
@@ -18,8 +20,10 @@ from flowguard.process_supervision import (
 )
 from flowguard.validation_ownership import (
     GitQueryTimeout,
+    build_owner_current,
     build_validation_owner_plan,
     build_validation_parent_current,
+    model_authority_release_paths,
     observe_validation_owners,
     release_tree_manifest,
 )
@@ -34,6 +38,19 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.shadow = Path(self.temporary.name) / "shadow"
         self.installed = Path(self.temporary.name) / "installed"
         self.output = Path(self.temporary.name) / "artifacts"
+        self.author_state = Path(self.temporary.name) / "author-state"
+        self.author_state.mkdir()
+        # These fixtures own outer composition, receipt reuse and failure-DAG
+        # behavior. Their placeholder scripts and mocked child executor do not
+        # supply a current software blueprint or native model-leaf proofs.
+        # Static prerequisite semantics use real finite typed material in
+        # test_completion_readiness_command.py; isolate only that input seam.
+        static_prerequisites = patch(
+            "flowguard.self_blueprint.validate_completion_source_prerequisites",
+            return_value={"producer_count": 0, "write_count": 0},
+        )
+        static_prerequisites.start()
+        self.addCleanup(static_prerequisites.stop)
         (self.root / "scripts").mkdir(parents=True)
         self.shadow.mkdir()
         self.installed.mkdir()
@@ -42,6 +59,7 @@ class FullValidationCompositionTests(unittest.TestCase):
             "scripts/run_flowguard_skill_native_checks.py",
             "scripts/run_flowguard_model_regressions.py",
             "scripts/install_flowguard_skills.py",
+            "scripts/check_self_maintenance_review.py",
         ):
             path = self.root / relative
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -134,6 +152,8 @@ class FullValidationCompositionTests(unittest.TestCase):
                 str(self.root),
                 "--output-dir",
                 str(self.output),
+                "--author-state-root",
+                str(self.author_state),
                 "--formal-root",
                 str(self.root),
                 "--shadow-root",
@@ -159,6 +179,8 @@ class FullValidationCompositionTests(unittest.TestCase):
                 str(self.root),
                 "--shadow-root",
                 str(self.shadow),
+                "--author-state-root",
+                str(self.author_state),
             ]
         )
         with patch.object(
@@ -222,13 +244,79 @@ class FullValidationCompositionTests(unittest.TestCase):
             )
         )
 
+    def test_standalone_parent_verification_preserves_asset_and_ci_owner_inputs(self):
+        import flowguard.validation_ownership as ownership
+
+        source_inputs = (
+            self.root / "assets" / "composition.svg",
+            self.root / ".github" / "workflows" / "composition.yml",
+        )
+        for path, content in zip(
+            source_inputs,
+            (b"<svg><!-- original asset --></svg>\n", b"name: original-ci\n"),
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(content)
+        subprocess.run(
+            ("git", "add", "assets", ".github"), cwd=self.root, check=True
+        )
+        subprocess.run(
+            ("git", "commit", "-q", "-m", "composition owner inputs"),
+            cwd=self.root,
+            check=True,
+        )
+        # The existing fixture replaces child processes only. Plan freezing,
+        # leaf identities, receipt publication and standalone verification all
+        # execute their real implementations.
+        with patch.object(suite_command, "_execute_command", side_effect=self.executor()):
+            result = suite_command.run_full_validation(self.args())
+        self.assertTrue(result.broad_success, result.terminal_json_text())
+        receipt_id = result.progress_summary["parent_receipt_id"]
+        receipt_root = result.progress_summary["receipt_root"]
+
+        with patch.object(
+            ownership, "resolve_input_manifest", wraps=ownership.resolve_input_manifest
+        ) as observe:
+            verification = ownership.verify_parent_receipt(
+                receipt_id, self.root, receipt_root
+            )
+        self.assertTrue(verification.ok, verification.to_dict())
+        self.assertTrue(verification.current, verification.to_dict())
+        # Standalone verification resolves leaf inputs, then parent-current
+        # reconstruction independently re-observes its frozen selectors. Both
+        # observations must retain the complete owner union, including inputs
+        # omitted from the parent validation projection.
+        self.assertTrue(observe.call_args_list)
+        for call in observe.call_args_list:
+            observed_root, patterns = call.args
+            self.assertEqual(self.root.resolve(), Path(observed_root).resolve())
+            self.assertIn("assets/**/*", patterns)
+            self.assertIn(".github/**/*", patterns)
+
+        for path in source_inputs:
+            with self.subTest(changed_input=path.relative_to(self.root).as_posix()):
+                original = path.read_bytes()
+                try:
+                    path.write_bytes(original + b"changed owner input\n")
+                    # Defer release-tree identity so this cannot pass merely
+                    # because Git noticed the edit: the actual leaf receipt
+                    # must become stale for each independently changed input.
+                    stale = ownership.verify_parent_receipt(
+                        receipt_id,
+                        self.root,
+                        receipt_root,
+                        release_tree_current=False,
+                    )
+                    self.assertFalse(stale.ok, stale.to_dict())
+                    self.assertFalse(stale.current, stale.to_dict())
+                finally:
+                    path.write_bytes(original)
+
     @staticmethod
     def child_id(command):
         joined = " ".join(command)
-        if "flowguard-self-blueprint-check" in command:
-            if "--include-architecture-reduction" in command:
-                return "self_maintenance_review"
-            return "self_blueprint"
+        if "check_self_maintenance_review.py" in joined:
+            return "self_maintenance_review"
         if (
             "project-audit" in command
             or (
@@ -332,45 +420,38 @@ class FullValidationCompositionTests(unittest.TestCase):
         run.assert_called_once()
 
     def test_release_tree_blocks_ignored_model_authority_until_tracked(self):
-        snapshot_digest = "1" * 64
-        previous_digest = "2" * 64
-        revision_digest = "3" * 64
-        activation_digest = "4" * 64
+        from flowguard.model_authority_store import (
+            activate_model_revision_set, bootstrap_model_authority,
+            load_current_model_authority_state,
+        )
+        from tests.test_model_authority_store import SHA_A, SHA_B, SHA_D, revision, snapshot
+
         project_manifest = self.root / ".flowguard" / "project.toml"
         project_manifest.parent.mkdir(parents=True)
         project_manifest.write_text(
-            "\n".join(
-                (
-                    "[flowguard]",
-                    'adopted_package_version = "0.64.0"',
-                    "",
-                    "[model_authority]",
-                    'system_id = "fixture"',
-                    "observed_snapshot_path = "
-                    f'".flowguard/models/authority/snapshots/{snapshot_digest}.json"',
-                    "observed_snapshot_fingerprint = "
-                    f'"sha256:{snapshot_digest}"',
-                    'subject_revision = "source-inventory:fixture"',
-                    'coverage_status = "complete_within_declared_boundary"',
-                    "generation = 2",
-                    "accepted_revision_set_fingerprint = "
-                    f'"sha256:{revision_digest}"',
-                    "previous_snapshot_fingerprint = "
-                    f'"sha256:{previous_digest}"',
-                    "activation_receipt_fingerprint = "
-                    f'"sha256:{activation_digest}"',
-                    'head_fingerprint = "sha256:' + "5" * 64 + '"',
-                    "",
-                )
-            ),
+            '[flowguard]\nadopted_package_version = "0.64.0"\n',
             encoding="utf-8",
         )
-        required = (
-            f".flowguard/models/authority/snapshots/{snapshot_digest}.json",
-            f".flowguard/models/authority/snapshots/{previous_digest}.json",
-            f".flowguard/models/authority/revisions/{revision_digest}.json",
-            f".flowguard/models/authority/activations/{activation_digest}.json",
-        )
+        # Reuse the finite durable-store fixture and the actual typed
+        # acceptance API, rather than fabricated content-addressed objects.
+        for relative in (".flowguard/authority/model.py", ".flowguard/authority/run_checks.py"):
+            path = self.root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# authority store fixture\n", encoding="utf-8")
+        base = snapshot("git:" + "a" * 40, SHA_A, "tracking-base")
+        initial_head = bootstrap_model_authority(self.root, base, bootstrap_evidence_fingerprint=SHA_D)
+        candidate = snapshot("git:" + "b" * 40, SHA_B, "tracking-current")
+        accepted = revision(self.root, initial_head, base, candidate)
+        with patch("flowguard.model_system_inventory.build_manifest_model_system_snapshot", return_value=candidate):
+            head, activation = activate_model_revision_set(self.root, candidate, accepted)
+        current = load_current_model_authority_state(self.root, reverify_current_sources=True)
+        self.assertEqual(head, current.head)
+        self.assertEqual(candidate, current.snapshot)
+        self.assertEqual(accepted.fingerprint, current.accepted_revision.fingerprint)
+        self.assertEqual(activation.fingerprint, current.activation_receipt.fingerprint)
+        self.assertTrue(current.current_sources_reverified)
+        required = model_authority_release_paths(self.root)
+        self.assertTrue(required)
         (self.root / ".gitignore").write_text(".flowguard/\n", encoding="utf-8")
         subprocess.run(
             ("git", "add", ".gitignore"),
@@ -382,16 +463,6 @@ class FullValidationCompositionTests(unittest.TestCase):
             cwd=self.root,
             check=True,
         )
-        for relative in required:
-            path = self.root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            payload = (
-                '{"model_instances":[]}\n'
-                if relative == required[0]
-                else "{}\n"
-            )
-            path.write_text(payload, encoding="utf-8")
-
         with self.assertRaisesRegex(
             ValueError,
             "required public model authority paths are not tracked",
@@ -635,6 +706,97 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertFalse(self.output.exists())
         self.assertFalse((self.output.parent / "CURRENT.json").exists())
 
+    def test_plan_only_rejects_objective_moved_back_to_active_after_readiness(self):
+        change_name = "demo-objective"
+        archive_path = (
+            self.root
+            / "openspec"
+            / "changes"
+            / "archive"
+            / f"2026-09-29-{change_name}"
+        )
+        (archive_path / "specs").mkdir(parents=True)
+        for relative, content in (
+            ("proposal.md", "# Proposal\n"),
+            ("design.md", "# Design\n"),
+            (".openspec.yaml", "schema: spec-driven\n"),
+            ("specs/example/spec.md", "# Requirement\n"),
+        ):
+            path = archive_path / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+
+        args = self.args()
+        args.completion_objective_change = change_name
+        args = self._with_completion_readiness(args)
+        args.plan_only = True
+
+        active_path = self.root / "openspec" / "changes" / change_name
+        active_path.parent.mkdir(parents=True, exist_ok=True)
+        archive_path.rename(active_path)
+
+        with patch.object(suite_command, "_execute_command") as execute:
+            result = suite_command.run_full_validation(args)
+
+        execute.assert_not_called()
+        self.assertEqual("blocked", result.status)
+        self.assertTrue(
+            any(
+                item.get("code") == "completion_objective_not_archived"
+                for item in result.blockers
+            ),
+            result.to_dict(),
+        )
+        self.assertEqual((), result.artifact_paths)
+        self.assertFalse(self.output.exists())
+
+    def _native_mesh_inventory_check(self, declared, *, source_root=None):
+        source = Path(__file__).resolve().parents[1]
+        model_tree = ast.parse((source / ".flowguard/models/owners/self_maintenance_mesh/model.py").read_text(encoding="utf-8"))
+        current_ids = next(ast.literal_eval(node.value) for node in model_tree.body
+                           if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name)
+                           and target.id == "CURRENT_FULL_VALIDATION_OWNER_IDS" for target in node.targets))
+        runner_tree = ast.parse((source / ".flowguard/verification/owners/self_maintenance_mesh/run_checks.py").read_text(encoding="utf-8"))
+        function = next(node for node in runner_tree.body if isinstance(node, ast.FunctionDef)
+                        and node.name == "run_plane_upgrade_contract_binding")
+        fixture_root = self.root if source_root is None else source_root
+        if source_root is None:
+            (fixture_root / "scripts/check_flowguard_skill_suite.py").write_text(
+                "FULL_CHILD_IDS = " + repr(declared) + "\n", encoding="utf-8")
+        model = SimpleNamespace(CURRENT_FULL_VALIDATION_OWNER_IDS=current_ids,
+            VALIDATION_OWNER_INVENTORY_FINGERPRINT="sha256:" + hashlib.sha256(
+                "\n".join(current_ids).encode()).hexdigest().upper())
+        namespace = {"ast": ast, "hashlib": hashlib, "ROOT": fixture_root, "model": model}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), "finite-native-inventory-check", "exec"), namespace)
+        with contextlib.redirect_stdout(io.StringIO()):
+            return namespace["run_plane_upgrade_contract_binding"]()
+
+    def test_native_model_owner_contract_explicitly_binds_unit_and_work(self):
+        from flowguard.skill_native_checks import NATIVE_OWNER_UNIT_COMPONENT, _native_owner_unit_fingerprint
+        args = self.args()
+        contracts = {item.owner_id: item for item in suite_command._owner_contracts(
+            suite_command._full_child_specs(args, self.root))}
+        projection = dict(contracts["model_regressions_full"].projected_inputs)
+        self.assertEqual(_native_owner_unit_fingerprint(args.maintenance_unit_id,
+            args.completion_work_id), projection[NATIVE_OWNER_UNIT_COMPONENT])
+        for owner_id, contract in contracts.items():
+            if owner_id != "model_regressions_full":
+                self.assertNotIn(NATIVE_OWNER_UNIT_COMPONENT, dict(contract.projected_inputs))
+        args.completion_work_id = "work:foreign"
+        changed = next(item for item in suite_command._owner_contracts(
+            suite_command._full_child_specs(args, self.root)) if item.owner_id == "model_regressions_full")
+        self.assertNotEqual(contracts["model_regressions_full"].projected_inputs, changed.projected_inputs)
+
+    def test_native_mesh_inventory_matches_actual_public_full_inventory(self):
+        self.assertTrue(self._native_mesh_inventory_check(
+            suite_command.FULL_CHILD_IDS, source_root=Path(__file__).resolve().parents[1]))
+
+    def test_native_mesh_inventory_rejects_missing_or_duplicate_public_owner(self):
+        ids = suite_command.FULL_CHILD_IDS
+        self.assertFalse(self._native_mesh_inventory_check(
+            tuple(item for item in ids if item != "skill_native_checks")))
+        self.assertFalse(self._native_mesh_inventory_check(ids + (ids[0],)))
+
     def test_native_receipts_use_a_store_separate_from_validation_lifecycle(self):
         specs = {
             item.child_id: item
@@ -645,13 +807,14 @@ class FullValidationCompositionTests(unittest.TestCase):
         native_root = Path(native[native.index("--output-dir") + 1])
         parent_root = Path(parent[parent.index("--output-directory") + 1])
 
-        self.assertIn("--resume", native)
-        self.assertEqual(native_root, parent_root)
-        self.assertEqual(
-            self.root / ".flowguard" / "evidence" / "skill-native-receipts",
-            native_root,
-        )
-        self.assertNotEqual(self.output.parent, native_root)
+        model_store = Path(native[native.index("--model-receipt-dir") + 1])
+        validation_store = Path(native[native.index("--validation-receipt-dir") + 1])
+        self.assertNotIn("--resume", native)
+        self.assertEqual(model_store, parent_root)
+        self.assertEqual(self.root / ".flowguard/evidence/model-owner-receipts", model_store)
+        self.assertNotEqual(native_root, model_store)
+        self.assertNotEqual(validation_store, model_store)
+        self.assertEqual(self.output / "skill-native-consumer", native_root)
 
     def test_local_validation_omits_release_tree_placeholder_owners(self):
         args = self.args()
@@ -677,11 +840,103 @@ class FullValidationCompositionTests(unittest.TestCase):
         args.claim_scope = "local_validation"
         specs = suite_command._full_child_specs(args, self.root)
         self.assertEqual(
-            tuple(spec.child_id for spec in specs),
+            ("skill_native_checks", "model_regressions_full", "pytest"),
             suite_command._required_child_ids(specs),
         )
+        execution_ids = tuple(spec.child_id for spec in specs)
+        self.assertLess(execution_ids.index("model_regressions_full"),
+                        execution_ids.index("skill_native_checks"))
         self.assertNotIn("distribution_check", suite_command._required_child_ids(specs))
         self.assertNotIn("distribution_parity", suite_command._required_child_ids(specs))
+
+    def test_terminal_obligation_identity_is_independent_of_dependency_execution_order(self):
+        specs = suite_command._full_child_specs(self.args(), self.root)
+        execution_ids = tuple(spec.child_id for spec in specs)
+        self.assertLess(execution_ids.index("model_regressions_full"),
+                        execution_ids.index("skill_native_checks"))
+        native = next(spec for spec in specs if spec.child_id == "skill_native_checks")
+        self.assertEqual(("model_regressions_full",), native.dependency_owner_ids)
+        expected = suite_command.FULL_CHILD_IDS
+        self.assertEqual(expected, suite_command._required_child_ids(specs))
+        self.assertEqual(expected, suite_command._required_child_ids(tuple(reversed(specs))))
+        self.assertEqual(set(execution_ids), set(expected))
+
+    def test_terminal_obligation_inventory_rejects_duplicate_or_undeclared_owner(self):
+        specs = suite_command._full_child_specs(self.args(), self.root)
+        with self.assertRaisesRegex(ValueError, "unique"):
+            suite_command._required_child_ids((*specs, specs[0]))
+        with self.assertRaisesRegex(ValueError, "undeclared.*foreign_owner"):
+            suite_command._required_child_ids((*specs, SimpleNamespace(child_id="foreign_owner")))
+
+    def test_terminal_obligation_projection_does_not_add_a_missing_owner(self):
+        specs = suite_command._full_child_specs(self.args(), self.root)
+        subset = tuple(spec for spec in specs if spec.child_id != "skill_native_checks")
+        actions = suite_command._required_child_ids(subset)
+        self.assertNotIn("skill_native_checks", actions)
+        self.assertEqual(set(spec.child_id for spec in subset), set(actions))
+        self.assertEqual(9, len(actions))
+
+    def test_dependency_reordered_terminal_obligations_admit_same_cycle_unclaimed_repair(self):
+        from dataclasses import replace
+        from flowguard.completion_epoch import (
+            CompletionEpochPlan, CompletionEpochTerminalLedger,
+            load_completion_repair_admission_group,
+        )
+        from scripts.prepare_completion_repair import prepare_completion_repair_admission
+
+        specs = suite_command._full_child_specs(self.args(), self.root)
+        actions = suite_command._required_child_ids(specs)
+        previous = CompletionEpochPlan.freeze(
+            source_observation_fingerprint="sha256:" + "1" * 64,
+            release_tree_fingerprint="sha256:" + "2" * 64,
+            toolchain_environment_fingerprint="sha256:" + "3" * 64,
+            owner_dag_fingerprint="sha256:" + "4" * 64,
+            model_authority_fingerprint="sha256:" + "5" * 64,
+            test_inventory_fingerprint="sha256:" + "6" * 64,
+            required_terminal_action_ids=suite_command.FULL_CHILD_IDS,
+            maintenance_unit_id="unit:flowguard-suite",
+            completion_work_id="work:terminal-obligation-order",
+            claim_scope="release",
+        ).claim_full_producer()
+        failed = {"skill_native_checks", "skill_self_governance", "self_maintenance_review",
+                  "pytest", "distribution_parity"}
+        ledger = CompletionEpochTerminalLedger.aborted(
+            previous, "finite failed-five fixture",
+            completed_terminal_action_ids=tuple(owner_id for owner_id in previous.required_terminal_action_ids
+                                                if owner_id not in failed),
+        )
+        ledger_path = ledger.write(self.root)
+        ledger_before = ledger_path.read_bytes()
+        changed_dag = fingerprint_value({"dependencies": {
+            spec.child_id: list(spec.dependency_owner_ids) for spec in specs}})
+        current = replace(previous, required_terminal_action_ids=actions,
+                          owner_dag_fingerprint=changed_dag, fixed_owner_dag_fingerprint=changed_dag,
+                          full_producer_attempts=0)
+        admission = prepare_completion_repair_admission(
+            root=self.root, previous_epoch_id=previous.epoch_id, current_plan=current,
+            repair_regression_evidence={
+                "scope": "patch_regression", "status": "pass", "exit_code": 0,
+                "cleanup_confirmed": True, "skipped": False, "failed_owner_ids": sorted(failed),
+                "tested_input_manifest": {"owner_dag_fingerprint": changed_dag},
+            }, output_dir=self.root / "work" / "finite-repair-admission",
+        )
+        repaired = admission["repaired_plan"]
+        group = load_completion_repair_admission_group(
+            admission["repair_link"], self.root, previous_ledger=ledger, current_plan=current)
+        self.assertEqual(previous.completion_cycle_id, repaired.completion_cycle_id)
+        self.assertEqual(previous.completion_cycle_seed_fingerprint, repaired.completion_cycle_seed_fingerprint)
+        self.assertEqual(previous.required_terminal_action_ids, repaired.required_terminal_action_ids)
+        self.assertEqual(2, repaired.completion_cycle_max_attempts)
+        self.assertEqual(1, repaired.attempt_index)
+        self.assertEqual(0, repaired.full_producer_attempts)
+        self.assertEqual(changed_dag, repaired.owner_dag_fingerprint)
+        self.assertEqual({"owner_dag_fingerprint": changed_dag}, dict(group.changed_input_fingerprints))
+        self.assertEqual(current.epoch_id, group.current_unlinked_epoch_id)
+        self.assertEqual(set(failed), set(group.failed_owner_ids))
+        self.assertEqual(0, admission["producer_invocations"])
+        self.assertEqual((), repaired.validate_repair(previous, ledger))
+        self.assertEqual(ledger_before, ledger_path.read_bytes())
+        self.assertFalse((self.root / ".flowguard" / "evidence" / "completion-epochs" / "reservations").exists())
 
     def test_model_receipt_store_is_stable_and_shared_across_run_outputs(self):
         args = self.args()
@@ -692,6 +947,10 @@ class FullValidationCompositionTests(unittest.TestCase):
         stable_root = self.root / ".flowguard" / "evidence" / "model-owner-receipts"
         model_command = first_specs["model_regressions_full"].command
         blueprint_command = first_specs["self_maintenance_review"].command
+        self.assertIn(str(self.root / "scripts" / "check_self_maintenance_review.py"), blueprint_command)
+        self.assertNotIn("flowguard-self-blueprint-check", blueprint_command)
+        author_command = first_specs["skill_suite_light"].command
+        self.assertEqual(str(self.author_state), author_command[author_command.index("--author-state-root") + 1])
         self.assertEqual("child", model_command[model_command.index("--authority-kind") + 1])
         self.assertEqual("full-validation", model_command[model_command.index("--parent-scope") + 1])
         self.assertEqual(
@@ -725,6 +984,101 @@ class FullValidationCompositionTests(unittest.TestCase):
             Path(args.output_dir).resolve() / "model-owner-receipts",
         )
 
+    def test_read_request_content_changes_project_audit_owner_identity(self):
+        request_path = self.root / ".flowguard" / "read-request.json"
+        request_path.parent.mkdir(parents=True, exist_ok=True)
+        request_path.write_text(
+            json.dumps(
+                {
+                    "operation": "read",
+                    "target_id": "system:current",
+                    "scope": ["model:a", "model:b"],
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        args = suite_command.build_parser().parse_args(
+            [
+                "--scope",
+                "full",
+                "--root",
+                str(self.root),
+                "--claim-scope",
+                "release",
+                "--author-state-root",
+                str(self.author_state),
+                "--shadow-root",
+                str(self.shadow),
+            ]
+        )
+        author_toolchain_patch = patch.object(
+            suite_command,
+            "_author_toolchain_fingerprint",
+            return_value="sha256:" + "a" * 64,
+        )
+        author_toolchain_patch.start()
+        self.addCleanup(author_toolchain_patch.stop)
+        first_specs = suite_command._full_child_specs(args, self.root)
+        first_contracts = suite_command._owner_contracts(first_specs)
+        first_contract = next(
+            item for item in first_contracts if item.owner_id == "project_audit"
+        )
+        first_current = build_owner_current(
+            self.root,
+            first_contract,
+            all_contracts=first_contracts,
+        )
+
+        request_path.write_text(
+            json.dumps(
+                {
+                    "operation": "read",
+                    "target_id": "system:current",
+                    "scope": ["model:a"],
+                },
+                sort_keys=True,
+            ),
+            encoding="utf-8",
+        )
+        second_specs = suite_command._full_child_specs(args, self.root)
+        second_contracts = suite_command._owner_contracts(second_specs)
+        second_contract = next(
+            item for item in second_contracts if item.owner_id == "project_audit"
+        )
+        second_current = build_owner_current(
+            self.root,
+            second_contract,
+            all_contracts=second_contracts,
+        )
+
+        self.assertIn(".flowguard/read-request.json", first_contract.input_patterns)
+        first_binding = dict(first_contract.external_component_bindings)[
+            "project-audit-read-request"
+        ]
+        second_binding = dict(second_contract.external_component_bindings)[
+            "project-audit-read-request"
+        ]
+        self.assertNotEqual(first_binding, second_binding)
+        self.assertNotEqual(first_current.owner_identity, second_current.owner_identity)
+        self.assertNotEqual(first_current.input_manifest, second_current.input_manifest)
+
+    def test_project_audit_identity_ignores_runtime_creation_of_request_directory(self):
+        request_path = self.root / ".flowguard" / "read-request.json"
+        self.assertFalse(request_path.parent.exists())
+        self.assertFalse(request_path.exists())
+        initial = suite_command._project_audit_read_request_fingerprint(self.root)
+
+        (request_path.parent / "evidence" / "validation-owners").mkdir(
+            parents=True
+        )
+
+        self.assertFalse(request_path.exists())
+        self.assertEqual(
+            initial,
+            suite_command._project_audit_read_request_fingerprint(self.root),
+        )
+
     def test_owner_graph_contains_only_receipt_consumption_edges(self):
         specs = tuple(suite_command._full_child_specs(self.args(), self.root))
         contracts = {
@@ -735,12 +1089,22 @@ class FullValidationCompositionTests(unittest.TestCase):
             ("skill_native_checks",),
             contracts["skill_self_governance"].dependency_owner_ids,
         )
+        self.assertEqual(("model_regressions_full",),
+                         contracts["skill_native_checks"].dependency_owner_ids)
+        order = tuple(item.child_id for item in specs)
+        self.assertLess(order.index("model_regressions_full"), order.index("skill_native_checks"))
+        self.assertLess(order.index("skill_native_checks"), order.index("skill_self_governance"))
+        native = next(item for item in specs if item.child_id == "skill_native_checks")
+        self.assertNotIn("--resume", native.command)
+        for flag in ("--completion-run-manifest", "--model-receipt-dir", "--validation-receipt-dir"):
+            self.assertIn(flag, native.command)
+
         self.assertEqual(
             ("model_regressions_full",),
             contracts["self_maintenance_review"].dependency_owner_ids,
         )
         for owner_id, contract in contracts.items():
-            if owner_id not in {"skill_self_governance", "self_maintenance_review"}:
+            if owner_id not in {"skill_native_checks", "skill_self_governance", "self_maintenance_review"}:
                 self.assertEqual((), contract.dependency_owner_ids)
             self.assertTrue(contract.resource_keys)
         self.assertEqual(
@@ -760,7 +1124,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         ) as execute:
             result = suite_command.run_full_validation(self.args())
 
-        self.assertEqual("blocked", result.status)
+        self.assertEqual("blocked", result.status, result.terminal_json_text())
         executed = {self.child_id(call.args[0]) for call in execute.call_args_list}
         self.assertIn("project_audit", executed)
         self.assertIn("skill_suite_light", executed)
@@ -784,7 +1148,7 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertIn("model_regressions_full", executed)
         self.assertIn("self_maintenance_review", executed)
 
-    def test_model_failure_only_blocks_self_maintenance(self):
+    def test_model_failure_blocks_native_governance_and_maintenance_dependencies(self):
         with patch.object(
             suite_command,
             "_execute_command",
@@ -794,12 +1158,14 @@ class FullValidationCompositionTests(unittest.TestCase):
 
         self.assertEqual("blocked", result.status)
         model = next(item for item in result.children if item.child_id == "model_regressions_full")
-        maintenance = next(item for item in result.children if item.child_id == "self_maintenance_review")
         self.assertEqual("fail", model.status)
-        self.assertEqual("blocked", maintenance.status)
         executed = {self.child_id(call.args[0]) for call in execute.call_args_list}
-        self.assertIn("skill_native_checks", executed)
-        self.assertIn("skill_self_governance", executed)
+        dependent_ids = {"skill_native_checks", "skill_self_governance", "self_maintenance_review"}
+        for child_id in dependent_ids:
+            child = next(item for item in result.children if item.child_id == child_id)
+            self.assertEqual("blocked", child.status, child_id)
+            self.assertNotIn(child_id, executed)
+        self.assertEqual(set(suite_command.FULL_CHILD_IDS) - dependent_ids, executed)
 
     def test_failed_native_run_requires_explicit_typed_repair_before_replay(self):
         with patch.object(
@@ -855,6 +1221,8 @@ class FullValidationCompositionTests(unittest.TestCase):
                 str(self.output),
                 "--shadow-root",
                 str(self.shadow),
+                "--author-state-root",
+                str(self.author_state),
             ]
         )
         timeout = GitQueryTimeout(
@@ -892,7 +1260,8 @@ class FullValidationCompositionTests(unittest.TestCase):
         }
 
         spec = specs["self_maintenance_review"]
-        self.assertIn("--compact", spec.command)
+        self.assertIn(str(self.root / "scripts" / "check_self_maintenance_review.py"), spec.command)
+        self.assertNotIn("--compact", spec.command)  # The private producer always emits compact JSON.
         # The full parent consumes the complete self-maintenance audit.  The
         # stricter architecture-cleanup gate remains available on the
         # standalone command, but proofless candidates are intentionally
@@ -1299,6 +1668,86 @@ class FullValidationCompositionTests(unittest.TestCase):
         self.assertEqual("invalid_input", payload["status"])
         self.assertEqual(3, exit_code)
         self.assertEqual(exit_code, payload["exit_code"])
+
+
+def _full_cli_admission_args(tmp_path):
+    root = tmp_path / "formal"
+    state = tmp_path / "author-state"
+    root.mkdir()
+    state.mkdir()
+    return ["--scope", "full", "--plan-only", "--json", "--root", str(root), "--author-state-root", str(state)]
+
+
+def test_full_cli_plan_only_uses_public_release_lifecycle(tmp_path):
+    from flowguard.execution_profiles import (
+        LIFECYCLE_RELEASE, OPERATION_KIND_QUALIFICATION, select_execution_profile,
+    )
+
+    terminal = suite_command._command_error(
+        suite_command.VALIDATION_STATUS_PARTIAL, "fixture stops before owner execution", scope="full-plan-only",
+    )
+    stdout = io.StringIO()
+    with patch("flowguard.execution_profiles.select_execution_profile", wraps=select_execution_profile) as selector, \
+            patch.object(suite_command, "run_full_validation", return_value=terminal) as dispatch, \
+            patch.object(suite_command, "run_local_functional_validation") as local_dispatch, \
+            contextlib.redirect_stdout(stdout):
+        exit_code = suite_command.main(_full_cli_admission_args(tmp_path))
+    assert exit_code == 6
+    assert json.loads(stdout.getvalue())["status"] == "partial"
+    selector.assert_called_once()
+    assert selector.call_args.args == (LIFECYCLE_RELEASE,)
+    assert selector.call_args.kwargs == {
+        "operation_kind": OPERATION_KIND_QUALIFICATION,
+        "modeling_mode": "layered_boundary_proof",
+        "governed_writes_frozen": True, "projections_frozen": True,
+        "openspec_frozen": True, "owner_dag_frozen": True, "reverse_input_frozen": True,
+    }
+    dispatch.assert_called_once()
+    assert dispatch.call_args.args[0].plan_only is True
+    local_dispatch.assert_not_called()
+
+
+def test_full_cli_conflicting_operations_return_invalid_without_dispatch(tmp_path):
+    from flowguard.execution_profiles import OPERATION_KIND_CHANGE, OPERATION_KIND_READ_ONLY
+
+    argv = _full_cli_admission_args(tmp_path)
+    for operation in (OPERATION_KIND_READ_ONLY, OPERATION_KIND_CHANGE):
+        stdout = io.StringIO()
+        with patch.object(suite_command, "run_full_validation") as dispatch, \
+                patch.object(suite_command, "run_local_functional_validation") as local_dispatch, \
+                contextlib.redirect_stdout(stdout):
+            exit_code = suite_command.main([*argv, "--operation-kind", operation])
+        payload = json.loads(stdout.getvalue())
+        assert exit_code == payload["exit_code"] == 3
+        assert payload["status"] == "invalid_input"
+        assert "lifecycle conflicts with operation_kind" in str(payload)
+        dispatch.assert_not_called()
+        local_dispatch.assert_not_called()
+
+
+def test_full_cli_blocked_profile_never_dispatches(tmp_path):
+    from flowguard.execution_profiles import (
+        LIFECYCLE_RELEASE, OPERATION_KIND_QUALIFICATION, select_execution_profile,
+    )
+
+    blocked = select_execution_profile(
+        LIFECYCLE_RELEASE, operation_kind=OPERATION_KIND_QUALIFICATION,
+        modeling_mode="layered_boundary_proof", governed_writes_frozen=False,
+        projections_frozen=True, openspec_frozen=True, owner_dag_frozen=True,
+        reverse_input_frozen=True,
+    )
+    assert not blocked.ok and blocked.escalation_triggers == ("governed_writes_not_frozen",)
+    stdout = io.StringIO()
+    with patch("flowguard.execution_profiles.select_execution_profile", return_value=blocked), \
+            patch.object(suite_command, "run_full_validation") as dispatch, \
+            patch.object(suite_command, "run_local_functional_validation") as local_dispatch, \
+            contextlib.redirect_stdout(stdout):
+        exit_code = suite_command.main(_full_cli_admission_args(tmp_path))
+    payload = json.loads(stdout.getvalue())
+    assert exit_code == payload["exit_code"] == 2
+    assert payload["status"] == "blocked" and "governed_writes_not_frozen" in str(payload)
+    dispatch.assert_not_called()
+    local_dispatch.assert_not_called()
 
 
 if __name__ == "__main__":

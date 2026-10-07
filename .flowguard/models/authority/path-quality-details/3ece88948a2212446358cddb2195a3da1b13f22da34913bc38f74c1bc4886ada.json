@@ -1,0 +1,367 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:6bcc2a8a1e877304baf7671d124ca38b2910ff57d04e15834da069aa6857f34f",
+        "effective_intent_view_fingerprint": "sha256:91ec27095bd7e4b71d7bad86eb230285dc8652bc6a4ded9506c54a096fef0279",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+            "source_fingerprint": "sha256:7efcb6edbbc3b5c5891e49f4f2db715b434f2c31111e745558373cdc4d7e3079"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:classification",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:complete_observation_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:direct_upgrade_impact",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:exact_current_receipt",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:final_identity_freshness_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:impact_mapping_complete",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:model_update_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:observation_scope",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:rerun_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:same_output_proof",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:semantic_verification_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_impact_freshness_gate:test_update_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "UpgradeAction",
+          "effects": [],
+          "id": "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate",
+          "inputs": [
+            "external-input:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35"
+          ],
+          "outputs": [
+            "output:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_impact_freshness_gate:direct_upgrade_impact",
+            "field:model_impact_freshness_gate:impact_mapping_complete",
+            "field:model_impact_freshness_gate:classification",
+            "field:model_impact_freshness_gate:same_output_proof",
+            "field:model_impact_freshness_gate:exact_current_receipt",
+            "field:model_impact_freshness_gate:model_update_reviewed",
+            "field:model_impact_freshness_gate:test_update_reviewed",
+            "field:model_impact_freshness_gate:rerun_current",
+            "field:model_impact_freshness_gate:observation_scope",
+            "field:model_impact_freshness_gate:complete_observation_count",
+            "field:model_impact_freshness_gate:semantic_verification_count",
+            "field:model_impact_freshness_gate:final_identity_freshness_passed",
+            "field:model_impact_freshness_gate:claim"
+          ],
+          "state_input": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0",
+          "state_output": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:1",
+          "validations": [
+            "validation:model_impact_freshness_gate:invariant:accepted_claim_requires_classification_and_current_evidence"
+          ],
+          "writes": [
+            "field:model_impact_freshness_gate:direct_upgrade_impact",
+            "field:model_impact_freshness_gate:impact_mapping_complete",
+            "field:model_impact_freshness_gate:classification",
+            "field:model_impact_freshness_gate:same_output_proof",
+            "field:model_impact_freshness_gate:exact_current_receipt",
+            "field:model_impact_freshness_gate:model_update_reviewed",
+            "field:model_impact_freshness_gate:test_update_reviewed",
+            "field:model_impact_freshness_gate:rerun_current",
+            "field:model_impact_freshness_gate:observation_scope",
+            "field:model_impact_freshness_gate:complete_observation_count",
+            "field:model_impact_freshness_gate:semantic_verification_count",
+            "field:model_impact_freshness_gate:final_identity_freshness_passed",
+            "field:model_impact_freshness_gate:claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate",
+          "producer_id": "transition:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate",
+          "outputs": [
+            "output:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate"
+          ],
+          "reads": [
+            "field:model_impact_freshness_gate:direct_upgrade_impact",
+            "field:model_impact_freshness_gate:impact_mapping_complete",
+            "field:model_impact_freshness_gate:classification",
+            "field:model_impact_freshness_gate:same_output_proof",
+            "field:model_impact_freshness_gate:exact_current_receipt",
+            "field:model_impact_freshness_gate:model_update_reviewed",
+            "field:model_impact_freshness_gate:test_update_reviewed",
+            "field:model_impact_freshness_gate:rerun_current",
+            "field:model_impact_freshness_gate:observation_scope",
+            "field:model_impact_freshness_gate:complete_observation_count",
+            "field:model_impact_freshness_gate:semantic_verification_count",
+            "field:model_impact_freshness_gate:final_identity_freshness_passed",
+            "field:model_impact_freshness_gate:claim"
+          ],
+          "source": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0",
+          "target": "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:1",
+          "trigger": "UpgradeAction",
+          "validations": [
+            "validation:model_impact_freshness_gate:invariant:accepted_claim_requires_classification_and_current_evidence"
+          ],
+          "writes": [
+            "field:model_impact_freshness_gate:direct_upgrade_impact",
+            "field:model_impact_freshness_gate:impact_mapping_complete",
+            "field:model_impact_freshness_gate:classification",
+            "field:model_impact_freshness_gate:same_output_proof",
+            "field:model_impact_freshness_gate:exact_current_receipt",
+            "field:model_impact_freshness_gate:model_update_reviewed",
+            "field:model_impact_freshness_gate:test_update_reviewed",
+            "field:model_impact_freshness_gate:rerun_current",
+            "field:model_impact_freshness_gate:observation_scope",
+            "field:model_impact_freshness_gate:complete_observation_count",
+            "field:model_impact_freshness_gate:semantic_verification_count",
+            "field:model_impact_freshness_gate:final_identity_freshness_passed",
+            "field:model_impact_freshness_gate:claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:model_impact_freshness_gate",
+          "id": "validation:model_impact_freshness_gate:invariant:accepted_claim_requires_classification_and_current_evidence",
+          "obligation_id": "obligation:native-invariant:model_impact_freshness_gate:accepted_claim_requires_classification_and_current_evidence",
+          "oracle_id": "oracle:native-invariant:model_impact_freshness_gate:accepted_claim_requires_classification_and_current_evidence",
+          "subject_fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:model_impact_freshness_gate:claim": "field",
+      "field:model_impact_freshness_gate:classification": "field",
+      "field:model_impact_freshness_gate:complete_observation_count": "field",
+      "field:model_impact_freshness_gate:direct_upgrade_impact": "field",
+      "field:model_impact_freshness_gate:exact_current_receipt": "field",
+      "field:model_impact_freshness_gate:final_identity_freshness_passed": "field",
+      "field:model_impact_freshness_gate:impact_mapping_complete": "field",
+      "field:model_impact_freshness_gate:model_update_reviewed": "field",
+      "field:model_impact_freshness_gate:observation_scope": "field",
+      "field:model_impact_freshness_gate:rerun_current": "field",
+      "field:model_impact_freshness_gate:same_output_proof": "field",
+      "field:model_impact_freshness_gate:semantic_verification_count": "field",
+      "field:model_impact_freshness_gate:test_update_reviewed": "field",
+      "function-block:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate": "function_block",
+      "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0": "state",
+      "state:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:1": "state",
+      "transition:workflow:model_impact_freshness_gate:model_impact_freshness_correct:0:bad421af1b35:0:CorrectModelImpactFreshnessGate": "transition",
+      "validation:model_impact_freshness_gate:invariant:accepted_claim_requires_classification_and_current_evidence": "validation"
+    },
+    "subject_fingerprint": "sha256:772a8fe918ea3b697ba0004806c9cc6bdf54e0265a4c847383bb8a8aad4591fa",
+    "trigger_currentness_id": "sha256:7e4cabfeea423ea52f8540896c1e1bccf23c4cdc3c39e56475ea5f111a2303e1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:3ece88948a2212446358cddb2195a3da1b13f22da34913bc38f74c1bc4886ada",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

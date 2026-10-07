@@ -10,8 +10,14 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from flowguard.__main__ import main
-from flowguard.model_authority import ModelAuthorityError
-from flowguard.model_authority_store import bootstrap_model_authority
+from flowguard.model_authority import (
+    ModelAuthorityError,
+    build_boundary_contract_from_snapshot,
+    canonical_fingerprint,
+)
+from flowguard.model_authority_store import (
+    bootstrap_model_authority,
+)
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 from flowguard.model_regressions import MANIFEST_SCHEMA
 from flowguard.model_revision_plan import preview_current_model_revision
@@ -166,6 +172,103 @@ class ModelRevisionPlanTests(unittest.TestCase):
         self.assertEqual(0, payload["producer_count"])
         self.assertEqual(f"unknown operation: {operation}", payload["error"])
         self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+
+    def test_preview_carries_forward_the_current_boundary_contract(self):
+        original_root = self.root
+        original_model_ids = self.model_ids
+        with tempfile.TemporaryDirectory() as temporary:
+            self.root = Path(temporary)
+            self.model_ids = (
+                "authoritative_model_system",
+                "revision_plan_contract_fixture",
+            )
+            self._write_manifest(self.model_ids)
+            base_without_contract = build_manifest_model_system_snapshot(
+                self.root,
+                snapshot_id="observed:revision-plan-contract-base",
+            )
+            model_id = "authoritative_model_system"
+            axis_id = "revision-plan-axis"
+            group_id = "revision-plan-group"
+            axis_identity = {
+                "axis_id": axis_id,
+                "model_id": model_id,
+                "values": ["left", "right"],
+            }
+            axis_payload = {
+                **axis_identity,
+                "axis_fingerprint": canonical_fingerprint(axis_identity),
+            }
+            signature_identity = {
+                "axis_ids": [axis_id],
+                "interaction_group_id": group_id,
+                "model_id": model_id,
+            }
+            group_payload = {
+                "axis_ids": [axis_id],
+                "group_id": group_id,
+                "model_id": model_id,
+                "product_signature": {
+                    **signature_identity,
+                    "fingerprint": canonical_fingerprint(signature_identity),
+                },
+            }
+            contract = build_boundary_contract_from_snapshot(
+                base_without_contract,
+                contract_id="boundary-contract:revision-plan-fixture:v1",
+                model_id=model_id,
+                axis_payloads=(axis_payload,),
+                interaction_group_payloads=(group_payload,),
+                group_relation_ids={
+                    group_id: (base_without_contract.relations[0].relation_id,)
+                },
+            )
+            base = build_manifest_model_system_snapshot(
+                self.root,
+                snapshot_id=base_without_contract.snapshot_id,
+                accepted_boundary_contract=contract,
+            )
+            bootstrap_model_authority(
+                self.root,
+                base,
+                bootstrap_evidence_fingerprint="sha256:" + "b" * 64,
+            )
+            before = self._tree_identity()
+
+            with patch(
+                "flowguard.model_revision_plan.load_current_model_authority_state",
+                return_value=SimpleNamespace(
+                    accepted_boundary_contract=contract
+                ),
+            ):
+                report = preview_current_model_revision(
+                    self.root,
+                    snapshot_id=base.snapshot_id,
+                )
+
+            self.assertTrue(report.ok)
+            self.assertIsNotNone(report.accepted_boundary_contract)
+            self.assertEqual(
+                contract.fingerprint,
+                report.accepted_boundary_contract.fingerprint,
+            )
+            self.assertIsNotNone(report.candidate_snapshot)
+            self.assertIn(
+                contract.contract_id,
+                {
+                    item.endpoint_id
+                    for item in report.candidate_snapshot.owner_artifact_refs
+                    if item.endpoint_kind == "boundary_contract"
+                },
+            )
+            self.assertNotIn(
+                f"boundary_contract:{contract.contract_id}",
+                report.snapshot_diff.removed_ids,
+            )
+            self.assertFalse(report.to_dict()["writes_performed"])
+            self.assertEqual(before, self._tree_identity())
+        self.root = original_root
+        self.model_ids = original_model_ids
 
     def test_exact_64_to_60_preview_and_cli_are_read_only(self):
         retired = self._retire_last_four()

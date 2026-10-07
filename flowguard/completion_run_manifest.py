@@ -96,6 +96,9 @@ def invocation_projection(*, args: Any, root: Path, receipt_root: Path) -> dict[
         "formal_root": _path_value(getattr(args, "formal_root", "")),
         "shadow_root": _path_value(getattr(args, "shadow_root", "")),
         "installed_root": _path_value(getattr(args, "installed_root", "")),
+        "author_state_root": _path_value(
+            getattr(args, "author_state_root", "")
+        ),
         "model_jobs": int(getattr(args, "model_jobs", 1) or 1),
         "model_timeout": getattr(args, "model_timeout", None),
         "gate_timeout": float(getattr(args, "gate_timeout", 900.0) or 900.0),

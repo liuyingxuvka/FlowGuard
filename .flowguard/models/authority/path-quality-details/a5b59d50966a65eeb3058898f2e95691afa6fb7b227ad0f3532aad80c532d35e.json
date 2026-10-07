@@ -1,0 +1,2114 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:fa8e2089fcff41fda1392a722bdb3f4afc3701355ad28179a0b1c7496e747e83",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/bounded_system_composition_benchmark/model.py",
+            "source_fingerprint": "sha256:b0c11cd34118bd2b7510e4daa117e8813263af598919bb7d4c3024edd0a06bfe"
+          },
+          {
+            "path": "examples/bounded_system_composition/benchmark.py",
+            "source_fingerprint": "sha256:5aee778322026f0d183e0c14eb983dd4a2017bca9c87ab89458dbae7cff5b0b2"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "components": [
+        {
+          "component_id": "payment",
+          "family_id": "payment-order-retry-identity",
+          "id": "payment-order-retry-identity/payment",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "ready"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "payment-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "ready"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "payment-advance",
+                "label": "",
+                "output_symbol": "payment-advance",
+                "source_state": "ready",
+                "target_state": "done",
+                "transition_id": "payment-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:271a0578436ccdc704c051b7a5adc9f5d8ec4ffd87cb90f2d89b44a3b533c887"
+        },
+        {
+          "component_id": "order",
+          "family_id": "payment-order-retry-identity",
+          "id": "payment-order-retry-identity/order",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "pending"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "order-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "pending"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "order-advance",
+                "label": "",
+                "output_symbol": "order-advance",
+                "source_state": "pending",
+                "target_state": "done",
+                "transition_id": "order-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:0c2e2c3f9067b02e9369fc37aa3445b8baf87ba961456e416d06047b209163c7"
+        },
+        {
+          "component_id": "permission",
+          "family_id": "permission-revocation-cache",
+          "id": "permission-revocation-cache/permission",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "ready"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "permission-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "ready"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "permission-advance",
+                "label": "",
+                "output_symbol": "permission-advance",
+                "source_state": "ready",
+                "target_state": "done",
+                "transition_id": "permission-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:d40eded08c252676197efb8b0d74fe160c50819a3ae8cc8f2b55892cca736b30"
+        },
+        {
+          "component_id": "cache",
+          "family_id": "permission-revocation-cache",
+          "id": "permission-revocation-cache/cache",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "pending"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "cache-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "pending"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "cache-advance",
+                "label": "",
+                "output_symbol": "cache-advance",
+                "source_state": "pending",
+                "target_state": "done",
+                "transition_id": "cache-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:85ea25f26e557acfc46ea2c30cae4c869dba2256f4ac9fd24d2f9317dfd2c653"
+        },
+        {
+          "component_id": "deletion",
+          "family_id": "deletion-index-export",
+          "id": "deletion-index-export/deletion",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "ready"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "deletion-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "ready"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "deletion-advance",
+                "label": "",
+                "output_symbol": "deletion-advance",
+                "source_state": "ready",
+                "target_state": "done",
+                "transition_id": "deletion-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:e68d8e98b79a20050311893061472c64a23869397da862498477c691a50ba4cf"
+        },
+        {
+          "component_id": "index",
+          "family_id": "deletion-index-export",
+          "id": "deletion-index-export/index",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "pending"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "index-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "pending"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "index-advance",
+                "label": "",
+                "output_symbol": "index-advance",
+                "source_state": "pending",
+                "target_state": "done",
+                "transition_id": "index-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:8aad1a64a678b502c7d1d8b800819a477d3f11253ccdb0b41b216b3712e60af3"
+        },
+        {
+          "component_id": "export",
+          "family_id": "deletion-index-export",
+          "id": "deletion-index-export/export",
+          "model": {
+            "assumptions": [],
+            "conflicts": [],
+            "guarantees": [],
+            "initial_state_ids": [
+              "pending"
+            ],
+            "invariants": [],
+            "metadata": {},
+            "model_id": "export-model",
+            "schema_version": "flowguard.portable_model.v1",
+            "states": [
+              {
+                "payload": null,
+                "state_id": "pending"
+              },
+              {
+                "payload": null,
+                "state_id": "done"
+              }
+            ],
+            "temporal_obligations": [],
+            "terminal_state_ids": [
+              "done"
+            ],
+            "transitions": [
+              {
+                "input_symbol": "export-advance",
+                "label": "",
+                "output_symbol": "export-advance",
+                "source_state": "pending",
+                "target_state": "done",
+                "transition_id": "export-advance"
+              }
+            ]
+          },
+          "model_fingerprint": "sha256:b6004f2fffeffb845da7d68510cf5140268ccb3fc4dd789b5560db742ab4aa1a"
+        }
+      ],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [],
+      "initial_state_ids": [
+        "deletion-index-export/deletion/state:ready",
+        "deletion-index-export/export/state:pending",
+        "deletion-index-export/index/state:pending",
+        "payment-order-retry-identity/order/state:pending",
+        "payment-order-retry-identity/payment/state:ready",
+        "permission-revocation-cache/cache/state:pending",
+        "permission-revocation-cache/permission/state:ready"
+      ],
+      "outputs": [
+        {
+          "id": "deletion-index-export/deletion/output:deletion-advance",
+          "producer_id": "deletion-index-export/deletion/transition:deletion-advance",
+          "symbol": "deletion-advance",
+          "terminal": true
+        },
+        {
+          "id": "deletion-index-export/export/output:export-advance",
+          "producer_id": "deletion-index-export/export/transition:export-advance",
+          "symbol": "export-advance",
+          "terminal": true
+        },
+        {
+          "id": "deletion-index-export/index/output:index-advance",
+          "producer_id": "deletion-index-export/index/transition:index-advance",
+          "symbol": "index-advance",
+          "terminal": true
+        },
+        {
+          "id": "payment-order-retry-identity/order/output:order-advance",
+          "producer_id": "payment-order-retry-identity/order/transition:order-advance",
+          "symbol": "order-advance",
+          "terminal": true
+        },
+        {
+          "id": "payment-order-retry-identity/payment/output:payment-advance",
+          "producer_id": "payment-order-retry-identity/payment/transition:payment-advance",
+          "symbol": "payment-advance",
+          "terminal": true
+        },
+        {
+          "id": "permission-revocation-cache/cache/output:cache-advance",
+          "producer_id": "permission-revocation-cache/cache/transition:cache-advance",
+          "symbol": "cache-advance",
+          "terminal": true
+        },
+        {
+          "id": "permission-revocation-cache/permission/output:permission-advance",
+          "producer_id": "permission-revocation-cache/permission/transition:permission-advance",
+          "symbol": "permission-advance",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "responsibilities": [],
+      "states": [
+        {
+          "id": "deletion-index-export/deletion/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "deletion-index-export/deletion/state:ready",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "deletion-index-export/export/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "deletion-index-export/export/state:pending",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "deletion-index-export/index/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "deletion-index-export/index/state:pending",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "payment-order-retry-identity/order/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "payment-order-retry-identity/order/state:pending",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "payment-order-retry-identity/payment/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "payment-order-retry-identity/payment/state:ready",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "permission-revocation-cache/cache/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "permission-revocation-cache/cache/state:pending",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        },
+        {
+          "id": "permission-revocation-cache/permission/state:done",
+          "initial": false,
+          "payload": null,
+          "terminal": true
+        },
+        {
+          "id": "permission-revocation-cache/permission/state:ready",
+          "initial": true,
+          "payload": null,
+          "terminal": false
+        }
+      ],
+      "system_definitions": [
+        {
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "order",
+                "model_fingerprint": "sha256:0c2e2c3f9067b02e9369fc37aa3445b8baf87ba961456e416d06047b209163c7",
+                "model_id": "order-model"
+              },
+              {
+                "component_id": "payment",
+                "model_fingerprint": "sha256:271a0578436ccdc704c051b7a5adc9f5d8ec4ffd87cb90f2d89b44a3b533c887",
+                "model_id": "payment-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-payment-order",
+                "kind": "payment-order-retry-identity",
+                "source_component_id": "payment",
+                "target_component_id": "order"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:payment-order-retry-identity",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:payment",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "atomic-repair",
+                "transition_refs": [
+                  {
+                    "component_id": "order",
+                    "transition_id": "order-advance"
+                  },
+                  {
+                    "component_id": "payment",
+                    "transition_id": "payment-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "payment-order-retry-identity",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "pass",
+          "family_id": "payment-order-retry-identity",
+          "request": {
+            "changed_component_ids": [
+              "payment"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "payment-order-retry-identity:repaired",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:6512ecb5913274dc4fa03100cf23670a97ee094b77d0df47abd92220c907fa17",
+            "system_id": "payment-order-retry-identity"
+          }
+        },
+        {
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "cache",
+                "model_fingerprint": "sha256:85ea25f26e557acfc46ea2c30cae4c869dba2256f4ac9fd24d2f9317dfd2c653",
+                "model_id": "cache-model"
+              },
+              {
+                "component_id": "permission",
+                "model_fingerprint": "sha256:d40eded08c252676197efb8b0d74fe160c50819a3ae8cc8f2b55892cca736b30",
+                "model_id": "permission-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-permission-cache",
+                "kind": "permission-revocation-cache",
+                "source_component_id": "permission",
+                "target_component_id": "cache"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:permission-revocation-cache",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:permission",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "atomic-repair",
+                "transition_refs": [
+                  {
+                    "component_id": "cache",
+                    "transition_id": "cache-advance"
+                  },
+                  {
+                    "component_id": "permission",
+                    "transition_id": "permission-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "permission-revocation-cache",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "pass",
+          "family_id": "permission-revocation-cache",
+          "request": {
+            "changed_component_ids": [
+              "permission"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "permission-revocation-cache:repaired",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:38dd8c1b0868d6d2ae16bc778070876eeb800928aaf06ec3feaeffc8611a71af",
+            "system_id": "permission-revocation-cache"
+          }
+        },
+        {
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "deletion",
+                "model_fingerprint": "sha256:e68d8e98b79a20050311893061472c64a23869397da862498477c691a50ba4cf",
+                "model_id": "deletion-model"
+              },
+              {
+                "component_id": "export",
+                "model_fingerprint": "sha256:b6004f2fffeffb845da7d68510cf5140268ccb3fc4dd789b5560db742ab4aa1a",
+                "model_id": "export-model"
+              },
+              {
+                "component_id": "index",
+                "model_fingerprint": "sha256:8aad1a64a678b502c7d1d8b800819a477d3f11253ccdb0b41b216b3712e60af3",
+                "model_id": "index-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-deletion-index",
+                "kind": "deletion-index-export",
+                "source_component_id": "deletion",
+                "target_component_id": "index"
+              },
+              {
+                "dependency_id": "dep-index-export",
+                "kind": "deletion-index-export",
+                "source_component_id": "index",
+                "target_component_id": "export"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:deletion-index-export",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:deletion",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "ready"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "done"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "atomic-repair",
+                "transition_refs": [
+                  {
+                    "component_id": "deletion",
+                    "transition_id": "deletion-advance"
+                  },
+                  {
+                    "component_id": "export",
+                    "transition_id": "export-advance"
+                  },
+                  {
+                    "component_id": "index",
+                    "transition_id": "index-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "deletion-index-export",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "pass",
+          "family_id": "deletion-index-export",
+          "request": {
+            "changed_component_ids": [
+              "deletion"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "deletion-index-export:repaired",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:60fd81828e17ad9b68907dc1c6fb62f1bd562a52d90201f09e118a3b9e431483",
+            "system_id": "deletion-index-export"
+          }
+        }
+      ],
+      "terminal_state_ids": [
+        "deletion-index-export/deletion/state:done",
+        "deletion-index-export/export/state:done",
+        "deletion-index-export/index/state:done",
+        "payment-order-retry-identity/order/state:done",
+        "payment-order-retry-identity/payment/state:done",
+        "permission-revocation-cache/cache/state:done",
+        "permission-revocation-cache/permission/state:done"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "deletion-index-export/deletion/transition:deletion-advance",
+          "input_symbol": "deletion-advance",
+          "label": "",
+          "output_symbol": "deletion-advance",
+          "outputs": [
+            "deletion-index-export/deletion/output:deletion-advance"
+          ],
+          "source": "deletion-index-export/deletion/state:ready",
+          "state_updates": [],
+          "target": "deletion-index-export/deletion/state:done",
+          "trigger": "sha256:ba4fe8aeb572554e2a83ea85603c56271cb97706d40b5bf0340619aa6c1e758f"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "deletion-index-export/export/transition:export-advance",
+          "input_symbol": "export-advance",
+          "label": "",
+          "output_symbol": "export-advance",
+          "outputs": [
+            "deletion-index-export/export/output:export-advance"
+          ],
+          "source": "deletion-index-export/export/state:pending",
+          "state_updates": [],
+          "target": "deletion-index-export/export/state:done",
+          "trigger": "sha256:eda97b12929c44d1c8ed860533d0e5448337086cd96dbaae5439065cfd3d3b28"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "deletion-index-export/index/transition:index-advance",
+          "input_symbol": "index-advance",
+          "label": "",
+          "output_symbol": "index-advance",
+          "outputs": [
+            "deletion-index-export/index/output:index-advance"
+          ],
+          "source": "deletion-index-export/index/state:pending",
+          "state_updates": [],
+          "target": "deletion-index-export/index/state:done",
+          "trigger": "sha256:cbceadc213276942b716c670137c43dd7155b59d3510841b4bf46c00b57ee6df"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "payment-order-retry-identity/order/transition:order-advance",
+          "input_symbol": "order-advance",
+          "label": "",
+          "output_symbol": "order-advance",
+          "outputs": [
+            "payment-order-retry-identity/order/output:order-advance"
+          ],
+          "source": "payment-order-retry-identity/order/state:pending",
+          "state_updates": [],
+          "target": "payment-order-retry-identity/order/state:done",
+          "trigger": "sha256:01266a1265b0176465ffd8d91021895cce477a829ca2afabe435d8c4d39c24b3"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "payment-order-retry-identity/payment/transition:payment-advance",
+          "input_symbol": "payment-advance",
+          "label": "",
+          "output_symbol": "payment-advance",
+          "outputs": [
+            "payment-order-retry-identity/payment/output:payment-advance"
+          ],
+          "source": "payment-order-retry-identity/payment/state:ready",
+          "state_updates": [],
+          "target": "payment-order-retry-identity/payment/state:done",
+          "trigger": "sha256:fe458a554f614be0c97f894442bc0febb1e968b3ff080dc6481705f9d1b45569"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "permission-revocation-cache/cache/transition:cache-advance",
+          "input_symbol": "cache-advance",
+          "label": "",
+          "output_symbol": "cache-advance",
+          "outputs": [
+            "permission-revocation-cache/cache/output:cache-advance"
+          ],
+          "source": "permission-revocation-cache/cache/state:pending",
+          "state_updates": [],
+          "target": "permission-revocation-cache/cache/state:done",
+          "trigger": "sha256:d7428378b8dc8c22e46d677d5957cfe5aa5329bdeaa5ba7bc4bcb967f77b6fae"
+        },
+        {
+          "effects": [],
+          "errors": [],
+          "guard": "",
+          "id": "permission-revocation-cache/permission/transition:permission-advance",
+          "input_symbol": "permission-advance",
+          "label": "",
+          "output_symbol": "permission-advance",
+          "outputs": [
+            "permission-revocation-cache/permission/output:permission-advance"
+          ],
+          "source": "permission-revocation-cache/permission/state:ready",
+          "state_updates": [],
+          "target": "permission-revocation-cache/permission/state:done",
+          "trigger": "sha256:705bb2df31876aac0c1d9fbe0922edc48ff6ecb5132ea5c8ab21fbee2a304574"
+        }
+      ],
+      "validations": [],
+      "variant_declarations": [
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "order",
+                "model_fingerprint": "sha256:0c2e2c3f9067b02e9369fc37aa3445b8baf87ba961456e416d06047b209163c7",
+                "model_id": "order-model"
+              },
+              {
+                "component_id": "payment",
+                "model_fingerprint": "sha256:271a0578436ccdc704c051b7a5adc9f5d8ec4ffd87cb90f2d89b44a3b533c887",
+                "model_id": "payment-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-payment-order",
+                "kind": "payment-order-retry-identity",
+                "source_component_id": "payment",
+                "target_component_id": "order"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:payment-order-retry-identity",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:payment",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-order",
+                "transition_refs": [
+                  {
+                    "component_id": "order",
+                    "transition_id": "order-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-payment",
+                "transition_refs": [
+                  {
+                    "component_id": "payment",
+                    "transition_id": "payment-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "payment-order-retry-identity",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "fail",
+          "family_id": "payment-order-retry-identity",
+          "request": {
+            "changed_component_ids": [
+              "payment"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "payment-order-retry-identity:bad",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:4a8bb00de3f2d3f4a1100ee792cc78731155ba9e6d13a34cf6560244d743001a",
+            "system_id": "payment-order-retry-identity"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "bad"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "order",
+                "model_fingerprint": "sha256:0c2e2c3f9067b02e9369fc37aa3445b8baf87ba961456e416d06047b209163c7",
+                "model_id": "order-model"
+              },
+              {
+                "component_id": "payment",
+                "model_fingerprint": "sha256:271a0578436ccdc704c051b7a5adc9f5d8ec4ffd87cb90f2d89b44a3b533c887",
+                "model_id": "payment-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-payment-order",
+                "kind": "payment-order-retry-identity",
+                "source_component_id": "payment",
+                "target_component_id": "order"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:payment-order-retry-identity",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:payment",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-order",
+                "transition_refs": [
+                  {
+                    "component_id": "order",
+                    "transition_id": "order-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-payment",
+                "transition_refs": [
+                  {
+                    "component_id": "payment",
+                    "transition_id": "payment-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "payment-order-retry-identity",
+            "unresolved_dependency_ids": [
+              "missing-semantics"
+            ]
+          },
+          "expected_status": "blocked",
+          "family_id": "payment-order-retry-identity",
+          "request": {
+            "changed_component_ids": [
+              "payment"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "payment-order-retry-identity:missing-semantics",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:83d39b0b65a85c4a8ee0b39585e5de7edcee1f6b513d0902c712f8d14d02764f",
+            "system_id": "payment-order-retry-identity"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "missing-semantics"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "order",
+                "model_fingerprint": "sha256:0c2e2c3f9067b02e9369fc37aa3445b8baf87ba961456e416d06047b209163c7",
+                "model_id": "order-model"
+              },
+              {
+                "component_id": "payment",
+                "model_fingerprint": "sha256:271a0578436ccdc704c051b7a5adc9f5d8ec4ffd87cb90f2d89b44a3b533c887",
+                "model_id": "payment-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-payment-order",
+                "kind": "payment-order-retry-identity",
+                "source_component_id": "payment",
+                "target_component_id": "order"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:payment-order-retry-identity",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:payment",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "order",
+                    "pending"
+                  ],
+                  [
+                    "payment",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-order",
+                "transition_refs": [
+                  {
+                    "component_id": "order",
+                    "transition_id": "order-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-payment",
+                "transition_refs": [
+                  {
+                    "component_id": "payment",
+                    "transition_id": "payment-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "payment-order-retry-identity",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "blocked",
+          "family_id": "payment-order-retry-identity",
+          "request": {
+            "changed_component_ids": [
+              "payment"
+            ],
+            "environment_guarantees": [],
+            "max_states": 1,
+            "request_id": "payment-order-retry-identity:truncated",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:4a8bb00de3f2d3f4a1100ee792cc78731155ba9e6d13a34cf6560244d743001a",
+            "system_id": "payment-order-retry-identity"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "truncated"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "cache",
+                "model_fingerprint": "sha256:85ea25f26e557acfc46ea2c30cae4c869dba2256f4ac9fd24d2f9317dfd2c653",
+                "model_id": "cache-model"
+              },
+              {
+                "component_id": "permission",
+                "model_fingerprint": "sha256:d40eded08c252676197efb8b0d74fe160c50819a3ae8cc8f2b55892cca736b30",
+                "model_id": "permission-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-permission-cache",
+                "kind": "permission-revocation-cache",
+                "source_component_id": "permission",
+                "target_component_id": "cache"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:permission-revocation-cache",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:permission",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-cache",
+                "transition_refs": [
+                  {
+                    "component_id": "cache",
+                    "transition_id": "cache-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-permission",
+                "transition_refs": [
+                  {
+                    "component_id": "permission",
+                    "transition_id": "permission-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "permission-revocation-cache",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "fail",
+          "family_id": "permission-revocation-cache",
+          "request": {
+            "changed_component_ids": [
+              "permission"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "permission-revocation-cache:bad",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:5d29d5f975579dbd28f42442820e4e4dd514e86468ebc3a39e521812afe09a12",
+            "system_id": "permission-revocation-cache"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "bad"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "cache",
+                "model_fingerprint": "sha256:85ea25f26e557acfc46ea2c30cae4c869dba2256f4ac9fd24d2f9317dfd2c653",
+                "model_id": "cache-model"
+              },
+              {
+                "component_id": "permission",
+                "model_fingerprint": "sha256:d40eded08c252676197efb8b0d74fe160c50819a3ae8cc8f2b55892cca736b30",
+                "model_id": "permission-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-permission-cache",
+                "kind": "permission-revocation-cache",
+                "source_component_id": "permission",
+                "target_component_id": "cache"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:permission-revocation-cache",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:permission",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-cache",
+                "transition_refs": [
+                  {
+                    "component_id": "cache",
+                    "transition_id": "cache-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-permission",
+                "transition_refs": [
+                  {
+                    "component_id": "permission",
+                    "transition_id": "permission-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "permission-revocation-cache",
+            "unresolved_dependency_ids": [
+              "missing-semantics"
+            ]
+          },
+          "expected_status": "blocked",
+          "family_id": "permission-revocation-cache",
+          "request": {
+            "changed_component_ids": [
+              "permission"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "permission-revocation-cache:missing-semantics",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:4745e2bd8c7a08ca7c4cb74e5c553d71093bc3f64e1d58fd75c3aa8fe71cda81",
+            "system_id": "permission-revocation-cache"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "missing-semantics"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "cache",
+                "model_fingerprint": "sha256:85ea25f26e557acfc46ea2c30cae4c869dba2256f4ac9fd24d2f9317dfd2c653",
+                "model_id": "cache-model"
+              },
+              {
+                "component_id": "permission",
+                "model_fingerprint": "sha256:d40eded08c252676197efb8b0d74fe160c50819a3ae8cc8f2b55892cca736b30",
+                "model_id": "permission-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-permission-cache",
+                "kind": "permission-revocation-cache",
+                "source_component_id": "permission",
+                "target_component_id": "cache"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:permission-revocation-cache",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:permission",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "ready"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "cache",
+                    "pending"
+                  ],
+                  [
+                    "permission",
+                    "done"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-cache",
+                "transition_refs": [
+                  {
+                    "component_id": "cache",
+                    "transition_id": "cache-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-permission",
+                "transition_refs": [
+                  {
+                    "component_id": "permission",
+                    "transition_id": "permission-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "permission-revocation-cache",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "blocked",
+          "family_id": "permission-revocation-cache",
+          "request": {
+            "changed_component_ids": [
+              "permission"
+            ],
+            "environment_guarantees": [],
+            "max_states": 1,
+            "request_id": "permission-revocation-cache:truncated",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:5d29d5f975579dbd28f42442820e4e4dd514e86468ebc3a39e521812afe09a12",
+            "system_id": "permission-revocation-cache"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "truncated"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "deletion",
+                "model_fingerprint": "sha256:e68d8e98b79a20050311893061472c64a23869397da862498477c691a50ba4cf",
+                "model_id": "deletion-model"
+              },
+              {
+                "component_id": "export",
+                "model_fingerprint": "sha256:b6004f2fffeffb845da7d68510cf5140268ccb3fc4dd789b5560db742ab4aa1a",
+                "model_id": "export-model"
+              },
+              {
+                "component_id": "index",
+                "model_fingerprint": "sha256:8aad1a64a678b502c7d1d8b800819a477d3f11253ccdb0b41b216b3712e60af3",
+                "model_id": "index-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-deletion-index",
+                "kind": "deletion-index-export",
+                "source_component_id": "deletion",
+                "target_component_id": "index"
+              },
+              {
+                "dependency_id": "dep-index-export",
+                "kind": "deletion-index-export",
+                "source_component_id": "index",
+                "target_component_id": "export"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:deletion-index-export",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:deletion",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "ready"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "done"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-deletion",
+                "transition_refs": [
+                  {
+                    "component_id": "deletion",
+                    "transition_id": "deletion-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-export",
+                "transition_refs": [
+                  {
+                    "component_id": "export",
+                    "transition_id": "export-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-index",
+                "transition_refs": [
+                  {
+                    "component_id": "index",
+                    "transition_id": "index-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "deletion-index-export",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "fail",
+          "family_id": "deletion-index-export",
+          "request": {
+            "changed_component_ids": [
+              "deletion"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "deletion-index-export:bad",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:66d6d0af8bdade1574b507cbd66c3c1eff543eaf5d0723d7f684dcc45b43ac4c",
+            "system_id": "deletion-index-export"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "bad"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "deletion",
+                "model_fingerprint": "sha256:e68d8e98b79a20050311893061472c64a23869397da862498477c691a50ba4cf",
+                "model_id": "deletion-model"
+              },
+              {
+                "component_id": "export",
+                "model_fingerprint": "sha256:b6004f2fffeffb845da7d68510cf5140268ccb3fc4dd789b5560db742ab4aa1a",
+                "model_id": "export-model"
+              },
+              {
+                "component_id": "index",
+                "model_fingerprint": "sha256:8aad1a64a678b502c7d1d8b800819a477d3f11253ccdb0b41b216b3712e60af3",
+                "model_id": "index-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-deletion-index",
+                "kind": "deletion-index-export",
+                "source_component_id": "deletion",
+                "target_component_id": "index"
+              },
+              {
+                "dependency_id": "dep-index-export",
+                "kind": "deletion-index-export",
+                "source_component_id": "index",
+                "target_component_id": "export"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:deletion-index-export",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:deletion",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "ready"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "done"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-deletion",
+                "transition_refs": [
+                  {
+                    "component_id": "deletion",
+                    "transition_id": "deletion-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-export",
+                "transition_refs": [
+                  {
+                    "component_id": "export",
+                    "transition_id": "export-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-index",
+                "transition_refs": [
+                  {
+                    "component_id": "index",
+                    "transition_id": "index-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "deletion-index-export",
+            "unresolved_dependency_ids": [
+              "missing-semantics"
+            ]
+          },
+          "expected_status": "blocked",
+          "family_id": "deletion-index-export",
+          "request": {
+            "changed_component_ids": [
+              "deletion"
+            ],
+            "environment_guarantees": [],
+            "max_states": 100,
+            "request_id": "deletion-index-export:missing-semantics",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:4e6244301b81e3c0b47b5302c0ae91fee37adb23730d994a042d27090d3b6e4a",
+            "system_id": "deletion-index-export"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "missing-semantics"
+        },
+        {
+          "coverage": "not_run",
+          "definition": {
+            "bindings": [],
+            "components": [
+              {
+                "component_id": "deletion",
+                "model_fingerprint": "sha256:e68d8e98b79a20050311893061472c64a23869397da862498477c691a50ba4cf",
+                "model_id": "deletion-model"
+              },
+              {
+                "component_id": "export",
+                "model_fingerprint": "sha256:b6004f2fffeffb845da7d68510cf5140268ccb3fc4dd789b5560db742ab4aa1a",
+                "model_id": "export-model"
+              },
+              {
+                "component_id": "index",
+                "model_fingerprint": "sha256:8aad1a64a678b502c7d1d8b800819a477d3f11253ccdb0b41b216b3712e60af3",
+                "model_id": "index-model"
+              }
+            ],
+            "dependencies": [
+              {
+                "dependency_id": "dep-deletion-index",
+                "kind": "deletion-index-export",
+                "source_component_id": "deletion",
+                "target_component_id": "index"
+              },
+              {
+                "dependency_id": "dep-index-export",
+                "kind": "deletion-index-export",
+                "source_component_id": "index",
+                "target_component_id": "export"
+              }
+            ],
+            "discovery_evidence_id": "benchmark:deletion-index-export",
+            "ports": [],
+            "properties": [
+              {
+                "kind": "safety",
+                "max_steps": null,
+                "owner_id": "owner:deletion",
+                "property_id": "system-safety",
+                "step_ids": [],
+                "target_pattern_ids": [
+                  "unsafe"
+                ],
+                "trigger_pattern_ids": []
+              }
+            ],
+            "resources": [],
+            "scheduler_policy": "interleaving_v1",
+            "schema_version": "flowguard.portable_system.v1",
+            "state_patterns": [
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "ready"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "initial"
+              },
+              {
+                "component_states": [
+                  [
+                    "deletion",
+                    "done"
+                  ],
+                  [
+                    "export",
+                    "pending"
+                  ],
+                  [
+                    "index",
+                    "pending"
+                  ]
+                ],
+                "pattern_id": "unsafe"
+              }
+            ],
+            "steps": [
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-deletion",
+                "transition_refs": [
+                  {
+                    "component_id": "deletion",
+                    "transition_id": "deletion-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-export",
+                "transition_refs": [
+                  {
+                    "component_id": "export",
+                    "transition_id": "export-advance"
+                  }
+                ]
+              },
+              {
+                "code_targets": [],
+                "relation_ids": [],
+                "step_id": "step-index",
+                "transition_refs": [
+                  {
+                    "component_id": "index",
+                    "transition_id": "index-advance"
+                  }
+                ]
+              }
+            ],
+            "system_id": "deletion-index-export",
+            "unresolved_dependency_ids": []
+          },
+          "expected_status": "blocked",
+          "family_id": "deletion-index-export",
+          "request": {
+            "changed_component_ids": [
+              "deletion"
+            ],
+            "environment_guarantees": [],
+            "max_states": 1,
+            "request_id": "deletion-index-export:truncated",
+            "requested_component_ids": [],
+            "schema_version": "flowguard.system_composition_request.v1",
+            "selected_property_ids": [],
+            "system_fingerprint": "sha256:66d6d0af8bdade1574b507cbd66c3c1eff543eaf5d0723d7f684dcc45b43ac4c",
+            "system_id": "deletion-index-export"
+          },
+          "source_symbol": "build_case_inputs",
+          "variant": "truncated"
+        }
+      ]
+    },
+    "retained_elements": {
+      "deletion-index-export/deletion/state:done": "state",
+      "deletion-index-export/deletion/state:ready": "state",
+      "deletion-index-export/deletion/transition:deletion-advance": "transition",
+      "deletion-index-export/export/state:done": "state",
+      "deletion-index-export/export/state:pending": "state",
+      "deletion-index-export/export/transition:export-advance": "transition",
+      "deletion-index-export/index/state:done": "state",
+      "deletion-index-export/index/state:pending": "state",
+      "deletion-index-export/index/transition:index-advance": "transition",
+      "payment-order-retry-identity/order/state:done": "state",
+      "payment-order-retry-identity/order/state:pending": "state",
+      "payment-order-retry-identity/order/transition:order-advance": "transition",
+      "payment-order-retry-identity/payment/state:done": "state",
+      "payment-order-retry-identity/payment/state:ready": "state",
+      "payment-order-retry-identity/payment/transition:payment-advance": "transition",
+      "permission-revocation-cache/cache/state:done": "state",
+      "permission-revocation-cache/cache/state:pending": "state",
+      "permission-revocation-cache/cache/transition:cache-advance": "transition",
+      "permission-revocation-cache/permission/state:done": "state",
+      "permission-revocation-cache/permission/state:ready": "state",
+      "permission-revocation-cache/permission/transition:permission-advance": "transition"
+    },
+    "subject_fingerprint": "sha256:25b96ba975814fbeb297bf597891516bcd9ee4e765c1c867eeb6834446007db1",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:a5b59d50966a65eeb3058898f2e95691afa6fb7b227ad0f3532aad80c532d35e",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

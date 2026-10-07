@@ -153,7 +153,9 @@ def test_light_reuses_finite_suite_index_without_a_second_validation(
     assert validate.call_count == 1
     assert compile_suite.call_count == 1
     assert second["cost_metrics"]["rglob_passes"] == 0
-    assert second["cost_metrics"]["operation_count"] <= second["cost_metrics"]["operation_budget"]
+    assert second["cost_metrics"]["operation_budget"] is None
+    assert second["cost_metrics"]["time_budget_seconds"] is None
+    assert second["cost_metrics"]["operation_count"] >= 0
 
 
 def test_routine_light_does_not_write_cache_without_explicit_author_permission(

@@ -317,6 +317,24 @@ def _validate_definition(
             f"duplicate={','.join(duplicates) or '-'}"
         )
 
+    overrides = payload.get("owner_overrides")
+    if not isinstance(overrides, Mapping):
+        raise SelfBlueprintDefinitionCompilerError(
+            "owner_overrides must declare exact current model and runner owners"
+        )
+    for entry in entries:
+        paths = (entry.model_path, *(token for token in entry.runner if token.endswith(".py")))
+        for path in paths:
+            if path not in overrides:
+                raise SelfBlueprintDefinitionCompilerError(
+                    f"missing exact model/runner owner override: {path} -> {entry.model_id}"
+                )
+            if overrides[path] != entry.model_id:
+                raise SelfBlueprintDefinitionCompilerError(
+                    f"wrong exact model/runner owner override: {path} -> "
+                    f"{overrides[path]!r}; expected {entry.model_id}"
+                )
+
 
 def _entry_source_paths(root: Path, entry: ModelRegressionEntry) -> tuple[Path, Path]:
     expected_model = f".flowguard/models/owners/{entry.model_id}/model.py"

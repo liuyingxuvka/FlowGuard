@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
@@ -47,6 +48,98 @@ def test_generated_authority_categories_do_not_enter_generic_source(tmp_path: Pa
     assert ownership._fingerprint_manifest_paths(tmp_path, relatives) == ()
     with patch.object(ownership, "_git_candidate_paths", return_value=None):
         assert ownership.resolve_input_manifest(tmp_path, (".flowguard/**/*",)) == ()
+
+
+def test_immutable_read_authority_outputs_are_not_source_or_release_excluded(tmp_path: Path):
+    from flowguard.runtime_artifacts import is_release_excluded_path
+
+    categories = ("read-projection-indexes", "read-model-shards", "path-quality-details")
+    outputs = tuple(".flowguard/models/authority/" + item + "/" + "a" * 64 + ".json" for item in categories)
+    maintained = ".flowguard/models/authority/read-model-shards/maintained.py"
+    malformed = ".flowguard/models/authority/read-model-shards/not-content-addressed.json"
+    for relative in (*outputs, maintained, malformed):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{}\n", encoding="utf-8")
+    assert all(ownership._is_evidence_output(item) for item in outputs)
+    assert all(not is_release_excluded_path(item) for item in outputs)
+    assert not ownership._is_evidence_output(maintained)
+    assert not ownership._is_evidence_output(malformed)
+    with patch.object(ownership, "_git_candidate_paths", return_value=None):
+        without_git = ownership.validation_input_manifest(tmp_path)
+    subprocess.run(("git", "init", "-q", str(tmp_path)), check=True)
+    subprocess.run(("git", "-C", str(tmp_path), "add", ".flowguard"), check=True)
+    with_git = ownership.validation_input_manifest(tmp_path)
+    assert with_git == without_git
+    assert {item["path"] for item in with_git} == {maintained, malformed}
+
+
+def _current_release_authority_fixture(root: Path, *, candidate_sha=None):
+    from flowguard.model_authority_store import (
+        activate_model_revision_set, bootstrap_model_authority, _load_bound_read_projection,
+    )
+    from tests.test_model_authority_store import SHA_A, SHA_B, SHA_D, snapshot, revision
+
+    manifest = root / ".flowguard/project.toml"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text('[flowguard]\nadopted_package_version = "0.68.15"\n', encoding="utf-8")
+    base = snapshot("git:" + "a" * 40, SHA_A, "output-base")
+    head = bootstrap_model_authority(root, base, bootstrap_evidence_fingerprint=SHA_D)
+    candidate = snapshot("git:" + "b" * 40, candidate_sha or SHA_B, "output-current")
+    accepted = revision(root, head, base, candidate)
+    with patch("flowguard.model_system_inventory.build_manifest_model_system_snapshot", return_value=candidate):
+        current, _receipt = activate_model_revision_set(root, candidate, accepted)
+    projection = _load_bound_read_projection(root, current)
+    required = {
+        ".flowguard/models/authority/read-projection-indexes/" + projection["index_fingerprint"][7:] + ".json",
+        *(".flowguard/models/authority/read-model-shards/" + item["shard_fingerprint"][7:] + ".json" for item in projection["index"]["models"].values()),
+        *(".flowguard/models/authority/path-quality-details/" + item.detail_evidence_fingerprint[7:] + ".json" for item in accepted.path_quality_results),
+    }
+    return required
+
+
+def test_release_closure_retains_only_current_bound_read_authority(tmp_path: Path):
+    required = _current_release_authority_fixture(tmp_path)
+    unrelated = ".flowguard/models/authority/read-model-shards/" + "f" * 64 + ".json"
+    (tmp_path / unrelated).write_text("{}\n", encoding="utf-8")
+    paths = ownership.model_authority_release_paths(tmp_path)
+    assert len(paths) == len(set(paths))
+    assert required <= set(paths)
+    assert unrelated not in paths
+    assert not required & {item["path"] for item in ownership.validation_input_manifest(tmp_path)}
+
+
+def test_release_closure_rejects_missing_tampered_and_foreign_bound_objects(tmp_path: Path):
+    required = _current_release_authority_fixture(tmp_path)
+    for relative in sorted(required):
+        path = tmp_path / relative
+        original = path.read_bytes()
+        path.unlink()
+        with pytest.raises((ValueError, OSError)):
+            ownership.model_authority_release_paths(tmp_path)
+        path.write_bytes(original)
+        payload = json.loads(original)
+        payload["foreign_owner"] = "model:foreign"
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(ValueError):
+            ownership.model_authority_release_paths(tmp_path)
+        path.write_bytes(original)
+    assert required <= set(ownership.model_authority_release_paths(tmp_path))
+    from flowguard.model_authority_store import load_current_model_authority_state
+    from tests.test_model_authority_store import SHA_C
+
+    # Both observations are real authenticated states. A pointer switch between
+    # manifest discovery and the typed read must not combine their two closures.
+    current = load_current_model_authority_state(tmp_path, reverify_current_sources=False)
+    successor_root = tmp_path / "independent-authority"
+    _current_release_authority_fixture(successor_root, candidate_sha=SHA_C)
+    foreign = load_current_model_authority_state(successor_root, reverify_current_sources=False)
+    assert foreign.head.fingerprint != current.head.fingerprint
+    with patch("flowguard.model_authority_store.load_current_model_authority_state", return_value=foreign):
+        with pytest.raises(ValueError, match="authority changed during closure observation"):
+            ownership.model_authority_release_paths(tmp_path)
+    with patch("flowguard.model_authority_store.load_current_model_authority_state", return_value=current):
+        assert required <= set(ownership.model_authority_release_paths(tmp_path))
 
 
 def test_unknown_authority_category_is_not_silently_output(tmp_path: Path):

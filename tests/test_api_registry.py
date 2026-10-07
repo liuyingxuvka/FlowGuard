@@ -27,7 +27,7 @@ def legacy_dedupe_public_names(*groups: tuple[str, ...]) -> list[str]:
 class PublicAPIRegistryTests(unittest.TestCase):
     def test_package_facade_has_unique_materialized_names(self):
         registry = build_public_api_registry(
-            vars(flowguard),
+            {name: getattr(flowguard, name) for name in flowguard.__all__},
             (tuple(flowguard.__all__),),
         )
 

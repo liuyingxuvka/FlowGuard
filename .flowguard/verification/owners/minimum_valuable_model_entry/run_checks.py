@@ -153,4 +153,4 @@ def main() -> int:
 
 from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:minimum_valuable_model_entry", main))
+    raise SystemExit(native_main("model:minimum_valuable_model_entry", main, declared_source_exporter=__import__('model').export_path_quality_source))

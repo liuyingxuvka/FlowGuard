@@ -36,8 +36,20 @@ from flowguard import (
 from flowguard.existing_model_preflight import (
     ExistingIntentSurface,
     PREFLIGHT_INVENTORY_BROAD,
+    PREFLIGHT_INVENTORY_SELECTED,
 )
 from flowguard.model_authority_store import read_selected_model_closure
+
+
+def _write_lookup_ledger(root):
+    """Let the invocation-shared reader load actual canonical ledger bytes."""
+    from flowguard.behavior_commitment import (
+        BehaviorCommitmentLedger, write_behavior_commitment_ledger,
+    )
+    write_behavior_commitment_ledger(
+        root / ".flowguard/behavior/inventory/ledger.json",
+        BehaviorCommitmentLedger("ledger:preflight-navigation-fixture"),
+    )
 
 
 def model_hit(**kwargs) -> ModelContextHit:
@@ -424,6 +436,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 ledger_fingerprint="sha256:ledger",
             )
             (model_root / "behavior" / "inventory").mkdir(parents=True)
+            _write_lookup_ledger(root)
 
             with (
                 patch(
@@ -435,7 +448,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                     return_value=(None, snapshot),
                 ),
                 patch(
-                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
+                    "flowguard.behavior_commitment_lookup.query_behavior_commitments",
                     return_value=lookup,
                 ),
             ):
@@ -472,6 +485,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             root = Path(directory)
             (root / ".flowguard" / "behavior" / "inventory").mkdir(parents=True)
+            _write_lookup_ledger(root)
 
             def write(relative: str, text: str) -> Path:
                 path = root / relative
@@ -561,7 +575,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                     side_effect=AssertionError("light navigation invoked global audit"),
                 ),
                 patch(
-                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
+                    "flowguard.behavior_commitment_lookup.query_behavior_commitments",
                     return_value=lookup,
                 ),
             ):
@@ -655,6 +669,7 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 encoding="utf-8",
             )
             (root / ".flowguard" / "behavior" / "inventory").mkdir(parents=True)
+            _write_lookup_ledger(root)
             (root / ".flowguard" / "project.toml").write_text(
                 "[model_authority]\n",
                 encoding="utf-8",
@@ -684,35 +699,60 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 ledger_fingerprint="",
             )
 
-            with (
-                patch(
-                    "flowguard.existing_model_preflight.audit_model_authority",
-                    return_value=authority,
-                ),
-                patch(
-                    "flowguard.existing_model_preflight.load_observed_model_system",
-                    return_value=(None, snapshot),
-                ),
-                patch(
-                    "flowguard.existing_model_preflight.query_behavior_commitments_from_path",
-                    return_value=blocked_lookup,
-                ),
-            ):
-                preflight = existing_model_preflight_from_project(
-                    root,
-                    "Change router RouteTask",
-                    changed_paths=(".flowguard/models/owners/router/model.py",),
-                    downstream_routes=("development_process_flow",),
-                )
+            stale_owner_hint = BehaviorCommitmentHit(
+                "commitment:router", "agent_operation", "router", 100,
+            )
+            for mode in ("full", "light"):
+                for inventory_scope in (PREFLIGHT_INVENTORY_SELECTED, PREFLIGHT_INVENTORY_BROAD):
+                    for primary_hits in ((), (stale_owner_hint,)):
+                        with self.subTest(mode=mode, inventory_scope=inventory_scope,
+                                          stale_owner_hint=bool(primary_hits)):
+                            blocked_lookup.primary_hits = primary_hits
+                            with (
+                                patch(
+                                    "flowguard.existing_model_preflight.audit_model_authority",
+                                    return_value=authority,
+                                ),
+                                patch(
+                                    "flowguard.existing_model_preflight.load_observed_model_system",
+                                    return_value=(None, snapshot),
+                                ),
+                                patch(
+                                    "flowguard.behavior_commitment_lookup.query_behavior_commitments",
+                                    return_value=blocked_lookup,
+                                ),
+                                patch(
+                                    "flowguard.existing_model_preflight.read_selected_model_closure",
+                                    side_effect=AssertionError("blocked lookup selected an owner closure"),
+                                ),
+                                patch(
+                                    "flowguard.existing_model_preflight._full_declared_ownership",
+                                    side_effect=AssertionError("blocked lookup materialized owner declarations"),
+                                ),
+                                patch.object(Path, "rglob", side_effect=AssertionError("lexical root fallback")),
+                            ):
+                                preflight = existing_model_preflight_from_project(
+                                    root,
+                                    "Change router RouteTask",
+                                    mode=mode,
+                                    inventory_scope=inventory_scope,
+                                    changed_paths=(".flowguard/models/owners/router/model.py",),
+                                    downstream_routes=("development_process_flow",),
+                                )
 
-            report = review_existing_model_preflight(preflight)
-            self.assertEqual("blocked", preflight.behavior_lookup_status)
-            self.assertEqual((), preflight.relevant_models)
-            self.assertEqual("modeled_current", preflight.grounding_state)
-            self.assertFalse(report.ok)
-            codes = {finding.code for finding in report.findings}
-            self.assertIn("behavior_lookup_not_current", codes)
-            self.assertIn("modeled_current_owner_unresolved", codes)
+                            report = review_existing_model_preflight(preflight)
+                            self.assertEqual("blocked", preflight.behavior_lookup_status)
+                            self.assertEqual((), preflight.relevant_models)
+                            self.assertIsNone(preflight.ownership_snapshot)
+                            self.assertIsNone(preflight.canonical_relation_handoff)
+                            self.assertEqual({}, preflight.selected_closure)
+                            self.assertEqual({}, preflight.selected_read_counts)
+                            self.assertEqual(REUSE_DECISION_NO_MODEL_FOUND, preflight.reuse_decision)
+                            self.assertEqual("modeled_current", preflight.grounding_state)
+                            self.assertFalse(report.ok)
+                            codes = {finding.code for finding in report.findings}
+                            self.assertIn("behavior_lookup_not_current", codes)
+                            self.assertIn("modeled_current_owner_unresolved", codes)
 
             retired_fallback_report = review_existing_model_preflight(
                 ExistingModelPreflight(
@@ -1251,6 +1291,83 @@ class ExistingModelPreflightTests(unittest.TestCase):
             self.assertEqual("adoption_candidate", preflight.grounding_state)
             self.assertEqual("adoption_candidate", report.decision)
             self.assertIn("No validated current model authority", preflight.no_model_found_reason)
+
+
+def test_full_selected_preflight_never_audits_unrelated_global_authority(tmp_path):
+    from flowguard.source_identity import functional_source_fingerprint
+    ledger = tmp_path / ".flowguard/behavior/inventory"
+    ledger.mkdir(parents=True)
+    _write_lookup_ledger(tmp_path)
+    instances = []
+    for name in ("alpha", "beta"):
+        model = tmp_path / f"models/{name}.py"
+        model.parent.mkdir(exist_ok=True)
+        model.write_text(f'"""\nPurpose: {name} writes its state.\nkeeps its field identity.\nrejects invalid inputs.\nretains all four purpose lines.\n\nGuards against: stale source.\n"""\nclass {name.title()}State:\n    value: int = 0\nclass {name.title()}Step: pass\nside_effects_owned = ("effect:{name}:write",)\nfields_owned = ("field:{name}:value",)\n# field:foreign:referenced_only\n', encoding="utf-8")
+        runner = tmp_path / f"models/{name}_runner.py"
+        runner.write_text("pass\n", encoding="utf-8")
+        instances.append(SimpleNamespace(logical_model_id=name, fingerprint="sha256:" + hashlib.sha256(name.encode()).hexdigest(),
+            model_kind="state_machine", model_path=f"models/{name}.py", model_sha256=functional_source_fingerprint(tmp_path, f"models/{name}.py"),
+            runner_path=f"models/{name}_runner.py", runner_sha256=functional_source_fingerprint(tmp_path, f"models/{name}_runner.py"), inputs=(), purpose_closure_fingerprint="sha256:" + "a" * 64))
+    snapshot = SimpleNamespace(fingerprint="sha256:" + "b" * 64, subject_revision="fixture", unresolved_gap_ids=(), model_instances=tuple(instances), relations=())
+    lookup = SimpleNamespace(status="performed", selected_plane="agent_operation", primary_hits=(BehaviorCommitmentHit("commitment:alpha", "agent_operation", "alpha", 100),), related_hits=(), candidate_hits=(), plane_ambiguity=False, ledger_fingerprint="sha256:" + "c" * 64)
+    (tmp_path / "models/beta.py").write_text("beta_changed = True\n", encoding="utf-8")
+    with patch("flowguard.existing_model_preflight.load_observed_model_system", return_value=(None, snapshot)), patch("flowguard.existing_model_preflight.audit_model_authority", side_effect=AssertionError("unrelated global authority audited")), patch("flowguard.behavior_commitment_lookup.query_behavior_commitments", return_value=lookup), patch("flowguard.model_regressions.run_manifest_regressions", side_effect=AssertionError("owner launched")):
+        full = existing_model_preflight_from_project(tmp_path, "inspect alpha", mode="full")
+        assert full.mode == "full" and full.authority_integrity == "pass"
+        assert full.selected_source_currentness == "current"
+        assert tuple(row.model_id for row in full.relevant_models) == ("alpha",)
+        assert full.relevant_models[0].state_owned == ("AlphaState.value",)
+        assert len(full.relevant_models[0].responsibilities) == 4
+        assert full.relevant_models[0].side_effects_owned == ("effect:alpha:write",)
+        assert full.ownership_snapshot.field_owners == (("field:alpha:value", "alpha"),)
+        assert full.selected_read_counts["models/alpha.py"] == 1
+        assert full.selected_closure["producer_count"] == full.selected_closure["write_count"] == 0
+        (tmp_path / "models/alpha.py").write_text("alpha_changed = True\n", encoding="utf-8")
+        stale = existing_model_preflight_from_project(tmp_path, "inspect alpha", mode="full")
+        assert stale.authority_integrity == "pass" and stale.selected_source_currentness == "stale"
+        assert not review_existing_model_preflight(stale).ok
+        lookup.primary_hits = (BehaviorCommitmentHit("commitment:unknown", "agent_operation", "unknown", 100),)
+        unknown = existing_model_preflight_from_project(tmp_path, "unknown", mode="full")
+        assert not unknown.relevant_models and unknown.reuse_decision == REUSE_DECISION_NO_MODEL_FOUND
+    manifest = tmp_path / ".flowguard/project.toml"
+    manifest.write_text('[model_authority]\nhead_fingerprint="broken"\n', encoding="utf-8")
+    with patch("flowguard.existing_model_preflight.load_observed_model_system", side_effect=ValueError("bad head")), patch("flowguard.existing_model_preflight.audit_model_authority", side_effect=AssertionError("global audit")):
+        broken = existing_model_preflight_from_project(tmp_path, "alpha", mode="full")
+        assert broken.authority_integrity == "blocked" and not broken.relevant_models
+
+
+def test_r8_growth_observation_preserves_deleted_renamed_and_excluded_paths(tmp_path):
+    from flowguard.implementation_inventory import BoundaryExclusion
+    from flowguard.model_authority_store import read_selected_model_projection
+    from tests.test_model_authority_store import _r7_scope_read_fixture
+    head, projection, shard, payload, _, _ = _r7_scope_read_fixture(
+        tmp_path, exclusions=(BoundaryExclusion("w_skip.py", "Private non-production fixture"),))
+    (tmp_path / "w_skip.py").write_text("private = True\n", encoding="utf-8")
+    (tmp_path / "w_renamed.py").write_text("def renamed():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "unregistered.json").write_text("{}\n", encoding="utf-8")
+    observed = ("w_deleted.py", "w_old_name.py", "w_renamed.py", "w_skip.py", "unregistered.json")
+    with patch("flowguard.model_authority_store._read_content_addressed_payload", side_effect=payload), patch(
+        "flowguard.model_authority_store._load_selected_read_shards", return_value=(shard,)
+    ), patch.object(Path, "rglob", side_effect=AssertionError("global scan")), patch.object(Path, "glob", side_effect=AssertionError("global scan")):
+        read = read_selected_model_projection(tmp_path, head=head, projection=projection,
+            selected_model_ids=("alpha",), changed_paths=observed)
+        gaps = {row["path"]: row for row in read.growth_gaps}
+        assert read.checked_observed_paths == tuple(sorted(observed))
+        assert set(gaps) == set(observed) - {"w_skip.py"}
+        assert gaps["w_deleted.py"]["observed_state"] == gaps["w_old_name.py"]["observed_state"] == "missing"
+        assert gaps["w_renamed.py"]["affected_boundary_id"] == "boundary:fixture"
+        assert gaps["unregistered.json"]["required_input_refs"] == ["boundary_admission_required:unregistered.json"]
+        assert all(row["observation_fingerprint"] == read.observation_fingerprint for row in gaps.values())
+        # An outdated boundary cannot authorize even its formerly legal exclusion.
+        (tmp_path / "scope-definition.json").write_text('{"changed": true}\n', encoding="utf-8")
+        stale = read_selected_model_projection(tmp_path, head=head, projection=projection,
+            selected_model_ids=("alpha",), changed_paths=("w_skip.py",))
+        assert stale.growth_gaps[0]["path"] == "w_skip.py"
+    preflight = ExistingModelPreflight("growth-audit", "Inspect changed software", growth_gaps=read.growth_gaps,
+        checked_observed_paths=read.checked_observed_paths, observation_fingerprint=read.observation_fingerprint,
+        live_unregistered_file_detection=read.live_unregistered_file_detection)
+    assert preflight.to_dict()["checked_observed_paths"] == list(sorted(observed))
+    assert any(row.code == "model_growth_unbound" for row in review_existing_model_preflight(preflight).findings)
 
 
 if __name__ == "__main__":

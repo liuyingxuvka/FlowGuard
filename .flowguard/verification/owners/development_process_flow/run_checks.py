@@ -18,6 +18,12 @@ import sys
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
 from flowguard import Scenario, ScenarioExpectation, review_scenarios
 import model
+import hashlib
+import json
+import os
+import xml.etree.ElementTree as ET
+from flowguard.process_supervision import run_supervised
+from flowguard.validation_ownership import nested_owner_launch_allowed
 
 
 REQUIRED_LABELS = ("validation_passed", "release_accepted")
@@ -238,11 +244,143 @@ def run_path_quality_lifecycle_model() -> bool:
     return report.ok
 
 
+def run_producer_episode_model() -> bool:
+    good = run_exact_workflow_case(
+        "producer_current_episode_publishes",
+        workflow=model.build_producer_workflow(),
+        initial_state=model.ProducerState(),
+        external_input_sequence=model.PRODUCER_GOOD_SEQUENCE,
+        invariants=model.PRODUCER_INVARIANTS,
+        final_state_predicate=lambda state: state.receipt_published,
+    )
+    scenarios = []
+    for case_id, _failure_id, sequence in model.PRODUCER_FAILURE_CASES:
+        scenarios.extend((
+            Scenario(
+                f"producer_{case_id}_is_rejected",
+                "The exact producer gate preserves the reservation/order/terminal boundary.",
+                model.ProducerState(), sequence,
+                ScenarioExpectation(expected_status="ok", required_trace_labels=(
+                    "producer_reservation_blocked" if case_id == "duplicate_full_reservation"
+                    else "producer_launch_blocked" if case_id in {"unknown_dependency", "unordered_shared_resource"}
+                    else "producer_publication_blocked",
+                )), workflow=model.build_producer_workflow(),
+            ),
+            Scenario(
+                f"broken_producer_{case_id}",
+                "A known-bad gate accepts the protected producer failure.",
+                model.ProducerState(), sequence,
+                ScenarioExpectation(expected_status="violation", expected_violation_names=("producer_exact_reservation_order_and_terminal",)),
+                workflow=model.build_producer_workflow(broken=True),
+            ),
+        ))
+    report = review_scenarios(tuple(scenarios), default_invariants=model.PRODUCER_INVARIANTS)
+    print(report.format_text())
+    # Retain each actual counterexample and its source-declared protected
+    # failure identity. The generic invariant alone cannot prove eight
+    # distinct producer failure obligations.
+    protected = {f"broken_producer_{case_id}": failure_id
+                 for case_id, failure_id, _sequence in model.PRODUCER_FAILURE_CASES}
+    native_cases = []
+    for result in report.results:
+        failure_id = protected.get(result.scenario_name)
+        if failure_id is None:
+            continue
+        run = result.scenario_run
+        findings = list(run.observed_violation_names)
+        if (result.ok and run.observed_status == "violation"
+                and "producer_exact_reservation_order_and_terminal" in findings):
+            findings.append(failure_id)
+        native_cases.append({
+            "name": result.scenario_name, "case_kind": "bad",
+            "ok": result.ok, "observed_status": run.observed_status,
+            "observed_finding_codes": findings,
+            # This named owner projection contains more evidence than the
+            # captured generic scenario report; preserve it in the native row.
+            "projection_priority": 60,
+            "projection_source": "owner-protected-counterexample",
+        })
+    print(json.dumps({"native_cases": native_cases}, sort_keys=True))
+    return good and report.ok
+
+
+def run_producer_implementation_contract() -> bool:
+    """One contained pytest child proves the exact paired implementation oracles.
+
+    Test identities come from pytest's own report.nodeid, never display names.
+    Each selector receives its own observed JUnit verdict; an aggregate count,
+    skipped case or unrelated passing test cannot stand in for an oracle.
+    """
+    if not nested_owner_launch_allowed("development_process_flow", "development_process_flow:native_pytest"):
+        print("producer implementation blocked: another owner owns this child; no relaunch or inferred reuse")
+        return False
+    output_text = os.environ.get("FLOWGUARD_OUTPUT_DIR", "").strip()
+    if not output_text:
+        print("producer implementation blocked: exact run-local output directory is required")
+        return False
+    output = Path(output_text).resolve() / "producer-implementation"
+    if output.exists():
+        print("producer implementation blocked: child output identity already exists")
+        return False
+    output.mkdir(parents=True)
+    junit_path, nodeids_path = output / "junit.xml", output / "nodeids.json"
+    environment = dict(os.environ)
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    environment["FLOWGUARD_PYTEST_NODEIDS"] = str(nodeids_path)
+    command = (sys.executable, "-B", "-m", "pytest", *model.NATIVE_PYTEST_SELECTORS,
+               "-q", "-p", "no:cacheprovider", "-p", "flowguard.pytest_nodeid_recorder", f"--junitxml={junit_path}")
+    result = run_supervised(command, cwd=_FLOWGUARD_PROJECT_ROOT, timeout_seconds=180, environment=environment)
+    (output / "terminal.json").write_text(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    (output / "stdout.log").write_text(result.stdout, encoding="utf-8")
+    (output / "stderr.log").write_text(result.stderr, encoding="utf-8")
+    rows, findings = [], []
+    try:
+        nodes = json.loads(nodeids_path.read_text(encoding="utf-8"))
+        if set(nodes) != {"schema_version", "nodeids", "exit_status"} or nodes["schema_version"] != "flowguard.pytest_nodeids.v1" or type(nodes["exit_status"]) is not int or nodes["exit_status"] != 0:
+            raise ValueError("invalid exact pytest node-id contract")
+        nodeids = nodes["nodeids"]
+        if not isinstance(nodeids, list) or not all(isinstance(n, str) and n for n in nodeids) or len(set(nodeids)) != len(nodeids):
+            raise ValueError("missing or duplicate executed pytest node identity")
+        cases = ET.parse(junit_path).getroot().findall(".//testcase")
+        if not cases or len(cases) != len(nodeids):
+            raise ValueError("JUnit/executed node identity cardinality mismatch")
+        for nodeid, case in zip(nodeids, cases, strict=True):
+            matched = [s for s in model.NATIVE_PYTEST_SELECTORS if nodeid == s or nodeid.startswith(s + "[")]
+            if len(matched) != 1:
+                raise ValueError("foreign or ambiguous executed selector")
+            outcome = "pass" if not any(case.find(tag) is not None for tag in ("failure", "error", "skipped")) else "nonpass"
+            rows.append({"pytest_nodeid": nodeid, "selector": matched[0], "status": outcome})
+        for selected in model.NATIVE_PYTEST_SELECTORS:
+            observed = [r for r in rows if r["selector"] == selected]
+            expected_count = 2 if selected.endswith("::test_authentic_cancelled_episode_cannot_publish_receipt") else 1
+            if len(observed) != expected_count or any(r["status"] != "pass" for r in observed):
+                findings.append("missing_or_nonpassing_oracle:" + selected)
+    except (OSError, ValueError, TypeError, KeyError, ET.ParseError) as exc:
+        findings.append("implementation_oracle_evidence_invalid:" + str(exc))
+    if not result.ok:
+        findings.append("implementation_child_not_current_terminal_zero_descendants")
+    selector_ok = {s: bool([r for r in rows if r["selector"] == s]) and all(r["status"] == "pass" for r in rows if r["selector"] == s) for s in model.NATIVE_PYTEST_SELECTORS}
+    payload = {
+        "schema_version": "flowguard.development_producer_implementation.v1",
+        "status": "pass" if not findings else "blocked",
+        "claim_boundary": "Exact selected source implementation oracles for this current contained child; model-policy results remain separate.",
+        "command": list(command), "executed_tests": rows, "findings": findings,
+        "good_oracles": [{"selector": s, "passed": selector_ok[s]} for s in model.PRODUCER_GOOD_IMPLEMENTATION_SELECTORS],
+        "protected_failure_oracles": [{"case_id": c, "protected_failure_id": next(f for case, f, _ in model.PRODUCER_FAILURE_CASES if case == c), "selector": s, "passed": selector_ok[s]} for c, s in model.PRODUCER_IMPLEMENTATION_ORACLES],
+        "artifact_sha256": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in (junit_path, nodeids_path, output / "terminal.json") if p.is_file()},
+    }
+    (output / "result.json").write_text(json.dumps(payload, ensure_ascii=False, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    print("producer implementation:", payload["status"], "exact executed oracles:", len(rows))
+    return not findings
+
+
 def main() -> int:
     admission_ok = run_implementation_admission_model()
     release_identity_ok = run_release_identity_model()
     author_sync_ok = run_author_shadow_sync_model()
     path_quality_lifecycle_ok = run_path_quality_lifecycle_model()
+    producer_model_ok = run_producer_episode_model()
+    producer_implementation_ok = run_producer_implementation_contract()
     exact_ok = run_exact_workflow_case(
         "correct_development_process_flow",
         workflow=model.build_correct_workflow(),
@@ -290,6 +428,8 @@ def main() -> int:
         and release_identity_ok
         and author_sync_ok
         and path_quality_lifecycle_ok
+        and producer_model_ok
+        and producer_implementation_ok
         and exact_ok
         and report.ok
         else 1
@@ -297,4 +437,4 @@ def main() -> int:
 
 from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:development_process_flow", main))
+    raise SystemExit(native_main("model:development_process_flow", main, declared_source_exporter=__import__('model').export_path_quality_source))

@@ -1,0 +1,326 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:c2119ca4d7e5fdb393991d3a94ab96cbac8f8f595d17c3c168afb2a1b4688b64",
+        "effective_intent_view_fingerprint": "sha256:dac60887220008644ad16bc6413e1989712ad488be9f43eae5b0df2c189ccd1b",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/field_prompt_reduction/model.py",
+            "source_fingerprint": "sha256:eb1587a740cb4e2a0f16dbcc00f4692202f59c5e4fc9d5b5743ea5195f96bd2d"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:broad_regression_complete",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:field_groups_declared",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:focused_validation_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:git_evidence_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:installed_skills_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:optional_details_lazy_loaded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:prompt_field_caps_tested",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:required_evidence_preserved",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:field_prompt_reduction:shadow_workspace_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "FieldPromptAction",
+          "effects": [],
+          "id": "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction",
+          "inputs": [
+            "external-input:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45"
+          ],
+          "outputs": [
+            "output:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:field_prompt_reduction:field_groups_declared",
+            "field:field_prompt_reduction:required_evidence_preserved",
+            "field:field_prompt_reduction:optional_details_lazy_loaded",
+            "field:field_prompt_reduction:prompt_field_caps_tested",
+            "field:field_prompt_reduction:focused_validation_passed",
+            "field:field_prompt_reduction:broad_regression_complete",
+            "field:field_prompt_reduction:installed_skills_synced",
+            "field:field_prompt_reduction:shadow_workspace_synced",
+            "field:field_prompt_reduction:git_evidence_recorded",
+            "field:field_prompt_reduction:done_claim"
+          ],
+          "state_input": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0",
+          "state_output": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:1",
+          "validations": [
+            "validation:field_prompt_reduction:invariant:no_done_without_evidence_and_sync",
+            "validation:field_prompt_reduction:invariant:grouped_fields_preserve_required_evidence"
+          ],
+          "writes": [
+            "field:field_prompt_reduction:field_groups_declared",
+            "field:field_prompt_reduction:required_evidence_preserved",
+            "field:field_prompt_reduction:optional_details_lazy_loaded",
+            "field:field_prompt_reduction:prompt_field_caps_tested",
+            "field:field_prompt_reduction:focused_validation_passed",
+            "field:field_prompt_reduction:broad_regression_complete",
+            "field:field_prompt_reduction:installed_skills_synced",
+            "field:field_prompt_reduction:shadow_workspace_synced",
+            "field:field_prompt_reduction:git_evidence_recorded",
+            "field:field_prompt_reduction:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction",
+          "producer_id": "transition:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction",
+          "outputs": [
+            "output:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction"
+          ],
+          "reads": [
+            "field:field_prompt_reduction:field_groups_declared",
+            "field:field_prompt_reduction:required_evidence_preserved",
+            "field:field_prompt_reduction:optional_details_lazy_loaded",
+            "field:field_prompt_reduction:prompt_field_caps_tested",
+            "field:field_prompt_reduction:focused_validation_passed",
+            "field:field_prompt_reduction:broad_regression_complete",
+            "field:field_prompt_reduction:installed_skills_synced",
+            "field:field_prompt_reduction:shadow_workspace_synced",
+            "field:field_prompt_reduction:git_evidence_recorded",
+            "field:field_prompt_reduction:done_claim"
+          ],
+          "source": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0",
+          "target": "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:1",
+          "trigger": "FieldPromptAction",
+          "validations": [
+            "validation:field_prompt_reduction:invariant:no_done_without_evidence_and_sync",
+            "validation:field_prompt_reduction:invariant:grouped_fields_preserve_required_evidence"
+          ],
+          "writes": [
+            "field:field_prompt_reduction:field_groups_declared",
+            "field:field_prompt_reduction:required_evidence_preserved",
+            "field:field_prompt_reduction:optional_details_lazy_loaded",
+            "field:field_prompt_reduction:prompt_field_caps_tested",
+            "field:field_prompt_reduction:focused_validation_passed",
+            "field:field_prompt_reduction:broad_regression_complete",
+            "field:field_prompt_reduction:installed_skills_synced",
+            "field:field_prompt_reduction:shadow_workspace_synced",
+            "field:field_prompt_reduction:git_evidence_recorded",
+            "field:field_prompt_reduction:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:field_prompt_reduction",
+          "id": "validation:field_prompt_reduction:invariant:grouped_fields_preserve_required_evidence",
+          "obligation_id": "obligation:native-invariant:field_prompt_reduction:grouped_fields_preserve_required_evidence",
+          "oracle_id": "oracle:native-invariant:field_prompt_reduction:grouped_fields_preserve_required_evidence",
+          "subject_fingerprint": "sha256:6bb387feff43d258979433dd21e05c58a19b5fa1081ccaf3e32ab22990cc609b"
+        },
+        {
+          "evidence_boundary_id": "native-runner:field_prompt_reduction",
+          "id": "validation:field_prompt_reduction:invariant:no_done_without_evidence_and_sync",
+          "obligation_id": "obligation:native-invariant:field_prompt_reduction:no_done_without_evidence_and_sync",
+          "oracle_id": "oracle:native-invariant:field_prompt_reduction:no_done_without_evidence_and_sync",
+          "subject_fingerprint": "sha256:6bb387feff43d258979433dd21e05c58a19b5fa1081ccaf3e32ab22990cc609b"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:field_prompt_reduction:broad_regression_complete": "field",
+      "field:field_prompt_reduction:done_claim": "field",
+      "field:field_prompt_reduction:field_groups_declared": "field",
+      "field:field_prompt_reduction:focused_validation_passed": "field",
+      "field:field_prompt_reduction:git_evidence_recorded": "field",
+      "field:field_prompt_reduction:installed_skills_synced": "field",
+      "field:field_prompt_reduction:optional_details_lazy_loaded": "field",
+      "field:field_prompt_reduction:prompt_field_caps_tested": "field",
+      "field:field_prompt_reduction:required_evidence_preserved": "field",
+      "field:field_prompt_reduction:shadow_workspace_synced": "field",
+      "function-block:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction": "function_block",
+      "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0": "state",
+      "state:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:1": "state",
+      "transition:workflow:field_prompt_reduction:field_prompt_reduction_correct:0:d47313ae0e45:0:CorrectFieldPromptReduction": "transition",
+      "validation:field_prompt_reduction:invariant:grouped_fields_preserve_required_evidence": "validation",
+      "validation:field_prompt_reduction:invariant:no_done_without_evidence_and_sync": "validation"
+    },
+    "subject_fingerprint": "sha256:f1716298dcd90a1d49083c662d8b73ef0f85bfd0a040527a274b9bb64e32151d",
+    "trigger_currentness_id": "sha256:1feb376c0cb5f47128a10c89236497db619100bf1cbfdba793cf4c97e8ef6cd3",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:8259e538a85700c59d6b71ffe5c97930e315efabc37594001f3176cfa02a49d9",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

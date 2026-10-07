@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -394,6 +395,7 @@ class ProjectAdoptionTests(unittest.TestCase):
             manifest = root / FLOWGUARD_PROJECT_MANIFEST
             manifest.parent.mkdir(parents=True)
             manifest.write_text(current_project_manifest_text(package_version="0.1.0"), encoding="utf-8")
+            original_manifest_bytes = manifest.read_bytes()
             old_report = root / ".flowguard" / "old_report.json"
             old_report.write_text(
                 json.dumps(_legacy_behavior_ledger()),
@@ -414,8 +416,8 @@ class ProjectAdoptionTests(unittest.TestCase):
                 old_report.read_text(encoding="utf-8"),
             )
             self.assertEqual(
-                current_project_manifest_text(package_version="0.1.0"),
-                manifest.read_text(encoding="utf-8"),
+                original_manifest_bytes,
+                manifest.read_bytes(),
             )
 
     def test_project_upgrade_records_only_scopes_artifact_scan(self):
@@ -806,6 +808,30 @@ class ProjectAdoptionTests(unittest.TestCase):
             installed = install_skill_suite(ROOT, codex_home=codex_home)
             self.assertTrue(installed.ok, installed.to_dict())
 
+            # Build from an exclusive copy: setuptools regenerates egg-info,
+            # which must not mutate another shard's live producer identity.
+            package_source = project_root / "package-source"
+            package_source.mkdir()
+            for name in ("pyproject.toml", "README.md", "LICENSE"):
+                shutil.copy2(ROOT / name, package_source / name)
+            for name in ("flowguard", "examples", ".skillguard"):
+                shutil.copytree(
+                    ROOT / name,
+                    package_source / name,
+                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"),
+                )
+            author_suite = Path(".skillguard/flowguard-suite/suite-map.json")
+            self.assertEqual(
+                (ROOT / author_suite).read_bytes(),
+                (package_source / author_suite).read_bytes(),
+            )
+            source_metadata = ROOT / "flowguard.egg-info"
+            metadata_before = {
+                path.name: (path.read_bytes(), path.stat().st_mtime_ns)
+                for path in source_metadata.glob("*")
+                if path.is_file()
+            }
+
             package_install = subprocess.run(
                 [
                     sys.executable,
@@ -815,12 +841,21 @@ class ProjectAdoptionTests(unittest.TestCase):
                     '--no-deps',
                     '--target',
                     str(site_root),
-                    str(ROOT),
+                    str(package_source),
                 ],
                 cwd=project_root,
                 text=True,
                 capture_output=True,
                 check=False,
+            )
+            self.assertEqual(
+                metadata_before,
+                {
+                    path.name: (path.read_bytes(), path.stat().st_mtime_ns)
+                    for path in source_metadata.glob("*")
+                    if path.is_file()
+                },
+                "isolated package build must preserve shared Source metadata",
             )
             self.assertEqual(0, package_install.returncode, package_install.stdout + package_install.stderr)
             runtime_env = {

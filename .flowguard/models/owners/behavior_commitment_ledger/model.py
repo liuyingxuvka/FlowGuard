@@ -53,3 +53,18 @@ __all__ = [
     "build_flowguard_behavior_commitment_ledger",
     "export_contract_model",
 ]
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='behavior_commitment_ledger', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='native_check_contract',
+        source_refs=({"path": '.flowguard/models/owners/behavior_commitment_ledger/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/behavior_commitment_ledger/model.py')},),
+        contract_export=export_contract_model(),
+    )

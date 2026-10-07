@@ -1,0 +1,538 @@
+{
+  "boundary_nodes": [
+    {
+      "endpoint_id": "commitment:model-impact-freshness-current",
+      "endpoint_kind": "behavior_commitment",
+      "fingerprint": "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+      "owner_route": "behavior_commitment_ledger"
+    },
+    {
+      "endpoint_id": "boundary-contract:behavior-commitment-ledger:partition-v1",
+      "endpoint_kind": "boundary_contract",
+      "fingerprint": "sha256:8267502cea098e5eec47325c59802a478c8a2354c536844b55efc7536241b6c1",
+      "owner_route": "authoritative_model_system"
+    },
+    {
+      "endpoint_id": "contract:.flowguard/models/owners/model_impact_freshness_gate/model.py",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:c02567bf577aa834bbe3b1cced4664a870a744d2f0a9d78a83c80c4c7d0ed6ed",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "contract:flowguard/existing_model_preflight.py",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:0d40671dbd32bd23631e241cb418b47890c7a0ac039ae98566a948a0538dd8f9",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "contract:flowguard/model_regressions.py",
+      "endpoint_kind": "code_contract",
+      "fingerprint": "sha256:a4a317b2feb65c85088fa21bd1ed2113ab2541eeffd98de9aa647f823f1113a3",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "native-owner-route:model_impact_freshness_gate",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:fb6f48a5c694e7e3a4b3df48611a817f399a97e808233c830dbeca9ced0d586b",
+      "owner_route": "model_impact_freshness_gate"
+    },
+    {
+      "endpoint_id": "purpose:model_impact_freshness_gate",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:0f399c8f15b9dbaa28195613907ea3d1d186b7fbb1f99595cde4a195316e77e9",
+      "owner_route": "model_test_alignment"
+    },
+    {
+      "endpoint_id": "semantic-parent:authority-and-understanding",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:dcd076f90f064a90fae7b312c53d1c77c3ed25014b58e0f75d9795b1e8f30674",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "semantic-parent:model-mesh-and-composition",
+      "endpoint_kind": "parent_closure",
+      "fingerprint": "sha256:556d96de8231f9f3d5791dbdefabf7a71ed4de39f385819a1d687eb1d1d26fde",
+      "owner_route": "model_mesh_maintenance"
+    },
+    {
+      "endpoint_id": "field-or-effect:return-impact/revalidation-demand-do-not-launch-owners-from-freshness-reading",
+      "endpoint_kind": "side_effect_inventory",
+      "fingerprint": "sha256:0c890e0a84f0ef82fd5f5d7bc5b96aac932ac7019ee4058d8d0204210234e0b7",
+      "owner_route": "field_lifecycle_mesh"
+    },
+    {
+      "endpoint_id": "test:.flowguard/verification/owners/model_impact_freshness_gate/run_checks.py",
+      "endpoint_kind": "test_evidence",
+      "fingerprint": "sha256:93da3d8c049cdc1fd6c3b856e0009038e591ce44e9ad3d25d41b7e5f11e318a9",
+      "owner_route": "test_mesh_maintenance"
+    }
+  ],
+  "candidate_snapshot_fingerprint": "sha256:bbb34b1050ccce627c51ccb155867a8303ec9272e2b02868311721d2a2e6b726",
+  "fingerprint": "sha256:f8b5eae958c311919a938edbad7b4ee8aa767e3287e4dc1d7c0cde6d1f40c067",
+  "intent_refs": [
+    {
+      "authority_kind": "project_file",
+      "contribution_id": "current-design:snapshot-r9-064:model_impact_freshness_gate:1",
+      "logical_model_id": "model_impact_freshness_gate",
+      "source_fingerprint": "sha256:c6bb8acb4cb5b088688b3de373d4cf19924dc80bf7eceb6b0aa2c821f3675896",
+      "source_ref": "openspec/specs/model-impact-freshness-gate/spec.md"
+    }
+  ],
+  "logical_model_id": "model_impact_freshness_gate",
+  "model": {
+    "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+    "input_inventory_fingerprint": "sha256:e14ae10a1829f7a5404f460c5429a26e27fed1b121f77432d61b4780f5176d22",
+    "inputs": [
+      {
+        "path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:7efcb6edbbc3b5c5891e49f4f2db715b434f2c31111e745558373cdc4d7e3079"
+      },
+      {
+        "path": ".flowguard/verification/owners/model_impact_freshness_gate/run_checks.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:7466235a2dc46c78c410558a1beb41a585dae0ec67e29e7502678222447fd724"
+      },
+      {
+        "path": "flowguard/__init__.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:47392c5d6dd0969a4da29728322225fb8ce6d5bc43ea6487aa27f42c30258414"
+      },
+      {
+        "path": "flowguard/completion_epoch.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:b354d0d975d8b037fa0b0e89c8adbaa188c50c95ba29309df2e8a3fe7621c004"
+      },
+      {
+        "path": "flowguard/completion_objective.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:e148bc2eb5ba26c50e97fbdff7cbeabd579c7e3db8899b46a36eb86861129ed0"
+      },
+      {
+        "path": "flowguard/core.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4"
+      },
+      {
+        "path": "flowguard/formal_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:7170cb7c8dee067d0d5735a62e2ccaafe420569fcc29e9a6da14a8de195928e8"
+      },
+      {
+        "path": "flowguard/model_freshness.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:05bf2688a9abff2b67b05ef1d45bce25439bd4a18041da4ad131569066d70572"
+      },
+      {
+        "path": "flowguard/model_path_quality.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:bad31ad8812336c44a58283ce8949d0caea7e44a316aee420b942f2e238bdc23"
+      },
+      {
+        "path": "flowguard/model_regressions.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:01fb549369633cb072377e8fc18d91e65a76bd00230055649806a44839feeb48"
+      },
+      {
+        "path": "flowguard/native_case_mapping.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:efca2eb93a879052816bc06e921a25254ab1cae990383f6cba509a93645f7894"
+      },
+      {
+        "path": "flowguard/native_case_protocol.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:dbcc0829970d49ca6a26a506f695b81c2da93d3b18f639c73b97c4e34a5050fa"
+      },
+      {
+        "path": "flowguard/native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:54e67dae8281a622efdaa2c75fdeec91e1b540a915b810489281c8b85eb3a687"
+      },
+      {
+        "path": "flowguard/self_path_quality.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8aded6f2a0e822723d7d35d71c17b94fcddbe13e8f7aa1f5f969695c8610e6d5"
+      },
+      {
+        "path": "flowguard/source_identity.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:ea347bf82406d719891018d0307719bee1828d77d6dfacce88bd856213eb51db"
+      },
+      {
+        "path": "flowguard/validation_owner_execution.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:6a59bfdd5c2d9ffe8a23c738c1a581dd6aca62511299c67f170a79d87facef97"
+      },
+      {
+        "path": "flowguard/validation_ownership.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:525af779b7589b6cb795280b61020b3c8484cd76706a92782f040aeb584ab075"
+      },
+      {
+        "path": "flowguard/work_context_adapters/__init__.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:d60bafd0d2b3e77222b1f8a04841c63af26c8142f56b569d3e3aa872e7c58dfc"
+      },
+      {
+        "path": "flowguard/workflow.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a"
+      },
+      {
+        "path": "openspec/specs/model-impact-freshness-gate/spec.md",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:c6bb8acb4cb5b088688b3de373d4cf19924dc80bf7eceb6b0aa2c821f3675896"
+      },
+      {
+        "path": "pyproject.toml",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca"
+      },
+      {
+        "path": "scripts/run_flowguard_model_regressions.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3"
+      },
+      {
+        "path": "tests/test_model_regression_manifest.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:9190598501b6fbb8b96c099848aafe71bc432b3319d23cc2a2c366e96ad9c95f"
+      },
+      {
+        "path": "tests/test_native_case_protocol.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:1d779548f96d2f7c64f54ef959285d8f3103075c9b5511a2b6e9f0617ae56aef"
+      },
+      {
+        "path": "tests/test_native_case_runner.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:08d46082d230089bdf8e4ebc9ab466d9e1d131f3a04ec1970a68e4e185e21648"
+      },
+      {
+        "path": "tests/test_prepared_model_plan.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:42d0db19dabbfc77fcc8cde712d1f8f068e5dfb5fcd2183fd9b83f68f21dd4dc"
+      },
+      {
+        "path": "tests/test_self_path_quality_runner_projection.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:64fb04be64156d490ddb9a3e263e26fd2752aefb3002da023eb443662a28cb9e"
+      },
+      {
+        "path": "tests/test_validation_execution_ownership.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:eae0edb2a227d4b2a4c5c1172c4d6be8663ec73342c448798b6ef1a134863465"
+      },
+      {
+        "path": "tests/test_validation_owner_execution.py",
+        "schema": "flowguard.model_input_ref.v1",
+        "sha256": "sha256:c22097da7ce6c1c1045f69d9fc172c888a7deab2109cf294131b784b1037a64f"
+      }
+    ],
+    "logical_model_id": "model_impact_freshness_gate",
+    "model_kind": "executable_workflow",
+    "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+    "model_sha256": "sha256:7efcb6edbbc3b5c5891e49f4f2db715b434f2c31111e745558373cdc4d7e3079",
+    "purpose_closure_fingerprint": "sha256:0f399c8f15b9dbaa28195613907ea3d1d186b7fbb1f99595cde4a195316e77e9",
+    "runner_path": ".flowguard/verification/owners/model_impact_freshness_gate/run_checks.py",
+    "runner_sha256": "sha256:7466235a2dc46c78c410558a1beb41a585dae0ec67e29e7502678222447fd724",
+    "schema": "flowguard.model_instance_ref.v2"
+  },
+  "relations": [
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:model_impact_freshness_gate--code_contract:contract:.flowguard/models/owners/model_impact_freshness_gate/model.py",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:.flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:c02567bf577aa834bbe3b1cced4664a870a744d2f0a9d78a83c80c4c7d0ed6ed",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:model_impact_freshness_gate--code_contract:contract:flowguard/existing_model_preflight.py",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:flowguard/existing_model_preflight.py",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:0d40671dbd32bd23631e241cb418b47890c7a0ac039ae98566a948a0538dd8f9",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-code_contract:model_instance:model:model_impact_freshness_gate--code_contract:contract:flowguard/model_regressions.py",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "contract:flowguard/model_regressions.py",
+        "endpoint_kind": "code_contract",
+        "fingerprint": "sha256:a4a317b2feb65c85088fa21bd1ed2113ab2541eeffd98de9aa647f823f1113a3",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-commitment:commitment:model-impact-freshness-current",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "commitment:model-impact-freshness-current",
+        "endpoint_kind": "behavior_commitment",
+        "fingerprint": "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "owner_route": "behavior_commitment_ledger"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:928803d5358dd1f1883c5fe593ddbb24c6bcce617969c7c8fa66c8d3d67db053"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-native-owner:model_impact_freshness_gate:model_impact_freshness_gate",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "native-owner-route:model_impact_freshness_gate",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:fb6f48a5c694e7e3a4b3df48611a817f399a97e808233c830dbeca9ced0d586b",
+        "owner_route": "model_impact_freshness_gate"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f399c8f15b9dbaa28195613907ea3d1d186b7fbb1f99595cde4a195316e77e9"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-purpose:model_impact_freshness_gate",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "purpose:model_impact_freshness_gate",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:0f399c8f15b9dbaa28195613907ea3d1d186b7fbb1f99595cde4a195316e77e9",
+        "owner_route": "model_test_alignment"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "realizes",
+      "relation_id": "relation:model-realizes-side_effect_inventory:model_instance:model:model_impact_freshness_gate--side_effect_inventory:field-or-effect:return-impact/revalidation-demand-do-not-launch-owners-from-freshness-reading",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "field-or-effect:return-impact/revalidation-demand-do-not-launch-owners-from-freshness-reading",
+        "endpoint_kind": "side_effect_inventory",
+        "fingerprint": "sha256:0c890e0a84f0ef82fd5f5d7bc5b96aac932ac7019ee4058d8d0204210234e0b7",
+        "owner_route": "field_lifecycle_mesh"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:0f3bf9d14b59f693bd18391a62b96db25032914c268adb4f85e3552c44397c22",
+        "sha256:8433af2e1d47d51253c93ad717b553e01ac3d4f0b34bf4a86eefa49ca4997a33"
+      ],
+      "kind": "validates",
+      "relation_id": "relation:model-validates-test_evidence:model_instance:model:model_impact_freshness_gate--test_evidence:test:.flowguard/verification/owners/model_impact_freshness_gate/run_checks.py",
+      "source": {
+        "endpoint_id": "test:.flowguard/verification/owners/model_impact_freshness_gate/run_checks.py",
+        "endpoint_kind": "test_evidence",
+        "fingerprint": "sha256:93da3d8c049cdc1fd6c3b856e0009038e591ce44e9ad3d25d41b7e5f11e318a9",
+        "owner_route": "test_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "depends_on",
+      "relation_id": "relation:semantic-cross-boundary-support:model_impact_freshness_gate:semantic-parent:model-mesh-and-composition",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "semantic-parent:model-mesh-and-composition",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:556d96de8231f9f3d5791dbdefabf7a71ed4de39f385819a1d687eb1d1d26fde",
+        "owner_route": "model_mesh_maintenance"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:model_impact_freshness_gate:authoritative_model_system",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:authoritative_model_system",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:d66e6267171eb0e06121edafe801097f231aa12113070378ede76f2a1a92e3f8",
+        "model_id": "authoritative_model_system",
+        "model_path": ".flowguard/models/owners/authoritative_model_system/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "affects",
+      "relation_id": "relation:semantic-model-affects-consumer:model_impact_freshness_gate:development_process_flow",
+      "source": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      },
+      "target": {
+        "endpoint_id": "model:development_process_flow",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:49d025fb692c53d008757240f05d2b6ef9ed374aa0d879e9d70637b58abfb4b0",
+        "model_id": "development_process_flow",
+        "model_path": ".flowguard/models/owners/development_process_flow/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    },
+    {
+      "evidence_fingerprints": [
+        "sha256:52d2ce46bf165bf113d39bb8b0f7018555a726f6c39834fb1de5bc380328eea3"
+      ],
+      "kind": "contains",
+      "relation_id": "relation:semantic-parent-contains-model:semantic-parent:authority-and-understanding:model_impact_freshness_gate",
+      "source": {
+        "endpoint_id": "semantic-parent:authority-and-understanding",
+        "endpoint_kind": "parent_closure",
+        "fingerprint": "sha256:dcd076f90f064a90fae7b312c53d1c77c3ed25014b58e0f75d9795b1e8f30674",
+        "owner_route": "model_mesh_maintenance"
+      },
+      "target": {
+        "endpoint_id": "model:model_impact_freshness_gate",
+        "endpoint_kind": "model_instance",
+        "fingerprint": "sha256:a5989484b18af809e04eee36d59260d1fa327ca45186c224e35851bdc8c2e776",
+        "model_id": "model_impact_freshness_gate",
+        "model_path": ".flowguard/models/owners/model_impact_freshness_gate/model.py",
+        "owner_route": "model_regression_manifest"
+      }
+    }
+  ],
+  "schema": "flowguard.read_model_shard.v1",
+  "source_paths": {
+    ".flowguard/models/owners/model_impact_freshness_gate/model.py": "sha256:7efcb6edbbc3b5c5891e49f4f2db715b434f2c31111e745558373cdc4d7e3079",
+    ".flowguard/verification/owners/model_impact_freshness_gate/run_checks.py": "sha256:7466235a2dc46c78c410558a1beb41a585dae0ec67e29e7502678222447fd724",
+    "flowguard/__init__.py": "sha256:47392c5d6dd0969a4da29728322225fb8ce6d5bc43ea6487aa27f42c30258414",
+    "flowguard/completion_epoch.py": "sha256:b354d0d975d8b037fa0b0e89c8adbaa188c50c95ba29309df2e8a3fe7621c004",
+    "flowguard/completion_objective.py": "sha256:e148bc2eb5ba26c50e97fbdff7cbeabd579c7e3db8899b46a36eb86861129ed0",
+    "flowguard/core.py": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4",
+    "flowguard/formal_runner.py": "sha256:7170cb7c8dee067d0d5735a62e2ccaafe420569fcc29e9a6da14a8de195928e8",
+    "flowguard/model_freshness.py": "sha256:05bf2688a9abff2b67b05ef1d45bce25439bd4a18041da4ad131569066d70572",
+    "flowguard/model_path_quality.py": "sha256:bad31ad8812336c44a58283ce8949d0caea7e44a316aee420b942f2e238bdc23",
+    "flowguard/model_regressions.py": "sha256:01fb549369633cb072377e8fc18d91e65a76bd00230055649806a44839feeb48",
+    "flowguard/native_case_mapping.py": "sha256:efca2eb93a879052816bc06e921a25254ab1cae990383f6cba509a93645f7894",
+    "flowguard/native_case_protocol.py": "sha256:dbcc0829970d49ca6a26a506f695b81c2da93d3b18f639c73b97c4e34a5050fa",
+    "flowguard/native_case_runner.py": "sha256:54e67dae8281a622efdaa2c75fdeec91e1b540a915b810489281c8b85eb3a687",
+    "flowguard/self_path_quality.py": "sha256:8aded6f2a0e822723d7d35d71c17b94fcddbe13e8f7aa1f5f969695c8610e6d5",
+    "flowguard/source_identity.py": "sha256:ea347bf82406d719891018d0307719bee1828d77d6dfacce88bd856213eb51db",
+    "flowguard/validation_owner_execution.py": "sha256:6a59bfdd5c2d9ffe8a23c738c1a581dd6aca62511299c67f170a79d87facef97",
+    "flowguard/validation_ownership.py": "sha256:525af779b7589b6cb795280b61020b3c8484cd76706a92782f040aeb584ab075",
+    "flowguard/work_context_adapters/__init__.py": "sha256:d60bafd0d2b3e77222b1f8a04841c63af26c8142f56b569d3e3aa872e7c58dfc",
+    "flowguard/workflow.py": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a",
+    "openspec/specs/model-impact-freshness-gate/spec.md": "sha256:c6bb8acb4cb5b088688b3de373d4cf19924dc80bf7eceb6b0aa2c821f3675896",
+    "pyproject.toml": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca",
+    "scripts/run_flowguard_model_regressions.py": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3",
+    "tests/test_model_regression_manifest.py": "sha256:9190598501b6fbb8b96c099848aafe71bc432b3319d23cc2a2c366e96ad9c95f",
+    "tests/test_native_case_protocol.py": "sha256:1d779548f96d2f7c64f54ef959285d8f3103075c9b5511a2b6e9f0617ae56aef",
+    "tests/test_native_case_runner.py": "sha256:08d46082d230089bdf8e4ebc9ab466d9e1d131f3a04ec1970a68e4e185e21648",
+    "tests/test_prepared_model_plan.py": "sha256:42d0db19dabbfc77fcc8cde712d1f8f068e5dfb5fcd2183fd9b83f68f21dd4dc",
+    "tests/test_self_path_quality_runner_projection.py": "sha256:64fb04be64156d490ddb9a3e263e26fd2752aefb3002da023eb443662a28cb9e",
+    "tests/test_validation_execution_ownership.py": "sha256:eae0edb2a227d4b2a4c5c1172c4d6be8663ec73342c448798b6ef1a134863465",
+    "tests/test_validation_owner_execution.py": "sha256:c22097da7ce6c1c1045f69d9fc172c888a7deab2109cf294131b784b1037a64f"
+  },
+  "system_id": "flowguard"
+}

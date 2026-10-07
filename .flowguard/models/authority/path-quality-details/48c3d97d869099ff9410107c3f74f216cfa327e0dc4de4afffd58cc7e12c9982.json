@@ -1,0 +1,503 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:17d2c5ae5ff312d46d547e6b4e1b1843e5e592cb69b3129acaef06cb24a2bf77",
+        "effective_intent_view_fingerprint": "sha256:83eb6119662a024208a7f96b784b52f809314573f79564999590087fb5089b31",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/ui_human_operability_gate/model.py",
+            "source_fingerprint": "sha256:c4cef0d4420dd823271a799afa95f5b8a0b268ad4f398ad3ac5e668369fbe47f"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:action_grammar_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:affordance_contracts_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:all_features_mapped_to_tasks",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:all_tasks_have_flows",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:closure_gate_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:dialog_return_contracts_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:existing_model_preflight_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:feature_inventory_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:implementation_validation_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:installed_skills_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:keyboard_focus_contracts_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:no_orphan_primary_controls",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:no_unmitigated_confusion",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:openspec_valid",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:region_semantics_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:shadow_and_git_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:task_coverage_ledger_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:tests_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_human_operability_gate:walkthrough_evidence_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "UIHumanAction",
+          "effects": [],
+          "id": "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening",
+          "inputs": [
+            "external-input:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c"
+          ],
+          "outputs": [
+            "output:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:ui_human_operability_gate:openspec_valid",
+            "field:ui_human_operability_gate:existing_model_preflight_current",
+            "field:ui_human_operability_gate:feature_inventory_current",
+            "field:ui_human_operability_gate:task_coverage_ledger_current",
+            "field:ui_human_operability_gate:all_features_mapped_to_tasks",
+            "field:ui_human_operability_gate:all_tasks_have_flows",
+            "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths",
+            "field:ui_human_operability_gate:no_orphan_primary_controls",
+            "field:ui_human_operability_gate:region_semantics_current",
+            "field:ui_human_operability_gate:affordance_contracts_current",
+            "field:ui_human_operability_gate:action_grammar_current",
+            "field:ui_human_operability_gate:dialog_return_contracts_current",
+            "field:ui_human_operability_gate:keyboard_focus_contracts_current",
+            "field:ui_human_operability_gate:walkthrough_evidence_current",
+            "field:ui_human_operability_gate:no_unmitigated_confusion",
+            "field:ui_human_operability_gate:implementation_validation_current",
+            "field:ui_human_operability_gate:closure_gate_current",
+            "field:ui_human_operability_gate:tests_current",
+            "field:ui_human_operability_gate:installed_skills_synced",
+            "field:ui_human_operability_gate:shadow_and_git_synced",
+            "field:ui_human_operability_gate:done_claim"
+          ],
+          "state_input": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0",
+          "state_output": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:1",
+          "validations": [
+            "validation:ui_human_operability_gate:invariant:no_human_operable_done_without_evidence"
+          ],
+          "writes": [
+            "field:ui_human_operability_gate:openspec_valid",
+            "field:ui_human_operability_gate:existing_model_preflight_current",
+            "field:ui_human_operability_gate:feature_inventory_current",
+            "field:ui_human_operability_gate:task_coverage_ledger_current",
+            "field:ui_human_operability_gate:all_features_mapped_to_tasks",
+            "field:ui_human_operability_gate:all_tasks_have_flows",
+            "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths",
+            "field:ui_human_operability_gate:no_orphan_primary_controls",
+            "field:ui_human_operability_gate:region_semantics_current",
+            "field:ui_human_operability_gate:affordance_contracts_current",
+            "field:ui_human_operability_gate:action_grammar_current",
+            "field:ui_human_operability_gate:dialog_return_contracts_current",
+            "field:ui_human_operability_gate:keyboard_focus_contracts_current",
+            "field:ui_human_operability_gate:walkthrough_evidence_current",
+            "field:ui_human_operability_gate:no_unmitigated_confusion",
+            "field:ui_human_operability_gate:implementation_validation_current",
+            "field:ui_human_operability_gate:closure_gate_current",
+            "field:ui_human_operability_gate:tests_current",
+            "field:ui_human_operability_gate:installed_skills_synced",
+            "field:ui_human_operability_gate:shadow_and_git_synced",
+            "field:ui_human_operability_gate:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening",
+          "producer_id": "transition:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening",
+          "outputs": [
+            "output:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening"
+          ],
+          "reads": [
+            "field:ui_human_operability_gate:openspec_valid",
+            "field:ui_human_operability_gate:existing_model_preflight_current",
+            "field:ui_human_operability_gate:feature_inventory_current",
+            "field:ui_human_operability_gate:task_coverage_ledger_current",
+            "field:ui_human_operability_gate:all_features_mapped_to_tasks",
+            "field:ui_human_operability_gate:all_tasks_have_flows",
+            "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths",
+            "field:ui_human_operability_gate:no_orphan_primary_controls",
+            "field:ui_human_operability_gate:region_semantics_current",
+            "field:ui_human_operability_gate:affordance_contracts_current",
+            "field:ui_human_operability_gate:action_grammar_current",
+            "field:ui_human_operability_gate:dialog_return_contracts_current",
+            "field:ui_human_operability_gate:keyboard_focus_contracts_current",
+            "field:ui_human_operability_gate:walkthrough_evidence_current",
+            "field:ui_human_operability_gate:no_unmitigated_confusion",
+            "field:ui_human_operability_gate:implementation_validation_current",
+            "field:ui_human_operability_gate:closure_gate_current",
+            "field:ui_human_operability_gate:tests_current",
+            "field:ui_human_operability_gate:installed_skills_synced",
+            "field:ui_human_operability_gate:shadow_and_git_synced",
+            "field:ui_human_operability_gate:done_claim"
+          ],
+          "source": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0",
+          "target": "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:1",
+          "trigger": "UIHumanAction",
+          "validations": [
+            "validation:ui_human_operability_gate:invariant:no_human_operable_done_without_evidence"
+          ],
+          "writes": [
+            "field:ui_human_operability_gate:openspec_valid",
+            "field:ui_human_operability_gate:existing_model_preflight_current",
+            "field:ui_human_operability_gate:feature_inventory_current",
+            "field:ui_human_operability_gate:task_coverage_ledger_current",
+            "field:ui_human_operability_gate:all_features_mapped_to_tasks",
+            "field:ui_human_operability_gate:all_tasks_have_flows",
+            "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths",
+            "field:ui_human_operability_gate:no_orphan_primary_controls",
+            "field:ui_human_operability_gate:region_semantics_current",
+            "field:ui_human_operability_gate:affordance_contracts_current",
+            "field:ui_human_operability_gate:action_grammar_current",
+            "field:ui_human_operability_gate:dialog_return_contracts_current",
+            "field:ui_human_operability_gate:keyboard_focus_contracts_current",
+            "field:ui_human_operability_gate:walkthrough_evidence_current",
+            "field:ui_human_operability_gate:no_unmitigated_confusion",
+            "field:ui_human_operability_gate:implementation_validation_current",
+            "field:ui_human_operability_gate:closure_gate_current",
+            "field:ui_human_operability_gate:tests_current",
+            "field:ui_human_operability_gate:installed_skills_synced",
+            "field:ui_human_operability_gate:shadow_and_git_synced",
+            "field:ui_human_operability_gate:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:ui_human_operability_gate",
+          "id": "validation:ui_human_operability_gate:invariant:no_human_operable_done_without_evidence",
+          "obligation_id": "obligation:native-invariant:ui_human_operability_gate:no_human_operable_done_without_evidence",
+          "oracle_id": "oracle:native-invariant:ui_human_operability_gate:no_human_operable_done_without_evidence",
+          "subject_fingerprint": "sha256:95bea531e478aaeabf5815d314a3293f314bcfe4106e45956e38f5a7175de607"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:ui_human_operability_gate:action_grammar_current": "field",
+      "field:ui_human_operability_gate:affordance_contracts_current": "field",
+      "field:ui_human_operability_gate:all_features_mapped_to_tasks": "field",
+      "field:ui_human_operability_gate:all_tasks_have_flows": "field",
+      "field:ui_human_operability_gate:all_tasks_mapped_to_ui_paths": "field",
+      "field:ui_human_operability_gate:closure_gate_current": "field",
+      "field:ui_human_operability_gate:dialog_return_contracts_current": "field",
+      "field:ui_human_operability_gate:done_claim": "field",
+      "field:ui_human_operability_gate:existing_model_preflight_current": "field",
+      "field:ui_human_operability_gate:feature_inventory_current": "field",
+      "field:ui_human_operability_gate:implementation_validation_current": "field",
+      "field:ui_human_operability_gate:installed_skills_synced": "field",
+      "field:ui_human_operability_gate:keyboard_focus_contracts_current": "field",
+      "field:ui_human_operability_gate:no_orphan_primary_controls": "field",
+      "field:ui_human_operability_gate:no_unmitigated_confusion": "field",
+      "field:ui_human_operability_gate:openspec_valid": "field",
+      "field:ui_human_operability_gate:region_semantics_current": "field",
+      "field:ui_human_operability_gate:shadow_and_git_synced": "field",
+      "field:ui_human_operability_gate:task_coverage_ledger_current": "field",
+      "field:ui_human_operability_gate:tests_current": "field",
+      "field:ui_human_operability_gate:walkthrough_evidence_current": "field",
+      "function-block:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening": "function_block",
+      "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0": "state",
+      "state:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:1": "state",
+      "transition:workflow:ui_human_operability_gate:ui_human_operability_correct:0:ead199a0d06c:0:CorrectUIHumanOperabilityHardening": "transition",
+      "validation:ui_human_operability_gate:invariant:no_human_operable_done_without_evidence": "validation"
+    },
+    "subject_fingerprint": "sha256:af38272c23d74107aa39b69d706124403982ce86474c2b58366c9ab940257b25",
+    "trigger_currentness_id": "sha256:48fe7a405e658f0af1776c29d01b79205d3d106b23be605d2a730e7f068b5d62",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:48c3d97d869099ff9410107c3f74f216cfa327e0dc4de4afffd58cc7e12c9982",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

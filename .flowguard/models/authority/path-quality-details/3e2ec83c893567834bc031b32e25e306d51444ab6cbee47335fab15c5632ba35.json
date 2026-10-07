@@ -1,0 +1,2647 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [
+      "behavior_irrelevant_field:field:development_process_strategy:state:activation_reasons",
+      "behavior_irrelevant_field:field:development_process_strategy:state:blocked",
+      "behavior_irrelevant_field:field:development_process_strategy:state:decision_revision",
+      "behavior_irrelevant_field:field:development_process_strategy:state:dependency_order_violated",
+      "behavior_irrelevant_field:field:development_process_strategy:state:diagnostic_boundary",
+      "behavior_irrelevant_field:field:development_process_strategy:state:diagnostic_evidence_current",
+      "behavior_irrelevant_field:field:development_process_strategy:state:dominated_caller_selection",
+      "behavior_irrelevant_field:field:development_process_strategy:state:global_optimum_claimed",
+      "behavior_irrelevant_field:field:development_process_strategy:state:hard_blocker_visible",
+      "behavior_irrelevant_field:field:development_process_strategy:state:inactive",
+      "behavior_irrelevant_field:field:development_process_strategy:state:incomplete_process_cost_vector",
+      "behavior_irrelevant_field:field:development_process_strategy:state:non_equivalent_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:repair_closed_without_revalidation",
+      "behavior_irrelevant_field:field:development_process_strategy:state:repair_group_ready",
+      "behavior_irrelevant_field:field:development_process_strategy:state:selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:selected_execution_mode",
+      "behavior_irrelevant_field:field:development_process_strategy:state:stale_decision_reused",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unowned_repair_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unrelated_findings_grouped",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unresolved_non_dominated_boundary",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unsafe_parallel_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unsupported_minimum_claimed"
+    ],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:b7fe5f60a0c863faaaef509cefb97dbf7dba746a287168fa0831f19083d14419",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/development_process_strategy/model.py",
+            "source_fingerprint": "sha256:867ddda54baef7844f6021e3494fe1a034fa9d4bf34a6a19d359d2ff5fe3060a"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [
+        {
+          "id": "branch:development_process_strategy:diagnostic",
+          "no_result_guards": [
+            "input_obj.event != 'diagnostic'"
+          ],
+          "source": "state:development_process_strategy:diagnostic:input",
+          "transition_ids": [
+            "transition:development_process_strategy:diagnostic:hard_blocker",
+            "transition:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+            "transition:development_process_strategy:diagnostic:diagnostic_evidence_admitted"
+          ],
+          "trigger": "diagnostic"
+        },
+        {
+          "id": "branch:development_process_strategy:equivalence",
+          "no_result_guards": [
+            "input_obj.event != 'equivalence'"
+          ],
+          "source": "state:development_process_strategy:equivalence:input",
+          "transition_ids": [
+            "transition:development_process_strategy:equivalence:candidate_rejected",
+            "transition:development_process_strategy:equivalence:candidate_equivalent"
+          ],
+          "trigger": "equivalence"
+        },
+        {
+          "id": "branch:development_process_strategy:material_change",
+          "no_result_guards": [
+            "input_obj.event != 'material_change'"
+          ],
+          "source": "state:development_process_strategy:material_change:input",
+          "transition_ids": [
+            "transition:development_process_strategy:material_change:decision_stale"
+          ],
+          "trigger": "material_change"
+        },
+        {
+          "id": "branch:development_process_strategy:repair",
+          "no_result_guards": [
+            "input_obj.event != 'repair'"
+          ],
+          "source": "state:development_process_strategy:repair:input",
+          "transition_ids": [
+            "transition:development_process_strategy:repair:repair_group_rejected",
+            "transition:development_process_strategy:repair:repair_group_ready"
+          ],
+          "trigger": "repair"
+        },
+        {
+          "id": "branch:development_process_strategy:route",
+          "no_result_guards": [
+            "input_obj.event != 'route'"
+          ],
+          "source": "state:development_process_strategy:route:input",
+          "transition_ids": [
+            "transition:development_process_strategy:route:activation_rejected",
+            "transition:development_process_strategy:route:not_needed",
+            "transition:development_process_strategy:route:optimization_active"
+          ],
+          "trigger": "route"
+        },
+        {
+          "id": "branch:development_process_strategy:select",
+          "no_result_guards": [
+            "input_obj.event != 'select'"
+          ],
+          "source": "state:development_process_strategy:select:input",
+          "transition_ids": [
+            "transition:development_process_strategy:select:selection_rejected",
+            "transition:development_process_strategy:select:selected"
+          ],
+          "trigger": "select"
+        }
+      ],
+      "constants": {
+        "ACTIVATION_REASONS": [
+          "explicit_request",
+          "multiple_equivalent_routes",
+          "material_rework_risk",
+          "diagnostic_boundary_choice"
+        ],
+        "DIAGNOSTIC_BOUNDARIES": [
+          "targeted",
+          "declared_complete",
+          "budgeted"
+        ],
+        "EXECUTION_MODES": [
+          "sequential",
+          "safe_parallel"
+        ]
+      },
+      "dispatcher_rejection": {
+        "event_guard": "input_obj.event not in declared event ids",
+        "outcome": "AssertionError: result count is not exactly one",
+        "source_definition": "def apply_event(\n    input_obj: OptimizationInput, state: OptimizationState\n) -> FunctionResult:\n    results = [result for block in BLOCKS for result in block.apply(input_obj, state)]\n    if len(results) != 1:\n        raise AssertionError(\n            f\"event {input_obj.event!r} produced {len(results)} results\"\n        )\n    return results[0]",
+        "source_symbol": "apply_event"
+      },
+      "effects": [],
+      "event_dispatch": true,
+      "fields": [
+        {
+          "id": "field:development_process_strategy:input_obj:activation_reasons",
+          "read_by": [
+            "function-block:development_process_strategy:route"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:route"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:caller_selected_pareto_dominator",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:claim_global_optimum",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:claim_minimum",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:comparison_basis",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:comparison_evidence_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:current_revalidation_ids",
+          "read_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:decision_revision",
+          "read_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:dependency_authority_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:dependency_isolation_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:dependency_order_valid",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:diagnostic_boundary",
+          "read_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:eligible_candidate_count",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:event",
+          "read_by": [
+            "function-block:development_process_strategy:diagnostic",
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:repair",
+            "function-block:development_process_strategy:route",
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic",
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:repair",
+            "function-block:development_process_strategy:route",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:execution_mode",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:execution_owner_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:execution_owner_isolation_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:finite_boundary_named",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:grouped_finding_count",
+          "read_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:hard_blocker",
+          "read_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:mutable_state_isolation_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:obligation_evidence_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:primary_owner_current",
+          "read_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:process_cost_vector_complete",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:relation_evidence_current",
+          "read_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:required_revalidation_ids",
+          "read_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:safety_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:side_effect_isolation_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:side_effects_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:step_artifact_bindings_current",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:terminal_outcome_equal",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:testmesh_evidence_current",
+          "read_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:input_obj:unique_pareto_dominator",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:development_process_strategy:state:activation_reasons",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:route"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:route"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:active",
+          "read_by": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:route"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:route"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:blocked",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic",
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:repair",
+            "function-block:development_process_strategy:route",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:diagnostic",
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:repair",
+            "function-block:development_process_strategy:route",
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:decision_revision",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:dependency_order_violated",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:diagnostic_boundary",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:diagnostic_evidence_current",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:dominated_caller_selection",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:equivalence_checked",
+          "read_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:equivalence",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:equivalence"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:global_optimum_claimed",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:hard_blocker_visible",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:diagnostic"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:inactive",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:route"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:route"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:incomplete_process_cost_vector",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:material_revision",
+          "read_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ],
+          "used_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:material_change"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:non_equivalent_selected",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:repair_closed_without_revalidation",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:repair"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:repair_group_ready",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:repair"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:selected",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:material_change",
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:selected_execution_mode",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:stale_decision_reused",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:unowned_repair_selected",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:repair"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:unrelated_findings_grouped",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:repair"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:unresolved_non_dominated_boundary",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:unsafe_parallel_selected",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        },
+        {
+          "id": "field:development_process_strategy:state:unsupported_minimum_claimed",
+          "read_by": [],
+          "used_by": [
+            "function-block:development_process_strategy:select"
+          ],
+          "written_by": [
+            "function-block:development_process_strategy:select"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "component_id": "diagnostic",
+          "id": "function-block:development_process_strategy:diagnostic",
+          "inputs": [
+            "external-input:diagnostic"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'diagnostic'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:diagnostic:hard_blocker",
+            "output:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+            "output:development_process_strategy:diagnostic:diagnostic_evidence_admitted"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:diagnostic_boundary",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:hard_blocker",
+            "field:development_process_strategy:input_obj:testmesh_evidence_current"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:diagnostic_boundary",
+            "field:development_process_strategy:state:diagnostic_evidence_current",
+            "field:development_process_strategy:state:hard_blocker_visible"
+          ]
+        },
+        {
+          "component_id": "equivalence",
+          "id": "function-block:development_process_strategy:equivalence",
+          "inputs": [
+            "external-input:equivalence"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'equivalence'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:equivalence:candidate_rejected",
+            "output:development_process_strategy:equivalence:candidate_equivalent"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:dependency_authority_equal",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_owner_equal",
+            "field:development_process_strategy:input_obj:obligation_evidence_equal",
+            "field:development_process_strategy:input_obj:safety_equal",
+            "field:development_process_strategy:input_obj:side_effects_equal",
+            "field:development_process_strategy:input_obj:terminal_outcome_equal",
+            "field:development_process_strategy:state:active"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:equivalence_checked"
+          ]
+        },
+        {
+          "component_id": "material_change",
+          "id": "function-block:development_process_strategy:material_change",
+          "inputs": [
+            "external-input:material_change"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'material_change'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:material_change:decision_stale"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:decision_revision",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:state:material_revision"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:material_revision",
+            "field:development_process_strategy:state:selected"
+          ]
+        },
+        {
+          "component_id": "repair",
+          "id": "function-block:development_process_strategy:repair",
+          "inputs": [
+            "external-input:repair"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'repair'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:repair:repair_group_rejected",
+            "output:development_process_strategy:repair:repair_group_ready"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:current_revalidation_ids",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:grouped_finding_count",
+            "field:development_process_strategy:input_obj:primary_owner_current",
+            "field:development_process_strategy:input_obj:relation_evidence_current",
+            "field:development_process_strategy:input_obj:required_revalidation_ids"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:repair_closed_without_revalidation",
+            "field:development_process_strategy:state:repair_group_ready",
+            "field:development_process_strategy:state:unowned_repair_selected",
+            "field:development_process_strategy:state:unrelated_findings_grouped"
+          ]
+        },
+        {
+          "component_id": "route",
+          "id": "function-block:development_process_strategy:route",
+          "inputs": [
+            "external-input:route"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'route'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:route:activation_rejected",
+            "output:development_process_strategy:route:not_needed",
+            "output:development_process_strategy:route:optimization_active"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:activation_reasons",
+            "field:development_process_strategy:input_obj:event"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:activation_reasons",
+            "field:development_process_strategy:state:active",
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:inactive"
+          ]
+        },
+        {
+          "component_id": "select",
+          "id": "function-block:development_process_strategy:select",
+          "inputs": [
+            "external-input:select"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'select'"
+          ],
+          "outputs": [
+            "output:development_process_strategy:select:selection_rejected",
+            "output:development_process_strategy:select:selected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:caller_selected_pareto_dominator",
+            "field:development_process_strategy:input_obj:claim_global_optimum",
+            "field:development_process_strategy:input_obj:claim_minimum",
+            "field:development_process_strategy:input_obj:comparison_basis",
+            "field:development_process_strategy:input_obj:comparison_evidence_current",
+            "field:development_process_strategy:input_obj:decision_revision",
+            "field:development_process_strategy:input_obj:dependency_isolation_current",
+            "field:development_process_strategy:input_obj:dependency_order_valid",
+            "field:development_process_strategy:input_obj:eligible_candidate_count",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_mode",
+            "field:development_process_strategy:input_obj:execution_owner_isolation_current",
+            "field:development_process_strategy:input_obj:finite_boundary_named",
+            "field:development_process_strategy:input_obj:mutable_state_isolation_current",
+            "field:development_process_strategy:input_obj:process_cost_vector_complete",
+            "field:development_process_strategy:input_obj:side_effect_isolation_current",
+            "field:development_process_strategy:input_obj:step_artifact_bindings_current",
+            "field:development_process_strategy:input_obj:unique_pareto_dominator",
+            "field:development_process_strategy:state:equivalence_checked",
+            "field:development_process_strategy:state:material_revision"
+          ],
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:decision_revision",
+            "field:development_process_strategy:state:dependency_order_violated",
+            "field:development_process_strategy:state:dominated_caller_selection",
+            "field:development_process_strategy:state:global_optimum_claimed",
+            "field:development_process_strategy:state:incomplete_process_cost_vector",
+            "field:development_process_strategy:state:non_equivalent_selected",
+            "field:development_process_strategy:state:selected",
+            "field:development_process_strategy:state:selected_execution_mode",
+            "field:development_process_strategy:state:stale_decision_reused",
+            "field:development_process_strategy:state:unresolved_non_dominated_boundary",
+            "field:development_process_strategy:state:unsafe_parallel_selected",
+            "field:development_process_strategy:state:unsupported_minimum_claimed"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:development_process_strategy:diagnostic:input",
+        "state:development_process_strategy:equivalence:input",
+        "state:development_process_strategy:material_change:input",
+        "state:development_process_strategy:repair:input",
+        "state:development_process_strategy:route:input",
+        "state:development_process_strategy:select:input"
+      ],
+      "input_classes": [
+        {
+          "event": "route",
+          "guard": "not (input_obj.event != 'route') and invalid or len(reasons) != len(set(reasons))",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "input-class:development_process_strategy:route:activation_rejected"
+        },
+        {
+          "event": "route",
+          "guard": "not (input_obj.event != 'route') and not (invalid or len(reasons) != len(set(reasons))) and not reasons",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "input-class:development_process_strategy:route:not_needed"
+        },
+        {
+          "event": "route",
+          "guard": "not (input_obj.event != 'route') and not (invalid or len(reasons) != len(set(reasons))) and not (not reasons)",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "input-class:development_process_strategy:route:optimization_active"
+        },
+        {
+          "event": "equivalence",
+          "guard": "not (input_obj.event != 'equivalence') and not equivalent",
+          "guard_bindings": {
+            "equivalent": "state.active and all((input_obj.terminal_outcome_equal, input_obj.obligation_evidence_equal, input_obj.safety_equal, input_obj.side_effects_equal, input_obj.dependency_authority_equal, input_obj.execution_owner_equal))"
+          },
+          "id": "input-class:development_process_strategy:equivalence:candidate_rejected"
+        },
+        {
+          "event": "equivalence",
+          "guard": "not (input_obj.event != 'equivalence') and not (not equivalent)",
+          "guard_bindings": {
+            "equivalent": "state.active and all((input_obj.terminal_outcome_equal, input_obj.obligation_evidence_equal, input_obj.safety_equal, input_obj.side_effects_equal, input_obj.dependency_authority_equal, input_obj.execution_owner_equal))"
+          },
+          "id": "input-class:development_process_strategy:equivalence:candidate_equivalent"
+        },
+        {
+          "event": "diagnostic",
+          "guard": "not (input_obj.event != 'diagnostic') and input_obj.hard_blocker",
+          "guard_bindings": {},
+          "id": "input-class:development_process_strategy:diagnostic:hard_blocker"
+        },
+        {
+          "event": "diagnostic",
+          "guard": "not (input_obj.event != 'diagnostic') and not (input_obj.hard_blocker) and input_obj.diagnostic_boundary not in DIAGNOSTIC_BOUNDARIES or not input_obj.testmesh_evidence_current",
+          "guard_bindings": {},
+          "id": "input-class:development_process_strategy:diagnostic:diagnostic_evidence_rejected"
+        },
+        {
+          "event": "diagnostic",
+          "guard": "not (input_obj.event != 'diagnostic') and not (input_obj.hard_blocker) and not (input_obj.diagnostic_boundary not in DIAGNOSTIC_BOUNDARIES or not input_obj.testmesh_evidence_current)",
+          "guard_bindings": {},
+          "id": "input-class:development_process_strategy:diagnostic:diagnostic_evidence_admitted"
+        },
+        {
+          "event": "repair",
+          "guard": "not (input_obj.event != 'repair') and relation_missing or owner_missing or revalidation_missing",
+          "guard_bindings": {
+            "owner_missing": "not input_obj.primary_owner_current",
+            "relation_missing": "input_obj.grouped_finding_count > 1 and (not input_obj.relation_evidence_current)",
+            "revalidation_missing": "not set(input_obj.required_revalidation_ids).issubset(input_obj.current_revalidation_ids)"
+          },
+          "id": "input-class:development_process_strategy:repair:repair_group_rejected"
+        },
+        {
+          "event": "repair",
+          "guard": "not (input_obj.event != 'repair') and not (relation_missing or owner_missing or revalidation_missing)",
+          "guard_bindings": {
+            "owner_missing": "not input_obj.primary_owner_current",
+            "relation_missing": "input_obj.grouped_finding_count > 1 and (not input_obj.relation_evidence_current)",
+            "revalidation_missing": "not set(input_obj.required_revalidation_ids).issubset(input_obj.current_revalidation_ids)"
+          },
+          "id": "input-class:development_process_strategy:repair:repair_group_ready"
+        },
+        {
+          "event": "select",
+          "guard": "not (input_obj.event != 'select') and invalid",
+          "guard_bindings": {
+            "dependency_order_violated": "not input_obj.dependency_order_valid",
+            "dominated_caller_selection": "input_obj.unique_pareto_dominator and (not input_obj.caller_selected_pareto_dominator)",
+            "incomplete_process_cost_vector": "not input_obj.step_artifact_bindings_current or not input_obj.process_cost_vector_complete",
+            "invalid": "not state.equivalence_checked or input_obj.execution_mode not in EXECUTION_MODES or (not input_obj.comparison_evidence_current) or unsafe_parallel or unsupported_minimum or dependency_order_violated or incomplete_process_cost_vector or unresolved_non_dominated_boundary or dominated_caller_selection or input_obj.claim_global_optimum or stale",
+            "isolation_current": "all((input_obj.dependency_isolation_current, input_obj.mutable_state_isolation_current, input_obj.side_effect_isolation_current, input_obj.execution_owner_isolation_current))",
+            "stale": "state.material_revision > input_obj.decision_revision",
+            "unresolved_non_dominated_boundary": "input_obj.eligible_candidate_count > 1 and (not input_obj.unique_pareto_dominator)",
+            "unsafe_parallel": "input_obj.execution_mode == 'safe_parallel' and (not isolation_current)",
+            "unsupported_minimum": "input_obj.claim_minimum and (not (input_obj.comparison_basis == 'measured' and input_obj.finite_boundary_named and input_obj.process_cost_vector_complete and input_obj.unique_pareto_dominator))"
+          },
+          "id": "input-class:development_process_strategy:select:selection_rejected"
+        },
+        {
+          "event": "select",
+          "guard": "not (input_obj.event != 'select') and not (invalid)",
+          "guard_bindings": {
+            "dependency_order_violated": "not input_obj.dependency_order_valid",
+            "dominated_caller_selection": "input_obj.unique_pareto_dominator and (not input_obj.caller_selected_pareto_dominator)",
+            "incomplete_process_cost_vector": "not input_obj.step_artifact_bindings_current or not input_obj.process_cost_vector_complete",
+            "invalid": "not state.equivalence_checked or input_obj.execution_mode not in EXECUTION_MODES or (not input_obj.comparison_evidence_current) or unsafe_parallel or unsupported_minimum or dependency_order_violated or incomplete_process_cost_vector or unresolved_non_dominated_boundary or dominated_caller_selection or input_obj.claim_global_optimum or stale",
+            "isolation_current": "all((input_obj.dependency_isolation_current, input_obj.mutable_state_isolation_current, input_obj.side_effect_isolation_current, input_obj.execution_owner_isolation_current))",
+            "stale": "state.material_revision > input_obj.decision_revision",
+            "unresolved_non_dominated_boundary": "input_obj.eligible_candidate_count > 1 and (not input_obj.unique_pareto_dominator)",
+            "unsafe_parallel": "input_obj.execution_mode == 'safe_parallel' and (not isolation_current)",
+            "unsupported_minimum": "input_obj.claim_minimum and (not (input_obj.comparison_basis == 'measured' and input_obj.finite_boundary_named and input_obj.process_cost_vector_complete and input_obj.unique_pareto_dominator))"
+          },
+          "id": "input-class:development_process_strategy:select:selected"
+        },
+        {
+          "event": "material_change",
+          "guard": "not (input_obj.event != 'material_change')",
+          "guard_bindings": {
+            "revision": "max(state.material_revision + 1, input_obj.decision_revision)"
+          },
+          "id": "input-class:development_process_strategy:material_change:decision_stale"
+        }
+      ],
+      "input_schema": [
+        "event",
+        "activation_reasons",
+        "terminal_outcome_equal",
+        "obligation_evidence_equal",
+        "safety_equal",
+        "side_effects_equal",
+        "dependency_authority_equal",
+        "execution_owner_equal",
+        "diagnostic_boundary",
+        "testmesh_evidence_current",
+        "hard_blocker",
+        "grouped_finding_count",
+        "relation_evidence_current",
+        "primary_owner_current",
+        "required_revalidation_ids",
+        "current_revalidation_ids",
+        "execution_mode",
+        "dependency_isolation_current",
+        "mutable_state_isolation_current",
+        "side_effect_isolation_current",
+        "execution_owner_isolation_current",
+        "comparison_evidence_current",
+        "comparison_basis",
+        "dependency_order_valid",
+        "step_artifact_bindings_current",
+        "process_cost_vector_complete",
+        "eligible_candidate_count",
+        "unique_pareto_dominator",
+        "caller_selected_pareto_dominator",
+        "finite_boundary_named",
+        "claim_minimum",
+        "claim_global_optimum",
+        "decision_revision"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:diagnostic:diagnostic_evidence_admitted",
+          "producer_id": "transition:development_process_strategy:diagnostic:diagnostic_evidence_admitted",
+          "symbol": "diagnostic_evidence_admitted",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+          "producer_id": "transition:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+          "symbol": "diagnostic_evidence_rejected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:diagnostic:hard_blocker",
+          "producer_id": "transition:development_process_strategy:diagnostic:hard_blocker",
+          "symbol": "hard_blocker",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:equivalence:candidate_equivalent",
+          "producer_id": "transition:development_process_strategy:equivalence:candidate_equivalent",
+          "symbol": "candidate_equivalent",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:equivalence:candidate_rejected",
+          "producer_id": "transition:development_process_strategy:equivalence:candidate_rejected",
+          "symbol": "candidate_rejected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:material_change:decision_stale",
+          "producer_id": "transition:development_process_strategy:material_change:decision_stale",
+          "symbol": "decision_stale",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:repair:repair_group_ready",
+          "producer_id": "transition:development_process_strategy:repair:repair_group_ready",
+          "symbol": "repair_group_ready",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:repair:repair_group_rejected",
+          "producer_id": "transition:development_process_strategy:repair:repair_group_rejected",
+          "symbol": "repair_group_rejected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:route:activation_rejected",
+          "producer_id": "transition:development_process_strategy:route:activation_rejected",
+          "symbol": "activation_rejected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:route:not_needed",
+          "producer_id": "transition:development_process_strategy:route:not_needed",
+          "symbol": "not_needed",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:route:optimization_active",
+          "producer_id": "transition:development_process_strategy:route:optimization_active",
+          "symbol": "optimization_active",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:select:selected",
+          "producer_id": "transition:development_process_strategy:select:selected",
+          "symbol": "selected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:development_process_strategy:select:selection_rejected",
+          "producer_id": "transition:development_process_strategy:select:selection_rejected",
+          "symbol": "selection_rejected",
+          "terminal": false
+        }
+      ],
+      "owners": [],
+      "responsibilities": [],
+      "state_schema": [
+        "activation_reasons",
+        "inactive",
+        "active",
+        "equivalence_checked",
+        "diagnostic_evidence_current",
+        "diagnostic_boundary",
+        "repair_group_ready",
+        "selected",
+        "selected_execution_mode",
+        "decision_revision",
+        "material_revision",
+        "hard_blocker_visible",
+        "non_equivalent_selected",
+        "unsafe_parallel_selected",
+        "unrelated_findings_grouped",
+        "unowned_repair_selected",
+        "repair_closed_without_revalidation",
+        "stale_decision_reused",
+        "unsupported_minimum_claimed",
+        "global_optimum_claimed",
+        "dependency_order_violated",
+        "incomplete_process_cost_vector",
+        "dominated_caller_selection",
+        "unresolved_non_dominated_boundary",
+        "blocked"
+      ],
+      "states": [
+        {
+          "component_id": "diagnostic",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "diagnostic_boundary": "input_obj.diagnostic_boundary",
+            "diagnostic_evidence_current": "True"
+          },
+          "id": "state:development_process_strategy:diagnostic:diagnostic_evidence_admitted",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "diagnostic",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True"
+          },
+          "id": "state:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "diagnostic",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True",
+            "hard_blocker_visible": "True"
+          },
+          "id": "state:development_process_strategy:diagnostic:hard_blocker",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "diagnostic",
+          "id": "state:development_process_strategy:diagnostic:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "equivalence",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "equivalence_checked": "True"
+          },
+          "id": "state:development_process_strategy:equivalence:candidate_equivalent",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "equivalence",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True"
+          },
+          "id": "state:development_process_strategy:equivalence:candidate_rejected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "equivalence",
+          "id": "state:development_process_strategy:equivalence:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "material_change",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "material_revision": "revision",
+            "selected": "False"
+          },
+          "id": "state:development_process_strategy:material_change:decision_stale",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "material_change",
+          "id": "state:development_process_strategy:material_change:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "repair",
+          "id": "state:development_process_strategy:repair:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "repair",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "repair_group_ready": "True"
+          },
+          "id": "state:development_process_strategy:repair:repair_group_ready",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "repair",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True",
+            "repair_closed_without_revalidation": "revalidation_missing",
+            "unowned_repair_selected": "owner_missing",
+            "unrelated_findings_grouped": "relation_missing"
+          },
+          "id": "state:development_process_strategy:repair:repair_group_rejected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "route",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True"
+          },
+          "id": "state:development_process_strategy:route:activation_rejected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "route",
+          "id": "state:development_process_strategy:route:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "route",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "inactive": "True"
+          },
+          "id": "state:development_process_strategy:route:not_needed",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "route",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "activation_reasons": "reasons",
+            "active": "True"
+          },
+          "id": "state:development_process_strategy:route:optimization_active",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "blocked",
+            "decision_revision",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "select",
+          "id": "state:development_process_strategy:select:input",
+          "initial": true,
+          "state_schema": [
+            "activation_reasons",
+            "inactive",
+            "active",
+            "equivalence_checked",
+            "diagnostic_evidence_current",
+            "diagnostic_boundary",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "decision_revision",
+            "material_revision",
+            "hard_blocker_visible",
+            "non_equivalent_selected",
+            "unsafe_parallel_selected",
+            "unrelated_findings_grouped",
+            "unowned_repair_selected",
+            "repair_closed_without_revalidation",
+            "stale_decision_reused",
+            "unsupported_minimum_claimed",
+            "global_optimum_claimed",
+            "dependency_order_violated",
+            "incomplete_process_cost_vector",
+            "dominated_caller_selection",
+            "unresolved_non_dominated_boundary",
+            "blocked"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "select",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "decision_revision": "input_obj.decision_revision",
+            "selected": "True",
+            "selected_execution_mode": "input_obj.execution_mode"
+          },
+          "id": "state:development_process_strategy:select:selected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "blocked",
+            "dependency_order_violated",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "dominated_caller_selection",
+            "equivalence_checked",
+            "global_optimum_claimed",
+            "hard_blocker_visible",
+            "inactive",
+            "incomplete_process_cost_vector",
+            "material_revision",
+            "non_equivalent_selected",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "stale_decision_reused",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped",
+            "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected",
+            "unsupported_minimum_claimed"
+          ]
+        },
+        {
+          "component_id": "select",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True",
+            "dependency_order_violated": "dependency_order_violated",
+            "dominated_caller_selection": "dominated_caller_selection",
+            "global_optimum_claimed": "input_obj.claim_global_optimum",
+            "incomplete_process_cost_vector": "incomplete_process_cost_vector",
+            "non_equivalent_selected": "not state.equivalence_checked",
+            "stale_decision_reused": "stale",
+            "unresolved_non_dominated_boundary": "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected": "unsafe_parallel",
+            "unsupported_minimum_claimed": "unsupported_minimum"
+          },
+          "id": "state:development_process_strategy:select:selection_rejected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "activation_reasons",
+            "active",
+            "decision_revision",
+            "diagnostic_boundary",
+            "diagnostic_evidence_current",
+            "equivalence_checked",
+            "hard_blocker_visible",
+            "inactive",
+            "material_revision",
+            "repair_closed_without_revalidation",
+            "repair_group_ready",
+            "selected",
+            "selected_execution_mode",
+            "unowned_repair_selected",
+            "unrelated_findings_grouped"
+          ]
+        }
+      ],
+      "terminal_state_ids": [],
+      "transitions": [
+        {
+          "component_id": "diagnostic",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "diagnostic_boundary": "input_obj.diagnostic_boundary",
+            "diagnostic_evidence_current": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "guard": "not (input_obj.event != 'diagnostic') and not (input_obj.hard_blocker) and not (input_obj.diagnostic_boundary not in DIAGNOSTIC_BOUNDARIES or not input_obj.testmesh_evidence_current)",
+          "guard_bindings": {},
+          "id": "transition:development_process_strategy:diagnostic:diagnostic_evidence_admitted",
+          "outputs": [
+            "output:development_process_strategy:diagnostic:diagnostic_evidence_admitted"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:diagnostic_boundary",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:hard_blocker",
+            "field:development_process_strategy:input_obj:testmesh_evidence_current"
+          ],
+          "source": "state:development_process_strategy:diagnostic:input",
+          "state_updates": [
+            "field:development_process_strategy:state:diagnostic_boundary",
+            "field:development_process_strategy:state:diagnostic_evidence_current"
+          ],
+          "target": "state:development_process_strategy:diagnostic:diagnostic_evidence_admitted",
+          "trigger": "diagnostic",
+          "writes": [
+            "field:development_process_strategy:state:diagnostic_boundary",
+            "field:development_process_strategy:state:diagnostic_evidence_current"
+          ]
+        },
+        {
+          "component_id": "diagnostic",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "guard": "not (input_obj.event != 'diagnostic') and not (input_obj.hard_blocker) and input_obj.diagnostic_boundary not in DIAGNOSTIC_BOUNDARIES or not input_obj.testmesh_evidence_current",
+          "guard_bindings": {},
+          "id": "transition:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+          "outputs": [
+            "output:development_process_strategy:diagnostic:diagnostic_evidence_rejected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:diagnostic_boundary",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:hard_blocker",
+            "field:development_process_strategy:input_obj:testmesh_evidence_current"
+          ],
+          "source": "state:development_process_strategy:diagnostic:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked"
+          ],
+          "target": "state:development_process_strategy:diagnostic:diagnostic_evidence_rejected",
+          "trigger": "diagnostic",
+          "writes": [
+            "field:development_process_strategy:state:blocked"
+          ]
+        },
+        {
+          "component_id": "diagnostic",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True",
+            "hard_blocker_visible": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:diagnostic"
+          ],
+          "guard": "not (input_obj.event != 'diagnostic') and input_obj.hard_blocker",
+          "guard_bindings": {},
+          "id": "transition:development_process_strategy:diagnostic:hard_blocker",
+          "outputs": [
+            "output:development_process_strategy:diagnostic:hard_blocker"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:diagnostic_boundary",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:hard_blocker",
+            "field:development_process_strategy:input_obj:testmesh_evidence_current"
+          ],
+          "source": "state:development_process_strategy:diagnostic:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:hard_blocker_visible"
+          ],
+          "target": "state:development_process_strategy:diagnostic:hard_blocker",
+          "trigger": "diagnostic",
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:hard_blocker_visible"
+          ]
+        },
+        {
+          "component_id": "equivalence",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "equivalence_checked": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "guard": "not (input_obj.event != 'equivalence') and not (not equivalent)",
+          "guard_bindings": {
+            "equivalent": "state.active and all((input_obj.terminal_outcome_equal, input_obj.obligation_evidence_equal, input_obj.safety_equal, input_obj.side_effects_equal, input_obj.dependency_authority_equal, input_obj.execution_owner_equal))"
+          },
+          "id": "transition:development_process_strategy:equivalence:candidate_equivalent",
+          "outputs": [
+            "output:development_process_strategy:equivalence:candidate_equivalent"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:dependency_authority_equal",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_owner_equal",
+            "field:development_process_strategy:input_obj:obligation_evidence_equal",
+            "field:development_process_strategy:input_obj:safety_equal",
+            "field:development_process_strategy:input_obj:side_effects_equal",
+            "field:development_process_strategy:input_obj:terminal_outcome_equal",
+            "field:development_process_strategy:state:active"
+          ],
+          "source": "state:development_process_strategy:equivalence:input",
+          "state_updates": [
+            "field:development_process_strategy:state:equivalence_checked"
+          ],
+          "target": "state:development_process_strategy:equivalence:candidate_equivalent",
+          "trigger": "equivalence",
+          "writes": [
+            "field:development_process_strategy:state:equivalence_checked"
+          ]
+        },
+        {
+          "component_id": "equivalence",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:equivalence"
+          ],
+          "guard": "not (input_obj.event != 'equivalence') and not equivalent",
+          "guard_bindings": {
+            "equivalent": "state.active and all((input_obj.terminal_outcome_equal, input_obj.obligation_evidence_equal, input_obj.safety_equal, input_obj.side_effects_equal, input_obj.dependency_authority_equal, input_obj.execution_owner_equal))"
+          },
+          "id": "transition:development_process_strategy:equivalence:candidate_rejected",
+          "outputs": [
+            "output:development_process_strategy:equivalence:candidate_rejected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:dependency_authority_equal",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_owner_equal",
+            "field:development_process_strategy:input_obj:obligation_evidence_equal",
+            "field:development_process_strategy:input_obj:safety_equal",
+            "field:development_process_strategy:input_obj:side_effects_equal",
+            "field:development_process_strategy:input_obj:terminal_outcome_equal",
+            "field:development_process_strategy:state:active"
+          ],
+          "source": "state:development_process_strategy:equivalence:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked"
+          ],
+          "target": "state:development_process_strategy:equivalence:candidate_rejected",
+          "trigger": "equivalence",
+          "writes": [
+            "field:development_process_strategy:state:blocked"
+          ]
+        },
+        {
+          "component_id": "material_change",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "material_revision": "revision",
+            "selected": "False"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:material_change"
+          ],
+          "guard": "not (input_obj.event != 'material_change')",
+          "guard_bindings": {
+            "revision": "max(state.material_revision + 1, input_obj.decision_revision)"
+          },
+          "id": "transition:development_process_strategy:material_change:decision_stale",
+          "outputs": [
+            "output:development_process_strategy:material_change:decision_stale"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:decision_revision",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:state:material_revision"
+          ],
+          "source": "state:development_process_strategy:material_change:input",
+          "state_updates": [
+            "field:development_process_strategy:state:material_revision",
+            "field:development_process_strategy:state:selected"
+          ],
+          "target": "state:development_process_strategy:material_change:decision_stale",
+          "trigger": "material_change",
+          "writes": [
+            "field:development_process_strategy:state:material_revision",
+            "field:development_process_strategy:state:selected"
+          ]
+        },
+        {
+          "component_id": "repair",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "repair_group_ready": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "guard": "not (input_obj.event != 'repair') and not (relation_missing or owner_missing or revalidation_missing)",
+          "guard_bindings": {
+            "owner_missing": "not input_obj.primary_owner_current",
+            "relation_missing": "input_obj.grouped_finding_count > 1 and (not input_obj.relation_evidence_current)",
+            "revalidation_missing": "not set(input_obj.required_revalidation_ids).issubset(input_obj.current_revalidation_ids)"
+          },
+          "id": "transition:development_process_strategy:repair:repair_group_ready",
+          "outputs": [
+            "output:development_process_strategy:repair:repair_group_ready"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:current_revalidation_ids",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:grouped_finding_count",
+            "field:development_process_strategy:input_obj:primary_owner_current",
+            "field:development_process_strategy:input_obj:relation_evidence_current",
+            "field:development_process_strategy:input_obj:required_revalidation_ids"
+          ],
+          "source": "state:development_process_strategy:repair:input",
+          "state_updates": [
+            "field:development_process_strategy:state:repair_group_ready"
+          ],
+          "target": "state:development_process_strategy:repair:repair_group_ready",
+          "trigger": "repair",
+          "writes": [
+            "field:development_process_strategy:state:repair_group_ready"
+          ]
+        },
+        {
+          "component_id": "repair",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True",
+            "repair_closed_without_revalidation": "revalidation_missing",
+            "unowned_repair_selected": "owner_missing",
+            "unrelated_findings_grouped": "relation_missing"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:repair"
+          ],
+          "guard": "not (input_obj.event != 'repair') and relation_missing or owner_missing or revalidation_missing",
+          "guard_bindings": {
+            "owner_missing": "not input_obj.primary_owner_current",
+            "relation_missing": "input_obj.grouped_finding_count > 1 and (not input_obj.relation_evidence_current)",
+            "revalidation_missing": "not set(input_obj.required_revalidation_ids).issubset(input_obj.current_revalidation_ids)"
+          },
+          "id": "transition:development_process_strategy:repair:repair_group_rejected",
+          "outputs": [
+            "output:development_process_strategy:repair:repair_group_rejected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:current_revalidation_ids",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:grouped_finding_count",
+            "field:development_process_strategy:input_obj:primary_owner_current",
+            "field:development_process_strategy:input_obj:relation_evidence_current",
+            "field:development_process_strategy:input_obj:required_revalidation_ids"
+          ],
+          "source": "state:development_process_strategy:repair:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:repair_closed_without_revalidation",
+            "field:development_process_strategy:state:unowned_repair_selected",
+            "field:development_process_strategy:state:unrelated_findings_grouped"
+          ],
+          "target": "state:development_process_strategy:repair:repair_group_rejected",
+          "trigger": "repair",
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:repair_closed_without_revalidation",
+            "field:development_process_strategy:state:unowned_repair_selected",
+            "field:development_process_strategy:state:unrelated_findings_grouped"
+          ]
+        },
+        {
+          "component_id": "route",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:route"
+          ],
+          "guard": "not (input_obj.event != 'route') and invalid or len(reasons) != len(set(reasons))",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "transition:development_process_strategy:route:activation_rejected",
+          "outputs": [
+            "output:development_process_strategy:route:activation_rejected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:activation_reasons",
+            "field:development_process_strategy:input_obj:event"
+          ],
+          "source": "state:development_process_strategy:route:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked"
+          ],
+          "target": "state:development_process_strategy:route:activation_rejected",
+          "trigger": "route",
+          "writes": [
+            "field:development_process_strategy:state:blocked"
+          ]
+        },
+        {
+          "component_id": "route",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "inactive": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:route"
+          ],
+          "guard": "not (input_obj.event != 'route') and not (invalid or len(reasons) != len(set(reasons))) and not reasons",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "transition:development_process_strategy:route:not_needed",
+          "outputs": [
+            "output:development_process_strategy:route:not_needed"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:activation_reasons",
+            "field:development_process_strategy:input_obj:event"
+          ],
+          "source": "state:development_process_strategy:route:input",
+          "state_updates": [
+            "field:development_process_strategy:state:inactive"
+          ],
+          "target": "state:development_process_strategy:route:not_needed",
+          "trigger": "route",
+          "writes": [
+            "field:development_process_strategy:state:inactive"
+          ]
+        },
+        {
+          "component_id": "route",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "activation_reasons": "reasons",
+            "active": "True"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:route"
+          ],
+          "guard": "not (input_obj.event != 'route') and not (invalid or len(reasons) != len(set(reasons))) and not (not reasons)",
+          "guard_bindings": {
+            "invalid": "set(reasons) - set(ACTIVATION_REASONS)",
+            "reasons": "tuple(input_obj.activation_reasons)"
+          },
+          "id": "transition:development_process_strategy:route:optimization_active",
+          "outputs": [
+            "output:development_process_strategy:route:optimization_active"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:activation_reasons",
+            "field:development_process_strategy:input_obj:event"
+          ],
+          "source": "state:development_process_strategy:route:input",
+          "state_updates": [
+            "field:development_process_strategy:state:activation_reasons",
+            "field:development_process_strategy:state:active"
+          ],
+          "target": "state:development_process_strategy:route:optimization_active",
+          "trigger": "route",
+          "writes": [
+            "field:development_process_strategy:state:activation_reasons",
+            "field:development_process_strategy:state:active"
+          ]
+        },
+        {
+          "component_id": "select",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "decision_revision": "input_obj.decision_revision",
+            "selected": "True",
+            "selected_execution_mode": "input_obj.execution_mode"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:select"
+          ],
+          "guard": "not (input_obj.event != 'select') and not (invalid)",
+          "guard_bindings": {
+            "dependency_order_violated": "not input_obj.dependency_order_valid",
+            "dominated_caller_selection": "input_obj.unique_pareto_dominator and (not input_obj.caller_selected_pareto_dominator)",
+            "incomplete_process_cost_vector": "not input_obj.step_artifact_bindings_current or not input_obj.process_cost_vector_complete",
+            "invalid": "not state.equivalence_checked or input_obj.execution_mode not in EXECUTION_MODES or (not input_obj.comparison_evidence_current) or unsafe_parallel or unsupported_minimum or dependency_order_violated or incomplete_process_cost_vector or unresolved_non_dominated_boundary or dominated_caller_selection or input_obj.claim_global_optimum or stale",
+            "isolation_current": "all((input_obj.dependency_isolation_current, input_obj.mutable_state_isolation_current, input_obj.side_effect_isolation_current, input_obj.execution_owner_isolation_current))",
+            "stale": "state.material_revision > input_obj.decision_revision",
+            "unresolved_non_dominated_boundary": "input_obj.eligible_candidate_count > 1 and (not input_obj.unique_pareto_dominator)",
+            "unsafe_parallel": "input_obj.execution_mode == 'safe_parallel' and (not isolation_current)",
+            "unsupported_minimum": "input_obj.claim_minimum and (not (input_obj.comparison_basis == 'measured' and input_obj.finite_boundary_named and input_obj.process_cost_vector_complete and input_obj.unique_pareto_dominator))"
+          },
+          "id": "transition:development_process_strategy:select:selected",
+          "outputs": [
+            "output:development_process_strategy:select:selected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:caller_selected_pareto_dominator",
+            "field:development_process_strategy:input_obj:claim_global_optimum",
+            "field:development_process_strategy:input_obj:claim_minimum",
+            "field:development_process_strategy:input_obj:comparison_basis",
+            "field:development_process_strategy:input_obj:comparison_evidence_current",
+            "field:development_process_strategy:input_obj:decision_revision",
+            "field:development_process_strategy:input_obj:dependency_isolation_current",
+            "field:development_process_strategy:input_obj:dependency_order_valid",
+            "field:development_process_strategy:input_obj:eligible_candidate_count",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_mode",
+            "field:development_process_strategy:input_obj:execution_owner_isolation_current",
+            "field:development_process_strategy:input_obj:finite_boundary_named",
+            "field:development_process_strategy:input_obj:mutable_state_isolation_current",
+            "field:development_process_strategy:input_obj:process_cost_vector_complete",
+            "field:development_process_strategy:input_obj:side_effect_isolation_current",
+            "field:development_process_strategy:input_obj:step_artifact_bindings_current",
+            "field:development_process_strategy:input_obj:unique_pareto_dominator",
+            "field:development_process_strategy:state:equivalence_checked",
+            "field:development_process_strategy:state:material_revision"
+          ],
+          "source": "state:development_process_strategy:select:input",
+          "state_updates": [
+            "field:development_process_strategy:state:decision_revision",
+            "field:development_process_strategy:state:selected",
+            "field:development_process_strategy:state:selected_execution_mode"
+          ],
+          "target": "state:development_process_strategy:select:selected",
+          "trigger": "select",
+          "writes": [
+            "field:development_process_strategy:state:decision_revision",
+            "field:development_process_strategy:state:selected",
+            "field:development_process_strategy:state:selected_execution_mode"
+          ]
+        },
+        {
+          "component_id": "select",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True",
+            "dependency_order_violated": "dependency_order_violated",
+            "dominated_caller_selection": "dominated_caller_selection",
+            "global_optimum_claimed": "input_obj.claim_global_optimum",
+            "incomplete_process_cost_vector": "incomplete_process_cost_vector",
+            "non_equivalent_selected": "not state.equivalence_checked",
+            "stale_decision_reused": "stale",
+            "unresolved_non_dominated_boundary": "unresolved_non_dominated_boundary",
+            "unsafe_parallel_selected": "unsafe_parallel",
+            "unsupported_minimum_claimed": "unsupported_minimum"
+          },
+          "function_block_ids": [
+            "function-block:development_process_strategy:select"
+          ],
+          "guard": "not (input_obj.event != 'select') and invalid",
+          "guard_bindings": {
+            "dependency_order_violated": "not input_obj.dependency_order_valid",
+            "dominated_caller_selection": "input_obj.unique_pareto_dominator and (not input_obj.caller_selected_pareto_dominator)",
+            "incomplete_process_cost_vector": "not input_obj.step_artifact_bindings_current or not input_obj.process_cost_vector_complete",
+            "invalid": "not state.equivalence_checked or input_obj.execution_mode not in EXECUTION_MODES or (not input_obj.comparison_evidence_current) or unsafe_parallel or unsupported_minimum or dependency_order_violated or incomplete_process_cost_vector or unresolved_non_dominated_boundary or dominated_caller_selection or input_obj.claim_global_optimum or stale",
+            "isolation_current": "all((input_obj.dependency_isolation_current, input_obj.mutable_state_isolation_current, input_obj.side_effect_isolation_current, input_obj.execution_owner_isolation_current))",
+            "stale": "state.material_revision > input_obj.decision_revision",
+            "unresolved_non_dominated_boundary": "input_obj.eligible_candidate_count > 1 and (not input_obj.unique_pareto_dominator)",
+            "unsafe_parallel": "input_obj.execution_mode == 'safe_parallel' and (not isolation_current)",
+            "unsupported_minimum": "input_obj.claim_minimum and (not (input_obj.comparison_basis == 'measured' and input_obj.finite_boundary_named and input_obj.process_cost_vector_complete and input_obj.unique_pareto_dominator))"
+          },
+          "id": "transition:development_process_strategy:select:selection_rejected",
+          "outputs": [
+            "output:development_process_strategy:select:selection_rejected"
+          ],
+          "reads": [
+            "field:development_process_strategy:input_obj:caller_selected_pareto_dominator",
+            "field:development_process_strategy:input_obj:claim_global_optimum",
+            "field:development_process_strategy:input_obj:claim_minimum",
+            "field:development_process_strategy:input_obj:comparison_basis",
+            "field:development_process_strategy:input_obj:comparison_evidence_current",
+            "field:development_process_strategy:input_obj:decision_revision",
+            "field:development_process_strategy:input_obj:dependency_isolation_current",
+            "field:development_process_strategy:input_obj:dependency_order_valid",
+            "field:development_process_strategy:input_obj:eligible_candidate_count",
+            "field:development_process_strategy:input_obj:event",
+            "field:development_process_strategy:input_obj:execution_mode",
+            "field:development_process_strategy:input_obj:execution_owner_isolation_current",
+            "field:development_process_strategy:input_obj:finite_boundary_named",
+            "field:development_process_strategy:input_obj:mutable_state_isolation_current",
+            "field:development_process_strategy:input_obj:process_cost_vector_complete",
+            "field:development_process_strategy:input_obj:side_effect_isolation_current",
+            "field:development_process_strategy:input_obj:step_artifact_bindings_current",
+            "field:development_process_strategy:input_obj:unique_pareto_dominator",
+            "field:development_process_strategy:state:equivalence_checked",
+            "field:development_process_strategy:state:material_revision"
+          ],
+          "source": "state:development_process_strategy:select:input",
+          "state_updates": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:dependency_order_violated",
+            "field:development_process_strategy:state:dominated_caller_selection",
+            "field:development_process_strategy:state:global_optimum_claimed",
+            "field:development_process_strategy:state:incomplete_process_cost_vector",
+            "field:development_process_strategy:state:non_equivalent_selected",
+            "field:development_process_strategy:state:stale_decision_reused",
+            "field:development_process_strategy:state:unresolved_non_dominated_boundary",
+            "field:development_process_strategy:state:unsafe_parallel_selected",
+            "field:development_process_strategy:state:unsupported_minimum_claimed"
+          ],
+          "target": "state:development_process_strategy:select:selection_rejected",
+          "trigger": "select",
+          "writes": [
+            "field:development_process_strategy:state:blocked",
+            "field:development_process_strategy:state:dependency_order_violated",
+            "field:development_process_strategy:state:dominated_caller_selection",
+            "field:development_process_strategy:state:global_optimum_claimed",
+            "field:development_process_strategy:state:incomplete_process_cost_vector",
+            "field:development_process_strategy:state:non_equivalent_selected",
+            "field:development_process_strategy:state:stale_decision_reused",
+            "field:development_process_strategy:state:unresolved_non_dominated_boundary",
+            "field:development_process_strategy:state:unsafe_parallel_selected",
+            "field:development_process_strategy:state:unsupported_minimum_claimed"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "contract": "Ordinary work stays light; active optimization selects only equivalent, current, safe, owned, and honestly bounded candidates.",
+          "evidence_boundary_id": "native-runner:development_process_strategy",
+          "id": "validation:development_process_strategy:conditional_optimization_preserves_hard_contracts",
+          "obligation_id": "obligation:native-invariant:development_process_strategy:conditional_optimization_preserves_hard_contracts",
+          "oracle_id": "oracle:native-invariant:development_process_strategy:conditional_optimization_preserves_hard_contracts",
+          "subject_fingerprint": "sha256:9eb14ef68fd13ca42b649a5f1bb6c8c082bbd174da4711aa8b7e7ea3ee32f359"
+        }
+      ]
+    },
+    "retained_elements": {
+      "branch:development_process_strategy:diagnostic": "branch",
+      "branch:development_process_strategy:equivalence": "branch",
+      "branch:development_process_strategy:material_change": "branch",
+      "branch:development_process_strategy:repair": "branch",
+      "branch:development_process_strategy:route": "branch",
+      "branch:development_process_strategy:select": "branch",
+      "field:development_process_strategy:input_obj:activation_reasons": "field",
+      "field:development_process_strategy:input_obj:caller_selected_pareto_dominator": "field",
+      "field:development_process_strategy:input_obj:claim_global_optimum": "field",
+      "field:development_process_strategy:input_obj:claim_minimum": "field",
+      "field:development_process_strategy:input_obj:comparison_basis": "field",
+      "field:development_process_strategy:input_obj:comparison_evidence_current": "field",
+      "field:development_process_strategy:input_obj:current_revalidation_ids": "field",
+      "field:development_process_strategy:input_obj:decision_revision": "field",
+      "field:development_process_strategy:input_obj:dependency_authority_equal": "field",
+      "field:development_process_strategy:input_obj:dependency_isolation_current": "field",
+      "field:development_process_strategy:input_obj:dependency_order_valid": "field",
+      "field:development_process_strategy:input_obj:diagnostic_boundary": "field",
+      "field:development_process_strategy:input_obj:eligible_candidate_count": "field",
+      "field:development_process_strategy:input_obj:event": "field",
+      "field:development_process_strategy:input_obj:execution_mode": "field",
+      "field:development_process_strategy:input_obj:execution_owner_equal": "field",
+      "field:development_process_strategy:input_obj:execution_owner_isolation_current": "field",
+      "field:development_process_strategy:input_obj:finite_boundary_named": "field",
+      "field:development_process_strategy:input_obj:grouped_finding_count": "field",
+      "field:development_process_strategy:input_obj:hard_blocker": "field",
+      "field:development_process_strategy:input_obj:mutable_state_isolation_current": "field",
+      "field:development_process_strategy:input_obj:obligation_evidence_equal": "field",
+      "field:development_process_strategy:input_obj:primary_owner_current": "field",
+      "field:development_process_strategy:input_obj:process_cost_vector_complete": "field",
+      "field:development_process_strategy:input_obj:relation_evidence_current": "field",
+      "field:development_process_strategy:input_obj:required_revalidation_ids": "field",
+      "field:development_process_strategy:input_obj:safety_equal": "field",
+      "field:development_process_strategy:input_obj:side_effect_isolation_current": "field",
+      "field:development_process_strategy:input_obj:side_effects_equal": "field",
+      "field:development_process_strategy:input_obj:step_artifact_bindings_current": "field",
+      "field:development_process_strategy:input_obj:terminal_outcome_equal": "field",
+      "field:development_process_strategy:input_obj:testmesh_evidence_current": "field",
+      "field:development_process_strategy:input_obj:unique_pareto_dominator": "field",
+      "field:development_process_strategy:state:activation_reasons": "field",
+      "field:development_process_strategy:state:active": "field",
+      "field:development_process_strategy:state:blocked": "field",
+      "field:development_process_strategy:state:decision_revision": "field",
+      "field:development_process_strategy:state:dependency_order_violated": "field",
+      "field:development_process_strategy:state:diagnostic_boundary": "field",
+      "field:development_process_strategy:state:diagnostic_evidence_current": "field",
+      "field:development_process_strategy:state:dominated_caller_selection": "field",
+      "field:development_process_strategy:state:equivalence_checked": "field",
+      "field:development_process_strategy:state:global_optimum_claimed": "field",
+      "field:development_process_strategy:state:hard_blocker_visible": "field",
+      "field:development_process_strategy:state:inactive": "field",
+      "field:development_process_strategy:state:incomplete_process_cost_vector": "field",
+      "field:development_process_strategy:state:material_revision": "field",
+      "field:development_process_strategy:state:non_equivalent_selected": "field",
+      "field:development_process_strategy:state:repair_closed_without_revalidation": "field",
+      "field:development_process_strategy:state:repair_group_ready": "field",
+      "field:development_process_strategy:state:selected": "field",
+      "field:development_process_strategy:state:selected_execution_mode": "field",
+      "field:development_process_strategy:state:stale_decision_reused": "field",
+      "field:development_process_strategy:state:unowned_repair_selected": "field",
+      "field:development_process_strategy:state:unrelated_findings_grouped": "field",
+      "field:development_process_strategy:state:unresolved_non_dominated_boundary": "field",
+      "field:development_process_strategy:state:unsafe_parallel_selected": "field",
+      "field:development_process_strategy:state:unsupported_minimum_claimed": "field",
+      "function-block:development_process_strategy:diagnostic": "function_block",
+      "function-block:development_process_strategy:equivalence": "function_block",
+      "function-block:development_process_strategy:material_change": "function_block",
+      "function-block:development_process_strategy:repair": "function_block",
+      "function-block:development_process_strategy:route": "function_block",
+      "function-block:development_process_strategy:select": "function_block",
+      "state:development_process_strategy:diagnostic:diagnostic_evidence_admitted": "state",
+      "state:development_process_strategy:diagnostic:diagnostic_evidence_rejected": "state",
+      "state:development_process_strategy:diagnostic:hard_blocker": "state",
+      "state:development_process_strategy:diagnostic:input": "state",
+      "state:development_process_strategy:equivalence:candidate_equivalent": "state",
+      "state:development_process_strategy:equivalence:candidate_rejected": "state",
+      "state:development_process_strategy:equivalence:input": "state",
+      "state:development_process_strategy:material_change:decision_stale": "state",
+      "state:development_process_strategy:material_change:input": "state",
+      "state:development_process_strategy:repair:input": "state",
+      "state:development_process_strategy:repair:repair_group_ready": "state",
+      "state:development_process_strategy:repair:repair_group_rejected": "state",
+      "state:development_process_strategy:route:activation_rejected": "state",
+      "state:development_process_strategy:route:input": "state",
+      "state:development_process_strategy:route:not_needed": "state",
+      "state:development_process_strategy:route:optimization_active": "state",
+      "state:development_process_strategy:select:input": "state",
+      "state:development_process_strategy:select:selected": "state",
+      "state:development_process_strategy:select:selection_rejected": "state",
+      "transition:development_process_strategy:diagnostic:diagnostic_evidence_admitted": "transition",
+      "transition:development_process_strategy:diagnostic:diagnostic_evidence_rejected": "transition",
+      "transition:development_process_strategy:diagnostic:hard_blocker": "transition",
+      "transition:development_process_strategy:equivalence:candidate_equivalent": "transition",
+      "transition:development_process_strategy:equivalence:candidate_rejected": "transition",
+      "transition:development_process_strategy:material_change:decision_stale": "transition",
+      "transition:development_process_strategy:repair:repair_group_ready": "transition",
+      "transition:development_process_strategy:repair:repair_group_rejected": "transition",
+      "transition:development_process_strategy:route:activation_rejected": "transition",
+      "transition:development_process_strategy:route:not_needed": "transition",
+      "transition:development_process_strategy:route:optimization_active": "transition",
+      "transition:development_process_strategy:select:selected": "transition",
+      "transition:development_process_strategy:select:selection_rejected": "transition",
+      "validation:development_process_strategy:conditional_optimization_preserves_hard_contracts": "validation"
+    },
+    "subject_fingerprint": "sha256:ff8b1a1bddfb5c2f254696e5686d385a54d8151890f4537a5dd8224734f45106",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {
+      "structural:behavior_irrelevant_field": "sha256:e61c39761b641a2bf27dd4f7257045a693d3d2d3bb377c121492422c082af7a1"
+    },
+    "trigger_ids": [
+      "structural:behavior_irrelevant_field"
+    ],
+    "unresolved_ids": [
+      "behavior_irrelevant_field:field:development_process_strategy:state:activation_reasons",
+      "behavior_irrelevant_field:field:development_process_strategy:state:blocked",
+      "behavior_irrelevant_field:field:development_process_strategy:state:decision_revision",
+      "behavior_irrelevant_field:field:development_process_strategy:state:dependency_order_violated",
+      "behavior_irrelevant_field:field:development_process_strategy:state:diagnostic_boundary",
+      "behavior_irrelevant_field:field:development_process_strategy:state:diagnostic_evidence_current",
+      "behavior_irrelevant_field:field:development_process_strategy:state:dominated_caller_selection",
+      "behavior_irrelevant_field:field:development_process_strategy:state:global_optimum_claimed",
+      "behavior_irrelevant_field:field:development_process_strategy:state:hard_blocker_visible",
+      "behavior_irrelevant_field:field:development_process_strategy:state:inactive",
+      "behavior_irrelevant_field:field:development_process_strategy:state:incomplete_process_cost_vector",
+      "behavior_irrelevant_field:field:development_process_strategy:state:non_equivalent_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:repair_closed_without_revalidation",
+      "behavior_irrelevant_field:field:development_process_strategy:state:repair_group_ready",
+      "behavior_irrelevant_field:field:development_process_strategy:state:selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:selected_execution_mode",
+      "behavior_irrelevant_field:field:development_process_strategy:state:stale_decision_reused",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unowned_repair_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unrelated_findings_grouped",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unresolved_non_dominated_boundary",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unsafe_parallel_selected",
+      "behavior_irrelevant_field:field:development_process_strategy:state:unsupported_minimum_claimed"
+    ],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:3e2ec83c893567834bc031b32e25e306d51444ab6cbee47335fab15c5632ba35",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

@@ -30,13 +30,22 @@ for ordinary use) checks the current source boundary once and reuses each
 producer source identity when its recorded size and modification-time pointer
 is unchanged; a changed or missing pointer is read exactly once and becomes a
 new source fingerprint. `full` is the release-grade route: it rereads every
-source file and replays the direct discovery producer. The light profile is a
+source file and replays the complete source-only producer. A direct discovery
+is reproduced directly; a merged discovery is reproduced by rebuilding the
+shard plan with its persisted `shard_max_rows`, discovering every planned
+shard, and merging that exact set. The stored plan fingerprint, shard ids,
+source identities, rows, call graph, counts, and final discovery fingerprint
+must equal the replay. A caller cannot make an incomplete merged denominator
+current by deleting rows and resealing its fingerprint. The light profile is a
 performance projection, not a fallback reader and not a second authority; the
 merged discovery artifact and its content fingerprint remain the only source
 observation authority. Use `--profile full` for final full validation.
 
-The merge command must receive every planned shard. It independently rehashes
-each source file, checks exact source-path conservation, rejects overlap,
+The merge command must receive every planned shard. A merged result records the
+exact row bound used by its plan so a later currentness gate can reproduce the
+same partition. It verifies the plan fingerprint and that each source still
+matches the bytes used to create that plan, reads each source once per phase
+for hashing and parsing, checks exact source-path conservation, rejects overlap,
 foreign rows, duplicate surface ids, stale rows, missing call graphs, and
 over-budget children. The merged call graph consumes the child-observed call
 site denominator for module, class-body, and function callers, then recomputes

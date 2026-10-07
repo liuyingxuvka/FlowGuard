@@ -1,0 +1,217 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:279a7dac16f3115845f2e9e57af9656e714e969599d38d0f56d98fc0476ad4b6",
+        "effective_intent_view_fingerprint": "sha256:dac60887220008644ad16bc6413e1989712ad488be9f43eae5b0df2c189ccd1b",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/evidence_storage_lifecycle/model.py",
+            "source_fingerprint": "sha256:f93574a9caaaee577f878dafdfea29af54be297d9ea7ec96db66965ba5999f80"
+          },
+          {
+            "path": ".flowguard/verification/owners/evidence_storage_lifecycle/run_checks.py",
+            "source_fingerprint": "sha256:14e41cdc408a41ee0158807d8f377cf4c7eaefb54d09fe904d2b00022b7dc3e8"
+          },
+          {
+            "path": "flowguard/_hashing.py",
+            "source_fingerprint": "sha256:ac825588e311204011e0e2931a8dc69b97fde630275c5e40379cbcb6a6aeadaa"
+          },
+          {
+            "path": "flowguard/evidence_lifecycle.py",
+            "source_fingerprint": "sha256:681c5a1b9edd20824df419797954d7e5f5dd888c7018d3fcbacc01c69c472011"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "actual_apis": "evidence_execution_lease",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "same owner/resource leased with a second execution identity",
+            "known_bad_case_id": "active_resource_blocks_other_execution",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_active_resource_reexecution",
+            "required_observation": "exclusive acquisition rejects and first token remains"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_active_resource_reexecution"
+        },
+        {
+          "contract": {
+            "actual_apis": "publish_run/read_current_head",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "child consumer requests parent, or child attempts replacing parent head",
+            "known_bad_case_id": "child_cannot_be_parent_or_replace_parent",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_foreign_authority_subject",
+            "required_observation": "identity rejection and existing parent head unchanged"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_foreign_authority_subject"
+        },
+        {
+          "contract": {
+            "actual_apis": "apply_evidence_gc",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "valid plan used against different root; unsigned plan field altered",
+            "known_bad_case_id": "foreign_root_and_plan_tamper_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_foreign_or_tampered_gc_plan",
+            "required_observation": "rejection before any path move"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_foreign_or_tampered_gc_plan"
+        },
+        {
+          "contract": {
+            "actual_apis": "audit_evidence/purge_evidence_quarantine",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "current result bytes altered after quarantine",
+            "known_bad_case_id": "invalid_current_blocks_purge",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_invalid_current_purge",
+            "required_observation": "audit blockers reject purge; quarantine remains"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_invalid_current_purge"
+        },
+        {
+          "contract": {
+            "actual_apis": "resolve_object_path",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "descriptor ../outside",
+            "known_bad_case_id": "object_escape_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_object_escape",
+            "required_observation": "EvidenceLifecycleError and outside bytes unchanged"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_object_escape"
+        },
+        {
+          "contract": {
+            "actual_apis": "verify_text_object",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "stored gzip bytes altered",
+            "known_bad_case_id": "corrupted_object_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_object_identity_corruption",
+            "required_observation": "verification False, never accepted as identical"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_object_identity_corruption"
+        },
+        {
+          "contract": {
+            "actual_apis": "audit_evidence/plan_evidence_gc/apply_evidence_gc",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "current, pinned, explicitly preserved rows inserted into re-signed plan",
+            "known_bad_case_id": "forged_reachable_candidates_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_reachable_evidence_removed",
+            "required_observation": "exact recomputation rejects and preserves all rows"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_reachable_evidence_removed"
+        },
+        {
+          "contract": {
+            "actual_apis": "restore_evidence_quarantine",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "original destination exists before restore",
+            "known_bad_case_id": "restore_collision_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_restore_destination_collision",
+            "required_observation": "collision rejected before move; quarantine and destination preserved"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_restore_destination_collision"
+        },
+        {
+          "contract": {
+            "actual_apis": "plan_evidence_gc/apply_evidence_gc",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "candidate contents changed after planning",
+            "known_bad_case_id": "changed_candidate_stale_plan_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_stale_gc_plan",
+            "required_observation": "rejection, original directories intact, no quarantine"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_stale_gc_plan"
+        },
+        {
+          "contract": {
+            "actual_apis": "settle_cleanup_unconfirmed_lease",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "wrong episode token, then nonempty descendant observation",
+            "known_bad_case_id": "wrong_episode_and_live_descendants_block_release",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_unconfirmed_cleanup_release",
+            "required_observation": "both rejected and residual lease remains"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_unconfirmed_cleanup_release"
+        },
+        {
+          "contract": {
+            "actual_apis": "restore_evidence_quarantine/purge_evidence_quarantine",
+            "claim_boundary": "storage identity and effects; no target check success or unregistered live-consumer inference",
+            "finite_input": "unknown id, ../scope, receipts",
+            "known_bad_case_id": "unknown_and_active_store_purge_rejected",
+            "mutation_boundary": "fresh invocation-owned TemporaryDirectory only",
+            "protected_failure_id": "storage_unknown_or_escaped_quarantine",
+            "required_observation": "no deletion outside exact existing quarantine"
+          },
+          "id": "function-block:evidence_storage_lifecycle:contract:storage_unknown_or_escaped_quarantine"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:evidence_storage_lifecycle:contract:storage_active_resource_reexecution": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_foreign_authority_subject": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_foreign_or_tampered_gc_plan": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_invalid_current_purge": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_object_escape": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_object_identity_corruption": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_reachable_evidence_removed": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_restore_destination_collision": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_stale_gc_plan": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_unconfirmed_cleanup_release": "function_block",
+      "function-block:evidence_storage_lifecycle:contract:storage_unknown_or_escaped_quarantine": "function_block"
+    },
+    "subject_fingerprint": "sha256:72e97d4879a4c34a6eada28bcfb31f7ad69549ad0080936b6e68ab775331bf53",
+    "trigger_currentness_id": "sha256:1feb376c0cb5f47128a10c89236497db619100bf1cbfdba793cf4c97e8ef6cd3",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:6ba2151793d735ae58f06a24a2b04dada88260209acb6edb6624c0f8e742353e",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

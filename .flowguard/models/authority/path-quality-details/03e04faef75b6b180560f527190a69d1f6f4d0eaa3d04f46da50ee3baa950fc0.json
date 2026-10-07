@@ -1,0 +1,150 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:35e397f63538387f8169558f3d5e6fa2e2b41f52a7847309dd10f317891ab738",
+        "effective_intent_view_fingerprint": "sha256:6d85af62c12ce0cb02a439f2d8997e44089cec4373646e40f5618361213ea5a8",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/adversarial_scenario_synthesis/model.py",
+            "source_fingerprint": "sha256:f622ae81bec1b92c186a25e61e12de50b35f0fc8e7d5d2accb93360854e9ab3e"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:adversarial_scenario_synthesis:SynthesisPlan",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "PlanStep",
+          "effects": [],
+          "id": "function-block:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep",
+          "inputs": [
+            "external-input:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1"
+          ],
+          "outputs": [
+            "output:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:adversarial_scenario_synthesis:SynthesisPlan"
+          ],
+          "state_input": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0",
+          "state_output": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:1",
+          "validations": [],
+          "writes": [
+            "field:adversarial_scenario_synthesis:SynthesisPlan"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep",
+          "producer_id": "transition:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep",
+          "outputs": [
+            "output:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep"
+          ],
+          "reads": [
+            "field:adversarial_scenario_synthesis:SynthesisPlan"
+          ],
+          "source": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0",
+          "target": "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:1",
+          "trigger": "PlanStep",
+          "validations": [],
+          "writes": [
+            "field:adversarial_scenario_synthesis:SynthesisPlan"
+          ]
+        }
+      ],
+      "validations": []
+    },
+    "retained_elements": {
+      "field:adversarial_scenario_synthesis:SynthesisPlan": "field",
+      "function-block:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep": "function_block",
+      "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0": "state",
+      "state:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:1": "state",
+      "transition:workflow:adversarial_scenario_synthesis:adversarial_scenario_synthesis:0:a7463e6767d1:0:ApplySynthesisStep": "transition"
+    },
+    "subject_fingerprint": "sha256:1ff880315e6959c7b024e877f6f9f0b36ed8e189fc1da115653b7c01888f4072",
+    "trigger_currentness_id": "sha256:bbb34b1050ccce627c51ccb155867a8303ec9272e2b02868311721d2a2e6b726",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:03e04faef75b6b180560f527190a69d1f6f4d0eaa3d04f46da50ee3baa950fc0",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

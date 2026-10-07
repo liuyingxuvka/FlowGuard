@@ -1,0 +1,1145 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [
+      "behavior_irrelevant_field:field:work_context:state:behavior_admitted",
+      "behavior_irrelevant_field:field:work_context:state:blocked",
+      "behavior_irrelevant_field:field:work_context:state:context_projected",
+      "behavior_irrelevant_field:field:work_context:state:intent_contributions_projected"
+    ],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:56031d214e2bc3097cba2091d97e5133ed885a6af6b0a40468d999bf017aae30",
+        "effective_intent_view_fingerprint": "sha256:6eeabd9cedcfd79b5a620ef3233dc8712f89b4171ffb1fb34017d628b6264e92",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/work_context/model.py",
+            "source_fingerprint": "sha256:5525f44bc08be949e68160b2eb1fa436f3ca51d0f10ac48d387d9c2a5ac9c356"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [
+        {
+          "id": "branch:work_context:project",
+          "no_result_guards": [
+            "input_obj.event != 'project'"
+          ],
+          "source": "state:work_context:project:input",
+          "transition_ids": [
+            "transition:work_context:project:blocked",
+            "transition:work_context:project:projected"
+          ],
+          "trigger": "project"
+        },
+        {
+          "id": "branch:work_context:read",
+          "no_result_guards": [
+            "input_obj.event != 'read'"
+          ],
+          "source": "state:work_context:read:input",
+          "transition_ids": [
+            "transition:work_context:read:blocked",
+            "transition:work_context:read:context-read"
+          ],
+          "trigger": "read"
+        },
+        {
+          "id": "branch:work_context:select",
+          "no_result_guards": [
+            "input_obj.event != 'select'"
+          ],
+          "source": "state:work_context:select:input",
+          "transition_ids": [
+            "transition:work_context:select:blocked",
+            "transition:work_context:select:selected"
+          ],
+          "trigger": "select"
+        }
+      ],
+      "constants": {
+        "GENERIC_ARTIFACT_ROLES": [
+          "scope",
+          "requirement",
+          "acceptance",
+          "design",
+          "plan",
+          "task",
+          "status",
+          "history",
+          "other"
+        ]
+      },
+      "dispatcher_rejection": {
+        "event_guard": "input_obj.event not in declared event ids",
+        "outcome": "no_result",
+        "source_symbols": [
+          "SelectAdapter.apply",
+          "ReadArtifacts.apply",
+          "ProjectContext.apply"
+        ],
+        "terminal": false
+      },
+      "effects": [],
+      "event_dispatch": true,
+      "fields": [
+        {
+          "id": "field:work_context:input_obj:adapter_id",
+          "read_by": [
+            "function-block:work_context:select"
+          ],
+          "used_by": [
+            "function-block:work_context:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:artifact_fingerprints_current",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:artifact_roles",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:authority_bridge_requested",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:behavior_source_surface_ids",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:context_id",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:event",
+          "read_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read",
+            "function-block:work_context:select"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read",
+            "function-block:work_context:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:execute_requested",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:existing_context_ids",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:intent_conflict",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:intent_dispositions_terminal",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:intent_provenance_current",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:provider_root_bounded",
+          "read_by": [
+            "function-block:work_context:select"
+          ],
+          "used_by": [
+            "function-block:work_context:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:registered_adapter_ids",
+          "read_by": [
+            "function-block:work_context:select"
+          ],
+          "used_by": [
+            "function-block:work_context:select"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:required_artifact_roles",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:validation_requested",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:input_obj:write_requested",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read"
+          ],
+          "written_by": []
+        },
+        {
+          "id": "field:work_context:state:adapter_selected",
+          "read_by": [
+            "function-block:work_context:read"
+          ],
+          "used_by": [
+            "function-block:work_context:read",
+            "function-block:work_context:select"
+          ],
+          "written_by": [
+            "function-block:work_context:select"
+          ]
+        },
+        {
+          "id": "field:work_context:state:artifacts_read",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read"
+          ],
+          "written_by": [
+            "function-block:work_context:read"
+          ]
+        },
+        {
+          "id": "field:work_context:state:authority_bridge_count",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read"
+          ],
+          "written_by": [
+            "function-block:work_context:read"
+          ]
+        },
+        {
+          "id": "field:work_context:state:behavior_admitted",
+          "read_by": [],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": [
+            "function-block:work_context:project"
+          ]
+        },
+        {
+          "id": "field:work_context:state:blocked",
+          "read_by": [],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read",
+            "function-block:work_context:select"
+          ],
+          "written_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read",
+            "function-block:work_context:select"
+          ]
+        },
+        {
+          "id": "field:work_context:state:context_projected",
+          "read_by": [],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": [
+            "function-block:work_context:project"
+          ]
+        },
+        {
+          "id": "field:work_context:state:intent_contributions_projected",
+          "read_by": [],
+          "used_by": [
+            "function-block:work_context:project"
+          ],
+          "written_by": [
+            "function-block:work_context:project"
+          ]
+        },
+        {
+          "id": "field:work_context:state:provider_execution_count",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read"
+          ],
+          "written_by": [
+            "function-block:work_context:read"
+          ]
+        },
+        {
+          "id": "field:work_context:state:provider_validation_count",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read"
+          ],
+          "written_by": [
+            "function-block:work_context:read"
+          ]
+        },
+        {
+          "id": "field:work_context:state:provider_write_count",
+          "read_by": [
+            "function-block:work_context:project"
+          ],
+          "used_by": [
+            "function-block:work_context:project",
+            "function-block:work_context:read"
+          ],
+          "written_by": [
+            "function-block:work_context:read"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "component_id": "project",
+          "id": "function-block:work_context:project",
+          "inputs": [
+            "external-input:project"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'project'"
+          ],
+          "outputs": [
+            "output:work_context:project:blocked",
+            "output:work_context:project:projected"
+          ],
+          "reads": [
+            "field:work_context:input_obj:behavior_source_surface_ids",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:intent_conflict",
+            "field:work_context:input_obj:intent_dispositions_terminal",
+            "field:work_context:input_obj:intent_provenance_current",
+            "field:work_context:state:artifacts_read",
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ],
+          "writes": [
+            "field:work_context:state:behavior_admitted",
+            "field:work_context:state:blocked",
+            "field:work_context:state:context_projected",
+            "field:work_context:state:intent_contributions_projected"
+          ]
+        },
+        {
+          "component_id": "read",
+          "id": "function-block:work_context:read",
+          "inputs": [
+            "external-input:read"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'read'"
+          ],
+          "outputs": [
+            "output:work_context:read:blocked",
+            "output:work_context:read:context-read"
+          ],
+          "reads": [
+            "field:work_context:input_obj:artifact_fingerprints_current",
+            "field:work_context:input_obj:artifact_roles",
+            "field:work_context:input_obj:authority_bridge_requested",
+            "field:work_context:input_obj:context_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:execute_requested",
+            "field:work_context:input_obj:existing_context_ids",
+            "field:work_context:input_obj:required_artifact_roles",
+            "field:work_context:input_obj:validation_requested",
+            "field:work_context:input_obj:write_requested",
+            "field:work_context:state:adapter_selected"
+          ],
+          "writes": [
+            "field:work_context:state:artifacts_read",
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:blocked",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ]
+        },
+        {
+          "component_id": "select",
+          "id": "function-block:work_context:select",
+          "inputs": [
+            "external-input:select"
+          ],
+          "no_result_guards": [
+            "input_obj.event != 'select'"
+          ],
+          "outputs": [
+            "output:work_context:select:blocked",
+            "output:work_context:select:selected"
+          ],
+          "reads": [
+            "field:work_context:input_obj:adapter_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:provider_root_bounded",
+            "field:work_context:input_obj:registered_adapter_ids"
+          ],
+          "writes": [
+            "field:work_context:state:adapter_selected",
+            "field:work_context:state:blocked"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:work_context:project:input",
+        "state:work_context:read:input",
+        "state:work_context:select:input"
+      ],
+      "input_classes": [
+        {
+          "event": "select",
+          "guard": "not (input_obj.event != 'select') and input_obj.adapter_id not in input_obj.registered_adapter_ids or not input_obj.provider_root_bounded",
+          "guard_bindings": {},
+          "id": "input-class:work_context:select:blocked"
+        },
+        {
+          "event": "select",
+          "guard": "not (input_obj.event != 'select') and not (input_obj.adapter_id not in input_obj.registered_adapter_ids or not input_obj.provider_root_bounded)",
+          "guard_bindings": {},
+          "id": "input-class:work_context:select:selected"
+        },
+        {
+          "event": "read",
+          "guard": "not (input_obj.event != 'read') and not state.adapter_selected or invalid_roles or (not required.issubset(roles)) or (not input_obj.artifact_fingerprints_current) or duplicate_identity or forbidden",
+          "guard_bindings": {
+            "duplicate_identity": "input_obj.context_id in input_obj.existing_context_ids",
+            "forbidden": "input_obj.write_requested or input_obj.execute_requested or input_obj.validation_requested or input_obj.authority_bridge_requested",
+            "invalid_roles": "roles - set(GENERIC_ARTIFACT_ROLES)",
+            "required": "set(input_obj.required_artifact_roles)",
+            "roles": "set(input_obj.artifact_roles)"
+          },
+          "id": "input-class:work_context:read:blocked"
+        },
+        {
+          "event": "read",
+          "guard": "not (input_obj.event != 'read') and not (not state.adapter_selected or invalid_roles or (not required.issubset(roles)) or (not input_obj.artifact_fingerprints_current) or duplicate_identity or forbidden)",
+          "guard_bindings": {
+            "duplicate_identity": "input_obj.context_id in input_obj.existing_context_ids",
+            "forbidden": "input_obj.write_requested or input_obj.execute_requested or input_obj.validation_requested or input_obj.authority_bridge_requested",
+            "invalid_roles": "roles - set(GENERIC_ARTIFACT_ROLES)",
+            "required": "set(input_obj.required_artifact_roles)",
+            "roles": "set(input_obj.artifact_roles)"
+          },
+          "id": "input-class:work_context:read:context-read"
+        },
+        {
+          "event": "project",
+          "guard": "not (input_obj.event != 'project') and not state.artifacts_read or state.provider_write_count or state.provider_execution_count or state.provider_validation_count or state.authority_bridge_count or (not input_obj.intent_provenance_current) or (not input_obj.intent_dispositions_terminal) or input_obj.intent_conflict",
+          "guard_bindings": {},
+          "id": "input-class:work_context:project:blocked"
+        },
+        {
+          "event": "project",
+          "guard": "not (input_obj.event != 'project') and not (not state.artifacts_read or state.provider_write_count or state.provider_execution_count or state.provider_validation_count or state.authority_bridge_count or (not input_obj.intent_provenance_current) or (not input_obj.intent_dispositions_terminal) or input_obj.intent_conflict)",
+          "guard_bindings": {},
+          "id": "input-class:work_context:project:projected"
+        }
+      ],
+      "input_schema": [
+        "event",
+        "adapter_id",
+        "registered_adapter_ids",
+        "provider_root_bounded",
+        "artifact_roles",
+        "required_artifact_roles",
+        "artifact_fingerprints_current",
+        "context_id",
+        "existing_context_ids",
+        "write_requested",
+        "execute_requested",
+        "validation_requested",
+        "authority_bridge_requested",
+        "behavior_source_surface_ids",
+        "intent_provenance_current",
+        "intent_dispositions_terminal",
+        "intent_conflict"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:project:blocked",
+          "producer_id": "transition:work_context:project:blocked",
+          "symbol": "blocked",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:project:projected",
+          "producer_id": "transition:work_context:project:projected",
+          "symbol": "projected",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:read:blocked",
+          "producer_id": "transition:work_context:read:blocked",
+          "symbol": "blocked",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:read:context-read",
+          "producer_id": "transition:work_context:read:context-read",
+          "symbol": "context-read",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:select:blocked",
+          "producer_id": "transition:work_context:select:blocked",
+          "symbol": "blocked",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "caller:event-dispatch"
+          ],
+          "id": "output:work_context:select:selected",
+          "producer_id": "transition:work_context:select:selected",
+          "symbol": "selected",
+          "terminal": false
+        }
+      ],
+      "owners": [],
+      "responsibilities": [],
+      "state_schema": [
+        "adapter_selected",
+        "artifacts_read",
+        "context_projected",
+        "blocked",
+        "provider_write_count",
+        "provider_execution_count",
+        "provider_validation_count",
+        "authority_bridge_count",
+        "behavior_admitted",
+        "intent_contributions_projected"
+      ],
+      "states": [
+        {
+          "component_id": "project",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True"
+          },
+          "id": "state:work_context:project:blocked",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "adapter_selected",
+            "artifacts_read",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "context_projected",
+            "intent_contributions_projected",
+            "provider_execution_count",
+            "provider_validation_count",
+            "provider_write_count"
+          ]
+        },
+        {
+          "component_id": "project",
+          "id": "state:work_context:project:input",
+          "initial": true,
+          "state_schema": [
+            "adapter_selected",
+            "artifacts_read",
+            "context_projected",
+            "blocked",
+            "provider_write_count",
+            "provider_execution_count",
+            "provider_validation_count",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "intent_contributions_projected"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "project",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "behavior_admitted": "bool(input_obj.behavior_source_surface_ids)",
+            "context_projected": "True",
+            "intent_contributions_projected": "True"
+          },
+          "id": "state:work_context:project:projected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "adapter_selected",
+            "artifacts_read",
+            "authority_bridge_count",
+            "blocked",
+            "provider_execution_count",
+            "provider_validation_count",
+            "provider_write_count"
+          ]
+        },
+        {
+          "component_id": "read",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "authority_bridge_count": "int(input_obj.authority_bridge_requested)",
+            "blocked": "True",
+            "provider_execution_count": "int(input_obj.execute_requested)",
+            "provider_validation_count": "int(input_obj.validation_requested)",
+            "provider_write_count": "int(input_obj.write_requested)"
+          },
+          "id": "state:work_context:read:blocked",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "adapter_selected",
+            "artifacts_read",
+            "behavior_admitted",
+            "context_projected",
+            "intent_contributions_projected"
+          ]
+        },
+        {
+          "component_id": "read",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "artifacts_read": "True"
+          },
+          "id": "state:work_context:read:context-read",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "adapter_selected",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "blocked",
+            "context_projected",
+            "intent_contributions_projected",
+            "provider_execution_count",
+            "provider_validation_count",
+            "provider_write_count"
+          ]
+        },
+        {
+          "component_id": "read",
+          "id": "state:work_context:read:input",
+          "initial": true,
+          "state_schema": [
+            "adapter_selected",
+            "artifacts_read",
+            "context_projected",
+            "blocked",
+            "provider_write_count",
+            "provider_execution_count",
+            "provider_validation_count",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "intent_contributions_projected"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "select",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "blocked": "True"
+          },
+          "id": "state:work_context:select:blocked",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "adapter_selected",
+            "artifacts_read",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "context_projected",
+            "intent_contributions_projected",
+            "provider_execution_count",
+            "provider_validation_count",
+            "provider_write_count"
+          ]
+        },
+        {
+          "component_id": "select",
+          "id": "state:work_context:select:input",
+          "initial": true,
+          "state_schema": [
+            "adapter_selected",
+            "artifacts_read",
+            "context_projected",
+            "blocked",
+            "provider_write_count",
+            "provider_execution_count",
+            "provider_validation_count",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "intent_contributions_projected"
+          ],
+          "terminal": false
+        },
+        {
+          "component_id": "select",
+          "continuation": "shared immutable state supplied to next event",
+          "field_values": {
+            "adapter_selected": "True"
+          },
+          "id": "state:work_context:select:selected",
+          "initial": false,
+          "terminal": false,
+          "unchanged_fields": [
+            "artifacts_read",
+            "authority_bridge_count",
+            "behavior_admitted",
+            "blocked",
+            "context_projected",
+            "intent_contributions_projected",
+            "provider_execution_count",
+            "provider_validation_count",
+            "provider_write_count"
+          ]
+        }
+      ],
+      "terminal_state_ids": [],
+      "transitions": [
+        {
+          "component_id": "project",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True"
+          },
+          "function_block_ids": [
+            "function-block:work_context:project"
+          ],
+          "guard": "not (input_obj.event != 'project') and not state.artifacts_read or state.provider_write_count or state.provider_execution_count or state.provider_validation_count or state.authority_bridge_count or (not input_obj.intent_provenance_current) or (not input_obj.intent_dispositions_terminal) or input_obj.intent_conflict",
+          "guard_bindings": {},
+          "id": "transition:work_context:project:blocked",
+          "outputs": [
+            "output:work_context:project:blocked"
+          ],
+          "reads": [
+            "field:work_context:input_obj:behavior_source_surface_ids",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:intent_conflict",
+            "field:work_context:input_obj:intent_dispositions_terminal",
+            "field:work_context:input_obj:intent_provenance_current",
+            "field:work_context:state:artifacts_read",
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ],
+          "source": "state:work_context:project:input",
+          "state_updates": [
+            "field:work_context:state:blocked"
+          ],
+          "target": "state:work_context:project:blocked",
+          "trigger": "project",
+          "writes": [
+            "field:work_context:state:blocked"
+          ]
+        },
+        {
+          "component_id": "project",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "behavior_admitted": "bool(input_obj.behavior_source_surface_ids)",
+            "context_projected": "True",
+            "intent_contributions_projected": "True"
+          },
+          "function_block_ids": [
+            "function-block:work_context:project"
+          ],
+          "guard": "not (input_obj.event != 'project') and not (not state.artifacts_read or state.provider_write_count or state.provider_execution_count or state.provider_validation_count or state.authority_bridge_count or (not input_obj.intent_provenance_current) or (not input_obj.intent_dispositions_terminal) or input_obj.intent_conflict)",
+          "guard_bindings": {},
+          "id": "transition:work_context:project:projected",
+          "outputs": [
+            "output:work_context:project:projected"
+          ],
+          "reads": [
+            "field:work_context:input_obj:behavior_source_surface_ids",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:intent_conflict",
+            "field:work_context:input_obj:intent_dispositions_terminal",
+            "field:work_context:input_obj:intent_provenance_current",
+            "field:work_context:state:artifacts_read",
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ],
+          "source": "state:work_context:project:input",
+          "state_updates": [
+            "field:work_context:state:behavior_admitted",
+            "field:work_context:state:context_projected",
+            "field:work_context:state:intent_contributions_projected"
+          ],
+          "target": "state:work_context:project:projected",
+          "trigger": "project",
+          "writes": [
+            "field:work_context:state:behavior_admitted",
+            "field:work_context:state:context_projected",
+            "field:work_context:state:intent_contributions_projected"
+          ]
+        },
+        {
+          "component_id": "read",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "authority_bridge_count": "int(input_obj.authority_bridge_requested)",
+            "blocked": "True",
+            "provider_execution_count": "int(input_obj.execute_requested)",
+            "provider_validation_count": "int(input_obj.validation_requested)",
+            "provider_write_count": "int(input_obj.write_requested)"
+          },
+          "function_block_ids": [
+            "function-block:work_context:read"
+          ],
+          "guard": "not (input_obj.event != 'read') and not state.adapter_selected or invalid_roles or (not required.issubset(roles)) or (not input_obj.artifact_fingerprints_current) or duplicate_identity or forbidden",
+          "guard_bindings": {
+            "duplicate_identity": "input_obj.context_id in input_obj.existing_context_ids",
+            "forbidden": "input_obj.write_requested or input_obj.execute_requested or input_obj.validation_requested or input_obj.authority_bridge_requested",
+            "invalid_roles": "roles - set(GENERIC_ARTIFACT_ROLES)",
+            "required": "set(input_obj.required_artifact_roles)",
+            "roles": "set(input_obj.artifact_roles)"
+          },
+          "id": "transition:work_context:read:blocked",
+          "outputs": [
+            "output:work_context:read:blocked"
+          ],
+          "reads": [
+            "field:work_context:input_obj:artifact_fingerprints_current",
+            "field:work_context:input_obj:artifact_roles",
+            "field:work_context:input_obj:authority_bridge_requested",
+            "field:work_context:input_obj:context_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:execute_requested",
+            "field:work_context:input_obj:existing_context_ids",
+            "field:work_context:input_obj:required_artifact_roles",
+            "field:work_context:input_obj:validation_requested",
+            "field:work_context:input_obj:write_requested",
+            "field:work_context:state:adapter_selected"
+          ],
+          "source": "state:work_context:read:input",
+          "state_updates": [
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:blocked",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ],
+          "target": "state:work_context:read:blocked",
+          "trigger": "read",
+          "writes": [
+            "field:work_context:state:authority_bridge_count",
+            "field:work_context:state:blocked",
+            "field:work_context:state:provider_execution_count",
+            "field:work_context:state:provider_validation_count",
+            "field:work_context:state:provider_write_count"
+          ]
+        },
+        {
+          "component_id": "read",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "artifacts_read": "True"
+          },
+          "function_block_ids": [
+            "function-block:work_context:read"
+          ],
+          "guard": "not (input_obj.event != 'read') and not (not state.adapter_selected or invalid_roles or (not required.issubset(roles)) or (not input_obj.artifact_fingerprints_current) or duplicate_identity or forbidden)",
+          "guard_bindings": {
+            "duplicate_identity": "input_obj.context_id in input_obj.existing_context_ids",
+            "forbidden": "input_obj.write_requested or input_obj.execute_requested or input_obj.validation_requested or input_obj.authority_bridge_requested",
+            "invalid_roles": "roles - set(GENERIC_ARTIFACT_ROLES)",
+            "required": "set(input_obj.required_artifact_roles)",
+            "roles": "set(input_obj.artifact_roles)"
+          },
+          "id": "transition:work_context:read:context-read",
+          "outputs": [
+            "output:work_context:read:context-read"
+          ],
+          "reads": [
+            "field:work_context:input_obj:artifact_fingerprints_current",
+            "field:work_context:input_obj:artifact_roles",
+            "field:work_context:input_obj:authority_bridge_requested",
+            "field:work_context:input_obj:context_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:execute_requested",
+            "field:work_context:input_obj:existing_context_ids",
+            "field:work_context:input_obj:required_artifact_roles",
+            "field:work_context:input_obj:validation_requested",
+            "field:work_context:input_obj:write_requested",
+            "field:work_context:state:adapter_selected"
+          ],
+          "source": "state:work_context:read:input",
+          "state_updates": [
+            "field:work_context:state:artifacts_read"
+          ],
+          "target": "state:work_context:read:context-read",
+          "trigger": "read",
+          "writes": [
+            "field:work_context:state:artifacts_read"
+          ]
+        },
+        {
+          "component_id": "select",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "blocked": "True"
+          },
+          "function_block_ids": [
+            "function-block:work_context:select"
+          ],
+          "guard": "not (input_obj.event != 'select') and input_obj.adapter_id not in input_obj.registered_adapter_ids or not input_obj.provider_root_bounded",
+          "guard_bindings": {},
+          "id": "transition:work_context:select:blocked",
+          "outputs": [
+            "output:work_context:select:blocked"
+          ],
+          "reads": [
+            "field:work_context:input_obj:adapter_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:provider_root_bounded",
+            "field:work_context:input_obj:registered_adapter_ids"
+          ],
+          "source": "state:work_context:select:input",
+          "state_updates": [
+            "field:work_context:state:blocked"
+          ],
+          "target": "state:work_context:select:blocked",
+          "trigger": "select",
+          "writes": [
+            "field:work_context:state:blocked"
+          ]
+        },
+        {
+          "component_id": "select",
+          "effects": [],
+          "errors": [],
+          "field_updates": {
+            "adapter_selected": "True"
+          },
+          "function_block_ids": [
+            "function-block:work_context:select"
+          ],
+          "guard": "not (input_obj.event != 'select') and not (input_obj.adapter_id not in input_obj.registered_adapter_ids or not input_obj.provider_root_bounded)",
+          "guard_bindings": {},
+          "id": "transition:work_context:select:selected",
+          "outputs": [
+            "output:work_context:select:selected"
+          ],
+          "reads": [
+            "field:work_context:input_obj:adapter_id",
+            "field:work_context:input_obj:event",
+            "field:work_context:input_obj:provider_root_bounded",
+            "field:work_context:input_obj:registered_adapter_ids"
+          ],
+          "source": "state:work_context:select:input",
+          "state_updates": [
+            "field:work_context:state:adapter_selected"
+          ],
+          "target": "state:work_context:select:selected",
+          "trigger": "select",
+          "writes": [
+            "field:work_context:state:adapter_selected"
+          ]
+        }
+      ],
+      "validations": []
+    },
+    "retained_elements": {
+      "branch:work_context:project": "branch",
+      "branch:work_context:read": "branch",
+      "branch:work_context:select": "branch",
+      "field:work_context:input_obj:adapter_id": "field",
+      "field:work_context:input_obj:artifact_fingerprints_current": "field",
+      "field:work_context:input_obj:artifact_roles": "field",
+      "field:work_context:input_obj:authority_bridge_requested": "field",
+      "field:work_context:input_obj:behavior_source_surface_ids": "field",
+      "field:work_context:input_obj:context_id": "field",
+      "field:work_context:input_obj:event": "field",
+      "field:work_context:input_obj:execute_requested": "field",
+      "field:work_context:input_obj:existing_context_ids": "field",
+      "field:work_context:input_obj:intent_conflict": "field",
+      "field:work_context:input_obj:intent_dispositions_terminal": "field",
+      "field:work_context:input_obj:intent_provenance_current": "field",
+      "field:work_context:input_obj:provider_root_bounded": "field",
+      "field:work_context:input_obj:registered_adapter_ids": "field",
+      "field:work_context:input_obj:required_artifact_roles": "field",
+      "field:work_context:input_obj:validation_requested": "field",
+      "field:work_context:input_obj:write_requested": "field",
+      "field:work_context:state:adapter_selected": "field",
+      "field:work_context:state:artifacts_read": "field",
+      "field:work_context:state:authority_bridge_count": "field",
+      "field:work_context:state:behavior_admitted": "field",
+      "field:work_context:state:blocked": "field",
+      "field:work_context:state:context_projected": "field",
+      "field:work_context:state:intent_contributions_projected": "field",
+      "field:work_context:state:provider_execution_count": "field",
+      "field:work_context:state:provider_validation_count": "field",
+      "field:work_context:state:provider_write_count": "field",
+      "function-block:work_context:project": "function_block",
+      "function-block:work_context:read": "function_block",
+      "function-block:work_context:select": "function_block",
+      "state:work_context:project:blocked": "state",
+      "state:work_context:project:input": "state",
+      "state:work_context:project:projected": "state",
+      "state:work_context:read:blocked": "state",
+      "state:work_context:read:context-read": "state",
+      "state:work_context:read:input": "state",
+      "state:work_context:select:blocked": "state",
+      "state:work_context:select:input": "state",
+      "state:work_context:select:selected": "state",
+      "transition:work_context:project:blocked": "transition",
+      "transition:work_context:project:projected": "transition",
+      "transition:work_context:read:blocked": "transition",
+      "transition:work_context:read:context-read": "transition",
+      "transition:work_context:select:blocked": "transition",
+      "transition:work_context:select:selected": "transition"
+    },
+    "subject_fingerprint": "sha256:12d2c90b96319a2d714d5e956e8bd8fb879f31b5ac834995ddd3d5a312c19e7e",
+    "trigger_currentness_id": "sha256:8d40ea036d05e5635d80eed7a4e824c77e46ec43660e37765af1ca6013428f96",
+    "trigger_evidence": {
+      "structural:behavior_irrelevant_field": "sha256:8ee74b836e4edf0855111b92b7604bc3c92e33251ef59fa647b27b19387643cb"
+    },
+    "trigger_ids": [
+      "structural:behavior_irrelevant_field"
+    ],
+    "unresolved_ids": [
+      "behavior_irrelevant_field:field:work_context:state:behavior_admitted",
+      "behavior_irrelevant_field:field:work_context:state:blocked",
+      "behavior_irrelevant_field:field:work_context:state:context_projected",
+      "behavior_irrelevant_field:field:work_context:state:intent_contributions_projected"
+    ],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:1242e69957ad81c929d083329feb5878e8184313f4cdf19d98f3655911fa86b1",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

@@ -2,8 +2,10 @@ import json
 import subprocess
 import sys
 import unittest
+from dataclasses import replace
 
 from examples.problem_corpus.executable import review_executable_corpus
+from flowguard.executable import build_executable_corpus_report
 
 
 class ExecutableCorpusTests(unittest.TestCase):
@@ -11,6 +13,21 @@ class ExecutableCorpusTests(unittest.TestCase):
     def setUpClass(cls):
         cls.report = review_executable_corpus()
         cls.results = cls.report.results
+
+    def test_failed_result_blocks_aggregate_confidence(self):
+        failed = replace(self.results[0], status="failed")
+        report = build_executable_corpus_report((failed, *self.results[1:]))
+        self.assertEqual(self.report.total_cases, report.total_cases)
+        self.assertEqual(self.report.model_variant_total, report.model_variant_total)
+        self.assertEqual(1, report.failure_cases)
+        self.assertFalse(report.ok)
+
+    def test_unknown_result_status_is_not_accepted_as_complete(self):
+        unknown = replace(self.results[0], status="unrecognized_terminal_status")
+        report = build_executable_corpus_report((unknown, *self.results[1:]))
+        self.assertEqual(self.report.total_cases, report.total_cases)
+        self.assertEqual(self.report.total_cases - 1, report.accepted_executable_cases)
+        self.assertFalse(report.ok)
 
     def test_all_problem_cases_are_executable(self):
         self.assertTrue(self.report.ok, self.report.format_text())

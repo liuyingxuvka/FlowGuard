@@ -46,13 +46,14 @@ def test_shared_contract_declares_lifecycle_zero_producer_and_stop_policy():
     )
     for marker in ("one public skill", "read", "change", "release", "No mode/fallback"):
         assert marker in kernel, marker
+    shared = " ".join(shared.split())
     for marker in (
-        "Lazy references are inputs, not evidence shortcuts",
-        "Read-only or plan-only work has zero producer invocations",
+        "Conditional references are not_triggered; required unavailable inputs are blocked",
+        "Read/plan-only creates no producer, lease, run directory, receipt, pointer or installation",
         "reuse_current",
-        "Freeze source, model, contract, check, toolchain, environment",
-        "Stop at the current owner on drift",
-        "`read` is read-only, `change` executes the exact affected owner closure",
+        "source/contract/check identity, toolchain/environment/policy",
+        "blocks the current owner. Preserve the episode; do not retry",
+        "read observes; change executes the exact affected closure; release verifies its declared scope",
     ):
         assert marker in shared, marker
 

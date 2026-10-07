@@ -1,0 +1,211 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:a68969d27e079b82960040adff8848cfea2edbfb24bc9be4df00910d631badd2",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/behavior_commitment_ledger/model.py",
+            "source_fingerprint": "sha256:2e1d90a03f5edb20e993b59b502f5e08aa1cbf75c2b5b34e6f64c4ed7a1bbf52"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "export_model_id": "flowguard.behavior_commitment_ledger.skill_contract.v2",
+      "export_parent_model_id": "flowguard.model_first_function_flow",
+      "export_schema_version": "skillguard.flowguard_model_export.v2",
+      "fields": [],
+      "function_blocks": [
+        {
+          "action_kind": "terminal",
+          "id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:blocked",
+          "inputs": [
+            "external-input:behavior_commitment_ledger:route:behavior_commitment_ledger"
+          ],
+          "outputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:blocked"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-behavior-commitment-ledger:blocked",
+          "validations": []
+        },
+        {
+          "action_kind": "native",
+          "id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute",
+          "inputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake"
+          ],
+          "outputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-behavior-commitment-ledger:execute",
+          "validations": [
+            "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:native-authority"
+          ]
+        },
+        {
+          "action_kind": "inventory",
+          "id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake",
+          "inputs": [
+            "external-input:behavior_commitment_ledger:route:behavior_commitment_ledger"
+          ],
+          "outputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-behavior-commitment-ledger:intake",
+          "validations": [
+            "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:plane-boundary"
+          ]
+        },
+        {
+          "action_kind": "terminal",
+          "id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success",
+          "inputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify"
+          ],
+          "outputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-behavior-commitment-ledger:success",
+          "validations": []
+        },
+        {
+          "action_kind": "verifier",
+          "id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify",
+          "inputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute"
+          ],
+          "outputs": [
+            "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-behavior-commitment-ledger:verify",
+          "validations": [
+            "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:evidence-closure"
+          ]
+        }
+      ],
+      "initial_state_ids": [],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:blocked",
+          "producer_id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:blocked",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify"
+          ],
+          "id": "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute",
+          "producer_id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute"
+          ],
+          "id": "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake",
+          "producer_id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success",
+          "producer_id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success"
+          ],
+          "id": "output:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify",
+          "producer_id": "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify",
+          "terminal": false
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-contract-export.v1",
+      "responsibilities": [],
+      "states": [],
+      "terminal_state_ids": [],
+      "transitions": [],
+      "validations": [
+        {
+          "evidence_boundary_id": "contract-export:behavior_commitment_ledger",
+          "id": "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:evidence-closure",
+          "obligation_id": "obligation:flowguard-behavior-commitment-ledger:evidence-closure",
+          "oracle_id": "invariant:evidence-closure",
+          "subject_fingerprint": "sha256:7ee929cab7507b949619b07cc2c31f67fbb35b9aff1297174f0b3840ab5e7661"
+        },
+        {
+          "evidence_boundary_id": "contract-export:behavior_commitment_ledger",
+          "id": "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:native-authority",
+          "obligation_id": "obligation:flowguard-behavior-commitment-ledger:native-authority",
+          "oracle_id": "invariant:native-authority",
+          "subject_fingerprint": "sha256:7ee929cab7507b949619b07cc2c31f67fbb35b9aff1297174f0b3840ab5e7661"
+        },
+        {
+          "evidence_boundary_id": "contract-export:behavior_commitment_ledger",
+          "id": "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+          "obligation_id": "obligation:flowguard-behavior-commitment-ledger:plane-boundary",
+          "oracle_id": "invariant:plane-boundary",
+          "subject_fingerprint": "sha256:7ee929cab7507b949619b07cc2c31f67fbb35b9aff1297174f0b3840ab5e7661"
+        }
+      ]
+    },
+    "retained_elements": {
+      "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:blocked": "function_block",
+      "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:execute": "function_block",
+      "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:intake": "function_block",
+      "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:success": "function_block",
+      "function-block:behavior_commitment_ledger:contract:step:flowguard-behavior-commitment-ledger:verify": "function_block",
+      "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:evidence-closure": "validation",
+      "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:native-authority": "validation",
+      "validation:behavior_commitment_ledger:contract:obligation:flowguard-behavior-commitment-ledger:plane-boundary": "validation"
+    },
+    "subject_fingerprint": "sha256:4e7ce3697ddf65bb3fb1cdfd4b4bade1d93a211a3348966e02a92707efe383cb",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:1955d12212f425fc406f1108853abcb62d1257c8263b1f0feb96445314b1c87b",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

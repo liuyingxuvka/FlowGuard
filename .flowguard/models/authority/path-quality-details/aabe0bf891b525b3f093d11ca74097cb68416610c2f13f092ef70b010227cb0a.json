@@ -1,0 +1,350 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:b96f033e7c4928690aea162ee589398db5cfc050265dc1c053fb75c9415c0b53",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/ai_entry_surface_reduction/model.py",
+            "source_fingerprint": "sha256:b9dcd21c0865198c61a7ff231ebd39da30470c4a5b9346a8b7f0b69861971d01"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:advanced_api_available",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:compact_templates_default",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:docs_use_starter_first",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:field_inventory_tiered",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:full_templates_available",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:install_shadow_git_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:openspec_ready",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:safety_evidence_preserved",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:starter_api_available",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:starter_api_compact",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ai_entry_surface_reduction:validations_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "writes_by": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "EntryAction",
+          "effects": [],
+          "id": "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction",
+          "inputs": [
+            "external-input:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429"
+          ],
+          "outputs": [
+            "output:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:ai_entry_surface_reduction:openspec_ready",
+            "field:ai_entry_surface_reduction:starter_api_available",
+            "field:ai_entry_surface_reduction:starter_api_compact",
+            "field:ai_entry_surface_reduction:advanced_api_available",
+            "field:ai_entry_surface_reduction:compact_templates_default",
+            "field:ai_entry_surface_reduction:full_templates_available",
+            "field:ai_entry_surface_reduction:safety_evidence_preserved",
+            "field:ai_entry_surface_reduction:docs_use_starter_first",
+            "field:ai_entry_surface_reduction:field_inventory_tiered",
+            "field:ai_entry_surface_reduction:validations_current",
+            "field:ai_entry_surface_reduction:install_shadow_git_synced",
+            "field:ai_entry_surface_reduction:done_claim"
+          ],
+          "state_input": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0",
+          "state_output": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:1",
+          "validations": [
+            "validation:ai_entry_surface_reduction:invariant:no_done_without_layered_entry"
+          ],
+          "writes": [
+            "field:ai_entry_surface_reduction:openspec_ready",
+            "field:ai_entry_surface_reduction:starter_api_available",
+            "field:ai_entry_surface_reduction:starter_api_compact",
+            "field:ai_entry_surface_reduction:advanced_api_available",
+            "field:ai_entry_surface_reduction:compact_templates_default",
+            "field:ai_entry_surface_reduction:full_templates_available",
+            "field:ai_entry_surface_reduction:safety_evidence_preserved",
+            "field:ai_entry_surface_reduction:docs_use_starter_first",
+            "field:ai_entry_surface_reduction:field_inventory_tiered",
+            "field:ai_entry_surface_reduction:validations_current",
+            "field:ai_entry_surface_reduction:install_shadow_git_synced",
+            "field:ai_entry_surface_reduction:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction",
+          "producer_id": "transition:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction",
+          "outputs": [
+            "output:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction"
+          ],
+          "reads": [
+            "field:ai_entry_surface_reduction:openspec_ready",
+            "field:ai_entry_surface_reduction:starter_api_available",
+            "field:ai_entry_surface_reduction:starter_api_compact",
+            "field:ai_entry_surface_reduction:advanced_api_available",
+            "field:ai_entry_surface_reduction:compact_templates_default",
+            "field:ai_entry_surface_reduction:full_templates_available",
+            "field:ai_entry_surface_reduction:safety_evidence_preserved",
+            "field:ai_entry_surface_reduction:docs_use_starter_first",
+            "field:ai_entry_surface_reduction:field_inventory_tiered",
+            "field:ai_entry_surface_reduction:validations_current",
+            "field:ai_entry_surface_reduction:install_shadow_git_synced",
+            "field:ai_entry_surface_reduction:done_claim"
+          ],
+          "source": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0",
+          "target": "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:1",
+          "trigger": "EntryAction",
+          "validations": [
+            "validation:ai_entry_surface_reduction:invariant:no_done_without_layered_entry"
+          ],
+          "writes": [
+            "field:ai_entry_surface_reduction:openspec_ready",
+            "field:ai_entry_surface_reduction:starter_api_available",
+            "field:ai_entry_surface_reduction:starter_api_compact",
+            "field:ai_entry_surface_reduction:advanced_api_available",
+            "field:ai_entry_surface_reduction:compact_templates_default",
+            "field:ai_entry_surface_reduction:full_templates_available",
+            "field:ai_entry_surface_reduction:safety_evidence_preserved",
+            "field:ai_entry_surface_reduction:docs_use_starter_first",
+            "field:ai_entry_surface_reduction:field_inventory_tiered",
+            "field:ai_entry_surface_reduction:validations_current",
+            "field:ai_entry_surface_reduction:install_shadow_git_synced",
+            "field:ai_entry_surface_reduction:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:ai_entry_surface_reduction",
+          "id": "validation:ai_entry_surface_reduction:invariant:no_done_without_layered_entry",
+          "obligation_id": "obligation:native-invariant:ai_entry_surface_reduction:no_done_without_layered_entry",
+          "oracle_id": "oracle:native-invariant:ai_entry_surface_reduction:no_done_without_layered_entry",
+          "subject_fingerprint": "sha256:42edb682a480cb9d23a7ea55c4016d5dd7882bc7933a6634bfd4edb270fd02e1"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:ai_entry_surface_reduction:advanced_api_available": "field",
+      "field:ai_entry_surface_reduction:compact_templates_default": "field",
+      "field:ai_entry_surface_reduction:docs_use_starter_first": "field",
+      "field:ai_entry_surface_reduction:done_claim": "field",
+      "field:ai_entry_surface_reduction:field_inventory_tiered": "field",
+      "field:ai_entry_surface_reduction:full_templates_available": "field",
+      "field:ai_entry_surface_reduction:install_shadow_git_synced": "field",
+      "field:ai_entry_surface_reduction:openspec_ready": "field",
+      "field:ai_entry_surface_reduction:safety_evidence_preserved": "field",
+      "field:ai_entry_surface_reduction:starter_api_available": "field",
+      "field:ai_entry_surface_reduction:starter_api_compact": "field",
+      "field:ai_entry_surface_reduction:validations_current": "field",
+      "function-block:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction": "function_block",
+      "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0": "state",
+      "state:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:1": "state",
+      "transition:workflow:ai_entry_surface_reduction:ai_entry_surface_reduction_correct:0:de67339d1429:0:CorrectAIEntryReduction": "transition",
+      "validation:ai_entry_surface_reduction:invariant:no_done_without_layered_entry": "validation"
+    },
+    "subject_fingerprint": "sha256:d00eedb1a2cc0644549af3e7767806565bf5836a4b35daaf665299e628d488a3",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:aabe0bf891b525b3f093d11ca74097cb68416610c2f13f092ef70b010227cb0a",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

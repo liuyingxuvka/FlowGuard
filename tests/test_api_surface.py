@@ -1282,6 +1282,14 @@ class ApiSurfaceTests(unittest.TestCase):
         for name in expected_supplement:
             self.assertTrue(hasattr(flowguard, name), name)
 
+    def test_lazy_public_api_generator_matches_current_facade(self):
+        from scripts import generate_lazy_public_api
+
+        self.assertEqual(
+            generate_lazy_public_api.build_metadata(),
+            generate_lazy_public_api._decode_current(),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

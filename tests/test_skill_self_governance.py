@@ -21,12 +21,26 @@ from flowguard.skill_self_governance import (
     LAYER_SKILL_CONTRACTS,
     SELF_GOVERNANCE_SUBJECT,
     load_governance_requirements,
-    run_skill_self_governance,
+    run_skill_self_governance as _run_skill_self_governance,
     skill_contract_obligation_id,
 )
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+# These finite ReceiptVerifier fixtures exercise the three governance layers.
+# Production no longer accepts caller-supplied current contexts. Mock the
+# independent observer seam here; real native/model joins are covered by
+# test_skill_native_model_receipts, never by this synthetic receipt fixture.
+def run_skill_self_governance(*args, verification_contexts=None, **kwargs):
+    from unittest.mock import patch
+    contexts = verification_contexts or {}
+    def observe(receipt, root, **native_inputs):
+        return contexts.get(receipt.receipt_id) or contexts.get(receipt.subject_id)
+    with patch("flowguard.skill_self_governance.build_current_native_receipt_context",
+               side_effect=observe):
+        return _run_skill_self_governance(*args, **kwargs)
 
 
 def digest(label):
@@ -108,6 +122,21 @@ def full_children():
 
 
 class SkillSelfGovernanceTests(unittest.TestCase):
+    def test_production_rejects_caller_authored_context_override(self):
+        with self.assertRaises(TypeError):
+            _run_skill_self_governance(ROOT, verification_contexts={"flowguard": object()},
+                                      save_parent_receipt=False)
+
+    def test_native_leaf_without_completed_outer_unit_cannot_emit_governance_parent(self):
+        requirements = load_governance_requirements(ROOT)
+        receipts = tuple(child_receipt(item.subject_id, index + 1)
+                         for index, item in enumerate(requirements))
+        report = _run_skill_self_governance(ROOT, receipts=receipts,
+                                           save_parent_receipt=False)
+        self.assertFalse(report.ok)
+        self.assertTrue(report.blockers)
+        self.assertIsNone(report.self_governance_receipt)
+
     def test_canonical_inventory_has_exact_one_receipt_requirement(self):
         requirements = load_governance_requirements(ROOT)
 

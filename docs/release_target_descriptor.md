@@ -19,17 +19,27 @@ surface.
     "src/example_service/__init__.py"
   ],
   "required_check_ids": [
-    "validation-owner:pytest"
+    "validation:pytest"
   ],
   "assets": []
 }
 ```
 
 `required_source_paths` and `required_check_ids` are finite, explicit target
-obligations. `distribution_kind` is either `source_only` or
-`source_and_assets`; the latter also lists each asset and its SHA-256 digest.
+obligations. Check IDs must match the successful parent receipt's
+`covered_obligations` (for example `validation:pytest`), not its owner subject
+IDs. Include every obligation in the frozen release plan; a reduced list
+cannot establish complete release qualification. `distribution_kind` is
+either `source_only` or `source_and_assets`; the latter also lists each asset
+and its SHA-256 digest.
 The descriptor does not need Python metadata, a FlowGuard installation, a
 SkillGuard registry, or any target-specific package convention.
+
+Because the verifier is target-neutral, it does not check FlowGuard-specific
+version positions or README claims. For a FlowGuard release, separately verify
+that the frozen version agrees in `pyproject.toml`, `.flowguard/project.toml`,
+`README.md`, `README.zh-CN.md`, and the current `CHANGELOG.md` entry. Inspect
+the exact source allowlist and privacy boundary independently.
 
 The convergence order is deliberately one-way:
 
@@ -47,11 +57,16 @@ descendants); FlowGuard checks each declared boundary and connection without
 requiring a fixed depth or multiplying every state combination into one
 Cartesian table.
 
-The public module command requires a descriptor explicitly:
+The private release verifier requires a descriptor explicitly; it is not an
+additional public lifecycle operation. Keep its receipts in an evidence root
+outside the source tree:
 
 ```powershell
-python -m flowguard release-verify --root . --target release-target.json --phase local-candidate --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output candidate-receipt.json --json
-python -m flowguard release-verify --root . --target release-target.json --phase tag --candidate-receipt candidate-receipt.json --parent-receipt <parent-receipt-id> --receipt-root .flowguard/evidence/validation-owners --output tag-receipt.json --json
+$Target = Join-Path $EvidenceRoot 'release-target.json'
+$ReceiptRoot = Join-Path $EvidenceRoot 'validation-owners'
+$ParentReceiptId = '<verified-parent-receipt-id>'
+& $Python "$SourceRoot/scripts/verify_flowguard_release.py" --root $SourceRoot --target $Target --phase local-candidate --parent-receipt $ParentReceiptId --receipt-root $ReceiptRoot --output "$EvidenceRoot/release-candidate.json" --json
+& $Python "$SourceRoot/scripts/verify_flowguard_release.py" --root $SourceRoot --target $Target --phase tag --candidate-receipt "$EvidenceRoot/release-candidate.json" --parent-receipt $ParentReceiptId --receipt-root $ReceiptRoot --output "$EvidenceRoot/release-tag.json" --json
 ```
 
 The published phase adds the explicit repository and remote tag/release

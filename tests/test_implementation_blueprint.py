@@ -31,6 +31,48 @@ from flowguard.implementation_blueprint import (
 )
 
 
+@pytest.mark.parametrize("mutation", ("outside", "target", "unknown_surface", "unknown_code", "foreign_path"))
+def test_real_scoped_out_dynamic_diagnostic_keeps_selected_claim_bounded(tmp_path, mutation):
+    from flowguard.implementation_inventory import (SoftwareBoundary,
+        ImplementationFileDisposition, build_implementation_surface_inventory,
+        implementation_surface_key, review_implementation_surface_inventory)
+    from flowguard.implementation_inventory_python import (discover_python_implementation_surfaces,
+        PYTHON_AST_IMPLEMENTATION_ADAPTER_ID)
+    from flowguard.source_identity import source_file_fingerprint
+    path = tmp_path / "src" / "scope.py"
+    path.parent.mkdir()
+    path.write_text("def save(value):\n    return value\n\ndef outside(obj, name):\n    return getattr(obj, name)\n", encoding="utf-8")
+    digest = source_file_fingerprint(path)
+    inventory = build_implementation_surface_inventory(tmp_path,
+        SoftwareBoundary("boundary:selected", "revision:selected", production_patterns=("src/**/*.py",)),
+        inventory_id="inventory:selected",
+        file_dispositions=(ImplementationFileDisposition("src/scope.py", "production", digest,
+            "model_implementation", "Finite task with explicit unrelated function exclusion", True,
+            PYTHON_AST_IMPLEMENTATION_ADAPTER_ID),),
+        surface_dispositions={implementation_surface_key("src/scope.py", symbol):
+            "model_implementation" if symbol == "save" else "scoped_out"
+            for symbol in ("<module>", "save", "outside")},
+        discovery_adapters={PYTHON_AST_IMPLEMENTATION_ADAPTER_ID: discover_python_implementation_surfaces},
+        resolved_manifest=({"path": "src/scope.py", "sha256": digest},))
+    assert len(inventory.findings) == 1 and inventory.findings[0].code == "dynamic_python_surface"
+    target = next(row for row in inventory.surfaces if row.symbol == "save")
+    finding = inventory.findings[0]
+    if mutation == "target": finding = replace(finding, surface_id=target.surface_id)
+    elif mutation == "unknown_surface": finding = replace(finding, surface_id="surface:unknown")
+    elif mutation == "unknown_code": finding = replace(finding, code="unknown_inventory_blocker")
+    elif mutation == "foreign_path": finding = replace(finding, path="src/foreign.py")
+    inventory = replace(inventory, findings=(finding,))
+    audit = review_implementation_surface_inventory(inventory, root=tmp_path)
+    report = review_model_implementation_bindings(inventory,
+        required_model_element_ids=("model:save",),
+        bindings=(binding(surface_id=target.surface_id,
+                          implementation_fingerprint=target.content_fingerprint),),
+        semantic_specs=(spec(),), oracles=(oracle(),))
+    assert audit.ok == report.ok == (mutation == "outside")
+    assert finding in audit.findings and finding in inventory.findings
+    assert report.required_implementation_surface_ids == (target.surface_id,)
+
+
 @dataclass(frozen=True)
 class FakeSurface:
     surface_id: str

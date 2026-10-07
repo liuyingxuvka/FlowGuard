@@ -907,8 +907,10 @@ REQUIRED_UNDERSTANDING_ARTIFACT_IDS = (
 CURRENT_FULL_VALIDATION_OWNER_IDS = (
     "project_audit",
     "skill_suite_light",
+    "skill_native_checks",
     "skill_self_governance",
     "model_regressions_full",
+    "self_maintenance_review",
     "pytest",
     "openspec_strict",
     "distribution_check",
@@ -1085,3 +1087,18 @@ __all__ = [
     "semantic_understanding_chain_fingerprint",
     "terminal_predicate",
 ]
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='self_maintenance_mesh', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/self_maintenance_mesh/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/self_maintenance_mesh/model.py')},),
+        workflows=(build_correct_workflow(),), invariants=INVARIANTS,
+    )

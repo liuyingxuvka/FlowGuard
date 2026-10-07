@@ -11,7 +11,9 @@ import argparse
 from dataclasses import replace
 import hashlib
 import json
+import os
 import shutil
+import stat
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -34,9 +36,20 @@ from .completion_epoch import (
     normalize_completion_work_id,
     produce_completion_repair_link,
 )
+from .completion_objective import (
+    CompletionObjectiveError,
+    require_archived_completion_objective,
+    resolve_completion_objective,
+)
 from .completion_run_manifest import build_manifest, write_manifest
 from .evidence_lifecycle import fingerprint_payload
-from .model_authority_store import load_current_model_authority_state
+from .model_authority import ModelAuthorityError
+from .model_authority_store import (
+    _load_bound_read_projection,
+    _reject_duplicate_json_keys,
+    load_current_model_authority_state,
+    load_observed_model_head,
+)
 from .process_supervision import run_supervised
 from .reverse_surface_owner_authority import load_current_reverse_surface_owner_authority
 from .validation_ownership import (
@@ -49,6 +62,180 @@ from scripts import check_flowguard_skill_suite as suite
 
 class CompletionReadinessError(RuntimeError):
     """A readiness input could not be independently proved current."""
+
+
+def _is_reparse_point(path: Path) -> bool:
+    """Check links and Windows reparse points without following the entry."""
+
+    if path.is_symlink():
+        return True
+    try:
+        details = os.stat(path, follow_symlinks=False)
+    except OSError as exc:
+        raise CompletionReadinessError(
+            f"completion_read_request_invalid: cannot inspect {path}: {exc}"
+        ) from exc
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400)
+    return bool(int(getattr(details, "st_file_attributes", 0)) & reparse_attribute)
+
+
+def _validate_current_read_request(root: Path) -> dict[str, Any]:
+    """Require the fixed project-audit request to select every current model."""
+
+    path = root / ".flowguard" / "read-request.json"
+    guard_root = path.parent
+    if not guard_root.exists() and not guard_root.is_symlink():
+        raise CompletionReadinessError(
+            f"completion_read_request_missing: request directory is absent: {guard_root}"
+        )
+    try:
+        if _is_reparse_point(guard_root) or not guard_root.is_dir():
+            raise CompletionReadinessError(
+                "completion_read_request_invalid: request directory must be a real, "
+                "non-reparse directory"
+            )
+        if not path.exists() and not path.is_symlink():
+            raise CompletionReadinessError(
+                f"completion_read_request_missing: required project input is absent: {path}"
+            )
+        if _is_reparse_point(path) or not stat.S_ISREG(
+            os.stat(path, follow_symlinks=False).st_mode
+        ):
+            raise CompletionReadinessError(
+                "completion_read_request_invalid: fixed request must be a regular, "
+                "non-symlink, non-reparse file"
+            )
+        raw = path.read_text(encoding="utf-8")
+    except CompletionReadinessError:
+        raise
+    except (OSError, UnicodeError) as exc:
+        raise CompletionReadinessError(
+            f"completion_read_request_invalid: cannot read fixed request: {exc}"
+        ) from exc
+    try:
+        request = json.loads(raw, object_pairs_hook=_reject_duplicate_json_keys)
+    except ValueError as exc:
+        raise CompletionReadinessError(
+            f"completion_read_request_invalid: fixed request is not JSON: {exc}"
+        ) from exc
+    if not isinstance(request, Mapping) or set(request) != {
+        "operation",
+        "target_id",
+        "scope",
+    }:
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: fields must be exactly operation, "
+            "target_id, and scope"
+        )
+    if request.get("operation") != "read":
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: operation must be read"
+        )
+    target_id = request.get("target_id")
+    scope = request.get("scope")
+    if not isinstance(target_id, str) or not target_id.strip():
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: target_id must be a non-empty string"
+        )
+    if not isinstance(scope, list) or not scope or any(
+        not isinstance(item, str) or not item.strip() for item in scope
+    ):
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: scope must be a non-empty model ID array"
+        )
+    if len(scope) != len(set(scope)):
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: scope contains duplicate model IDs"
+        )
+    try:
+        head = load_observed_model_head(root)
+        projection = _load_bound_read_projection(root, head)
+    except (ModelAuthorityError, OSError, ValueError, KeyError, TypeError) as exc:
+        raise CompletionReadinessError(
+            f"completion_read_request_invalid: current bound model index is unavailable: {exc}"
+        ) from exc
+    if target_id != head.system_id:
+        raise CompletionReadinessError(
+            "completion_read_request_target_mismatch: target_id does not match "
+            "the current observed model head"
+        )
+    model_index = projection.get("index", {}).get("models")
+    if not isinstance(model_index, Mapping) or not model_index:
+        raise CompletionReadinessError(
+            "completion_read_request_invalid: current bound model index is empty"
+        )
+    expected_scope = sorted(str(model_id) for model_id in model_index)
+    if scope != expected_scope:
+        raise CompletionReadinessError(
+            "completion_read_request_scope_mismatch: scope must be the sorted, "
+            "complete current bound model index"
+        )
+    return {
+        "path": str(path),
+        "target_id": target_id,
+        "scope": list(scope),
+        "head_fingerprint": head.fingerprint,
+        "read_projection_index_fingerprint": str(
+            projection.get("index_fingerprint", "")
+        ),
+    }
+
+
+def _require_archived_completion_objective(
+    root: Path,
+    change_name: str,
+) -> Any:
+    """Resolve the named objective with the canonical resolver, then require archive state."""
+
+    try:
+        return require_archived_completion_objective(root, change_name)
+    except CompletionObjectiveError as exc:
+        raise CompletionReadinessError(str(exc)) from exc
+
+
+def validate_preflight_inputs(
+    args: argparse.Namespace,
+    root: Path,
+) -> dict[str, Any]:
+    """Validate release state and fixed project input before owners or outputs."""
+
+    claim_scope = normalize_completion_claim_scope(
+        getattr(args, "claim_scope", COMPLETION_CLAIM_SCOPE_LOCAL_VALIDATION)
+    )
+    author_state_value = getattr(args, "author_state_root", None)
+    if claim_scope == "release" or (
+        author_state_value is not None and str(author_state_value).strip()
+    ):
+        try:
+            args.author_state_root = str(
+                suite._validate_author_state_root(root, author_state_value)
+            )
+        except (OSError, ValueError, TypeError) as exc:
+            raise CompletionReadinessError(str(exc)) from exc
+    else:
+        args.author_state_root = ""
+
+    objective_name = str(
+        getattr(args, "completion_objective_change", "")
+        or getattr(args, "objective_change", "")
+        or ""
+    ).strip()
+    objective = None
+    if claim_scope == "release":
+        if not objective_name:
+            raise CompletionReadinessError(
+                "completion_objective_missing: release readiness requires "
+                "--completion-objective-change"
+            )
+        objective = _require_archived_completion_objective(root, objective_name)
+
+    read_request = _validate_current_read_request(root)
+    return {
+        "claim_scope": claim_scope,
+        "author_state_root": str(getattr(args, "author_state_root", "") or ""),
+        "objective": objective.to_dict() if objective is not None else None,
+        "read_request": read_request,
+    }
 
 
 def _sha256_text(value: str) -> str:
@@ -149,6 +336,82 @@ def _run_gate(root: Path, gate_id: str, command: Sequence[str], *, timeout: floa
     }
 
 
+def _assert_current_read_gate(
+    gate: Mapping[str, Any],
+    *,
+    read_request: Mapping[str, Any],
+    expected_head_fingerprint: str,
+) -> None:
+    """Require the public read gate to cover the exact current full selection.
+
+    The read response may paginate its detailed model map.  Its
+    ``selected_source_currentness`` and ``selected_model_ids`` fields summarize
+    the complete requested selection before that page projection, so this gate
+    can verify the full currentness boundary without replaying every page.
+    """
+
+    parsed = gate.get("parsed")
+    payload = parsed.get("payload") if isinstance(parsed, Mapping) else None
+    if not isinstance(payload, Mapping):
+        raise CompletionReadinessError(
+            "current-read did not contain the public FlowGuard read result"
+        )
+    if payload.get("operation") != "read" or payload.get("status") != "pass":
+        raise CompletionReadinessError(
+            "current-read did not return a passing public read operation"
+        )
+    if payload.get("target_id") != read_request.get("target_id"):
+        raise CompletionReadinessError(
+            "current-read target differs from the preflighted project request"
+        )
+    expected_scope = read_request.get("scope")
+    if (
+        not isinstance(expected_scope, list)
+        or payload.get("requested_model_ids") != expected_scope
+        or payload.get("selected_model_ids") != expected_scope
+    ):
+        raise CompletionReadinessError(
+            "current-read selection differs from the complete preflighted model scope"
+        )
+    if payload.get("authority_integrity") != "pass":
+        raise CompletionReadinessError(
+            "current-read authority integrity is not pass"
+        )
+    if payload.get("selected_source_currentness") != "current":
+        raise CompletionReadinessError(
+            "current-read selected source currentness is not current"
+        )
+    stale_obligations = payload.get("stale_obligations")
+    if not isinstance(stale_obligations, list) or stale_obligations:
+        raise CompletionReadinessError(
+            "current-read has missing or non-empty stale obligations"
+        )
+    if payload.get("blockers") != []:
+        raise CompletionReadinessError("current-read contains blockers")
+    if payload.get("execution_evidence_status") != "not_run":
+        raise CompletionReadinessError(
+            "current-read must remain producer-free"
+        )
+    if payload.get("producer_count") != 0 or payload.get("write_count") != 0:
+        raise CompletionReadinessError(
+            "current-read must not start producers or write evidence"
+        )
+    if read_request.get("head_fingerprint") != expected_head_fingerprint:
+        raise CompletionReadinessError(
+            "current-read request authority changed after preflight"
+        )
+    as_of = payload.get("as_of")
+    observed_head = (
+        as_of.get("authority_head_fingerprint")
+        if isinstance(as_of, Mapping)
+        else None
+    )
+    if observed_head != expected_head_fingerprint:
+        raise CompletionReadinessError(
+            "current-read authority head differs from the frozen current authority"
+        )
+
+
 def _not_applicable_gate(gate_id: str, *, claim_scope: str) -> dict[str, Any]:
     """Record one explicitly out-of-scope gate without launching a producer.
 
@@ -189,6 +452,10 @@ def _base_suite_args(args: argparse.Namespace, root: Path) -> argparse.Namespace
         values.extend(("--model-receipt-dir", str(args.model_receipt_dir)))
     if getattr(args, "model_parent_receipt", None):
         values.extend(("--model-parent-receipt", str(args.model_parent_receipt)))
+    if getattr(args, "completion_run_manifest", None):
+        values.extend(("--completion-run-manifest", str(args.completion_run_manifest)))
+    if getattr(args, "author_state_root", None):
+        values.extend(("--author-state-root", str(args.author_state_root)))
     if getattr(args, "completion_authorization", None):
         values.extend(("--completion-authorization", str(args.completion_authorization)))
     if args.completion_repair_link:
@@ -207,6 +474,7 @@ def _base_suite_args(args: argparse.Namespace, root: Path) -> argparse.Namespace
     parsed.skillguard = args.skillguard
     parsed.model_jobs = args.model_jobs
     parsed.model_timeout = args.model_timeout
+    parsed.gate_timeout = args.gate_timeout
     parsed.require_executed_evidence = bool(
         getattr(args, "require_executed_evidence", False)
     )
@@ -333,6 +601,16 @@ def _freeze_plan(
         for component_id, fingerprint in contract.external_component_bindings
     }
     observation = observe_validation_owners(root, contracts, receipt_root=receipt_root)
+    from .self_blueprint import validate_completion_source_prerequisites
+
+    try:
+        validate_completion_source_prerequisites(
+            root,
+            resolved_manifest=observation.repository_input_manifest,
+            model_receipt_dir=getattr(args, "model_receipt_dir", None),
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        raise CompletionReadinessError(str(exc)) from exc
     owner_plan = build_validation_owner_plan(
         root,
         contracts,
@@ -407,10 +685,21 @@ def _freeze_plan(
     )
 
 
-def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
+def produce(
+    args: argparse.Namespace,
+    *,
+    preflight_inputs: Mapping[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     root = Path(args.root).expanduser().resolve()
     if not root.is_dir():
         raise CompletionReadinessError(f"root is not a directory: {root}")
+    if preflight_inputs is None:
+        preflight_inputs = validate_preflight_inputs(args, root)
+    read_request = preflight_inputs.get("read_request")
+    if not isinstance(read_request, Mapping):
+        raise CompletionReadinessError(
+            "current-read preflight did not preserve the exact project request"
+        )
     claim_scope = normalize_completion_claim_scope(
         getattr(args, "claim_scope", COMPLETION_CLAIM_SCOPE_LOCAL_VALIDATION)
     )
@@ -418,6 +707,19 @@ def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
         raise CompletionReadinessError(
             "--shadow-root is required for an explicit release claim"
         )
+    manifest_path = (
+        Path(args.completion_run_manifest).expanduser().resolve()
+        if getattr(args, "completion_run_manifest", "")
+        else Path(args.output_dir).expanduser().resolve()
+        / "completion-run-manifest.json"
+    )
+    if root not in manifest_path.parents and manifest_path != root:
+        raise CompletionReadinessError(
+            "--completion-run-manifest must remain inside the repository root"
+        )
+    # Freeze native consumers against the same manifest path that is written
+    # after readiness and repair admission; no provisional manifest is created.
+    args.completion_run_manifest = str(manifest_path)
     suite_args = _base_suite_args(args, root)
     (
         completion_epoch,
@@ -529,6 +831,11 @@ def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
         ),
         timeout=args.gate_timeout,
     )
+    _assert_current_read_gate(
+        current_read,
+        read_request=read_request,
+        expected_head_fingerprint=authority_identity["head_fingerprint"],
+    )
     owner_body = {
         "schema_version": "flowguard.completion_readiness_owner_dag.v1",
         "owner_plan_fingerprint": owner_plan.plan_fingerprint,
@@ -582,16 +889,6 @@ def produce(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
             previous_ledger.fingerprint if previous_ledger is not None else ""
         ),
     )
-    manifest_path = (
-        Path(args.completion_run_manifest).expanduser().resolve()
-        if getattr(args, "completion_run_manifest", "")
-        else Path(args.output_dir).expanduser().resolve()
-        / "completion-run-manifest.json"
-    )
-    if root not in manifest_path.parents and manifest_path != root:
-        raise CompletionReadinessError(
-            "--completion-run-manifest must remain inside the repository root"
-        )
     manifest_specs = suite._full_child_specs(suite_args, root)
     manifest = build_manifest(
         args=args,

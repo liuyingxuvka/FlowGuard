@@ -1432,6 +1432,25 @@ def _validate_references(
             unknown_artifact(upstream_id)
 
     for action in plan.actions:
+        for artifact_id in action.all_written_artifacts():
+            artifact = artifacts.get(artifact_id)
+            if artifact is None or not artifact.owner or action.actor == artifact.owner:
+                continue
+            findings.append(
+                ProcessFlowFinding(
+                    "process_action_writer_owner_mismatch",
+                    f"action {action.action_id} actor {action.actor!r} does not match "
+                    f"owner {artifact.owner!r} for artifact {artifact_id}",
+                    action_id=action.action_id,
+                    artifact_id=artifact_id,
+                    metadata={
+                        "actor": action.actor,
+                        "artifact_owner": artifact.owner,
+                        "action": action.to_dict(),
+                        "artifact": artifact.to_dict(),
+                    },
+                )
+            )
         for dependency in action.order_after:
             if dependency not in action_ids:
                 findings.append(

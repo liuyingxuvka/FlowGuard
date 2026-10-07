@@ -198,6 +198,10 @@ class _ScopeFactVisitor(ast.NodeVisitor):
                     self.dynamic.append(name)
                     if final in {"globals", "locals"}:
                         self.dynamic_selector_nodes.setdefault(final, []).append(node)
+                    elif name in {"__import__", "importlib.import_module"} and node.args:
+                        self.dynamic_selector_nodes.setdefault(name, []).append(
+                            node.args[0]
+                        )
         self.generic_visit(node)
 
     @property
@@ -674,8 +678,9 @@ def _finite_selector_values(
     """Derive finite selector domains from syntax owned by one surface.
 
     Only literal collections, literal dict keys, finite loop bindings, an
-    exact locals/globals membership expression, and a non-escaping nested
-    helper whose complete local call set is finite are admitted.  Ordinary
+    exact locals/globals membership expression, direct non-empty literal
+    module selectors, and a non-escaping nested helper whose complete local
+    call set is finite are admitted.  Ordinary
     public parameters and other open strings deliberately produce no domain.
     """
 
@@ -921,10 +926,26 @@ def _finite_selector_values(
                 selector = call.args[1]
         elif final in {"locals", "globals"}:
             operation = final
+        elif name in {"__import__", "importlib.import_module"}:
+            operation = name
+            selector = call.args[0] if call.args else None
 
         if not operation:
             continue
-        if selector is None:
+        if operation in {"__import__", "importlib.import_module"}:
+            # Import selectors require a literal in this exact call.  A name
+            # or a mixed literal/open call set cannot borrow a finite domain.
+            if not (
+                isinstance(selector, ast.Constant)
+                and isinstance(selector.value, str)
+                and selector.value.strip()
+                and selector.value == selector.value.strip()
+                and selector.value not in {"*", "**", "..."}
+            ):
+                incomplete_operations.add(operation)
+                continue
+            values = (selector.value,)
+        elif selector is None:
             values = membership_values(call)
         elif isinstance(selector, ast.Constant) and isinstance(selector.value, str):
             values = (selector.value,)

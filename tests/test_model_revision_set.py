@@ -168,7 +168,7 @@ def test_v5_revision_round_trip_embeds_one_current_effective_view() -> None:
         assert restored.schema == MODEL_REVISION_SET_CURRENT_SCHEMA
         assert restored.current_effective_intent_view.complete
         assert restored.intent_acceptance_ready
-        assert restored.path_quality_acceptance_ready
+        assert restored.path_quality_observation_ready
 
 
 def test_bootstrap_declared_intent_accepts_without_no_intent_rationale() -> None:
@@ -196,7 +196,7 @@ def test_v5_accepts_full_current_path_quality_superset_for_one_added_model() -> 
         assert tuple(
             subject.model_id for subject in revision.path_quality_subjects
         ) == ("alpha", "beta")
-        assert revision.path_quality_acceptance_ready
+        assert revision.path_quality_observation_ready
 
 
 @pytest.mark.parametrize(
@@ -389,7 +389,7 @@ def test_v5_acceptance_blocks_missing_or_unresolved_path_quality() -> None:
             status="proposed",
             decision_reason="",
         )
-        assert not proposed.path_quality_acceptance_ready
+        assert not proposed.path_quality_observation_ready
         with pytest.raises(
             ModelAuthorityError,
             match="path-quality closure",
@@ -417,7 +417,8 @@ def test_v5_acceptance_blocks_missing_or_unresolved_path_quality() -> None:
             decision_reason="",
         )
         assert unresolved_proposed.path_quality_subjects == (subject,)
-        assert not unresolved_proposed.path_quality_acceptance_ready
+        assert unresolved_proposed.path_quality_observation_ready
+        assert unresolved_proposed.path_quality_improvement_blocked_model_ids == unresolved_proposed.required_path_quality_model_ids
 
 
 def test_v5_revision_rejects_stale_path_quality_subject_and_wire_omission() -> None:

@@ -15,7 +15,7 @@ The system SHALL compare process effort, rework, coordination, information value
 - **THEN** hard equivalence is unproven and optimization is blocked
 
 ### Requirement: Strategy selection is multi-objective and bounded
-The system SHALL expose the eligible candidates, each candidate's derived comparable score, the model-selected candidate, comparison basis, current comparison evidence, and selection rationale. Before preference, the system SHALL verify that the declared step sequence satisfies every dependency edge and SHALL derive invalidated-output, repeated-write, repeated-validation, coordination, side-effect-exposure, and comparable-effort components from current step/artifact bindings. `comparison_basis` SHALL be `qualitative` or `measured`; qualitative evidence, including bounded estimates or structural rules, MUST NOT be described as a measured minimum, and no result may claim an unrestricted global optimum. DPF MAY retain a bounded minimum claim only for a complete declared finite candidate set with current comparable measured inputs. A caller-supplied `selected_candidate_id` SHALL NOT make a higher-score route preferred; a score tie SHALL remain visible until current tie-break evidence selects one tied candidate.
+The system SHALL compare process effort, rework, coordination, information value, or measured cost only among current candidates that satisfy the same declared terminal outcome, validation obligations, evidence boundary, safety constraints, protected side effects, dependency authority, and execution-owner boundary. A candidate SHALL cite current equivalence evidence rather than copying those owner structures into an optimizer-owned outcome contract. When the complete declared candidate set contains exactly one candidate, the system SHALL still enforce every hard admissibility check but MAY select that sole eligible route without requiring cost vectors or Pareto comparison; it SHALL describe the route as un-compared and SHALL NOT claim a minimum, Pareto result, or cost superiority. Any malformed cost value or stale/missing reference that the caller did provide SHALL remain a finding. When more than one candidate is declared, the existing complete comparison requirements SHALL apply even if hard filtering leaves only one eligible candidate.
 
 #### Scenario: Interleaved derived artifacts cause repeat work
 - **WHEN** one eligible sequence writes documentation, inventories, installation projections, or release evidence before a later step invalidates their source identity while another equivalent sequence freezes source first and writes those artifacts once
@@ -30,8 +30,25 @@ The system SHALL expose the eligible candidates, each candidate's derived compar
 - **THEN** the system exposes the tied candidate ids and does not silently claim that declaration order, lexical order, or an unsupported caller preference is optimal
 
 #### Scenario: Measured cost input is incomplete
-- **WHEN** a candidate claims `comparison_basis=measured` but one declared step lacks comparable effort input or required cost evidence is not current
+- **WHEN** a candidate in a declared multi-candidate set claims `comparison_basis=measured` but one declared step lacks comparable effort input or required cost evidence is not current
 - **THEN** measured selection is blocked instead of treating missing cost as zero
+
+#### Scenario: One declared candidate passes hard admissibility without ranking
+- **WHEN** the complete declared candidate set contains exactly one candidate and all required hard outcome, evidence, safety, dependency, isolation, currentness, and owner checks pass
+- **THEN** the system selects that candidate as the only admissible declared route without requiring a cost vector or running Pareto comparison
+- **AND** the result makes clear that no cost comparison or minimum claim was produced
+
+#### Scenario: Invalid supplied cost data remains rejected for one candidate
+- **WHEN** the complete declared candidate set contains exactly one candidate and the candidate supplies a malformed cost, stale cost evidence, or an invalid reference
+- **THEN** hard or reference validation reports the exact finding instead of ignoring the supplied invalid data
+
+#### Scenario: A multi-candidate declaration does not use the single-candidate path
+- **WHEN** the declared set contains more than one candidate but hard admissibility leaves only one eligible candidate
+- **THEN** the system retains the declared multi-candidate comparison requirements and SHALL NOT use the single-candidate fast path
+
+#### Scenario: Multiple-route reason has only one declaration
+- **WHEN** the activation reason claims multiple equivalent routes but the complete declared set contains only one candidate
+- **THEN** the system reports the contradiction and does not treat the incomplete declaration as a complete one-route universe
 
 ### Requirement: Diagnostic campaign completeness is explicit
 The system SHALL delegate diagnostic execution accounting to TestMesh, where every planned item is executed or visibly not run, the selected diagnostic boundary is recorded, count relationships are consistent, and every not-run item has a reason. The optimizer SHALL reference current TestMesh and Finding Ledger identities without owning a duplicate campaign or observation structure.

@@ -2,14 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .model_authority import ModelAuthorityError, canonical_fingerprint
+from .model_authority import (
+    AcceptedBoundaryContract,
+    ModelAuthorityError,
+    build_boundary_contract_from_snapshot,
+    canonical_fingerprint,
+    validate_accepted_boundary_contract_for_snapshot,
+)
 from .model_authority_store import (
     _accepted_revision_schema,
     load_current_accepted_revision_set,
+    load_current_model_authority_state,
     load_observed_model_system,
 )
 from .model_intent_authority import (
@@ -156,6 +163,15 @@ class ModelRevisionPlan:
         "and one stable live manifest candidate. It writes no snapshot, receipt, "
         "revision set, lease, lock, or pointer; runs no model or validation owner; "
         "and supplies no acceptance, activation, release, or completion evidence."
+    )
+    # Keep the exact validated candidate in memory for the current-change
+    # transaction. These typed values are deliberately omitted from the public
+    # preview projection; callers must never serialize them as authority.
+    candidate_snapshot: Any | None = field(
+        default=None, repr=False, compare=False
+    )
+    accepted_boundary_contract: AcceptedBoundaryContract | None = field(
+        default=None, repr=False, compare=False
     )
 
     @property
@@ -532,6 +548,63 @@ def _candidate_model_owners(
     )
 
 
+def _build_current_candidate_snapshot(
+    root: Path,
+    *,
+    head: Any,
+    base_snapshot: Any,
+    snapshot_id: str,
+) -> tuple[Any, AcceptedBoundaryContract | None]:
+    """Build one live candidate while carrying forward its accepted denominator.
+
+    A boundary contract is content-addressed to the source topology. Reusing
+    its semantic axes, groups, and explicit relation map is safe only after
+    the typed producer has rebound those declarations to the candidate and
+    the shared structural validator accepts the resulting contract.
+    """
+
+    current_state = load_current_model_authority_state(
+        root,
+        head=head,
+        snapshot=base_snapshot,
+        allow_legacy_bootstrap_source=True,
+        reverify_current_sources=False,
+    )
+    candidate_without_contract = build_manifest_model_system_snapshot(
+        root,
+        snapshot_id=snapshot_id,
+        system_id=base_snapshot.system_id,
+        subject_lane=base_snapshot.subject_lane,
+        lifecycle=base_snapshot.lifecycle,
+    )
+    predecessor = current_state.accepted_boundary_contract
+    if predecessor is None:
+        return candidate_without_contract, None
+
+    rebound = build_boundary_contract_from_snapshot(
+        candidate_without_contract,
+        contract_id=predecessor.contract_id,
+        model_id=predecessor.model_id,
+        axis_payloads=predecessor.axis_payloads,
+        interaction_group_payloads=predecessor.interaction_group_payloads,
+        group_relation_ids=predecessor.group_relation_ids,
+    )
+    candidate = build_manifest_model_system_snapshot(
+        root,
+        snapshot_id=snapshot_id,
+        system_id=base_snapshot.system_id,
+        subject_lane=base_snapshot.subject_lane,
+        lifecycle=base_snapshot.lifecycle,
+        accepted_boundary_contract=rebound,
+    )
+    validate_accepted_boundary_contract_for_snapshot(
+        rebound,
+        candidate,
+        require_endpoint=True,
+    )
+    return candidate, rebound
+
+
 def _plan_inventory_fingerprints(
     *,
     candidate_model_owners: tuple[ModelRevisionPlanCandidateOwner, ...],
@@ -706,12 +779,13 @@ def preview_current_model_revision(
         )
 
     try:
-        candidate = build_manifest_model_system_snapshot(
-            root_path,
-            snapshot_id=candidate_snapshot_id,
-            system_id=base.system_id,
-            subject_lane=base.subject_lane,
-            lifecycle=base.lifecycle,
+        candidate, accepted_boundary_contract = (
+            _build_current_candidate_snapshot(
+                root_path,
+                head=head,
+                base_snapshot=base,
+                snapshot_id=candidate_snapshot_id,
+            )
         )
     except expected_failures as exc:
         return _blocked_plan(
@@ -789,12 +863,13 @@ def preview_current_model_revision(
                 intent_boundary=intent_boundary,
                 candidate_model_owners=candidate_model_owners,
             )
-        final_candidate = build_manifest_model_system_snapshot(
-            root_path,
-            snapshot_id=candidate_snapshot_id,
-            system_id=base.system_id,
-            subject_lane=base.subject_lane,
-            lifecycle=base.lifecycle,
+        final_candidate, final_boundary_contract = (
+            _build_current_candidate_snapshot(
+                root_path,
+                head=final_head,
+                base_snapshot=final_base,
+                snapshot_id=candidate_snapshot_id,
+            )
         )
         if final_candidate.identity_payload() != candidate.identity_payload():
             return _blocked_plan(
@@ -803,6 +878,30 @@ def preview_current_model_revision(
                 code="live_candidate_changed",
                 message=(
                     "live model inputs changed during the read-only preview"
+                ),
+                observed_head_fingerprint=head.fingerprint,
+                base_snapshot=base,
+                candidate_snapshot=candidate,
+                snapshot_diff=diff,
+                intent_boundary=intent_boundary,
+                candidate_model_owners=candidate_model_owners,
+            )
+        if (
+            (final_boundary_contract is None)
+            != (accepted_boundary_contract is None)
+            or (
+                final_boundary_contract is not None
+                and accepted_boundary_contract is not None
+                and final_boundary_contract.fingerprint
+                != accepted_boundary_contract.fingerprint
+            )
+        ):
+            return _blocked_plan(
+                root_path,
+                candidate_snapshot_id,
+                code="live_boundary_contract_changed",
+                message=(
+                    "the accepted boundary contract changed during the read-only preview"
                 ),
                 observed_head_fingerprint=head.fingerprint,
                 base_snapshot=base,
@@ -876,6 +975,8 @@ def preview_current_model_revision(
         ),
         snapshot_diff=diff,
         affected_closure=closure,
+        candidate_snapshot=candidate,
+        accepted_boundary_contract=accepted_boundary_contract,
     )
 
 

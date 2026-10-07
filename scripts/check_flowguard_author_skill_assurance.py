@@ -1,4 +1,4 @@
-"""Run FlowGuard's author-side 15-member SkillGuard assurance owner.
+"""Run the declared FlowGuard author unit's SkillGuard assurance owner.
 
 This is an internal full-validation producer, not a fourth public execution
 profile.  Routine ``check_flowguard_skill_suite --scope light`` intentionally
@@ -34,6 +34,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--output-dir", help="Author assurance artifact directory")
     parser.add_argument(
+        "--author-state-root", required=True,
+        help="Existing persistent author state directory outside the repository",
+    )
+    parser.add_argument(
         "--authority-kind",
         choices=("standalone", "child"),
         default="standalone",
@@ -53,6 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     payload = run_author_skill_assurance(
         Path(args.root).expanduser().resolve(),
         skillguard=args.skillguard,
+        author_state_root=Path(args.author_state_root).expanduser().resolve(),
     )
     payload["scope"] = "author_assurance"
     if args.output_dir:
@@ -76,4 +81,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

@@ -399,6 +399,9 @@ Use this scaffold to model a development lifecycle as a stateful process.
   adapters, field lifecycle meshes, field projections, replacement
   dispositions, bug-repair closure rows, and route-owner report artifacts;
 - ordered development actions that read, write, invalidate, or claim evidence;
+- for each registered artifact with a non-empty `owner`, every writing or
+  invalidating action uses an exactly matching `actor`, including before the
+  first validation; generic actor labels do not bypass this blocker;
 - validation evidence and the exact artifact versions it covers;
 - UI observed inventory, functional capability coverage, functional-chain,
   source-baseline, done-claim, and real-surface artifact-payload case revisions
@@ -429,9 +432,9 @@ Use this scaffold to model a development lifecycle as a stateful process.
 - stable Finding Ledger references, relation-backed root-cause repair groups,
   visible hard blockers, and current affected-obligation revalidation.
 - a separate implementation-admission result: `ready` only after exact
-  closed-for-task maturation, `ready_scoped` only under exact bounded user
-  authorization, `no_code_requested` for read-only work, otherwise blocked or
-  stale. Authorization never rewrites the maturation decision.
+  closed-for-task maturation, direct user choice as `not_requested` with
+  `direct`, and `no_code_requested` for read-only work; otherwise blocked or
+  stale. Direct choice never rewrites maturation or closes evidence gaps.
 
 For field-bearing work, add `PROCESS_ARTIFACT_FIELD_LIFECYCLE`,
 `PROCESS_ARTIFACT_FIELD_PROJECTION`, `PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION`,
@@ -461,15 +464,17 @@ process claim.
 The internal mode order is `plan_detailing` -> `strategy_selection` ->
 `agent_workflow` -> `execution_freshness`. The optimization mode stays inactive
 for ordinary work. `agent_workflow` is an internal, risk-admitted rehearsal:
-explicit user request, cross-owner handoff, shared write, a write that can
-invalidate post-validation evidence, an agent/route workflow change, or
-multiple independent owners with irreversible side effects. Multiple skills,
-tools, or an external-effect label alone do not admit it; simple read-only,
-single-owner, single-tool, targeted-test work records `not_triggered` and
-continues through the owning route. When optimization is active, it first
-proves hard equivalence, then chooses one diagnostic boundary and one execution
-mode. Hard blockers always stop invalid downstream work, and material evidence
-always stales the decision.
+explicit user request, shared write, a write that can invalidate
+post-validation evidence, an agent/route workflow change, or multiple
+independent owners with irreversible side effects. An ordinary cross-owner
+handoff alone uses execution freshness through this owner. Multiple skills,
+tools, or an external-effect label alone do not admit rehearsal; simple
+read-only, single-owner, single-tool, targeted-test work records
+`not_triggered` and continues through the owning route. When optimization is
+active, one declared candidate is an admissibility check without cost or Pareto
+comparison; multiple candidates require the declared comparison evidence.
+Hard blockers stop invalid downstream work, and material evidence stales the
+decision.
 
 When direct model/test evidence is large, incomplete, slow, broad,
 progress-only, or release-only, run AutoSplit, ModelMesh, or TestMesh as its own
@@ -490,6 +495,10 @@ Activate only for `explicit_request`, `multiple_equivalent_routes`,
 `material_rework_risk`, or `diagnostic_boundary_choice`. Compare candidates
 only after proving the same required outcome, evidence, safety, side effects,
 dependency authority, and execution-owner authority.
+
+One declared candidate is checked for admissibility without cost/Pareto
+comparison. Multiple declared candidates need complete current comparison
+evidence and retain unresolved ties or trade-offs.
 
 Choose `targeted`, `declared_complete`, or `budgeted` diagnosis, then
 `sequential` or isolation-proven `safe_parallel` execution. Keep diagnostic

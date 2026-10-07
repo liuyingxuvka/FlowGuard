@@ -1,0 +1,1495 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:79b06e067083886246c2d43e96cc1bf340b7cb18209bd66f85c6e2c83eed24de",
+        "effective_intent_view_fingerprint": "sha256:a41cb8ad949f6da54b84a0988fd6aee7794a98857d236475dd6f80e47f845699",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/development_process_flow/model.py",
+            "source_fingerprint": "sha256:747cab82a663c26d95741a97ab5356e9c9bed911c6d15ca540de789cd856576c"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:activation_result_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:activation_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:activation_succeeded",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:admission_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:affected_validation_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:artifact_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:attempted_path_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:authorization_allowed_scope_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:authorization_exact",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:candidate_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:candidate_result_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:candidate_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:code_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:consumer_projection_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:coverage_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:current_raw_fingerprint",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:current_semantic_fingerprint",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:deep_review_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:deep_review_triggered",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:evidence_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:evidence_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:git_commit_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:github_release_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:implementation_performed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:installed_package_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:installed_skill_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:invalid_launch",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:launched",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:light_result_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:light_review_revision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:maturation_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:maturation_decision",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:model_authority_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:open_gap_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:openspec_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:owner_intent_closed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:partial_write_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:projection_id",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:receipt_published",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:release_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:requested_scope_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:requirement_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:reservation_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:reserved",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:rollback_status",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:source_role",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:source_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:tag_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:target_restored",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:target_role_after",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:task_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:terminal",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:test_version",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:transaction_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_complete_observation_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_final_identity_freshness_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_observation_scope",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_per_leaf_receipt_store_scan_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_per_leaf_source_current_rebuild_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_receipt_reconciliation_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:validation_semantic_verification_count",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:development_process_flow:wrong_plane_action_accepted",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "AuthorSyncAction",
+          "effects": [],
+          "id": "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate",
+          "inputs": [
+            "external-input:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd"
+          ],
+          "outputs": [
+            "output:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:development_process_flow:transaction_status",
+            "field:development_process_flow:claim"
+          ],
+          "state_input": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0",
+          "state_output": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:1",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:transaction_status",
+            "field:development_process_flow:claim",
+            "field:development_process_flow:source_role",
+            "field:development_process_flow:target_role_after",
+            "field:development_process_flow:projection_id",
+            "field:development_process_flow:current_raw_fingerprint",
+            "field:development_process_flow:current_semantic_fingerprint",
+            "field:development_process_flow:attempted_path_ids",
+            "field:development_process_flow:activation_succeeded",
+            "field:development_process_flow:rollback_status",
+            "field:development_process_flow:target_restored",
+            "field:development_process_flow:partial_write_visible"
+          ]
+        },
+        {
+          "accepted_input": "LifecycleAction",
+          "effects": [],
+          "id": "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate",
+          "inputs": [
+            "external-input:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4"
+          ],
+          "outputs": [
+            "output:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:development_process_flow:requirement_version",
+            "field:development_process_flow:code_version",
+            "field:development_process_flow:test_version",
+            "field:development_process_flow:source_version",
+            "field:development_process_flow:consumer_projection_version",
+            "field:development_process_flow:installed_package_version",
+            "field:development_process_flow:installed_skill_version",
+            "field:development_process_flow:model_authority_version",
+            "field:development_process_flow:openspec_version",
+            "field:development_process_flow:git_commit_version",
+            "field:development_process_flow:tag_version",
+            "field:development_process_flow:github_release_version",
+            "field:development_process_flow:evidence_status",
+            "field:development_process_flow:release_claim",
+            "field:development_process_flow:wrong_plane_action_accepted",
+            "field:development_process_flow:validation_observation_scope",
+            "field:development_process_flow:validation_complete_observation_count",
+            "field:development_process_flow:validation_semantic_verification_count",
+            "field:development_process_flow:validation_final_identity_freshness_passed",
+            "field:development_process_flow:validation_per_leaf_source_current_rebuild_count",
+            "field:development_process_flow:validation_per_leaf_receipt_store_scan_count",
+            "field:development_process_flow:validation_receipt_reconciliation_count"
+          ],
+          "state_input": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0",
+          "state_output": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:1",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:requirement_version",
+            "field:development_process_flow:code_version",
+            "field:development_process_flow:test_version",
+            "field:development_process_flow:source_version",
+            "field:development_process_flow:consumer_projection_version",
+            "field:development_process_flow:installed_package_version",
+            "field:development_process_flow:installed_skill_version",
+            "field:development_process_flow:model_authority_version",
+            "field:development_process_flow:openspec_version",
+            "field:development_process_flow:git_commit_version",
+            "field:development_process_flow:tag_version",
+            "field:development_process_flow:github_release_version",
+            "field:development_process_flow:evidence_status",
+            "field:development_process_flow:release_claim",
+            "field:development_process_flow:wrong_plane_action_accepted",
+            "field:development_process_flow:validation_observation_scope",
+            "field:development_process_flow:validation_complete_observation_count",
+            "field:development_process_flow:validation_semantic_verification_count",
+            "field:development_process_flow:validation_final_identity_freshness_passed",
+            "field:development_process_flow:validation_per_leaf_source_current_rebuild_count",
+            "field:development_process_flow:validation_per_leaf_receipt_store_scan_count",
+            "field:development_process_flow:validation_receipt_reconciliation_count"
+          ]
+        },
+        {
+          "accepted_input": "PathQualityLifecycleAction",
+          "effects": [],
+          "id": "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate",
+          "inputs": [
+            "external-input:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723"
+          ],
+          "outputs": [
+            "output:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:development_process_flow:owner_intent_closed",
+            "field:development_process_flow:artifact_revision",
+            "field:development_process_flow:implementation_performed",
+            "field:development_process_flow:affected_validation_revision",
+            "field:development_process_flow:light_review_revision",
+            "field:development_process_flow:light_result_fingerprint",
+            "field:development_process_flow:deep_review_triggered",
+            "field:development_process_flow:deep_review_revision",
+            "field:development_process_flow:candidate_revision",
+            "field:development_process_flow:candidate_result_fingerprint",
+            "field:development_process_flow:activation_revision",
+            "field:development_process_flow:activation_result_fingerprint"
+          ],
+          "state_input": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0",
+          "state_output": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:1",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:owner_intent_closed",
+            "field:development_process_flow:artifact_revision",
+            "field:development_process_flow:implementation_performed",
+            "field:development_process_flow:affected_validation_revision",
+            "field:development_process_flow:light_review_revision",
+            "field:development_process_flow:light_result_fingerprint",
+            "field:development_process_flow:deep_review_triggered",
+            "field:development_process_flow:deep_review_revision",
+            "field:development_process_flow:candidate_revision",
+            "field:development_process_flow:candidate_result_fingerprint",
+            "field:development_process_flow:activation_revision",
+            "field:development_process_flow:activation_result_fingerprint"
+          ]
+        },
+        {
+          "accepted_input": "ProducerAction",
+          "effects": [],
+          "id": "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate",
+          "inputs": [
+            "external-input:workflow:development_process_flow:development_producer_current:4:4973e6b3b436"
+          ],
+          "outputs": [
+            "output:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:development_process_flow:reserved",
+            "field:development_process_flow:launched",
+            "field:development_process_flow:terminal",
+            "field:development_process_flow:reservation_count",
+            "field:development_process_flow:invalid_launch",
+            "field:development_process_flow:receipt_published"
+          ],
+          "state_input": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0",
+          "state_output": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:1",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:reserved",
+            "field:development_process_flow:launched",
+            "field:development_process_flow:terminal",
+            "field:development_process_flow:reservation_count",
+            "field:development_process_flow:invalid_launch",
+            "field:development_process_flow:receipt_published"
+          ]
+        },
+        {
+          "accepted_input": "AdmissionAction",
+          "effects": [],
+          "id": "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate",
+          "inputs": [
+            "external-input:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405"
+          ],
+          "outputs": [
+            "output:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:development_process_flow:maturation_current",
+            "field:development_process_flow:task_id",
+            "field:development_process_flow:candidate_fingerprint",
+            "field:development_process_flow:coverage_fingerprint",
+            "field:development_process_flow:evidence_fingerprint",
+            "field:development_process_flow:maturation_decision",
+            "field:development_process_flow:open_gap_ids",
+            "field:development_process_flow:requested_scope_ids",
+            "field:development_process_flow:authorization_exact",
+            "field:development_process_flow:authorization_allowed_scope_ids",
+            "field:development_process_flow:admission_status"
+          ],
+          "state_input": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0",
+          "state_output": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:1",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:maturation_current",
+            "field:development_process_flow:task_id",
+            "field:development_process_flow:candidate_fingerprint",
+            "field:development_process_flow:coverage_fingerprint",
+            "field:development_process_flow:evidence_fingerprint",
+            "field:development_process_flow:maturation_decision",
+            "field:development_process_flow:open_gap_ids",
+            "field:development_process_flow:requested_scope_ids",
+            "field:development_process_flow:authorization_exact",
+            "field:development_process_flow:authorization_allowed_scope_ids",
+            "field:development_process_flow:admission_status"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0",
+        "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0",
+        "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0",
+        "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0",
+        "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate",
+          "producer_id": "transition:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate",
+          "producer_id": "transition:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate",
+          "producer_id": "transition:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate",
+          "producer_id": "transition:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate",
+          "producer_id": "transition:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:1",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:1",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:1",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:1",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:1",
+        "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:1",
+        "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:1",
+        "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:1",
+        "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate",
+          "outputs": [
+            "output:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate"
+          ],
+          "reads": [
+            "field:development_process_flow:transaction_status",
+            "field:development_process_flow:claim"
+          ],
+          "source": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0",
+          "target": "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:1",
+          "trigger": "AuthorSyncAction",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:transaction_status",
+            "field:development_process_flow:claim",
+            "field:development_process_flow:source_role",
+            "field:development_process_flow:target_role_after",
+            "field:development_process_flow:projection_id",
+            "field:development_process_flow:current_raw_fingerprint",
+            "field:development_process_flow:current_semantic_fingerprint",
+            "field:development_process_flow:attempted_path_ids",
+            "field:development_process_flow:activation_succeeded",
+            "field:development_process_flow:rollback_status",
+            "field:development_process_flow:target_restored",
+            "field:development_process_flow:partial_write_visible"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate",
+          "outputs": [
+            "output:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate"
+          ],
+          "reads": [
+            "field:development_process_flow:requirement_version",
+            "field:development_process_flow:code_version",
+            "field:development_process_flow:test_version",
+            "field:development_process_flow:source_version",
+            "field:development_process_flow:consumer_projection_version",
+            "field:development_process_flow:installed_package_version",
+            "field:development_process_flow:installed_skill_version",
+            "field:development_process_flow:model_authority_version",
+            "field:development_process_flow:openspec_version",
+            "field:development_process_flow:git_commit_version",
+            "field:development_process_flow:tag_version",
+            "field:development_process_flow:github_release_version",
+            "field:development_process_flow:evidence_status",
+            "field:development_process_flow:release_claim",
+            "field:development_process_flow:wrong_plane_action_accepted",
+            "field:development_process_flow:validation_observation_scope",
+            "field:development_process_flow:validation_complete_observation_count",
+            "field:development_process_flow:validation_semantic_verification_count",
+            "field:development_process_flow:validation_final_identity_freshness_passed",
+            "field:development_process_flow:validation_per_leaf_source_current_rebuild_count",
+            "field:development_process_flow:validation_per_leaf_receipt_store_scan_count",
+            "field:development_process_flow:validation_receipt_reconciliation_count"
+          ],
+          "source": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0",
+          "target": "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:1",
+          "trigger": "LifecycleAction",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:requirement_version",
+            "field:development_process_flow:code_version",
+            "field:development_process_flow:test_version",
+            "field:development_process_flow:source_version",
+            "field:development_process_flow:consumer_projection_version",
+            "field:development_process_flow:installed_package_version",
+            "field:development_process_flow:installed_skill_version",
+            "field:development_process_flow:model_authority_version",
+            "field:development_process_flow:openspec_version",
+            "field:development_process_flow:git_commit_version",
+            "field:development_process_flow:tag_version",
+            "field:development_process_flow:github_release_version",
+            "field:development_process_flow:evidence_status",
+            "field:development_process_flow:release_claim",
+            "field:development_process_flow:wrong_plane_action_accepted",
+            "field:development_process_flow:validation_observation_scope",
+            "field:development_process_flow:validation_complete_observation_count",
+            "field:development_process_flow:validation_semantic_verification_count",
+            "field:development_process_flow:validation_final_identity_freshness_passed",
+            "field:development_process_flow:validation_per_leaf_source_current_rebuild_count",
+            "field:development_process_flow:validation_per_leaf_receipt_store_scan_count",
+            "field:development_process_flow:validation_receipt_reconciliation_count"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate",
+          "outputs": [
+            "output:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate"
+          ],
+          "reads": [
+            "field:development_process_flow:owner_intent_closed",
+            "field:development_process_flow:artifact_revision",
+            "field:development_process_flow:implementation_performed",
+            "field:development_process_flow:affected_validation_revision",
+            "field:development_process_flow:light_review_revision",
+            "field:development_process_flow:light_result_fingerprint",
+            "field:development_process_flow:deep_review_triggered",
+            "field:development_process_flow:deep_review_revision",
+            "field:development_process_flow:candidate_revision",
+            "field:development_process_flow:candidate_result_fingerprint",
+            "field:development_process_flow:activation_revision",
+            "field:development_process_flow:activation_result_fingerprint"
+          ],
+          "source": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0",
+          "target": "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:1",
+          "trigger": "PathQualityLifecycleAction",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:owner_intent_closed",
+            "field:development_process_flow:artifact_revision",
+            "field:development_process_flow:implementation_performed",
+            "field:development_process_flow:affected_validation_revision",
+            "field:development_process_flow:light_review_revision",
+            "field:development_process_flow:light_result_fingerprint",
+            "field:development_process_flow:deep_review_triggered",
+            "field:development_process_flow:deep_review_revision",
+            "field:development_process_flow:candidate_revision",
+            "field:development_process_flow:candidate_result_fingerprint",
+            "field:development_process_flow:activation_revision",
+            "field:development_process_flow:activation_result_fingerprint"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate",
+          "outputs": [
+            "output:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate"
+          ],
+          "reads": [
+            "field:development_process_flow:reserved",
+            "field:development_process_flow:launched",
+            "field:development_process_flow:terminal",
+            "field:development_process_flow:reservation_count",
+            "field:development_process_flow:invalid_launch",
+            "field:development_process_flow:receipt_published"
+          ],
+          "source": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0",
+          "target": "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:1",
+          "trigger": "ProducerAction",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:reserved",
+            "field:development_process_flow:launched",
+            "field:development_process_flow:terminal",
+            "field:development_process_flow:reservation_count",
+            "field:development_process_flow:invalid_launch",
+            "field:development_process_flow:receipt_published"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate",
+          "outputs": [
+            "output:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate"
+          ],
+          "reads": [
+            "field:development_process_flow:maturation_current",
+            "field:development_process_flow:task_id",
+            "field:development_process_flow:candidate_fingerprint",
+            "field:development_process_flow:coverage_fingerprint",
+            "field:development_process_flow:evidence_fingerprint",
+            "field:development_process_flow:maturation_decision",
+            "field:development_process_flow:open_gap_ids",
+            "field:development_process_flow:requested_scope_ids",
+            "field:development_process_flow:authorization_exact",
+            "field:development_process_flow:authorization_allowed_scope_ids",
+            "field:development_process_flow:admission_status"
+          ],
+          "source": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0",
+          "target": "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:1",
+          "trigger": "AdmissionAction",
+          "validations": [
+            "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+            "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+            "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+            "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal"
+          ],
+          "writes": [
+            "field:development_process_flow:maturation_current",
+            "field:development_process_flow:task_id",
+            "field:development_process_flow:candidate_fingerprint",
+            "field:development_process_flow:coverage_fingerprint",
+            "field:development_process_flow:evidence_fingerprint",
+            "field:development_process_flow:maturation_decision",
+            "field:development_process_flow:open_gap_ids",
+            "field:development_process_flow:requested_scope_ids",
+            "field:development_process_flow:authorization_exact",
+            "field:development_process_flow:authorization_allowed_scope_ids",
+            "field:development_process_flow:admission_status"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:development_process_flow",
+          "id": "validation:development_process_flow:invariant:development_process_owns_only_its_plane",
+          "obligation_id": "obligation:native-invariant:development_process_flow:development_process_owns_only_its_plane",
+          "oracle_id": "oracle:native-invariant:development_process_flow:development_process_owns_only_its_plane",
+          "subject_fingerprint": "sha256:e0f1407eb3483d8588aa769699703aa2bae0bc011b9c304922a7b60a6f660abf"
+        },
+        {
+          "evidence_boundary_id": "native-runner:development_process_flow",
+          "id": "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence",
+          "obligation_id": "obligation:native-invariant:development_process_flow:no_release_with_stale_or_incomplete_evidence",
+          "oracle_id": "oracle:native-invariant:development_process_flow:no_release_with_stale_or_incomplete_evidence",
+          "subject_fingerprint": "sha256:e0f1407eb3483d8588aa769699703aa2bae0bc011b9c304922a7b60a6f660abf"
+        },
+        {
+          "evidence_boundary_id": "native-runner:development_process_flow",
+          "id": "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal",
+          "obligation_id": "obligation:native-invariant:development_process_flow:producer_exact_reservation_order_and_terminal",
+          "oracle_id": "oracle:native-invariant:development_process_flow:producer_exact_reservation_order_and_terminal",
+          "subject_fingerprint": "sha256:e0f1407eb3483d8588aa769699703aa2bae0bc011b9c304922a7b60a6f660abf"
+        },
+        {
+          "evidence_boundary_id": "native-runner:development_process_flow",
+          "id": "validation:development_process_flow:invariant:validation_observation_bounded_currentness",
+          "obligation_id": "obligation:native-invariant:development_process_flow:validation_observation_bounded_currentness",
+          "oracle_id": "oracle:native-invariant:development_process_flow:validation_observation_bounded_currentness",
+          "subject_fingerprint": "sha256:e0f1407eb3483d8588aa769699703aa2bae0bc011b9c304922a7b60a6f660abf"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:development_process_flow:activation_result_fingerprint": "field",
+      "field:development_process_flow:activation_revision": "field",
+      "field:development_process_flow:activation_succeeded": "field",
+      "field:development_process_flow:admission_status": "field",
+      "field:development_process_flow:affected_validation_revision": "field",
+      "field:development_process_flow:artifact_revision": "field",
+      "field:development_process_flow:attempted_path_ids": "field",
+      "field:development_process_flow:authorization_allowed_scope_ids": "field",
+      "field:development_process_flow:authorization_exact": "field",
+      "field:development_process_flow:candidate_fingerprint": "field",
+      "field:development_process_flow:candidate_result_fingerprint": "field",
+      "field:development_process_flow:candidate_revision": "field",
+      "field:development_process_flow:claim": "field",
+      "field:development_process_flow:code_version": "field",
+      "field:development_process_flow:consumer_projection_version": "field",
+      "field:development_process_flow:coverage_fingerprint": "field",
+      "field:development_process_flow:current_raw_fingerprint": "field",
+      "field:development_process_flow:current_semantic_fingerprint": "field",
+      "field:development_process_flow:deep_review_revision": "field",
+      "field:development_process_flow:deep_review_triggered": "field",
+      "field:development_process_flow:evidence_fingerprint": "field",
+      "field:development_process_flow:evidence_status": "field",
+      "field:development_process_flow:git_commit_version": "field",
+      "field:development_process_flow:github_release_version": "field",
+      "field:development_process_flow:implementation_performed": "field",
+      "field:development_process_flow:installed_package_version": "field",
+      "field:development_process_flow:installed_skill_version": "field",
+      "field:development_process_flow:invalid_launch": "field",
+      "field:development_process_flow:launched": "field",
+      "field:development_process_flow:light_result_fingerprint": "field",
+      "field:development_process_flow:light_review_revision": "field",
+      "field:development_process_flow:maturation_current": "field",
+      "field:development_process_flow:maturation_decision": "field",
+      "field:development_process_flow:model_authority_version": "field",
+      "field:development_process_flow:open_gap_ids": "field",
+      "field:development_process_flow:openspec_version": "field",
+      "field:development_process_flow:owner_intent_closed": "field",
+      "field:development_process_flow:partial_write_visible": "field",
+      "field:development_process_flow:projection_id": "field",
+      "field:development_process_flow:receipt_published": "field",
+      "field:development_process_flow:release_claim": "field",
+      "field:development_process_flow:requested_scope_ids": "field",
+      "field:development_process_flow:requirement_version": "field",
+      "field:development_process_flow:reservation_count": "field",
+      "field:development_process_flow:reserved": "field",
+      "field:development_process_flow:rollback_status": "field",
+      "field:development_process_flow:source_role": "field",
+      "field:development_process_flow:source_version": "field",
+      "field:development_process_flow:tag_version": "field",
+      "field:development_process_flow:target_restored": "field",
+      "field:development_process_flow:target_role_after": "field",
+      "field:development_process_flow:task_id": "field",
+      "field:development_process_flow:terminal": "field",
+      "field:development_process_flow:test_version": "field",
+      "field:development_process_flow:transaction_status": "field",
+      "field:development_process_flow:validation_complete_observation_count": "field",
+      "field:development_process_flow:validation_final_identity_freshness_passed": "field",
+      "field:development_process_flow:validation_observation_scope": "field",
+      "field:development_process_flow:validation_per_leaf_receipt_store_scan_count": "field",
+      "field:development_process_flow:validation_per_leaf_source_current_rebuild_count": "field",
+      "field:development_process_flow:validation_receipt_reconciliation_count": "field",
+      "field:development_process_flow:validation_semantic_verification_count": "field",
+      "field:development_process_flow:wrong_plane_action_accepted": "field",
+      "function-block:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate": "function_block",
+      "function-block:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate": "function_block",
+      "function-block:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate": "function_block",
+      "function-block:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate": "function_block",
+      "function-block:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate": "function_block",
+      "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0": "state",
+      "state:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:1": "state",
+      "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0": "state",
+      "state:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:1": "state",
+      "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0": "state",
+      "state:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:1": "state",
+      "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0": "state",
+      "state:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:1": "state",
+      "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0": "state",
+      "state:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:1": "state",
+      "transition:workflow:development_process_flow:author_shadow_sync:0:411811eb89dd:0:CorrectAuthorShadowSyncGate": "transition",
+      "transition:workflow:development_process_flow:development_process_flow_correct:2:05730185cee4:0:CorrectLifecycleGate": "transition",
+      "transition:workflow:development_process_flow:development_process_path_quality_lifecycle:3:0dd648726723:0:CorrectPathQualityLifecycleGate": "transition",
+      "transition:workflow:development_process_flow:development_producer_current:4:4973e6b3b436:0:ProducerEpisodeGate": "transition",
+      "transition:workflow:development_process_flow:implementation_admission:1:b4f8e3ea7405:0:CorrectImplementationAdmissionGate": "transition",
+      "validation:development_process_flow:invariant:development_process_owns_only_its_plane": "validation",
+      "validation:development_process_flow:invariant:no_release_with_stale_or_incomplete_evidence": "validation",
+      "validation:development_process_flow:invariant:producer_exact_reservation_order_and_terminal": "validation",
+      "validation:development_process_flow:invariant:validation_observation_bounded_currentness": "validation"
+    },
+    "subject_fingerprint": "sha256:2d6ea9d52a144685bdcb49f67afc4bbeac78a96d814bd813d2f91a9df9ea151a",
+    "trigger_currentness_id": "sha256:4e4e323474488b73d77c852946e8f5ed10a1e0065a7b1b10cb9062d931d7a01a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:f53fe323537b40c0cec1623b0a573db530aab42d2aa3345a18370cd28e064afc",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

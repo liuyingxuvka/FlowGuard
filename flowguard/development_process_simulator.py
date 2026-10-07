@@ -106,6 +106,9 @@ class DevelopmentProcessSimulationRequest:
     # as compatibility/context facts.  They are intentionally not sufficient
     # to admit the internal AgentWorkflowRehearsal mode: a multi-capability
     # description can still be a safe, single-owner, read-only operation.
+    # A cross-owner handoff alone needs execution freshness, not rehearsal;
+    # richer write, invalidation, route-change, or irreversible-effect facts
+    # still admit the full AgentWorkflowRehearsal route.
     cross_owner_handoff: bool = False
     shared_write: bool = False
     post_validation_write: bool = False
@@ -299,7 +302,6 @@ def _agent_workflow_admission_reasons(
     if request.explicit_agent_workflow:
         reasons.append("explicit_agent_workflow")
     for field_name, reason in (
-        ("cross_owner_handoff", "cross_owner_handoff"),
         ("shared_write", "shared_write"),
         ("post_validation_write", "post_validation_write"),
         ("agent_route_workflow_change", "agent_route_workflow_change"),
@@ -357,6 +359,7 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
         or request.install_sync
         or request.shadow_workspace_sync
         or request.local_git_sync
+        or request.cross_owner_handoff
         or request.release_archive_or_publish
         or request.final_claim_requested
         or request.explicit_development_process_skill
@@ -366,7 +369,12 @@ def _select_modes(request: DevelopmentProcessSimulationRequest) -> list[Developm
                 SIMULATOR_MODE_EXECUTION_FRESHNESS,
                 SIMULATOR_MODE_TO_ROUTE_TARGET[SIMULATOR_MODE_EXECUTION_FRESHNESS],
                 SIMULATOR_MODE_TO_REVIEW[SIMULATOR_MODE_EXECUTION_FRESHNESS],
-                "artifact versions, validation freshness, sync, or final claim confidence matters",
+                (
+                    "cross-owner handoff requires execution freshness; artifact versions, "
+                    "validation freshness, sync, or final claim confidence matters"
+                    if request.cross_owner_handoff
+                    else "artifact versions, validation freshness, sync, or final claim confidence matters"
+                ),
                 request.execution_freshness_evidence_ids,
             )
         )

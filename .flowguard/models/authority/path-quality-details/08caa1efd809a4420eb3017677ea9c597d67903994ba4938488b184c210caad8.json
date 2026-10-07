@@ -1,0 +1,154 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:8456a68bd2feae8b69af7d7ad866e8ed2e7f14ed003c6d65e5a16b5ede93b4e4",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/problem_corpus_coverage/model.py",
+            "source_fingerprint": "sha256:4f6693976b770de97914580109776d271ef120f4307b2a3082a40b4c669603ae"
+          },
+          {
+            "path": ".flowguard/verification/owners/problem_corpus_coverage/run_checks.py",
+            "source_fingerprint": "sha256:dbe70b0c275aed871e7e95cb8a98ceb19ec82495c5e1619bf77ef97c21905d3a"
+          },
+          {
+            "path": "examples/problem_corpus/executable.py",
+            "source_fingerprint": "sha256:4569da1fd0cd1f4728de581e07c2760b5e5f18f840274f5ec3426171a33881f3"
+          },
+          {
+            "path": "examples/problem_corpus/matrix.py",
+            "source_fingerprint": "sha256:7f1efa5efb624482c8ebe085968353081dee96642cce553321a525db1f8b99bc"
+          },
+          {
+            "path": "examples/problem_corpus/real_models.py",
+            "source_fingerprint": "sha256:7450d185cf90f52fcc9827d42de3440ccc938dc6703257fb7be0f72e433c0ebe"
+          },
+          {
+            "path": "examples/problem_corpus/taxonomy.py",
+            "source_fingerprint": "sha256:465441f7a26dc7299758aebbb31ee0dbe67655248212904416fed3139d4fbab8"
+          },
+          {
+            "path": "flowguard/corpus.py",
+            "source_fingerprint": "sha256:1746339a41406dda77e50be55845e1ffe88b9f4497ce92718888b2f52b65e9bd"
+          },
+          {
+            "path": "flowguard/coverage.py",
+            "source_fingerprint": "sha256:a8c92d9fd91d65d94c24d30194e17fb567c2b089bcd1927d673d07db62f3f966"
+          },
+          {
+            "path": "flowguard/executable.py",
+            "source_fingerprint": "sha256:609aa1a3646ce6583984750e60b5619445f47616383b6c5d85aeabe8710b906b"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_bug_class_coverage_missing",
+            "protected_failure_id": "corpus_bug_class_coverage_missing"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_bug_class_coverage_missing"
+        },
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_case_denominator_reduced",
+            "protected_failure_id": "corpus_case_denominator_reduced"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_case_denominator_reduced"
+        },
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_case_kind_coverage_missing",
+            "protected_failure_id": "corpus_case_kind_coverage_missing"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_case_kind_coverage_missing"
+        },
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_failed_result_hidden",
+            "protected_failure_id": "corpus_failed_result_hidden"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_failed_result_hidden"
+        },
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_unknown_terminal_accepted",
+            "protected_failure_id": "corpus_unknown_terminal_accepted"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_unknown_terminal_accepted"
+        },
+        {
+          "contract": {
+            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
+            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
+            "oracle": "run_review:corpus_variant_depth_reduced",
+            "protected_failure_id": "corpus_variant_depth_reduced"
+          },
+          "id": "function-block:problem_corpus_coverage:contract:corpus_variant_depth_reduced"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:problem_corpus_coverage:contract:corpus_bug_class_coverage_missing": "function_block",
+      "function-block:problem_corpus_coverage:contract:corpus_case_denominator_reduced": "function_block",
+      "function-block:problem_corpus_coverage:contract:corpus_case_kind_coverage_missing": "function_block",
+      "function-block:problem_corpus_coverage:contract:corpus_failed_result_hidden": "function_block",
+      "function-block:problem_corpus_coverage:contract:corpus_unknown_terminal_accepted": "function_block",
+      "function-block:problem_corpus_coverage:contract:corpus_variant_depth_reduced": "function_block"
+    },
+    "subject_fingerprint": "sha256:d9bf52af0f8c393a09fe9357c26741d215babbe56ef18ffcc717a89c251f19d2",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:08caa1efd809a4420eb3017677ea9c597d67903994ba4938488b184c210caad8",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

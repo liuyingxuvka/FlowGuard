@@ -1,0 +1,1062 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:5006d5d6979079084de4f3eccf3ec07f390e7d09ce92f6a73836908c05b43994",
+        "effective_intent_view_fingerprint": "sha256:927ac87dfae746e69a9bfa201ac8c54909970fd54ed9f6841577960dca8de9ef",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/ui_flow_structure_skill/model.py",
+            "source_fingerprint": "sha256:37bdecf8827958c2d03be070d869092c6dd6790f3a387cdf9c7feacca7765db8"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:all_content_candidates_classified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:business_authority_bindings_aligned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:canonical_product_semantics_reused",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:clickthrough_evidence_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:control_label_exemptions_scoped",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:expected_product_surfaces_complete",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:feature_contracts_aligned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:implementation_content_evidence_content_exact",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:implementation_content_evidence_structured",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:implementation_evidence_fresh",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:implementation_validation_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:implemented_ui_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:journey_coverage_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:launch_entry_inventory_present",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:no_internal_content_leaks",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:on_demand_return_paths_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:parent_child_topology_present",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:product_language_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:redundancy_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:release_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:skill_documented",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:structure_derived",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:text_hierarchy_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:three_visibility_classes_preserved",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:typed_user_need_refs_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:typography_roles_reused",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:ui_model_created",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:ui_model_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:visibility_plan_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:ui_flow_structure_skill:visible_control_branches_reviewed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "writes_by": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "RolloutAction",
+          "effects": [],
+          "id": "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout",
+          "inputs": [
+            "external-input:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41"
+          ],
+          "outputs": [
+            "output:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:ui_flow_structure_skill:ui_model_created",
+            "field:ui_flow_structure_skill:ui_model_reviewed",
+            "field:ui_flow_structure_skill:product_language_reviewed",
+            "field:ui_flow_structure_skill:expected_product_surfaces_complete",
+            "field:ui_flow_structure_skill:canonical_product_semantics_reused",
+            "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed",
+            "field:ui_flow_structure_skill:typography_roles_reused",
+            "field:ui_flow_structure_skill:business_authority_bindings_aligned",
+            "field:ui_flow_structure_skill:three_visibility_classes_preserved",
+            "field:ui_flow_structure_skill:no_internal_content_leaks",
+            "field:ui_flow_structure_skill:visibility_plan_reviewed",
+            "field:ui_flow_structure_skill:all_content_candidates_classified",
+            "field:ui_flow_structure_skill:typed_user_need_refs_reviewed",
+            "field:ui_flow_structure_skill:control_label_exemptions_scoped",
+            "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui",
+            "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed",
+            "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed",
+            "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_return_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed",
+            "field:ui_flow_structure_skill:journey_coverage_reviewed",
+            "field:ui_flow_structure_skill:launch_entry_inventory_present",
+            "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed",
+            "field:ui_flow_structure_skill:visible_control_branches_reviewed",
+            "field:ui_flow_structure_skill:feature_contracts_aligned",
+            "field:ui_flow_structure_skill:structure_derived",
+            "field:ui_flow_structure_skill:parent_child_topology_present",
+            "field:ui_flow_structure_skill:redundancy_reviewed",
+            "field:ui_flow_structure_skill:text_hierarchy_reviewed",
+            "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed",
+            "field:ui_flow_structure_skill:implementation_validation_reviewed",
+            "field:ui_flow_structure_skill:implementation_content_evidence_structured",
+            "field:ui_flow_structure_skill:implementation_content_evidence_content_exact",
+            "field:ui_flow_structure_skill:clickthrough_evidence_reviewed",
+            "field:ui_flow_structure_skill:implementation_evidence_fresh",
+            "field:ui_flow_structure_skill:skill_documented",
+            "field:ui_flow_structure_skill:release_claim",
+            "field:ui_flow_structure_skill:implemented_ui_claim"
+          ],
+          "state_input": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0",
+          "state_output": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:1",
+          "validations": [
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_visibility_plan",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_candidate_classification",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typed_user_need_refs",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_scoped_control_label_exemptions",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_content_mapping",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_default_hidden",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_all_mapping_state_checks",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_reveal_path",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_return_path",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_affordance_feedback",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_complete_product_surface_inventory",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_canonical_product_semantics",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_bounded_presentation_exceptions",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typography_role_reuse",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_one_business_authority",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_preserves_three_visibility_classes",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_product_content_leaks",
+            "validation:ui_flow_structure_skill:invariant:release_requires_reviewed_ui_model",
+            "validation:ui_flow_structure_skill:invariant:release_requires_derived_topology",
+            "validation:ui_flow_structure_skill:invariant:release_requires_journey_coverage",
+            "validation:ui_flow_structure_skill:invariant:release_requires_redundancy_review",
+            "validation:ui_flow_structure_skill:invariant:release_requires_typography_handoff_guidance",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_typography_handoff_guidance",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_feature_alignment",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_clickthrough_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_fresh_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_structured_content_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_content_exact_evidence"
+          ],
+          "writes": [
+            "field:ui_flow_structure_skill:ui_model_created",
+            "field:ui_flow_structure_skill:ui_model_reviewed",
+            "field:ui_flow_structure_skill:product_language_reviewed",
+            "field:ui_flow_structure_skill:expected_product_surfaces_complete",
+            "field:ui_flow_structure_skill:canonical_product_semantics_reused",
+            "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed",
+            "field:ui_flow_structure_skill:typography_roles_reused",
+            "field:ui_flow_structure_skill:business_authority_bindings_aligned",
+            "field:ui_flow_structure_skill:three_visibility_classes_preserved",
+            "field:ui_flow_structure_skill:no_internal_content_leaks",
+            "field:ui_flow_structure_skill:visibility_plan_reviewed",
+            "field:ui_flow_structure_skill:all_content_candidates_classified",
+            "field:ui_flow_structure_skill:typed_user_need_refs_reviewed",
+            "field:ui_flow_structure_skill:control_label_exemptions_scoped",
+            "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui",
+            "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed",
+            "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed",
+            "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_return_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed",
+            "field:ui_flow_structure_skill:journey_coverage_reviewed",
+            "field:ui_flow_structure_skill:launch_entry_inventory_present",
+            "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed",
+            "field:ui_flow_structure_skill:visible_control_branches_reviewed",
+            "field:ui_flow_structure_skill:feature_contracts_aligned",
+            "field:ui_flow_structure_skill:structure_derived",
+            "field:ui_flow_structure_skill:parent_child_topology_present",
+            "field:ui_flow_structure_skill:redundancy_reviewed",
+            "field:ui_flow_structure_skill:text_hierarchy_reviewed",
+            "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed",
+            "field:ui_flow_structure_skill:implementation_validation_reviewed",
+            "field:ui_flow_structure_skill:implementation_content_evidence_structured",
+            "field:ui_flow_structure_skill:implementation_content_evidence_content_exact",
+            "field:ui_flow_structure_skill:clickthrough_evidence_reviewed",
+            "field:ui_flow_structure_skill:implementation_evidence_fresh",
+            "field:ui_flow_structure_skill:skill_documented",
+            "field:ui_flow_structure_skill:release_claim",
+            "field:ui_flow_structure_skill:implemented_ui_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout",
+          "producer_id": "transition:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout",
+          "outputs": [
+            "output:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout"
+          ],
+          "reads": [
+            "field:ui_flow_structure_skill:ui_model_created",
+            "field:ui_flow_structure_skill:ui_model_reviewed",
+            "field:ui_flow_structure_skill:product_language_reviewed",
+            "field:ui_flow_structure_skill:expected_product_surfaces_complete",
+            "field:ui_flow_structure_skill:canonical_product_semantics_reused",
+            "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed",
+            "field:ui_flow_structure_skill:typography_roles_reused",
+            "field:ui_flow_structure_skill:business_authority_bindings_aligned",
+            "field:ui_flow_structure_skill:three_visibility_classes_preserved",
+            "field:ui_flow_structure_skill:no_internal_content_leaks",
+            "field:ui_flow_structure_skill:visibility_plan_reviewed",
+            "field:ui_flow_structure_skill:all_content_candidates_classified",
+            "field:ui_flow_structure_skill:typed_user_need_refs_reviewed",
+            "field:ui_flow_structure_skill:control_label_exemptions_scoped",
+            "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui",
+            "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed",
+            "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed",
+            "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_return_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed",
+            "field:ui_flow_structure_skill:journey_coverage_reviewed",
+            "field:ui_flow_structure_skill:launch_entry_inventory_present",
+            "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed",
+            "field:ui_flow_structure_skill:visible_control_branches_reviewed",
+            "field:ui_flow_structure_skill:feature_contracts_aligned",
+            "field:ui_flow_structure_skill:structure_derived",
+            "field:ui_flow_structure_skill:parent_child_topology_present",
+            "field:ui_flow_structure_skill:redundancy_reviewed",
+            "field:ui_flow_structure_skill:text_hierarchy_reviewed",
+            "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed",
+            "field:ui_flow_structure_skill:implementation_validation_reviewed",
+            "field:ui_flow_structure_skill:implementation_content_evidence_structured",
+            "field:ui_flow_structure_skill:implementation_content_evidence_content_exact",
+            "field:ui_flow_structure_skill:clickthrough_evidence_reviewed",
+            "field:ui_flow_structure_skill:implementation_evidence_fresh",
+            "field:ui_flow_structure_skill:skill_documented",
+            "field:ui_flow_structure_skill:release_claim",
+            "field:ui_flow_structure_skill:implemented_ui_claim"
+          ],
+          "source": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0",
+          "target": "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:1",
+          "trigger": "RolloutAction",
+          "validations": [
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_visibility_plan",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_candidate_classification",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typed_user_need_refs",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_scoped_control_label_exemptions",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_content_mapping",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_default_hidden",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_all_mapping_state_checks",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_reveal_path",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_return_path",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_affordance_feedback",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_complete_product_surface_inventory",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_canonical_product_semantics",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_bounded_presentation_exceptions",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typography_role_reuse",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_requires_one_business_authority",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_preserves_three_visibility_classes",
+            "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_product_content_leaks",
+            "validation:ui_flow_structure_skill:invariant:release_requires_reviewed_ui_model",
+            "validation:ui_flow_structure_skill:invariant:release_requires_derived_topology",
+            "validation:ui_flow_structure_skill:invariant:release_requires_journey_coverage",
+            "validation:ui_flow_structure_skill:invariant:release_requires_redundancy_review",
+            "validation:ui_flow_structure_skill:invariant:release_requires_typography_handoff_guidance",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_typography_handoff_guidance",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_feature_alignment",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_clickthrough_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_fresh_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_structured_content_evidence",
+            "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_content_exact_evidence"
+          ],
+          "writes": [
+            "field:ui_flow_structure_skill:ui_model_created",
+            "field:ui_flow_structure_skill:ui_model_reviewed",
+            "field:ui_flow_structure_skill:product_language_reviewed",
+            "field:ui_flow_structure_skill:expected_product_surfaces_complete",
+            "field:ui_flow_structure_skill:canonical_product_semantics_reused",
+            "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed",
+            "field:ui_flow_structure_skill:typography_roles_reused",
+            "field:ui_flow_structure_skill:business_authority_bindings_aligned",
+            "field:ui_flow_structure_skill:three_visibility_classes_preserved",
+            "field:ui_flow_structure_skill:no_internal_content_leaks",
+            "field:ui_flow_structure_skill:visibility_plan_reviewed",
+            "field:ui_flow_structure_skill:all_content_candidates_classified",
+            "field:ui_flow_structure_skill:typed_user_need_refs_reviewed",
+            "field:ui_flow_structure_skill:control_label_exemptions_scoped",
+            "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui",
+            "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed",
+            "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed",
+            "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_return_paths_reviewed",
+            "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed",
+            "field:ui_flow_structure_skill:journey_coverage_reviewed",
+            "field:ui_flow_structure_skill:launch_entry_inventory_present",
+            "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed",
+            "field:ui_flow_structure_skill:visible_control_branches_reviewed",
+            "field:ui_flow_structure_skill:feature_contracts_aligned",
+            "field:ui_flow_structure_skill:structure_derived",
+            "field:ui_flow_structure_skill:parent_child_topology_present",
+            "field:ui_flow_structure_skill:redundancy_reviewed",
+            "field:ui_flow_structure_skill:text_hierarchy_reviewed",
+            "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed",
+            "field:ui_flow_structure_skill:implementation_validation_reviewed",
+            "field:ui_flow_structure_skill:implementation_content_evidence_structured",
+            "field:ui_flow_structure_skill:implementation_content_evidence_content_exact",
+            "field:ui_flow_structure_skill:clickthrough_evidence_reviewed",
+            "field:ui_flow_structure_skill:implementation_evidence_fresh",
+            "field:ui_flow_structure_skill:skill_documented",
+            "field:ui_flow_structure_skill:release_claim",
+            "field:ui_flow_structure_skill:implemented_ui_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_clickthrough_evidence",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_clickthrough_evidence",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_clickthrough_evidence",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_content_exact_evidence",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_content_exact_evidence",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_content_exact_evidence",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_feature_alignment",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_feature_alignment",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_feature_alignment",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_fresh_evidence",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_fresh_evidence",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_fresh_evidence",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_structured_content_evidence",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_structured_content_evidence",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_structured_content_evidence",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_typography_handoff_guidance",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:implemented_ui_requires_typography_handoff_guidance",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:implemented_ui_requires_typography_handoff_guidance",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:release_requires_derived_topology",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:release_requires_derived_topology",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:release_requires_derived_topology",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:release_requires_journey_coverage",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:release_requires_journey_coverage",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:release_requires_journey_coverage",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:release_requires_redundancy_review",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:release_requires_redundancy_review",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:release_requires_redundancy_review",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:release_requires_reviewed_ui_model",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:release_requires_reviewed_ui_model",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:release_requires_reviewed_ui_model",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:release_requires_typography_handoff_guidance",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:release_requires_typography_handoff_guidance",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:release_requires_typography_handoff_guidance",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_content_mapping",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_forbids_internal_content_mapping",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_forbids_internal_content_mapping",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_product_content_leaks",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_forbids_internal_product_content_leaks",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_forbids_internal_product_content_leaks",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_preserves_three_visibility_classes",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_preserves_three_visibility_classes",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_preserves_three_visibility_classes",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_all_mapping_state_checks",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_all_mapping_state_checks",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_all_mapping_state_checks",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_bounded_presentation_exceptions",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_bounded_presentation_exceptions",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_bounded_presentation_exceptions",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_candidate_classification",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_candidate_classification",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_candidate_classification",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_canonical_product_semantics",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_canonical_product_semantics",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_canonical_product_semantics",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_complete_product_surface_inventory",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_complete_product_surface_inventory",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_complete_product_surface_inventory",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_affordance_feedback",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_affordance_feedback",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_affordance_feedback",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_default_hidden",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_default_hidden",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_default_hidden",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_return_path",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_return_path",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_return_path",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_reveal_path",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_reveal_path",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_on_demand_reveal_path",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_one_business_authority",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_one_business_authority",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_one_business_authority",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_scoped_control_label_exemptions",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_scoped_control_label_exemptions",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_scoped_control_label_exemptions",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typed_user_need_refs",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_typed_user_need_refs",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_typed_user_need_refs",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typography_role_reuse",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_typography_role_reuse",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_typography_role_reuse",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        },
+        {
+          "evidence_boundary_id": "native-runner:ui_flow_structure_skill",
+          "id": "validation:ui_flow_structure_skill:invariant:ui_claim_requires_visibility_plan",
+          "obligation_id": "obligation:native-invariant:ui_flow_structure_skill:ui_claim_requires_visibility_plan",
+          "oracle_id": "oracle:native-invariant:ui_flow_structure_skill:ui_claim_requires_visibility_plan",
+          "subject_fingerprint": "sha256:e9f51a27c452c467d5f49cc7f5aabdb366ba2f9281e1292855d5658e946081ba"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:ui_flow_structure_skill:all_content_candidates_classified": "field",
+      "field:ui_flow_structure_skill:all_visibility_mapping_states_reviewed": "field",
+      "field:ui_flow_structure_skill:bounded_presentation_exceptions_reviewed": "field",
+      "field:ui_flow_structure_skill:business_authority_bindings_aligned": "field",
+      "field:ui_flow_structure_skill:canonical_product_semantics_reused": "field",
+      "field:ui_flow_structure_skill:clickthrough_evidence_reviewed": "field",
+      "field:ui_flow_structure_skill:control_label_exemptions_scoped": "field",
+      "field:ui_flow_structure_skill:expected_product_surfaces_complete": "field",
+      "field:ui_flow_structure_skill:feature_contracts_aligned": "field",
+      "field:ui_flow_structure_skill:implementation_content_evidence_content_exact": "field",
+      "field:ui_flow_structure_skill:implementation_content_evidence_structured": "field",
+      "field:ui_flow_structure_skill:implementation_evidence_fresh": "field",
+      "field:ui_flow_structure_skill:implementation_validation_reviewed": "field",
+      "field:ui_flow_structure_skill:implemented_ui_claim": "field",
+      "field:ui_flow_structure_skill:journey_coverage_reviewed": "field",
+      "field:ui_flow_structure_skill:launch_entry_inventory_present": "field",
+      "field:ui_flow_structure_skill:no_internal_content_leaks": "field",
+      "field:ui_flow_structure_skill:no_internal_content_mapped_to_ui": "field",
+      "field:ui_flow_structure_skill:on_demand_affordance_feedback_reviewed": "field",
+      "field:ui_flow_structure_skill:on_demand_default_hidden_reviewed": "field",
+      "field:ui_flow_structure_skill:on_demand_return_paths_reviewed": "field",
+      "field:ui_flow_structure_skill:on_demand_reveal_paths_reviewed": "field",
+      "field:ui_flow_structure_skill:parent_child_topology_present": "field",
+      "field:ui_flow_structure_skill:product_language_reviewed": "field",
+      "field:ui_flow_structure_skill:redundancy_reviewed": "field",
+      "field:ui_flow_structure_skill:release_claim": "field",
+      "field:ui_flow_structure_skill:skill_documented": "field",
+      "field:ui_flow_structure_skill:structure_derived": "field",
+      "field:ui_flow_structure_skill:terminal_recovery_paths_reviewed": "field",
+      "field:ui_flow_structure_skill:text_hierarchy_reviewed": "field",
+      "field:ui_flow_structure_skill:three_visibility_classes_preserved": "field",
+      "field:ui_flow_structure_skill:typed_user_need_refs_reviewed": "field",
+      "field:ui_flow_structure_skill:typography_handoff_guidance_reviewed": "field",
+      "field:ui_flow_structure_skill:typography_roles_reused": "field",
+      "field:ui_flow_structure_skill:ui_model_created": "field",
+      "field:ui_flow_structure_skill:ui_model_reviewed": "field",
+      "field:ui_flow_structure_skill:visibility_plan_reviewed": "field",
+      "field:ui_flow_structure_skill:visible_control_branches_reviewed": "field",
+      "function-block:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout": "function_block",
+      "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0": "state",
+      "state:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:1": "state",
+      "transition:workflow:ui_flow_structure_skill:ui_flow_structure_correct:0:c493b182cd41:0:CorrectUiFlowStructureRollout": "transition",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_clickthrough_evidence": "validation",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_content_exact_evidence": "validation",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_feature_alignment": "validation",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_fresh_evidence": "validation",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_structured_content_evidence": "validation",
+      "validation:ui_flow_structure_skill:invariant:implemented_ui_requires_typography_handoff_guidance": "validation",
+      "validation:ui_flow_structure_skill:invariant:release_requires_derived_topology": "validation",
+      "validation:ui_flow_structure_skill:invariant:release_requires_journey_coverage": "validation",
+      "validation:ui_flow_structure_skill:invariant:release_requires_redundancy_review": "validation",
+      "validation:ui_flow_structure_skill:invariant:release_requires_reviewed_ui_model": "validation",
+      "validation:ui_flow_structure_skill:invariant:release_requires_typography_handoff_guidance": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_content_mapping": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_forbids_internal_product_content_leaks": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_preserves_three_visibility_classes": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_all_mapping_state_checks": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_bounded_presentation_exceptions": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_candidate_classification": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_canonical_product_semantics": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_complete_product_surface_inventory": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_affordance_feedback": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_default_hidden": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_return_path": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_on_demand_reveal_path": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_one_business_authority": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_scoped_control_label_exemptions": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typed_user_need_refs": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_typography_role_reuse": "validation",
+      "validation:ui_flow_structure_skill:invariant:ui_claim_requires_visibility_plan": "validation"
+    },
+    "subject_fingerprint": "sha256:d16ce2aa92ce10d44f7d245ce5aa614ffa01dc08ab544485d2726ec0371dff9f",
+    "trigger_currentness_id": "sha256:02904d82e0ad7735d068a9113040051faf7ff20095b0cd2679b18c126587a76c",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:ecaedfebd0a99e6e9c65836a7d861bf1abed9b2e3142aefebaf90d21f4bdbce7",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

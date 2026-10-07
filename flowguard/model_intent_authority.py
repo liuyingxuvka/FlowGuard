@@ -1937,16 +1937,19 @@ def _reject_duplicate_json_keys(
     return result
 
 
-def _read_json(path: Path, label: str) -> Mapping[str, Any]:
+def _read_json(path: Path, label: str, *, read_context=None) -> Mapping[str, Any]:
     try:
-        value = json.loads(
-            path.read_text(encoding="utf-8"),
-            object_pairs_hook=_reject_duplicate_json_keys,
-            parse_constant=lambda item: (_ for _ in ()).throw(
-                ModelAuthorityError(f"non-finite JSON number: {item}")
-            ),
-        )
-    except (OSError, json.JSONDecodeError, ModelAuthorityError) as exc:
+        if read_context is not None:
+            value = read_context.json_payload(path.absolute().relative_to(read_context.root).as_posix())
+        else:
+            value = json.loads(
+                path.read_text(encoding="utf-8"),
+                object_pairs_hook=_reject_duplicate_json_keys,
+                parse_constant=lambda item: (_ for _ in ()).throw(
+                    ModelAuthorityError(f"non-finite JSON number: {item}")
+                ),
+            )
+    except (OSError, ValueError) as exc:
         raise ModelAuthorityError(f"cannot read {label}: {exc}") from exc
     if not isinstance(value, Mapping):
         raise ModelAuthorityError(f"{label} must be a JSON object")
@@ -2150,7 +2153,10 @@ def _bootstrap_source_audit(
     root: Path,
     head: ModelAuthorityHead,
     snapshot: ModelSystemSnapshot,
+    *, read_context=None,
 ) -> _BootstrapSourceAudit:
+    if read_context is not None and read_context.root != root.resolve():
+        raise ModelAuthorityError("bootstrap source audit context belongs to another root")
     mesh_root = root / ".flowguard" / "models" / "authority"
     if (
         snapshot.fingerprint != head.snapshot_fingerprint
@@ -2162,7 +2168,7 @@ def _bootstrap_source_audit(
         )
 
     def bootstrap_head_from_path(path: Path) -> ModelAuthorityHead:
-        payload = _read_json(path, "model authority bootstrap")
+        payload = _read_json(path, "model authority bootstrap", read_context=read_context)
         fingerprint = _verify_content_addressed_payload(
             path,
             payload,
@@ -2239,7 +2245,7 @@ def _bootstrap_source_audit(
     def load_activation(
         path: Path,
     ) -> tuple[str, ModelActivationReceipt]:
-        payload = _read_json(path, "activation receipt")
+        payload = _read_json(path, "activation receipt", read_context=read_context)
         fingerprint = _verify_content_addressed_payload(
             path,
             payload,
@@ -2261,7 +2267,7 @@ def _bootstrap_source_audit(
         fingerprint: str,
     ) -> ModelRollbackContract:
         path = contract_root / f"{fingerprint.split(':', 1)[1]}.json"
-        payload = _read_json(path, "rollback contract")
+        payload = _read_json(path, "rollback contract", read_context=read_context)
         verified = _verify_content_addressed_payload(
             path,
             payload,
@@ -2282,7 +2288,7 @@ def _bootstrap_source_audit(
     def load_rollback(
         path: Path,
     ) -> tuple[str, ModelRollbackReceipt, ModelRollbackContract]:
-        payload = _read_json(path, "rollback receipt")
+        payload = _read_json(path, "rollback receipt", read_context=read_context)
         fingerprint = _verify_content_addressed_payload(
             path,
             payload,
@@ -2305,7 +2311,7 @@ def _bootstrap_source_audit(
     def load_snapshot(fingerprint: str) -> ModelSystemSnapshot:
         path = snapshot_root / f"{fingerprint.split(':', 1)[1]}.json"
         loaded = ModelSystemSnapshot.from_dict(
-            _read_json(path, "authority ancestry snapshot")
+            _read_json(path, "authority ancestry snapshot", read_context=read_context)
         )
         if loaded.fingerprint != fingerprint:
             raise ModelAuthorityError(
@@ -2440,7 +2446,7 @@ def _bootstrap_source_audit(
         generation: int,
     ) -> tuple[Mapping[str, Any], str]:
         path = revision_root / f"{fingerprint.split(':', 1)[1]}.json"
-        payload = _read_json(path, f"revision generation {generation}")
+        payload = _read_json(path, f"revision generation {generation}", read_context=read_context)
         _verify_content_addressed_payload(
             path,
             payload,
@@ -2633,6 +2639,7 @@ def _build_current_intent_bootstrap_receipt_from_source(
         "This receipt proves exact ancestry audit and current design coverage "
         "for one explicit migration; historical deltas are not current intent."
     ),
+    read_context=None,
 ) -> EffectiveIntentBootstrapReceipt:
     """Build one receipt from an already selected exact source authority."""
 
@@ -2646,7 +2653,7 @@ def _build_current_intent_bootstrap_receipt_from_source(
     sources = (
         tuple(verified_source_identities)
         if verified_source_identities is not None
-        else verify_model_intent_sources(root_path, contributions)
+        else verify_model_intent_sources(root_path, contributions, read_context=read_context)
     )
     bindings = derive_effective_intent_owner_bindings(
         candidate_snapshot,
@@ -2659,7 +2666,7 @@ def _build_current_intent_bootstrap_receipt_from_source(
         raise ModelAuthorityError(
             "intent bootstrap candidate belongs to another model authority"
         )
-    audit = _bootstrap_source_audit(root_path, source_head, source_snapshot)
+    audit = _bootstrap_source_audit(root_path, source_head, source_snapshot, read_context=read_context)
     validated_dispositions = validate_legacy_intent_bootstrap_dispositions(
         audit.ancestry_intent_entries,
         contributions,

@@ -558,6 +558,76 @@ def test_same_owner_behavior_contracts_are_partitioned_by_block():
         "revision": "member:surface:load:input:revision",
     }
 
+    # Current producer declarations contain multiple positive cases and
+    # multiple protected variants, including a boundary violation.
+    good_a, boundary_a, bad_a = cases[:3]
+
+    def variant(case, suffix, **changes):
+        identity = f"{case.case_id}:{suffix}"
+        return replace(
+            case,
+            case_id=identity,
+            case_evidence_id=f"checker:{identity}",
+            case_evidence_fingerprint=f"fp:checker:{identity}",
+            **changes,
+        )
+
+    def owner_with_a_cases(a_cases):
+        declared = (*a_cases, *cases[3:])
+        return replace(
+            owner,
+            behavior_case_contracts=declared,
+            checker_design_fingerprints=tuple(
+                (case.case_evidence_id, case.case_evidence_fingerprint)
+                for case in declared
+            ),
+        )
+
+    additional_good = variant(good_a, "additional-good")
+    additional_boundary = variant(boundary_a, "additional-boundary")
+    protected_boundary = variant(bad_a, "protected-boundary", case_kind="boundary")
+    preservation_good = variant(bad_a, "preservation-good", case_kind="good")
+    additional_bad = variant(bad_a, "additional-bad")
+    native_variants = (
+        good_a, boundary_a, bad_a, additional_good, additional_boundary,
+        protected_boundary, preservation_good, additional_bad,
+    )
+    variants_owner = owner_with_a_cases(native_variants)
+    selected_binding, selected_cases = _owner_surface_contracts(
+        variants_owner, surface_a
+    )
+    assert selected_binding == binding_a
+    assert {case.case_id for case in selected_cases} == {
+        case.case_id for case in native_variants
+    }
+    assert _owner_surface_contracts(variants_owner, surface_b) == (
+        binding_b, selected_b_cases
+    )
+    # Each protected kind can supply its genuine declared failure coverage.
+    for protected_case in (bad_a, protected_boundary, preservation_good):
+        projected = _owner_surface_contracts(
+            owner_with_a_cases((good_a, boundary_a, protected_case)), surface_a
+        )[1]
+        assert {case.case_id for case in projected} == {
+            good_a.case_id, boundary_a.case_id, protected_case.case_id
+        }
+
+    invalid_a_cases = (
+        (boundary_a, bad_a),  # no ordinary good
+        (good_a, bad_a, protected_boundary),  # no unprotected boundary
+        (good_a, boundary_a),  # missing protected failure coverage
+        (good_a, boundary_a, bad_a,
+         variant(bad_a, "foreign", protected_failure_ids=("failure:foreign",))),
+        (good_a, boundary_a, bad_a,
+         variant(bad_a, "unbound-error", protected_failure_ids=(),
+                 expected_errors=("unbound:error",))),
+    )
+    for invalid_cases in invalid_a_cases:
+        with pytest.raises(ProjectBlueprintError, match="block-local protected-failure"):
+            _owner_surface_contracts(owner_with_a_cases(invalid_cases), surface_a)
+    with pytest.raises(ValueError, match="unknown behavior case kind"):
+        variant(good_a, "unknown-kind", case_kind="unknown")
+
     foreign_case = replace(
         cases[0],
         case_id="case:foreign:good",

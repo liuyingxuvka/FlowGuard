@@ -1458,6 +1458,55 @@ def test_exact_current_leaf_receipt_closes_executed_evidence() -> None:
     assert result.executed_evidence_status == "passed"
 
 
+def test_native_model_leaf_requires_all_declared_functional_obligations() -> None:
+    from flowguard.evidence_receipts import ChildReceiptRequirement
+
+    block = replace(contract(), owner_id="model:save")
+    cases, edges, _planned = exact_design((block,))
+    obligations = ("model-regression:save", "obligation:functional:save")
+    owner_contract, receipt, verification = execution_bundle(
+        edges, owner_id=block.owner_id, covered_ids=obligations,
+    )
+
+    def consume(contract_value, receipt_value, verification_value, executed_ids=None):
+        return review(
+            (block,), edges=edges,
+            executions=tuple(CoverageExecutionEvidence(
+                edge.coverage_id, contract_value.owner_id, "pass",
+                receipt_value.receipt_id, receipt_value.fingerprint,
+                executed_case_ids=(tuple(case.case_id for case in cases) if executed_ids is None else executed_ids),
+            ) for edge in edges),
+            evidence_receipts=(receipt_value,),
+            receipt_verification_results=(replace(verification_value, receipt_fingerprint=receipt_value.fingerprint),),
+            validation_owner_contracts=(contract_value,),
+        )
+
+    assert consume(owner_contract, receipt, verification).executed_evidence_status == "passed"
+    base_contract, base_receipt, base_verification = execution_bundle(
+        edges, owner_id=block.owner_id, covered_ids=obligations[:1],
+    )
+    assert consume(base_contract, base_receipt, base_verification).executed_evidence_status == "passed"
+    required = ChildReceiptRequirement(
+        "receipt:child", obligations, ("full",), "validation-owner:model:child", "sha256:child",
+    )
+    invalid = (
+        (owner_contract, replace(receipt, covered_obligations=obligations[:1]), verification, None),
+        (replace(owner_contract, obligation_ids=obligations[:1]), receipt, verification, None),
+        (owner_contract, replace(receipt, covered_obligations=(*obligations, "obligation:foreign")), verification, None),
+        (owner_contract, receipt, replace(verification, satisfied_obligations=obligations[:1]), None),
+        (owner_contract, receipt, replace(verification, satisfied_obligations=(*obligations, "obligation:foreign")), None),
+        (owner_contract, replace(receipt, producer_id="validation-owner:model:foreign"), verification, None),
+        (owner_contract, replace(receipt, required_child_receipts=(required,)), verification, None),
+        (owner_contract, replace(receipt, skipped_checks=("required:skipped",)), verification, None),
+        (owner_contract, receipt, replace(verification, current=False), None),
+        (owner_contract, receipt, verification, tuple(case.source_case_id for case in cases)),
+    )
+    for contract_value, receipt_value, verification_value, executed_ids in invalid:
+        rejected = consume(contract_value, receipt_value, verification_value, executed_ids)
+        assert rejected.executed_evidence_status == "blocked"
+        assert any(finding.code.startswith("coverage_execution_") for finding in rejected.findings)
+
+
 def test_validation_parent_receipt_cannot_impersonate_leaf_coverage() -> None:
     block = contract()
     _cases, edges, _planned = exact_design((block,))
@@ -1624,6 +1673,56 @@ def test_portable_binding_must_preserve_the_protected_failure_boundary() -> None
 
     assert "portable_failure_boundary_mismatch" in {
         finding.code for finding in result.findings
+    }
+
+    # A declared boundary violation can be the sole concrete case for a
+    # protected failure. Build its real case dimensions and checker edges.
+    good, boundary, rejected = cases(block)
+    protected_boundary = replace(
+        rejected,
+        case_id=f"{rejected.case_id}:protected-boundary",
+        case_kind="boundary",
+    )
+    current_cases = (good, boundary, protected_boundary)
+    with mock.patch(f"{__name__}.cases", return_value=current_cases):
+        protected = review((block,))
+        assert protected.complete
+        assert protected.pre_code_status == "ready"
+        assert not protected.execution_complete
+        assert protected.executed_evidence_status == "not_run"
+        projected = next(
+            case for case in protected.case_contracts
+            if case.case_id == protected_boundary.case_id
+        )
+        assert projected.protected_failure_ids == ("failure:rejected",)
+        assert {dimension for edge in protected.coverage_edges
+                if edge.case_id == projected.case_id
+                for dimension in edge.covered_dimensions} == set(
+                    BEHAVIOR_CASE_DIMENSIONS["boundary"]
+                )
+
+        stale_edges = tuple(
+            replace(edge, case_content_fingerprint="sha256:stale-case")
+            if edge.case_id == protected_boundary.case_id else edge
+            for edge in protected.coverage_edges
+        )
+        stale = review((block,), edges=stale_edges)
+        assert not stale.complete
+        assert "coverage_case_content_mismatch" in {
+            finding.code for finding in stale.findings
+        }
+
+    missing_boundary_failure = replace(
+        protected_boundary, protected_failure_ids=(),
+    )
+    with mock.patch(
+        f"{__name__}.cases",
+        return_value=(good, boundary, missing_boundary_failure),
+    ):
+        missing = review((block,))
+    assert not missing.complete
+    assert "protected_failure_case_missing" in {
+        finding.code for finding in missing.findings
     }
 
 
@@ -2294,6 +2393,34 @@ def test_delegated_assertion_helpers_require_current_terminal_acyclic_paths() ->
     assert "ambiguous_delegated_assertion_helper" in {
         row.code for row in ambiguous.findings
     }
+
+    # Same leaf in other files/classes is not ambiguity for a direct current method.
+    from types import SimpleNamespace
+    lexical_node = SimpleNamespace(
+        node_id=node.node_id, assertions=node.assertions,
+        calls=("self.assert_saved",), path="tests/test_current.py", class_name="TestCurrent",
+    )
+    lexical_helpers = (
+        replace(direct_terminal_only, helper_id="delegated-helper:tests/test_current.py::TestCurrent.assert_saved"),
+        replace(direct_terminal_only, helper_id="delegated-helper:tests/test_other.py::TestOther.assert_saved"),
+        replace(direct_terminal_only, helper_id="delegated-helper:tests/test_current.py::TestSibling.assert_saved"),
+    )
+    lexical = delegated_review(lexical_helpers, test_node=lexical_node)
+    assert "ambiguous_delegated_assertion_helper" not in {row.code for row in lexical.findings}
+    for receiver in ("unknown.assert_saved", "self.other.assert_saved", "cls.other.assert_saved"):
+        unknown_node = SimpleNamespace(**{**vars(lexical_node), "calls": (receiver,)})
+        denied = delegated_review(lexical_helpers, test_node=unknown_node)
+        assert "ambiguous_delegated_assertion_helper" in {row.code for row in denied.findings}
+    missing_class_node = SimpleNamespace(**{
+        key: value for key, value in vars(lexical_node).items() if key != "class_name"
+    })
+    missing_metadata = delegated_review(lexical_helpers, test_node=missing_class_node)
+    assert "ambiguous_delegated_assertion_helper" in {row.code for row in missing_metadata.findings}
+    foreign_class = SimpleNamespace(**{**vars(lexical_node), "class_name": "TestInherited"})
+    inherited = delegated_review(lexical_helpers, test_node=foreign_class)
+    assert "ambiguous_delegated_assertion_helper" in {row.code for row in inherited.findings}
+    duplicate = delegated_review((*lexical_helpers, lexical_helpers[0]), test_node=lexical_node)
+    assert "duplicate_delegated_assertion_helper" in {row.code for row in duplicate.findings}
 
     unregistered = delegated_review((), test_node=node)
     assert "unregistered_assertion_helper" in {

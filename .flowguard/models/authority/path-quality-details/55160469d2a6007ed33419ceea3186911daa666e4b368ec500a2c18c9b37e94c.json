@@ -1,0 +1,215 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:0be24d81988c6619741511e091a28673cf0a9a49584133aeb0e25fec226c3962",
+        "effective_intent_view_fingerprint": "sha256:6eeabd9cedcfd79b5a620ef3233dc8712f89b4171ffb1fb34017d628b6264e92",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/plan_detailing_compiler/model.py",
+            "source_fingerprint": "sha256:37939a1a87b570cff93baf261954bf5049e8207742b51710b90771a456cf8b00"
+          },
+          {
+            "path": "examples/plan_detailing_compiler/model.py",
+            "source_fingerprint": "sha256:e7429369468d68bd58345961edf41bbfcf4431069bad1777da2402d57fa36a36"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "export_model_id": "flowguard.plan_detailing_compiler.skill_contract.v2",
+      "export_parent_model_id": "flowguard.development_process_flow",
+      "export_schema_version": "skillguard.flowguard_model_export.v2",
+      "fields": [],
+      "function_blocks": [
+        {
+          "action_kind": "terminal",
+          "id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:blocked",
+          "inputs": [
+            "external-input:plan_detailing_compiler:route:plan_detailing_compiler"
+          ],
+          "outputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:blocked"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-development-process-flow:blocked",
+          "validations": []
+        },
+        {
+          "action_kind": "native",
+          "id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute",
+          "inputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake"
+          ],
+          "outputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-development-process-flow:execute",
+          "validations": [
+            "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:native-authority"
+          ]
+        },
+        {
+          "action_kind": "inventory",
+          "id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake",
+          "inputs": [
+            "external-input:plan_detailing_compiler:route:plan_detailing_compiler"
+          ],
+          "outputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-development-process-flow:intake",
+          "validations": [
+            "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:plane-boundary"
+          ]
+        },
+        {
+          "action_kind": "terminal",
+          "id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success",
+          "inputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify"
+          ],
+          "outputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-development-process-flow:success",
+          "validations": []
+        },
+        {
+          "action_kind": "verifier",
+          "id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify",
+          "inputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute"
+          ],
+          "outputs": [
+            "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-development-process-flow:verify",
+          "validations": [
+            "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:evidence-closure"
+          ]
+        }
+      ],
+      "initial_state_ids": [],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:blocked",
+          "producer_id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:blocked",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify"
+          ],
+          "id": "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute",
+          "producer_id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute"
+          ],
+          "id": "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake",
+          "producer_id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success",
+          "producer_id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success"
+          ],
+          "id": "output:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify",
+          "producer_id": "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify",
+          "terminal": false
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-contract-export.v1",
+      "responsibilities": [],
+      "states": [],
+      "terminal_state_ids": [],
+      "transitions": [],
+      "validations": [
+        {
+          "evidence_boundary_id": "contract-export:plan_detailing_compiler",
+          "id": "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:evidence-closure",
+          "obligation_id": "obligation:flowguard-development-process-flow:evidence-closure",
+          "oracle_id": "invariant:evidence-closure",
+          "subject_fingerprint": "sha256:c9252f5db84f9f62fd4541aab741bfd508351d3ab331a489b58008a6084f9f85"
+        },
+        {
+          "evidence_boundary_id": "contract-export:plan_detailing_compiler",
+          "id": "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:native-authority",
+          "obligation_id": "obligation:flowguard-development-process-flow:native-authority",
+          "oracle_id": "invariant:native-authority",
+          "subject_fingerprint": "sha256:c9252f5db84f9f62fd4541aab741bfd508351d3ab331a489b58008a6084f9f85"
+        },
+        {
+          "evidence_boundary_id": "contract-export:plan_detailing_compiler",
+          "id": "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:plane-boundary",
+          "obligation_id": "obligation:flowguard-development-process-flow:plane-boundary",
+          "oracle_id": "invariant:plane-boundary",
+          "subject_fingerprint": "sha256:c9252f5db84f9f62fd4541aab741bfd508351d3ab331a489b58008a6084f9f85"
+        }
+      ]
+    },
+    "retained_elements": {
+      "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:blocked": "function_block",
+      "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:execute": "function_block",
+      "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:intake": "function_block",
+      "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:success": "function_block",
+      "function-block:plan_detailing_compiler:contract:step:flowguard-development-process-flow:verify": "function_block",
+      "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:evidence-closure": "validation",
+      "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:native-authority": "validation",
+      "validation:plan_detailing_compiler:contract:obligation:flowguard-development-process-flow:plane-boundary": "validation"
+    },
+    "subject_fingerprint": "sha256:5931778fcad30a546dd22fe5e78d6a1511f9b65aa580b30b31f1c158a2b8ee9b",
+    "trigger_currentness_id": "sha256:8d40ea036d05e5635d80eed7a4e824c77e46ec43660e37765af1ca6013428f96",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:55160469d2a6007ed33419ceea3186911daa666e4b368ec500a2c18c9b37e94c",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

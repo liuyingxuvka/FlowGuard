@@ -1,0 +1,620 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:6b93ff3a48c041fcd480e066d67a5b749f428969eba2589f683d04966ffecb05",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/structure_refactor_mesh/model.py",
+            "source_fingerprint": "sha256:41f3407506b0eb631f9d955b23f194b54dae3abcdc0a77c881aa8228b2c468d0"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:StructureMeshPolicy",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:adapters_collect_evidence_not_refactor",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:architecture_reduction_handoff_present",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:config_drift_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:dependency_cycles_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:duplicate_config_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:duplicate_partition_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:duplicate_side_effect_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:duplicate_state_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:every_partition_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:facades_retained",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:owners_registered",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:package_api_registry_partition_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:parent_child_structure",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:parity_evidence_current",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:public_entrypoints_preserved",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:receipt_supervision_partition_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_consumers_and_tests_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_current_proof_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_next_route_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_observable_contract_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_target_action_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:reduction_universe_member_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:release_scope_blocks_missing_parity",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:target_structure_derived_from_model",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:target_structure_maps_model_boundaries",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:structure_refactor_mesh:ui_evidence_partition_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "StructureMeshCase",
+          "effects": [],
+          "id": "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan",
+          "inputs": [
+            "external-input:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1"
+          ],
+          "outputs": [
+            "output:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:structure_refactor_mesh:StructureMeshPolicy"
+          ],
+          "state_input": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0",
+          "state_output": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:1",
+          "validations": [
+            "validation:structure_refactor_mesh:invariant:parent_child_structure_exists",
+            "validation:structure_refactor_mesh:invariant:target_structure_is_model_derived",
+            "validation:structure_refactor_mesh:invariant:target_structure_maps_model_boundaries",
+            "validation:structure_refactor_mesh:invariant:partition_ownership_is_complete",
+            "validation:structure_refactor_mesh:invariant:duplicate_owners_are_blocked",
+            "validation:structure_refactor_mesh:invariant:compatibility_stays_preserved",
+            "validation:structure_refactor_mesh:invariant:dependency_and_config_gaps_block",
+            "validation:structure_refactor_mesh:invariant:parity_evidence_stays_current",
+            "validation:structure_refactor_mesh:invariant:release_scope_requires_release_parity",
+            "validation:structure_refactor_mesh:invariant:structuremesh_does_not_refactor_code",
+            "validation:structure_refactor_mesh:invariant:currentness_partitions_have_single_owners",
+            "validation:structure_refactor_mesh:invariant:architecture_reduction_handoff_is_proof_ready"
+          ],
+          "writes": [
+            "field:structure_refactor_mesh:case_name",
+            "field:structure_refactor_mesh:parent_child_structure",
+            "field:structure_refactor_mesh:target_structure_derived_from_model",
+            "field:structure_refactor_mesh:target_structure_maps_model_boundaries",
+            "field:structure_refactor_mesh:every_partition_owned",
+            "field:structure_refactor_mesh:owners_registered",
+            "field:structure_refactor_mesh:duplicate_partition_blocked",
+            "field:structure_refactor_mesh:duplicate_state_blocked",
+            "field:structure_refactor_mesh:duplicate_side_effect_blocked",
+            "field:structure_refactor_mesh:duplicate_config_blocked",
+            "field:structure_refactor_mesh:public_entrypoints_preserved",
+            "field:structure_refactor_mesh:facades_retained",
+            "field:structure_refactor_mesh:dependency_cycles_blocked",
+            "field:structure_refactor_mesh:config_drift_blocked",
+            "field:structure_refactor_mesh:parity_evidence_current",
+            "field:structure_refactor_mesh:release_scope_blocks_missing_parity",
+            "field:structure_refactor_mesh:adapters_collect_evidence_not_refactor",
+            "field:structure_refactor_mesh:ui_evidence_partition_owned",
+            "field:structure_refactor_mesh:receipt_supervision_partition_owned",
+            "field:structure_refactor_mesh:package_api_registry_partition_owned",
+            "field:structure_refactor_mesh:architecture_reduction_handoff_present",
+            "field:structure_refactor_mesh:reduction_universe_member_bound",
+            "field:structure_refactor_mesh:reduction_observable_contract_bound",
+            "field:structure_refactor_mesh:reduction_current_proof_bound",
+            "field:structure_refactor_mesh:reduction_consumers_and_tests_bound",
+            "field:structure_refactor_mesh:reduction_target_action_bound",
+            "field:structure_refactor_mesh:reduction_next_route_bound"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan",
+          "producer_id": "transition:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan",
+          "outputs": [
+            "output:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan"
+          ],
+          "reads": [
+            "field:structure_refactor_mesh:StructureMeshPolicy"
+          ],
+          "source": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0",
+          "target": "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:1",
+          "trigger": "StructureMeshCase",
+          "validations": [
+            "validation:structure_refactor_mesh:invariant:parent_child_structure_exists",
+            "validation:structure_refactor_mesh:invariant:target_structure_is_model_derived",
+            "validation:structure_refactor_mesh:invariant:target_structure_maps_model_boundaries",
+            "validation:structure_refactor_mesh:invariant:partition_ownership_is_complete",
+            "validation:structure_refactor_mesh:invariant:duplicate_owners_are_blocked",
+            "validation:structure_refactor_mesh:invariant:compatibility_stays_preserved",
+            "validation:structure_refactor_mesh:invariant:dependency_and_config_gaps_block",
+            "validation:structure_refactor_mesh:invariant:parity_evidence_stays_current",
+            "validation:structure_refactor_mesh:invariant:release_scope_requires_release_parity",
+            "validation:structure_refactor_mesh:invariant:structuremesh_does_not_refactor_code",
+            "validation:structure_refactor_mesh:invariant:currentness_partitions_have_single_owners",
+            "validation:structure_refactor_mesh:invariant:architecture_reduction_handoff_is_proof_ready"
+          ],
+          "writes": [
+            "field:structure_refactor_mesh:case_name",
+            "field:structure_refactor_mesh:parent_child_structure",
+            "field:structure_refactor_mesh:target_structure_derived_from_model",
+            "field:structure_refactor_mesh:target_structure_maps_model_boundaries",
+            "field:structure_refactor_mesh:every_partition_owned",
+            "field:structure_refactor_mesh:owners_registered",
+            "field:structure_refactor_mesh:duplicate_partition_blocked",
+            "field:structure_refactor_mesh:duplicate_state_blocked",
+            "field:structure_refactor_mesh:duplicate_side_effect_blocked",
+            "field:structure_refactor_mesh:duplicate_config_blocked",
+            "field:structure_refactor_mesh:public_entrypoints_preserved",
+            "field:structure_refactor_mesh:facades_retained",
+            "field:structure_refactor_mesh:dependency_cycles_blocked",
+            "field:structure_refactor_mesh:config_drift_blocked",
+            "field:structure_refactor_mesh:parity_evidence_current",
+            "field:structure_refactor_mesh:release_scope_blocks_missing_parity",
+            "field:structure_refactor_mesh:adapters_collect_evidence_not_refactor",
+            "field:structure_refactor_mesh:ui_evidence_partition_owned",
+            "field:structure_refactor_mesh:receipt_supervision_partition_owned",
+            "field:structure_refactor_mesh:package_api_registry_partition_owned",
+            "field:structure_refactor_mesh:architecture_reduction_handoff_present",
+            "field:structure_refactor_mesh:reduction_universe_member_bound",
+            "field:structure_refactor_mesh:reduction_observable_contract_bound",
+            "field:structure_refactor_mesh:reduction_current_proof_bound",
+            "field:structure_refactor_mesh:reduction_consumers_and_tests_bound",
+            "field:structure_refactor_mesh:reduction_target_action_bound",
+            "field:structure_refactor_mesh:reduction_next_route_bound"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:architecture_reduction_handoff_is_proof_ready",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:architecture_reduction_handoff_is_proof_ready",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:architecture_reduction_handoff_is_proof_ready",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:compatibility_stays_preserved",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:compatibility_stays_preserved",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:compatibility_stays_preserved",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:currentness_partitions_have_single_owners",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:currentness_partitions_have_single_owners",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:currentness_partitions_have_single_owners",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:dependency_and_config_gaps_block",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:dependency_and_config_gaps_block",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:dependency_and_config_gaps_block",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:duplicate_owners_are_blocked",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:duplicate_owners_are_blocked",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:duplicate_owners_are_blocked",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:parent_child_structure_exists",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:parent_child_structure_exists",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:parent_child_structure_exists",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:parity_evidence_stays_current",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:parity_evidence_stays_current",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:parity_evidence_stays_current",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:partition_ownership_is_complete",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:partition_ownership_is_complete",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:partition_ownership_is_complete",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:release_scope_requires_release_parity",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:release_scope_requires_release_parity",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:release_scope_requires_release_parity",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:structuremesh_does_not_refactor_code",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:structuremesh_does_not_refactor_code",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:structuremesh_does_not_refactor_code",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:target_structure_is_model_derived",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:target_structure_is_model_derived",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:target_structure_is_model_derived",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:structure_refactor_mesh",
+          "id": "validation:structure_refactor_mesh:invariant:target_structure_maps_model_boundaries",
+          "obligation_id": "obligation:native-invariant:structure_refactor_mesh:target_structure_maps_model_boundaries",
+          "oracle_id": "oracle:native-invariant:structure_refactor_mesh:target_structure_maps_model_boundaries",
+          "subject_fingerprint": "sha256:e40d4a0adff6d1cd8067e875876d9e0ca349847580fdb243f10bb745dc9bdfa7"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:structure_refactor_mesh:StructureMeshPolicy": "field",
+      "field:structure_refactor_mesh:adapters_collect_evidence_not_refactor": "field",
+      "field:structure_refactor_mesh:architecture_reduction_handoff_present": "field",
+      "field:structure_refactor_mesh:case_name": "field",
+      "field:structure_refactor_mesh:config_drift_blocked": "field",
+      "field:structure_refactor_mesh:dependency_cycles_blocked": "field",
+      "field:structure_refactor_mesh:duplicate_config_blocked": "field",
+      "field:structure_refactor_mesh:duplicate_partition_blocked": "field",
+      "field:structure_refactor_mesh:duplicate_side_effect_blocked": "field",
+      "field:structure_refactor_mesh:duplicate_state_blocked": "field",
+      "field:structure_refactor_mesh:every_partition_owned": "field",
+      "field:structure_refactor_mesh:facades_retained": "field",
+      "field:structure_refactor_mesh:owners_registered": "field",
+      "field:structure_refactor_mesh:package_api_registry_partition_owned": "field",
+      "field:structure_refactor_mesh:parent_child_structure": "field",
+      "field:structure_refactor_mesh:parity_evidence_current": "field",
+      "field:structure_refactor_mesh:public_entrypoints_preserved": "field",
+      "field:structure_refactor_mesh:receipt_supervision_partition_owned": "field",
+      "field:structure_refactor_mesh:reduction_consumers_and_tests_bound": "field",
+      "field:structure_refactor_mesh:reduction_current_proof_bound": "field",
+      "field:structure_refactor_mesh:reduction_next_route_bound": "field",
+      "field:structure_refactor_mesh:reduction_observable_contract_bound": "field",
+      "field:structure_refactor_mesh:reduction_target_action_bound": "field",
+      "field:structure_refactor_mesh:reduction_universe_member_bound": "field",
+      "field:structure_refactor_mesh:release_scope_blocks_missing_parity": "field",
+      "field:structure_refactor_mesh:target_structure_derived_from_model": "field",
+      "field:structure_refactor_mesh:target_structure_maps_model_boundaries": "field",
+      "field:structure_refactor_mesh:ui_evidence_partition_owned": "field",
+      "function-block:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan": "function_block",
+      "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0": "state",
+      "state:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:1": "state",
+      "transition:workflow:structure_refactor_mesh:structure_refactor_mesh_rollout:0:599bdd9dd6c1:0:EvaluateStructureMeshPlan": "transition",
+      "validation:structure_refactor_mesh:invariant:architecture_reduction_handoff_is_proof_ready": "validation",
+      "validation:structure_refactor_mesh:invariant:compatibility_stays_preserved": "validation",
+      "validation:structure_refactor_mesh:invariant:currentness_partitions_have_single_owners": "validation",
+      "validation:structure_refactor_mesh:invariant:dependency_and_config_gaps_block": "validation",
+      "validation:structure_refactor_mesh:invariant:duplicate_owners_are_blocked": "validation",
+      "validation:structure_refactor_mesh:invariant:parent_child_structure_exists": "validation",
+      "validation:structure_refactor_mesh:invariant:parity_evidence_stays_current": "validation",
+      "validation:structure_refactor_mesh:invariant:partition_ownership_is_complete": "validation",
+      "validation:structure_refactor_mesh:invariant:release_scope_requires_release_parity": "validation",
+      "validation:structure_refactor_mesh:invariant:structuremesh_does_not_refactor_code": "validation",
+      "validation:structure_refactor_mesh:invariant:target_structure_is_model_derived": "validation",
+      "validation:structure_refactor_mesh:invariant:target_structure_maps_model_boundaries": "validation"
+    },
+    "subject_fingerprint": "sha256:e13fb98374228bce128216b2cbd1d7114091857f2c825ee9cc5daba1e3523a2c",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:a6828b450da2a3c20f66d81a75dd1b9274770870a17b3cee59206a6e513ca2b2",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

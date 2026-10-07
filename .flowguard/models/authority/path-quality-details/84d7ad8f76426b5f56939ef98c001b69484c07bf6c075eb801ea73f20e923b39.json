@@ -1,0 +1,291 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:46d5faadd3ab9105f7d5cafa55315473ec5b73b5148811046b4d93510e4b1f52",
+        "effective_intent_view_fingerprint": "sha256:83eb6119662a024208a7f96b784b52f809314573f79564999590087fb5089b31",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_visibility/model.py",
+            "source_fingerprint": "sha256:49356cae2cee41662bcf235b544ba81bb595c19305eecf84a49e38ab0ee14a6c"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_visibility:decisions",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_visibility:evidence",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_visibility:tasks",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility",
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "PromptTask",
+          "effects": [],
+          "id": "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility",
+          "inputs": [
+            "external-input:workflow:model_visibility:model_visibility:0:a5c0540c6940"
+          ],
+          "outputs": [
+            "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_visibility:tasks"
+          ],
+          "state_input": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:0",
+          "state_output": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1",
+          "validations": [],
+          "writes": [
+            "field:model_visibility:tasks",
+            "field:model_visibility:decisions"
+          ]
+        },
+        {
+          "accepted_input": "VisibilityDecision",
+          "effects": [],
+          "id": "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot",
+          "inputs": [
+            "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ],
+          "outputs": [
+            "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_visibility:tasks",
+            "field:model_visibility:decisions"
+          ],
+          "state_input": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1",
+          "state_output": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:2",
+          "validations": [
+            "validation:model_visibility:invariant:visible_snapshot_for_non_trivial",
+            "validation:model_visibility:invariant:current_situation_for_non_trivial",
+            "validation:model_visibility:invariant:tiny_tasks_not_forced",
+            "validation:model_visibility:invariant:diagram_not_validation",
+            "validation:model_visibility:invariant:material_changes_update_snapshot"
+          ],
+          "writes": [
+            "field:model_visibility:evidence"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "id": "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility",
+          "producer_id": "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot",
+          "producer_id": "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:2",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:2"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility",
+          "outputs": [
+            "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility"
+          ],
+          "reads": [
+            "field:model_visibility:tasks"
+          ],
+          "source": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:0",
+          "target": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1",
+          "trigger": "PromptTask",
+          "validations": [],
+          "writes": [
+            "field:model_visibility:tasks",
+            "field:model_visibility:decisions"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot",
+          "outputs": [
+            "output:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot"
+          ],
+          "reads": [
+            "field:model_visibility:tasks",
+            "field:model_visibility:decisions"
+          ],
+          "source": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1",
+          "target": "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:2",
+          "trigger": "VisibilityDecision",
+          "validations": [
+            "validation:model_visibility:invariant:visible_snapshot_for_non_trivial",
+            "validation:model_visibility:invariant:current_situation_for_non_trivial",
+            "validation:model_visibility:invariant:tiny_tasks_not_forced",
+            "validation:model_visibility:invariant:diagram_not_validation",
+            "validation:model_visibility:invariant:material_changes_update_snapshot"
+          ],
+          "writes": [
+            "field:model_visibility:evidence"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:model_visibility",
+          "id": "validation:model_visibility:invariant:current_situation_for_non_trivial",
+          "obligation_id": "obligation:native-invariant:model_visibility:current_situation_for_non_trivial",
+          "oracle_id": "oracle:native-invariant:model_visibility:current_situation_for_non_trivial",
+          "subject_fingerprint": "sha256:73ffb4fc20501e49929699e7f8815379a409069ed01960a0800daf41ea572a99"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_visibility",
+          "id": "validation:model_visibility:invariant:diagram_not_validation",
+          "obligation_id": "obligation:native-invariant:model_visibility:diagram_not_validation",
+          "oracle_id": "oracle:native-invariant:model_visibility:diagram_not_validation",
+          "subject_fingerprint": "sha256:73ffb4fc20501e49929699e7f8815379a409069ed01960a0800daf41ea572a99"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_visibility",
+          "id": "validation:model_visibility:invariant:material_changes_update_snapshot",
+          "obligation_id": "obligation:native-invariant:model_visibility:material_changes_update_snapshot",
+          "oracle_id": "oracle:native-invariant:model_visibility:material_changes_update_snapshot",
+          "subject_fingerprint": "sha256:73ffb4fc20501e49929699e7f8815379a409069ed01960a0800daf41ea572a99"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_visibility",
+          "id": "validation:model_visibility:invariant:tiny_tasks_not_forced",
+          "obligation_id": "obligation:native-invariant:model_visibility:tiny_tasks_not_forced",
+          "oracle_id": "oracle:native-invariant:model_visibility:tiny_tasks_not_forced",
+          "subject_fingerprint": "sha256:73ffb4fc20501e49929699e7f8815379a409069ed01960a0800daf41ea572a99"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_visibility",
+          "id": "validation:model_visibility:invariant:visible_snapshot_for_non_trivial",
+          "obligation_id": "obligation:native-invariant:model_visibility:visible_snapshot_for_non_trivial",
+          "oracle_id": "oracle:native-invariant:model_visibility:visible_snapshot_for_non_trivial",
+          "subject_fingerprint": "sha256:73ffb4fc20501e49929699e7f8815379a409069ed01960a0800daf41ea572a99"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:model_visibility:decisions": "field",
+      "field:model_visibility:evidence": "field",
+      "field:model_visibility:tasks": "field",
+      "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility": "function_block",
+      "function-block:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot": "function_block",
+      "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:0": "state",
+      "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:1": "state",
+      "state:workflow:model_visibility:model_visibility:0:a5c0540c6940:2": "state",
+      "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:0:DecideVisibility": "transition",
+      "transition:workflow:model_visibility:model_visibility:0:a5c0540c6940:1:ShowOrUpdateSnapshot": "transition",
+      "validation:model_visibility:invariant:current_situation_for_non_trivial": "validation",
+      "validation:model_visibility:invariant:diagram_not_validation": "validation",
+      "validation:model_visibility:invariant:material_changes_update_snapshot": "validation",
+      "validation:model_visibility:invariant:tiny_tasks_not_forced": "validation",
+      "validation:model_visibility:invariant:visible_snapshot_for_non_trivial": "validation"
+    },
+    "subject_fingerprint": "sha256:075dff9163a3e8d530869f64ded4dee46b5a51431fe3850ff91ad8b3f03f1f36",
+    "trigger_currentness_id": "sha256:48fe7a405e658f0af1776c29d01b79205d3d106b23be605d2a730e7f068b5d62",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:84d7ad8f76426b5f56939ef98c001b69484c07bf6c075eb801ea73f20e923b39",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

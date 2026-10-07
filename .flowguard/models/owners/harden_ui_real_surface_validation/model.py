@@ -584,3 +584,18 @@ def build_broken_source_workflow() -> Workflow:
 
 def build_broken_done_claim_workflow() -> Workflow:
     return Workflow((BrokenFinalClaimOverbroad(),), name="ui_last_mile_hardening_overbroad_done")
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='harden_ui_real_surface_validation', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/harden_ui_real_surface_validation/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/harden_ui_real_surface_validation/model.py')},),
+        workflows=(build_correct_workflow(),), invariants=INVARIANTS,
+    )

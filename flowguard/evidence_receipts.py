@@ -75,7 +75,9 @@ SAFE_ENVIRONMENT_KEYS = frozenset(
 )
 
 _WINDOWS_ABSOLUTE_PATH = re.compile(r"(?i)(?<![A-Za-z0-9_])(?:[A-Z]:[\\/]|\\\\)[^\s\"']+")
-_POSIX_ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9_:.>/])/(?:[^\s\"']+)")
+# A hyphen is a valid relative path component.  The slash in examples/-/-.py
+# is inside that relative identity, rather than the start of an absolute path.
+_POSIX_ABSOLUTE_PATH = re.compile(r"(?<![A-Za-z0-9_:.>/-])/(?:[^\s\"']+)")
 _SAFE_TOKEN = re.compile(r"^<[A-Z_]+(?::[0-9a-f]{12,64})?>(?:/[^\\]*)?$")
 _SAFE_FILE_COMPONENT = re.compile(r"[^A-Za-z0-9_.-]+")
 
@@ -1481,6 +1483,7 @@ def verified_receipt_binding_gap_codes(
 def verify_evidence_receipt(
     receipt: EvidenceReceipt | Mapping[str, Any],
     context: ReceiptVerificationContext | None,
+    *, read_context=None,
 ) -> ReceiptVerificationResult:
     """Derive freshness, eligibility, status, and minimum revalidation."""
 
@@ -1528,6 +1531,7 @@ def verify_evidence_receipt(
                 output_directory=context.receipt_store_output_directory or None,
                 subject_ids=(context.receipt_store_subject_ids or None),
                 receipt_ids=(context.receipt_store_receipt_ids or None),
+                read_context=read_context,
             )
             for item in store_values:
                 if item.receipt_id in receipt_store:
@@ -2012,6 +2016,7 @@ def load_evidence_receipt(
     repository_root: str | os.PathLike[str] = ".",
     *,
     output_directory: str | os.PathLike[str] | None = None,
+    read_context=None,
 ) -> EvidenceReceipt:
     candidate = Path(path_or_receipt_id)
     if candidate.exists():
@@ -2019,8 +2024,13 @@ def load_evidence_receipt(
     else:
         path = receipt_path(str(path_or_receipt_id), repository_root, output_directory=output_directory)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
+        if read_context is not None:
+            from .functional_read import strict_json_bytes
+            relative = path.absolute().relative_to(read_context.root).as_posix()
+            data = strict_json_bytes(read_context.artifact_bytes(relative))
+        else:
+            data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, UnicodeError) as exc:
         raise ReceiptValidationError(f"cannot load evidence receipt {path.name}: {exc}") from exc
     if not isinstance(data, Mapping):
         raise ReceiptValidationError("evidence receipt JSON must be an object")
@@ -2183,6 +2193,7 @@ def list_evidence_receipts(
     output_directory: str | os.PathLike[str] | None = None,
     subject_ids: Sequence[str] | None = None,
     receipt_ids: Sequence[str] | None = None,
+    read_context=None,
 ) -> tuple[EvidenceReceipt, ...]:
     """Load canonical receipts, optionally restricted to exact identities/subjects.
 
@@ -2236,9 +2247,10 @@ def list_evidence_receipts(
     receipts: list[EvidenceReceipt] = []
     seen_ids: set[str] = set()
     def load_candidate(path: Path) -> tuple[Path, EvidenceReceipt]:
-        return path, load_evidence_receipt(path)
+        return path, load_evidence_receipt(path, repository_root,
+            output_directory=output_directory, read_context=read_context)
 
-    if len(paths) < 16:
+    if read_context is not None or len(paths) < 16:
         loaded_candidates = tuple(load_candidate(path) for path in paths)
     else:
         # Receipt JSON is immutable and each file is independent.  Bound the

@@ -1,0 +1,627 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:c08996d604bdfdaf5c6b8bd0da49f1e7a0a4b6b8988a1555bda6c0d1faff6bc3",
+        "effective_intent_view_fingerprint": "sha256:dac60887220008644ad16bc6413e1989712ad488be9f43eae5b0df2c189ccd1b",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/existing_model_preflight/model.py",
+            "source_fingerprint": "sha256:6ba638aa4d4b0a7af3d189725e6044a67701217452dbbee12b2c28cefc06ab14"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:affected_reader_required",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:affected_reader_verified",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:classified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:full_grounded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:full_required",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:light_grounded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:lookup_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:lookup_required",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:maturation_handoff_emitted",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:no_model_found",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:over_materialized",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:route_selected",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:searched",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:selected_inventory_bounded",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:selected_inventory_required",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:skipped",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:whole_qualification_explicit",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:existing_model_preflight:whole_qualification_required",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ChangeIdea",
+          "effects": [],
+          "id": "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed",
+          "inputs": [
+            "external-input:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35"
+          ],
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0",
+          "state_output": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1",
+          "validations": [],
+          "writes": [
+            "field:existing_model_preflight:classified",
+            "field:existing_model_preflight:full_required",
+            "field:existing_model_preflight:skipped",
+            "field:existing_model_preflight:lookup_required",
+            "field:existing_model_preflight:selected_inventory_required",
+            "field:existing_model_preflight:affected_reader_required",
+            "field:existing_model_preflight:whole_qualification_required"
+          ]
+        },
+        {
+          "accepted_input": "ClassifiedNeed|SkippedNeed",
+          "effects": [],
+          "id": "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels",
+          "inputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ],
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:existing_model_preflight:classified"
+          ],
+          "state_input": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1",
+          "state_output": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2",
+          "validations": [],
+          "writes": [
+            "field:existing_model_preflight:searched",
+            "field:existing_model_preflight:light_grounded",
+            "field:existing_model_preflight:full_grounded",
+            "field:existing_model_preflight:no_model_found",
+            "field:existing_model_preflight:blocked",
+            "field:existing_model_preflight:lookup_complete",
+            "field:existing_model_preflight:selected_inventory_bounded",
+            "field:existing_model_preflight:over_materialized",
+            "field:existing_model_preflight:maturation_handoff_emitted",
+            "field:existing_model_preflight:affected_reader_verified",
+            "field:existing_model_preflight:whole_qualification_explicit"
+          ]
+        },
+        {
+          "accepted_input": "GroundedNeed|SkippedNeed",
+          "effects": [],
+          "id": "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute",
+          "inputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:existing_model_preflight:light_grounded",
+            "field:existing_model_preflight:full_grounded",
+            "field:existing_model_preflight:skipped"
+          ],
+          "state_input": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2",
+          "state_output": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:3",
+          "validations": [
+            "validation:existing_model_preflight:invariant:no_route_without_grounding",
+            "validation:existing_model_preflight:invariant:full_work_requires_full_preflight",
+            "validation:existing_model_preflight:invariant:duplicate_risk_requires_resolution",
+            "validation:existing_model_preflight:invariant:same_intent_inventory_requires_complete",
+            "validation:existing_model_preflight:invariant:same_intent_reuse_requires_stable_authority",
+            "validation:existing_model_preflight:invariant:route_requires_plane_first_commitment_lookup",
+            "validation:existing_model_preflight:invariant:spec_context_requires_current_read_only_snapshot",
+            "validation:existing_model_preflight:invariant:selected_inventory_materializes_only_selected_models",
+            "validation:existing_model_preflight:invariant:full_preflight_emits_maturation_handoff",
+            "validation:existing_model_preflight:invariant:preflight_does_not_claim_implementation_readiness",
+            "validation:existing_model_preflight:invariant:affected_preflight_requires_verified_content_addressed_read",
+            "validation:existing_model_preflight:invariant:whole_qualification_requires_explicit_request"
+          ],
+          "writes": [
+            "field:existing_model_preflight:route_selected"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "id": "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed",
+          "producer_id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "id": "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels",
+          "producer_id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute",
+          "producer_id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:3",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:3"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed",
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed"
+          ],
+          "reads": [],
+          "source": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0",
+          "target": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1",
+          "trigger": "ChangeIdea",
+          "validations": [],
+          "writes": [
+            "field:existing_model_preflight:classified",
+            "field:existing_model_preflight:full_required",
+            "field:existing_model_preflight:skipped",
+            "field:existing_model_preflight:lookup_required",
+            "field:existing_model_preflight:selected_inventory_required",
+            "field:existing_model_preflight:affected_reader_required",
+            "field:existing_model_preflight:whole_qualification_required"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels",
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels"
+          ],
+          "reads": [
+            "field:existing_model_preflight:classified"
+          ],
+          "source": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1",
+          "target": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2",
+          "trigger": "ClassifiedNeed|SkippedNeed",
+          "validations": [],
+          "writes": [
+            "field:existing_model_preflight:searched",
+            "field:existing_model_preflight:light_grounded",
+            "field:existing_model_preflight:full_grounded",
+            "field:existing_model_preflight:no_model_found",
+            "field:existing_model_preflight:blocked",
+            "field:existing_model_preflight:lookup_complete",
+            "field:existing_model_preflight:selected_inventory_bounded",
+            "field:existing_model_preflight:over_materialized",
+            "field:existing_model_preflight:maturation_handoff_emitted",
+            "field:existing_model_preflight:affected_reader_verified",
+            "field:existing_model_preflight:whole_qualification_explicit"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute",
+          "outputs": [
+            "output:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute"
+          ],
+          "reads": [
+            "field:existing_model_preflight:light_grounded",
+            "field:existing_model_preflight:full_grounded",
+            "field:existing_model_preflight:skipped"
+          ],
+          "source": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2",
+          "target": "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:3",
+          "trigger": "GroundedNeed|SkippedNeed",
+          "validations": [
+            "validation:existing_model_preflight:invariant:no_route_without_grounding",
+            "validation:existing_model_preflight:invariant:full_work_requires_full_preflight",
+            "validation:existing_model_preflight:invariant:duplicate_risk_requires_resolution",
+            "validation:existing_model_preflight:invariant:same_intent_inventory_requires_complete",
+            "validation:existing_model_preflight:invariant:same_intent_reuse_requires_stable_authority",
+            "validation:existing_model_preflight:invariant:route_requires_plane_first_commitment_lookup",
+            "validation:existing_model_preflight:invariant:spec_context_requires_current_read_only_snapshot",
+            "validation:existing_model_preflight:invariant:selected_inventory_materializes_only_selected_models",
+            "validation:existing_model_preflight:invariant:full_preflight_emits_maturation_handoff",
+            "validation:existing_model_preflight:invariant:preflight_does_not_claim_implementation_readiness",
+            "validation:existing_model_preflight:invariant:affected_preflight_requires_verified_content_addressed_read",
+            "validation:existing_model_preflight:invariant:whole_qualification_requires_explicit_request"
+          ],
+          "writes": [
+            "field:existing_model_preflight:route_selected"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:affected_preflight_requires_verified_content_addressed_read",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:affected_preflight_requires_verified_content_addressed_read",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:affected_preflight_requires_verified_content_addressed_read",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:duplicate_risk_requires_resolution",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:duplicate_risk_requires_resolution",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:duplicate_risk_requires_resolution",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:full_preflight_emits_maturation_handoff",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:full_preflight_emits_maturation_handoff",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:full_preflight_emits_maturation_handoff",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:full_work_requires_full_preflight",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:full_work_requires_full_preflight",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:full_work_requires_full_preflight",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:no_route_without_grounding",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:no_route_without_grounding",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:no_route_without_grounding",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:preflight_does_not_claim_implementation_readiness",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:preflight_does_not_claim_implementation_readiness",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:preflight_does_not_claim_implementation_readiness",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:route_requires_plane_first_commitment_lookup",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:route_requires_plane_first_commitment_lookup",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:route_requires_plane_first_commitment_lookup",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:same_intent_inventory_requires_complete",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:same_intent_inventory_requires_complete",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:same_intent_inventory_requires_complete",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:same_intent_reuse_requires_stable_authority",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:same_intent_reuse_requires_stable_authority",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:same_intent_reuse_requires_stable_authority",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:selected_inventory_materializes_only_selected_models",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:selected_inventory_materializes_only_selected_models",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:selected_inventory_materializes_only_selected_models",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:spec_context_requires_current_read_only_snapshot",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:spec_context_requires_current_read_only_snapshot",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:spec_context_requires_current_read_only_snapshot",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        },
+        {
+          "evidence_boundary_id": "native-runner:existing_model_preflight",
+          "id": "validation:existing_model_preflight:invariant:whole_qualification_requires_explicit_request",
+          "obligation_id": "obligation:native-invariant:existing_model_preflight:whole_qualification_requires_explicit_request",
+          "oracle_id": "oracle:native-invariant:existing_model_preflight:whole_qualification_requires_explicit_request",
+          "subject_fingerprint": "sha256:f9e2ef2e114ec1eac7693da2ff3dc8a24c505e7a9a8e7dcc007a347c577406da"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:existing_model_preflight:affected_reader_required": "field",
+      "field:existing_model_preflight:affected_reader_verified": "field",
+      "field:existing_model_preflight:blocked": "field",
+      "field:existing_model_preflight:classified": "field",
+      "field:existing_model_preflight:full_grounded": "field",
+      "field:existing_model_preflight:full_required": "field",
+      "field:existing_model_preflight:light_grounded": "field",
+      "field:existing_model_preflight:lookup_complete": "field",
+      "field:existing_model_preflight:lookup_required": "field",
+      "field:existing_model_preflight:maturation_handoff_emitted": "field",
+      "field:existing_model_preflight:no_model_found": "field",
+      "field:existing_model_preflight:over_materialized": "field",
+      "field:existing_model_preflight:route_selected": "field",
+      "field:existing_model_preflight:searched": "field",
+      "field:existing_model_preflight:selected_inventory_bounded": "field",
+      "field:existing_model_preflight:selected_inventory_required": "field",
+      "field:existing_model_preflight:skipped": "field",
+      "field:existing_model_preflight:whole_qualification_explicit": "field",
+      "field:existing_model_preflight:whole_qualification_required": "field",
+      "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed": "function_block",
+      "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels": "function_block",
+      "function-block:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute": "function_block",
+      "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0": "state",
+      "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1": "state",
+      "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2": "state",
+      "state:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:3": "state",
+      "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:0:ClassifyNeed": "transition",
+      "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:1:SearchExistingModels": "transition",
+      "transition:workflow:existing_model_preflight:existing_model_preflight:0:78923819cc35:2:SelectDownstreamRoute": "transition",
+      "validation:existing_model_preflight:invariant:affected_preflight_requires_verified_content_addressed_read": "validation",
+      "validation:existing_model_preflight:invariant:duplicate_risk_requires_resolution": "validation",
+      "validation:existing_model_preflight:invariant:full_preflight_emits_maturation_handoff": "validation",
+      "validation:existing_model_preflight:invariant:full_work_requires_full_preflight": "validation",
+      "validation:existing_model_preflight:invariant:no_route_without_grounding": "validation",
+      "validation:existing_model_preflight:invariant:preflight_does_not_claim_implementation_readiness": "validation",
+      "validation:existing_model_preflight:invariant:route_requires_plane_first_commitment_lookup": "validation",
+      "validation:existing_model_preflight:invariant:same_intent_inventory_requires_complete": "validation",
+      "validation:existing_model_preflight:invariant:same_intent_reuse_requires_stable_authority": "validation",
+      "validation:existing_model_preflight:invariant:selected_inventory_materializes_only_selected_models": "validation",
+      "validation:existing_model_preflight:invariant:spec_context_requires_current_read_only_snapshot": "validation",
+      "validation:existing_model_preflight:invariant:whole_qualification_requires_explicit_request": "validation"
+    },
+    "subject_fingerprint": "sha256:49ca9aa885c8ea0af48917eadb926748b035e7d1c043add486d9ea8ed54982ff",
+    "trigger_currentness_id": "sha256:1feb376c0cb5f47128a10c89236497db619100bf1cbfdba793cf4c97e8ef6cd3",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:738bbe00b266bb8fb9dd3162cff0a5f83567d89953d4664914cb39884b45c583",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

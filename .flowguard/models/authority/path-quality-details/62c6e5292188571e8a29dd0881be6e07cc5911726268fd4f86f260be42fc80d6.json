@@ -1,0 +1,134 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:7cb0cb5f408e304bb837d9998390b1969cf6f50f216390c1f65494ef9b5dc77a",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/code_boundary_conformance/model.py",
+            "source_fingerprint": "sha256:46c1c12a713f40402367ca4acedb94a6331355352c612f3ed69e43e79c979666"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "allowed_error_paths": [
+              "invalid_input"
+            ],
+            "allowed_inputs": [
+              "valid_order"
+            ],
+            "allowed_outputs": [
+              "Accepted",
+              "RejectedInvalidInput"
+            ],
+            "allowed_side_effects": [
+              "publish_accept"
+            ],
+            "allowed_state_writes": [
+              "order_status"
+            ],
+            "boundary_id": "checkout.submit.boundary",
+            "code_contract_id": "checkout.submit",
+            "exact": true,
+            "input_gate_required": true,
+            "model_obligation_id": "accept_valid_order",
+            "rejected_inputs": [
+              "unknown_event"
+            ],
+            "required": true,
+            "required_observation_ids": []
+          },
+          "id": "function-block:code_boundary_conformance:contract:boundary"
+        },
+        {
+          "contract": [
+            {
+              "accepted": true,
+              "assertion_scope": "external_contract",
+              "boundary_id": "checkout.submit.boundary",
+              "evidence_current": true,
+              "evidence_id": "",
+              "input_case": "valid_order",
+              "metadata": {},
+              "observation_id": "boundary_accept_valid_order",
+              "observed_error_path": "",
+              "observed_output": "Accepted",
+              "observed_side_effects": [
+                "publish_accept"
+              ],
+              "observed_state_writes": [
+                "order_status"
+              ],
+              "result_status": "passed"
+            },
+            {
+              "accepted": false,
+              "assertion_scope": "external_contract",
+              "boundary_id": "checkout.submit.boundary",
+              "evidence_current": true,
+              "evidence_id": "",
+              "input_case": "unknown_event",
+              "metadata": {},
+              "observation_id": "boundary_reject_unknown_event",
+              "observed_error_path": "invalid_input",
+              "observed_output": "RejectedInvalidInput",
+              "observed_side_effects": [],
+              "observed_state_writes": [],
+              "result_status": "passed"
+            }
+          ],
+          "id": "function-block:code_boundary_conformance:contract:good_observations"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:code_boundary_conformance:contract:boundary": "function_block",
+      "function-block:code_boundary_conformance:contract:good_observations": "function_block"
+    },
+    "subject_fingerprint": "sha256:c2fc611c1681f69b324afb4c2142c6ce235174c933e61a523ca91ce61c2857a3",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:62c6e5292188571e8a29dd0881be6e07cc5911726268fd4f86f260be42fc80d6",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

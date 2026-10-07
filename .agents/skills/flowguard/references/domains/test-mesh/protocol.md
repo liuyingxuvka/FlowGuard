@@ -34,7 +34,7 @@ After selecting the subject, read `references/test_mesh_protocol.md`; load `refe
 - Local green cannot prove completeness. Every item is executed or delegated; delegation needs one owner and current evidence.
 - Resolve owners before execution: missing/stale=`execute`; exact-current pass=`reuse_current`; malformed/tampered/ambiguous/unknown-impact/in-flight=`blocked`.
 - Persist each child once; later work executes only failed/stale owners and recomposes exact ids.
-- One parent invocation verifies each current child once, derives aggregates from one observation, performs one final source check, batch-publishes leaves, and reconciles ids once. Never persist the observation or repeat per-leaf semantics/currentness/store scans.
+- One parent invocation verifies each current child once and shares one immutable observation. Publish a terminal-success leaf only after its owner-local post-check; the parent performs one final source/dependency/toolchain/environment comparison and reconciles ids once. The current `model_regressions` runner supports incremental leaf publication only for `jobs=1`; parallel execution retains batch publication. Never persist the observation or repeat per-leaf semantics/currentness/store scans.
 - Verify evidence; never create necessity witnesses, select candidates, recompute Pareto dominance, or promote `normative_target`; deep members need current triggers.
 
 ## Output Requirements

@@ -1,0 +1,455 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:8b09c6dd2fe44e5480a1d9abbafd5b609cea70bda9fcf5ecedfac87fed65d336",
+        "effective_intent_view_fingerprint": "sha256:91ec27095bd7e4b71d7bad86eb230285dc8652bc6a4ded9506c54a096fef0279",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/harden_ui_real_surface_validation/model.py",
+            "source_fingerprint": "sha256:addc108ceb1377b45ad32c5efe3ec6e6fa29e1f3c5b9f9762855152f457002a8"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:all_visible_items_mapped",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:existing_model_preflight_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:final_done_claim_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:functional_chain_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:installed_skills_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:no_internal_product_content_leaks",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:observed_inventory_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:openspec_valid",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:product_language_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:shadow_and_git_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:source_baseline_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:task_evidence_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:tests_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:ui_model_miss_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "writes_by": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "UIHardeningAction",
+          "effects": [],
+          "id": "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening",
+          "inputs": [
+            "external-input:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a"
+          ],
+          "outputs": [
+            "output:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:harden_ui_real_surface_validation:openspec_valid",
+            "field:harden_ui_real_surface_validation:existing_model_preflight_current",
+            "field:harden_ui_real_surface_validation:observed_inventory_gate",
+            "field:harden_ui_real_surface_validation:all_visible_items_mapped",
+            "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate",
+            "field:harden_ui_real_surface_validation:product_language_gate",
+            "field:harden_ui_real_surface_validation:no_internal_product_content_leaks",
+            "field:harden_ui_real_surface_validation:functional_chain_gate",
+            "field:harden_ui_real_surface_validation:source_baseline_gate",
+            "field:harden_ui_real_surface_validation:ui_model_miss_gate",
+            "field:harden_ui_real_surface_validation:task_evidence_gate",
+            "field:harden_ui_real_surface_validation:final_done_claim_gate",
+            "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate",
+            "field:harden_ui_real_surface_validation:tests_current",
+            "field:harden_ui_real_surface_validation:installed_skills_synced",
+            "field:harden_ui_real_surface_validation:shadow_and_git_synced",
+            "field:harden_ui_real_surface_validation:done_claim"
+          ],
+          "state_input": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0",
+          "state_output": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:1",
+          "validations": [
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_with_internal_product_content",
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_allowed_observed_content",
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_last_mile_evidence"
+          ],
+          "writes": [
+            "field:harden_ui_real_surface_validation:openspec_valid",
+            "field:harden_ui_real_surface_validation:existing_model_preflight_current",
+            "field:harden_ui_real_surface_validation:observed_inventory_gate",
+            "field:harden_ui_real_surface_validation:all_visible_items_mapped",
+            "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate",
+            "field:harden_ui_real_surface_validation:product_language_gate",
+            "field:harden_ui_real_surface_validation:no_internal_product_content_leaks",
+            "field:harden_ui_real_surface_validation:functional_chain_gate",
+            "field:harden_ui_real_surface_validation:source_baseline_gate",
+            "field:harden_ui_real_surface_validation:ui_model_miss_gate",
+            "field:harden_ui_real_surface_validation:task_evidence_gate",
+            "field:harden_ui_real_surface_validation:final_done_claim_gate",
+            "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate",
+            "field:harden_ui_real_surface_validation:tests_current",
+            "field:harden_ui_real_surface_validation:installed_skills_synced",
+            "field:harden_ui_real_surface_validation:shadow_and_git_synced",
+            "field:harden_ui_real_surface_validation:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening",
+          "producer_id": "transition:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening",
+          "outputs": [
+            "output:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening"
+          ],
+          "reads": [
+            "field:harden_ui_real_surface_validation:openspec_valid",
+            "field:harden_ui_real_surface_validation:existing_model_preflight_current",
+            "field:harden_ui_real_surface_validation:observed_inventory_gate",
+            "field:harden_ui_real_surface_validation:all_visible_items_mapped",
+            "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate",
+            "field:harden_ui_real_surface_validation:product_language_gate",
+            "field:harden_ui_real_surface_validation:no_internal_product_content_leaks",
+            "field:harden_ui_real_surface_validation:functional_chain_gate",
+            "field:harden_ui_real_surface_validation:source_baseline_gate",
+            "field:harden_ui_real_surface_validation:ui_model_miss_gate",
+            "field:harden_ui_real_surface_validation:task_evidence_gate",
+            "field:harden_ui_real_surface_validation:final_done_claim_gate",
+            "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate",
+            "field:harden_ui_real_surface_validation:tests_current",
+            "field:harden_ui_real_surface_validation:installed_skills_synced",
+            "field:harden_ui_real_surface_validation:shadow_and_git_synced",
+            "field:harden_ui_real_surface_validation:done_claim"
+          ],
+          "source": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0",
+          "target": "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:1",
+          "trigger": "UIHardeningAction",
+          "validations": [
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_with_internal_product_content",
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_allowed_observed_content",
+            "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_last_mile_evidence"
+          ],
+          "writes": [
+            "field:harden_ui_real_surface_validation:openspec_valid",
+            "field:harden_ui_real_surface_validation:existing_model_preflight_current",
+            "field:harden_ui_real_surface_validation:observed_inventory_gate",
+            "field:harden_ui_real_surface_validation:all_visible_items_mapped",
+            "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate",
+            "field:harden_ui_real_surface_validation:product_language_gate",
+            "field:harden_ui_real_surface_validation:no_internal_product_content_leaks",
+            "field:harden_ui_real_surface_validation:functional_chain_gate",
+            "field:harden_ui_real_surface_validation:source_baseline_gate",
+            "field:harden_ui_real_surface_validation:ui_model_miss_gate",
+            "field:harden_ui_real_surface_validation:task_evidence_gate",
+            "field:harden_ui_real_surface_validation:final_done_claim_gate",
+            "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate",
+            "field:harden_ui_real_surface_validation:tests_current",
+            "field:harden_ui_real_surface_validation:installed_skills_synced",
+            "field:harden_ui_real_surface_validation:shadow_and_git_synced",
+            "field:harden_ui_real_surface_validation:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:harden_ui_real_surface_validation",
+          "id": "validation:harden_ui_real_surface_validation:invariant:no_full_done_with_internal_product_content",
+          "obligation_id": "obligation:native-invariant:harden_ui_real_surface_validation:no_full_done_with_internal_product_content",
+          "oracle_id": "oracle:native-invariant:harden_ui_real_surface_validation:no_full_done_with_internal_product_content",
+          "subject_fingerprint": "sha256:60f9a258f2c12b6e39d4f3622f9269d9ddd1c24fc08c7b95ca631dc0425a62bd"
+        },
+        {
+          "evidence_boundary_id": "native-runner:harden_ui_real_surface_validation",
+          "id": "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_allowed_observed_content",
+          "obligation_id": "obligation:native-invariant:harden_ui_real_surface_validation:no_full_done_without_allowed_observed_content",
+          "oracle_id": "oracle:native-invariant:harden_ui_real_surface_validation:no_full_done_without_allowed_observed_content",
+          "subject_fingerprint": "sha256:60f9a258f2c12b6e39d4f3622f9269d9ddd1c24fc08c7b95ca631dc0425a62bd"
+        },
+        {
+          "evidence_boundary_id": "native-runner:harden_ui_real_surface_validation",
+          "id": "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_last_mile_evidence",
+          "obligation_id": "obligation:native-invariant:harden_ui_real_surface_validation:no_full_done_without_last_mile_evidence",
+          "oracle_id": "oracle:native-invariant:harden_ui_real_surface_validation:no_full_done_without_last_mile_evidence",
+          "subject_fingerprint": "sha256:60f9a258f2c12b6e39d4f3622f9269d9ddd1c24fc08c7b95ca631dc0425a62bd"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:harden_ui_real_surface_validation:all_visible_items_mapped": "field",
+      "field:harden_ui_real_surface_validation:allowed_vs_observed_content_gate": "field",
+      "field:harden_ui_real_surface_validation:done_claim": "field",
+      "field:harden_ui_real_surface_validation:existing_model_preflight_current": "field",
+      "field:harden_ui_real_surface_validation:final_done_claim_gate": "field",
+      "field:harden_ui_real_surface_validation:functional_chain_gate": "field",
+      "field:harden_ui_real_surface_validation:installed_skills_synced": "field",
+      "field:harden_ui_real_surface_validation:no_internal_product_content_leaks": "field",
+      "field:harden_ui_real_surface_validation:observed_inventory_gate": "field",
+      "field:harden_ui_real_surface_validation:openspec_valid": "field",
+      "field:harden_ui_real_surface_validation:product_language_gate": "field",
+      "field:harden_ui_real_surface_validation:shadow_and_git_synced": "field",
+      "field:harden_ui_real_surface_validation:source_baseline_gate": "field",
+      "field:harden_ui_real_surface_validation:task_evidence_gate": "field",
+      "field:harden_ui_real_surface_validation:tests_current": "field",
+      "field:harden_ui_real_surface_validation:ui_model_miss_gate": "field",
+      "field:harden_ui_real_surface_validation:workflow_coverage_evidence_gate": "field",
+      "function-block:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening": "function_block",
+      "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0": "state",
+      "state:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:1": "state",
+      "transition:workflow:harden_ui_real_surface_validation:ui_last_mile_hardening_correct:0:3491fe4c3c7a:0:CorrectUILastMileHardening": "transition",
+      "validation:harden_ui_real_surface_validation:invariant:no_full_done_with_internal_product_content": "validation",
+      "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_allowed_observed_content": "validation",
+      "validation:harden_ui_real_surface_validation:invariant:no_full_done_without_last_mile_evidence": "validation"
+    },
+    "subject_fingerprint": "sha256:7503273fb9926e5dadc8f3baa98b225850e67bcc16034e63d27f897e97d57253",
+    "trigger_currentness_id": "sha256:7e4cabfeea423ea52f8540896c1e1bccf23c4cdc3c39e56475ea5f111a2303e1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:c7f7d78b96c34db3ced5e582f121e1e8c7a2378ec6f6403d03d134224c7892ce",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

@@ -1,0 +1,469 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:0014ccb6014656a103862fd606ea06fa56751779f54abbaee35d797574ab2dd7",
+        "effective_intent_view_fingerprint": "sha256:6b0cf2996262d5fdf5b88d108c0a2e7fce48bf85526efe433c80955d816593f3",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/template_public_release/model.py",
+            "source_fingerprint": "sha256:f018aad5acef3d171ec9a699b35193d211294fd9b51ec67d547b7ca0dca1936d"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:committed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:docs_updated",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:explicit_template_request_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:exports_wired",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:harvested_template_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:implemented",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:local_runtime_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:merged_template_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:ordinary_minimum_model_observed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:privacy_scanned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:pushed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:release_verified",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:reused_template_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:selected_private_direct",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:selected_public_safe",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:tagged",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:template_effects",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:template_operations",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:tests_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:template_public_release:validations_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "Event",
+          "effects": [],
+          "id": "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep",
+          "inputs": [
+            "external-input:workflow:template_public_release:template_public_release:0:1d4d7fa7c390"
+          ],
+          "outputs": [
+            "output:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:template_public_release:explicit_template_request_ids",
+            "field:template_public_release:template_operations",
+            "field:template_public_release:reused_template_ids",
+            "field:template_public_release:merged_template_ids",
+            "field:template_public_release:harvested_template_ids",
+            "field:template_public_release:template_effects",
+            "field:template_public_release:ordinary_minimum_model_observed",
+            "field:template_public_release:selected_public_safe",
+            "field:template_public_release:selected_private_direct",
+            "field:template_public_release:implemented",
+            "field:template_public_release:docs_updated",
+            "field:template_public_release:tests_added",
+            "field:template_public_release:exports_wired",
+            "field:template_public_release:validations_passed",
+            "field:template_public_release:privacy_scanned",
+            "field:template_public_release:local_runtime_synced",
+            "field:template_public_release:committed",
+            "field:template_public_release:tagged",
+            "field:template_public_release:pushed"
+          ],
+          "state_input": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0",
+          "state_output": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:1",
+          "validations": [],
+          "writes": [
+            "field:template_public_release:explicit_template_request_ids",
+            "field:template_public_release:template_operations",
+            "field:template_public_release:reused_template_ids",
+            "field:template_public_release:merged_template_ids",
+            "field:template_public_release:harvested_template_ids",
+            "field:template_public_release:template_effects",
+            "field:template_public_release:ordinary_minimum_model_observed",
+            "field:template_public_release:selected_public_safe",
+            "field:template_public_release:selected_private_direct",
+            "field:template_public_release:implemented",
+            "field:template_public_release:docs_updated",
+            "field:template_public_release:tests_added",
+            "field:template_public_release:exports_wired",
+            "field:template_public_release:validations_passed",
+            "field:template_public_release:privacy_scanned",
+            "field:template_public_release:local_runtime_synced",
+            "field:template_public_release:committed",
+            "field:template_public_release:tagged",
+            "field:template_public_release:pushed",
+            "field:template_public_release:release_verified"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep",
+          "producer_id": "transition:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep",
+          "outputs": [
+            "output:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep"
+          ],
+          "reads": [
+            "field:template_public_release:explicit_template_request_ids",
+            "field:template_public_release:template_operations",
+            "field:template_public_release:reused_template_ids",
+            "field:template_public_release:merged_template_ids",
+            "field:template_public_release:harvested_template_ids",
+            "field:template_public_release:template_effects",
+            "field:template_public_release:ordinary_minimum_model_observed",
+            "field:template_public_release:selected_public_safe",
+            "field:template_public_release:selected_private_direct",
+            "field:template_public_release:implemented",
+            "field:template_public_release:docs_updated",
+            "field:template_public_release:tests_added",
+            "field:template_public_release:exports_wired",
+            "field:template_public_release:validations_passed",
+            "field:template_public_release:privacy_scanned",
+            "field:template_public_release:local_runtime_synced",
+            "field:template_public_release:committed",
+            "field:template_public_release:tagged",
+            "field:template_public_release:pushed"
+          ],
+          "source": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0",
+          "target": "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:1",
+          "trigger": "Event",
+          "validations": [],
+          "writes": [
+            "field:template_public_release:explicit_template_request_ids",
+            "field:template_public_release:template_operations",
+            "field:template_public_release:reused_template_ids",
+            "field:template_public_release:merged_template_ids",
+            "field:template_public_release:harvested_template_ids",
+            "field:template_public_release:template_effects",
+            "field:template_public_release:ordinary_minimum_model_observed",
+            "field:template_public_release:selected_public_safe",
+            "field:template_public_release:selected_private_direct",
+            "field:template_public_release:implemented",
+            "field:template_public_release:docs_updated",
+            "field:template_public_release:tests_added",
+            "field:template_public_release:exports_wired",
+            "field:template_public_release:validations_passed",
+            "field:template_public_release:privacy_scanned",
+            "field:template_public_release:local_runtime_synced",
+            "field:template_public_release:committed",
+            "field:template_public_release:tagged",
+            "field:template_public_release:pushed",
+            "field:template_public_release:release_verified"
+          ]
+        }
+      ],
+      "validations": []
+    },
+    "retained_elements": {
+      "field:template_public_release:committed": "field",
+      "field:template_public_release:docs_updated": "field",
+      "field:template_public_release:explicit_template_request_ids": "field",
+      "field:template_public_release:exports_wired": "field",
+      "field:template_public_release:harvested_template_ids": "field",
+      "field:template_public_release:implemented": "field",
+      "field:template_public_release:local_runtime_synced": "field",
+      "field:template_public_release:merged_template_ids": "field",
+      "field:template_public_release:ordinary_minimum_model_observed": "field",
+      "field:template_public_release:privacy_scanned": "field",
+      "field:template_public_release:pushed": "field",
+      "field:template_public_release:release_verified": "field",
+      "field:template_public_release:reused_template_ids": "field",
+      "field:template_public_release:selected_private_direct": "field",
+      "field:template_public_release:selected_public_safe": "field",
+      "field:template_public_release:tagged": "field",
+      "field:template_public_release:template_effects": "field",
+      "field:template_public_release:template_operations": "field",
+      "field:template_public_release:tests_added": "field",
+      "field:template_public_release:validations_passed": "field",
+      "function-block:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep": "function_block",
+      "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0": "state",
+      "state:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:1": "state",
+      "transition:workflow:template_public_release:template_public_release:0:1d4d7fa7c390:0:TemplateReleaseStep": "transition"
+    },
+    "subject_fingerprint": "sha256:49a1b34ee541a234e4f93be00555dd4e12f9a476feebc8f9b46328b5f7629339",
+    "trigger_currentness_id": "sha256:efe2a9566657d09272845f0e4fe4b53ecef69f7a3b8389072b4667b02d096146",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:1aa98371f889a4fa9ef46ad71f2967285b0ea04f7fa1e7c4c4b18414a776c582",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

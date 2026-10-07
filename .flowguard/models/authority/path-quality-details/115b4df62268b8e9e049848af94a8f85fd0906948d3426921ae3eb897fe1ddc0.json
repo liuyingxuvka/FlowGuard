@@ -1,0 +1,743 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:d54559617635f5aa3aa546a7d5f3282006920fc4f9720ccd05ba1783caf9ddfb",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/runtime_gateway_adoption/model.py",
+            "source_fingerprint": "sha256:2c835999672977feaf6aa293832e84e52b32622dfb1f513b8c4a5741a90f00c4"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": [
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": [
+                {
+                  "covered_surface_ids": [
+                    "router_state"
+                  ],
+                  "current": true,
+                  "discovered_writer_ids": [
+                    "writer:router_state_write"
+                  ],
+                  "evidence_id": "inventory:critical-state-writers",
+                  "metadata": [],
+                  "proof_artifact_ids": [
+                    "artifact:writer-inventory"
+                  ],
+                  "result_status": "passed",
+                  "scoped_out_reasons": [],
+                  "scoped_out_writer_ids": [],
+                  "source_kind": ""
+                }
+              ]
+            },
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": []
+            },
+            {
+              "complete_inventory_evidence_ids": [],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": []
+            },
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": [
+                {
+                  "covered_surface_ids": [
+                    "router_state"
+                  ],
+                  "current": false,
+                  "discovered_writer_ids": [
+                    "writer:router_state_write"
+                  ],
+                  "evidence_id": "inventory:critical-state-writers",
+                  "metadata": [],
+                  "proof_artifact_ids": [
+                    "artifact:writer-inventory"
+                  ],
+                  "result_status": "skipped",
+                  "scoped_out_reasons": [],
+                  "scoped_out_writer_ids": [],
+                  "source_kind": ""
+                }
+              ]
+            },
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": [
+                {
+                  "covered_surface_ids": [
+                    "other_surface"
+                  ],
+                  "current": true,
+                  "discovered_writer_ids": [
+                    "writer:router_state_write"
+                  ],
+                  "evidence_id": "inventory:critical-state-writers",
+                  "metadata": [],
+                  "proof_artifact_ids": [
+                    "artifact:writer-inventory"
+                  ],
+                  "result_status": "passed",
+                  "scoped_out_reasons": [],
+                  "scoped_out_writer_ids": [],
+                  "source_kind": ""
+                }
+              ]
+            },
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": [
+                {
+                  "covered_surface_ids": [
+                    "router_state"
+                  ],
+                  "current": true,
+                  "discovered_writer_ids": [
+                    "writer:router_state_write"
+                  ],
+                  "evidence_id": "inventory:critical-state-writers",
+                  "metadata": [],
+                  "proof_artifact_ids": [
+                    "artifact:writer-inventory"
+                  ],
+                  "result_status": "passed",
+                  "scoped_out_reasons": [],
+                  "scoped_out_writer_ids": [
+                    "writer:legacy_router_state"
+                  ],
+                  "source_kind": ""
+                }
+              ]
+            },
+            {
+              "complete_inventory_evidence_ids": [
+                "inventory:critical-state-writers"
+              ],
+              "gateways": [
+                {
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "description": "",
+                  "gateway_id": "control_plane_gateway",
+                  "managed_surface_ids": [
+                    "router_state"
+                  ],
+                  "metadata": [],
+                  "requires_atomic_commit": true,
+                  "requires_code_boundary_binding": true,
+                  "requires_proof_artifact": true,
+                  "requires_replay_observation": true,
+                  "requires_runtime_path_binding": true,
+                  "requires_step_contract_binding": true,
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ]
+                }
+              ],
+              "metadata": [],
+              "project_id": "runtime-gateway-writer-inventory",
+              "require_complete_inventory": true,
+              "require_observed_writer_for_critical_surfaces": true,
+              "state_surfaces": [
+                {
+                  "critical": true,
+                  "description": "",
+                  "metadata": [],
+                  "owner_gateway_ids": [
+                    "control_plane_gateway"
+                  ],
+                  "paths": [
+                    "runtime/router_state.json"
+                  ],
+                  "surface_id": "router_state"
+                }
+              ],
+              "target_level": "runtime_gateway",
+              "write_observations": [
+                {
+                  "action_id": "",
+                  "code_boundary_ids": [
+                    "control_plane_gateway.boundary"
+                  ],
+                  "current": true,
+                  "gateway_id": "control_plane_gateway",
+                  "legacy_bypass_reason": "",
+                  "metadata": [],
+                  "observation_id": "router_state_write",
+                  "path": "",
+                  "proof_artifact_ids": [
+                    "artifact:router-state-write"
+                  ],
+                  "result_status": "passed",
+                  "runtime_node_ids": [
+                    "runtime:control_plane_gateway"
+                  ],
+                  "step_contract_ids": [
+                    "consume_controller_receipt"
+                  ],
+                  "surface_id": "router_state",
+                  "symbol": "",
+                  "write_kind": "gateway"
+                }
+              ],
+              "writer_inventory_evidence": [
+                {
+                  "covered_surface_ids": [
+                    "router_state"
+                  ],
+                  "current": true,
+                  "discovered_writer_ids": [
+                    "writer:router_state_write"
+                  ],
+                  "evidence_id": "inventory:critical-state-writers",
+                  "metadata": [],
+                  "proof_artifact_ids": [],
+                  "result_status": "passed",
+                  "scoped_out_reasons": [],
+                  "scoped_out_writer_ids": [],
+                  "source_kind": ""
+                }
+              ]
+            }
+          ],
+          "id": "function-block:runtime_gateway_adoption:contract:cases"
+        },
+        {
+          "contract": {
+            "code_boundary_ids": [
+              "control_plane_gateway.boundary"
+            ],
+            "description": "",
+            "gateway_id": "control_plane_gateway",
+            "managed_surface_ids": [
+              "router_state"
+            ],
+            "metadata": [],
+            "requires_atomic_commit": true,
+            "requires_code_boundary_binding": true,
+            "requires_proof_artifact": true,
+            "requires_replay_observation": true,
+            "requires_runtime_path_binding": true,
+            "requires_step_contract_binding": true,
+            "runtime_node_ids": [
+              "runtime:control_plane_gateway"
+            ],
+            "step_contract_ids": [
+              "consume_controller_receipt"
+            ]
+          },
+          "id": "function-block:runtime_gateway_adoption:contract:gateway"
+        },
+        {
+          "contract": {
+            "critical": true,
+            "description": "",
+            "metadata": [],
+            "owner_gateway_ids": [
+              "control_plane_gateway"
+            ],
+            "paths": [
+              "runtime/router_state.json"
+            ],
+            "surface_id": "router_state"
+          },
+          "id": "function-block:runtime_gateway_adoption:contract:state_surface"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:runtime_gateway_adoption:contract:cases": "function_block",
+      "function-block:runtime_gateway_adoption:contract:gateway": "function_block",
+      "function-block:runtime_gateway_adoption:contract:state_surface": "function_block"
+    },
+    "subject_fingerprint": "sha256:4c844db2c5c3a764e17c71f4b086765351d8378d393a8d3151a1380ef9574dd1",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:115b4df62268b8e9e049848af94a8f85fd0906948d3426921ae3eb897fe1ddc0",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

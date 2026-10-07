@@ -24,10 +24,13 @@ class CompletionRunManifestTests(unittest.TestCase):
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name) / "repo"
         self.root.mkdir()
+        self.author_state_root = Path(self.temporary.name) / "author-state"
+        self.author_state_root.mkdir()
         self.receipt_root = self.root / "receipts"
         self.args = SimpleNamespace(
             output_dir=str(self.root / "run-a"),
             model_receipt_dir=str(self.root / "model-receipts"),
+            author_state_root=str(self.author_state_root),
             completion_objective_change="close-runtime-evidence-and-task-map",
             formal_root=str(self.root / "formal"),
             shadow_root=str(self.root / "shadow"),
@@ -214,6 +217,8 @@ class CompletionRunManifestTests(unittest.TestCase):
                 "full",
                 "--root",
                 str(self.root),
+                "--author-state-root",
+                str(self.author_state_root),
                 "--shadow-root",
                 str(self.root),
                 "--completion-readiness",
@@ -241,6 +246,8 @@ class CompletionRunManifestTests(unittest.TestCase):
                 "full",
                 "--root",
                 str(self.root),
+                "--author-state-root",
+                str(self.author_state_root),
                 "--formal-root",
                 str(self.root / "formal"),
                 "--shadow-root",

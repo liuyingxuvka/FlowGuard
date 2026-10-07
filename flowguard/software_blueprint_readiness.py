@@ -1853,7 +1853,7 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        elif binding.result.conclusion == "unresolved":
+        elif (binding.result.conclusion == "unresolved" or binding.result.observation_gap_ids or binding.result.improvement_gap_ids):
             findings.append(
                 ReadinessFinding(
                     "path_quality_unresolved",
@@ -2372,7 +2372,7 @@ def review_behavior_blueprint(
         covered_failures = {
             failure_id
             for row in rows
-            if row.case_kind in {"bad", "good"}
+            if row.case_kind in {"bad", "good", "boundary"}
             for failure_id in row.protected_failure_ids
         }
         missing_failures = set(contract.protected_failure_ids) - covered_failures
@@ -2621,6 +2621,21 @@ def review_behavior_blueprint(
                 for helper_id in candidates
                 if helper_by_id[helper_id].test_node_id == str(node.node_id)
             }
+            if "." in call and getattr(node, "path", ""):
+                # A direct method call is resolved by its independently
+                # discovered file/class identity. Do not guess inheritance,
+                # cross-file classes, or an arbitrary same-leaf helper.
+                class_scope = getattr(node, "class_name", "")
+                source_path = getattr(node, "path", "")
+                lexical_id = (
+                    f"delegated-helper:{source_path}::{class_scope}.{leaf}"
+                )
+                exact_callers = {
+                    helper_id for helper_id in candidates
+                    if class_scope
+                    and call in {f"self.{leaf}", f"cls.{leaf}"}
+                    and helper_id == lexical_id
+                }
             if len(exact_callers) != 1:
                 ambiguous_helper_calls.add(
                     f"{node.node_id}:{call}"
@@ -3093,16 +3108,18 @@ def review_behavior_blueprint(
         receipt = receipt_rows[0]
         # Model-regression owners publish one direct leaf receipt whose
         # immutable child proof carries native case IDs.  That owner contract
-        # intentionally covers the model obligation rather than copying 6xN
-        # blueprint edges into the receipt.  The exact edge is accepted here
+        # intentionally covers the model obligation and its explicitly declared
+        # functional obligations rather than copying 6xN blueprint edges into
+        # the receipt. The complete owner obligation tuple must match exactly.
+        # The exact edge is accepted here
         # only when its native case projection matches the edge and the
         # receipt covers the model obligation; it is never accepted for a
         # parent/aggregate receipt.
         model_owner_id = row.execution_owner_id.removeprefix("model:")
         native_model_leaf = (
             row.execution_owner_id.startswith("model:")
-            and owner_contract.obligation_ids
-            == (f"model-regression:{model_owner_id}",)
+            and f"model-regression:{model_owner_id}" in owner_contract.obligation_ids
+            and receipt.covered_obligations == owner_contract.obligation_ids
             and native_case_matches(row)
             and f"model-regression:{model_owner_id}"
             in receipt.covered_obligations
@@ -3165,15 +3182,6 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        model_owner_id = row.execution_owner_id.removeprefix("model:")
-        native_model_leaf = (
-            row.execution_owner_id.startswith("model:")
-            and owner_contract.obligation_ids
-            == (f"model-regression:{model_owner_id}",)
-            and native_case_matches(row)
-            and f"model-regression:{model_owner_id}"
-            in receipt.covered_obligations
-        )
         if row.coverage_id not in receipt.covered_obligations and not native_model_leaf:
             execution_findings.append(
                 ReadinessFinding(
@@ -3218,7 +3226,11 @@ def review_behavior_blueprint(
                     "blocked",
                 )
             )
-        if row.coverage_id not in verification.satisfied_obligations and not native_model_leaf:
+        native_model_verified = (
+            native_model_leaf
+            and set(verification.satisfied_obligations) == set(owner_contract.obligation_ids)
+        )
+        if row.coverage_id not in verification.satisfied_obligations and not native_model_verified:
             execution_findings.append(
                 ReadinessFinding(
                     "coverage_execution_verification_member_missing",

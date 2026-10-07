@@ -558,3 +558,163 @@ def terminal_predicate(current_output, _state, _trace) -> bool:
 
 
 FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
+
+
+@dataclass(frozen=True)
+class R6ArchitectureInput:
+    name: str
+    left_contexts: tuple[str, ...] = ("ordinary",)
+    right_contexts: tuple[str, ...] = ("ordinary",)
+    left_semantics: tuple[str, ...] = ("accepted", "visible_error")
+    right_semantics: tuple[str, ...] = ("accepted", "visible_error")
+    primary_owner_ids: tuple[str, ...] = ("owner:left", "owner:right")
+    mechanism_ids: tuple[str, ...] = ("implementation:left", "implementation:right")
+    mechanism_content: tuple[str, ...] = ("same content", "same content")
+    claimed_shared_primary: bool = False
+    required_improvement_gap_ids: tuple[str, ...] = ()
+    observation_accepted: bool = True
+    claimed_improvement_complete: bool = False
+    claimed_task_closed: bool = False
+    verified_maturation_current: bool = True
+    requested_outcome_ids: tuple[str, ...] = ("A",)
+    proven_outcome_ids: tuple[str, ...] = ("A",)
+    claimed_merged_context_ids: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class R6ArchitectureState:
+    request: R6ArchitectureInput | None = None
+    relation: str = ""
+    bounded_direction: str = ""
+    overlapping_context_ids: tuple[str, ...] = ()
+    left_remaining_context_ids: tuple[str, ...] = ()
+    right_remaining_context_ids: tuple[str, ...] = ()
+
+
+class EvaluateR6Architecture:
+    name = "EvaluateR6Architecture"
+    accepted_input_type = R6ArchitectureInput
+    reads = ("left_contexts", "right_contexts", "left_semantics", "right_semantics", "primary_owner_ids")
+    writes = ("request", "relation", "bounded_direction")
+    input_description = "finite architecture facts and independently declared objective"
+    output_description = "faithful current relation and bounded improvement direction"
+
+    def apply(self, input_obj, _state):
+        overlap = set(input_obj.left_contexts).intersection(input_obj.right_contexts)
+        equivalent = input_obj.left_semantics == input_obj.right_semantics
+        if not overlap:
+            relation, direction = "legitimate_variant", "preserve distinct contextual owners"
+        elif not equivalent:
+            relation, direction = "false_friend", "preserve hard semantic differences"
+        elif len(set(input_obj.primary_owner_ids)) > 1:
+            relation, direction = "duplicate_boundary", "compare shared primary delegation within this finite scope"
+        else:
+            relation, direction = "shared_primary", "keep current explicit primary"
+        return (FunctionResult(output=relation, new_state=R6ArchitectureState(input_obj, relation, direction, tuple(sorted(overlap)), tuple(sorted(set(input_obj.left_contexts) - overlap)), tuple(sorted(set(input_obj.right_contexts) - overlap))), label="r6_" + input_obj.name, reason=direction),)
+
+
+def _r6_copy_is_not_sharing(state, _trace):
+    request = state.request
+    if request and request.claimed_shared_primary and (len(set(request.primary_owner_ids)) != 1 or len(set(request.mechanism_ids)) != 1):
+        return InvariantResult.fail("Equal content of independent primaries is not shared execution")
+    return InvariantResult.pass_()
+
+
+def _r6_observation_is_not_improvement_completion(state, _trace):
+    request = state.request
+    if request and request.claimed_improvement_complete and request.required_improvement_gap_ids:
+        return InvariantResult.fail("Accepted observation still has a required architecture gap")
+    return InvariantResult.pass_()
+
+
+def _r7_functional_closure_requires_exact_outcomes(state, _trace):
+    request = state.request
+    if request and request.claimed_task_closed and (not request.verified_maturation_current or not set(request.requested_outcome_ids) <= set(request.proven_outcome_ids) or request.required_improvement_gap_ids):
+        return InvariantResult.fail("Task completion requires the current verified maturation and every requested functional outcome; deferred required gaps remain open")
+    return InvariantResult.pass_()
+
+
+def _r7_context_merge_preserves_remainders(state, _trace):
+    request = state.request
+    if request and request.claimed_merged_context_ids and (set(request.claimed_merged_context_ids) != set(state.overlapping_context_ids) or request.left_semantics != request.right_semantics):
+        return InvariantResult.fail("Only verified shared contexts can be merged; distinct remainders remain preserved")
+    return InvariantResult.pass_()
+
+
+R6_ARCHITECTURE_INVARIANTS = (
+    Invariant("failure:model_maturation_loop:unproved_functional_task_closed", "Task stopping requires current verification and exact requested outcomes", _r7_functional_closure_requires_exact_outcomes),
+    Invariant("failure:model_maturation_loop:context_remainder_erased", "Partial sharing preserves distinct contextual paths", _r7_context_merge_preserves_remainders),
+    Invariant("failure:model_maturation_loop:hash_copy_claimed_shared_mechanism", "Shared mechanism requires one real primary, not identical copies", _r6_copy_is_not_sharing),
+    Invariant("failure:model_maturation_loop:accepted_observation_claimed_improvement_done", "Observation and improvement completion remain separate", _r6_observation_is_not_improvement_completion),
+)
+
+
+def r6_architecture_scenario(name, request, expected_status="ok", failure_id=""):
+    from flowguard.scenario import Scenario, ScenarioExpectation
+    return Scenario(
+        name=name, description="Finite generic architecture policy: " + name,
+        workflow=Workflow((EvaluateR6Architecture(),), name="r6_generic_architecture_direction"),
+        initial_state=R6ArchitectureState(), external_input_sequence=(request,),
+        invariants=R6_ARCHITECTURE_INVARIANTS,
+        expected=ScenarioExpectation(expected_status=expected_status,
+            expected_violation_names=(failure_id,) if failure_id else (),
+            required_trace_labels=("r6_" + name,) if expected_status == "ok" else ()),
+    )
+
+
+R6_ARCHITECTURE_SCENARIOS = (
+    r6_architecture_scenario("generic_duplicate_responsibility_direction", R6ArchitectureInput("generic_duplicate_responsibility_direction")),
+    r6_architecture_scenario("disjoint_context_variant_preserved", R6ArchitectureInput("disjoint_context_variant_preserved", left_contexts=("interactive",), right_contexts=("batch",))),
+    r6_architecture_scenario("identical_copy_not_shared_primary", R6ArchitectureInput("identical_copy_not_shared_primary", claimed_shared_primary=True), "violation", "failure:model_maturation_loop:hash_copy_claimed_shared_mechanism"),
+    r6_architecture_scenario("required_architecture_gap_blocks_completion", R6ArchitectureInput("required_architecture_gap_blocks_completion", required_improvement_gap_ids=("required_architecture_objective_unmet",), claimed_improvement_complete=True), "violation", "failure:model_maturation_loop:accepted_observation_claimed_improvement_done"),
+)
+
+
+R6_ARCHITECTURE_SCENARIOS += (
+    r6_architecture_scenario("verified_task_outcomes_allow_bounded_stop", R6ArchitectureInput("verified_task_outcomes_allow_bounded_stop", claimed_task_closed=True)),
+    r6_architecture_scenario("constructed_report_cannot_close_task", R6ArchitectureInput("constructed_report_cannot_close_task", claimed_task_closed=True, verified_maturation_current=False), "violation", "failure:model_maturation_loop:unproved_functional_task_closed"),
+    r6_architecture_scenario("other_function_proof_cannot_close_requested_outcome", R6ArchitectureInput("other_function_proof_cannot_close_requested_outcome", claimed_task_closed=True, requested_outcome_ids=("B",)), "violation", "failure:model_maturation_loop:unproved_functional_task_closed"),
+    r6_architecture_scenario("deferred_required_goal_cannot_close_task", R6ArchitectureInput("deferred_required_goal_cannot_close_task", claimed_task_closed=True, required_improvement_gap_ids=("required_goal",)), "violation", "failure:model_maturation_loop:unproved_functional_task_closed"),
+    r6_architecture_scenario("partial_context_candidate_preserves_variants", R6ArchitectureInput("partial_context_candidate_preserves_variants", left_contexts=("online", "recovery"), right_contexts=("online", "batch"), claimed_merged_context_ids=("online",))),
+    r6_architecture_scenario("partial_context_cannot_merge_whole_paths", R6ArchitectureInput("partial_context_cannot_merge_whole_paths", left_contexts=("online", "recovery"), right_contexts=("online", "batch"), claimed_merged_context_ids=("online", "recovery", "batch")), "violation", "failure:model_maturation_loop:context_remainder_erased"),
+)
+
+
+def run_r6_architecture_review():
+    from flowguard.review import review_scenarios
+    return review_scenarios(R6_ARCHITECTURE_SCENARIOS)
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+    source = compile_declared_path_quality_source(
+        model_id="model_maturation_loop", model_instance_fingerprint=model_instance_fingerprint,
+        source_refs=({"path": ".flowguard/models/owners/model_maturation_loop/model.py", "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/model_maturation_loop/model.py')},),
+        workflows=(correct_workflow(), R6_ARCHITECTURE_SCENARIOS[0].workflow, R8_FUNCTIONAL_SCENARIOS[0].workflow, *(scenario.workflow for scenario in R9_FUNCTIONAL_SCENARIOS)),
+        invariants=INVARIANTS + R6_ARCHITECTURE_INVARIANTS + tuple(
+            invariant for scenario in R9_FUNCTIONAL_SCENARIOS
+            for invariant in scenario.invariants),
+    )
+
+    from flowguard.native_case_runner import build_r8_architecture_declaration
+    return build_r8_architecture_declaration(Path(__file__).resolve().parents[4], source)
+
+
+from pathlib import Path as _R8Path
+from flowguard.native_case_runner import r8_functional_case_scenario
+R8_FUNCTIONAL_SCENARIOS = (r8_functional_case_scenario(_R8Path(__file__).resolve().parents[4], "r8_context_indexed_comparison"),)
+
+
+def run_r8_architecture_review():
+    from flowguard.review import review_scenarios
+    return review_scenarios(R8_FUNCTIONAL_SCENARIOS)
+
+
+R9_FUNCTIONAL_SCENARIOS = (r8_functional_case_scenario(_R8Path(__file__).resolve().parents[4], "r9_normal_task_context"),)
+
+
+def run_r9_architecture_review():
+    from flowguard.review import review_scenarios
+    return review_scenarios(R9_FUNCTIONAL_SCENARIOS)

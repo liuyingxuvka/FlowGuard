@@ -1,0 +1,568 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:cbd939e9125cacc7cbbb51d1a8523bf9c36a4764e19d83eb983154458f1af1c4",
+        "effective_intent_view_fingerprint": "sha256:dac60887220008644ad16bc6413e1989712ad488be9f43eae5b0df2c189ccd1b",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/test_evidence_mesh/model.py",
+            "source_fingerprint": "sha256:6c4a28ce8db5570d68a7d5ee3531ecc851555f7c432ec6369adac00cf4fd6ed7"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:TestMeshPolicy",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:adapters_run_tests_not_testmesh",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:background_completion_artifacts",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:complete_inventory_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:duplicate_ownership_blocked",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:every_partition_owned",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:final_receipt_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:owners_registered",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:parent_child_partitions",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:producer_fingerprints_match",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:producer_owner_matches",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:producer_receipt_terminal_pass",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:progress_never_counts_as_pass",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:release_scope_blocks_missing_release_suite",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:required_inventory_revision_declared",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:routine_release_split",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:skipped_tests_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:spec_consumer_fanout_complete",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:spec_cross_change_reuse_authorized",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:spec_receipt_not_duplicated",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:stale_evidence_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:timeout_and_failed_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:test_evidence_mesh:timeout_budget_covers_observed_runtime",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "TestMeshCase",
+          "effects": [],
+          "id": "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan",
+          "inputs": [
+            "external-input:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93"
+          ],
+          "outputs": [
+            "output:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:test_evidence_mesh:TestMeshPolicy"
+          ],
+          "state_input": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0",
+          "state_output": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:1",
+          "validations": [
+            "validation:test_evidence_mesh:invariant:parent_child_partitions_exist",
+            "validation:test_evidence_mesh:invariant:partition_ownership_is_complete",
+            "validation:test_evidence_mesh:invariant:duplicate_owners_are_blocked",
+            "validation:test_evidence_mesh:invariant:evidence_gaps_stay_visible",
+            "validation:test_evidence_mesh:invariant:background_needs_completion_artifacts",
+            "validation:test_evidence_mesh:invariant:timeout_budget_covers_observed_runtime",
+            "validation:test_evidence_mesh:invariant:routine_and_release_scope_are_distinct",
+            "validation:test_evidence_mesh:invariant:testmesh_does_not_run_tests",
+            "validation:test_evidence_mesh:invariant:required_inventory_is_revisioned_and_complete",
+            "validation:test_evidence_mesh:invariant:progress_is_not_final_evidence",
+            "validation:test_evidence_mesh:invariant:spec_receipt_topology_is_exact",
+            "validation:test_evidence_mesh:invariant:reuse_requires_independent_producer_proof"
+          ],
+          "writes": [
+            "field:test_evidence_mesh:case_name",
+            "field:test_evidence_mesh:parent_child_partitions",
+            "field:test_evidence_mesh:every_partition_owned",
+            "field:test_evidence_mesh:owners_registered",
+            "field:test_evidence_mesh:duplicate_ownership_blocked",
+            "field:test_evidence_mesh:stale_evidence_visible",
+            "field:test_evidence_mesh:skipped_tests_visible",
+            "field:test_evidence_mesh:timeout_and_failed_visible",
+            "field:test_evidence_mesh:timeout_budget_covers_observed_runtime",
+            "field:test_evidence_mesh:background_completion_artifacts",
+            "field:test_evidence_mesh:routine_release_split",
+            "field:test_evidence_mesh:release_scope_blocks_missing_release_suite",
+            "field:test_evidence_mesh:adapters_run_tests_not_testmesh",
+            "field:test_evidence_mesh:required_inventory_revision_declared",
+            "field:test_evidence_mesh:complete_inventory_owned",
+            "field:test_evidence_mesh:progress_never_counts_as_pass",
+            "field:test_evidence_mesh:final_receipt_complete",
+            "field:test_evidence_mesh:spec_consumer_fanout_complete",
+            "field:test_evidence_mesh:spec_cross_change_reuse_authorized",
+            "field:test_evidence_mesh:spec_receipt_not_duplicated",
+            "field:test_evidence_mesh:producer_receipt_terminal_pass",
+            "field:test_evidence_mesh:producer_owner_matches",
+            "field:test_evidence_mesh:producer_fingerprints_match"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan",
+          "producer_id": "transition:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan",
+          "outputs": [
+            "output:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan"
+          ],
+          "reads": [
+            "field:test_evidence_mesh:TestMeshPolicy"
+          ],
+          "source": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0",
+          "target": "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:1",
+          "trigger": "TestMeshCase",
+          "validations": [
+            "validation:test_evidence_mesh:invariant:parent_child_partitions_exist",
+            "validation:test_evidence_mesh:invariant:partition_ownership_is_complete",
+            "validation:test_evidence_mesh:invariant:duplicate_owners_are_blocked",
+            "validation:test_evidence_mesh:invariant:evidence_gaps_stay_visible",
+            "validation:test_evidence_mesh:invariant:background_needs_completion_artifacts",
+            "validation:test_evidence_mesh:invariant:timeout_budget_covers_observed_runtime",
+            "validation:test_evidence_mesh:invariant:routine_and_release_scope_are_distinct",
+            "validation:test_evidence_mesh:invariant:testmesh_does_not_run_tests",
+            "validation:test_evidence_mesh:invariant:required_inventory_is_revisioned_and_complete",
+            "validation:test_evidence_mesh:invariant:progress_is_not_final_evidence",
+            "validation:test_evidence_mesh:invariant:spec_receipt_topology_is_exact",
+            "validation:test_evidence_mesh:invariant:reuse_requires_independent_producer_proof"
+          ],
+          "writes": [
+            "field:test_evidence_mesh:case_name",
+            "field:test_evidence_mesh:parent_child_partitions",
+            "field:test_evidence_mesh:every_partition_owned",
+            "field:test_evidence_mesh:owners_registered",
+            "field:test_evidence_mesh:duplicate_ownership_blocked",
+            "field:test_evidence_mesh:stale_evidence_visible",
+            "field:test_evidence_mesh:skipped_tests_visible",
+            "field:test_evidence_mesh:timeout_and_failed_visible",
+            "field:test_evidence_mesh:timeout_budget_covers_observed_runtime",
+            "field:test_evidence_mesh:background_completion_artifacts",
+            "field:test_evidence_mesh:routine_release_split",
+            "field:test_evidence_mesh:release_scope_blocks_missing_release_suite",
+            "field:test_evidence_mesh:adapters_run_tests_not_testmesh",
+            "field:test_evidence_mesh:required_inventory_revision_declared",
+            "field:test_evidence_mesh:complete_inventory_owned",
+            "field:test_evidence_mesh:progress_never_counts_as_pass",
+            "field:test_evidence_mesh:final_receipt_complete",
+            "field:test_evidence_mesh:spec_consumer_fanout_complete",
+            "field:test_evidence_mesh:spec_cross_change_reuse_authorized",
+            "field:test_evidence_mesh:spec_receipt_not_duplicated",
+            "field:test_evidence_mesh:producer_receipt_terminal_pass",
+            "field:test_evidence_mesh:producer_owner_matches",
+            "field:test_evidence_mesh:producer_fingerprints_match"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:background_needs_completion_artifacts",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:background_needs_completion_artifacts",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:background_needs_completion_artifacts",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:duplicate_owners_are_blocked",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:duplicate_owners_are_blocked",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:duplicate_owners_are_blocked",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:evidence_gaps_stay_visible",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:evidence_gaps_stay_visible",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:evidence_gaps_stay_visible",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:parent_child_partitions_exist",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:parent_child_partitions_exist",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:parent_child_partitions_exist",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:partition_ownership_is_complete",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:partition_ownership_is_complete",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:partition_ownership_is_complete",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:progress_is_not_final_evidence",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:progress_is_not_final_evidence",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:progress_is_not_final_evidence",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:required_inventory_is_revisioned_and_complete",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:required_inventory_is_revisioned_and_complete",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:required_inventory_is_revisioned_and_complete",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:reuse_requires_independent_producer_proof",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:reuse_requires_independent_producer_proof",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:reuse_requires_independent_producer_proof",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:routine_and_release_scope_are_distinct",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:routine_and_release_scope_are_distinct",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:routine_and_release_scope_are_distinct",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:spec_receipt_topology_is_exact",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:spec_receipt_topology_is_exact",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:spec_receipt_topology_is_exact",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:testmesh_does_not_run_tests",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:testmesh_does_not_run_tests",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:testmesh_does_not_run_tests",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        },
+        {
+          "evidence_boundary_id": "native-runner:test_evidence_mesh",
+          "id": "validation:test_evidence_mesh:invariant:timeout_budget_covers_observed_runtime",
+          "obligation_id": "obligation:native-invariant:test_evidence_mesh:timeout_budget_covers_observed_runtime",
+          "oracle_id": "oracle:native-invariant:test_evidence_mesh:timeout_budget_covers_observed_runtime",
+          "subject_fingerprint": "sha256:4942bd6e4f70e721220f9c943d720c4e8078055c182d60b041802519946516ff"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:test_evidence_mesh:TestMeshPolicy": "field",
+      "field:test_evidence_mesh:adapters_run_tests_not_testmesh": "field",
+      "field:test_evidence_mesh:background_completion_artifacts": "field",
+      "field:test_evidence_mesh:case_name": "field",
+      "field:test_evidence_mesh:complete_inventory_owned": "field",
+      "field:test_evidence_mesh:duplicate_ownership_blocked": "field",
+      "field:test_evidence_mesh:every_partition_owned": "field",
+      "field:test_evidence_mesh:final_receipt_complete": "field",
+      "field:test_evidence_mesh:owners_registered": "field",
+      "field:test_evidence_mesh:parent_child_partitions": "field",
+      "field:test_evidence_mesh:producer_fingerprints_match": "field",
+      "field:test_evidence_mesh:producer_owner_matches": "field",
+      "field:test_evidence_mesh:producer_receipt_terminal_pass": "field",
+      "field:test_evidence_mesh:progress_never_counts_as_pass": "field",
+      "field:test_evidence_mesh:release_scope_blocks_missing_release_suite": "field",
+      "field:test_evidence_mesh:required_inventory_revision_declared": "field",
+      "field:test_evidence_mesh:routine_release_split": "field",
+      "field:test_evidence_mesh:skipped_tests_visible": "field",
+      "field:test_evidence_mesh:spec_consumer_fanout_complete": "field",
+      "field:test_evidence_mesh:spec_cross_change_reuse_authorized": "field",
+      "field:test_evidence_mesh:spec_receipt_not_duplicated": "field",
+      "field:test_evidence_mesh:stale_evidence_visible": "field",
+      "field:test_evidence_mesh:timeout_and_failed_visible": "field",
+      "field:test_evidence_mesh:timeout_budget_covers_observed_runtime": "field",
+      "function-block:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan": "function_block",
+      "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0": "state",
+      "state:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:1": "state",
+      "transition:workflow:test_evidence_mesh:test_evidence_mesh_rollout:0:cdc2c7d72d93:0:EvaluateTestMeshPlan": "transition",
+      "validation:test_evidence_mesh:invariant:background_needs_completion_artifacts": "validation",
+      "validation:test_evidence_mesh:invariant:duplicate_owners_are_blocked": "validation",
+      "validation:test_evidence_mesh:invariant:evidence_gaps_stay_visible": "validation",
+      "validation:test_evidence_mesh:invariant:parent_child_partitions_exist": "validation",
+      "validation:test_evidence_mesh:invariant:partition_ownership_is_complete": "validation",
+      "validation:test_evidence_mesh:invariant:progress_is_not_final_evidence": "validation",
+      "validation:test_evidence_mesh:invariant:required_inventory_is_revisioned_and_complete": "validation",
+      "validation:test_evidence_mesh:invariant:reuse_requires_independent_producer_proof": "validation",
+      "validation:test_evidence_mesh:invariant:routine_and_release_scope_are_distinct": "validation",
+      "validation:test_evidence_mesh:invariant:spec_receipt_topology_is_exact": "validation",
+      "validation:test_evidence_mesh:invariant:testmesh_does_not_run_tests": "validation",
+      "validation:test_evidence_mesh:invariant:timeout_budget_covers_observed_runtime": "validation"
+    },
+    "subject_fingerprint": "sha256:94babaceab542e0020b0b20f562c8fe1880d5d1ff68a3e4577f4e967aeb4002f",
+    "trigger_currentness_id": "sha256:1feb376c0cb5f47128a10c89236497db619100bf1cbfdba793cf4c97e8ef6cd3",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:d9ba2d66a23b12fa362d5ebc76093dd538cd5f3e312722452e55337b5634fce3",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

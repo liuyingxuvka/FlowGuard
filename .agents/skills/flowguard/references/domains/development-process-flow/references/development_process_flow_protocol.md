@@ -13,10 +13,11 @@ Record modes in this order:
 1. `plan_detailing`: run the internal plan-detailing route for rough or
    underspecified plans when structured rows are needed.
 2. `strategy_selection`: an internal, conditional process-optimization mode.
-3. `agent_workflow`: admit only for explicit rehearsal, cross-owner/shared
-   write, a post-validation-invalidating write, route change, or multiple
-   owners' irreversible side effects. Capability labels alone stay
-   `not_triggered`.
+3. `agent_workflow`: admit only for explicit rehearsal, shared write, a
+   post-validation-invalidating write, route change, or multiple owners'
+   irreversible side effects. An ordinary cross-owner handoff alone uses
+   execution freshness through this owner; capability labels alone stay
+   `not_triggered` for rehearsal.
 4. `execution_freshness`: review artifact versions, evidence, sync, and final
    claim closure here.
 
@@ -42,6 +43,11 @@ subdecision whose exact result identities are ordered and refreshed here.
 
 - DevelopmentProcessFlow owns process order, artifact versions, invalidation,
   current decision references, peer-write handling, and process claims.
+- For every registered artifact with a non-empty `owner`, each action that
+  writes or invalidates it must have an `actor` exactly equal to that owner.
+  This check includes writes before validation and blocks independently of
+  evidence freshness; generic actor labels do not bypass it. Reads, claims, and
+  writes to artifacts without an owner are outside this guard.
 - Internal `plan_detailing` owns structured plan rows, not execution proof.
 - Internal `agent_workflow` owns AI-operation skill/tool order.
 - TestMesh owns diagnostic boundaries, actual execution accounting, findings,
@@ -89,6 +95,19 @@ FlowGuard's own obligation, validation, execution, and receipt ids.
 
 ## Execution Shape
 
+For one bounded implementation batch: (1) name the requested output and
+required checks; (2) assign each mutable path and native check exactly one
+owner, then freeze dependencies; (3) complete independent edits and focused
+diagnostics; (4) group evidence-backed failures and repair their primary
+owners; (5) rerun only checks whose declared inputs changed; (6) when writers
+have stopped and identities are frozen, execute the one final parent gate.
+Keep the same owner while its scope remains valid. A progress note, checkbox,
+report rendering, or unchanged peer completion is not a reason to reopen the
+route, reshuffle owners, refresh source authority, or repeat verification.
+A blocked branch records its missing prerequisite and `not_run` descendants;
+other branches continue when their declared dependencies and write sets are
+independent. Reopen only the affected branch on new material evidence.
+
 Use a staged plan, but do not make every diagnostic depend on the previous
 diagnostic's success. Independent focused diagnostics should all report their
 findings within the chosen boundary so one ordinary failure does not hide the
@@ -132,6 +151,11 @@ reusable. An omitted child post-check, final parent comparison, or receipt
 reconciliation is `not_run`.
 Never persist this observation as a cache, receipt alias, alternate store, or
 cross-invocation authority.
+
+Incremental leaf durability is a runner capability that must be supported by
+current implementation and evidence. The current `model_regressions` runner
+qualifies immediate publication only for `jobs=1`; its parallel path retains
+batch publication.
 
 Before execution, freeze the complete native owner inventory and derive one
 deterministic plan whose rows are only `execute`, `reuse_current`, or
@@ -293,16 +317,12 @@ For blueprint scope, report static readiness, identity, depth, and gaps.
 ## Implementation Admission
 
 When production work is requested, consume one independently verified current
-`VerifiedModelMaturation` produced from a canonical EvidenceReceipt and
-separately decide `ready`, `ready_scoped`,
-`no_code_requested`, `blocked`, or `stale`. Normal `ready` requires
-closed-for-task full confidence with no open gaps. `ready_scoped` additionally
-requires a current authorization matching task, candidate, coverage, input,
-evidence, accepted gap set, and every requested action/artifact/path.
-
-Authorization never changes the maturation decision or hides gaps. It cannot
-waive unavailable real tooling, destructive or irreversible ambiguity, active
-owner conflicts, or other declared non-waivable blockers. Any later task,
+`VerifiedModelMaturation` produced from a canonical EvidenceReceipt. Normal
+model-first admission is `ready` only when the task is closed with full
+confidence and no open gaps. Read-only work is `no_code_requested`. Direct user
+choice is recorded as `not_requested` with `direct`; it does not change the
+maturation decision or close gaps. Missing or stale required identity and
+non-waivable blockers remain `blocked` or `stale`. Any later task,
 candidate, coverage, evidence, request-scope, or owner change stales admission.
 
 ## Blueprint Layer Lifecycle

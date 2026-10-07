@@ -1,0 +1,211 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:bf5986b8bc83899ec7117622667af722a459432beccc8c99a17a23e63d89aadf",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_test_code_alignment/model.py",
+            "source_fingerprint": "sha256:cf33feff5d8da993f5f4eb028638c5fb2c6d768ec11010ed848c43c281bbd244"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "export_model_id": "flowguard.model_test_alignment.skill_contract.v2",
+      "export_parent_model_id": "flowguard.model_first_function_flow",
+      "export_schema_version": "skillguard.flowguard_model_export.v2",
+      "fields": [],
+      "function_blocks": [
+        {
+          "action_kind": "terminal",
+          "id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:blocked",
+          "inputs": [
+            "external-input:model_test_code_alignment:route:model_test_alignment"
+          ],
+          "outputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:blocked"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-model-test-alignment:blocked",
+          "validations": []
+        },
+        {
+          "action_kind": "native",
+          "id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute",
+          "inputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake"
+          ],
+          "outputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-model-test-alignment:execute",
+          "validations": [
+            "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:native-authority"
+          ]
+        },
+        {
+          "action_kind": "inventory",
+          "id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake",
+          "inputs": [
+            "external-input:model_test_code_alignment:route:model_test_alignment"
+          ],
+          "outputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-model-test-alignment:intake",
+          "validations": [
+            "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:plane-boundary"
+          ]
+        },
+        {
+          "action_kind": "terminal",
+          "id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success",
+          "inputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify"
+          ],
+          "outputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-model-test-alignment:success",
+          "validations": []
+        },
+        {
+          "action_kind": "verifier",
+          "id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify",
+          "inputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute"
+          ],
+          "outputs": [
+            "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify"
+          ],
+          "pass_through": false,
+          "state_input": "",
+          "state_output": "contract-step-state:step:flowguard-model-test-alignment:verify",
+          "validations": [
+            "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:evidence-closure"
+          ]
+        }
+      ],
+      "initial_state_ids": [],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:blocked",
+          "producer_id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:blocked",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify"
+          ],
+          "id": "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute",
+          "producer_id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute"
+          ],
+          "id": "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake",
+          "producer_id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success",
+          "producer_id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [
+            "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success"
+          ],
+          "id": "output:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify",
+          "producer_id": "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify",
+          "terminal": false
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-contract-export.v1",
+      "responsibilities": [],
+      "states": [],
+      "terminal_state_ids": [],
+      "transitions": [],
+      "validations": [
+        {
+          "evidence_boundary_id": "contract-export:model_test_code_alignment",
+          "id": "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:evidence-closure",
+          "obligation_id": "obligation:flowguard-model-test-alignment:evidence-closure",
+          "oracle_id": "invariant:evidence-closure",
+          "subject_fingerprint": "sha256:61b5581257168a4a6aaafda4bf413d2edaa2d360086b598caf25d5d420e7a85a"
+        },
+        {
+          "evidence_boundary_id": "contract-export:model_test_code_alignment",
+          "id": "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:native-authority",
+          "obligation_id": "obligation:flowguard-model-test-alignment:native-authority",
+          "oracle_id": "invariant:native-authority",
+          "subject_fingerprint": "sha256:61b5581257168a4a6aaafda4bf413d2edaa2d360086b598caf25d5d420e7a85a"
+        },
+        {
+          "evidence_boundary_id": "contract-export:model_test_code_alignment",
+          "id": "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:plane-boundary",
+          "obligation_id": "obligation:flowguard-model-test-alignment:plane-boundary",
+          "oracle_id": "invariant:plane-boundary",
+          "subject_fingerprint": "sha256:61b5581257168a4a6aaafda4bf413d2edaa2d360086b598caf25d5d420e7a85a"
+        }
+      ]
+    },
+    "retained_elements": {
+      "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:blocked": "function_block",
+      "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:execute": "function_block",
+      "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:intake": "function_block",
+      "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:success": "function_block",
+      "function-block:model_test_code_alignment:contract:step:flowguard-model-test-alignment:verify": "function_block",
+      "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:evidence-closure": "validation",
+      "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:native-authority": "validation",
+      "validation:model_test_code_alignment:contract:obligation:flowguard-model-test-alignment:plane-boundary": "validation"
+    },
+    "subject_fingerprint": "sha256:b15e25f49c95b27327393824348c7cd2bbac1a44dbf2e6d81aaf3ab396d10a21",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:03c310d7d9581d20050713c3e6429d2c6415430450b02e584f793117fb241d44",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

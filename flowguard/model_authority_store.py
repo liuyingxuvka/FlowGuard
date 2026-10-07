@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field, fields, replace
 from functools import lru_cache
 import hashlib
 import json
@@ -50,7 +50,11 @@ from .model_intent_authority import (
     validate_current_effective_intent_view,
 )
 from .model_intent import ModelIntentSourceIdentity, verify_model_intent_sources
-from .source_identity import CANONICAL_TEXT_SUFFIXES, functional_source_fingerprint
+from .source_identity import (
+    CANONICAL_TEXT_SUFFIXES, functional_source_fingerprint,
+    _normalize_openspec_task_body, _functional_project_manifest_payload,
+    _functional_regression_manifest_payload,
+)
 from .project_manifest import (
     ProjectManifestError,
     manifest_text_fingerprint,
@@ -242,6 +246,11 @@ class SelectedModelClosureRead:
     findings: tuple[Mapping[str, Any], ...] = ()
     read_paths: tuple[str, ...] = ()
     read_counts: tuple[tuple[str, int], ...] = ()
+    architecture: Mapping[str, Any] | None = None
+    growth_gaps: tuple[Mapping[str, Any], ...] = ()
+    checked_observed_paths: tuple[str, ...] = ()
+    observation_fingerprint: str = ""
+    live_unregistered_file_detection: str = "NOT_OBSERVED"
     producer_count: int = 0
     write_count: int = 0
     claim_boundary: str = (
@@ -289,9 +298,14 @@ class SelectedModelClosureRead:
             "findings": [dict(item) for item in self.findings],
             "read_paths": list(self.read_paths),
             "read_counts": {path: count for path, count in self.read_counts},
+            "growth_gaps": [dict(item) for item in self.growth_gaps],
+            "checked_observed_paths": list(self.checked_observed_paths),
+            "observation_fingerprint": self.observation_fingerprint,
+            "live_unregistered_file_detection": self.live_unregistered_file_detection,
             "producer_count": self.producer_count,
             "write_count": self.write_count,
             "claim_boundary": self.claim_boundary,
+            **({"architecture": dict(self.architecture)} if self.architecture is not None else {}),
         }
 
 
@@ -626,11 +640,18 @@ def _read_content_addressed_payload(
     fingerprint: str,
     *,
     derived_fields: Iterable[str] = ("fingerprint",),
+    read_context: _SelectedReadContext | None = None,
 ) -> Mapping[str, Any]:
     path = _artifact_path(root, category, fingerprint)
+    if read_context is not None:
+        if read_context.root != root:
+            raise ModelAuthorityError("artifact context belongs to another root")
+        if (category, fingerprint) in read_context.artifacts:
+            return read_context.artifacts[(category, fingerprint)]
     try:
         payload = json.loads(
-            _windows_io_path(path).read_text(encoding="utf-8"),
+            (read_context.artifact_bytes(_selected_path_relative_to_root(root, path)).decode("utf-8")
+             if read_context is not None else _windows_io_path(path).read_text(encoding="utf-8")),
             object_pairs_hook=_reject_duplicate_json_keys,
             parse_constant=lambda value: (_ for _ in ()).throw(
                 ModelAuthorityError(f"non-finite JSON number: {value}")
@@ -657,6 +678,8 @@ def _read_content_addressed_payload(
         raise ModelAuthorityError(
             f"current {category} content fingerprint is stale"
         )
+    if read_context is not None:
+        read_context.artifacts[(category, fingerprint)] = payload
     return payload
 
 
@@ -918,10 +941,12 @@ def _persist_accepted_read_projection(
 def _load_bound_read_projection(
     root: Path,
     head: ModelAuthorityHead,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> dict[str, Any]:
     """Load the only projection bound by the current activation receipt."""
 
-    receipt = _load_activation_receipt(root, head.activation_receipt_fingerprint)
+    receipt = _load_activation_receipt(root, head.activation_receipt_fingerprint, read_context=read_context)
     match = _ACTIVATION_PROJECTION_ID_RE.fullmatch(receipt.receipt_id)
     if match is None:
         raise ModelAuthorityError(
@@ -932,6 +957,7 @@ def _load_bound_read_projection(
         root,
         "read-projection-indexes",
         index_fingerprint,
+        read_context=read_context,
     )
     expected = {
         "system_id": head.system_id,
@@ -969,6 +995,8 @@ def _load_selected_read_shards(
     root: Path,
     projection: Mapping[str, Any],
     selected_model_ids: Iterable[str],
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Load exactly the requested shard objects; never discover neighbors."""
 
@@ -983,7 +1011,7 @@ def _load_selected_read_shards(
         if not isinstance(row, Mapping):
             raise ModelAuthorityError(f"selected model is not present in accepted read projection: {model_id}")
         fingerprint = str(row.get("shard_fingerprint", ""))
-        shard = _read_content_addressed_payload(root, "read-model-shards", fingerprint)
+        shard = _read_content_addressed_payload(root, "read-model-shards", fingerprint, read_context=read_context)
         shard_model = shard.get("model")
         if not isinstance(shard_model, Mapping):
             raise ModelAuthorityError(
@@ -1146,7 +1174,13 @@ def _selected_source_fingerprint(
         str(relative).replace("\\", "/").startswith("openspec/changes/")
         and str(relative).replace("\\", "/").endswith("/tasks.md")
     ):
-        return functional_source_fingerprint(root, relative)
+        canonical = _normalize_openspec_task_body(payload.decode("utf-8")).encode("utf-8")
+        return f"sha256:{hashlib.sha256(canonical).hexdigest()}"
+
+    if relative == ".flowguard/project.toml":
+        return canonical_fingerprint(_functional_project_manifest_payload(tomllib.loads(payload.decode("utf-8"))))
+    if relative == ".flowguard/models/regression-manifest.json":
+        return canonical_fingerprint(_functional_regression_manifest_payload(json.loads(payload.decode("utf-8"), object_pairs_hook=_reject_duplicate_json_keys)))
 
     canonical = payload
     if PurePosixPath(relative).suffix.casefold() in CANONICAL_TEXT_SUFFIXES:
@@ -1203,6 +1237,293 @@ def _selected_path_relative_to_root(root: Path, path: Path) -> str:
         ) from exc
 
 
+@dataclass
+class ReadAccounting:
+    """Actual byte reads for one invocation; cache hits never increment it."""
+
+    calls: list[tuple[str, str, int]] = field(default_factory=list)
+    existence_check_count: int = 0
+
+    def record(self, path: str, payload: bytes, phase: str) -> None:
+        if phase not in {"initial", "endguard", "legacy_unshared"}:
+            raise ValueError("unknown read accounting phase")
+        self.calls.append((path, phase, len(payload)))
+
+
+@dataclass
+class _SelectedReadContext:
+    """One invocation's physical bytes and independent identity projections."""
+
+    root: Path
+    accounting: ReadAccounting | None = None
+    authority_states: dict[tuple[str, str, bool, bool], CurrentModelAuthorityState] = field(default_factory=dict)
+    payloads: dict[str, bytes] = field(default_factory=dict)
+    functional: dict[str, str] = field(default_factory=dict)
+    raw: dict[str, str] = field(default_factory=dict)
+    read_counts: dict[str, int] = field(default_factory=dict)
+    shards: dict[str, Mapping[str, Any]] = field(default_factory=dict)
+    artifacts: dict[tuple[str, str], Mapping[str, Any]] = field(default_factory=dict)
+    parsed_payloads: dict[str, Any] = field(default_factory=dict)
+    typed_artifacts: dict[tuple[str, str], Any] = field(default_factory=dict)
+    objectives: dict[str, tuple[Any, ...]] = field(default_factory=dict)
+    intent_observations: dict[tuple[str, str], Any] = field(default_factory=dict)
+    declared_scopes: dict[str, tuple[Any, Any]] = field(default_factory=dict)
+    authenticated_scopes: dict[str, tuple[Any, Any]] = field(default_factory=dict)
+    missing_paths: set[str] = field(default_factory=set)
+    authority_section: Mapping[str, Any] | None = None
+
+    def bytes(self, relative: str) -> bytes:
+        normalized = _selected_normalize_path(relative, "selected_source.path")
+        if normalized != relative:
+            raise ModelAuthorityError("selected source path is not canonical")
+        return self.artifact_bytes(relative)
+
+    def artifact_bytes(self, relative: str) -> bytes:
+        path = PurePosixPath(relative)
+        if not relative or "\\" in relative or path.is_absolute() or PureWindowsPath(relative).drive or any(part in {".", ".."} for part in path.parts) or path.as_posix() != relative:
+            raise ModelAuthorityError("selected artifact path is not canonical repository-relative")
+        if relative not in self.payloads:
+            self.payloads[relative] = _selected_file_bytes(self.root, relative)
+            self.read_counts[relative] = 1
+            if self.accounting is not None:
+                self.accounting.record(relative, self.payloads[relative], "initial")
+        return self.payloads[relative]
+
+    def json_payload(self, relative: str):
+        from .functional_read import strict_json_bytes
+        raw = self.artifact_bytes(relative)
+        fingerprint = "sha256:" + hashlib.sha256(raw).hexdigest()
+        if fingerprint not in self.parsed_payloads:
+            self.parsed_payloads[fingerprint] = strict_json_bytes(raw)
+        return self.parsed_payloads[fingerprint]
+
+    def typed_artifact(self, category: str, fingerprint: str, parser):
+        key = (category, fingerprint)
+        if key not in self.typed_artifacts:
+            # Snapshot coverage_status is a derived wire field, independently
+            # checked by its original strict typed parser. It is not part of
+            # ModelSystemSnapshot.identity_payload or its canonical address.
+            payload = (_read_content_addressed_payload(self.root, category, fingerprint,
+                derived_fields=("fingerprint", "coverage_status"), read_context=self)
+                if category == "snapshots" else self.artifact(category, fingerprint))
+            parsed = parser(payload)
+            if category == "snapshots" and (not isinstance(parsed, ModelSystemSnapshot)
+                    or parsed.fingerprint != fingerprint):
+                raise ModelAuthorityError("typed snapshot does not match its content address")
+            self.typed_artifacts[key] = parsed
+        return self.typed_artifacts[key]
+
+    def functional_fingerprint(self, relative: str) -> str:
+        if relative not in self.functional:
+            self.functional[relative] = _selected_source_fingerprint(self.root, relative, self.bytes(relative))
+        return self.functional[relative]
+
+    def raw_fingerprint(self, relative: str, *, artifact: bool = False) -> str:
+        if relative not in self.raw:
+            self.raw[relative] = "sha256:" + hashlib.sha256(self.artifact_bytes(relative) if artifact else self.bytes(relative)).hexdigest()
+        return self.raw[relative]
+
+    def intent_observation(self, relative: str, authority_kind: str):
+        from .model_intent import _ArchitectureSourceObservation
+        key = (relative, authority_kind)
+        if key not in self.intent_observations:
+            self.intent_observations[key] = _ArchitectureSourceObservation.from_bytes(self.bytes(relative), authority_kind)
+        return self.intent_observations[key]
+
+    def artifact(self, category: str, fingerprint: str) -> Mapping[str, Any]:
+        key = (category, fingerprint)
+        if key not in self.artifacts:
+            self.artifacts[key] = _read_content_addressed_payload(self.root, category, fingerprint, read_context=self)
+        return self.artifacts[key]
+
+    def selected_shards(self, projection, model_ids):
+        missing = tuple(x for x in model_ids if x not in self.shards)
+        if missing:
+            for shard in _load_selected_read_shards(self.root, projection, missing, read_context=self):
+                self.shards[shard["logical_model_id"]] = shard
+        return tuple(self.shards[x] for x in model_ids)
+
+
+@dataclass(frozen=True)
+class SelectedReadObservation:
+    """Raw identities actually observed by one selected read invocation."""
+
+    root: Path
+    raw_fingerprints: tuple[tuple[str, str], ...]
+    missing_paths: tuple[str, ...]
+    authority_section: Mapping[str, Any]
+    claim_boundary: str = "single_invocation_as_of; no historical event detection"
+
+
+@dataclass(frozen=True)
+class SelectedReadEndGuard:
+    status: str
+    findings: tuple[Mapping[str, Any], ...] = ()
+    checked_paths: tuple[str, ...] = ()
+
+    @property
+    def ok(self) -> bool:
+        return self.status == "pass" and not self.findings
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"status": self.status, "findings": [dict(row) for row in self.findings],
+                "checked_paths": list(self.checked_paths), "producer_count": 0, "write_count": 0}
+
+
+def bind_selected_read_authority(context: _SelectedReadContext, *, head: ModelAuthorityHead, projection: Mapping[str, Any]) -> None:
+    """Bind a read to the actual model head and its immutable index before projection."""
+    if context.authority_section is not None:
+        raise ModelAuthorityError("selected read authority was already bound")
+    section = _section(context.artifact_bytes(".flowguard/project.toml").decode("utf-8"))
+    if _head_from_section(section).fingerprint != head.fingerprint:
+        raise ModelAuthorityError("selected_read_head_changed_before_projection")
+    fingerprint = projection["index_fingerprint"]
+    raw = context.artifact("read-projection-indexes", fingerprint)
+    if raw != projection["index"]:
+        raise ModelAuthorityError("selected_read_index_changed_before_projection")
+    context.authority_section = dict(section)
+
+
+def freeze_selected_read_observation(context: _SelectedReadContext) -> SelectedReadObservation:
+    """Freeze cached original raw bytes, never re-read or reserialize their identity."""
+    if context.authority_section is None:
+        raise ModelAuthorityError("selected read authority has not been bound")
+    return SelectedReadObservation(context.root,
+        tuple(sorted((path, "sha256:" + hashlib.sha256(payload).hexdigest())
+            for path, payload in context.payloads.items()
+            # Authority-only manifest reads consume the model section. An
+            # explicitly fingerprinted file remains a strict raw input.
+            if path != ".flowguard/project.toml" or path in context.raw or path in context.functional)),
+        tuple(sorted(context.missing_paths)), dict(context.authority_section))
+
+
+def verify_selected_read_observation(observation: SelectedReadObservation, *, accounting: ReadAccounting | None = None) -> SelectedReadEndGuard:
+    """Re-read the finite observation once; never use mtime or the Git index."""
+    if not isinstance(observation, SelectedReadObservation):
+        raise TypeError("selected read end guard requires its typed observation")
+    findings = []
+    ending_payloads = {}
+    for path, expected in observation.raw_fingerprints:
+        try:
+            payload = _selected_file_bytes(observation.root, path)
+            ending_payloads[path] = payload
+            if accounting is not None:
+                accounting.record(path, payload, "endguard")
+            actual = "sha256:" + hashlib.sha256(payload).hexdigest()
+            if actual != expected:
+                findings.append({"code": "selected_read_raw_input_drift", "path": path})
+        except (OSError, ValueError, ModelAuthorityError) as exc:
+            findings.append({"code": "selected_read_raw_input_unavailable", "path": path, "message": str(exc)})
+    for path in observation.missing_paths:
+        try:
+            if accounting is not None:
+                accounting.existence_check_count += 1
+            if not _selected_path_is_missing(observation.root, path):
+                findings.append({"code": "selected_read_observed_path_appeared", "path": path})
+        except (OSError, ValueError, ModelAuthorityError) as exc:
+            findings.append({"code": "selected_read_observed_path_unavailable", "path": path, "message": str(exc)})
+    try:
+        manifest_raw = ending_payloads.get(".flowguard/project.toml")
+        if manifest_raw is None:
+            manifest_raw = _selected_file_bytes(observation.root, ".flowguard/project.toml")
+            if accounting is not None:
+                accounting.record(".flowguard/project.toml", manifest_raw, "endguard")
+        section = _section(manifest_raw.decode("utf-8"))
+        if dict(section) != dict(observation.authority_section):
+            findings.append({"code": "selected_read_model_head_drift", "path": ".flowguard/project.toml"})
+    except (OSError, ValueError, ModelAuthorityError) as exc:
+        findings.append({"code": "selected_read_model_head_unavailable", "message": str(exc)})
+    paths = tuple(sorted({path for path, _ in observation.raw_fingerprints} | set(observation.missing_paths)))
+    return SelectedReadEndGuard("blocked" if findings else "pass", tuple(findings), paths)
+
+
+def _selected_path_is_missing(root: Path, relative: str, *, accounting: ReadAccounting | None = None) -> bool:
+    """Distinguish actual absence from unsafe or unreadable finite path components."""
+    if accounting is not None:
+        accounting.existence_check_count += 1
+    cursor = root
+    parts = PurePosixPath(relative).parts
+    for index, part in enumerate(parts):
+        cursor = cursor / part
+        if _selected_reparse_point(cursor):
+            raise ModelAuthorityError(f"selected path contains a symlink or reparse point: {relative}")
+        try:
+            info = cursor.lstat()
+        except FileNotFoundError:
+            return True
+        if index < len(parts) - 1 and not stat.S_ISDIR(info.st_mode):
+            raise ModelAuthorityError(f"selected path component is not a directory: {relative}")
+    return False
+
+
+def _observe_growth_paths(context: _SelectedReadContext, changed_paths: Iterable[str], *, declared_model_paths: Iterable[str] = ()) -> dict[str, Any]:
+    """Inspect only supplied paths against accepted inventory, never scan for additions."""
+    from .validation_ownership import filter_resolved_input_manifest
+    paths = tuple(sorted({_selected_normalize_path(path, "changed_paths") for path in changed_paths}))
+    if not paths:
+        return {"growth_gaps": (), "checked_observed_paths": (), "observation_fingerprint": "", "live_unregistered_file_detection": "NOT_OBSERVED"}
+    observations, gaps = [], []
+    for path in paths:
+        try:
+            payload = context.bytes(path)
+            observed = {"path": path, "state": "present", "raw_fingerprint": context.raw_fingerprint(path)}
+        except (ModelAuthorityError, OSError, ValueError) as exc:
+            try:
+                absent = _selected_path_is_missing(context.root, path, accounting=context.accounting)
+            except (ModelAuthorityError, OSError, ValueError):
+                absent = False
+            observed = {"path": path, "state": "missing" if absent else "unavailable", "raw_fingerprint": ""}
+            if absent:
+                context.missing_paths.add(path)
+            else:
+                observed["message"] = str(exc)
+        observations.append(observed)
+        known_scope = None
+        known_owner = ""
+        closed = False
+        for inventory, report in context.declared_scopes.values():
+            boundary = inventory.boundary
+            patterns = tuple(pattern for group in boundary.pattern_groups().values() for pattern in group)
+            excluded = filter_resolved_input_manifest(({"path": path, "sha256": "observed"},), tuple(row.pattern for row in boundary.exclusions))
+            member = filter_resolved_input_manifest(({"path": path, "sha256": "observed"},), patterns)
+            disposition = next((row for row in inventory.file_dispositions if row.path == path), None)
+            if not (member or excluded or disposition):
+                continue
+            known_scope = inventory
+            surfaces = {row.surface_id for row in inventory.surfaces
+                        if row.path == path and row.surface_id in inventory.required_surface_ids}
+            owners = {row.implementation_owner_id for row in report.bindings if row.implementation_surface_id in surfaces}
+            if len(owners) == 1:
+                known_owner = next(iter(owners))
+            if inventory.fingerprint not in context.authenticated_scopes:
+                continue
+            if excluded and observed["state"] == "present":
+                closed = True
+                break
+            if disposition is not None and disposition.disposition == "model_implementation" and observed["state"] == "present":
+                bound_surfaces = {row.implementation_surface_id for row in report.bindings
+                                  if row.implementation_surface_id in surfaces}
+                if surfaces and surfaces <= bound_surfaces and context.functional_fingerprint(path) == disposition.content_fingerprint:
+                    closed = True
+                    break
+        # Native model/runner declarations remain their own bounded authority;
+        # arbitrary production input paths do not establish implementation binding.
+        if path in set(declared_model_paths) and observed["state"] == "present":
+            closed = True
+        if not closed:
+            boundary_id = known_scope.boundary.boundary_id if known_scope else ""
+            gaps.append({"gap_id": "model_growth_unbound:" + path, "path": path,
+                "affected_boundary_id": boundary_id,
+                "required_input_refs": (["boundary:" + boundary_id, "current_inventory", "current_implementation_binding"] if boundary_id else ["boundary_admission_required:" + path]),
+                "next_owner_id": known_owner or ("model:implementation_blueprint" if boundary_id else ""),
+                "next_action": "refresh_declared_inventory_and_binding" if boundary_id else "boundary_admission_required:" + path,
+                "observed_state": observed["state"]})
+    fingerprint = canonical_fingerprint({"source": "task_changed_paths", "observations": observations})
+    for gap in gaps:
+        gap["observation_fingerprint"] = fingerprint
+    return {"growth_gaps": tuple(gaps), "checked_observed_paths": paths, "observation_fingerprint": fingerprint, "live_unregistered_file_detection": "FINITE_OBSERVATION"}
+
+
 def _selected_source_status(
     *,
     root: Path,
@@ -1211,6 +1532,7 @@ def _selected_source_status(
     stale_details: list[dict[str, Any]],
     read_cache: dict[str, str],
     read_counts: dict[str, int],
+    read_context: _SelectedReadContext | None = None,
 ) -> None:
     """Read selected source paths exactly once and record stale obligations."""
 
@@ -1227,10 +1549,14 @@ def _selected_source_status(
             if normalized in read_cache:
                 actual = read_cache[normalized]
             else:
-                payload = _selected_file_bytes(root, normalized)
-                actual = _selected_source_fingerprint(root, normalized, payload)
+                if read_context is not None:
+                    actual = read_context.functional_fingerprint(normalized)
+                else:
+                    payload = _selected_file_bytes(root, normalized)
+                    actual = _selected_source_fingerprint(root, normalized, payload)
                 read_cache[normalized] = actual
-                read_counts[normalized] = read_counts.get(normalized, 0) + 1
+                if read_context is None:
+                    read_counts[normalized] = read_counts.get(normalized, 0) + 1
         except (ModelAuthorityError, OSError, ValueError) as exc:
             code = "selected_source_unavailable"
             detail = {
@@ -1264,6 +1590,7 @@ def read_selected_model_closure(
     head: ModelAuthorityHead | None = None,
     snapshot: ModelSystemSnapshot | None = None,
     authority_state: CurrentModelAuthorityState | None = None,
+    read_context: _SelectedReadContext | None = None,
 ) -> SelectedModelClosureRead:
     """Read one exact model/input/runner/intent/contract closure.
 
@@ -1279,8 +1606,11 @@ def read_selected_model_closure(
     findings: list[dict[str, Any]] = []
     stale_details: list[dict[str, Any]] = []
     stale_obligations: list[str] = []
-    read_cache: dict[str, str] = {}
-    read_counts: dict[str, int] = {}
+    context = read_context or _SelectedReadContext(root_path)
+    if context.root != root_path:
+        raise ModelAuthorityError("selected read context belongs to another root")
+    read_cache = context.functional
+    read_counts = context.read_counts
     state = authority_state
     loaded_head = head
     loaded_snapshot = snapshot
@@ -1302,7 +1632,7 @@ def read_selected_model_closure(
                 "selected closure requires both head and snapshot or neither"
             )
         if loaded_head is None and loaded_snapshot is None:
-            loaded_head, loaded_snapshot = load_observed_model_system(root_path)
+            loaded_head, loaded_snapshot = load_observed_model_system(root_path, read_context=context)
         # Real v5 authority receives the same integrity/ancestry validation as
         # a normal reader, but deliberately keeps current source revalidation
         # disabled.  The selected source reader below revalidates only the
@@ -1316,6 +1646,7 @@ def read_selected_model_closure(
                 head=loaded_head,
                 snapshot=loaded_snapshot,
                 reverify_current_sources=False,
+                read_context=context,
             )
         if loaded_snapshot is None:
             raise ModelAuthorityError("observed model snapshot is unavailable")
@@ -1468,6 +1799,37 @@ def read_selected_model_closure(
             selected_fingerprints.add(target_fp)
         if target_fp in initial_model_fingerprints:
             selected_fingerprints.add(source_fp)
+
+    view = getattr(getattr(state, "accepted_revision", None), "current_effective_intent_view", None)
+    if view is not None:
+        from .model_intent import bind_architecture_objective_source
+        identities = {row.contribution_id: row for row in view.verified_source_identities}
+        processed = set()
+        while True:
+            selected_ids = {row.logical_model_id for row in instances if row.fingerprint in selected_fingerprints}
+            pending = [row for row in view.active_contributions if row.contribution_id not in processed and row.logical_model_id.removeprefix("model:") in selected_ids]
+            if not pending:
+                break
+            for contribution in pending:
+                processed.add(contribution.contribution_id)
+                identity = identities.get(contribution.contribution_id)
+                try:
+                    if identity is None:
+                        raise ModelAuthorityError("objective source identity missing")
+                    path = identity.resolved_project_ref or identity.source_ref
+                    if contribution.contribution_id not in context.objectives:
+                        context.objectives[contribution.contribution_id] = bind_architecture_objective_source(contribution, identity, effective_intent_view_fingerprint=view.fingerprint, source_bytes=context.bytes(path), source_observation=context.intent_observation(path, identity.authority_kind))
+                    for bound in context.objectives[contribution.contribution_id]:
+                        if not bound.objective.required:
+                            continue
+                        for model in bound.objective.model_ids:
+                            matches = [row for row in instances if row.logical_model_id == model.removeprefix("model:")]
+                            if len(matches) != 1:
+                                raise ModelAuthorityError("required architecture objective scope unknown: " + model)
+                            selected_fingerprints.add(matches[0].fingerprint)
+                except (ModelAuthorityError, ValueError, OSError) as exc:
+                    if any(value.startswith("objective:") for value in contribution.target_invariant_ids):
+                        findings.append({"code": "architecture_objective_source_invalid", "message": str(exc), "severity": "blocked"})
 
     if not selected_fingerprints and inventory_scope == "selected_owner_closure":
         findings.append(
@@ -1645,7 +2007,7 @@ def read_selected_model_closure(
                 endpoint_fingerprint,
             )
             relative = _selected_path_relative_to_root(
-                root_path, _windows_io_path(contract_path)
+                root_path, contract_path
             )
             selected_contract_paths.append(relative)
             selected_contract_refs.append(
@@ -1660,8 +2022,7 @@ def read_selected_model_closure(
                 getattr(accepted_contract, "fingerprint", "")
             ) == endpoint_fingerprint:
                 continue
-            payload = _selected_file_bytes(root_path, relative)
-            read_counts[relative] = read_counts.get(relative, 0) + 1
+            payload = context.bytes(relative)
             if _selected_artifact_fingerprint(
                 payload,
                 category=MODEL_BOUNDARY_CONTRACT_ARTIFACT_CATEGORY,
@@ -1686,7 +2047,32 @@ def read_selected_model_closure(
         stale_details=stale_details,
         read_cache=read_cache,
         read_counts=read_counts,
+        read_context=context,
     )
+
+    if normalized_changed and state is not None and getattr(state, "accepted_revision", None) is not None:
+        revision = state.accepted_revision
+        subjects = {row.fingerprint: row for row in revision.path_quality_subjects if row.model_id in selected_model_ids_value}
+        for result in revision.path_quality_results:
+            subject = subjects.get(result.subject_fingerprint)
+            if subject is None or subject.currentness_id != snapshot_fingerprint or not result.current:
+                continue
+            try:
+                from .model_path_quality import PathQualityArchitectureDetail
+                detail = PathQualityArchitectureDetail.from_dict(context.artifact("path-quality-details", result.detail_evidence_fingerprint))
+                if detail.binding_errors(subject, result):
+                    continue
+                architecture = detail.body.get("model_facts", {}).get("architecture", {})
+                evidence = architecture.get("scope_evidence")
+                if evidence:
+                    _authenticate_architecture_scope_evidence(context, evidence=evidence,
+                        scope=architecture.get("scope_coverage", {}), subject=subject,
+                        revision_payload=revision.to_dict(), head=loaded_head, subject_revision=subject_revision)
+            except (ModelAuthorityError, OSError, ValueError):
+                # A stale or unauthenticated old boundary can identify the next
+                # owner, but it cannot close growth or authorize exclusions.
+                pass
+    growth = _observe_growth_paths(context, normalized_changed, declared_model_paths=(*selected_model_paths, *selected_runner_paths))
 
     # The saved map is still useful even when one selected source is stale.
     # Keep currentness as a separate claim and make execution explicit rather
@@ -1737,6 +2123,7 @@ def read_selected_model_closure(
         findings=tuple(findings),
         read_paths=tuple(sorted(set(read_cache) | set(read_counts))),
         read_counts=tuple(sorted(read_counts.items())),
+        **growth,
         producer_count=0,
         write_count=0,
     )
@@ -1748,6 +2135,8 @@ def read_selected_model_projection(
     head: ModelAuthorityHead,
     projection: Mapping[str, Any],
     selected_model_ids: Iterable[str],
+    changed_paths: Iterable[str] = (),
+    read_context: _SelectedReadContext | None = None,
 ) -> SelectedModelClosureRead:
     """Read selected models from the bound projection without ancestry loads.
 
@@ -1761,11 +2150,14 @@ def read_selected_model_projection(
     findings: list[dict[str, Any]] = []
     stale_details: list[dict[str, Any]] = []
     stale_obligations: list[str] = []
-    read_cache: dict[str, str] = {}
-    read_counts: dict[str, int] = {}
+    read_context = read_context or _SelectedReadContext(root_path)
+    if read_context.root != root_path:
+        raise ModelAuthorityError("selected read context belongs to another root")
+    read_cache = read_context.functional
+    read_counts = read_context.read_counts
     requested = tuple(str(item).strip() for item in selected_model_ids)
     try:
-        shards = _load_selected_read_shards(root_path, projection, requested)
+        shards = read_context.selected_shards(projection, requested)
     except (ModelAuthorityError, OSError, ValueError) as exc:
         return SelectedModelClosureRead(
             authority_integrity=MODEL_AUTHORITY_STATUS_BLOCKED,
@@ -1884,6 +2276,7 @@ def read_selected_model_projection(
         stale_details=stale_details,
         read_cache=read_cache,
         read_counts=read_counts,
+        read_context=read_context,
     )
     if stale_details:
         selected_currentness = SELECTED_SOURCE_STALE
@@ -1910,6 +2303,11 @@ def read_selected_model_projection(
         "accepted_revision_set_fingerprint": str(index.get("revision_set_fingerprint", "")),
         "read_projection_index_fingerprint": str(projection.get("index_fingerprint", "")),
     }
+    try:
+        architecture = derive_architecture_read_projection(root_path, head=head, projection=projection, selected_model_ids=requested, read_context=read_context).to_dict()
+    except (ModelAuthorityError, ValueError, OSError) as exc:
+        architecture = ArchitectureReadProjection(head.fingerprint, head.accepted_revision_set_fingerprint, head.snapshot_fingerprint, projection["index_fingerprint"], tuple(requested), (), "", (), (), (), ("architecture_detail_identity_mismatch",), (), "not_proven").to_dict()
+    growth = _observe_growth_paths(read_context, changed_paths, declared_model_paths=(*selected_model_paths, *selected_runner_paths))
     return SelectedModelClosureRead(
         authority_integrity=(
             MODEL_AUTHORITY_STATUS_BLOCKED if any(
@@ -1938,6 +2336,8 @@ def read_selected_model_projection(
         findings=tuple(findings),
         read_paths=tuple(sorted(set(read_cache) | set(read_counts))),
         read_counts=tuple(sorted(read_counts.items())),
+        architecture=architecture,
+        **growth,
         producer_count=0,
         write_count=0,
     )
@@ -1954,10 +2354,13 @@ def _payload_without_fingerprint(
 def _load_snapshot_by_fingerprint(
     root: Path,
     fingerprint: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelSystemSnapshot:
     path = _artifact_path(root, "snapshots", fingerprint)
     try:
-        snapshot = load_model_system_snapshot(_windows_io_path(path))
+        snapshot = (read_context.typed_artifact("snapshots", fingerprint, ModelSystemSnapshot.from_dict)
+                    if read_context is not None else load_model_system_snapshot(_windows_io_path(path)))
     except (OSError, ModelAuthorityError, ValueError) as exc:
         raise ModelAuthorityError(
             f"authority ancestry snapshot is invalid: {exc}"
@@ -1974,6 +2377,8 @@ def _load_accepted_boundary_contract(
     root: Path,
     snapshot: ModelSystemSnapshot,
     accepted_revision_fingerprint: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> AcceptedBoundaryContract | None:
     """Resolve the A05 denominator from the current snapshot only.
 
@@ -2005,7 +2410,8 @@ def _load_accepted_boundary_contract(
         ref.fingerprint,
     )
     try:
-        contract = load_accepted_boundary_contract(_windows_io_path(path))
+        contract = (AcceptedBoundaryContract.from_dict(read_context.artifact(MODEL_BOUNDARY_CONTRACT_ARTIFACT_CATEGORY, ref.fingerprint))
+                    if read_context is not None else load_accepted_boundary_contract(_windows_io_path(path)))
     except (OSError, ModelAuthorityError, ValueError) as exc:
         raise ModelAuthorityError(
             f"current boundary contract is invalid: {exc}"
@@ -2062,11 +2468,14 @@ def _load_accepted_boundary_contract(
 def _load_activation_receipt(
     root: Path,
     fingerprint: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelActivationReceipt:
     payload = _read_content_addressed_payload(
         root,
         "activations",
         fingerprint,
+        read_context=read_context,
     )
     try:
         receipt = ModelActivationReceipt.from_dict(
@@ -2086,11 +2495,14 @@ def _load_activation_receipt(
 def _load_rollback_contract(
     root: Path,
     fingerprint: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelRollbackContract:
     payload = _read_content_addressed_payload(
         root,
         "rollback-contracts",
         fingerprint,
+        read_context=read_context,
     )
     try:
         contract = ModelRollbackContract.from_dict(
@@ -2110,11 +2522,14 @@ def _load_rollback_contract(
 def _load_rollback_receipt(
     root: Path,
     fingerprint: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelRollbackReceipt:
     payload = _read_content_addressed_payload(
         root,
         "rollbacks",
         fingerprint,
+        read_context=read_context,
     )
     try:
         receipt = ModelRollbackReceipt.from_dict(
@@ -2135,6 +2550,7 @@ def _bootstrap_head_from_path(
     path: Path,
     *,
     expected_system_id: str,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelAuthorityHead:
     fingerprint = f"sha256:{path.stem}"
     payload = _read_content_addressed_payload(
@@ -2147,6 +2563,7 @@ def _bootstrap_head_from_path(
         path.parents[4],
         "bootstraps",
         fingerprint,
+        read_context=read_context,
     )
     required = {
         "schema",
@@ -2186,6 +2603,7 @@ def _candidate_heads_for_generation(
     *,
     system_id: str,
     generation: int,
+    read_context: _SelectedReadContext | None = None,
 ) -> tuple[ModelAuthorityHead, ...]:
     mesh_root = root / ".flowguard" / "models" / "authority"
     activation_dir = mesh_root / "activations"
@@ -2199,26 +2617,41 @@ def _candidate_heads_for_generation(
             for path in activation_dir.glob("*.json")
         )
     )
-    candidates = [
-        candidate
-        for candidate in _indexed_activation_heads(
-            str(root),
-            system_id,
-            activation_files,
-        )
-        if candidate.generation == generation
-    ]
+    if read_context is not None:
+        candidates = []
+        for name, _size, _mtime in activation_files:
+            try:
+                receipt = _load_activation_receipt(root, "sha256:" + Path(name).stem, read_context=read_context)
+                if receipt.system_id == system_id and receipt.next_generation == generation:
+                    candidates.append(ModelAuthorityHead(system_id=receipt.system_id, snapshot_fingerprint=receipt.candidate_snapshot_fingerprint,
+                        subject_revision=receipt.subject_revision, generation=receipt.next_generation,
+                        accepted_revision_set_fingerprint=receipt.revision_set_fingerprint, previous_snapshot_fingerprint=receipt.previous_snapshot_fingerprint,
+                        activation_receipt_fingerprint=receipt.fingerprint))
+            except ModelAuthorityError:
+                continue
+    else:
+            candidates = [
+            candidate
+            for candidate in _indexed_activation_heads(
+                str(root),
+                system_id,
+                activation_files,
+            )
+            if candidate.generation == generation
+        ]
     for path in (mesh_root / "rollbacks").glob("*.json"):
         fingerprint = f"sha256:{path.stem}"
         try:
-            receipt = _load_rollback_receipt(root, fingerprint)
+            receipt = _load_rollback_receipt(root, fingerprint, read_context=read_context)
             contract = _load_rollback_contract(
                 root,
                 receipt.contract_fingerprint,
+                read_context=read_context,
             )
             snapshot = _load_snapshot_by_fingerprint(
                 root,
                 contract.to_snapshot_fingerprint,
+                read_context=read_context,
             )
             if snapshot.system_id != system_id:
                 continue
@@ -2298,6 +2731,7 @@ def _find_exact_predecessor_head(
     system_id: str,
     generation: int,
     expected_fingerprint: str,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelAuthorityHead:
     if generation < 1:
         raise ModelAuthorityError(
@@ -2312,6 +2746,7 @@ def _find_exact_predecessor_head(
                 candidate = _bootstrap_head_from_path(
                     path,
                     expected_system_id=system_id,
+                    read_context=read_context,
                 )
             except ModelAuthorityError:
                 continue
@@ -2324,6 +2759,7 @@ def _find_exact_predecessor_head(
                 root,
                 system_id=system_id,
                 generation=generation,
+                read_context=read_context,
             )
             if candidate.fingerprint == expected_fingerprint
         ]
@@ -2339,6 +2775,8 @@ def _load_accepted_revision_set(
     root: Path,
     head: ModelAuthorityHead,
     snapshot: ModelSystemSnapshot,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> ModelRevisionSet | None:
     """Load the exact accepted revision behind a non-bootstrap authority head.
 
@@ -2362,13 +2800,16 @@ def _load_accepted_revision_set(
         / f"{digest}.json"
     )
     try:
-        payload = json.loads(
-            path.read_text(encoding="utf-8"),
-            object_pairs_hook=_reject_duplicate_json_keys,
-            parse_constant=lambda value: (_ for _ in ()).throw(
-                ModelAuthorityError(f"non-finite JSON number: {value}")
-            ),
-        )
+        if read_context is not None:
+            payload = read_context.json_payload(path.relative_to(root).as_posix())
+        else:
+            payload = json.loads(
+                path.read_text(encoding="utf-8"),
+                object_pairs_hook=_reject_duplicate_json_keys,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ModelAuthorityError(f"non-finite JSON number: {value}")
+                ),
+            )
         revision_set = ModelRevisionSet.from_dict(payload)
     except (OSError, json.JSONDecodeError, ModelAuthorityError, ValueError) as exc:
         raise ModelAuthorityError(
@@ -2397,6 +2838,8 @@ def _load_accepted_revision_set(
 def _accepted_revision_schema(
     root: Path,
     head: ModelAuthorityHead,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> str:
     """Return only the declared schema for audit observability.
 
@@ -2416,13 +2859,16 @@ def _accepted_revision_schema(
         / f"{digest}.json"
     )
     try:
-        payload = json.loads(
-            path.read_text(encoding="utf-8"),
-            object_pairs_hook=_reject_duplicate_json_keys,
-            parse_constant=lambda value: (_ for _ in ()).throw(
-                ModelAuthorityError(f"non-finite JSON number: {value}")
-            ),
-        )
+        if read_context is not None:
+            payload = read_context.json_payload(path.relative_to(root).as_posix())
+        else:
+            payload = json.loads(
+                path.read_text(encoding="utf-8"),
+                object_pairs_hook=_reject_duplicate_json_keys,
+                parse_constant=lambda value: (_ for _ in ()).throw(
+                    ModelAuthorityError(f"non-finite JSON number: {value}")
+                ),
+            )
     except (OSError, json.JSONDecodeError, ModelAuthorityError):
         return ""
     if not isinstance(payload, Mapping):
@@ -2435,11 +2881,14 @@ def _validate_current_typed_transition(
     head: ModelAuthorityHead,
     snapshot: ModelSystemSnapshot,
     revision_set: ModelRevisionSet,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> CurrentModelAuthorityState:
     accepted_boundary_contract = _load_accepted_boundary_contract(
         root,
         snapshot,
         revision_set.fingerprint,
+        read_context=read_context,
     )
     fingerprint = head.activation_receipt_fingerprint
     activation_path = _artifact_path(root, "activations", fingerprint)
@@ -2458,16 +2907,18 @@ def _validate_current_typed_transition(
         )
 
     if present[0] == "activation":
-        receipt = _load_activation_receipt(root, fingerprint)
+        receipt = _load_activation_receipt(root, fingerprint, read_context=read_context)
         predecessor = _find_exact_predecessor_head(
             root,
             system_id=head.system_id,
             generation=head.generation - 1,
             expected_fingerprint=receipt.expected_head_fingerprint,
+            read_context=read_context,
         )
         base_snapshot = _load_snapshot_by_fingerprint(
             root,
             receipt.previous_snapshot_fingerprint,
+            read_context=read_context,
         )
         _validate_revision_intent_activation(
             root,
@@ -2476,6 +2927,7 @@ def _validate_current_typed_transition(
             snapshot,
             revision_set,
             reverify_sources=False,
+            read_context=read_context,
         )
         expected_head, expected_receipt = validate_activation_plan(
             predecessor,
@@ -2489,7 +2941,7 @@ def _validate_current_typed_transition(
             raise ModelAuthorityError(
                 "current activation receipt does not produce the exact authority head"
             )
-        projection = _load_bound_read_projection(root, head)
+        projection = _load_bound_read_projection(root, head, read_context=read_context)
         transition_evidence = projection["index"].get("transition_evidence")
         if transition_evidence is not None:
             if not isinstance(transition_evidence, Mapping) or set(transition_evidence) != {
@@ -2511,10 +2963,10 @@ def _validate_current_typed_transition(
                 transition_evidence["rollback_contract_fingerprint"]
             )
             rollback_receipt = _load_rollback_receipt(
-                root, rollback_receipt_fingerprint
+                root, rollback_receipt_fingerprint, read_context=read_context
             )
             rollback_contract = _load_rollback_contract(
-                root, rollback_contract_fingerprint
+                root, rollback_contract_fingerprint, read_context=read_context
             )
             if (
                 rollback_receipt.contract_fingerprint
@@ -2532,7 +2984,7 @@ def _validate_current_typed_transition(
                     "current rollback contract predecessor does not match activation"
                 )
             rollback_base_snapshot = _load_snapshot_by_fingerprint(
-                root, rollback_contract.from_snapshot_fingerprint
+                root, rollback_contract.from_snapshot_fingerprint, read_context=read_context
             )
             _validate_revision_intent_activation(
                 root,
@@ -2541,6 +2993,7 @@ def _validate_current_typed_transition(
                 snapshot,
                 revision_set,
                 reverify_sources=False,
+            read_context=read_context,
             )
             expected_rollback = validate_operational_rollback(
                 predecessor,
@@ -2596,6 +3049,7 @@ def load_current_model_authority_state(
     snapshot: ModelSystemSnapshot | None = None,
     allow_legacy_bootstrap_source: bool = False,
     reverify_current_sources: bool = False,
+    read_context: _SelectedReadContext | None = None,
 ) -> CurrentModelAuthorityState:
     """Resolve one authority head through its exact immutable producer.
 
@@ -2610,13 +3064,25 @@ def load_current_model_authority_state(
         raise ModelAuthorityError(
             "current authority loading requires both head and snapshot or neither"
         )
+    if read_context is not None and read_context.root != root_path:
+        raise ModelAuthorityError("current authority context belongs to another root")
+    observed_head, observed_snapshot = load_observed_model_system(root_path, read_context=read_context)
     if head is None or snapshot is None:
-        head, snapshot = load_observed_model_system(root_path)
+        head, snapshot = observed_head, observed_snapshot
+    elif head != observed_head or snapshot != observed_snapshot:
+        raise ModelAuthorityError("supplied authority pair differs from current observed authority")
+    if read_context is not None and read_context.authority_section is not None:
+        if _head_from_section(read_context.authority_section) != head:
+            raise ModelAuthorityError("current authority differs from bound selected read")
+        _load_bound_read_projection(root_path, head, read_context=read_context)
+    key = (head.fingerprint, snapshot.fingerprint, allow_legacy_bootstrap_source, reverify_current_sources)
+    if read_context is not None and key in read_context.authority_states:
+        return read_context.authority_states[key]
     _assert_snapshot_current_paths(snapshot)
 
-    schema = _accepted_revision_schema(root_path, head)
+    schema = _accepted_revision_schema(root_path, head, read_context=read_context)
     if head.generation == 1 or schema == LEGACY_CURRENT_REVISION_SCHEMA:
-        _bootstrap_source_audit(root_path, head, snapshot)
+        _bootstrap_source_audit(root_path, head, snapshot, read_context=read_context)
         if not allow_legacy_bootstrap_source:
             raise ModelAuthorityError(
                 "current authority requires explicit intent bootstrap migration"
@@ -2632,6 +3098,7 @@ def load_current_model_authority_state(
         root_path,
         head,
         snapshot,
+        read_context=read_context,
     )
     if revision_set is None:
         raise ModelAuthorityError(
@@ -2645,6 +3112,7 @@ def load_current_model_authority_state(
             verified_sources = verify_model_intent_sources(
                 root_path,
                 revision_set.current_effective_intent_view.active_contributions,
+                read_context=read_context,
             )
         except ModelAuthorityError as exc:
             raise CurrentIntentSourceAuthorityError(
@@ -2664,12 +3132,16 @@ def load_current_model_authority_state(
         head,
         snapshot,
         revision_set,
+        read_context=read_context,
     )
-    return replace(
+    state = replace(
         state,
         verified_source_identities=verified_sources,
         current_sources_reverified=reverify_current_sources,
     )
+    if read_context is not None:
+        read_context.authority_states[key] = state
+    return state
 
 
 def load_current_accepted_revision_set(
@@ -2695,23 +3167,32 @@ def load_current_accepted_revision_set(
 
 def load_observed_model_system(
     root: str | Path,
+    *, read_context: _SelectedReadContext | None = None,
 ) -> tuple[ModelAuthorityHead, ModelSystemSnapshot]:
     root_path = Path(root).resolve()
-    text = read_manifest_text(root_path / ".flowguard" / "project.toml")
-    return _load_observed_from_manifest_text(root_path, text)
+    if read_context is not None and read_context.root != root_path:
+        raise ModelAuthorityError("observed authority context belongs to another root")
+    text = (read_context.artifact_bytes(".flowguard/project.toml").decode("utf-8") if read_context is not None
+            else read_manifest_text(root_path / ".flowguard" / "project.toml"))
+    return _load_observed_from_manifest_text(root_path, text, read_context=read_context)
 
 
-def load_observed_model_head(root: str | Path) -> ModelAuthorityHead:
+def load_observed_model_head(root: str | Path, *, read_context: _SelectedReadContext | None = None) -> ModelAuthorityHead:
     """Read only the current manifest head for the bounded public reader."""
 
     root_path = Path(root).resolve()
-    text = read_manifest_text(root_path / ".flowguard" / "project.toml")
+    if read_context is not None and read_context.root != root_path:
+        raise ModelAuthorityError("observed head context belongs to another root")
+    text = (read_context.artifact_bytes(".flowguard/project.toml").decode("utf-8") if read_context is not None
+            else read_manifest_text(root_path / ".flowguard" / "project.toml"))
     return _head_from_section(_section(text))
 
 
 def _load_observed_from_manifest_text(
     root_path: Path,
     text: str,
+    *,
+    read_context: _SelectedReadContext | None = None,
 ) -> tuple[ModelAuthorityHead, ModelSystemSnapshot]:
     section = _section(text)
     # Reject a direct staging/workspace pointer before any snapshot or head
@@ -2732,7 +3213,8 @@ def _load_observed_from_manifest_text(
     path = (root_path / relative).resolve()
     if root_path not in path.parents:
         raise ModelAuthorityError("observed snapshot escapes project root")
-    snapshot = load_model_system_snapshot(path)
+    snapshot = (read_context.typed_artifact("snapshots", head.snapshot_fingerprint, ModelSystemSnapshot.from_dict)
+                if read_context is not None else load_model_system_snapshot(path))
     if snapshot.fingerprint != head.snapshot_fingerprint:
         raise ModelAuthorityError("observed snapshot fingerprint mismatch")
     if snapshot.system_id != head.system_id:
@@ -3477,15 +3959,19 @@ def _collect_rebuild_reachable_artifacts(
     by a revision and a transition receipt, and the chain must be walked until
     the real generation-one bootstrap is reached.
 
-    The traversal reuses the normal current-authority loader for each exact
-    head, so it does not infer ancestry from filenames or copy unrelated mesh
-    objects.  Rollback transitions retain their contract and receipt as well.
+    The root pair must be the actual current authority. Each predecessor is
+    then validated through its exact immutable revision and typed transition;
+    historical pairs cannot be passed off as the current project pointer.
+    Rollback transitions retain their contract and receipt as well.
     """
 
     reachable: set[tuple[str, str]] = set()
     seen_heads: set[str] = set()
     current_head = head
     current_snapshot = snapshot
+    root_state = load_current_model_authority_state(
+        staging_root, head=head, snapshot=snapshot,
+    )
     while True:
         if current_head.fingerprint in seen_heads:
             raise ModelAuthorityError(
@@ -3557,11 +4043,25 @@ def _collect_rebuild_reachable_artifacts(
                 f"generation {current_head.generation}"
             )
 
-        state = load_current_model_authority_state(
-            staging_root,
-            head=current_head,
-            snapshot=current_snapshot,
-        )
+        if current_head == head:
+            state = root_state
+        else:
+            # This pair came only from the already authenticated transition's
+            # exact predecessor. Validate its original producer directly;
+            # the public current loader must continue to reject older pairs.
+            _assert_snapshot_current_paths(current_snapshot)
+            revision_set = _load_accepted_revision_set(
+                staging_root, current_head, current_snapshot,
+            )
+            if revision_set is None:
+                raise ModelAuthorityError("staging predecessor has no accepted revision")
+            state = _validate_current_typed_transition(
+                staging_root, current_head, current_snapshot, revision_set,
+            )
+        if state.accepted_revision is not None:
+            for result in state.accepted_revision.path_quality_results:
+                if result.detail_evidence_fingerprint:
+                    reachable.add(("path-quality-details", result.detail_evidence_fingerprint))
         if state.accepted_boundary_contract is not None:
             reachable.add(
                 (
@@ -3761,6 +4261,7 @@ def _validate_revision_intent_activation(
     *,
     reverify_sources: bool = True,
     current_state: CurrentModelAuthorityState | None = None,
+    read_context: _SelectedReadContext | None = None,
 ) -> None:
     """Require an exact reproducible intent lineage before pointer movement."""
 
@@ -3842,6 +4343,7 @@ def _validate_revision_intent_activation(
             rationale=receipt.rationale,
             legacy_entry_dispositions=receipt.legacy_entry_dispositions,
             claim_boundary=receipt.claim_boundary,
+            read_context=read_context,
         )
         if rebuilt_receipt != receipt:
             raise ModelAuthorityError(
@@ -3851,6 +4353,7 @@ def _validate_revision_intent_activation(
             verify_model_intent_sources(
                 root,
                 effective_view.active_contributions,
+                read_context=read_context,
             )
             if reverify_sources
             else effective_view.verified_source_identities
@@ -3876,6 +4379,7 @@ def _validate_revision_intent_activation(
             root,
             current_head,
             base_snapshot,
+            read_context=read_context,
         )
     )
     if current_revision is None:
@@ -3911,9 +4415,39 @@ def activate_model_revision_set(
     root: str | Path,
     candidate_snapshot: ModelSystemSnapshot,
     revision_set: ModelRevisionSet,
+    *,
+    path_quality_details: Iterable[Any] = (),
 ) -> tuple[ModelAuthorityHead, ModelActivationReceipt]:
     """Persist immutable records and update the sole pointer last under one lock."""
 
+    from .model_path_quality import PathQualityArchitectureDetail
+    details = tuple(x if isinstance(x, PathQualityArchitectureDetail) else PathQualityArchitectureDetail.from_dict(x) for x in path_quality_details)
+    details_by_fp = {x.fingerprint: x for x in details}
+    if len(details_by_fp) != len(details):
+        raise ModelAuthorityError("duplicate path-quality architecture detail")
+    subjects = {x.fingerprint: x for x in revision_set.path_quality_subjects}
+    results = {x.detail_evidence_fingerprint: x for x in revision_set.path_quality_results}
+    if set(details_by_fp) - set(results):
+        raise ModelAuthorityError("foreign path-quality architecture detail")
+    for fp, detail in details_by_fp.items():
+        result = results[fp]
+        subject = subjects.get(result.subject_fingerprint)
+        if subject is None or detail.binding_errors(subject, result):
+            raise ModelAuthorityError("architecture_detail_identity_mismatch")
+        if subject.intent_fingerprint != revision_set.current_effective_intent_view.fingerprint:
+            raise ModelAuthorityError("effective_intent_identity_mismatch")
+    missing_details = set(results) - set(details_by_fp)
+    for missing_fp in missing_details:
+        try:
+            persisted = PathQualityArchitectureDetail.from_dict(_read_content_addressed_payload(Path(root).resolve(), "path-quality-details", missing_fp))
+        except (ModelAuthorityError, OSError, ValueError) as exc:
+            raise ModelAuthorityError("architecture_detail_missing") from exc
+        result = results[missing_fp]
+        subject = subjects.get(result.subject_fingerprint)
+        if subject is None or persisted.binding_errors(subject, result):
+            raise ModelAuthorityError("architecture_detail_identity_mismatch")
+        if subject.intent_fingerprint != revision_set.current_effective_intent_view.fingerprint:
+            raise ModelAuthorityError("effective_intent_identity_mismatch")
     root_path = Path(root).resolve()
     manifest_path = root_path / ".flowguard" / "project.toml"
     with project_manifest_lock(manifest_path):
@@ -3981,6 +4515,8 @@ def activate_model_revision_set(
             live_candidate_snapshot=live_candidate,
             receipt_id=generated_receipt_id,
         )
+        for detail in details:
+            _write_immutable_json(root_path, "path-quality-details", detail.fingerprint, detail.to_dict())
         write_content_addressed_snapshot(root_path, candidate_snapshot)
         _write_immutable_json(
             root_path,
@@ -4229,3 +4765,544 @@ __all__ = [
     "replace_model_authority_section",
     "rollback_observed_model_system",
 ]
+
+ARCHITECTURE_READ_PROJECTION_SCHEMA = "flowguard.architecture_read_projection.v1"
+
+
+_ARCHITECTURE_POINTER_READ_FIELDS = (
+    "pointer_id", "kind", "status", "lane", "model_ids", "responsibility_ids",
+    "affected_element_ids", "applicable_input_class_ids", "remaining_contexts",
+    "retained_obligation_ids", "missing_input_refs", "next_owner_ids", "revisit_triggers",
+)
+
+
+def _architecture_pointer_read_reference(pointer, *, detail_ref):
+    """Keep the action visible; reference its immutable, complete evidence once."""
+    from .model_path_quality import ArchitectureImprovementPointer
+    original = ArchitectureImprovementPointer.from_dict(pointer).to_dict()
+    reference = {
+        **{name: original[name] for name in _ARCHITECTURE_POINTER_READ_FIELDS},
+        "objective_ids": sorted({row["objective"]["objective_id"]
+                                 for row in original["objective_refs"]}),
+        "detail_ref": dict(detail_ref),
+        "action_target_count": len(original["action_targets"]),
+    }
+    _validate_architecture_pointer_read_reference(reference)
+    return reference
+
+
+def _validate_architecture_pointer_read_reference(value):
+    from .model_path_quality import _validate_json_value, _canonical_ids
+    expected = {*_ARCHITECTURE_POINTER_READ_FIELDS, "objective_ids", "detail_ref", "action_target_count"}
+    if not isinstance(value, Mapping) or set(value) != expected:
+        raise ModelAuthorityError("architecture pointer read reference fields must be exact")
+    _validate_json_value(value, "architecture pointer read reference")
+    if type(value["action_target_count"]) is not int or value["action_target_count"] < 0:
+        raise ModelAuthorityError("architecture pointer action target count invalid")
+    if (not isinstance(value["pointer_id"], str)
+            or re.fullmatch(r"architecture-pointer:[0-9a-f]{64}", value["pointer_id"]) is None
+            or value["kind"] not in {"duplicate_candidate", "goal_mismatch", "model_gap", "temporary_compromise"}
+            or value["status"] not in {"candidate", "needs_evidence", "deferred"}
+            or value["lane"] != "normative_target"):
+        raise ModelAuthorityError("architecture pointer read reference identity invalid")
+    for name in ("model_ids", "responsibility_ids", "affected_element_ids",
+                 "applicable_input_class_ids", "retained_obligation_ids", "next_owner_ids", "objective_ids"):
+        if not isinstance(value[name], list) or tuple(value[name]) != _canonical_ids(value[name], name):
+            raise ModelAuthorityError("architecture pointer read reference IDs are not canonical")
+    if not value["model_ids"]:
+        raise ModelAuthorityError("architecture pointer read reference model missing")
+    for name in ("remaining_contexts", "missing_input_refs", "revisit_triggers"):
+        if not isinstance(value[name], list) or any(not isinstance(row, Mapping) for row in value[name]):
+            raise ModelAuthorityError("architecture pointer read reference records invalid")
+    ref = value["detail_ref"]
+    if (not isinstance(ref, Mapping) or set(ref) != {"path", "sha256"}
+            or not isinstance(ref["path"], str)
+            or re.fullmatch(r"\.flowguard/models/authority/path-quality-details/[0-9a-f]{64}\.json", ref["path"]) is None
+            or not isinstance(ref["sha256"], str)
+            or re.fullmatch(r"[0-9a-f]{64}", ref["sha256"]) is None):
+        raise ModelAuthorityError("architecture pointer original detail reference invalid")
+
+
+def resolve_architecture_improvement_pointer(root, pointer_ref, *, read_context=None):
+    """Read a complete pointer from the current accepted detail, without producers.
+
+    The compact row is navigation, not verification authority. Recheck its raw
+    artifact, accepted result/subject bindings and exact complete pointer before
+    returning evidence. A new accepted head cannot license an old detail.
+    """
+    from .model_path_quality import PathQualityArchitectureDetail
+    _validate_architecture_pointer_read_reference(pointer_ref)
+    root = Path(root).resolve()
+    context = read_context or _SelectedReadContext(root)
+    head = load_observed_model_head(root, read_context=context)
+    if context.root != root:
+        raise ModelAuthorityError("architecture pointer read context belongs to another root")
+    projection = _load_bound_read_projection(root, head, read_context=context)
+    _, subjects, results = _load_selected_accepted_quality_records(
+        root, head=head, projection=projection,
+        selected_model_ids=tuple(pointer_ref["model_ids"]),
+        revision_payload=context.artifact("revisions", head.accepted_revision_set_fingerprint))
+    by_subject = {row.subject_fingerprint: row for row in results}
+    ref = pointer_ref["detail_ref"]
+    matched = [subject for subject in subjects
+               if subject.fingerprint in by_subject
+               and _artifact_path(root, "path-quality-details", by_subject[subject.fingerprint].detail_evidence_fingerprint)
+               .relative_to(root).as_posix() == ref["path"]]
+    if len(matched) != 1 or {row.model_id for row in subjects} != set(pointer_ref["model_ids"]):
+        raise ModelAuthorityError("architecture pointer detail is not bound to current accepted subjects")
+    raw = context.artifact_bytes(ref["path"])
+    if hashlib.sha256(raw).hexdigest() != ref["sha256"]:
+        raise ModelAuthorityError("architecture pointer original detail raw fingerprint differs")
+    subject = matched[0]
+    result = by_subject[subject.fingerprint]
+    detail = PathQualityArchitectureDetail.from_dict(
+        context.artifact("path-quality-details", result.detail_evidence_fingerprint))
+    if detail.binding_errors(subject, result):
+        raise ModelAuthorityError("architecture pointer original detail binding differs")
+    originals = [row for row in detail.body.get("model_facts", {}).get("architecture", {}).get("improvement_pointers", ())
+                 if row.get("pointer_id") == pointer_ref["pointer_id"]]
+    if len(originals) != 1:
+        raise ModelAuthorityError("architecture pointer original identity missing or duplicate")
+    original = originals[0]
+    if (_architecture_pointer_read_reference(original, detail_ref=ref) != dict(pointer_ref)
+            or original["observed_subject_fingerprints"] != {row.model_id: row.fingerprint for row in subjects}):
+        raise ModelAuthorityError("architecture pointer original semantics or subjects differ")
+    from .model_path_quality import verify_architecture_action_targets, parse_architecture_binding_report
+    from .implementation_inventory import ImplementationSurfaceInventory
+    targets = original["action_targets"]
+    if targets:
+        architecture = detail.body.get("model_facts", {}).get("architecture", {})
+        scope = architecture.get("scope_evidence")
+        inventory, report, contracts = None, None, ()
+        if scope is not None:
+            inventory = ImplementationSurfaceInventory.from_dict(scope["inventory"])
+            report = parse_architecture_binding_report(scope["binding_report"])
+        elif any(row["operation"] != "repair_goal_source" for row in targets):
+            # A finite model detail need not claim software_architecture. Its
+            # actual native leaves still provide the independent finite scope.
+            from .functional_task_context import _finite_native_material, _selected_native_leaf_refs
+            state = load_current_model_authority_state(root, read_context=context)
+            leaf_refs = _selected_native_leaf_refs(root, state, tuple(pointer_ref["model_ids"]), read_context=context)
+            material = _finite_native_material(root, state, leaf_refs, context)
+            inventory, report, contracts = material["implementation_inventory"], material["binding_report"], material["code_contracts"]
+        verify_architecture_action_targets(original, implementation_inventory=inventory,
+            binding_report=report, code_contracts=contracts,
+            current_source_fingerprints={row["path"]: context.functional_fingerprint(row["path"]) for row in targets})
+    if load_observed_model_head(root, read_context=context).fingerprint != head.fingerprint:
+        raise ModelAuthorityError("architecture pointer accepted head changed during read")
+    return original
+
+
+@dataclass(frozen=True)
+class ArchitectureReadProjection:
+    head_fingerprint: str
+    revision_set_fingerprint: str
+    snapshot_fingerprint: str
+    read_index_fingerprint: str
+    requested_model_ids: tuple[str, ...]
+    facts_scope: tuple[Mapping[str, Any], ...]
+    effective_intent_view_fingerprint: str
+    objective_refs: tuple[Mapping[str, Any], ...]
+    finding_refs: tuple[Mapping[str, Any], ...]
+    suggestion_refs: tuple[Mapping[str, Any], ...]
+    observation_gap_ids: tuple[str, ...]
+    improvement_gap_ids: tuple[str, ...]
+    architecture_confidence: str
+    schema: str = ARCHITECTURE_READ_PROJECTION_SCHEMA
+    improvement_pointers: tuple[Mapping[str, Any], ...] = ()
+    scope_proof_refs: tuple[Mapping[str, Any], ...] = ()
+    summary: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        from .model_path_quality import _require_fingerprint, _canonical_ids, _validate_json_value
+        if self.schema != ARCHITECTURE_READ_PROJECTION_SCHEMA:
+            raise ModelAuthorityError("architecture read projection schema invalid")
+        for name in ("head_fingerprint", "revision_set_fingerprint", "snapshot_fingerprint", "read_index_fingerprint"):
+            _require_fingerprint(getattr(self, name), name)
+        _require_fingerprint(self.effective_intent_view_fingerprint, "effective intent", optional=True)
+        for name in ("requested_model_ids", "observation_gap_ids", "improvement_gap_ids"):
+            object.__setattr__(self, name, _canonical_ids(getattr(self, name), name))
+        if self.architecture_confidence not in {"not_proven", "scoped", "complete"}:
+            raise ModelAuthorityError("architecture confidence invalid")
+        for name in ("facts_scope", "objective_refs", "finding_refs", "suggestion_refs", "improvement_pointers", "scope_proof_refs"):
+            _validate_json_value(getattr(self, name), name)
+        for pointer in self.improvement_pointers:
+            _validate_architecture_pointer_read_reference(pointer)
+
+    def to_dict(self):
+        return {f.name: list(getattr(self, f.name)) if isinstance(getattr(self, f.name), tuple) else getattr(self, f.name) for f in fields(self)}
+
+    @classmethod
+    def from_dict(cls, value):
+        if not isinstance(value, Mapping) or set(value) != {f.name for f in fields(cls)}:
+            raise ModelAuthorityError("architecture read projection fields must be exact")
+        return cls(**value)
+
+
+def _load_selected_accepted_quality_records(root, *, head, projection, selected_model_ids, revision_payload=None):
+    """Authenticate current v5 once; type selected subjects/results only."""
+    from .model_path_quality import PathQualitySubject, PathQualityResult
+    from .model_revision_set import MODEL_REVISION_SET_CURRENT_SCHEMA
+    root = Path(root).resolve()
+    raw = revision_payload or _read_content_addressed_payload(root, "revisions", head.accepted_revision_set_fingerprint)
+    if (raw.get("schema") != MODEL_REVISION_SET_CURRENT_SCHEMA or set(raw) != {f.name for f in fields(ModelRevisionSet)} | {"fingerprint"} or raw.get("status") != REVISION_ACCEPTED or raw.get("candidate_snapshot_fingerprint") != head.snapshot_fingerprint or raw.get("fingerprint") != head.accepted_revision_set_fingerprint or projection["index"].get("revision_set_fingerprint") != head.accepted_revision_set_fingerprint):
+        raise ModelAuthorityError("architecture_detail_identity_mismatch")
+    requested = set(selected_model_ids)
+    subjects = tuple(PathQualitySubject.from_dict(row) for row in raw["path_quality_subjects"] if row.get("model_id") in requested)
+    if len({x.model_id for x in subjects}) != len(subjects):
+        raise ModelAuthorityError("duplicate selected path-quality subject")
+    subject_fps = {x.fingerprint for x in subjects}
+    results = tuple(PathQualityResult.from_dict(row) for row in raw["path_quality_results"] if row.get("subject_fingerprint") in subject_fps)
+    if len({x.subject_fingerprint for x in results}) != len(results):
+        raise ModelAuthorityError("duplicate selected path-quality result")
+    return raw, subjects, results
+
+
+def _authenticate_architecture_scope_evidence(context, *, evidence, scope, subject, revision_payload, head, subject_revision):
+    """Consume only a frozen producer boundary and its original accepted receipt.
+
+    All filesystem access is to named files. A new unregistered file is outside
+    this as-of assertion and can be discovered only by a later explicit producer.
+    """
+    from .model_path_quality import validate_architecture_scope_evidence_shape, parse_architecture_binding_report
+    from .implementation_inventory import ImplementationSurfaceInventory, review_implementation_surface_inventory
+    from .implementation_blueprint import review_model_implementation_bindings
+    from .model_revision_set import RevisionEvidenceRef
+    from .evidence_receipts import EvidenceReceipt, receipt_path, snapshot_bytes, ReceiptVerificationContext, verify_evidence_receipt, evidence_storage_root
+    from .validation_ownership import assert_validation_owner_receipt_integrity
+
+    proof = validate_architecture_scope_evidence_shape(evidence)
+    inventory = ImplementationSurfaceInventory.from_dict(proof["inventory"])
+    report = parse_architecture_binding_report(proof["binding_report"])
+    if proof["subject_fingerprint"] != subject.fingerprint:
+        raise ModelAuthorityError("implementation_scope_subject_mismatch")
+    if inventory.boundary.subject_revision != subject_revision:
+        raise ModelAuthorityError("implementation_scope_boundary_stale")
+    review = review_implementation_surface_inventory(inventory)
+    repeated = review_model_implementation_bindings(inventory, required_model_element_ids=report.required_model_element_ids,
+        bindings=report.bindings, semantic_specs=report.semantic_specs, oracles=report.oracles)
+    if not review.ok or not repeated.ok or repeated.fingerprint != report.fingerprint:
+        raise ModelAuthorityError("implementation_scope_omission")
+    context.declared_scopes[inventory.fingerprint] = (inventory, report)
+    required = set(inventory.required_surface_ids)
+    if required != set(report.required_implementation_surface_ids) or set(scope.get("claimed_surface_ids", ())) != required or set(scope.get("covered_surface_ids", ())) != required or scope.get("coverage_gap_ids"):
+        raise ModelAuthorityError("implementation_scope_omission")
+    if (scope.get("implementation_inventory_id") != inventory.inventory_id or scope.get("implementation_inventory_fingerprint") != inventory.fingerprint or scope.get("binding_report_fingerprint") != report.fingerprint):
+        raise ModelAuthorityError("implementation_scope_identity_mismatch")
+    dispositions = {row.path: row.content_fingerprint for row in inventory.file_dispositions}
+    manifest = {row["path"]: row["sha256"] for row in proof["resolved_manifest_rows"]}
+    if dispositions != manifest:
+        raise ModelAuthorityError("implementation_scope_manifest_omission")
+    registered = {row["path"]: row["source_fingerprint"] for row in proof["source_refs"]}
+    for relative, fingerprint in (*manifest.items(), *registered.items()):
+        if context.functional_fingerprint(relative) != fingerprint:
+            raise ModelAuthorityError("implementation_scope_source_stale")
+    refs = [RevisionEvidenceRef.from_dict(row) for row in revision_payload["completed_evidence_refs"] if row.get("receipt_id") == proof["producer_receipt_id"]]
+    if len(refs) != 1:
+        raise ModelAuthorityError("implementation_scope_receipt_unadmitted")
+    ref = refs[0]
+    if not ref.passing or ref.receipt_fingerprint != proof["producer_receipt_fingerprint"] or ref.owner_route != proof["producer_owner_id"] or ref.candidate_snapshot_fingerprint != head.snapshot_fingerprint:
+        raise ModelAuthorityError("implementation_scope_receipt_unadmitted")
+    relative = _selected_path_relative_to_root(context.root, receipt_path(ref.receipt_id, context.root))
+    receipt = EvidenceReceipt.from_dict(json.loads(context.artifact_bytes(relative).decode("utf-8"), object_pairs_hook=_reject_duplicate_json_keys))
+    if receipt.receipt_id != ref.receipt_id or receipt.fingerprint != ref.receipt_fingerprint or receipt.subject_id not in {ref.owner_route, "validation-owner:" + ref.owner_route}:
+        raise ModelAuthorityError("implementation_scope_receipt_identity_mismatch")
+    assert_validation_owner_receipt_integrity(receipt)
+    if receipt.subject_kind != "validation_owner" or receipt.producer_id != receipt.subject_id or receipt.metadata.get("publication_kind") != "supervised_producer":
+        raise ModelAuthorityError("implementation_scope_receipt_foreign_owner")
+    proof_path = evidence_storage_root(context.root) / _selected_normalize_path(receipt.metadata.get("proof_relpath", ""), "proof_relpath")
+    proof_relative = _selected_path_relative_to_root(context.root, proof_path)
+    raw_proof = context.artifact_bytes(proof_relative)
+    proof_fingerprint = context.raw_fingerprint(proof_relative, artifact=True)
+    if receipt.proof_artifact_fingerprint != proof_fingerprint or receipt.result_fingerprint != proof_fingerprint:
+        raise ModelAuthorityError("implementation_scope_producer_artifact_mismatch")
+    wrapper = json.loads(raw_proof.decode("utf-8"), object_pairs_hook=_reject_duplicate_json_keys)
+    if set(wrapper) != {"schema_version", "publication_kind", "owner_id", "owner_identity", "child"} or wrapper["schema_version"] != "flowguard.validation_owner_receipt.v2" or wrapper["owner_id"] != proof["producer_owner_id"] or wrapper["owner_identity"] != receipt.metadata.get("owner_identity") or wrapper["publication_kind"] != "supervised_producer":
+        raise ModelAuthorityError("implementation_scope_producer_identity_mismatch")
+    child = wrapper["child"]
+    if child.get("status") != "pass" or child.get("child_id") != proof["producer_owner_id"]:
+        raise ModelAuthorityError("implementation_scope_producer_not_terminal")
+    material = child.get("payload", {})
+    if (material.get("implementation_inventory") != proof["inventory"] or material.get("binding_report") != proof["binding_report"] or material.get("resolved_manifest_rows") != proof["resolved_manifest_rows"] or material.get("source_refs") != proof["source_refs"]):
+        raise ModelAuthorityError("implementation_scope_producer_material_mismatch")
+    if material.get("input_fingerprint") != proof["producer_input_fingerprint"]:
+        raise ModelAuthorityError("implementation_scope_producer_input_mismatch")
+    if receipt.required_child_receipts:
+        # Aggregate contexts need their own exact child authentication; never
+        # turn an incomplete parent into a leaf success in this reader.
+        raise ModelAuthorityError("implementation_scope_child_context_missing")
+    original_inputs = material.get("input_manifest")
+    if not isinstance(original_inputs, list) or any(not isinstance(row, Mapping) or set(row) != {"path", "sha256"} for row in original_inputs):
+        raise ModelAuthorityError("implementation_scope_input_context_missing")
+    if original_inputs != sorted(original_inputs, key=lambda row: row["path"]) or len({row["path"] for row in original_inputs}) != len(original_inputs):
+        raise ModelAuthorityError("implementation_scope_input_context_invalid")
+    watched = {row["path"] for row in original_inputs}
+    current_rows = [{"path": row["path"], "sha256": context.functional_fingerprint(row["path"])} for row in original_inputs]
+    if current_rows != original_inputs or canonical_fingerprint(current_rows) != proof["producer_input_fingerprint"]:
+        raise ModelAuthorityError("implementation_scope_producer_input_stale")
+    if not (set(manifest) | set(registered)) <= watched:
+        raise ModelAuthorityError("implementation_scope_producer_input_omission")
+    if len(receipt.input_snapshots) != 1:
+        raise ModelAuthorityError("implementation_scope_input_context_missing")
+    row = receipt.input_snapshots[0]
+    if row.path_token != f"<WORKSPACE>/<OWNER_INPUT:{proof['producer_owner_id']}>":
+        raise ModelAuthorityError("implementation_scope_input_context_missing")
+    current_inputs = {row.artifact_id: snapshot_bytes(row.artifact_id, json.dumps(current_rows, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"), path_token=row.path_token, hash_policy=row.hash_policy, obligation_ids=row.obligation_ids)}
+    verification = verify_evidence_receipt(receipt, ReceiptVerificationContext(
+        input_snapshots=current_inputs, contract_hash=receipt.contract_hash,
+        check_manifest_hash=receipt.check_manifest_hash, suite_map_hash=receipt.suite_map_hash,
+        producer_id=receipt.producer_id, producer_version=receipt.producer_version,
+        environment_fingerprint=ref.environment_fingerprint, proof_artifact_fingerprint=proof_fingerprint,
+        result_fingerprint=proof_fingerprint, command=receipt.command, working_directory_token=receipt.working_directory_token,
+        proof_artifact_id=receipt.proof_artifact_id, required_obligation_ids=ref.obligation_ids,
+        eligible_claim_scopes=(receipt.claim_scope,)))
+    if not verification.current or not verification.eligible or verification.status != "pass":
+        raise ModelAuthorityError("implementation_scope_receipt_not_current")
+    toolchain = canonical_fingerprint({"producer_id": receipt.producer_id, "producer_version": receipt.producer_version, "contract_hash": receipt.contract_hash, "check_manifest_hash": receipt.check_manifest_hash, "suite_map_hash": receipt.suite_map_hash, "command": list(receipt.command)})
+    if ref.toolchain_fingerprint != toolchain or ref.subject_fingerprint != head.snapshot_fingerprint or set(ref.obligation_ids) != set(receipt.covered_obligations):
+        raise ModelAuthorityError("implementation_scope_receipt_coverage_missing")
+    context.authenticated_scopes[inventory.fingerprint] = (inventory, report)
+    return {"model_id": subject.model_id, "subject_fingerprint": subject.fingerprint,
+        "claim_boundary": proof["claim_boundary"], "boundary_fingerprint": inventory.boundary.fingerprint,
+        "inventory_fingerprint": inventory.fingerprint, "binding_report_fingerprint": report.fingerprint,
+        "producer_receipt_id": receipt.receipt_id, "producer_receipt_fingerprint": receipt.fingerprint,
+        "live_unregistered_file_detection": "NOT_OBSERVED"}
+
+
+def derive_architecture_read_projection(root, *, head, projection, selected_model_ids, read_context=None):
+    """Read immutable selected architecture evidence; no provider, owner or refresh."""
+    from .model_path_quality import PathQualityArchitectureDetail
+    from .model_intent import bind_architecture_objective_source
+    from .model_intent_authority import CurrentEffectiveIntentView, _strict_model_intent_contribution
+    root = Path(root).resolve()
+    context = read_context or _SelectedReadContext(root)
+    if context.root != root:
+        raise ModelAuthorityError("selected read context belongs to another root")
+    requested = tuple(sorted(set(selected_model_ids)))
+    observations, improvements, objectives, finding_refs, suggestions, scopes = set(), set(), [], [], [], []
+    pointers, scope_proofs = [], []
+    revision_payload = context.artifact("revisions", head.accepted_revision_set_fingerprint)
+    raw, _, _ = _load_selected_accepted_quality_records(root, head=head, projection=projection, selected_model_ids=(), revision_payload=revision_payload)
+    view = raw.get("current_effective_intent_view")
+    if not isinstance(view, Mapping) or set(view) != {f.name for f in fields(CurrentEffectiveIntentView)} | {"fingerprint"}:
+        raise ModelAuthorityError("effective_intent_identity_mismatch")
+    view_fp = str(view.get("fingerprint", ""))
+    if canonical_fingerprint({key: value for key, value in view.items() if key != "fingerprint"}) != view_fp:
+        raise ModelAuthorityError("effective_intent_identity_mismatch")
+    source_identities = {row["contribution_id"]: row for row in view["verified_source_identities"]}
+    active = {row["contribution_id"]: row for row in view["active_contributions"]}
+    if len(active) != len(view["active_contributions"]) or set(active) != set(source_identities):
+        raise ModelAuthorityError("effective_intent_identity_mismatch")
+    scope_models = set(requested)
+    processed_contributions, details_by_model = set(), {}
+    # A declared required objective expands only its finite exact scope. It is
+    # never intersected down to a smaller request or discovered by text search.
+    while True:
+        pending = [row for key, row in active.items() if key not in processed_contributions and str(row.get("logical_model_id", "")).removeprefix("model:") in scope_models]
+        if not pending:
+            break
+        for row in pending:
+            key = row["contribution_id"]
+            processed_contributions.add(key)
+            contribution = _strict_model_intent_contribution(row)
+            identity = ModelIntentSourceIdentity.from_dict(source_identities[key])
+            try:
+                path = identity.resolved_project_ref or identity.source_ref
+                if key not in context.objectives:
+                    context.objectives[key] = bind_architecture_objective_source(contribution, identity, effective_intent_view_fingerprint=view_fp, source_bytes=context.bytes(path), source_observation=context.intent_observation(path, identity.authority_kind))
+                bound = context.objectives[key]
+                for objective in bound:
+                    objectives.append(objective)
+                    if objective.objective.required:
+                        scope_models.update(x.removeprefix("model:") for x in objective.objective.model_ids)
+            except (ModelAuthorityError, OSError, ValueError) as exc:
+                admitted = any(x.startswith("objective:") for x in contribution.target_invariant_ids)
+                if admitted:
+                    observations.add(f"architecture_objective_source_invalid:{key}")
+        if not any(str(row.get("logical_model_id", "")).removeprefix("model:") in scope_models and key not in processed_contributions for key, row in active.items()):
+            break
+    available = set(projection["index"]["models"])
+    unknown = scope_models - available
+    if unknown:
+        observations.update(f"architecture_objective_scope_unknown:{model_id}" for model_id in unknown)
+    selected = tuple(sorted(scope_models & available))
+    _, subjects, results = _load_selected_accepted_quality_records(root, head=head, projection=projection, selected_model_ids=selected, revision_payload=raw)
+    subject_by_model = {x.model_id: x for x in subjects}
+    result_by_subject = {x.subject_fingerprint: x for x in results}
+    shards = context.selected_shards(projection, selected)
+    shard_by_model = {x["logical_model_id"]: x for x in shards}
+    source_read_cache = context.functional
+    source_read_counts = context.read_counts
+    for model_id in selected:
+        subject = subject_by_model.get(model_id)
+        result = result_by_subject.get(subject.fingerprint) if subject else None
+        if subject is None or result is None:
+            observations.add(f"architecture_detail_missing:{model_id}")
+            continue
+        shard = shard_by_model[model_id]
+        current_findings, stale_details = [], []
+        _selected_source_status(root=root, paths=shard.get("source_paths", {}), findings=current_findings,
+            stale_details=stale_details, read_cache=source_read_cache, read_counts=source_read_counts, read_context=context)
+        if current_findings or stale_details:
+            observations.add(f"declared_source_identity_mismatch:{model_id}")
+        if subject.model_fingerprint != shard["model"]["fingerprint"] or subject.currentness_id != head.snapshot_fingerprint or subject.intent_fingerprint != view_fp or not result.current:
+            observations.add(f"architecture_detail_identity_mismatch:{model_id}")
+        observations.update(result.observation_gap_ids)
+        improvements.update(result.improvement_gap_ids)
+        try:
+            payload = context.artifact("path-quality-details", result.detail_evidence_fingerprint)
+            detail = PathQualityArchitectureDetail.from_dict(payload)
+            errors = detail.binding_errors(subject, result)
+            if errors:
+                observations.update(f"{error}:{model_id}" for error in errors)
+                continue
+            details_by_model[model_id] = detail
+            facts = detail.body.get("model_facts", {})
+            architecture = facts.get("architecture", {})
+            declared_scope = architecture.get("scope_coverage", {})
+            responsibilities = architecture.get("responsibilities", ())
+            local_gaps = tuple(architecture.get("observation_gap_ids", ()))
+            status = ("needs_evidence" if local_gaps else "native_check_only"
+                if architecture.get("facts_scope") == "native_check_contract" else "behavior_model_only")
+            detail_path = _artifact_path(root, "path-quality-details", detail.fingerprint).relative_to(root).as_posix()
+            scopes.append({"model_id": model_id, "claim_scope": declared_scope.get("claim_scope", "declared_model"),
+                "graph_scope": architecture.get("facts_scope", "declared_model"), "detail_evidence_fingerprint": detail.fingerprint,
+                "understanding_status": status, "responsibility_count": len(responsibilities),
+                "target_count": len(architecture.get("objective_refs", ())),
+                "gap_count": len(set(local_gaps)), "action_count": len(architecture.get("improvement_pointers", ())),
+                "detail_ref": {"path": detail_path, "sha256": context.raw_fingerprint(detail_path, artifact=True).removeprefix("sha256:")}})
+            pointers.extend(dict(row) for row in architecture.get("improvement_pointers", ()))
+            if declared_scope.get("claim_scope") == "software_architecture":
+                if architecture.get("facts_scope") == "native_check_contract" or not architecture.get("scope_evidence"):
+                    observations.add("implementation_scope_coverage_missing")
+                else:
+                    try:
+                        scope_proofs.append(_authenticate_architecture_scope_evidence(context, evidence=architecture["scope_evidence"], scope=declared_scope, subject=subject, revision_payload=raw, head=head, subject_revision=projection["index"]["subject_revision"]))
+                    except (ValueError, ModelAuthorityError, OSError) as exc:
+                        observations.add(str(exc))
+            if not architecture.get("declared_source_fingerprint"):
+                observations.add(f"architecture_detail_missing:{model_id}")
+            elif architecture["declared_source_fingerprint"] != subject.provider_fingerprint:
+                observations.add(f"architecture_detail_identity_mismatch:{model_id}")
+            suggestions.extend({**dict(row), "model_id": model_id, "detail_evidence_fingerprint": detail.fingerprint} for row in architecture.get("suggestions", ()))
+            finding_refs.extend({"model_id": model_id, "finding_id": finding, "detail_evidence_fingerprint": detail.fingerprint} for finding in result.finding_ids)
+        except (ModelAuthorityError, ValueError, OSError):
+            observations.add(f"architecture_detail_missing:{model_id}")
+    # Goal directions in an authenticated detail must refer back to an actual
+    # admitted source objective, never payload self-asserted desired software.
+    admitted_ids = {x.objective.objective_id for x in objectives}
+    for pointer in pointers:
+        models = set(pointer["model_ids"])
+        observed = pointer["observed_subject_fingerprints"]
+        if set(observed) != models or any(model not in subject_by_model or observed[model] != subject_by_model[model].fingerprint for model in models):
+            observations.add("architecture_pointer_subject_mismatch")
+    for suggestion in suggestions:
+        if suggestion.get("objective_id"):
+            admitted = suggestion["objective_id"] in admitted_ids
+        else:
+            # A verified duplicate-boundary rewrite is a finite structural
+            # direction. Authenticate it against this exact accepted detail;
+            # it does not manufacture an unrestricted or user-given goal.
+            detail = details_by_model[suggestion["model_id"]]
+            architecture = detail.body.get("model_facts", {}).get("architecture", {})
+            pair = sorted(suggestion.get("responsibility_ids", ()))
+            admitted = any(
+                relation.get("kind") == "duplicate_boundary"
+                and suggestion.get("rewrite_rule_id") == "share-primary:" + str(relation.get("relation_id", ""))
+                and sorted(relation.get("responsibility_ids", ())) == pair
+                and "equivalent_responsibility_paths:" + ":".join(pair) in architecture.get("finding_ids", ())
+                for relation in architecture.get("relations", ())
+            )
+        if not admitted or suggestion.get("lane") != "normative_target":
+            observations.add("architecture_objective_unadmitted")
+    for bound in objectives:
+        obj = bound.objective
+        if not obj.required:
+            continue
+        scoped_facts = [row for model in obj.model_ids for row in details_by_model[model.removeprefix("model:")].body.get("model_facts", {}).get("responsibilities", ())] if all(model.removeprefix("model:") in details_by_model for model in obj.model_ids) else []
+        facts_by_id = {row["responsibility_id"]: row for row in scoped_facts}
+        if not set(obj.responsibility_ids) <= set(facts_by_id) or any(not set(obj.applicable_input_class_ids) <= set(facts_by_id[x]["applicable_input_class_ids"]) for x in obj.responsibility_ids if x in facts_by_id):
+            observations.add(f"architecture_objective_scope_unknown:{obj.objective_id}")
+    confidence = "not_proven" if observations else "scoped"
+    # Software-wide confidence needs independently authenticated inventory and
+    # binding evidence; a declaration and matching self IDs alone never grant it.
+    whole_scopes = [row for row in scopes if row.get("claim_scope") == "software_architecture"]
+    if not observations and whole_scopes and len(scope_proofs) == len(whole_scopes):
+        confidence = "complete"
+    pointer_refs = []
+    for pointer in pointers:
+        # All full records remain in their original accepted details. The public
+        # map repeats neither native receipt context nor bound objective bodies.
+        model_id = next(model for model in pointer["model_ids"]
+                        if model in details_by_model and any(
+                            row.get("pointer_id") == pointer["pointer_id"]
+                            for row in details_by_model[model].body.get("model_facts", {}).get("architecture", {}).get("improvement_pointers", ())))
+        detail = details_by_model[model_id]
+        relative = _artifact_path(root, "path-quality-details", detail.fingerprint).relative_to(root).as_posix()
+        pointer_refs.append(_architecture_pointer_read_reference(pointer, detail_ref={
+            "path": relative, "sha256": context.raw_fingerprint(relative, artifact=True).removeprefix("sha256:")}))
+    # The complete goal stays inline. Its complete view identity is already the
+    # projection header, and its source identity is in that accepted view.
+    # Repeating those two hashes in every goal can prevent a wide-scope page
+    # from carrying even one otherwise bounded functional target.
+    objective_refs = tuple({key: value for key, value in objective.to_dict().items()
+                            if key not in {"effective_intent_view_fingerprint", "source_identity_fingerprint"}}
+                           for objective in objectives)
+    result = ArchitectureReadProjection(head.fingerprint, head.accepted_revision_set_fingerprint, head.snapshot_fingerprint, projection["index_fingerprint"], requested, tuple(scopes), view_fp, objective_refs, tuple(finding_refs), tuple(suggestions), tuple(sorted(observations)), tuple(sorted(improvements)), confidence, improvement_pointers=tuple(pointer_refs), scope_proof_refs=tuple(scope_proofs))
+    return replace(result, summary=_architecture_understanding_summary(result.to_dict(), context))
+
+
+def _architecture_understanding_summary(architecture, context, *, growth_gaps=(),
+                                       live_detection="NOT_OBSERVED", functional_understanding=None):
+    """Bounded current/target/gap/action/scope navigation, never new authority."""
+    scopes = architecture.get("facts_scope", ())
+    pointers = architecture.get("improvement_pointers", ())
+    statuses = [row["understanding_status"] for row in scopes]
+    scoped_out, unknown = set(), set()
+    for inventory, report in context.declared_scopes.values():
+        bound = {row.implementation_surface_id for row in report.bindings}
+        for surface in inventory.surfaces:
+            if surface.disposition == "scoped_out":
+                scoped_out.add(surface.surface_id)
+            elif surface.surface_id in inventory.required_surface_ids and surface.surface_id not in bound:
+                unknown.add(surface.surface_id)
+    functional = dict(functional_understanding or {})
+    return {"current": {"selected_model_count": len(scopes),
+        "responsibility_count": sum(row["responsibility_count"] for row in scopes),
+        "behavior_model_count": statuses.count("behavior_model_only"),
+        "native_check_count": statuses.count("native_check_only"),
+        "functional_model_count": statuses.count("functional_scope_proven")},
+        "target": sorted({row["objective"]["objective_id"] for row in architecture.get("objective_refs", ())}),
+        "gap": {"observation_gap_ids": list(architecture.get("observation_gap_ids", ())),
+                "improvement_gap_ids": list(architecture.get("improvement_gap_ids", ())),
+                "growth_gap_ids": sorted({row["gap_id"] for row in growth_gaps}),
+                "task_first_gap_ref": functional.get("gap_report_ref")},
+        "action": {"pointer_ids": sorted({row["pointer_id"] for row in pointers}),
+            "action_target_count": sum(row["action_target_count"] for row in pointers),
+            "next_owner_ids": sorted({owner for row in pointers for owner in row["next_owner_ids"]}),
+            "detail_refs": [dict(row) for row in {ref["path"]: ref for ref in
+                (pointer["detail_ref"] for pointer in pointers)}.values()]},
+        "scope": {"claim_scope": "finite_selected_models", "scoped_out_surface_count": len(scoped_out),
+            "unknown_surface_count": len(unknown), "live_unregistered_file_detection": live_detection,
+            "deepest_proven_layer": functional.get("deepest_proven_layer", "unknown")}}
+
+
+def refresh_architecture_read_understanding(selected_read, context, *, functional_understanding=None):
+    """Refresh derived navigation after task/native/growth consumption, no projection."""
+    architecture = dict(selected_read.architecture)
+    functional = dict(functional_understanding or {})
+    closed = functional.get("stopping_disposition") == "model_maturation_closed_for_task"
+    deficient = bool(selected_read.growth_gaps) or bool(functional.get("gap_ids"))
+    scopes = []
+    for raw in architecture.get("facts_scope", ()):
+        row = dict(raw)
+        if deficient:
+            row["understanding_status"] = "needs_evidence"
+        elif closed and context.authenticated_scopes and row["responsibility_count"] and row["target_count"]:
+            row["understanding_status"] = "functional_scope_proven"
+        scopes.append(row)
+    architecture["facts_scope"] = scopes
+    architecture["summary"] = _architecture_understanding_summary(architecture, context,
+        growth_gaps=selected_read.growth_gaps, live_detection=selected_read.live_unregistered_file_detection,
+        functional_understanding=functional)
+    return replace(selected_read, architecture=architecture)

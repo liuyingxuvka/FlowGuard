@@ -1,0 +1,597 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:9610c5681b6174ded06fcc2112688bb5e4c549a1b43fb00e45ca3a9f749ee9c6",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_miss_review/model.py",
+            "source_fingerprint": "sha256:744cd14bab9d88bc0255c174b8cee95f6fef2527ba46b065046529e896ee0d77"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:affected_behavior_plane",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:affected_blueprint_gap_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:affected_canonical_relation_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:affected_commitment_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:affected_contract_case_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:completed",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:contract_exhaustion_contribution_emitted",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:coverage_gap_registered",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:fix_validated_after_refinement",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:flowguard_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:generalized_bad_case_in_scope",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:generalized_bad_case_represented_in_model",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:issue_represented_in_model",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:known_bug_used_as_holdout",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:legacy_path_disposition_in_scope",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:legacy_path_disposition_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:model_maturation_contribution_emitted",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:model_miss_classified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:model_test_alignment_rerun",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:observed_regression_test_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:owner_code_contract_bound",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:primary_owner_model_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:recurring_family_detected",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:root_cause_backpropagated",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:runtime_issue_observed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:same_class_test_evidence_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:same_plane_lookup_performed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_miss_review:target_aware_replay_evidence_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "Event",
+          "effects": [],
+          "id": "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep",
+          "inputs": [
+            "external-input:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee"
+          ],
+          "outputs": [
+            "output:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_miss_review:flowguard_passed",
+            "field:model_miss_review:runtime_issue_observed",
+            "field:model_miss_review:model_miss_classified",
+            "field:model_miss_review:affected_behavior_plane",
+            "field:model_miss_review:affected_commitment_id",
+            "field:model_miss_review:primary_owner_model_id",
+            "field:model_miss_review:affected_blueprint_gap_id",
+            "field:model_miss_review:same_plane_lookup_performed",
+            "field:model_miss_review:coverage_gap_registered",
+            "field:model_miss_review:root_cause_backpropagated",
+            "field:model_miss_review:issue_represented_in_model",
+            "field:model_miss_review:generalized_bad_case_in_scope",
+            "field:model_miss_review:generalized_bad_case_represented_in_model",
+            "field:model_miss_review:known_bug_used_as_holdout",
+            "field:model_miss_review:observed_regression_test_added",
+            "field:model_miss_review:target_aware_replay_evidence_added",
+            "field:model_miss_review:same_class_test_evidence_added",
+            "field:model_miss_review:owner_code_contract_bound",
+            "field:model_miss_review:model_test_alignment_rerun",
+            "field:model_miss_review:legacy_path_disposition_in_scope",
+            "field:model_miss_review:legacy_path_disposition_recorded",
+            "field:model_miss_review:recurring_family_detected",
+            "field:model_miss_review:affected_canonical_relation_ids",
+            "field:model_miss_review:affected_contract_case_ids",
+            "field:model_miss_review:contract_exhaustion_contribution_emitted",
+            "field:model_miss_review:model_maturation_contribution_emitted",
+            "field:model_miss_review:fix_validated_after_refinement"
+          ],
+          "state_input": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0",
+          "state_output": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:1",
+          "validations": [],
+          "writes": [
+            "field:model_miss_review:flowguard_passed",
+            "field:model_miss_review:runtime_issue_observed",
+            "field:model_miss_review:model_miss_classified",
+            "field:model_miss_review:affected_behavior_plane",
+            "field:model_miss_review:affected_commitment_id",
+            "field:model_miss_review:primary_owner_model_id",
+            "field:model_miss_review:affected_blueprint_gap_id",
+            "field:model_miss_review:same_plane_lookup_performed",
+            "field:model_miss_review:coverage_gap_registered",
+            "field:model_miss_review:root_cause_backpropagated",
+            "field:model_miss_review:issue_represented_in_model",
+            "field:model_miss_review:generalized_bad_case_represented_in_model",
+            "field:model_miss_review:known_bug_used_as_holdout",
+            "field:model_miss_review:observed_regression_test_added",
+            "field:model_miss_review:target_aware_replay_evidence_added",
+            "field:model_miss_review:same_class_test_evidence_added",
+            "field:model_miss_review:owner_code_contract_bound",
+            "field:model_miss_review:model_test_alignment_rerun",
+            "field:model_miss_review:legacy_path_disposition_recorded",
+            "field:model_miss_review:recurring_family_detected",
+            "field:model_miss_review:affected_canonical_relation_ids",
+            "field:model_miss_review:affected_contract_case_ids",
+            "field:model_miss_review:contract_exhaustion_contribution_emitted",
+            "field:model_miss_review:model_maturation_contribution_emitted",
+            "field:model_miss_review:fix_validated_after_refinement",
+            "field:model_miss_review:completed"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep",
+          "producer_id": "transition:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep",
+          "outputs": [
+            "output:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep"
+          ],
+          "reads": [
+            "field:model_miss_review:flowguard_passed",
+            "field:model_miss_review:runtime_issue_observed",
+            "field:model_miss_review:model_miss_classified",
+            "field:model_miss_review:affected_behavior_plane",
+            "field:model_miss_review:affected_commitment_id",
+            "field:model_miss_review:primary_owner_model_id",
+            "field:model_miss_review:affected_blueprint_gap_id",
+            "field:model_miss_review:same_plane_lookup_performed",
+            "field:model_miss_review:coverage_gap_registered",
+            "field:model_miss_review:root_cause_backpropagated",
+            "field:model_miss_review:issue_represented_in_model",
+            "field:model_miss_review:generalized_bad_case_in_scope",
+            "field:model_miss_review:generalized_bad_case_represented_in_model",
+            "field:model_miss_review:known_bug_used_as_holdout",
+            "field:model_miss_review:observed_regression_test_added",
+            "field:model_miss_review:target_aware_replay_evidence_added",
+            "field:model_miss_review:same_class_test_evidence_added",
+            "field:model_miss_review:owner_code_contract_bound",
+            "field:model_miss_review:model_test_alignment_rerun",
+            "field:model_miss_review:legacy_path_disposition_in_scope",
+            "field:model_miss_review:legacy_path_disposition_recorded",
+            "field:model_miss_review:recurring_family_detected",
+            "field:model_miss_review:affected_canonical_relation_ids",
+            "field:model_miss_review:affected_contract_case_ids",
+            "field:model_miss_review:contract_exhaustion_contribution_emitted",
+            "field:model_miss_review:model_maturation_contribution_emitted",
+            "field:model_miss_review:fix_validated_after_refinement"
+          ],
+          "source": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0",
+          "target": "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:1",
+          "trigger": "Event",
+          "validations": [],
+          "writes": [
+            "field:model_miss_review:flowguard_passed",
+            "field:model_miss_review:runtime_issue_observed",
+            "field:model_miss_review:model_miss_classified",
+            "field:model_miss_review:affected_behavior_plane",
+            "field:model_miss_review:affected_commitment_id",
+            "field:model_miss_review:primary_owner_model_id",
+            "field:model_miss_review:affected_blueprint_gap_id",
+            "field:model_miss_review:same_plane_lookup_performed",
+            "field:model_miss_review:coverage_gap_registered",
+            "field:model_miss_review:root_cause_backpropagated",
+            "field:model_miss_review:issue_represented_in_model",
+            "field:model_miss_review:generalized_bad_case_represented_in_model",
+            "field:model_miss_review:known_bug_used_as_holdout",
+            "field:model_miss_review:observed_regression_test_added",
+            "field:model_miss_review:target_aware_replay_evidence_added",
+            "field:model_miss_review:same_class_test_evidence_added",
+            "field:model_miss_review:owner_code_contract_bound",
+            "field:model_miss_review:model_test_alignment_rerun",
+            "field:model_miss_review:legacy_path_disposition_recorded",
+            "field:model_miss_review:recurring_family_detected",
+            "field:model_miss_review:affected_canonical_relation_ids",
+            "field:model_miss_review:affected_contract_case_ids",
+            "field:model_miss_review:contract_exhaustion_contribution_emitted",
+            "field:model_miss_review:model_maturation_contribution_emitted",
+            "field:model_miss_review:fix_validated_after_refinement",
+            "field:model_miss_review:completed"
+          ]
+        }
+      ],
+      "validations": []
+    },
+    "retained_elements": {
+      "field:model_miss_review:affected_behavior_plane": "field",
+      "field:model_miss_review:affected_blueprint_gap_id": "field",
+      "field:model_miss_review:affected_canonical_relation_ids": "field",
+      "field:model_miss_review:affected_commitment_id": "field",
+      "field:model_miss_review:affected_contract_case_ids": "field",
+      "field:model_miss_review:completed": "field",
+      "field:model_miss_review:contract_exhaustion_contribution_emitted": "field",
+      "field:model_miss_review:coverage_gap_registered": "field",
+      "field:model_miss_review:fix_validated_after_refinement": "field",
+      "field:model_miss_review:flowguard_passed": "field",
+      "field:model_miss_review:generalized_bad_case_in_scope": "field",
+      "field:model_miss_review:generalized_bad_case_represented_in_model": "field",
+      "field:model_miss_review:issue_represented_in_model": "field",
+      "field:model_miss_review:known_bug_used_as_holdout": "field",
+      "field:model_miss_review:legacy_path_disposition_in_scope": "field",
+      "field:model_miss_review:legacy_path_disposition_recorded": "field",
+      "field:model_miss_review:model_maturation_contribution_emitted": "field",
+      "field:model_miss_review:model_miss_classified": "field",
+      "field:model_miss_review:model_test_alignment_rerun": "field",
+      "field:model_miss_review:observed_regression_test_added": "field",
+      "field:model_miss_review:owner_code_contract_bound": "field",
+      "field:model_miss_review:primary_owner_model_id": "field",
+      "field:model_miss_review:recurring_family_detected": "field",
+      "field:model_miss_review:root_cause_backpropagated": "field",
+      "field:model_miss_review:runtime_issue_observed": "field",
+      "field:model_miss_review:same_class_test_evidence_added": "field",
+      "field:model_miss_review:same_plane_lookup_performed": "field",
+      "field:model_miss_review:target_aware_replay_evidence_added": "field",
+      "function-block:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep": "function_block",
+      "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0": "state",
+      "state:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:1": "state",
+      "transition:workflow:model_miss_review:model_miss_review_template:0:59f354da98ee:0:ApplyReviewStep": "transition"
+    },
+    "subject_fingerprint": "sha256:0f1a26e5d2e76e116424f414e4486ea6d0014a06f9761a5e93ef1e2d4deabb60",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:feb1870216400ea7f9745d9ae8dfe3e40513adabafe5bfb896f9b2c9d884ea03",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

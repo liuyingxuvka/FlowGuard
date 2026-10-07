@@ -9,6 +9,16 @@ Use this reference only when one of these reasons is present:
 
 Otherwise return `not_needed` and create no optimization records.
 
+Do not turn an already specified safe workflow into a candidate search merely
+because several tools, owners, or theoretically possible orders exist. If one
+current plan already satisfies the requested contract and no unresolved
+material order/boundary decision exists, continue that plan without creating
+optimization records. An explicit optimization request owns one finite named
+comparison. Close it with the supported bounded result, including unresolved
+trade-offs when appropriate; do not extend the candidate set repeatedly just
+to obtain a winner. An unresolved optional optimization claim does not erase
+separate current native evidence or authorize weaker hard obligations.
+
 ## Hard Equivalence Before Preference
 
 Compare candidates only after they match on all six boundaries:
@@ -53,6 +63,14 @@ owner, protected side effects, and comparable effort. A measured candidate
 also binds every step cost to current cost evidence; a missing step cost or
 evidence blocks measured comparison instead of becoming zero.
 
+One declared candidate is an admissibility check, not a comparison: retain the
+full hard-contract, dependency, owner, currentness, evidence-reference, repair,
+and parallel-isolation checks, but skip comparison evidence, cost-completeness,
+cost-vector, and Pareto requirements. Any supplied malformed cost or stale
+evidence reference still blocks. The count is taken before eligibility
+filtering; multiple declared candidates keep the full comparison requirements
+even if only one remains eligible.
+
 For the declared hard-equivalent set, derive the six visible dimensions
 `invalidated_output`, `repeated_write`, `repeated_validation`, `coordination`,
 `side_effect_exposure`, and `effort` as a vector. Missing values are not zero;
@@ -69,10 +87,12 @@ the remaining valid hard-equivalent set. Block when every candidate is
 rejected, the candidate-set identity is untrustworthy, or the caller points to
 an invalid or higher-cost candidate.
 
-For a unique selected candidate, emit a model-derived rationale naming the
-candidate and each comparable dimension. Preserve caller rationale separately
-as context; it neither selects the candidate nor substitutes for the derived
-Pareto explanation. A selected result without that explanation is blocked.
+For one declared candidate, report its admissibility without a comparison
+rationale. For multiple candidates with a unique dominating selection, emit a
+model-derived rationale naming the candidate and each comparable dimension.
+Preserve caller rationale separately as context; it neither selects the
+candidate nor substitutes for the derived Pareto explanation. A selected
+multi-candidate result without that explanation is blocked.
 
 Qualitative or measured evidence supports only a Pareto-dominating process
 candidate within the declared hard-equivalent set. Never claim a scalar

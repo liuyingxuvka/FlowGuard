@@ -69,4 +69,4 @@ if __name__ == "__main__":
             / f"flowguard-closure-contract-{os.getpid()}"
         ),
     )
-    raise SystemExit(native_main("model:flowguard_closure_contract", main))
+    raise SystemExit(native_main("model:flowguard_closure_contract", main, declared_source_exporter=__import__('model').export_path_quality_source))

@@ -1736,7 +1736,7 @@ class ModelRevisionSet:
             raise ModelAuthorityError(
                 "accepted revision set requires exact resolved intent closure"
             )
-        if self.status == REVISION_ACCEPTED and not self.path_quality_acceptance_ready:
+        if self.status == REVISION_ACCEPTED and not self.path_quality_observation_ready:
             raise ModelAuthorityError(
                 "accepted revision set requires exact current observed path-quality closure"
             )
@@ -1880,7 +1880,7 @@ class ModelRevisionSet:
         )
 
     @property
-    def path_quality_blocked_model_ids(self) -> tuple[str, ...]:
+    def path_quality_observation_blocked_model_ids(self) -> tuple[str, ...]:
         subjects_by_model = {
             item.model_id: item for item in self.path_quality_subjects
         }
@@ -1901,20 +1901,28 @@ class ModelRevisionSet:
                 not result.current
                 or result.currentness_id != self.candidate_snapshot_fingerprint
                 or result.currentness_id != subject.currentness_id
-                or result.conclusion == "unresolved"
-                or result.unresolved_ids
+                or result.observation_gap_ids
                 or result.selected_candidate_lane == "normative_target"
             ):
                 blocked.append(model_id)
         return tuple(blocked)
 
     @property
-    def path_quality_acceptance_ready(self) -> bool:
+    def path_quality_improvement_blocked_model_ids(self) -> tuple[str, ...]:
+        subjects = {x.model_id: x for x in self.path_quality_subjects}
+        results = {x.subject_fingerprint: x for x in self.path_quality_results}
+        return tuple(model_id for model_id in self.required_path_quality_model_ids
+                     if model_id not in subjects or subjects[model_id].fingerprint not in results
+                     or results[subjects[model_id].fingerprint].improvement_gap_ids
+                     or results[subjects[model_id].fingerprint].selected_candidate_lane == "normative_target")
+
+    @property
+    def path_quality_observation_ready(self) -> bool:
         return (
             len(self.path_quality_subjects)
             == len(self.required_path_quality_model_ids)
             == len(self.path_quality_results)
-            and not self.path_quality_blocked_model_ids
+            and not self.path_quality_observation_blocked_model_ids
         )
 
     @property

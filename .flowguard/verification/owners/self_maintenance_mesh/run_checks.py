@@ -13,6 +13,7 @@ for _flowguard_path in (_FLOWGUARD_PROJECT_ROOT, _FLOWGUARD_MODEL_ROOT):
         sys.path.insert(0, str(_flowguard_path))
 
 
+import ast
 import hashlib
 from dataclasses import replace
 from pathlib import Path
@@ -31,7 +32,7 @@ from flowguard import (
     validate_default_route_topology,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_exact_workflow_case, run_formal_workflow_suite
-from flowguard.skill_self_governance import load_verification_contexts, run_skill_self_governance
+from flowguard.skill_self_governance import run_skill_self_governance
 import model
 
 
@@ -460,11 +461,10 @@ def run_narrow_route_admission_review() -> bool:
 
 
 def run_receipt_parent_review() -> bool:
-    context_path = ROOT / ".flowguard/evidence/skill-suite-contexts.json"
-    contexts = load_verification_contexts(context_path) if context_path.exists() else {}
+    # A model leaf has no completed same-unit05 outer terminal yet. It must
+    # fail closed rather than mint the03/04 qualification from manual contexts.
     report = run_skill_self_governance(
         ROOT,
-        verification_contexts=contexts,
         # The native owner is itself the immutable producer for this
         # regression.  Writing the shared default skill-suite parent receipt
         # here creates a cross-owner filesystem side effect and can block
@@ -521,8 +521,19 @@ def run_plane_upgrade_contract_binding() -> bool:
         "sha256:"
         + hashlib.sha256("\n".join(check_ids).encode("utf-8")).hexdigest().upper()
     )
+    # Read the declared public inventory without importing the full planner.
+    # This gate proves structural inventory, never that the owners executed.
+    tree = ast.parse((ROOT / "scripts/check_flowguard_skill_suite.py").read_text(encoding="utf-8"))
+    assignments = [node for node in tree.body if isinstance(node, ast.Assign)
+                   and any(isinstance(target, ast.Name) and target.id == "FULL_CHILD_IDS"
+                           for target in node.targets)]
+    declared = ast.literal_eval(assignments[0].value) if len(assignments) == 1 else ()
     ok = (
-        actual_fingerprint == model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
+        isinstance(declared, tuple)
+        and all(isinstance(item, str) and item for item in declared)
+        and len(declared) == len(set(declared))
+        and check_ids == declared
+        and actual_fingerprint == model.VALIDATION_OWNER_INVENTORY_FINGERPRINT
         and len(check_ids) == len(set(check_ids))
         and "spec-check-run" not in check_ids
         and "spec-session-begin" not in check_ids
@@ -561,4 +572,4 @@ def main() -> int:
 
 from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:self_maintenance_mesh", main))
+    raise SystemExit(native_main("model:self_maintenance_mesh", main, declared_source_exporter=__import__('model').export_path_quality_source))

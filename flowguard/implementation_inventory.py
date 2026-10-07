@@ -86,6 +86,8 @@ DYNAMIC_SELECTOR_CONTRACT_OPERATIONS = (
     "globals",
     "locals",
     "invoke_result:getattr",
+    "__import__",
+    "importlib.import_module",
 )
 
 
@@ -1308,6 +1310,23 @@ def build_implementation_surface_inventory(
     return inventory
 
 
+def implementation_finding_blocks_selected_scope(finding, surfaces, required_surface_ids):
+    """Keep diagnostics while excluding only declared non-target dynamic behavior.
+
+    Unknown surfaces, structural errors and current source identity failures
+    remain blocking. A scoped-out function makes no behavioral success claim.
+    """
+    def value(obj, name, default=""):
+        return obj.get(name, default) if isinstance(obj, Mapping) else getattr(obj, name, default)
+    surface_id = value(finding, "surface_id")
+    surface = surfaces.get(surface_id)
+    return not (value(finding, "code") == "dynamic_python_surface"
+        and surface is not None and value(surface, "disposition") == IMPLEMENTATION_DISPOSITION_SCOPED_OUT
+        and surface_id not in set(required_surface_ids)
+        and value(finding, "path") == value(surface, "path")
+        and bool(value(surface, "path")))
+
+
 def review_implementation_surface_inventory(
     inventory: ImplementationSurfaceInventory,
     *,
@@ -1397,7 +1416,10 @@ def review_implementation_surface_inventory(
         unique[key]
         for key in sorted(unique, key=lambda item: (item[2], item[0], item[3], item[4], item[1]))
     )
-    ok = not any(item.severity == "blocker" for item in ordered)
+    ok = not any(item.severity == "blocker"
+        and implementation_finding_blocks_selected_scope(item, surfaces_by_id,
+                                                         inventory.required_surface_ids)
+        for item in ordered)
     return ImplementationInventoryAuditReport(
         ok=ok,
         status="complete" if ok else "blocked",

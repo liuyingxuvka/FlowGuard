@@ -446,3 +446,421 @@ def test_mapping_registry_rejects_stale_current_manifest(tmp_path):
     manifest.write_text(manifest.read_text(encoding="utf-8") + "\n", encoding="utf-8")
     with pytest.raises(NativeCaseMappingError, match="source manifest fingerprint is stale"):
         registry.assert_current_manifest(tmp_path)
+
+
+# Frozen R6 annex child identities; these are fixture declarations, not receipts.
+_R6_AGGREGATE_CHILDREN = {'model:structure_refactor_mesh': ('native-scenario:structure_refactor_mesh:complete_architecture_reduction_handoff_passes',
+                                   'native-scenario:structure_refactor_mesh:config_drift_fails',
+                                   'native-scenario:structure_refactor_mesh:dependency_cycle_fails',
+                                   'native-scenario:structure_refactor_mesh:duplicate_config_fails',
+                                   'native-scenario:structure_refactor_mesh:duplicate_partition_fails',
+                                   'native-scenario:structure_refactor_mesh:duplicate_side_effect_fails',
+                                   'native-scenario:structure_refactor_mesh:duplicate_state_fails',
+                                   'native-scenario:structure_refactor_mesh:flat_split_fails',
+                                   'native-scenario:structure_refactor_mesh:good_plan_passes',
+                                   'native-scenario:structure_refactor_mesh:missing_facade_fails',
+                                   'native-scenario:structure_refactor_mesh:missing_owner_fails',
+                                   'native-scenario:structure_refactor_mesh:package_api_registry_partition_is_required',
+                                   'native-scenario:structure_refactor_mesh:public_entrypoint_removed_fails',
+                                   'native-scenario:structure_refactor_mesh:receipt_supervision_partition_is_required',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_consumer_test_map_fails',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_current_proof_fails',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_next_route_fails',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_observable_contract_fails',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_target_action_fails',
+                                   'native-scenario:structure_refactor_mesh:reduction_handoff_without_universe_member_fails',
+                                   'native-scenario:structure_refactor_mesh:release_scope_requires_release_parity',
+                                   'native-scenario:structure_refactor_mesh:stale_parity_fails',
+                                   'native-scenario:structure_refactor_mesh:structuremesh_does_not_refactor_directly',
+                                   'native-scenario:structure_refactor_mesh:target_boundary_map_missing_fails',
+                                   'native-scenario:structure_refactor_mesh:target_not_model_derived_fails',
+                                   'native-scenario:structure_refactor_mesh:ui_evidence_partition_is_required',
+                                   'native-scenario:structure_refactor_mesh:unregistered_owner_fails'),
+ 'model:model_maturation_loop': ('case:model_maturation_loop:broken_permission_upgrades_blocked_maturation',
+                                 'case:model_maturation_loop:correct_model_maturation_loop',
+                                 'case:model_maturation_loop:disjoint_context_variant_preserved',
+                                 'case:model_maturation_loop:generic_duplicate_responsibility_direction',
+                                 'case:model_maturation_loop:identical_copy_not_shared_primary',
+                                 'case:model_maturation_loop:required_architecture_gap_blocks_completion'),
+ 'model:authoritative_model_system': ('native-scenario:authoritative_model_system:active_direct_intent_source_requires_owner_model_input',
+                                      'native-scenario:authoritative_model_system:addressable_maturation_gap_cannot_stop_the_loop',
+                                      'native-scenario:authoritative_model_system:affected_reader_must_follow_every_semantic_dependency',
+                                      'native-scenario:authoritative_model_system:caller_declared_diff_cannot_replace_canonical_diff',
+                                      'native-scenario:authoritative_model_system:checked_in_semantic_declaration_cannot_self_certify_topology_currentness',
+                                      'native-scenario:authoritative_model_system:complete_transaction_passes',
+                                      'native-scenario:authoritative_model_system:declared_optional_local_model_cannot_disappear_from_coverage',
+                                      'native-scenario:authoritative_model_system:direct_intent_source_fingerprint_must_be_current',
+                                      'native-scenario:authoritative_model_system:empty_intent_inventory_cannot_pass_by_vacuity',
+                                      'native-scenario:authoritative_model_system:empty_semantic_derivation_fingerprint_is_rejected',
+                                      'native-scenario:authoritative_model_system:export_completion_does_not_promote_model_depth',
+                                      'native-scenario:authoritative_model_system:faithful_current_with_improvement_gaps',
+                                      'native-scenario:authoritative_model_system:five_model_slice_cannot_claim_whole_system_understanding',
+                                      'native-scenario:authoritative_model_system:intent_source_cannot_change_during_revision_build',
+                                      'native-scenario:authoritative_model_system:internally_consistent_provider_payload_cannot_replace_current_native_report',
+                                      'native-scenario:authoritative_model_system:inventory_only_cannot_claim_whole_system_understanding',
+                                      'native-scenario:authoritative_model_system:legacy_authority_schema_cannot_remain_a_second_reader',
+                                      'native-scenario:authoritative_model_system:maturation_cannot_accept_resolved_boolean_as_evidence',
+                                      'native-scenario:authoritative_model_system:maturation_cannot_use_caller_narrowed_coverage',
+                                      'native-scenario:authoritative_model_system:native_hard_failure_cannot_be_improvement',
+                                      'native-scenario:authoritative_model_system:old_rollback_contract_cannot_replay_at_same_snapshot',
+                                      'native-scenario:authoritative_model_system:partial_multi_model_activation_rejected',
+                                      'native-scenario:authoritative_model_system:pointer_only_operational_rollback_rejected',
+                                      'native-scenario:authoritative_model_system:portable_export_preserves_every_blueprint_layer',
+                                      'native-scenario:authoritative_model_system:project_document_must_carry_its_intent_authority',
+                                      'native-scenario:authoritative_model_system:provider_lineage_cannot_be_omitted_from_broad_blueprint',
+                                      'native-scenario:authoritative_model_system:raw_manifest_cannot_self_certify_semantic_mesh',
+                                      'native-scenario:authoritative_model_system:revision_builder_cannot_activate_authority',
+                                      'native-scenario:authoritative_model_system:revision_builder_rejects_caller_forged_native_owner_verification',
+                                      'native-scenario:authoritative_model_system:revision_builder_rejects_canonical_receipt_disappearance',
+                                      'native-scenario:authoritative_model_system:revision_builder_rejects_relabeled_scoped_parent',
+                                      'native-scenario:authoritative_model_system:revision_builder_rejects_stale_parent_evidence',
+                                      'native-scenario:authoritative_model_system:revision_builder_requires_one_exact_leaf_receipt_per_native_owner',
+                                      'native-scenario:authoritative_model_system:revision_builder_requires_one_explicit_model_binding_per_native_owner_route',
+                                      'native-scenario:authoritative_model_system:same_head_live_source_drift_blocks_activation',
+                                      'native-scenario:authoritative_model_system:scoped_graph_not_whole_software_confidence',
+                                      'native-scenario:authoritative_model_system:semantic_mesh_fingerprint_must_be_derived_from_reviewed_topology',
+                                      'native-scenario:authoritative_model_system:stale_base_blocks_activation',
+                                      'native-scenario:authoritative_model_system:stale_target_snapshot_cannot_support_broad_blueprint',
+                                      'native-scenario:authoritative_model_system:target_cannot_be_current_by_label',
+                                      'native-scenario:authoritative_model_system:topology_cannot_consume_ghost_runtime_evidence',
+                                      'native-scenario:authoritative_model_system:topology_feedback_loop_rejects_stale_progress_contract',
+                                      'native-scenario:authoritative_model_system:topology_feedback_loop_requires_current_progress_evidence',
+                                      'native-scenario:authoritative_model_system:topology_feedback_loop_requires_progress_contract',
+                                      'native-scenario:authoritative_model_system:topology_feedback_relation_classification_must_be_complete',
+                                      'native-scenario:authoritative_model_system:topology_keeps_cross_boundary_support_non_structural',
+                                      'native-scenario:authoritative_model_system:topology_parent_receipt_proves_only_composition',
+                                      'native-scenario:authoritative_model_system:topology_rejects_duplicate_child_receipt_identity',
+                                      'native-scenario:authoritative_model_system:topology_rejects_foreign_owner_child_receipt',
+                                      'native-scenario:authoritative_model_system:topology_rejects_second_structural_parent',
+                                      'native-scenario:authoritative_model_system:topology_rejects_stale_child_receipt',
+                                      'native-scenario:authoritative_model_system:topology_rejects_two_root_sentinels',
+                                      'native-scenario:authoritative_model_system:topology_repair_loop_requires_progress_contract',
+                                      'native-scenario:authoritative_model_system:topology_requires_exact_child_receipt_coverage',
+                                      'native-scenario:authoritative_model_system:topology_requires_one_root_sentinel',
+                                      'native-scenario:authoritative_model_system:topology_retry_loop_requires_progress_contract',
+                                      'native-scenario:authoritative_model_system:trace_projection_cannot_claim_full_graph',
+                                      'native-scenario:authoritative_model_system:unfrozen_provider_registry_cannot_support_broad_blueprint',
+                                      'native-scenario:authoritative_model_system:unverified_semantic_artifact_cannot_claim_completion',
+                                      'native-scenario:authoritative_model_system:work_context_intent_source_requires_exact_current_identity'),
+ 'model:hierarchical_model_mesh': ('native-scenario:hierarchical_model_mesh:affected_sibling_models_become_stale',
+                                   'native-scenario:hierarchical_model_mesh:background_evidence_required',
+                                   'native-scenario:hierarchical_model_mesh:bug_instance_scope_rejected',
+                                   'native-scenario:hierarchical_model_mesh:checked_in_semantic_declaration_cannot_certify_child_currentness',
+                                   'native-scenario:hierarchical_model_mesh:checked_in_semantic_declaration_cannot_certify_progress_currentness',
+                                   'native-scenario:hierarchical_model_mesh:child_boundary_diff_required',
+                                   'native-scenario:hierarchical_model_mesh:child_receipt_identities_must_be_distinct',
+                                   'native-scenario:hierarchical_model_mesh:coverage_gap_fails',
+                                   'native-scenario:hierarchical_model_mesh:cross_boundary_support_cannot_masquerade_as_parent',
+                                   'native-scenario:hierarchical_model_mesh:cross_child_connections_need_tests',
+                                   'native-scenario:hierarchical_model_mesh:every_declared_child_needs_one_receipt',
+                                   'native-scenario:hierarchical_model_mesh:feedback_loop_rejects_stale_progress_contract',
+                                   'native-scenario:hierarchical_model_mesh:feedback_loop_rejects_stale_progress_evidence',
+                                   'native-scenario:hierarchical_model_mesh:feedback_loop_requires_progress_contract',
+                                   'native-scenario:hierarchical_model_mesh:feedback_relation_classification_must_be_complete',
+                                   'native-scenario:hierarchical_model_mesh:finite_leaf_boundaries_must_execute',
+                                   'native-scenario:hierarchical_model_mesh:foreign_owner_child_receipt_cannot_reattach',
+                                   'native-scenario:hierarchical_model_mesh:full_parent_receipt_cannot_replace_declared_child_receipts',
+                                   'native-scenario:hierarchical_model_mesh:global_cartesian_table_is_not_materialized',
+                                   'native-scenario:hierarchical_model_mesh:good_plan_passes',
+                                   'native-scenario:hierarchical_model_mesh:good_typed_current_topology_evidence_passes',
+                                   'native-scenario:hierarchical_model_mesh:legacy_contract_required',
+                                   'native-scenario:hierarchical_model_mesh:mesh_cannot_inline_child_graphs',
+                                   'native-scenario:hierarchical_model_mesh:one_child_cannot_have_two_structural_parents',
+                                   'native-scenario:hierarchical_model_mesh:overlap_review_required',
+                                   'native-scenario:hierarchical_model_mesh:parent_must_classify_boundary_diff',
+                                   'native-scenario:hierarchical_model_mesh:parent_must_consume_subtree_receipts',
+                                   'native-scenario:hierarchical_model_mesh:parent_rerun_required_on_contract_drift',
+                                   'native-scenario:hierarchical_model_mesh:recursive_depth_must_be_declared',
+                                   'native-scenario:hierarchical_model_mesh:release_sync_required',
+                                   'native-scenario:hierarchical_model_mesh:repair_loop_requires_progress_contract',
+                                   'native-scenario:hierarchical_model_mesh:retry_loop_requires_progress_contract',
+                                   'native-scenario:hierarchical_model_mesh:scale_trigger_required',
+                                   'native-scenario:hierarchical_model_mesh:semantic_topology_trigger_required',
+                                   'native-scenario:hierarchical_model_mesh:side_effect_owner_conflict_fails',
+                                   'native-scenario:hierarchical_model_mesh:stale_child_receipt_cannot_reattach',
+                                   'native-scenario:hierarchical_model_mesh:state_owner_conflict_fails',
+                                   'native-scenario:hierarchical_model_mesh:topology_rejects_two_root_sentinels',
+                                   'native-scenario:hierarchical_model_mesh:topology_requires_one_root_sentinel')}
+
+
+
+def _r6_source_binding_fixtures():
+    root = Path(__file__).resolve().parents[1]
+    mapping = json.loads((root / ".flowguard/models/native-case-mapping.json").read_text(encoding="utf-8"))
+    overrides = json.loads((root / ".flowguard/models/native-case-producer-overrides.json").read_text(encoding="utf-8"))
+    by_blueprint = {row["blueprint_case_id"]: row for row in mapping["bindings"]}
+    # Project the declared source extension into in-memory test fixtures only.
+    # This does not compile, write, or certify the generated mapping artifact.
+    by_blueprint.update({row["blueprint_case_id"]: row for row in overrides["bindings"]})
+    bindings = tuple(
+        NativeCaseBinding(**{
+            key: value for key, value in row.items()
+            if key not in {"schema_version", "binding_fingerprint"}
+        })
+        for row in by_blueprint.values()
+    )
+    return root, mapping, overrides, bindings
+
+
+def _r6_fixture_result(binding, native_id):
+    from dataclasses import replace
+
+    result = _result(_good_contract(owner=binding.owner_id, case=native_id), dimensions=binding.covered_dimensions)
+    return replace(
+        result,
+        outcome=binding.expected_status,
+        observed_status=binding.expected_observed_status or binding.expected_status,
+        # The wire requires both actual oracle finding codes and independent
+        # protected-failure assertions. DPF's invariant name is deliberately
+        # distinct from its eight protected producer failure identities.
+        observed_finding_codes=tuple(sorted(set(binding.expected_finding_codes) | set(binding.protected_failure_ids))),
+        child_case_ids=binding.required_child_case_ids,
+    )
+
+
+def test_aggregate_closure_contains_exact_override_leaf_union():
+    from dataclasses import replace
+    from flowguard.native_case_protocol import verify_native_case_bindings
+
+    root, mapping, overrides, bindings = _r6_source_binding_fixtures()
+    current_mapping = load_native_case_mapping(root / ".flowguard/models/native-case-mapping.json")
+    current_by_blueprint = {row.blueprint_case_id: row for row in current_mapping.bindings}
+    override_ids = [row["blueprint_case_id"] for row in overrides["bindings"]]
+    assert override_ids and len(override_ids) == len(set(override_ids))
+    override_bindings = tuple(row for row in bindings if row.blueprint_case_id in set(override_ids))
+    assert len({row.fingerprint for row in override_bindings}) == len(override_ids)
+    for row in override_bindings:
+        assert row.blueprint_case_id in current_by_blueprint
+        # The generated registry adds its own content identity. All observable
+        # override semantics must still match its actual current projection.
+        expected = row.to_dict()
+        observed = current_by_blueprint[row.blueprint_case_id].to_dict()
+        for payload in (expected, observed):
+            payload.pop("mapping_fingerprint")
+            payload.pop("binding_fingerprint")
+        assert observed == expected
+    manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+    owners = {"model:" + row["model_id"] for row in manifest["models"]}
+    assert {row.owner_id for row in current_mapping.bindings} == owners
+    diagnostics = set(mapping["diagnostic_native_case_ids"])
+    for owner in sorted(owners):
+        owner_rows = tuple(row for row in current_mapping.bindings if row.owner_id == owner)
+        leaves = tuple(row for row in owner_rows if not row.required_child_case_ids)
+        aggregates = tuple(row for row in owner_rows if row.case_kind == "boundary" and row.required_child_case_ids)
+        assert len(aggregates) == 1
+        children = {native for row in leaves for native in row.native_case_ids}
+        added = {
+            native for row in override_bindings
+            if row.owner_id == owner and not row.required_child_case_ids
+            for native in row.native_case_ids
+        }
+        if owner in _R6_AGGREGATE_CHILDREN:
+            assert children == set(_R6_AGGREGATE_CHILDREN[owner]) | added
+        assert children
+        assert set(aggregates[0].required_child_case_ids) == children
+        assert not children & diagnostics
+        assert all(not child.startswith("model:") for child in children)
+        if owner in _R6_AGGREGATE_CHILDREN:
+            prefix = "case:model_maturation_loop:" if owner == "model:model_maturation_loop" else "native-scenario:" + owner.removeprefix("model:") + ":"
+            assert all(child.startswith(prefix) for child in children)
+        aggregate = aggregates[0]
+        fixture_rows = (*leaves, aggregate)
+        results_by_id = {
+            native: _r6_fixture_result(row, native)
+            for row in fixture_rows for native in row.native_case_ids
+        }
+        report = verify_native_case_bindings(fixture_rows, tuple(results_by_id.values()))
+        assert report.ok, report.findings
+
+        distinct_assertion = next((row for row in leaves
+                                   if set(row.protected_failure_ids) - set(row.expected_finding_codes)), None)
+        if distinct_assertion is not None:
+            native_id = distinct_assertion.native_case_ids[0]
+            result = results_by_id[native_id]
+            assert set(result.observed_finding_codes) == (
+                set(distinct_assertion.expected_finding_codes) | set(distinct_assertion.protected_failure_ids)
+            )
+            # Keeping the genuine invariant finding cannot stand in for the
+            # separately required protected-failure assertion (and vice versa).
+            report = verify_native_case_bindings((distinct_assertion,), (
+                replace(result, observed_finding_codes=distinct_assertion.expected_finding_codes),
+            ))
+            assert not report.ok
+            assert any(item.startswith("binding_protected_failure_missing:") for item in report.findings)
+            report = verify_native_case_bindings((distinct_assertion,), (
+                replace(result, observed_finding_codes=distinct_assertion.protected_failure_ids),
+            ))
+            assert not report.ok
+            assert any(item.startswith("binding_finding_code_missing:") for item in report.findings)
+
+        if owner in _R6_AGGREGATE_CHILDREN:
+            assert added
+        checked_children = sorted(added) if added else [sorted(children)[0]]
+        for missing in checked_children:
+            absent = tuple(result for native, result in results_by_id.items() if native != missing)
+            report = verify_native_case_bindings(fixture_rows, absent)
+            assert not report.ok
+            assert any(item.startswith("binding_child_result_missing:") and item.endswith(":" + missing) for item in report.findings)
+
+        child = checked_children[0]
+        foreign = tuple(
+            replace(result, owner_id="model:foreign") if native == child else result
+            for native, result in results_by_id.items()
+        )
+        assert not verify_native_case_bindings(fixture_rows, foreign).ok
+        missing_child = tuple(
+            replace(result, child_case_ids=tuple(item for item in result.child_case_ids if item != child))
+            if native in aggregate.native_case_ids else result
+            for native, result in results_by_id.items()
+        )
+        report = verify_native_case_bindings(fixture_rows, missing_child)
+        assert not report.ok
+        assert any(item.startswith("binding_children_mismatch:") for item in report.findings)
+        diagnostic = tuple(
+            replace(result, child_case_ids=(*result.child_case_ids, "diagnostic:unasserted"))
+            if native in aggregate.native_case_ids else result
+            for native, result in results_by_id.items()
+        )
+        report = verify_native_case_bindings(fixture_rows, diagnostic)
+        assert not report.ok
+        assert any(item.startswith("binding_children_mismatch:") for item in report.findings)
+
+
+def test_positive_regression_guard_is_not_negative_protected_failure():
+    from dataclasses import replace
+    from flowguard.model_purpose import ModelPurposeClosure
+    from flowguard.native_case_protocol import verify_native_case_bindings
+
+    root, _, _, bindings = _r6_source_binding_fixtures()
+    positive_labels = {
+        "case:authoritative_model_system:faithful_current_with_improvement_gaps": "failure:authoritative_model_system:bad_architecture_hidden_for_acceptance",
+        "case:model_maturation_loop:generic_duplicate_responsibility_direction": "failure:model_maturation_loop:cross_boundary_duplicate_method_missed",
+        "case:model_maturation_loop:disjoint_context_variant_preserved": "failure:model_maturation_loop:legitimate_context_variant_merged",
+    }
+    negative_failures = {
+        "case:authoritative_model_system:trace_projection_cannot_claim_full_graph": "failure:authoritative_model_system:trace_only_map_accepted",
+        "case:authoritative_model_system:native_hard_failure_cannot_be_improvement": "failure:authoritative_model_system:hard_failure_reclassified",
+        "case:authoritative_model_system:scoped_graph_not_whole_software_confidence": "failure:authoritative_model_system:self_declared_denominator_hides_writer",
+        "case:model_maturation_loop:identical_copy_not_shared_primary": "failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+        "case:model_maturation_loop:required_architecture_gap_blocks_completion": "failure:model_maturation_loop:accepted_observation_claimed_improvement_done",
+    }
+    new_sources = set(positive_labels) | set(negative_failures)
+    extension = {row.blueprint_source_case_id: row for row in bindings if row.blueprint_source_case_id in new_sources}
+    assert set(extension) == new_sources
+    for source, label in positive_labels.items():
+        row = extension[source]
+        assert row.expected_observed_status == "ok"
+        assert not row.protected_failure_ids and not row.expected_finding_codes
+        result = _r6_fixture_result(row, row.native_case_ids[0])
+        assert verify_native_case_bindings((row,), (result,)).ok
+        counterfeit_negative = replace(row, protected_failure_ids=(label,), expected_finding_codes=(label,), expected_observed_status="violation")
+        report = verify_native_case_bindings((counterfeit_negative,), (result,))
+        assert not report.ok
+        assert any(item.startswith("binding_protected_failure_missing:") for item in report.findings)
+
+    for source, failure in negative_failures.items():
+        row = extension[source]
+        assert row.expected_observed_status == "violation"
+        assert row.protected_failure_ids == row.expected_finding_codes == (failure,)
+        result = _r6_fixture_result(row, row.native_case_ids[0])
+        assert verify_native_case_bindings((row,), (result,)).ok
+        for observed in ("violation", "ok"):
+            report = verify_native_case_bindings((row,), (replace(result, observed_status=observed, observed_finding_codes=()),))
+            assert not report.ok
+            assert any(item.startswith("binding_protected_failure_missing:") for item in report.findings)
+        oracle_rows = tuple({**oracle, "ok": False} for oracle in result.oracle_results)
+        assert not verify_native_case_bindings((row,), (replace(result, oracle_results=oracle_rows),)).ok
+
+    manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+    # The R6 case labels are historical; this inventory is the actual current
+    # Source manifest, including three independently declared native owners.
+    assert len(manifest["models"]) == 54
+    assert {"python_function_state_verification", "problem_corpus_coverage", "evidence_storage_lifecycle"} <= {
+        row["model_id"] for row in manifest["models"]
+    }
+    all_protected = set()
+    closures = {}
+    for row in manifest["models"]:
+        closure = ModelPurposeClosure.from_dict(row["purpose_closure"])
+        closure.validate_current_files(root, model_path=row["model_path"], runner_path=row["runner"][1])
+        all_protected.update(closure.protected_failure_ids)
+        closures[row["model_id"]] = closure
+    assert not set(positive_labels.values()) & all_protected
+    for source, failure in negative_failures.items():
+        owner = extension[source].owner_id.removeprefix("model:")
+        protected = tuple(item for item in closures[owner].failure_bindings if item.failure_id == failure)
+        assert len(protected) == 1
+        assert protected[0].known_bad_case_id == source
+        assert protected[0].expected_case_kind == "bad"
+
+
+def _r8_current_material(root):
+    from flowguard.native_case_runner import write_r8_finite_native_fixture, build_r8_finite_architecture_declaration
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+    write_r8_finite_native_fixture(root)
+    path = ".flowguard/models/owners/alpha/model.py"
+    source = compile_declared_path_quality_source(model_id="alpha", model_instance_fingerprint=_fp("actual-finite-instance"),
+        source_refs=({"path": path, "source_fingerprint": functional_source_fingerprint(root, path)},),
+        graph_scope="native_check_contract", declared_contracts={"finite-integer": {"inputs": [-1, 0, 1, "invalid"]}})
+    return build_r8_finite_architecture_declaration(root, source)
+
+
+def test_r8_architecture_material_parses_exact_current_wire(tmp_path):
+    from copy import deepcopy
+    from flowguard.native_case_protocol import parse_native_architecture_material
+    declaration = _r8_current_material(tmp_path)
+    raw = declaration.architecture_material
+    assert parse_native_architecture_material(raw) == raw
+    assert len(raw["native_case_contracts"]) == 2
+    assert len(raw["responsibility_context_rows"]) == 23 * 3
+    for mutation in ("extra", "missing", "duplicate", "scalar", "nan", "receipt", "unknown_case", "forged_identity"):
+        changed = deepcopy(raw)
+        if mutation == "extra": changed["unregistered"] = True
+        elif mutation == "missing": changed["responsibility_context_rows"].pop()
+        elif mutation == "duplicate": changed["responsibility_context_rows"].append(deepcopy(changed["responsibility_context_rows"][0]))
+        elif mutation == "scalar": changed["source_refs"] = "not an array"
+        elif mutation == "nan": changed["binding_report"]["findings"] = [float("nan")]
+        elif mutation == "receipt": changed["binding_report"]["findings"] = [{"owner_receipt_id": "receipt:self"}]
+        elif mutation == "unknown_case": changed["responsibility_context_rows"][0]["source_case_ids"] = ["case:foreign:never_executed"]
+        else: changed["native_case_contracts"][0]["contract_fingerprint"] = _fp("forged")
+        with pytest.raises((ValueError, TypeError), match=".+"):
+            parse_native_architecture_material(changed)
+
+
+def test_r8_native_current_wire_roundtrips_and_rejects_coercion():
+    contract = _good_contract()
+    assert NativeModelCaseContract.from_dict(contract.to_dict()) == contract
+    result = _result(contract)
+    assert NativeModelCaseResult.from_dict(result.to_dict()) == result
+    binding = NativeCaseBinding(contract.owner_id, "blueprint:good", "source:good", (contract.source_case_id,),
+        contract.case_kind, contract.evidence_scope, contract.covered_dimensions, contract.expected_status)
+    assert NativeCaseBinding.from_dict(binding.to_dict()) == binding
+    for cls, wire in ((NativeModelCaseContract, contract.to_dict()), (NativeModelCaseResult, result.to_dict()), (NativeCaseBinding, binding.to_dict())):
+        bad = dict(wire); bad["legacy_schema"] = True
+        with pytest.raises(NativeCaseProtocolError): cls.from_dict(bad)
+        bad = dict(wire)
+        array = "executed_dimensions" if cls is NativeModelCaseResult else "covered_dimensions"
+        bad[array] = "input"
+        with pytest.raises(NativeCaseProtocolError): cls.from_dict(bad)
+        bad = dict(wire); bad[array] = list(wire[array]) + [wire[array][0]]
+        with pytest.raises(NativeCaseProtocolError): cls.from_dict(bad)
+
+
+def test_r9_real_source_material_requires_complete_current_context_and_native_owner():
+    from copy import deepcopy
+    from tests.test_native_case_runner import _r9_current_source_declaration
+    from flowguard.native_case_protocol import parse_native_architecture_material
+    for model in ("authoritative_model_system", "model_maturation_loop"):
+        raw = _r9_current_source_declaration(model).architecture_material
+        assert parse_native_architecture_material(raw) == raw
+        assert len(raw["code_contracts"]) == 6
+        assert len(raw["native_case_contracts"]) == (4 if model == "authoritative_model_system" else 2)
+        for mutation in ("missing_context", "foreign_owner", "forged_contract", "receipt"):
+            changed = deepcopy(raw)
+            if mutation == "missing_context": changed["responsibility_context_rows"].pop()
+            elif mutation == "foreign_owner": changed["native_case_contracts"][0]["owner_id"] = "model:foreign"
+            elif mutation == "forged_contract": changed["native_case_contracts"][0]["contract_fingerprint"] = _fp("forged-r9")
+            else: changed["accepted_head"] = {"head_id": "constructed"}
+            with pytest.raises((ValueError, TypeError), match=".+"):
+                parse_native_architecture_material(changed)

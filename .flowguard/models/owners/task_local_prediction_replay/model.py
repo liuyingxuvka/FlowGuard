@@ -502,3 +502,18 @@ def broken_rollback_base_model_loss_workflow() -> Workflow:
 
 def terminal_predicate(current_output, _state, _trace) -> bool:
     return isinstance(current_output, (RevisionRejected, RevisionRolledBack))
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='task_local_prediction_replay', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/task_local_prediction_replay/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/task_local_prediction_replay/model.py')},),
+        workflows=(correct_workflow(),), invariants=INVARIANTS,
+    )

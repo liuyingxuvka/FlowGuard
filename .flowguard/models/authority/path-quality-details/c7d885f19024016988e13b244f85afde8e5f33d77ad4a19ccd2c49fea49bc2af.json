@@ -1,0 +1,269 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:67097774aa2e306553e2c63efa29cc26e09f143c060925fd085854f35d7005f6",
+        "effective_intent_view_fingerprint": "sha256:6eeabd9cedcfd79b5a620ef3233dc8712f89b4171ffb1fb34017d628b6264e92",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/minimum_valuable_model_entry/model.py",
+            "source_fingerprint": "sha256:8f81d6356d38bf1240b0d42d977fe10dd8cfcb6a11fd18bdd36c58d26d734f10"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:minimum_valuable_model_entry:accepted_model_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:minimum_valuable_model_entry:inspected_requests",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ],
+          "writes_by": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "ModelRequest",
+          "effects": [],
+          "id": "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract",
+          "inputs": [
+            "external-input:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9"
+          ],
+          "outputs": [
+            "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0",
+          "state_output": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1",
+          "validations": [],
+          "writes": [
+            "field:minimum_valuable_model_entry:inspected_requests"
+          ]
+        },
+        {
+          "accepted_input": "MinimumModelInspected",
+          "effects": [],
+          "id": "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel",
+          "inputs": [
+            "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract"
+          ],
+          "outputs": [
+            "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:minimum_valuable_model_entry:inspected_requests"
+          ],
+          "state_input": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1",
+          "state_output": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:2",
+          "validations": [
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_declare_purpose_and_protected_error",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_make_state_and_effects_explicit",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_have_completion_and_known_bad_evidence",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_bind_current_model_code_and_tests",
+            "validation:minimum_valuable_model_entry:invariant:ordinary_entry_does_not_invoke_template_operations"
+          ],
+          "writes": [
+            "field:minimum_valuable_model_entry:accepted_model_ids"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ],
+          "id": "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract",
+          "producer_id": "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel",
+          "producer_id": "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:2",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:2"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract",
+          "outputs": [
+            "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract"
+          ],
+          "reads": [],
+          "source": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0",
+          "target": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1",
+          "trigger": "ModelRequest",
+          "validations": [],
+          "writes": [
+            "field:minimum_valuable_model_entry:inspected_requests"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel",
+          "outputs": [
+            "output:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel"
+          ],
+          "reads": [
+            "field:minimum_valuable_model_entry:inspected_requests"
+          ],
+          "source": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1",
+          "target": "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:2",
+          "trigger": "MinimumModelInspected",
+          "validations": [
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_declare_purpose_and_protected_error",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_make_state_and_effects_explicit",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_have_completion_and_known_bad_evidence",
+            "validation:minimum_valuable_model_entry:invariant:accepted_models_bind_current_model_code_and_tests",
+            "validation:minimum_valuable_model_entry:invariant:ordinary_entry_does_not_invoke_template_operations"
+          ],
+          "writes": [
+            "field:minimum_valuable_model_entry:accepted_model_ids"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:minimum_valuable_model_entry",
+          "id": "validation:minimum_valuable_model_entry:invariant:accepted_models_bind_current_model_code_and_tests",
+          "obligation_id": "obligation:native-invariant:minimum_valuable_model_entry:accepted_models_bind_current_model_code_and_tests",
+          "oracle_id": "oracle:native-invariant:minimum_valuable_model_entry:accepted_models_bind_current_model_code_and_tests",
+          "subject_fingerprint": "sha256:0b8021c83d6ebd931e134592c9778901bb7c2b0cd62de696f48ded2b4fd8eb00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:minimum_valuable_model_entry",
+          "id": "validation:minimum_valuable_model_entry:invariant:accepted_models_declare_purpose_and_protected_error",
+          "obligation_id": "obligation:native-invariant:minimum_valuable_model_entry:accepted_models_declare_purpose_and_protected_error",
+          "oracle_id": "oracle:native-invariant:minimum_valuable_model_entry:accepted_models_declare_purpose_and_protected_error",
+          "subject_fingerprint": "sha256:0b8021c83d6ebd931e134592c9778901bb7c2b0cd62de696f48ded2b4fd8eb00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:minimum_valuable_model_entry",
+          "id": "validation:minimum_valuable_model_entry:invariant:accepted_models_have_completion_and_known_bad_evidence",
+          "obligation_id": "obligation:native-invariant:minimum_valuable_model_entry:accepted_models_have_completion_and_known_bad_evidence",
+          "oracle_id": "oracle:native-invariant:minimum_valuable_model_entry:accepted_models_have_completion_and_known_bad_evidence",
+          "subject_fingerprint": "sha256:0b8021c83d6ebd931e134592c9778901bb7c2b0cd62de696f48ded2b4fd8eb00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:minimum_valuable_model_entry",
+          "id": "validation:minimum_valuable_model_entry:invariant:accepted_models_make_state_and_effects_explicit",
+          "obligation_id": "obligation:native-invariant:minimum_valuable_model_entry:accepted_models_make_state_and_effects_explicit",
+          "oracle_id": "oracle:native-invariant:minimum_valuable_model_entry:accepted_models_make_state_and_effects_explicit",
+          "subject_fingerprint": "sha256:0b8021c83d6ebd931e134592c9778901bb7c2b0cd62de696f48ded2b4fd8eb00"
+        },
+        {
+          "evidence_boundary_id": "native-runner:minimum_valuable_model_entry",
+          "id": "validation:minimum_valuable_model_entry:invariant:ordinary_entry_does_not_invoke_template_operations",
+          "obligation_id": "obligation:native-invariant:minimum_valuable_model_entry:ordinary_entry_does_not_invoke_template_operations",
+          "oracle_id": "oracle:native-invariant:minimum_valuable_model_entry:ordinary_entry_does_not_invoke_template_operations",
+          "subject_fingerprint": "sha256:0b8021c83d6ebd931e134592c9778901bb7c2b0cd62de696f48ded2b4fd8eb00"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:minimum_valuable_model_entry:accepted_model_ids": "field",
+      "field:minimum_valuable_model_entry:inspected_requests": "field",
+      "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract": "function_block",
+      "function-block:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel": "function_block",
+      "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0": "state",
+      "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1": "state",
+      "state:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:2": "state",
+      "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:0:InspectMinimumModelContract": "transition",
+      "transition:workflow:minimum_valuable_model_entry:minimum_valuable_model_entry:0:28d79933e1d9:1:AcceptMinimumModel": "transition",
+      "validation:minimum_valuable_model_entry:invariant:accepted_models_bind_current_model_code_and_tests": "validation",
+      "validation:minimum_valuable_model_entry:invariant:accepted_models_declare_purpose_and_protected_error": "validation",
+      "validation:minimum_valuable_model_entry:invariant:accepted_models_have_completion_and_known_bad_evidence": "validation",
+      "validation:minimum_valuable_model_entry:invariant:accepted_models_make_state_and_effects_explicit": "validation",
+      "validation:minimum_valuable_model_entry:invariant:ordinary_entry_does_not_invoke_template_operations": "validation"
+    },
+    "subject_fingerprint": "sha256:9e5892fefe72921d0bda55b7164fa7caefce1ce63c92fdc89519e403b65c2b5f",
+    "trigger_currentness_id": "sha256:8d40ea036d05e5635d80eed7a4e824c77e46ec43660e37765af1ca6013428f96",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:c7d885f19024016988e13b244f85afde8e5f33d77ad4a19ccd2c49fea49bc2af",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

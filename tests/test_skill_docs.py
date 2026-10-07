@@ -146,6 +146,16 @@ class SkillDocsTests(unittest.TestCase):
             "`observed` baseline", "non-code targets", "implementation-complete contract",
         ):
             self.assertIn(phrase, core_text)
+        self.assertIn("They do not create or validate per-element `NecessityWitness` records", core_text)
+        self.assertIn(
+            "A missing necessity witness is a gap only inside an explicitly requested finite candidate comparison",
+            core_text,
+        )
+        self.assertIn("They do not create or validate per-element `NecessityWitness` records", core_text)
+        self.assertIn(
+            "missing necessity witness is a gap only inside an explicitly requested finite candidate comparison",
+            core_text,
+        )
         self.assertIn("No mode/fallback path", " ".join(kernel.split()))
         self.assertIn("Missing, stale, unresolved", " ".join(evidence.split()))
         self.assertIn("does not enumerate candidates", " ".join(refs["preflight"].split()))
@@ -161,6 +171,66 @@ class SkillDocsTests(unittest.TestCase):
         self.assertIn("not a single-model path-quality conclusion", optimization)
         self.assertNotIn("plus their total", optimization)
         self.assertNotIn("unique lowest total", optimization)
+
+    def test_development_process_docs_match_admission_and_batch_boundaries(self):
+        kernel_admission = self.read(KERNEL_ROOT / "references" / "skill_kernel_protocol.md")
+        dpf_protocol = self.read(
+            DOMAIN_ROOT / "development-process-flow" / "references" / "development_process_flow_protocol.md"
+        )
+        dpf_admission = dpf_protocol.split("## Implementation Admission", 1)[1].split("## ", 1)[0]
+        template = self.read(ROOT / "flowguard" / "template_text" / "development_process_flow.py")
+        template_admission = template.split("- a separate implementation-admission result:", 1)[1].split(
+            "\n\n", 1
+        )[0]
+        for section in (kernel_admission, dpf_admission, template_admission):
+            self.assertIn("not_requested", section)
+            self.assertIn("direct", section)
+            self.assertNotIn("ready_scoped", section)
+
+        handoff = "ordinary cross-owner handoff alone uses execution freshness"
+        self.assertIn(
+            handoff,
+            " ".join(self.read(DOMAIN_ROOT / "development-process-flow" / "protocol.md").split()).lower(),
+        )
+        self.assertIn(handoff, " ".join(dpf_protocol.split()).lower())
+        self.assertIn(handoff, " ".join(template.split()).lower())
+
+        workflow = " ".join(
+            self.read(
+                DOMAIN_ROOT
+                / "development-process-flow"
+                / "references"
+                / "agent_workflow_protocol.md"
+            ).split()
+        )
+        self.assertIn("not every tool call, file edit, progress update, or peer completion", workflow)
+        self.assertIn("Freeze selected owners, ordered steps, disjoint write sets", workflow)
+        self.assertIn("Reopen only the affected decision", workflow)
+        self.assertIn("A blocked branch records its missing prerequisite", " ".join(dpf_protocol.split()))
+        self.assertIn("A progress note, checkbox", " ".join(dpf_protocol.split()))
+
+        test_mesh_short = " ".join(self.read(DOMAIN_ROOT / "test-mesh" / "protocol.md").split())
+        test_mesh_detail = " ".join(
+            self.read(DOMAIN_ROOT / "test-mesh" / "references" / "test_mesh_protocol.md").split()
+        )
+        for text in (test_mesh_short, test_mesh_detail, " ".join(dpf_protocol.split())):
+            self.assertIn("jobs=1", text)
+            self.assertIn("parallel", text)
+            self.assertIn("batch publication", text)
+
+        optimization = " ".join(
+            self.read(
+                DOMAIN_ROOT
+                / "development-process-flow"
+                / "references"
+                / "process_optimization_protocol.md"
+            ).split()
+        )
+        self.assertIn("One declared candidate is an admissibility check, not a comparison", optimization)
+        self.assertIn("multiple declared candidates keep the full comparison requirements", optimization)
+        self.assertIn("do not extend the candidate set repeatedly", optimization)
+        self.assertIn("one declared candidate is an admissibility check", template.lower())
+
 
     def test_domain_protocols_keep_route_specific_edge_semantics(self):
         expected = {

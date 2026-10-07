@@ -1,0 +1,435 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:0dfd869ca0bd29f91f77b9dcf18b2c3824ae42b90a27c980a7d5e397a2bac972",
+        "effective_intent_view_fingerprint": "sha256:11e9e3e5a0178735f036e95d899d5a2feb3998dc54593d977858a7dfdd1dabea",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/default_replacement_field_lifecycle/model.py",
+            "source_fingerprint": "sha256:fc716b8649bb7bb4a23a51302d50a6dd45c7ccbd091ea5e3ea8b1e3b8f7a7927"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:all_fields_accounted",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:behavior_fields_projected",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:broad_regression_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:closure_review_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:fallback_residual_absent",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:field_evidence_route_bound",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:field_root_cause_backpropagated",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:fields_discovered",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:final_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:freshness_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:model_code_test_aligned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:observed_bug_recorded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:old_fields_disposed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:old_paths_disposed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:same_class_bug_case_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "writes_by": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "LifecycleAction",
+          "effects": [],
+          "id": "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle",
+          "inputs": [
+            "external-input:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0"
+          ],
+          "outputs": [
+            "output:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:default_replacement_field_lifecycle:fields_discovered",
+            "field:default_replacement_field_lifecycle:all_fields_accounted",
+            "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission",
+            "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan",
+            "field:default_replacement_field_lifecycle:behavior_fields_projected",
+            "field:default_replacement_field_lifecycle:field_evidence_route_bound",
+            "field:default_replacement_field_lifecycle:old_paths_disposed",
+            "field:default_replacement_field_lifecycle:old_fields_disposed",
+            "field:default_replacement_field_lifecycle:fallback_residual_absent",
+            "field:default_replacement_field_lifecycle:model_code_test_aligned",
+            "field:default_replacement_field_lifecycle:observed_bug_recorded",
+            "field:default_replacement_field_lifecycle:same_class_bug_case_added",
+            "field:default_replacement_field_lifecycle:field_root_cause_backpropagated",
+            "field:default_replacement_field_lifecycle:freshness_current",
+            "field:default_replacement_field_lifecycle:broad_regression_current",
+            "field:default_replacement_field_lifecycle:closure_review_passed",
+            "field:default_replacement_field_lifecycle:final_claim"
+          ],
+          "state_input": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0",
+          "state_output": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:1",
+          "validations": [
+            "validation:default_replacement_field_lifecycle:invariant:no_full_claim_without_complete_loop"
+          ],
+          "writes": [
+            "field:default_replacement_field_lifecycle:fields_discovered",
+            "field:default_replacement_field_lifecycle:all_fields_accounted",
+            "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission",
+            "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan",
+            "field:default_replacement_field_lifecycle:behavior_fields_projected",
+            "field:default_replacement_field_lifecycle:field_evidence_route_bound",
+            "field:default_replacement_field_lifecycle:old_paths_disposed",
+            "field:default_replacement_field_lifecycle:old_fields_disposed",
+            "field:default_replacement_field_lifecycle:fallback_residual_absent",
+            "field:default_replacement_field_lifecycle:model_code_test_aligned",
+            "field:default_replacement_field_lifecycle:observed_bug_recorded",
+            "field:default_replacement_field_lifecycle:same_class_bug_case_added",
+            "field:default_replacement_field_lifecycle:field_root_cause_backpropagated",
+            "field:default_replacement_field_lifecycle:freshness_current",
+            "field:default_replacement_field_lifecycle:broad_regression_current",
+            "field:default_replacement_field_lifecycle:closure_review_passed",
+            "field:default_replacement_field_lifecycle:final_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle",
+          "producer_id": "transition:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle",
+          "outputs": [
+            "output:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle"
+          ],
+          "reads": [
+            "field:default_replacement_field_lifecycle:fields_discovered",
+            "field:default_replacement_field_lifecycle:all_fields_accounted",
+            "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission",
+            "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan",
+            "field:default_replacement_field_lifecycle:behavior_fields_projected",
+            "field:default_replacement_field_lifecycle:field_evidence_route_bound",
+            "field:default_replacement_field_lifecycle:old_paths_disposed",
+            "field:default_replacement_field_lifecycle:old_fields_disposed",
+            "field:default_replacement_field_lifecycle:fallback_residual_absent",
+            "field:default_replacement_field_lifecycle:model_code_test_aligned",
+            "field:default_replacement_field_lifecycle:observed_bug_recorded",
+            "field:default_replacement_field_lifecycle:same_class_bug_case_added",
+            "field:default_replacement_field_lifecycle:field_root_cause_backpropagated",
+            "field:default_replacement_field_lifecycle:freshness_current",
+            "field:default_replacement_field_lifecycle:broad_regression_current",
+            "field:default_replacement_field_lifecycle:closure_review_passed",
+            "field:default_replacement_field_lifecycle:final_claim"
+          ],
+          "source": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0",
+          "target": "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:1",
+          "trigger": "LifecycleAction",
+          "validations": [
+            "validation:default_replacement_field_lifecycle:invariant:no_full_claim_without_complete_loop"
+          ],
+          "writes": [
+            "field:default_replacement_field_lifecycle:fields_discovered",
+            "field:default_replacement_field_lifecycle:all_fields_accounted",
+            "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission",
+            "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan",
+            "field:default_replacement_field_lifecycle:behavior_fields_projected",
+            "field:default_replacement_field_lifecycle:field_evidence_route_bound",
+            "field:default_replacement_field_lifecycle:old_paths_disposed",
+            "field:default_replacement_field_lifecycle:old_fields_disposed",
+            "field:default_replacement_field_lifecycle:fallback_residual_absent",
+            "field:default_replacement_field_lifecycle:model_code_test_aligned",
+            "field:default_replacement_field_lifecycle:observed_bug_recorded",
+            "field:default_replacement_field_lifecycle:same_class_bug_case_added",
+            "field:default_replacement_field_lifecycle:field_root_cause_backpropagated",
+            "field:default_replacement_field_lifecycle:freshness_current",
+            "field:default_replacement_field_lifecycle:broad_regression_current",
+            "field:default_replacement_field_lifecycle:closure_review_passed",
+            "field:default_replacement_field_lifecycle:final_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:default_replacement_field_lifecycle",
+          "id": "validation:default_replacement_field_lifecycle:invariant:no_full_claim_without_complete_loop",
+          "obligation_id": "obligation:native-invariant:default_replacement_field_lifecycle:no_full_claim_without_complete_loop",
+          "oracle_id": "oracle:native-invariant:default_replacement_field_lifecycle:no_full_claim_without_complete_loop",
+          "subject_fingerprint": "sha256:73d0697ddfa12f86bf615b473233c72523878daf9a57571c2d6a0fe483b5c438"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:default_replacement_field_lifecycle:all_fields_accounted": "field",
+      "field:default_replacement_field_lifecycle:behavior_fields_projected": "field",
+      "field:default_replacement_field_lifecycle:broad_regression_current": "field",
+      "field:default_replacement_field_lifecycle:closure_review_passed": "field",
+      "field:default_replacement_field_lifecycle:fallback_residual_absent": "field",
+      "field:default_replacement_field_lifecycle:field_evidence_route_bound": "field",
+      "field:default_replacement_field_lifecycle:field_root_cause_backpropagated": "field",
+      "field:default_replacement_field_lifecycle:fields_discovered": "field",
+      "field:default_replacement_field_lifecycle:final_claim": "field",
+      "field:default_replacement_field_lifecycle:freshness_current": "field",
+      "field:default_replacement_field_lifecycle:model_code_test_aligned": "field",
+      "field:default_replacement_field_lifecycle:non_ui_fields_kept_out_of_ui_plan": "field",
+      "field:default_replacement_field_lifecycle:observed_bug_recorded": "field",
+      "field:default_replacement_field_lifecycle:old_fields_disposed": "field",
+      "field:default_replacement_field_lifecycle:old_paths_disposed": "field",
+      "field:default_replacement_field_lifecycle:same_class_bug_case_added": "field",
+      "field:default_replacement_field_lifecycle:ui_reader_fields_handed_to_content_admission": "field",
+      "function-block:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle": "function_block",
+      "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0": "state",
+      "state:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:1": "state",
+      "transition:workflow:default_replacement_field_lifecycle:default_replacement_field_lifecycle_correct:0:78fa7bb446b0:0:CorrectReplacementFieldLifecycle": "transition",
+      "validation:default_replacement_field_lifecycle:invariant:no_full_claim_without_complete_loop": "validation"
+    },
+    "subject_fingerprint": "sha256:fd3af26fe4d7289b52843033c7219bb8d56d2b32e0336d4d70fe34db1a7522d5",
+    "trigger_currentness_id": "sha256:353fddb18901587f18bd02af535a5c875db1233909018b494029a735ac6604dd",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:34e75a7db87b650f2615b71eee4fc355256f0e3c4893a35aac78f837f4e33f05",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

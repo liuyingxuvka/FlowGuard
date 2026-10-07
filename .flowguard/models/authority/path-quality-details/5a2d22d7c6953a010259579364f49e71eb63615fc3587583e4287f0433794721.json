@@ -1,0 +1,353 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:aff90769fcb32b618476d6ac591ced643665a1f3e14bde43a20c07251b5b3666",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/runtime_path_evidence/model.py",
+            "source_fingerprint": "sha256:9a3a14536df9d50de1022982a32855028dc224f7baf56f4a49d1ab700bdc9e12"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:ad_hoc_log_only",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:child_evidence_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:closure_full",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:contract_declared",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:expected_inventory_covered",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:expected_inventory_declared",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:facade_delegates_only",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:leaf_node_observed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:parent_consumed_child",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:path_aligned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:runtime_gateway_bound",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:scoped_runtime_path",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:runtime_path_evidence:stable_authority_bound",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "Event",
+          "effects": [],
+          "id": "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade",
+          "inputs": [
+            "external-input:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31"
+          ],
+          "outputs": [
+            "output:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:runtime_path_evidence:contract_declared",
+            "field:runtime_path_evidence:leaf_node_observed",
+            "field:runtime_path_evidence:path_aligned",
+            "field:runtime_path_evidence:child_evidence_current",
+            "field:runtime_path_evidence:parent_consumed_child",
+            "field:runtime_path_evidence:runtime_gateway_bound",
+            "field:runtime_path_evidence:scoped_runtime_path"
+          ],
+          "state_input": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0",
+          "state_output": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:1",
+          "validations": [
+            "validation:runtime_path_evidence:invariant:closure_requires_runtime_path",
+            "validation:runtime_path_evidence:invariant:parent_consumes_current_child"
+          ],
+          "writes": [
+            "field:runtime_path_evidence:contract_declared",
+            "field:runtime_path_evidence:expected_inventory_declared",
+            "field:runtime_path_evidence:stable_authority_bound",
+            "field:runtime_path_evidence:leaf_node_observed",
+            "field:runtime_path_evidence:path_aligned",
+            "field:runtime_path_evidence:expected_inventory_covered",
+            "field:runtime_path_evidence:facade_delegates_only",
+            "field:runtime_path_evidence:child_evidence_current",
+            "field:runtime_path_evidence:parent_consumed_child",
+            "field:runtime_path_evidence:runtime_gateway_bound",
+            "field:runtime_path_evidence:closure_full",
+            "field:runtime_path_evidence:scoped_runtime_path",
+            "field:runtime_path_evidence:ad_hoc_log_only"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade",
+          "producer_id": "transition:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade",
+          "outputs": [
+            "output:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade"
+          ],
+          "reads": [
+            "field:runtime_path_evidence:contract_declared",
+            "field:runtime_path_evidence:leaf_node_observed",
+            "field:runtime_path_evidence:path_aligned",
+            "field:runtime_path_evidence:child_evidence_current",
+            "field:runtime_path_evidence:parent_consumed_child",
+            "field:runtime_path_evidence:runtime_gateway_bound",
+            "field:runtime_path_evidence:scoped_runtime_path"
+          ],
+          "source": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0",
+          "target": "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:1",
+          "trigger": "Event",
+          "validations": [
+            "validation:runtime_path_evidence:invariant:closure_requires_runtime_path",
+            "validation:runtime_path_evidence:invariant:parent_consumes_current_child"
+          ],
+          "writes": [
+            "field:runtime_path_evidence:contract_declared",
+            "field:runtime_path_evidence:expected_inventory_declared",
+            "field:runtime_path_evidence:stable_authority_bound",
+            "field:runtime_path_evidence:leaf_node_observed",
+            "field:runtime_path_evidence:path_aligned",
+            "field:runtime_path_evidence:expected_inventory_covered",
+            "field:runtime_path_evidence:facade_delegates_only",
+            "field:runtime_path_evidence:child_evidence_current",
+            "field:runtime_path_evidence:parent_consumed_child",
+            "field:runtime_path_evidence:runtime_gateway_bound",
+            "field:runtime_path_evidence:closure_full",
+            "field:runtime_path_evidence:scoped_runtime_path",
+            "field:runtime_path_evidence:ad_hoc_log_only"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:runtime_path_evidence",
+          "id": "validation:runtime_path_evidence:invariant:closure_requires_runtime_path",
+          "obligation_id": "obligation:native-invariant:runtime_path_evidence:closure_requires_runtime_path",
+          "oracle_id": "oracle:native-invariant:runtime_path_evidence:closure_requires_runtime_path",
+          "subject_fingerprint": "sha256:cb4e865c2c5617fd1c90ea4a25f82e4af9a68fd88e7db235ed616026b35d16be"
+        },
+        {
+          "evidence_boundary_id": "native-runner:runtime_path_evidence",
+          "id": "validation:runtime_path_evidence:invariant:parent_consumes_current_child",
+          "obligation_id": "obligation:native-invariant:runtime_path_evidence:parent_consumes_current_child",
+          "oracle_id": "oracle:native-invariant:runtime_path_evidence:parent_consumes_current_child",
+          "subject_fingerprint": "sha256:cb4e865c2c5617fd1c90ea4a25f82e4af9a68fd88e7db235ed616026b35d16be"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:runtime_path_evidence:ad_hoc_log_only": "field",
+      "field:runtime_path_evidence:child_evidence_current": "field",
+      "field:runtime_path_evidence:closure_full": "field",
+      "field:runtime_path_evidence:contract_declared": "field",
+      "field:runtime_path_evidence:expected_inventory_covered": "field",
+      "field:runtime_path_evidence:expected_inventory_declared": "field",
+      "field:runtime_path_evidence:facade_delegates_only": "field",
+      "field:runtime_path_evidence:leaf_node_observed": "field",
+      "field:runtime_path_evidence:parent_consumed_child": "field",
+      "field:runtime_path_evidence:path_aligned": "field",
+      "field:runtime_path_evidence:runtime_gateway_bound": "field",
+      "field:runtime_path_evidence:scoped_runtime_path": "field",
+      "field:runtime_path_evidence:stable_authority_bound": "field",
+      "function-block:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade": "function_block",
+      "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0": "state",
+      "state:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:1": "state",
+      "transition:workflow:runtime_path_evidence:runtime_path_evidence_upgrade:0:5e2943f0ca31:0:RuntimePathUpgrade": "transition",
+      "validation:runtime_path_evidence:invariant:closure_requires_runtime_path": "validation",
+      "validation:runtime_path_evidence:invariant:parent_consumes_current_child": "validation"
+    },
+    "subject_fingerprint": "sha256:42651280fffd425e0d08fb5635d2a0d59b4cb66629035fcb12b0b7e21c308225",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:5a2d22d7c6953a010259579364f49e71eb63615fc3587583e4287f0433794721",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

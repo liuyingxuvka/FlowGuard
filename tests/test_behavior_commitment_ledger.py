@@ -1,5 +1,7 @@
 import ast
 import importlib.util
+import json
+import re
 import sys
 import tempfile
 import unittest
@@ -602,6 +604,20 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
             "flowguard_behavior_commitment_owner_contracts_for_test",
         )
         project_ledger = ledger_model.build_flowguard_behavior_commitment_ledger()
+        root = Path(__file__).resolve().parents[1]
+        normative_ids = {
+            "commitment:" + slug
+            for slug in re.findall(
+                r"^## Contract: ([a-z0-9-]+)[ \t]*\r?$",
+                (root / "docs/functional_source_contracts.md").read_text(encoding="utf-8"),
+                re.MULTILINE,
+            )
+        }
+        self.assertEqual(21, len(normative_ids))
+        manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+        primary_paths = {row["model_path"] for row in manifest["models"]}
+        observed_normative_ids = set()
+        observed_owner_contract_ids = set()
 
         for commitment in project_ledger.commitments:
             if not commitment.active_external_commitment():
@@ -611,10 +627,36 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
                 + commitment.primary_owner_model_id.replace("\\", "/")
             )
             with self.subTest(commitment_id=commitment.commitment_id):
-                self.assertIn(
-                    expected_owner_contract_id,
-                    commitment.evidence.code_contract_ids,
-                )
+                primary_path = commitment.primary_owner_model_id.replace("\\", "/")
+                self.assertIn(primary_path, primary_paths)
+                self.assertTrue((root / primary_path).is_file())
+                if commitment.commitment_id in normative_ids:
+                    observed_normative_ids.add(commitment.commitment_id)
+                    slug = commitment.commitment_id.removeprefix("commitment:")
+                    self.assertEqual(
+                        ("docs/functional_source_contracts.md#Contract: " + slug,),
+                        commitment.source_refs,
+                    )
+                    self.assertIn(primary_path, commitment.evidence.code_contract_ids)
+                    self.assertEqual("missing", commitment.evidence.evidence_state)
+                    self.assertIs(False, commitment.evidence.current)
+                    self.assertFalse(commitment.evidence.has_current_pass())
+                    self.assertFalse(commitment.evidence.proof_artifact_ids)
+                    self.assertFalse(commitment.evidence.coverage_receipt_ids)
+                    self.assertEqual("NOT_RUN", commitment.evidence.metadata["execution_status"])
+                else:
+                    observed_owner_contract_ids.add(commitment.commitment_id)
+                    self.assertIn(expected_owner_contract_id, commitment.evidence.code_contract_ids)
+        self.assertEqual(normative_ids, observed_normative_ids)
+        self.assertEqual(25, len(observed_owner_contract_ids))
+        full = replace(project_ledger, claim_scope=BCL_SCOPE_FULL, require_current_evidence=True)
+        full_review = review_behavior_commitment_ledger(full, project_root=root)
+        self.assertFalse(full_review.ok)
+        self.assertEqual(
+            normative_ids,
+            {finding.commitment_id for finding in full_review.findings
+             if finding.code == "commitment_current_evidence_missing"},
+        )
 
     def test_missing_expected_commitment_blocks(self):
         report = review_behavior_commitment_ledger(ledger(expected=("commitment:missing",)))

@@ -1,0 +1,452 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:d69b1efc747a62cafb5d769361c9a342a9e593a33b379fe98a15df5ec2a5d9b1",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/guidance_compression/model.py",
+            "source_fingerprint": "sha256:28dae210323fb0016950f85ef046900d5858a820086a2f9c05a207193393ce2f"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:budget_tests_added",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:compact_success_summary",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:complete_artifact_pointer",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:context_admission_enforced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:duplicate_reference_detail_folded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:editable_install_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:failure_details_visible",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:hard_gates_preserved",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:hot_path_compressed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:installed_skills_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:long_prompt_templates_lazy_loaded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:producer_reuse_verified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:reference_handoffs_available",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:selected_prompt_bundles_budgeted",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:shadow_workspace_synced",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:validations_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:guidance_compression:version_and_git_evidence_aligned",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "writes_by": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "GuidanceAction",
+          "effects": [],
+          "id": "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression",
+          "inputs": [
+            "external-input:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8"
+          ],
+          "outputs": [
+            "output:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:guidance_compression:hot_path_compressed",
+            "field:guidance_compression:selected_prompt_bundles_budgeted",
+            "field:guidance_compression:context_admission_enforced",
+            "field:guidance_compression:compact_success_summary",
+            "field:guidance_compression:complete_artifact_pointer",
+            "field:guidance_compression:failure_details_visible",
+            "field:guidance_compression:producer_reuse_verified",
+            "field:guidance_compression:hard_gates_preserved",
+            "field:guidance_compression:reference_handoffs_available",
+            "field:guidance_compression:duplicate_reference_detail_folded",
+            "field:guidance_compression:long_prompt_templates_lazy_loaded",
+            "field:guidance_compression:budget_tests_added",
+            "field:guidance_compression:validations_passed",
+            "field:guidance_compression:editable_install_synced",
+            "field:guidance_compression:installed_skills_synced",
+            "field:guidance_compression:shadow_workspace_synced",
+            "field:guidance_compression:version_and_git_evidence_aligned",
+            "field:guidance_compression:done_claim"
+          ],
+          "state_input": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0",
+          "state_output": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:1",
+          "validations": [
+            "validation:guidance_compression:invariant:no_done_without_full_sync"
+          ],
+          "writes": [
+            "field:guidance_compression:hot_path_compressed",
+            "field:guidance_compression:selected_prompt_bundles_budgeted",
+            "field:guidance_compression:context_admission_enforced",
+            "field:guidance_compression:compact_success_summary",
+            "field:guidance_compression:complete_artifact_pointer",
+            "field:guidance_compression:failure_details_visible",
+            "field:guidance_compression:producer_reuse_verified",
+            "field:guidance_compression:hard_gates_preserved",
+            "field:guidance_compression:reference_handoffs_available",
+            "field:guidance_compression:duplicate_reference_detail_folded",
+            "field:guidance_compression:long_prompt_templates_lazy_loaded",
+            "field:guidance_compression:budget_tests_added",
+            "field:guidance_compression:validations_passed",
+            "field:guidance_compression:editable_install_synced",
+            "field:guidance_compression:installed_skills_synced",
+            "field:guidance_compression:shadow_workspace_synced",
+            "field:guidance_compression:version_and_git_evidence_aligned",
+            "field:guidance_compression:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression",
+          "producer_id": "transition:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression",
+          "outputs": [
+            "output:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression"
+          ],
+          "reads": [
+            "field:guidance_compression:hot_path_compressed",
+            "field:guidance_compression:selected_prompt_bundles_budgeted",
+            "field:guidance_compression:context_admission_enforced",
+            "field:guidance_compression:compact_success_summary",
+            "field:guidance_compression:complete_artifact_pointer",
+            "field:guidance_compression:failure_details_visible",
+            "field:guidance_compression:producer_reuse_verified",
+            "field:guidance_compression:hard_gates_preserved",
+            "field:guidance_compression:reference_handoffs_available",
+            "field:guidance_compression:duplicate_reference_detail_folded",
+            "field:guidance_compression:long_prompt_templates_lazy_loaded",
+            "field:guidance_compression:budget_tests_added",
+            "field:guidance_compression:validations_passed",
+            "field:guidance_compression:editable_install_synced",
+            "field:guidance_compression:installed_skills_synced",
+            "field:guidance_compression:shadow_workspace_synced",
+            "field:guidance_compression:version_and_git_evidence_aligned",
+            "field:guidance_compression:done_claim"
+          ],
+          "source": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0",
+          "target": "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:1",
+          "trigger": "GuidanceAction",
+          "validations": [
+            "validation:guidance_compression:invariant:no_done_without_full_sync"
+          ],
+          "writes": [
+            "field:guidance_compression:hot_path_compressed",
+            "field:guidance_compression:selected_prompt_bundles_budgeted",
+            "field:guidance_compression:context_admission_enforced",
+            "field:guidance_compression:compact_success_summary",
+            "field:guidance_compression:complete_artifact_pointer",
+            "field:guidance_compression:failure_details_visible",
+            "field:guidance_compression:producer_reuse_verified",
+            "field:guidance_compression:hard_gates_preserved",
+            "field:guidance_compression:reference_handoffs_available",
+            "field:guidance_compression:duplicate_reference_detail_folded",
+            "field:guidance_compression:long_prompt_templates_lazy_loaded",
+            "field:guidance_compression:budget_tests_added",
+            "field:guidance_compression:validations_passed",
+            "field:guidance_compression:editable_install_synced",
+            "field:guidance_compression:installed_skills_synced",
+            "field:guidance_compression:shadow_workspace_synced",
+            "field:guidance_compression:version_and_git_evidence_aligned",
+            "field:guidance_compression:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:guidance_compression",
+          "id": "validation:guidance_compression:invariant:no_done_without_full_sync",
+          "obligation_id": "obligation:native-invariant:guidance_compression:no_done_without_full_sync",
+          "oracle_id": "oracle:native-invariant:guidance_compression:no_done_without_full_sync",
+          "subject_fingerprint": "sha256:75e9c878f3eb71d0916951fe5cea580a2ce5de62289664971c91fbefb5c33dc2"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:guidance_compression:budget_tests_added": "field",
+      "field:guidance_compression:compact_success_summary": "field",
+      "field:guidance_compression:complete_artifact_pointer": "field",
+      "field:guidance_compression:context_admission_enforced": "field",
+      "field:guidance_compression:done_claim": "field",
+      "field:guidance_compression:duplicate_reference_detail_folded": "field",
+      "field:guidance_compression:editable_install_synced": "field",
+      "field:guidance_compression:failure_details_visible": "field",
+      "field:guidance_compression:hard_gates_preserved": "field",
+      "field:guidance_compression:hot_path_compressed": "field",
+      "field:guidance_compression:installed_skills_synced": "field",
+      "field:guidance_compression:long_prompt_templates_lazy_loaded": "field",
+      "field:guidance_compression:producer_reuse_verified": "field",
+      "field:guidance_compression:reference_handoffs_available": "field",
+      "field:guidance_compression:selected_prompt_bundles_budgeted": "field",
+      "field:guidance_compression:shadow_workspace_synced": "field",
+      "field:guidance_compression:validations_passed": "field",
+      "field:guidance_compression:version_and_git_evidence_aligned": "field",
+      "function-block:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression": "function_block",
+      "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0": "state",
+      "state:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:1": "state",
+      "transition:workflow:guidance_compression:guidance_compression_correct:0:c53cabeb35e8:0:CorrectGuidanceCompression": "transition",
+      "validation:guidance_compression:invariant:no_done_without_full_sync": "validation"
+    },
+    "subject_fingerprint": "sha256:81a92f9fd34b9dff107f5a7932f1783ddcc6c1871a52ce821459f47c6ec3eda7",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:a4f39f7d388520b19ad2a5a640863b5007d80af1d32c60da03a84e88c97dd563",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

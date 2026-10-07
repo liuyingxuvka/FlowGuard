@@ -25,10 +25,13 @@ import pytest
 import flowguard.validation_ownership as validation_ownership
 from flowguard.evidence_receipts import fingerprint_value
 from flowguard.model_authority import (
+    AcceptedBoundaryContract,
     LIFECYCLE_ACTIVE,
     ModelAuthorityError,
     ModelRevisionSet,
     SUBJECT_OBSERVED_IMPLEMENTATION,
+    build_boundary_contract_from_snapshot,
+    canonical_fingerprint,
 )
 from flowguard.model_authority_store import (
     activate_model_revision_set,
@@ -41,7 +44,11 @@ from flowguard.model_intent import ModelIntentContribution
 from flowguard.model_intent_authority import EffectiveIntentTransition
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
-from flowguard.model_revision_builder import build_current_model_revision
+from flowguard.model_revision_builder import (
+    build_current_model_revision,
+    preflight_current_model_revision_inputs,
+)
+from flowguard.model_revision_plan import preview_current_model_revision
 from flowguard.model_revision_owner_evidence import (
     produce_model_revision_owner_evidence,
 )
@@ -60,6 +67,165 @@ from flowguard.process_supervision import run_supervised_bytes
 from flowguard.project_manifest import manifest_text_fingerprint
 from flowguard.source_identity import source_file_fingerprint
 from tests.test_model_maturation import _path_quality
+
+
+def _r6_consumer_material(tmp_path, *, include_declaration=True, debt=False, responsibility_model_id=None):
+    """Original raw bytes and independently declared graph; no native launcher."""
+    from types import SimpleNamespace
+    from flowguard.model_path_quality import compile_declared_path_quality_source, derive_retained_elements
+    from tests.test_model_path_quality import clean_facts, fp
+    facts = clean_facts()
+    if responsibility_model_id is not None:
+        from tests.test_model_path_quality import _r6_fact
+        element = next(iter(derive_retained_elements(facts)))[0]
+        facts["responsibilities"] = [replace(
+            _r6_fact(model=responsibility_model_id), element_ids=(element,),
+        ).to_dict()]
+    if debt:
+        facts["states"].append({"id": "state:unreachable", "terminal": True})
+    declaration = compile_declared_path_quality_source(
+        model_id="fixture", model_instance_fingerprint=fp("instance"),
+        source_refs=[{"path": "model.py", "source_fingerprint": fp("model-source")}],
+        model_facts=facts, element_groundings={element: {"kind": "explicit_model_contract"}
+                                             for element, _ in derive_retained_elements(facts)},
+    )
+    raw = {"owner_id": "model:fixture", "cases": [{"name": "passing-executed-path", "ok": True}]}
+    if include_declaration:
+        raw["declared_path_quality_source"] = declaration.to_dict()
+    source_path = tmp_path / "native-source.json"
+    source_path.write_text(json.dumps(raw), encoding="utf-8")
+    source_fp = "sha256:" + hashlib.sha256(source_path.read_bytes()).hexdigest()
+    result_path = tmp_path / "native-case-results.json"
+    result_path.write_text(json.dumps({"source_fingerprint": source_fp}), encoding="utf-8")
+    instance = SimpleNamespace(logical_model_id="fixture", fingerprint=fp("instance"),
+        model_sha256=fp("model-source"), purpose_closure_fingerprint=fp("purpose"),
+        input_inventory_fingerprint=fp("inputs"), runner_sha256=fp("runner"),
+        inputs=(SimpleNamespace(path="model.py", sha256=fp("model-source")),))
+    from flowguard.model_regressions import input_inventory_fingerprint
+    native_input_fp = input_inventory_fingerprint(tuple({"path": item.path, "sha256": item.sha256} for item in instance.inputs))
+    case = SimpleNamespace(owner_id="model:fixture", outcome="pass",
+        result_artifact_fingerprint=source_fp, model_fingerprint=fp("model-source"),
+        source_case_id="case:fixture", oracle_fingerprint=fp("oracle"),
+        input_fingerprint=native_input_fp, test_fingerprint=instance.runner_sha256,
+        code_fingerprint=canonical_fingerprint({"model": instance.model_sha256, "inputs": native_input_fp}))
+    run = SimpleNamespace(model_id="fixture", ok=True, native_case_results=(case,),
+        native_case_result_artifact_path=str(result_path),
+        native_case_result_artifact_fingerprint="sha256:" + hashlib.sha256(result_path.read_bytes()).hexdigest())
+    candidate = SimpleNamespace(fingerprint=fp("candidate"), model_instances=(instance,))
+    parent = SimpleNamespace(results=(run,))
+    view = SimpleNamespace(fingerprint=fp("retained-goal-plus-new-contribution"),
+                           candidate_snapshot_fingerprint=candidate.fingerprint)
+    return parent, candidate, view, source_path
+
+
+def test_public_change_binds_complete_effective_intent(tmp_path):
+    from flowguard.__main__ import _native_path_quality_material
+    from tests.test_model_path_quality import fp
+    parent, candidate, view, source = _r6_consumer_material(tmp_path)
+    original = source.read_bytes()
+    subjects, results, details = _native_path_quality_material(parent, candidate,
+        required_model_ids=("fixture",), currentness_id=candidate.fingerprint,
+        effective_intent_view=view)
+    assert subjects[0].intent_fingerprint == view.fingerprint
+    assert subjects[0].intent_fingerprint != fp("new-contribution-only")
+    assert results[0].detail_evidence_fingerprint == details[0].fingerprint
+    assert not details[0].binding_errors(subjects[0], results[0])
+    assert source.read_bytes() == original
+    row = parent.results[0].native_case_results[0]
+    for name in ("input_fingerprint", "test_fingerprint", "code_fingerprint"):
+        current = getattr(row, name)
+        setattr(row, name, fp("stale-but-nonempty"))
+        with pytest.raises(ValueError, match="native_hard_invariant_failed"):
+            _native_path_quality_material(parent, candidate, required_model_ids=("fixture",),
+                currentness_id=candidate.fingerprint, effective_intent_view=view)
+        setattr(row, name, current)
+    view.candidate_snapshot_fingerprint = fp("different-candidate")
+    with pytest.raises(ValueError, match="effective_intent_identity_mismatch"):
+        _native_path_quality_material(parent, candidate, required_model_ids=("fixture",),
+            currentness_id=candidate.fingerprint, effective_intent_view=view)
+
+
+def test_public_change_never_falls_back_to_trace_graph(tmp_path):
+    from flowguard.__main__ import _native_path_quality_material
+    parent, candidate, view, _ = _r6_consumer_material(tmp_path, include_declaration=False)
+    with mock.patch("flowguard.model_authority_store.activate_model_revision_set") as cas:
+        with pytest.raises(ValueError, match="declared_source_missing"):
+            _native_path_quality_material(parent, candidate, required_model_ids=("fixture",),
+                currentness_id=candidate.fingerprint, effective_intent_view=view)
+        cas.assert_not_called()
+
+
+def test_public_observation_map_can_retain_improvement_debt(tmp_path):
+    from flowguard.__main__ import _native_path_quality_material
+    parent, candidate, view, _ = _r6_consumer_material(tmp_path, debt=True)
+    subjects, results, details = _native_path_quality_material(parent, candidate,
+        required_model_ids=("fixture",), currentness_id=candidate.fingerprint,
+        effective_intent_view=view)
+    assert results[0].current and not results[0].observation_gap_ids
+    assert "unreachable_state:state:unreachable" in results[0].improvement_gap_ids
+    assert "state:unreachable" in details[0].body["retained_elements"]
+    assert not details[0].binding_errors(subjects[0], results[0])
+
+
+def test_public_change_cannot_discard_unassigned_required_architecture_goal(tmp_path):
+    from flowguard.__main__ import _native_path_quality_material
+    from flowguard.model_intent import ArchitectureObjective, BoundArchitectureObjective
+    from tests.test_model_path_quality import fp
+
+    parent, candidate, view, source = _r6_consumer_material(tmp_path)
+    original = source.read_bytes()
+    goal = ArchitectureObjective(
+        "objective:unassigned", True, ("unknown-model",),
+        ("responsibility:writer",), ("class:accepted",),
+        "allowed_layers", {"layer_ids": ["layer:service"]},
+        "model:unknown-model", ("failure:wrong-layer",),
+    )
+    bound = BoundArchitectureObjective(
+        goal, "intent:unknown", fp("source-identity"), "docs/objective.md",
+        fp("source"), view.fingerprint,
+    )
+    with mock.patch("flowguard.model_authority_store.activate_model_revision_set") as cas:
+        with pytest.raises(ValueError, match="architecture_objective_scope_unassigned:objective:unassigned"):
+            _native_path_quality_material(
+                parent, candidate, required_model_ids=("fixture",),
+                currentness_id=candidate.fingerprint, effective_intent_view=view,
+                objective_projection=(bound,),
+            )
+        cas.assert_not_called()
+    assert source.read_bytes() == original
+
+
+@pytest.mark.parametrize("claimed_model_id", ["model:fixture", "unknown-model"])
+def test_public_change_rejects_foreign_architecture_responsibility_owner(tmp_path, claimed_model_id):
+    from flowguard.__main__ import _native_path_quality_material
+
+    parent, candidate, view, source = _r6_consumer_material(
+        tmp_path, responsibility_model_id=claimed_model_id,
+    )
+    original = source.read_bytes()
+    with pytest.raises(ValueError, match="architecture_responsibility_owner_mismatch"):
+        _native_path_quality_material(
+            parent, candidate, required_model_ids=("fixture",),
+            currentness_id=candidate.fingerprint, effective_intent_view=view,
+        )
+    assert source.read_bytes() == original
+
+
+def test_current_and_normative_direction_are_not_collapsed(tmp_path):
+    from flowguard.__main__ import _native_path_quality_material
+    parent, candidate, view, source = _r6_consumer_material(tmp_path, debt=True)
+    original = source.read_bytes()
+    subjects, results, details = _native_path_quality_material(parent, candidate,
+        required_model_ids=("fixture",), currentness_id=candidate.fingerprint,
+        effective_intent_view=view)
+    # The present map retains the disconnected element and its debt. A
+    # possible future removal does not erase it or become accepted completion.
+    actual = details[0].body["model_facts"]
+    assert any(row["id"] == "state:unreachable" for row in actual["states"])
+    assert results[0].improvement_gap_ids and not results[0].observation_gap_ids
+    assert results[0].selected_candidate_id == ""
+    assert source.read_bytes() == original
+    assert subjects[0].intent_fingerprint == view.fingerprint
 
 
 _MODEL_IDS = ("alpha", "beta", "alpha_beta_connection")
@@ -179,10 +345,31 @@ def _write_consumer(root: Path) -> None:
         model_path.parent.mkdir(parents=True, exist_ok=True)
         runner_path.parent.mkdir(parents=True, exist_ok=True)
         model_path.write_text(
-            f"MODEL_ID = {model_id!r}\nBOUNDARY = ('start', 'ready')\nCASES = {tuple(item[0] for item in case_selectors[model_id])!r}\n",
+            f"MODEL_ID = {model_id!r}\nBOUNDARY = ('start', 'ready')\nCASES = {tuple(item[0] for item in case_selectors[model_id])!r}\n"
+            "def export_path_quality_source(instance_fingerprint):\n"
+            "    from pathlib import Path\n"
+            "    from flowguard.model_path_quality import compile_declared_path_quality_source\n"
+            "    from flowguard.source_identity import functional_source_fingerprint\n"
+            "    root = Path(__file__).resolve().parents[4]\n"
+            "    relative = Path(__file__).resolve().relative_to(root).as_posix()\n"
+            "    return compile_declared_path_quality_source(model_id=MODEL_ID, model_instance_fingerprint=instance_fingerprint, source_refs=[{'path': relative, 'source_fingerprint': functional_source_fingerprint(root, relative)}], graph_scope='native_check_contract', declared_contracts={'consumer-case-boundary': {'states': BOUNDARY, 'cases': CASES}})\n",
             encoding="utf-8",
         )
-        runner_path.write_text(runner_sources[model_id], encoding="utf-8")
+        export_prelude = (
+            "def export_path_quality_source(instance_fingerprint):\n"
+            "    import importlib.util\n"
+            "    from pathlib import Path\n"
+            f"    path = Path(__file__).resolve().parents[4] / '.flowguard/models/owners/{model_id}/model.py'\n"
+            f"    spec = importlib.util.spec_from_file_location('consumer_declaration_{model_id}', path)\n"
+            "    module = importlib.util.module_from_spec(spec)\n"
+            "    spec.loader.exec_module(module)\n"
+            "    return module.export_path_quality_source(instance_fingerprint)\n\n"
+        )
+        runner_source = runner_sources[model_id].replace(
+            "def main():\n", export_prelude + "def main():\n", 1,
+        ).replace(f'native_main("model:{model_id}", run_review)',
+                  f'native_main("model:{model_id}", run_review, declared_source_exporter=export_path_quality_source)', 1)
+        runner_path.write_text(runner_source, encoding="utf-8")
         input_paths = [
             model_path.relative_to(root).as_posix(),
             runner_path.relative_to(root).as_posix(),
@@ -272,6 +459,18 @@ def _write_consumer(root: Path) -> None:
                     mapping_fingerprint="",
                 )
             )
+    for model_id in case_selectors:
+        children = tuple(sorted(case_id for binding in mapping_bindings
+                                if binding.owner_id == f"model:{model_id}"
+                                for case_id in binding.native_case_ids))
+        mapping_bindings.append(NativeCaseBinding(
+            owner_id=f"model:{model_id}", blueprint_case_id=f"consumer:{model_id}:boundary",
+            blueprint_source_case_id=f"consumer:{model_id}:boundary",
+            native_case_ids=(f"case:{model_id}:boundary",), case_kind="boundary",
+            evidence_scope="implementation_boundary", covered_dimensions=("input", "error", "decision", "retry", "timeout", "completion"),
+            expected_status="pass", expected_observed_status="ok",
+            required_child_case_ids=children, mapping_fingerprint="",
+        ))
     mapping_fingerprint = compute_native_case_mapping_fingerprint(
         source_manifest_fingerprint=source_file_fingerprint(manifest_path),
         source_paths=(manifest_path.relative_to(root).as_posix(),),
@@ -437,6 +636,62 @@ def _consumer_roots(tmp_path: Path) -> tuple[Path, Path]:
     return target, staging
 
 
+def _consumer_boundary_contract(root: Path) -> AcceptedBoundaryContract:
+    snapshot = build_manifest_model_system_snapshot(
+        root,
+        snapshot_id="snapshot:consumer-boundary-base",
+    )
+    model_id = "alpha_beta_connection"
+    axis_id = "consumer-transition-kind"
+    group_id = "consumer-transition-group"
+    axis_identity = {
+        "axis_id": axis_id,
+        "model_id": model_id,
+        "values": ["valid", "invalid"],
+    }
+    axis_payload = {
+        **axis_identity,
+        "axis_fingerprint": canonical_fingerprint(axis_identity),
+    }
+    signature_identity = {
+        "axis_ids": [axis_id],
+        "interaction_group_id": group_id,
+        "model_id": model_id,
+    }
+    group_payload = {
+        "axis_ids": [axis_id],
+        "group_id": group_id,
+        "model_id": model_id,
+        "product_signature": {
+            **signature_identity,
+            "fingerprint": canonical_fingerprint(signature_identity),
+        },
+    }
+    return build_boundary_contract_from_snapshot(
+        snapshot,
+        contract_id="boundary-contract:consumer-lifecycle:v1",
+        model_id=model_id,
+        axis_payloads=(axis_payload,),
+        interaction_group_payloads=(group_payload,),
+        group_relation_ids={
+            group_id: (f"relation:model-realizes-purpose:{model_id}",)
+        },
+    )
+
+
+def _declare_boundary_contract_owner(root: Path, model_id: str) -> None:
+    path = root / ".flowguard" / "structure" / "owner-bindings.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["bindings"].append(
+        {
+            "owner_route": "authoritative_model_system",
+            "model_ids": [model_id],
+            "protected_failure_ids": ["consumer:invalid-boundary"],
+        }
+    )
+    path.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+
+
 def _prepare_parent(staging: Path):
     receipt_root = staging / "work" / "model-owner-receipts"
     parent_dir = staging / "work" / "model-parent"
@@ -460,6 +715,7 @@ def _publish_initial(
     parent,
     receipt_root: Path,
     include_beta: bool = True,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
 ):
     manifest_path = target / ".flowguard" / "project.toml"
     expected_absent = manifest_text_fingerprint(manifest_path.read_text(encoding="utf-8"))
@@ -482,10 +738,17 @@ def _publish_initial(
         intent_rationale="Accept the two exact consumer design contributions once.",
         intent_claim_boundary="Only the finite two-model consumer design boundary.",
         decision_reason="Every declared consumer model has current intent and owner evidence.",
+        accepted_boundary_contract=accepted_boundary_contract,
     )
 
 
-def _adopt(target: Path, staging: Path, *, include_beta: bool = True):
+def _adopt(
+    target: Path,
+    staging: Path,
+    *,
+    include_beta: bool = True,
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
+):
     parent, receipt_root = _prepare_parent(staging)
     return _publish_initial(
         target,
@@ -493,6 +756,7 @@ def _adopt(target: Path, staging: Path, *, include_beta: bool = True):
         parent=parent,
         receipt_root=receipt_root,
         include_beta=include_beta,
+        accepted_boundary_contract=accepted_boundary_contract,
     )
 
 
@@ -549,15 +813,32 @@ def _prepare_affected_update(
         subject_lane=base.subject_lane,
         lifecycle=base.lifecycle,
     )
-    diff = derive_revision_snapshot_diff(base, candidate)
-    path_quality_rows = tuple(
-        _path_quality(
-            member.member_id,
-            member.candidate_instance_fingerprint,
-            candidate.fingerprint,
-        )
-        for member in diff.members
-        if member.operation in {"add", "replace"}
+    transitions = _current_intent_retain_transitions(target)
+    intent_view = preflight_current_model_revision_inputs(
+        target,
+        candidate_snapshot=candidate,
+        expected_head_fingerprint=_head.fingerprint,
+        removal_dispositions=(),
+        intent_contributions=(),
+        intent_dispositions=(),
+        effective_intent_transitions=transitions,
+    )
+    from flowguard.__main__ import _native_path_quality_material
+
+    subjects, quality_results, quality_details = _native_path_quality_material(
+        parent,
+        candidate,
+        required_model_ids=tuple(sorted(_MODEL_IDS)),
+        currentness_id=candidate.fingerprint,
+        effective_intent_view=intent_view,
+        semantic_evidence={
+            "receipts": owner_report.bundle.receipts,
+            "native_results": tuple(row for run in parent.results for row in run.native_case_results),
+            "current_source_fingerprints": {
+                item.path: item.sha256 for instance in candidate.model_instances for item in instance.inputs
+            },
+            "root": target,
+        },
     )
     built = build_current_model_revision(
         target,
@@ -566,14 +847,14 @@ def _prepare_affected_update(
         revision_set_id=f"revision:{output_name}",
         task_id=f"task:{output_name}",
         snapshot_id=snapshot_id,
-        effective_intent_transitions=_current_intent_retain_transitions(target),
+        effective_intent_transitions=transitions,
         native_owner_contracts=owner_report.bundle.contracts,
         native_owner_receipts=owner_report.bundle.receipts,
         native_owner_verification_results=(
             owner_report.bundle.verification_results
         ),
-        path_quality_subjects=tuple(row[0] for row in path_quality_rows),
-        path_quality_results=tuple(row[1] for row in path_quality_rows),
+        path_quality_subjects=subjects,
+        path_quality_results=quality_results,
         decision_reason=(
             "The real consumer change and its typed dependent connection have "
             "exact current owner evidence."
@@ -583,7 +864,7 @@ def _prepare_affected_update(
     revision = ModelRevisionSet.from_dict(
         json.loads(Path(built.revision_set_path).read_text(encoding="utf-8"))
     )
-    return parent, candidate, revision, built
+    return parent, candidate, revision, built, quality_details
 
 
 def _file_inventory(*roots: Path) -> dict[str, bytes]:
@@ -594,6 +875,21 @@ def _file_inventory(*roots: Path) -> dict[str, bytes]:
         for path in sorted(item for item in root.rglob("*") if item.is_file()):
             inventory[str(path.resolve())] = path.read_bytes()
     return inventory
+
+
+def _current_beta_architecture(target: Path):
+    from flowguard.model_authority_store import (
+        _load_bound_read_projection,
+        read_selected_model_projection,
+    )
+
+    head, _snapshot = load_observed_model_system(target)
+    return read_selected_model_projection(
+        target,
+        head=head,
+        projection=_load_bound_read_projection(target, head),
+        selected_model_ids=("beta",),
+    )
 
 
 def _run_public_read(target: Path, request_path: Path, *extra: str):
@@ -922,7 +1218,14 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
     tmp_path: Path,
 ):
     target, staging = _consumer_roots(tmp_path)
-    _adopt(target, staging)
+    _declare_boundary_contract_owner(staging, "alpha_beta_connection")
+    _declare_boundary_contract_owner(target, "alpha_beta_connection")
+    predecessor_contract = _consumer_boundary_contract(staging)
+    _adopt(
+        target,
+        staging,
+        accepted_boundary_contract=predecessor_contract,
+    )
     # Move the already accepted leaf store to the public seam's canonical
     # root so the current planner can reuse beta and rerun only alpha plus its
     # independently owned connection proof.
@@ -930,6 +1233,11 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
     public_receipts.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(staging / "work" / "model-owner-receipts", public_receipts)
     original_head, _snapshot = load_observed_model_system(target)
+    original_intent_fingerprint = load_current_model_authority_state(target).accepted_revision.current_effective_intent_view.fingerprint
+    beta_proof_path = next((staging / "work" / "model-parent").glob("beta-*/native-case-results.json"))
+    original_beta_proof = beta_proof_path.read_bytes()
+    beta_source_path = beta_proof_path.with_name("native-source.json")
+    original_beta_source = beta_source_path.read_bytes()
     (target / "src" / "alpha.py").write_text(
         "def classify(value: int) -> str:\n"
         "    if isinstance(value, bool) or not isinstance(value, int):\n"
@@ -979,6 +1287,37 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
         encoding="utf-8",
     )
 
+    planned = preview_current_model_revision(
+        target,
+        snapshot_id=preparation["snapshot_id"],
+    )
+    assert planned.ok
+    assert planned.candidate_snapshot is not None
+    beta_path = target / "src" / "beta.py"
+    beta_before = beta_path.read_bytes()
+    before_drift_preflight = _file_inventory(public_receipts)
+    try:
+        beta_path.write_bytes(beta_before + b"\n# changed after preview\n")
+        with pytest.raises(
+            ModelAuthorityError,
+            match="current revision candidate changed after its read-only preview",
+        ):
+            preflight_current_model_revision_inputs(
+                target,
+                candidate_snapshot=planned.candidate_snapshot,
+                expected_head_fingerprint=original_head.fingerprint,
+                removal_dispositions=(),
+                intent_contributions=(),
+                intent_dispositions=(),
+                effective_intent_transitions=(
+                    _current_intent_retain_transitions(target)
+                ),
+                accepted_boundary_contract=planned.accepted_boundary_contract,
+            )
+    finally:
+        beta_path.write_bytes(beta_before)
+    assert _file_inventory(public_receipts) == before_drift_preflight
+
     unknown_request = json.loads(request_path.read_text(encoding="utf-8"))
     unknown_request["scope"] = ["unknown-model-or-boundary"]
     unknown_request_path = target / "unknown-scope-change-request.json"
@@ -994,6 +1333,70 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
     assert "unknown IDs" in unknown_payload["error"]
     assert _file_inventory(public_receipts) == before_unknown
 
+    missing_transition_preparation = {
+        **preparation,
+        "effective_intent_transitions": [],
+    }
+    missing_transition_raw = json.dumps(
+        missing_transition_preparation, sort_keys=True
+    ).encode("utf-8")
+    missing_transition_path = target / "missing-transition-preparation.json"
+    missing_transition_path.write_bytes(missing_transition_raw)
+    missing_transition_request_path = target / "missing-transition-request.json"
+    missing_transition_request = json.loads(request_path.read_text(encoding="utf-8"))
+    missing_transition_request["revision_input"] = {
+        "path": missing_transition_path.relative_to(target).as_posix(),
+        "sha256": hashlib.sha256(missing_transition_raw).hexdigest(),
+    }
+    missing_transition_request_path.write_text(
+        json.dumps(missing_transition_request, sort_keys=True), encoding="utf-8"
+    )
+    before_preflight = _file_inventory(public_receipts)
+    missing_transition = _run_public_change(target, missing_transition_request_path)
+    assert missing_transition.returncode == 1
+    missing_transition_payload = json.loads(missing_transition.stdout)
+    assert missing_transition_payload["status"] == "blocked"
+    assert missing_transition_payload["reason"] == "revision_input_preflight_failed"
+    assert missing_transition_payload["producer_count"] == 0
+    assert "every prior active intent requires" in missing_transition_payload["error"]
+    assert _file_inventory(public_receipts) == before_preflight
+
+    extra_removal_preparation = {
+        **preparation,
+        "removal_dispositions": [
+            {
+                "schema": "flowguard.revision_removal_disposition.v1",
+                "removed_id": "model:unlisted-removal",
+                "disposition": "retire",
+                "reason": "This test identity is deliberately outside the candidate diff.",
+                "replacement_id": "",
+            }
+        ],
+    }
+    extra_removal_raw = json.dumps(
+        extra_removal_preparation, sort_keys=True
+    ).encode("utf-8")
+    extra_removal_path = target / "extra-removal-preparation.json"
+    extra_removal_path.write_bytes(extra_removal_raw)
+    extra_removal_request_path = target / "extra-removal-request.json"
+    extra_removal_request = json.loads(request_path.read_text(encoding="utf-8"))
+    extra_removal_request["revision_input"] = {
+        "path": extra_removal_path.relative_to(target).as_posix(),
+        "sha256": hashlib.sha256(extra_removal_raw).hexdigest(),
+    }
+    extra_removal_request_path.write_text(
+        json.dumps(extra_removal_request, sort_keys=True), encoding="utf-8"
+    )
+    before_extra_removal = _file_inventory(public_receipts)
+    extra_removal = _run_public_change(target, extra_removal_request_path)
+    assert extra_removal.returncode == 1
+    extra_removal_payload = json.loads(extra_removal.stdout)
+    assert extra_removal_payload["status"] == "blocked"
+    assert extra_removal_payload["reason"] == "revision_input_preflight_failed"
+    assert extra_removal_payload["producer_count"] == 0
+    assert "extra=['model:unlisted-removal']" in extra_removal_payload["error"]
+    assert _file_inventory(public_receipts) == before_extra_removal
+
     completed = _run_public_change(target, request_path)
 
     assert completed.returncode == 0, completed.stderr or completed.stdout
@@ -1006,6 +1409,30 @@ def test_public_change_current_alpha_executes_connection_reuses_beta_and_activat
     assert payload["affected_model_ids"] == ["alpha", "alpha_beta_connection"]
     assert payload["head"]["generation"] == original_head.generation + 1
     assert load_observed_model_system(target)[0].fingerprint == payload["head"]["fingerprint"]
+    accepted_state = load_current_model_authority_state(target)
+    assert {subject.model_id for subject in accepted_state.accepted_revision.path_quality_subjects} == set(_MODEL_IDS)
+    assert {
+        subject.intent_fingerprint for subject in accepted_state.accepted_revision.path_quality_subjects
+    } == {accepted_state.accepted_revision.current_effective_intent_view.fingerprint}
+    beta_subject = next(
+        subject for subject in accepted_state.accepted_revision.path_quality_subjects if subject.model_id == "beta"
+    )
+    assert beta_subject.intent_fingerprint != original_intent_fingerprint
+    assert beta_subject.evidence_fingerprint == "sha256:" + hashlib.sha256(original_beta_proof).hexdigest()
+    assert beta_proof_path.read_bytes() == original_beta_proof
+    assert beta_source_path.read_bytes() == original_beta_source
+    beta_map = _current_beta_architecture(target)
+    assert beta_map.architecture["observation_gap_ids"] == []
+    assert beta_map.architecture["architecture_confidence"] == "scoped"
+    accepted_contract = accepted_state.accepted_boundary_contract
+    assert accepted_contract is not None
+    assert accepted_contract.contract_id == predecessor_contract.contract_id
+    assert accepted_contract.axis_payloads == predecessor_contract.axis_payloads
+    assert (
+        accepted_contract.interaction_group_payloads
+        == predecessor_contract.interaction_group_payloads
+    )
+    assert accepted_contract.group_relation_ids == predecessor_contract.group_relation_ids
 
     # Replaying the stale CAS request is rejected before another producer is
     # leased and cannot add evidence or move the current pointer.
@@ -1356,6 +1783,11 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
     _adopt(target, staging)
     receipt_root = staging / "work" / "model-owner-receipts"
     original_head, _original_snapshot = load_observed_model_system(target)
+    original_intent_fingerprint = load_current_model_authority_state(target).accepted_revision.current_effective_intent_view.fingerprint
+    beta_proof_path = next((staging / "work" / "model-parent").glob("beta-*/native-case-results.json"))
+    original_beta_proof = beta_proof_path.read_bytes()
+    beta_source_path = beta_proof_path.with_name("native-source.json")
+    original_beta_source = beta_source_path.read_bytes()
 
     # This is a real behavior refinement: bool is no longer accepted as a
     # numeric positive value.  The existing good/bad native cases still run
@@ -1378,7 +1810,7 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
     assert unrelated.selected_source_currentness == "current"
     assert stale.producer_count == unrelated.producer_count == 0
 
-    parent, candidate, revision, built = _prepare_affected_update(
+    parent, candidate, revision, built, quality_details = _prepare_affected_update(
         target,
         receipt_root=receipt_root,
         snapshot_id="snapshot:consumer-affected-update",
@@ -1400,11 +1832,26 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
         in revision.affected_closure_ids
     )
     assert "model_instance:model:beta" in revision.affected_closure_ids
+    assert {subject.model_id for subject in revision.path_quality_subjects} == set(_MODEL_IDS)
+    assert {subject.intent_fingerprint for subject in revision.path_quality_subjects} == {
+        revision.current_effective_intent_view.fingerprint
+    }
+    beta_subject = next(subject for subject in revision.path_quality_subjects if subject.model_id == "beta")
+    assert beta_subject.intent_fingerprint != original_intent_fingerprint
+    assert beta_subject.evidence_fingerprint == "sha256:" + hashlib.sha256(original_beta_proof).hexdigest()
+    assert beta_proof_path.read_bytes() == original_beta_proof
+    assert beta_source_path.read_bytes() == original_beta_source
+    details_by_fingerprint = {detail.fingerprint: detail for detail in quality_details}
+    for result in revision.path_quality_results:
+        detail = details_by_fingerprint[result.detail_evidence_fingerprint]
+        subject = next(subject for subject in revision.path_quality_subjects if subject.fingerprint == result.subject_fingerprint)
+        assert not detail.binding_errors(subject, result)
 
     current_head, _receipt = activate_model_revision_set(
         target,
         candidate,
         revision,
+        path_quality_details=quality_details,
     )
     assert current_head.generation == original_head.generation + 1
     assert read_selected_model_closure(
@@ -1413,6 +1860,9 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
     assert read_selected_model_closure(
         target, selected_model_ids=("beta",)
     ).selected_source_currentness == "current"
+    beta_map = _current_beta_architecture(target)
+    assert beta_map.architecture["observation_gap_ids"] == []
+    assert beta_map.architecture["architecture_confidence"] == "scoped"
 
     # Replaying the same accepted transition is a stale CAS loser.  It must
     # not produce a second generation or overwrite the winner.
@@ -1421,6 +1871,7 @@ def test_affected_alpha_update_reuses_beta_validates_connection_and_activates_on
             target,
             candidate,
             revision,
+            path_quality_details=quality_details,
         )
     assert load_observed_model_system(target)[0] == current_head
 
@@ -1529,7 +1980,7 @@ def test_unsafe_authority_path_and_corrupt_object_return_bounded_diagnostics(
     )
     assert corrupt.authority_integrity == "blocked"
     assert corrupt.producer_count == 0 and corrupt.write_count == 0
-    assert "cannot load model-system snapshot" in corrupt.findings[0]["message"]
+    assert "current snapshots artifact is invalid" in corrupt.findings[0]["message"]
     assert (corrupt_target / ".flowguard" / "project.toml").read_bytes() == manifest_before
 
 

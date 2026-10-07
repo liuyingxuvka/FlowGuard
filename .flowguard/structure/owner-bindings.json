@@ -2,22 +2,21 @@
   "schema": "flowguard.native_owner_model_bindings.v1",
   "system_id": "flowguard",
   "candidate_model_ids": [
-    "authoritative_model_system",
-    "compositional_verification_kernel",
-    "bounded_system_composition_benchmark",
-    "model_maturation_loop",
-    "task_coverage_demand",
     "adversarial_scenario_synthesis",
     "ai_entry_surface_reduction",
     "ai_route_handoffs",
     "architecture_reduction",
+    "authoritative_model_system",
     "behavior_commitment_ledger",
+    "bounded_system_composition_benchmark",
     "code_boundary_conformance",
     "codex_skill_satellites",
+    "compositional_verification_kernel",
     "contract_source_audit",
     "default_replacement_field_lifecycle",
     "development_process_flow",
     "development_process_strategy",
+    "evidence_storage_lifecycle",
     "existing_model_preflight",
     "field_prompt_reduction",
     "flowguard_closure_contract",
@@ -31,6 +30,7 @@
     "mesh_target_split_derivation",
     "minimum_valuable_model_entry",
     "model_impact_freshness_gate",
+    "model_maturation_loop",
     "model_mesh_closure_model",
     "model_miss_review",
     "model_test_code_alignment",
@@ -38,57 +38,801 @@
     "model_visibility",
     "plan_detailing_compiler",
     "primary_path_authority",
+    "problem_corpus_coverage",
     "project_adoption_version_gate",
+    "python_function_state_verification",
     "runtime_gateway_adoption",
     "runtime_path_evidence",
     "self_maintenance_mesh",
     "skill_kernel_modularization",
     "state_closure_gate",
     "structure_refactor_mesh",
+    "task_coverage_demand",
+    "task_local_prediction_replay",
     "template_public_release",
     "test_evidence_mesh",
     "ui_flow_structure_skill",
     "ui_human_operability_gate",
     "user_facing_model_diagrams",
     "validation_evidence_gates",
-    "work_context",
-    "task_local_prediction_replay"
+    "work_context"
   ],
   "bindings": [
     {
       "owner_route": "affected_authority_inventory",
-      "model_ids": ["authoritative_model_system"],
-      "protected_failure_ids": ["model-authority:partial-or-stale-activation"]
+      "model_ids": [
+        "authoritative_model_system"
+      ],
+      "protected_failure_ids": [
+        "model-authority:partial-or-stale-activation"
+      ]
     },
     {
       "owner_route": "authoritative_model_system",
-      "model_ids": ["authoritative_model_system"],
-      "protected_failure_ids": ["model-authority:partial-or-stale-activation"]
+      "model_ids": [
+        "authoritative_model_system"
+      ],
+      "protected_failure_ids": [
+        "model-authority:subject-lane-confusion",
+        "model-authority:partial-or-stale-activation",
+        "model-authority:pointer-only-rollback",
+        "model-authority:legacy-schema-dual-authority",
+        "model-authority:declared-materialized-inventory-shrink",
+        "model-authority:caller-narrowed-diff-or-evidence",
+        "model-authority:lock-held-live-drift",
+        "model-authority:old-head-rollback-replay",
+        "model-maturation:caller-self-report",
+        "model-maturation:coverage-shrink",
+        "model-maturation:premature-terminal",
+        "model-authority:stale-revision-build-evidence",
+        "model-authority:revision-build-activates-authority",
+        "model-authority:semantic-inventory-only",
+        "model-authority:semantic-partial-slice",
+        "model-authority:semantic-empty-fingerprint",
+        "model-authority:semantic-unverified-completion",
+        "model-authority:vacuous-empty-intent",
+        "model-authority:unfrozen-target-provider-registry",
+        "model-authority:stale-target-snapshot",
+        "model-authority:omitted-provider-lineage",
+        "model-authority:parent-receipt-reused-across-native-owners",
+        "model-authority:caller-forged-native-owner-verification",
+        "model-authority:canonical-owner-evidence-disappears",
+        "model-authority:relabeled-scoped-model-parent",
+        "model-authority:affected-owner-model-unmapped",
+        "model-authority:provider-payload-diverges-from-current-native-report",
+        "model-authority:caller-selected-semantic-mesh-identity",
+        "model-authority:ghost-topology-runtime-evidence",
+        "model-authority:affected-semantic-relation-closure-gap",
+        "model-authority:raw-manifest-alternate-blueprint-authority",
+        "model-authority:topology-root-sentinel-missing",
+        "model-authority:topology-duplicate-root-sentinel",
+        "model-authority:topology-multiple-structural-parents",
+        "model-authority:topology-cross-boundary-support-as-structural-parent",
+        "model-authority:topology-parent-receipt-as-child-evidence",
+        "model-authority:topology-child-receipt-coverage-gap",
+        "model-authority:topology-stale-child-receipt",
+        "model-authority:topology-foreign-child-receipt-owner",
+        "model-authority:topology-duplicate-child-receipt",
+        "model-authority:topology-feedback-relation-classification-incomplete",
+        "model-authority:topology-feedback-progress-contract-missing",
+        "model-authority:topology-retry-progress-contract-missing",
+        "model-authority:topology-repair-progress-contract-missing",
+        "model-authority:topology-feedback-progress-evidence-stale",
+        "model-authority:topology-feedback-progress-contract-stale",
+        "model-authority:topology-declaration-self-certifies-currentness",
+        "model-authority:project-document-intent-authority-omitted",
+        "model-authority:portable-export-layer-omitted",
+        "model-authority:export-status-promotes-model-readiness",
+        "model-authority:intent-direct-source-fingerprint-stale",
+        "model-authority:intent-work-context-identity-mismatch",
+        "model-authority:intent-source-drift-during-revision-build",
+        "model-authority:intent-source-owner-input-detached",
+        "failure:authoritative_model_system:trace_only_map_accepted",
+        "failure:authoritative_model_system:hard_failure_reclassified",
+        "failure:authoritative_model_system:self_declared_denominator_hides_writer",
+        "failure:authoritative_model_system:frozen_scope_not_authenticated",
+        "failure:authoritative_model_system:frozen_scope_claimed_live_complete"
+      ]
     },
     {
       "owner_route": "behavior_commitment_ledger",
-      "model_ids": ["behavior_commitment_ledger"],
-      "protected_failure_ids": ["behavior_commitment_ledger:invalid-or-incomplete-outcome"]
+      "model_ids": [
+        "behavior_commitment_ledger"
+      ],
+      "protected_failure_ids": [
+        "behavior_commitment_ledger:invalid-or-incomplete-outcome"
+      ]
     },
     {
       "owner_route": "field_lifecycle_mesh",
-      "model_ids": ["default_replacement_field_lifecycle"],
-      "protected_failure_ids": ["old_field_disposition_gap"]
+      "model_ids": [
+        "default_replacement_field_lifecycle"
+      ],
+      "protected_failure_ids": [
+        "old_field_disposition_gap"
+      ]
     },
     {
       "owner_route": "model_mesh_maintenance",
-      "model_ids": ["hierarchical_model_mesh"],
-      "protected_failure_ids": ["hierarchical_model_mesh:invalid-or-incomplete-outcome"]
+      "model_ids": [
+        "hierarchical_model_mesh"
+      ],
+      "protected_failure_ids": [
+        "hierarchical_model_mesh:invalid-or-incomplete-outcome"
+      ]
     },
     {
       "owner_route": "model_test_alignment",
-      "model_ids": ["model_test_code_alignment"],
-      "protected_failure_ids": ["model_test_code_alignment:invalid-or-incomplete-outcome"]
+      "model_ids": [
+        "model_test_code_alignment"
+      ],
+      "protected_failure_ids": [
+        "model_test_code_alignment:invalid-or-incomplete-outcome"
+      ]
     },
     {
       "owner_route": "test_mesh_maintenance",
-      "model_ids": ["test_evidence_mesh"],
-      "protected_failure_ids": ["test_evidence_mesh:invalid-or-incomplete-outcome"]
+      "model_ids": [
+        "test_evidence_mesh"
+      ],
+      "protected_failure_ids": [
+        "test_evidence_mesh:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "architecture_reduction",
+      "model_ids": [
+        "architecture_reduction"
+      ],
+      "protected_failure_ids": [
+        "architecture_reduction:invalid-or-incomplete-outcome",
+        "architecture_reduction:repeated-caller-scan",
+        "architecture_reduction:duplicate-self-blueprint-build",
+        "architecture_reduction:compact-full-expansion",
+        "architecture_reduction:repeated-large-report-fingerprint",
+        "architecture_reduction:materialized-large-payload-fingerprint",
+        "architecture_reduction:cartesian-candidate-evidence",
+        "architecture_reduction:candidate-evidence-reference-gap",
+        "architecture_reduction:repeated-affected-object-denominator",
+        "architecture_reduction:proofless-audit-status-conflation",
+        "architecture_reduction:safe-unapplied-audit-pass",
+        "architecture_reduction:cleanup-ready-with-unresolved",
+        "architecture_reduction:label-only-self-blueprint",
+        "architecture_reduction:automatic-retain-disposition",
+        "architecture_reduction:candidate-signal-auto-retain",
+        "architecture_reduction:caller-forged-reduction-proof",
+        "architecture_reduction:self-certified-leaf-proof",
+        "architecture_reduction:alternate-proof-store",
+        "architecture_reduction:rewrapped-reduction-proof",
+        "architecture_reduction:review-currentness-window"
+      ]
+    },
+    {
+      "owner_route": "codex_skill_satellites",
+      "model_ids": [
+        "codex_skill_satellites"
+      ],
+      "protected_failure_ids": [
+        "premature_skill_release"
+      ]
+    },
+    {
+      "owner_route": "compositional_verification_kernel",
+      "model_ids": [
+        "compositional_verification_kernel"
+      ],
+      "protected_failure_ids": [
+        "portable-model:non-current-or-ambiguous-schema-accepted",
+        "portable-checker:unsafe-or-nonterminating-model-passes",
+        "portable-refinement:unmapped-or-contract-incompatible-child-passes",
+        "portable-composition:unprovided-assumption-or-conflict-passes",
+        "portable-system:incomplete-impact-slice-passes",
+        "portable-system:interaction-failure-passes",
+        "portable-system:truncation-or-status-classification-bypassed"
+      ]
+    },
+    {
+      "owner_route": "development_process_flow",
+      "model_ids": [
+        "development_process_flow"
+      ],
+      "protected_failure_ids": [
+        "stale_process_evidence",
+        "release-identity:source-stale-or-substituted",
+        "release-identity:consumer-projection-stale-or-substituted",
+        "release-identity:installed-package-stale-or-substituted",
+        "release-identity:installed-skill-stale-or-substituted",
+        "release-identity:model-authority-stale-or-substituted",
+        "release-identity:openspec-stale-or-substituted",
+        "release-identity:git-commit-stale-or-substituted",
+        "release-identity:tag-stale-or-substituted",
+        "release-identity:github-release-stale-or-substituted",
+        "author-sync:consumer-projection-as-author",
+        "author-sync:unowned-shadow-path-write",
+        "author-sync:modified-owned-peer-content-overwrite",
+        "author-sync:partial-failure-without-rollback",
+        "author-sync:stale-source-fingerprint",
+        "validation-observation:per-leaf-source-current-rebuild",
+        "validation-observation:per-leaf-receipt-store-scan",
+        "validation-observation:missing-receipt-reconciliation",
+        "development-producer:duplicate-full-reservation",
+        "development-producer:unknown-or-cyclic-owner-order",
+        "development-producer:unordered-shared-resource",
+        "development-producer:caller-green-replaces-actual-process",
+        "development-producer:cleanup-unconfirmed-promoted-to-pass",
+        "development-producer:pid-reuse-grants-foreign-ownership",
+        "development-producer:live-descendants-promoted-to-pass",
+        "development-producer:cancelled-receipt-reused"
+      ]
+    },
+    {
+      "owner_route": "development_process_strategy",
+      "model_ids": [
+        "development_process_strategy"
+      ],
+      "protected_failure_ids": [
+        "development_process_strategy:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "minimum_valuable_model_entry",
+      "model_ids": [
+        "minimum_valuable_model_entry"
+      ],
+      "protected_failure_ids": [
+        "minimum_valuable_model_missing_contract_or_binding",
+        "minimum_valuable_model_template_operation_on_ordinary_path"
+      ]
+    },
+    {
+      "owner_route": "model_maturation_loop",
+      "model_ids": [
+        "model_maturation_loop"
+      ],
+      "protected_failure_ids": [
+        "model_maturation_authority_bypass",
+        "failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+        "failure:model_maturation_loop:accepted_observation_claimed_improvement_done",
+        "failure:model_maturation_loop:unproved_functional_task_closed",
+        "failure:model_maturation_loop:context_remainder_erased"
+      ]
+    },
+    {
+      "owner_route": "model_mesh_closure_model",
+      "model_ids": [
+        "model_mesh_closure_model"
+      ],
+      "protected_failure_ids": [
+        "model-mesh-closure:missing-semantic-join",
+        "model-mesh-closure:inventory-only",
+        "model-mesh-closure:partial-universe",
+        "model-mesh-closure:empty-fingerprint",
+        "model-mesh-closure:unverified-evidence"
+      ]
+    },
+    {
+      "owner_route": "model_miss_review",
+      "model_ids": [
+        "model_miss_review"
+      ],
+      "protected_failure_ids": [
+        "model_miss_review:invalid-or-incomplete-outcome",
+        "model_miss_review:vacuous-diagnostic-repair"
+      ]
+    },
+    {
+      "owner_route": "self_maintenance_mesh",
+      "model_ids": [
+        "self_maintenance_mesh"
+      ],
+      "protected_failure_ids": [
+        "self_maintenance_incomplete",
+        "self-maintenance:semantic-mesh-not-current"
+      ]
+    },
+    {
+      "owner_route": "structure_refactor_mesh",
+      "model_ids": [
+        "structure_refactor_mesh"
+      ],
+      "protected_failure_ids": [
+        "structure-refactor:ui-evidence-owner-missing",
+        "structure-refactor:receipt-supervision-owner-missing",
+        "structure-refactor:package-api-registry-owner-missing",
+        "structure-refactor:facade-or-public-api-drift",
+        "structure-refactor:import-cycle",
+        "structure-refactor:config-default-drift",
+        "structure-refactor:stale-or-inexact-parity",
+        "structure-refactor:reduction-universe-member-missing",
+        "structure-refactor:reduction-observable-contract-missing",
+        "structure-refactor:reduction-current-proof-missing",
+        "structure-refactor:reduction-consumer-test-map-missing",
+        "structure-refactor:reduction-target-action-missing",
+        "structure-refactor:reduction-next-route-missing"
+      ]
+    },
+    {
+      "owner_route": "task_coverage_demand",
+      "model_ids": [
+        "task_coverage_demand"
+      ],
+      "protected_failure_ids": [
+        "task_coverage_demand_incomplete"
+      ]
+    },
+    {
+      "owner_route": "ui_flow_structure_skill",
+      "model_ids": [
+        "ui_flow_structure_skill"
+      ],
+      "protected_failure_ids": [
+        "ui_flow_structure_skill:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "user_facing_model_diagrams",
+      "model_ids": [
+        "user_facing_model_diagrams"
+      ],
+      "protected_failure_ids": [
+        "user_facing_model_diagrams:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "validation_evidence_gates",
+      "model_ids": [
+        "validation_evidence_gates"
+      ],
+      "protected_failure_ids": [
+        "validation_evidence_gates:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "adversarial_scenario_synthesis",
+      "model_ids": [
+        "adversarial_scenario_synthesis"
+      ],
+      "protected_failure_ids": [
+        "adversarial_scenario_synthesis:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "ai_entry_surface_reduction",
+      "model_ids": [
+        "ai_entry_surface_reduction"
+      ],
+      "protected_failure_ids": [
+        "ai_entry_surface_reduction:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "ai_route_handoffs",
+      "model_ids": [
+        "ai_route_handoffs"
+      ],
+      "protected_failure_ids": [
+        "route_handoff_gap"
+      ]
+    },
+    {
+      "owner_route": "bounded_system_composition_benchmark",
+      "model_ids": [
+        "bounded_system_composition_benchmark"
+      ],
+      "protected_failure_ids": [
+        "portable-system:local-token-green-emergent-failure-missed",
+        "portable-system:repair-does-not-pass",
+        "portable-system:missing-semantics-does-not-block",
+        "portable-system:truncation-does-not-block"
+      ]
+    },
+    {
+      "owner_route": "code_boundary_conformance",
+      "model_ids": [
+        "code_boundary_conformance"
+      ],
+      "protected_failure_ids": [
+        "code_boundary_conformance:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "contract_source_audit",
+      "model_ids": [
+        "contract_source_audit"
+      ],
+      "protected_failure_ids": [
+        "contract_source_audit:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "default_replacement_field_lifecycle",
+      "model_ids": [
+        "default_replacement_field_lifecycle"
+      ],
+      "protected_failure_ids": [
+        "old_field_disposition_gap"
+      ]
+    },
+    {
+      "owner_route": "evidence_storage_lifecycle",
+      "model_ids": [
+        "evidence_storage_lifecycle"
+      ],
+      "protected_failure_ids": [
+        "storage_object_escape",
+        "storage_object_identity_corruption",
+        "storage_foreign_authority_subject",
+        "storage_foreign_or_tampered_gc_plan",
+        "storage_stale_gc_plan",
+        "storage_reachable_evidence_removed",
+        "storage_restore_destination_collision",
+        "storage_unknown_or_escaped_quarantine",
+        "storage_invalid_current_purge",
+        "storage_active_resource_reexecution",
+        "storage_unconfirmed_cleanup_release"
+      ]
+    },
+    {
+      "owner_route": "existing_model_preflight",
+      "model_ids": [
+        "existing_model_preflight"
+      ],
+      "protected_failure_ids": [
+        "existing_model_preflight_bypassed",
+        "existing-model-preflight:affected-index-fingerprint-stale",
+        "existing-model-preflight:affected-object-missing",
+        "existing-model-preflight:affected-ancestor-missing",
+        "existing-model-preflight:affected-path-whole-builder",
+        "existing-model-preflight:affected-understanding-missing",
+        "existing-model-preflight:implicit-whole-qualification"
+      ]
+    },
+    {
+      "owner_route": "field_prompt_reduction",
+      "model_ids": [
+        "field_prompt_reduction"
+      ],
+      "protected_failure_ids": [
+        "prompt_only_completion"
+      ]
+    },
+    {
+      "owner_route": "flowguard_closure_contract",
+      "model_ids": [
+        "flowguard_closure_contract"
+      ],
+      "protected_failure_ids": [
+        "flowguard_closure_contract:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "guard_closure_contract",
+      "model_ids": [
+        "guard_closure_contract"
+      ],
+      "protected_failure_ids": [
+        "unclean_guard_closure_claim"
+      ]
+    },
+    {
+      "owner_route": "guidance_compression",
+      "model_ids": [
+        "guidance_compression"
+      ],
+      "protected_failure_ids": [
+        "guidance_prompt_only_completion"
+      ]
+    },
+    {
+      "owner_route": "harden_ui_content_visibility_validation",
+      "model_ids": [
+        "harden_ui_content_visibility_validation"
+      ],
+      "protected_failure_ids": [
+        "harden_ui_content_visibility_validation:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "harden_ui_real_surface_validation",
+      "model_ids": [
+        "harden_ui_real_surface_validation"
+      ],
+      "protected_failure_ids": [
+        "harden_ui_real_surface_validation:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "hierarchical_model_mesh",
+      "model_ids": [
+        "hierarchical_model_mesh"
+      ],
+      "protected_failure_ids": [
+        "hierarchical_model_mesh:invalid-or-incomplete-outcome",
+        "hierarchical_model_mesh:root-sentinel-missing",
+        "hierarchical_model_mesh:duplicate-root-sentinel",
+        "hierarchical_model_mesh:multiple-structural-parents",
+        "hierarchical_model_mesh:cross-boundary-support-as-structural-parent",
+        "hierarchical_model_mesh:parent-receipt-as-child-evidence",
+        "hierarchical_model_mesh:child-receipt-coverage-gap",
+        "hierarchical_model_mesh:stale-child-receipt",
+        "hierarchical_model_mesh:foreign-child-receipt-owner",
+        "hierarchical_model_mesh:duplicate-child-receipt",
+        "hierarchical_model_mesh:feedback-relation-classification-incomplete",
+        "hierarchical_model_mesh:feedback-progress-contract-missing",
+        "hierarchical_model_mesh:retry-progress-contract-missing",
+        "hierarchical_model_mesh:repair-progress-contract-missing",
+        "hierarchical_model_mesh:feedback-progress-evidence-stale",
+        "hierarchical_model_mesh:feedback-progress-contract-stale",
+        "hierarchical_model_mesh:declaration-self-certifies-child-currentness",
+        "hierarchical_model_mesh:declaration-self-certifies-progress-currentness",
+        "hierarchical_model_mesh:recursive-depth-missing",
+        "hierarchical_model_mesh:finite-leaf-boundary-not-executed",
+        "hierarchical_model_mesh:parent-subtree-receipts-not-consumed",
+        "hierarchical_model_mesh:cross-child-connection-tests-missing",
+        "hierarchical_model_mesh:global-cartesian-expansion"
+      ]
+    },
+    {
+      "owner_route": "implementation_blueprint",
+      "model_ids": [
+        "implementation_blueprint"
+      ],
+      "protected_failure_ids": [
+        "implementation-blueprint:omitted-file",
+        "implementation-blueprint:parse-failure",
+        "implementation-blueprint:dynamic-uncertainty",
+        "implementation-blueprint:orphan-helper",
+        "implementation-blueprint:hidden-writer-effect",
+        "implementation-blueprint:duplicate-primary",
+        "implementation-blueprint:path-only-binding",
+        "implementation-blueprint:source-observation-semantics",
+        "implementation-blueprint:missing-exact-test",
+        "implementation-blueprint:stale-fingerprint",
+        "implementation-blueprint:missing-resource",
+        "implementation-blueprint:resource-snapshot-uninitialized",
+        "implementation-blueprint:tampered-shard",
+        "implementation-blueprint:behavior-contract-unaccepted",
+        "implementation-blueprint:intent-inventory-missing",
+        "implementation-blueprint:intent-snapshot-identity-mismatch",
+        "implementation-blueprint:intent-realized-owner-omitted",
+        "implementation-blueprint:semantic-intent-source-unbound",
+        "implementation-blueprint:semantic-intent-expectation-unbound",
+        "implementation-blueprint:aggregate-surface-promoted",
+        "implementation-blueprint:helper-surface-promoted",
+        "implementation-blueprint:model-file-self-semantic-authority",
+        "implementation-blueprint:runner-file-self-semantic-authority",
+        "implementation-blueprint:checked-in-declaration-current-pass",
+        "implementation-blueprint:self-built-projection-current-pass",
+        "implementation-blueprint:circular-behavior-evidence",
+        "implementation-blueprint:delegated-terminal-stale",
+        "implementation-blueprint:delegated-terminal-ambiguous",
+        "implementation-blueprint:delegated-terminal-unknown-branch",
+        "implementation-blueprint:delegated-terminal-cycle",
+        "implementation-blueprint:delegated-terminal-nonterminal",
+        "implementation-blueprint:delegated-coverage-sibling-owner"
+      ]
+    },
+    {
+      "owner_route": "maintenance_obligation_memory",
+      "model_ids": [
+        "maintenance_obligation_memory"
+      ],
+      "protected_failure_ids": [
+        "maintenance_obligation_not_remembered"
+      ]
+    },
+    {
+      "owner_route": "mesh_target_split_derivation",
+      "model_ids": [
+        "mesh_target_split_derivation"
+      ],
+      "protected_failure_ids": [
+        "mesh_target_split_derivation:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "model_impact_freshness_gate",
+      "model_ids": [
+        "model_impact_freshness_gate"
+      ],
+      "protected_failure_ids": [
+        "stale_model_evidence_reuse"
+      ]
+    },
+    {
+      "owner_route": "model_test_code_alignment",
+      "model_ids": [
+        "model_test_code_alignment"
+      ],
+      "protected_failure_ids": [
+        "model_test_code_alignment:invalid-or-incomplete-outcome",
+        "model_test_code_alignment:sibling-protected-failure-list-copied",
+        "model_test_code_alignment:owner-wide-result-promoted-to-leaf",
+        "model_test_code_alignment:validation-parent-receipt-promoted-to-leaf",
+        "model_test_code_alignment:model-native-check-promoted-to-leaf",
+        "model_test_code_alignment:supporting-provenance-granted-coverage-owner",
+        "model_test_code_alignment:delegated-terminal-stale",
+        "model_test_code_alignment:delegated-terminal-ambiguous",
+        "model_test_code_alignment:delegated-terminal-unknown-branch",
+        "model_test_code_alignment:delegated-terminal-cycle",
+        "model_test_code_alignment:delegated-terminal-nonterminal",
+        "model_test_code_alignment:delegated-coverage-sibling-owner"
+      ]
+    },
+    {
+      "owner_route": "model_topology_hazard_review",
+      "model_ids": [
+        "model_topology_hazard_review"
+      ],
+      "protected_failure_ids": [
+        "topology_hazard_not_handled"
+      ]
+    },
+    {
+      "owner_route": "model_visibility",
+      "model_ids": [
+        "model_visibility"
+      ],
+      "protected_failure_ids": [
+        "model_visibility_prompt_gap"
+      ]
+    },
+    {
+      "owner_route": "plan_detailing_compiler",
+      "model_ids": [
+        "plan_detailing_compiler"
+      ],
+      "protected_failure_ids": [
+        "plan_detailing_compiler:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "primary_path_authority",
+      "model_ids": [
+        "primary_path_authority"
+      ],
+      "protected_failure_ids": [
+        "primary_path_authority:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "problem_corpus_coverage",
+      "model_ids": [
+        "problem_corpus_coverage"
+      ],
+      "protected_failure_ids": [
+        "corpus_failed_result_hidden",
+        "corpus_unknown_terminal_accepted",
+        "corpus_case_kind_coverage_missing",
+        "corpus_bug_class_coverage_missing",
+        "corpus_variant_depth_reduced",
+        "corpus_case_denominator_reduced"
+      ]
+    },
+    {
+      "owner_route": "project_adoption_version_gate",
+      "model_ids": [
+        "project_adoption_version_gate"
+      ],
+      "protected_failure_ids": [
+        "project_adoption_gate_bypassed",
+        "target_owned_json_rewritten",
+        "legacy_lookalike_json_rewritten",
+        "unsupported_registered_envelope_rewritten",
+        "author_maintenance_dependency_consumed",
+        "currentness_read_launched_validation"
+      ]
+    },
+    {
+      "owner_route": "python_function_state_verification",
+      "model_ids": [
+        "python_function_state_verification"
+      ],
+      "protected_failure_ids": [
+        "engine_unsupported_invocation_hidden",
+        "engine_result_coercion",
+        "engine_nondeterministic_branch_loss",
+        "engine_exception_or_dead_path_hidden",
+        "engine_invariant_or_reachability_miss",
+        "engine_incomplete_exploration_claimed_complete",
+        "engine_trace_state_corruption",
+        "engine_step_contract_violation_hidden",
+        "engine_conformance_mismatch_or_expectation_leak",
+        "engine_loop_nonprogress_hidden"
+      ]
+    },
+    {
+      "owner_route": "runtime_gateway_adoption",
+      "model_ids": [
+        "runtime_gateway_adoption"
+      ],
+      "protected_failure_ids": [
+        "runtime_gateway_adoption:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "runtime_path_evidence",
+      "model_ids": [
+        "runtime_path_evidence"
+      ],
+      "protected_failure_ids": [
+        "runtime_path_evidence_missing"
+      ]
+    },
+    {
+      "owner_route": "skill_kernel_modularization",
+      "model_ids": [
+        "skill_kernel_modularization"
+      ],
+      "protected_failure_ids": [
+        "skill_kernel_modularization:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "state_closure_gate",
+      "model_ids": [
+        "state_closure_gate"
+      ],
+      "protected_failure_ids": [
+        "unknown_state_not_safely_closed"
+      ]
+    },
+    {
+      "owner_route": "task_local_prediction_replay",
+      "model_ids": [
+        "task_local_prediction_replay"
+      ],
+      "protected_failure_ids": [
+        "prediction-replay:status-only",
+        "prediction-replay:expected-output-leak",
+        "prediction-replay:accept-without-replay",
+        "prediction-replay:base-model-loss"
+      ]
+    },
+    {
+      "owner_route": "template_public_release",
+      "model_ids": [
+        "template_public_release"
+      ],
+      "protected_failure_ids": [
+        "template_public_release:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "test_evidence_mesh",
+      "model_ids": [
+        "test_evidence_mesh"
+      ],
+      "protected_failure_ids": [
+        "test_evidence_mesh:invalid-or-incomplete-outcome",
+        "test_evidence_mesh:undersized-timeout-budget"
+      ]
+    },
+    {
+      "owner_route": "ui_human_operability_gate",
+      "model_ids": [
+        "ui_human_operability_gate"
+      ],
+      "protected_failure_ids": [
+        "ui_human_operability_gate:invalid-or-incomplete-outcome"
+      ]
+    },
+    {
+      "owner_route": "work_context",
+      "model_ids": [
+        "work_context"
+      ],
+      "protected_failure_ids": [
+        "work-context:unregistered-adapter",
+        "work-context:unbounded-root",
+        "work-context:missing-role",
+        "work-context:stale-fingerprint",
+        "work-context:duplicate-context",
+        "work-context:provider-write",
+        "work-context:provider-execution",
+        "work-context:provider-validation",
+        "work-context:authority-bridge"
+      ]
     }
   ],
   "claim_boundary": "This declaration belongs to the FlowGuard project. It names current semantic owner bindings only; FlowGuard validates it and never projects it to another project."

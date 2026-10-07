@@ -1,0 +1,377 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:2356311ec246d9340479e8a92d140e92ba5ecb91f74dc3615bbbefcbd4111a69",
+        "effective_intent_view_fingerprint": "sha256:6d85af62c12ce0cb02a439f2d8997e44089cec4373646e40f5618361213ea5a8",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/task_coverage_demand/model.py",
+            "source_fingerprint": "sha256:96c23c42d1882afb0489884ff144293bb6840f8582e5432a260cbf3a75954c29"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:compiler_minimums",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:demanded_owners",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:frozen_task_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:independent_fact_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:resolved_task_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:source_gaps_by_task",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_coverage_demand:unresolved_by_task",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "TaskRequest",
+          "effects": [],
+          "id": "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts",
+          "inputs": [
+            "external-input:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9"
+          ],
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0",
+          "state_output": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1",
+          "validations": [],
+          "writes": [
+            "field:task_coverage_demand:frozen_task_ids",
+            "field:task_coverage_demand:compiler_minimums",
+            "field:task_coverage_demand:independent_fact_ids",
+            "field:task_coverage_demand:source_gaps_by_task"
+          ]
+        },
+        {
+          "accepted_input": "TaskFactsFrozen",
+          "effects": [],
+          "id": "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand",
+          "inputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ],
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_coverage_demand:frozen_task_ids",
+            "field:task_coverage_demand:compiler_minimums"
+          ],
+          "state_input": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1",
+          "state_output": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2",
+          "validations": [],
+          "writes": [
+            "field:task_coverage_demand:demanded_owners"
+          ]
+        },
+        {
+          "accepted_input": "DemandCompiled",
+          "effects": [],
+          "id": "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand",
+          "inputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_coverage_demand:demanded_owners"
+          ],
+          "state_input": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2",
+          "state_output": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:3",
+          "validations": [
+            "validation:task_coverage_demand:invariant:demand_preserves_compiler_minimum",
+            "validation:task_coverage_demand:invariant:closed_tasks_have_no_unresolved_owners",
+            "validation:task_coverage_demand:invariant:closed_tasks_have_all_fact_sources"
+          ],
+          "writes": [
+            "field:task_coverage_demand:resolved_task_ids",
+            "field:task_coverage_demand:unresolved_by_task"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "id": "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts",
+          "producer_id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ],
+          "id": "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand",
+          "producer_id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand",
+          "producer_id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:3",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:3"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts",
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts"
+          ],
+          "reads": [],
+          "source": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0",
+          "target": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1",
+          "trigger": "TaskRequest",
+          "validations": [],
+          "writes": [
+            "field:task_coverage_demand:frozen_task_ids",
+            "field:task_coverage_demand:compiler_minimums",
+            "field:task_coverage_demand:independent_fact_ids",
+            "field:task_coverage_demand:source_gaps_by_task"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand",
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand"
+          ],
+          "reads": [
+            "field:task_coverage_demand:frozen_task_ids",
+            "field:task_coverage_demand:compiler_minimums"
+          ],
+          "source": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1",
+          "target": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2",
+          "trigger": "TaskFactsFrozen",
+          "validations": [],
+          "writes": [
+            "field:task_coverage_demand:demanded_owners"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand",
+          "outputs": [
+            "output:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand"
+          ],
+          "reads": [
+            "field:task_coverage_demand:demanded_owners"
+          ],
+          "source": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2",
+          "target": "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:3",
+          "trigger": "DemandCompiled",
+          "validations": [
+            "validation:task_coverage_demand:invariant:demand_preserves_compiler_minimum",
+            "validation:task_coverage_demand:invariant:closed_tasks_have_no_unresolved_owners",
+            "validation:task_coverage_demand:invariant:closed_tasks_have_all_fact_sources"
+          ],
+          "writes": [
+            "field:task_coverage_demand:resolved_task_ids",
+            "field:task_coverage_demand:unresolved_by_task"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:task_coverage_demand",
+          "id": "validation:task_coverage_demand:invariant:closed_tasks_have_all_fact_sources",
+          "obligation_id": "obligation:native-invariant:task_coverage_demand:closed_tasks_have_all_fact_sources",
+          "oracle_id": "oracle:native-invariant:task_coverage_demand:closed_tasks_have_all_fact_sources",
+          "subject_fingerprint": "sha256:5fb5899e89264a8de3cde34e892a8cf71feae10cb1b1742c3d240c599f9091f7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:task_coverage_demand",
+          "id": "validation:task_coverage_demand:invariant:closed_tasks_have_no_unresolved_owners",
+          "obligation_id": "obligation:native-invariant:task_coverage_demand:closed_tasks_have_no_unresolved_owners",
+          "oracle_id": "oracle:native-invariant:task_coverage_demand:closed_tasks_have_no_unresolved_owners",
+          "subject_fingerprint": "sha256:5fb5899e89264a8de3cde34e892a8cf71feae10cb1b1742c3d240c599f9091f7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:task_coverage_demand",
+          "id": "validation:task_coverage_demand:invariant:demand_preserves_compiler_minimum",
+          "obligation_id": "obligation:native-invariant:task_coverage_demand:demand_preserves_compiler_minimum",
+          "oracle_id": "oracle:native-invariant:task_coverage_demand:demand_preserves_compiler_minimum",
+          "subject_fingerprint": "sha256:5fb5899e89264a8de3cde34e892a8cf71feae10cb1b1742c3d240c599f9091f7"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:task_coverage_demand:compiler_minimums": "field",
+      "field:task_coverage_demand:demanded_owners": "field",
+      "field:task_coverage_demand:frozen_task_ids": "field",
+      "field:task_coverage_demand:independent_fact_ids": "field",
+      "field:task_coverage_demand:resolved_task_ids": "field",
+      "field:task_coverage_demand:source_gaps_by_task": "field",
+      "field:task_coverage_demand:unresolved_by_task": "field",
+      "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts": "function_block",
+      "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand": "function_block",
+      "function-block:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand": "function_block",
+      "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0": "state",
+      "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1": "state",
+      "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2": "state",
+      "state:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:3": "state",
+      "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:0:FreezeTaskFacts": "transition",
+      "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:1:CompileCoverageDemand": "transition",
+      "transition:workflow:task_coverage_demand:task_coverage_demand:0:9de7bd9d34d9:2:ResolveCoverageDemand": "transition",
+      "validation:task_coverage_demand:invariant:closed_tasks_have_all_fact_sources": "validation",
+      "validation:task_coverage_demand:invariant:closed_tasks_have_no_unresolved_owners": "validation",
+      "validation:task_coverage_demand:invariant:demand_preserves_compiler_minimum": "validation"
+    },
+    "subject_fingerprint": "sha256:80f978377b1e95f1ba7c55f164f4d59454f729dec30df2e03cc10b733cf7097a",
+    "trigger_currentness_id": "sha256:bbb34b1050ccce627c51ccb155867a8303ec9272e2b02868311721d2a2e6b726",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:2e398f39e71a6f0be9e984f6b4cfddae5e56a25329ed668f5265221babb864f4",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

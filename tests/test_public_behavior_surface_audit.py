@@ -1521,3 +1521,109 @@ def test_duplicate_or_unknown_receipt_and_surface_class_are_blockers(tmp_path):
     assert "implementation_surface_mapping_duplicate_id" in codes
     assert "implementation_surface_orphan_receipt_reference" in codes
     assert "implementation_surface_class_mismatch" in codes
+
+
+def test_reverse_audit_reuses_test_file_parse_and_receipt_read_per_invocation(tmp_path, monkeypatch):
+    root = _write_reverse_surface_fixture(tmp_path)
+    test_path = root / "tests/test_app.py"
+    receipt_path = root / "receipt.txt"
+    test_path.write_text(
+        "def test_surface_smoke():\n    assert True\n"
+        "async def test_second_surface():\n    assert 1 == 1\n", encoding="utf-8",
+    )
+    discovery = discover_implementation_behavior_surfaces(root)
+    mapping = _complete_reverse_map(discovery)
+    assert len(mapping["surfaces"]) > 1
+    for row in mapping["surfaces"]:
+        row["test_refs"].append("tests/test_app.py#test_second_surface")
+    reads = {test_path: 0, receipt_path: 0}
+    parses = []
+    original_read = Path.read_text
+    original_parse = surface_audit.ast.parse
+
+    def counted_read(path, *args, **kwargs):
+        if path in reads:
+            reads[path] += 1
+        return original_read(path, *args, **kwargs)
+
+    def counted_parse(source, *args, **kwargs):
+        if kwargs.get("filename") == str(test_path):
+            parses.append(str(test_path))
+        return original_parse(source, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", counted_read)
+    monkeypatch.setattr(surface_audit.ast, "parse", counted_parse)
+    report = audit_implementation_behavior_surface(root, mapping, discovery=discovery)
+    assert report["status"] == "passed", report["findings"]
+    assert reads == {test_path: 1, receipt_path: 1}
+    assert parses == [str(test_path)]
+
+
+def test_reverse_audit_cache_never_crosses_calls_and_keeps_every_failed_row(tmp_path):
+    root = _write_reverse_surface_fixture(tmp_path)
+    discovery = discover_implementation_behavior_surfaces(root)
+    mapping = _complete_reverse_map(discovery)
+    ids = {row["surface_id"] for row in mapping["surfaces"]}
+    first = audit_implementation_behavior_surface(root, mapping, discovery=discovery)
+    assert first["status"] == "passed", first["findings"]
+    (root / "tests/test_app.py").write_text(
+        "def test_surface_smoke():\n    pass\n", encoding="utf-8",
+    )
+    (root / "receipt.txt").write_text("different-current-anchor\n", encoding="utf-8")
+    second = audit_implementation_behavior_surface(root, mapping, discovery=discovery)
+    assert second["status"] == "blocked"
+    for code in ("implementation_surface_test_empty", "implementation_surface_orphan_receipt_reference"):
+        assert {row["surface_id"] for row in second["findings"] if row["code"] == code} == ids
+    assert second["orphan_test_references"] == ["tests/test_app.py#test_surface_smoke"]
+    assert second["orphan_receipt_references"] == ["receipt.txt#surface-pass"]
+    (root / "tests/test_app.py").write_text(
+        "def test_surface_smoke():\n    assert True\n", encoding="utf-8",
+    )
+    (root / "receipt.txt").write_text("surface-pass\n", encoding="utf-8")
+    third = audit_implementation_behavior_surface(root, mapping, discovery=discovery)
+    assert third["status"] == "passed", third["findings"]
+
+
+def test_reverse_test_reference_anchor_semantics_remain_exact(tmp_path):
+    cases = (
+        ("test_async.py", "async def test_anchor():\n    assert True\n", "test_anchor", True, ""),
+        ("test_class.py", "class TestSurface:\n    def test_anchor(self):\n        assert True\n", "TestSurface", True, ""),
+        ("test_empty.py", "def test_anchor():\n    pass\n", "test_anchor", False, "test reference target is empty"),
+        ("test_doc.py", "def test_anchor():\n    'description only'\n", "test_anchor", False, "test reference target is empty"),
+        ("test_helper.py", "def helper():\n    return 1\n", "helper", False, "test reference anchor is not a test member"),
+        ("test_variable.py", "test_anchor = 1\n", "test_anchor", False, "test reference anchor is not present"),
+        ("test_missing.py", "def test_other():\n    assert True\n", "test_anchor", False, "test reference anchor is not present"),
+        ("test_bad.py", "def test_anchor(\n", "test_anchor", False, "test reference file cannot be parsed:"),
+        ("notes.md", "# TestSurface\nPlain prose is not a Python test.\n", "TestSurface", False, "test reference file cannot be parsed:"),
+        # The existing resolver judges Python syntax/members, not a suffix.
+        ("python.txt", "def test_anchor():\n    assert True\n", "test_anchor", True, ""),
+    )
+    for name, text, anchor, expected, reason in cases:
+        (tmp_path / name).write_text(text, encoding="utf-8")
+        actual, detail = surface_audit._test_reference_exists(tmp_path, name + "#" + anchor)
+        assert actual is expected, (name, detail)
+        assert detail.startswith(reason), (name, detail)
+
+
+def test_reverse_reference_errors_preserve_missing_anchor_parse_and_escape(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "tests.py").write_text("def test_present():\n    assert True\n", encoding="utf-8")
+    (tmp_path / "outside.py").write_text("def test_present():\n    assert True\n", encoding="utf-8")
+    for reference, reason in (
+        ("missing.py#test_present", "test reference file is missing"),
+        ("../outside.py#test_present", "test reference escapes the project root"),
+        ("tests.py#", "test reference anchor is empty"),
+        ("tests.py", "test reference must include a repository-relative path and #anchor"),
+    ):
+        assert surface_audit._test_reference_exists(root, reference) == (False, reason)
+    (root / "receipt.txt").write_text("success-only\n", encoding="utf-8")
+    assert surface_audit._receipt_reference_exists(root, "receipt.txt#missing") == (
+        False, "receipt reference anchor is not present",
+    )
+    assert surface_audit._receipt_reference_exists(root, "absent.txt#success") == (
+        False, "receipt reference file is missing",
+    )
+    assert surface_audit._receipt_reference_exists(root, "../outside.py#test_present") == (
+        False, "receipt reference escapes the project root",
+    )

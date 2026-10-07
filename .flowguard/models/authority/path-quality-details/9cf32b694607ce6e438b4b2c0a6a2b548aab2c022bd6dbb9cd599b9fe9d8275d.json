@@ -1,0 +1,703 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:b6772250768ec0bcf733ac8f73851b95ce1214a2a05dce29d996d167d5fcb1c7",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/self_maintenance_mesh/model.py",
+            "source_fingerprint": "sha256:d10f3a794ee229cc5319ca196b2b928395babe1e8df20b59f4b9dfb329f4ba26"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:ai_profiles_declared",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:behavior_ledger_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:child_reports_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:completion_authority_plane",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:consumed_child_receipt_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:consumed_spec_context_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:consumed_understanding_artifact_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:dcar_coverage_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:field_layers_declared",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:focused_validation_passed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:git_status_checked",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:install_sync_verified",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:model_miss_backfeed_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:plane_upgrade_reports_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:receipt_set_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:route_api_tested",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:route_cycles_bounded",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:route_graph_connected",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:route_handoffs_typed",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:route_owners_unique",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:semantic_mesh_verification",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:semantic_model_mesh_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:shadow_sync_checked",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:spec_context_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:test_mesh_shards_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:understanding_chain_current",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:understanding_chain_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:self_maintenance_mesh:validation_owner_inventory_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "writes_by": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "SelfMaintenanceAction",
+          "effects": [],
+          "id": "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance",
+          "inputs": [
+            "external-input:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1"
+          ],
+          "outputs": [
+            "output:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:self_maintenance_mesh:route_graph_connected",
+            "field:self_maintenance_mesh:route_handoffs_typed",
+            "field:self_maintenance_mesh:route_owners_unique",
+            "field:self_maintenance_mesh:route_cycles_bounded",
+            "field:self_maintenance_mesh:ai_profiles_declared",
+            "field:self_maintenance_mesh:field_layers_declared",
+            "field:self_maintenance_mesh:child_reports_current",
+            "field:self_maintenance_mesh:plane_upgrade_reports_current",
+            "field:self_maintenance_mesh:understanding_chain_current",
+            "field:self_maintenance_mesh:semantic_model_mesh_current",
+            "field:self_maintenance_mesh:behavior_ledger_current",
+            "field:self_maintenance_mesh:dcar_coverage_current",
+            "field:self_maintenance_mesh:test_mesh_shards_current",
+            "field:self_maintenance_mesh:model_miss_backfeed_current",
+            "field:self_maintenance_mesh:route_api_tested",
+            "field:self_maintenance_mesh:focused_validation_passed",
+            "field:self_maintenance_mesh:install_sync_verified",
+            "field:self_maintenance_mesh:shadow_sync_checked",
+            "field:self_maintenance_mesh:git_status_checked",
+            "field:self_maintenance_mesh:spec_context_current",
+            "field:self_maintenance_mesh:consumed_spec_context_ids",
+            "field:self_maintenance_mesh:consumed_child_receipt_ids",
+            "field:self_maintenance_mesh:receipt_set_fingerprint",
+            "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:validation_owner_inventory_fingerprint",
+            "field:self_maintenance_mesh:consumed_understanding_artifact_ids",
+            "field:self_maintenance_mesh:understanding_chain_fingerprint",
+            "field:self_maintenance_mesh:semantic_mesh_verification",
+            "field:self_maintenance_mesh:completion_authority_plane",
+            "field:self_maintenance_mesh:done_claim"
+          ],
+          "state_input": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0",
+          "state_output": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:1",
+          "validations": [
+            "validation:self_maintenance_mesh:invariant:no_done_without_full_route_and_sync",
+            "validation:self_maintenance_mesh:invariant:route_graph_does_not_replace_field_layers",
+            "validation:self_maintenance_mesh:invariant:no_evidence_flags_without_exact_receipt_set",
+            "validation:self_maintenance_mesh:invariant:completion_authority_stays_in_development_process"
+          ],
+          "writes": [
+            "field:self_maintenance_mesh:route_graph_connected",
+            "field:self_maintenance_mesh:route_handoffs_typed",
+            "field:self_maintenance_mesh:route_owners_unique",
+            "field:self_maintenance_mesh:route_cycles_bounded",
+            "field:self_maintenance_mesh:ai_profiles_declared",
+            "field:self_maintenance_mesh:field_layers_declared",
+            "field:self_maintenance_mesh:child_reports_current",
+            "field:self_maintenance_mesh:plane_upgrade_reports_current",
+            "field:self_maintenance_mesh:understanding_chain_current",
+            "field:self_maintenance_mesh:semantic_model_mesh_current",
+            "field:self_maintenance_mesh:behavior_ledger_current",
+            "field:self_maintenance_mesh:dcar_coverage_current",
+            "field:self_maintenance_mesh:test_mesh_shards_current",
+            "field:self_maintenance_mesh:model_miss_backfeed_current",
+            "field:self_maintenance_mesh:route_api_tested",
+            "field:self_maintenance_mesh:focused_validation_passed",
+            "field:self_maintenance_mesh:install_sync_verified",
+            "field:self_maintenance_mesh:shadow_sync_checked",
+            "field:self_maintenance_mesh:git_status_checked",
+            "field:self_maintenance_mesh:spec_context_current",
+            "field:self_maintenance_mesh:consumed_spec_context_ids",
+            "field:self_maintenance_mesh:consumed_child_receipt_ids",
+            "field:self_maintenance_mesh:receipt_set_fingerprint",
+            "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:validation_owner_inventory_fingerprint",
+            "field:self_maintenance_mesh:consumed_understanding_artifact_ids",
+            "field:self_maintenance_mesh:understanding_chain_fingerprint",
+            "field:self_maintenance_mesh:semantic_mesh_verification",
+            "field:self_maintenance_mesh:completion_authority_plane",
+            "field:self_maintenance_mesh:done_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance",
+          "producer_id": "transition:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance",
+          "outputs": [
+            "output:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance"
+          ],
+          "reads": [
+            "field:self_maintenance_mesh:route_graph_connected",
+            "field:self_maintenance_mesh:route_handoffs_typed",
+            "field:self_maintenance_mesh:route_owners_unique",
+            "field:self_maintenance_mesh:route_cycles_bounded",
+            "field:self_maintenance_mesh:ai_profiles_declared",
+            "field:self_maintenance_mesh:field_layers_declared",
+            "field:self_maintenance_mesh:child_reports_current",
+            "field:self_maintenance_mesh:plane_upgrade_reports_current",
+            "field:self_maintenance_mesh:understanding_chain_current",
+            "field:self_maintenance_mesh:semantic_model_mesh_current",
+            "field:self_maintenance_mesh:behavior_ledger_current",
+            "field:self_maintenance_mesh:dcar_coverage_current",
+            "field:self_maintenance_mesh:test_mesh_shards_current",
+            "field:self_maintenance_mesh:model_miss_backfeed_current",
+            "field:self_maintenance_mesh:route_api_tested",
+            "field:self_maintenance_mesh:focused_validation_passed",
+            "field:self_maintenance_mesh:install_sync_verified",
+            "field:self_maintenance_mesh:shadow_sync_checked",
+            "field:self_maintenance_mesh:git_status_checked",
+            "field:self_maintenance_mesh:spec_context_current",
+            "field:self_maintenance_mesh:consumed_spec_context_ids",
+            "field:self_maintenance_mesh:consumed_child_receipt_ids",
+            "field:self_maintenance_mesh:receipt_set_fingerprint",
+            "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:validation_owner_inventory_fingerprint",
+            "field:self_maintenance_mesh:consumed_understanding_artifact_ids",
+            "field:self_maintenance_mesh:understanding_chain_fingerprint",
+            "field:self_maintenance_mesh:semantic_mesh_verification",
+            "field:self_maintenance_mesh:completion_authority_plane",
+            "field:self_maintenance_mesh:done_claim"
+          ],
+          "source": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0",
+          "target": "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:1",
+          "trigger": "SelfMaintenanceAction",
+          "validations": [
+            "validation:self_maintenance_mesh:invariant:no_done_without_full_route_and_sync",
+            "validation:self_maintenance_mesh:invariant:route_graph_does_not_replace_field_layers",
+            "validation:self_maintenance_mesh:invariant:no_evidence_flags_without_exact_receipt_set",
+            "validation:self_maintenance_mesh:invariant:completion_authority_stays_in_development_process"
+          ],
+          "writes": [
+            "field:self_maintenance_mesh:route_graph_connected",
+            "field:self_maintenance_mesh:route_handoffs_typed",
+            "field:self_maintenance_mesh:route_owners_unique",
+            "field:self_maintenance_mesh:route_cycles_bounded",
+            "field:self_maintenance_mesh:ai_profiles_declared",
+            "field:self_maintenance_mesh:field_layers_declared",
+            "field:self_maintenance_mesh:child_reports_current",
+            "field:self_maintenance_mesh:plane_upgrade_reports_current",
+            "field:self_maintenance_mesh:understanding_chain_current",
+            "field:self_maintenance_mesh:semantic_model_mesh_current",
+            "field:self_maintenance_mesh:behavior_ledger_current",
+            "field:self_maintenance_mesh:dcar_coverage_current",
+            "field:self_maintenance_mesh:test_mesh_shards_current",
+            "field:self_maintenance_mesh:model_miss_backfeed_current",
+            "field:self_maintenance_mesh:route_api_tested",
+            "field:self_maintenance_mesh:focused_validation_passed",
+            "field:self_maintenance_mesh:install_sync_verified",
+            "field:self_maintenance_mesh:shadow_sync_checked",
+            "field:self_maintenance_mesh:git_status_checked",
+            "field:self_maintenance_mesh:spec_context_current",
+            "field:self_maintenance_mesh:consumed_spec_context_ids",
+            "field:self_maintenance_mesh:consumed_child_receipt_ids",
+            "field:self_maintenance_mesh:receipt_set_fingerprint",
+            "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids",
+            "field:self_maintenance_mesh:validation_owner_inventory_fingerprint",
+            "field:self_maintenance_mesh:consumed_understanding_artifact_ids",
+            "field:self_maintenance_mesh:understanding_chain_fingerprint",
+            "field:self_maintenance_mesh:semantic_mesh_verification",
+            "field:self_maintenance_mesh:completion_authority_plane",
+            "field:self_maintenance_mesh:done_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:self_maintenance_mesh",
+          "id": "validation:self_maintenance_mesh:invariant:completion_authority_stays_in_development_process",
+          "obligation_id": "obligation:native-invariant:self_maintenance_mesh:completion_authority_stays_in_development_process",
+          "oracle_id": "oracle:native-invariant:self_maintenance_mesh:completion_authority_stays_in_development_process",
+          "subject_fingerprint": "sha256:34bcf6db4e2281348b91bcd0e93e0f99308a317c9e16fdbe87e5664e442a4ed9"
+        },
+        {
+          "evidence_boundary_id": "native-runner:self_maintenance_mesh",
+          "id": "validation:self_maintenance_mesh:invariant:no_done_without_full_route_and_sync",
+          "obligation_id": "obligation:native-invariant:self_maintenance_mesh:no_done_without_full_route_and_sync",
+          "oracle_id": "oracle:native-invariant:self_maintenance_mesh:no_done_without_full_route_and_sync",
+          "subject_fingerprint": "sha256:34bcf6db4e2281348b91bcd0e93e0f99308a317c9e16fdbe87e5664e442a4ed9"
+        },
+        {
+          "evidence_boundary_id": "native-runner:self_maintenance_mesh",
+          "id": "validation:self_maintenance_mesh:invariant:no_evidence_flags_without_exact_receipt_set",
+          "obligation_id": "obligation:native-invariant:self_maintenance_mesh:no_evidence_flags_without_exact_receipt_set",
+          "oracle_id": "oracle:native-invariant:self_maintenance_mesh:no_evidence_flags_without_exact_receipt_set",
+          "subject_fingerprint": "sha256:34bcf6db4e2281348b91bcd0e93e0f99308a317c9e16fdbe87e5664e442a4ed9"
+        },
+        {
+          "evidence_boundary_id": "native-runner:self_maintenance_mesh",
+          "id": "validation:self_maintenance_mesh:invariant:route_graph_does_not_replace_field_layers",
+          "obligation_id": "obligation:native-invariant:self_maintenance_mesh:route_graph_does_not_replace_field_layers",
+          "oracle_id": "oracle:native-invariant:self_maintenance_mesh:route_graph_does_not_replace_field_layers",
+          "subject_fingerprint": "sha256:34bcf6db4e2281348b91bcd0e93e0f99308a317c9e16fdbe87e5664e442a4ed9"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:self_maintenance_mesh:ai_profiles_declared": "field",
+      "field:self_maintenance_mesh:behavior_ledger_current": "field",
+      "field:self_maintenance_mesh:child_reports_current": "field",
+      "field:self_maintenance_mesh:completion_authority_plane": "field",
+      "field:self_maintenance_mesh:consumed_child_receipt_ids": "field",
+      "field:self_maintenance_mesh:consumed_plane_upgrade_receipt_ids": "field",
+      "field:self_maintenance_mesh:consumed_spec_context_ids": "field",
+      "field:self_maintenance_mesh:consumed_understanding_artifact_ids": "field",
+      "field:self_maintenance_mesh:dcar_coverage_current": "field",
+      "field:self_maintenance_mesh:done_claim": "field",
+      "field:self_maintenance_mesh:field_layers_declared": "field",
+      "field:self_maintenance_mesh:focused_validation_passed": "field",
+      "field:self_maintenance_mesh:git_status_checked": "field",
+      "field:self_maintenance_mesh:install_sync_verified": "field",
+      "field:self_maintenance_mesh:model_miss_backfeed_current": "field",
+      "field:self_maintenance_mesh:plane_upgrade_reports_current": "field",
+      "field:self_maintenance_mesh:receipt_set_fingerprint": "field",
+      "field:self_maintenance_mesh:route_api_tested": "field",
+      "field:self_maintenance_mesh:route_cycles_bounded": "field",
+      "field:self_maintenance_mesh:route_graph_connected": "field",
+      "field:self_maintenance_mesh:route_handoffs_typed": "field",
+      "field:self_maintenance_mesh:route_owners_unique": "field",
+      "field:self_maintenance_mesh:semantic_mesh_verification": "field",
+      "field:self_maintenance_mesh:semantic_model_mesh_current": "field",
+      "field:self_maintenance_mesh:shadow_sync_checked": "field",
+      "field:self_maintenance_mesh:spec_context_current": "field",
+      "field:self_maintenance_mesh:terminal_plane_upgrade_receipt_ids": "field",
+      "field:self_maintenance_mesh:test_mesh_shards_current": "field",
+      "field:self_maintenance_mesh:understanding_chain_current": "field",
+      "field:self_maintenance_mesh:understanding_chain_fingerprint": "field",
+      "field:self_maintenance_mesh:validation_owner_inventory_fingerprint": "field",
+      "function-block:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance": "function_block",
+      "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0": "state",
+      "state:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:1": "state",
+      "transition:workflow:self_maintenance_mesh:self_maintenance_correct:0:353da862bbe1:0:CorrectSelfMaintenance": "transition",
+      "validation:self_maintenance_mesh:invariant:completion_authority_stays_in_development_process": "validation",
+      "validation:self_maintenance_mesh:invariant:no_done_without_full_route_and_sync": "validation",
+      "validation:self_maintenance_mesh:invariant:no_evidence_flags_without_exact_receipt_set": "validation",
+      "validation:self_maintenance_mesh:invariant:route_graph_does_not_replace_field_layers": "validation"
+    },
+    "subject_fingerprint": "sha256:2c369ef482e84d0d4f721d33a0984ea0d6c81f7bd01ecf487eed2cd7e339d03f",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:9cf32b694607ce6e438b4b2c0a6a2b548aab2c022bd6dbb9cd599b9fe9d8275d",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

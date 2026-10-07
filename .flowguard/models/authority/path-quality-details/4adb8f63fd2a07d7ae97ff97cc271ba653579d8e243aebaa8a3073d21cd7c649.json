@@ -1,0 +1,785 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:9bbe90c0d55eae0bf8bda8c479a3754cabb2fc0ef7ef7e21dcaa27a8e0621067",
+        "effective_intent_view_fingerprint": "sha256:6b0cf2996262d5fdf5b88d108c0a2e7fce48bf85526efe433c80955d816593f3",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_maturation_loop/model.py",
+            "source_fingerprint": "sha256:6a0d777def2ff658845c13f05afc2ffd45e496cfa1aae1f72cf4f16481902c63"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:authorization_by_task",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:bounded_direction",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:closed_task_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:confidence_by_task",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:left_contexts",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:left_semantics",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:maturation_decisions",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt",
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:path_quality_by_task",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:primary_owner_ids",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:published_receipts",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:ready_task_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:relation",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:request",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:right_contexts",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:right_semantics",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_maturation_loop:verified_receipts",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence",
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "MaturationRequest",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation",
+          "inputs": [
+            "external-input:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:maturation_decisions",
+            "field:model_maturation_loop:authorization_by_task",
+            "field:model_maturation_loop:path_quality_by_task"
+          ]
+        },
+        {
+          "accepted_input": "MaturationEvaluated",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt",
+          "inputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:published_receipts"
+          ]
+        },
+        {
+          "accepted_input": "ReceiptPublished",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt",
+          "inputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:published_receipts"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:verified_receipts"
+          ]
+        },
+        {
+          "accepted_input": "ReceiptVerified",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+          "inputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:authorization_by_task",
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:ready_task_ids"
+          ]
+        },
+        {
+          "accepted_input": "AdmissionDecided",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence",
+          "inputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:confidence_by_task"
+          ]
+        },
+        {
+          "accepted_input": "ConfidenceDecided",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure",
+          "inputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:confidence_by_task"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5",
+          "state_output": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:6",
+          "validations": [
+            "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt",
+            "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+          ],
+          "writes": [
+            "field:model_maturation_loop:closed_task_ids"
+          ]
+        },
+        {
+          "accepted_input": "R6ArchitectureInput",
+          "effects": [],
+          "id": "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture",
+          "inputs": [
+            "external-input:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4"
+          ],
+          "outputs": [
+            "output:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_maturation_loop:left_contexts",
+            "field:model_maturation_loop:right_contexts",
+            "field:model_maturation_loop:left_semantics",
+            "field:model_maturation_loop:right_semantics",
+            "field:model_maturation_loop:primary_owner_ids"
+          ],
+          "state_input": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0",
+          "state_output": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:1",
+          "validations": [
+            "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt",
+            "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+          ],
+          "writes": [
+            "field:model_maturation_loop:request",
+            "field:model_maturation_loop:relation",
+            "field:model_maturation_loop:bounded_direction"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0",
+        "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure",
+          "producer_id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure",
+          "terminal": true
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture",
+          "producer_id": "transition:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:6",
+          "initial": false,
+          "terminal": true
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:6",
+        "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation"
+          ],
+          "reads": [],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1",
+          "trigger": "MaturationRequest",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:maturation_decisions",
+            "field:model_maturation_loop:authorization_by_task",
+            "field:model_maturation_loop:path_quality_by_task"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt"
+          ],
+          "reads": [
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2",
+          "trigger": "MaturationEvaluated",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:published_receipts"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt"
+          ],
+          "reads": [
+            "field:model_maturation_loop:published_receipts"
+          ],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3",
+          "trigger": "ReceiptPublished",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:verified_receipts"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission"
+          ],
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:authorization_by_task",
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4",
+          "trigger": "ReceiptVerified",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:ready_task_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence"
+          ],
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:maturation_decisions"
+          ],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5",
+          "trigger": "AdmissionDecided",
+          "validations": [],
+          "writes": [
+            "field:model_maturation_loop:confidence_by_task"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure",
+          "outputs": [
+            "output:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure"
+          ],
+          "reads": [
+            "field:model_maturation_loop:verified_receipts",
+            "field:model_maturation_loop:confidence_by_task"
+          ],
+          "source": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5",
+          "target": "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:6",
+          "trigger": "ConfidenceDecided",
+          "validations": [
+            "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt",
+            "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+          ],
+          "writes": [
+            "field:model_maturation_loop:closed_task_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture",
+          "outputs": [
+            "output:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture"
+          ],
+          "reads": [
+            "field:model_maturation_loop:left_contexts",
+            "field:model_maturation_loop:right_contexts",
+            "field:model_maturation_loop:left_semantics",
+            "field:model_maturation_loop:right_semantics",
+            "field:model_maturation_loop:primary_owner_ids"
+          ],
+          "source": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0",
+          "target": "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:1",
+          "trigger": "R6ArchitectureInput",
+          "validations": [
+            "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt",
+            "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+            "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+          ],
+          "writes": [
+            "field:model_maturation_loop:request",
+            "field:model_maturation_loop:relation",
+            "field:model_maturation_loop:bounded_direction"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:confidence_and_closure_preserve_verified_maturation",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:confidence_and_closure_preserve_verified_maturation",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:failure:model_maturation_loop:accepted_observation_claimed_improvement_done",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:failure:model_maturation_loop:accepted_observation_claimed_improvement_done",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:failure:model_maturation_loop:context_remainder_erased",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:failure:model_maturation_loop:context_remainder_erased",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:failure:model_maturation_loop:unproved_functional_task_closed",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:failure:model_maturation_loop:unproved_functional_task_closed",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_maturation_loop",
+          "id": "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt",
+          "obligation_id": "obligation:native-invariant:model_maturation_loop:ready_requires_verified_closed_receipt",
+          "oracle_id": "oracle:native-invariant:model_maturation_loop:ready_requires_verified_closed_receipt",
+          "subject_fingerprint": "sha256:dcba6e6fa964d9d9e4885e07be0d3855f13c9416d35cc544907d430bf70845e3"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:model_maturation_loop:authorization_by_task": "field",
+      "field:model_maturation_loop:bounded_direction": "field",
+      "field:model_maturation_loop:closed_task_ids": "field",
+      "field:model_maturation_loop:confidence_by_task": "field",
+      "field:model_maturation_loop:left_contexts": "field",
+      "field:model_maturation_loop:left_semantics": "field",
+      "field:model_maturation_loop:maturation_decisions": "field",
+      "field:model_maturation_loop:path_quality_by_task": "field",
+      "field:model_maturation_loop:primary_owner_ids": "field",
+      "field:model_maturation_loop:published_receipts": "field",
+      "field:model_maturation_loop:ready_task_ids": "field",
+      "field:model_maturation_loop:relation": "field",
+      "field:model_maturation_loop:request": "field",
+      "field:model_maturation_loop:right_contexts": "field",
+      "field:model_maturation_loop:right_semantics": "field",
+      "field:model_maturation_loop:verified_receipts": "field",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation": "function_block",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt": "function_block",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt": "function_block",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission": "function_block",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence": "function_block",
+      "function-block:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure": "function_block",
+      "function-block:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture": "function_block",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5": "state",
+      "state:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:6": "state",
+      "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0": "state",
+      "state:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:1": "state",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:0:EvaluateMaturation": "transition",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:1:PublishReceipt": "transition",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:2:VerifyReceipt": "transition",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:3:DecideAdmission": "transition",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:4:DecideConfidence": "transition",
+      "transition:workflow:model_maturation_loop:model_maturation_loop:0:cd8ce863d229:5:VerifyClosure": "transition",
+      "transition:workflow:model_maturation_loop:r6_generic_architecture_direction:1:3a0d59e292d4:0:EvaluateR6Architecture": "transition",
+      "validation:model_maturation_loop:invariant:confidence_and_closure_preserve_verified_maturation": "validation",
+      "validation:model_maturation_loop:invariant:failure:model_maturation_loop:accepted_observation_claimed_improvement_done": "validation",
+      "validation:model_maturation_loop:invariant:failure:model_maturation_loop:context_remainder_erased": "validation",
+      "validation:model_maturation_loop:invariant:failure:model_maturation_loop:hash_copy_claimed_shared_mechanism": "validation",
+      "validation:model_maturation_loop:invariant:failure:model_maturation_loop:unproved_functional_task_closed": "validation",
+      "validation:model_maturation_loop:invariant:ready_requires_verified_closed_receipt": "validation"
+    },
+    "subject_fingerprint": "sha256:23b1d3fa3a0dc89e5e40194ce2d581f914becf357beac5bf28d900c5cabf7340",
+    "trigger_currentness_id": "sha256:efe2a9566657d09272845f0e4fe4b53ecef69f7a3b8389072b4667b02d096146",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:4adb8f63fd2a07d7ae97ff97cc271ba653579d8e243aebaa8a3073d21cd7c649",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

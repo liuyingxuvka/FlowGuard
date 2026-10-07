@@ -20,7 +20,7 @@ import signal
 import subprocess
 import sys
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Callable, Mapping, Sequence
 
 
 TERMINAL_ARTIFACT_SCHEMA = "flowguard.supervised_command_terminal.v2"
@@ -407,6 +407,7 @@ def _contained_process_ids(
 
 
 _WINDOWS_ERROR_INVALID_HANDLE = 6
+_WINDOWS_ERROR_NO_MORE_FILES = 18
 _WINDOWS_ERROR_INVALID_PARAMETER = 87
 _WINDOWS_ERROR_NOT_FOUND = 1168
 
@@ -428,8 +429,10 @@ def _windows_process_creation_time(process_id: int) -> tuple[int | None, str]:
     close_handle = kernel32.CloseHandle
     close_handle.argtypes = (wintypes.HANDLE,)
     close_handle.restype = wintypes.BOOL
-    # PROCESS_QUERY_LIMITED_INFORMATION is sufficient for GetProcessTimes.
-    handle = open_process(0x1000, False, int(process_id))
+    # Query the exact instance and its kernel terminal state through one
+    # handle. A Toolhelp row and creation/exit timestamps alone can outlive
+    # the process's signaled terminal state.
+    handle = open_process(0x1000 | 0x00100000, False, int(process_id))
     if not handle:
         error = ctypes.get_last_error()
         if error in {
@@ -464,6 +467,14 @@ def _windows_process_creation_time_from_handle(
         ctypes.POINTER(wintypes.FILETIME),
     )
     get_times.restype = wintypes.BOOL
+    wait = kernel32.WaitForSingleObject
+    wait.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    wait.restype = wintypes.DWORD
+    state = int(wait(handle, 0))
+    if state == 0:  # WAIT_OBJECT_0: this retained instance has exited.
+        return None, "gone"
+    if state != 0x00000102:  # WAIT_TIMEOUT is the only known live state.
+        return None, "unknown"
     if not get_times(
         handle,
         ctypes.byref(creation),
@@ -480,11 +491,316 @@ def _windows_process_creation_time_from_handle(
             return None, "gone"
         return None, "unknown"
     value = (int(creation.dwHighDateTime) << 32) | int(creation.dwLowDateTime)
+    # A retained process object can still answer GetProcessTimes after exit.
+    # Its creation identity is then known, but it is not a live descendant.
+    if int(exit_time.dwHighDateTime) or int(exit_time.dwLowDateTime):
+        return None, "gone"
+    # The process may have exited during GetProcessTimes. Confirm the live
+    # state after reading identity, without observing or terminating a new PID.
+    state = int(wait(handle, 0))
+    if state == 0:
+        return None, "gone"
+    if state != 0x00000102:
+        return None, "unknown"
     return value, "ok"
+
+
+class _WindowsProcessInstances:
+    """Hold exact owned instances until this episode ends, preventing PID reuse.
+
+    The Popen root handle is borrowed. Other query/synchronize handles are
+    closed here. A signaled retained parent still has an authenticated birth
+    identity and can lead to a live orphan; signaled does not mean unknown.
+    """
+
+    def __init__(self, process: subprocess.Popen[Any]) -> None:
+        self.kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        self.root_process_id = int(process.pid)
+        self.handles: dict[int, Any] = {self.root_process_id: process._handle}
+        self.owned_creation_times: dict[int, int] = {}
+        self.parents: dict[int, tuple[int, str]] = {}
+        creation, status = self.identity(self.root_process_id)
+        if creation is not None and status != "unknown":
+            self.owned_creation_times[self.root_process_id] = creation
+
+    def identity(self, process_id: int) -> tuple[int | None, str]:
+        kernel = self.kernel
+        if process_id not in self.handles:
+            open_process = kernel.OpenProcess
+            open_process.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+            open_process.restype = wintypes.HANDLE
+            handle = open_process(0x1000 | 0x00100000, False, process_id)
+            if not handle:
+                return (None, "gone") if ctypes.get_last_error() in {
+                    _WINDOWS_ERROR_INVALID_HANDLE, _WINDOWS_ERROR_INVALID_PARAMETER,
+                    _WINDOWS_ERROR_NOT_FOUND,
+                } else (None, "unknown")
+            self.handles[process_id] = handle
+        handle = self.handles[process_id]
+        creation, exit_time, kernel_time, user_time = (wintypes.FILETIME() for _ in range(4))
+        get_times = kernel.GetProcessTimes
+        get_times.argtypes = (wintypes.HANDLE, *(ctypes.POINTER(wintypes.FILETIME) for _ in range(4)))
+        get_times.restype = wintypes.BOOL
+        if not get_times(handle, ctypes.byref(creation), ctypes.byref(exit_time),
+                         ctypes.byref(kernel_time), ctypes.byref(user_time)):
+            return None, "unknown"
+        value = (int(creation.dwHighDateTime) << 32) | int(creation.dwLowDateTime)
+        wait = kernel.WaitForSingleObject
+        wait.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        wait.restype = wintypes.DWORD
+        state = int(wait(handle, 0))
+        if state == 0:
+            return value, "gone"
+        if state == 0x102:
+            return value, "ok"
+        return None, "unknown"
+
+    def admit(self, process_id: int, parent: int, executable: str, creation: int) -> None:
+        self.owned_creation_times[process_id] = creation
+        self.parents[process_id] = (parent, executable)
+
+    def parent_process_id(self, process_id: int) -> int | None:
+        """Read ancestry from the same retained child instance, not its PID."""
+        class PROCESS_BASIC_INFORMATION(ctypes.Structure):
+            _fields_ = (
+                ("ExitStatus", wintypes.LONG),
+                ("PebBaseAddress", ctypes.c_void_p),
+                ("AffinityMask", ctypes.c_size_t),
+                ("BasePriority", wintypes.LONG),
+                ("UniqueProcessId", ctypes.c_size_t),
+                ("InheritedFromUniqueProcessId", ctypes.c_size_t),
+            )
+        query = ctypes.WinDLL("ntdll").NtQueryInformationProcess
+        query.argtypes = (wintypes.HANDLE, wintypes.ULONG, ctypes.c_void_p,
+                          wintypes.ULONG, ctypes.POINTER(wintypes.ULONG))
+        query.restype = wintypes.LONG
+        information = PROCESS_BASIC_INFORMATION()
+        returned = wintypes.ULONG()
+        status = int(query(self.handles[process_id], 0, ctypes.byref(information),
+                           ctypes.sizeof(information), ctypes.byref(returned)))
+        if status < 0 or int(information.UniqueProcessId) != process_id:
+            return None
+        return int(information.InheritedFromUniqueProcessId)
+
+    def discard(self, process_id: int) -> None:
+        if process_id == self.root_process_id or process_id in self.owned_creation_times:
+            return
+        handle = self.handles.pop(process_id, None)
+        if handle is not None:
+            close = self.kernel.CloseHandle
+            close.argtypes = (wintypes.HANDLE,)
+            close.restype = wintypes.BOOL
+            close(handle)
+
+    def close(self) -> None:
+        close = self.kernel.CloseHandle
+        close.argtypes = (wintypes.HANDLE,)
+        close.restype = wintypes.BOOL
+        for process_id, handle in self.handles.items():
+            if process_id != self.root_process_id:
+                close(handle)
+        self.handles.clear()
+
+
+def _identity_bound_windows_tree(
+    root_process_id: int,
+    parent_by_pid: Mapping[int, int],
+    executable_by_pid: Mapping[int, str],
+    instances: _WindowsProcessInstances,
+    *,
+    creation_by_pid: Mapping[int, int],
+) -> dict[int, tuple[int, str, int]] | None:
+    """Expand one process-table snapshot only through authenticated parents."""
+    parent_to_children: dict[int, list[int]] = {}
+    for pid, parent in parent_by_pid.items():
+        parent_to_children.setdefault(parent, []).append(pid)
+    pending = list(instances.owned_creation_times)
+    if root_process_id not in pending:
+        return None
+    seen: set[int] = set()
+    descendants: dict[int, tuple[int, str, int]] = {}
+    while pending:
+        parent = pending.pop(0)
+        if parent in seen:
+            continue
+        seen.add(parent)
+        parent_creation, parent_status = instances.identity(parent)
+        expected_parent = instances.owned_creation_times[parent]
+        if parent_status == "unknown" or parent_creation is None:
+            return None
+        if parent_creation != expected_parent:
+            # A different parent instance cannot grant ownership to its kids.
+            continue
+        if parent != root_process_id and parent_status == "ok":
+            old_parent, executable = instances.parents[parent]
+            descendants[parent] = (old_parent, executable, parent_creation)
+        for pid in parent_to_children.get(parent, ()):
+            if pid == root_process_id or pid in seen:
+                continue
+            snapshot_creation = creation_by_pid.get(pid)
+            if type(snapshot_creation) is not int or snapshot_creation <= 0:
+                return None
+            # A reused parent PID retains foreign, sometimes protected,
+            # children in the system table. Their known earlier birth rules
+            # out this episode before OpenProcess can fail on that foreign
+            # instance. Snapshot ancestry alone never admits a new child.
+            if snapshot_creation < parent_creation:
+                continue
+            creation, status = instances.identity(pid)
+            if status == "unknown":
+                return None
+            if creation is None:
+                # A gone, unobserved intermediate has no birth authority.
+                # If it has children, their ownership is still unknown.
+                if parent_to_children.get(pid):
+                    return None
+                continue
+            if creation != snapshot_creation:
+                # The PID changed between the coherent table and retained
+                # handle. This observation cannot confirm the child tree.
+                return None
+            expected = instances.owned_creation_times.get(pid)
+            if creation < parent_creation or (expected is not None and creation != expected):
+                instances.discard(pid)
+                continue
+            actual_parent = instances.parent_process_id(pid)
+            if actual_parent is None:
+                return None
+            if actual_parent != parent:
+                # The Toolhelp row belonged to a different child instance,
+                # replaced before its query handle could be retained.
+                instances.discard(pid)
+                continue
+            executable = executable_by_pid.get(pid, "")
+            instances.admit(pid, parent, executable, creation)
+            pending.append(pid)
+    # Query each retained owned instance at the decision point. This is one
+    # immediate identity observation, not waiting for a live orphan to exit.
+    current: dict[int, tuple[int, str, int]] = {}
+    for pid, row in descendants.items():
+        creation, status = instances.identity(pid)
+        if status == "unknown" or creation is None:
+            return None
+        if status == "ok" and creation == row[2]:
+            current[pid] = row
+    return current
+
+
+class _WindowsUnicodeString(ctypes.Structure):
+    _fields_ = (
+        ("Length", ctypes.c_uint16),
+        ("MaximumLength", ctypes.c_uint16),
+        ("Buffer", ctypes.c_void_p),
+    )
+
+
+class _WindowsSystemProcessPrefix(ctypes.Structure):
+    # SystemProcessInformation's documented reserved prefix includes the
+    # native CreateTime field. Use fixed-width integers for both Windows ABIs.
+    _fields_ = (
+        ("NextEntryOffset", ctypes.c_uint32),
+        ("NumberOfThreads", ctypes.c_uint32),
+        ("ReservedBeforeBirth", ctypes.c_byte * 24),
+        ("CreateTime", ctypes.c_int64),
+        ("UserTime", ctypes.c_int64),
+        ("KernelTime", ctypes.c_int64),
+        ("ImageName", _WindowsUnicodeString),
+        ("BasePriority", ctypes.c_int32),
+        ("UniqueProcessId", ctypes.c_void_p),
+        ("InheritedFromUniqueProcessId", ctypes.c_void_p),
+    )
+
+
+def _parse_windows_system_process_information(
+    buffer: Any,
+    used: int,
+) -> dict[int, tuple[int, str, int]] | None:
+    """Decode bounded, coherent PID/parent/birth rows; malformed is unknown."""
+    prefix = _WindowsSystemProcessPrefix
+    pointer_size = ctypes.sizeof(ctypes.c_void_p)
+    expected_layout = {8: (96, 80, 88), 4: (80, 68, 72)}.get(pointer_size)
+    if (
+        expected_layout is None
+        or prefix.CreateTime.offset != 32
+        or (ctypes.sizeof(prefix), prefix.UniqueProcessId.offset,
+            prefix.InheritedFromUniqueProcessId.offset) != expected_layout
+        or not 0 < used <= ctypes.sizeof(buffer)
+    ):
+        return None
+    base = ctypes.addressof(buffer)
+    offset = 0
+    rows: dict[int, tuple[int, str, int]] = {}
+    try:
+        while True:
+            if offset + ctypes.sizeof(prefix) > used:
+                return None
+            row = prefix.from_buffer(buffer, offset)
+            pid = int(row.UniqueProcessId or 0)
+            parent = int(row.InheritedFromUniqueProcessId or 0)
+            if pid in rows:
+                return None
+            image = row.ImageName
+            name = ""
+            if image.Length:
+                address = int(image.Buffer or 0)
+                if (image.Length % 2 or image.Length > image.MaximumLength
+                    or not base <= address <= base + used - image.Length):
+                    return None
+                name = ctypes.string_at(address, image.Length).decode("utf-16-le")
+            rows[pid] = (parent, name, int(row.CreateTime))
+            advance = int(row.NextEntryOffset)
+            if advance == 0:
+                return rows
+            if advance < ctypes.sizeof(prefix) or advance % pointer_size:
+                return None
+            offset += advance
+    except (ValueError, UnicodeError, OverflowError):
+        return None
+
+
+def _windows_system_process_snapshot() -> dict[int, tuple[int, str, int]] | None:
+    """Read SystemProcessInformation once, with a bounded buffer and ABI check."""
+    if os.name != "nt":
+        return None
+    try:
+        query = ctypes.WinDLL("ntdll").NtQuerySystemInformation
+    except OSError:
+        return None
+    query.argtypes = (ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint32,
+                      ctypes.POINTER(ctypes.c_uint32))
+    query.restype = ctypes.c_int32
+    size = 65536
+    for _ in range(9):
+        if size > 16 * 1024 * 1024:
+            return None
+        buffer = ctypes.create_string_buffer(size)
+        returned = ctypes.c_uint32()
+        try:
+            status = int(query(5, buffer, size, ctypes.byref(returned))) & 0xffffffff
+        except OSError:
+            return None
+        if status == 0xc0000004:  # STATUS_INFO_LENGTH_MISMATCH
+            size = max(size * 2, int(returned.value) + 10240)
+            continue
+        if status != 0:
+            return None
+        rows = _parse_windows_system_process_information(buffer, int(returned.value))
+        if rows is None:
+            return None
+        # Check the actual native layout against our live instance, using the
+        # same handle birth API that authenticates owned processes below.
+        self_birth, self_status = _windows_process_creation_time(os.getpid())
+        self_row = rows.get(os.getpid())
+        if self_status != "ok" or self_row is None or self_row[2] != self_birth:
+            return None
+        return rows
+    return None
 
 
 def _windows_process_tree_snapshot(
     root_process_id: int | None,
+    *,
+    instances: _WindowsProcessInstances | None = None,
 ) -> dict[int, tuple[int, str, int]] | None:
     """Return descendant PID -> (parent PID, executable, creation time).
 
@@ -494,109 +810,30 @@ def _windows_process_tree_snapshot(
 
     if os.name != "nt" or root_process_id is None:
         return {}
-    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-    snapshot = kernel32.CreateToolhelp32Snapshot
-    snapshot.argtypes = (wintypes.DWORD, wintypes.DWORD)
-    snapshot.restype = wintypes.HANDLE
-    first = kernel32.Process32FirstW
-    first.argtypes = (wintypes.HANDLE, ctypes.c_void_p)
-    first.restype = wintypes.BOOL
-    next_process = kernel32.Process32NextW
-    next_process.argtypes = (wintypes.HANDLE, ctypes.c_void_p)
-    next_process.restype = wintypes.BOOL
-    close_handle = kernel32.CloseHandle
-    close_handle.argtypes = (wintypes.HANDLE,)
-    close_handle.restype = wintypes.BOOL
-
-    class PROCESSENTRY32W(ctypes.Structure):
-        _fields_ = (
-            ("dwSize", wintypes.DWORD),
-            ("cntUsage", wintypes.DWORD),
-            ("th32ProcessID", wintypes.DWORD),
-            ("th32DefaultHeapID", ctypes.c_size_t),
-            ("th32ModuleID", wintypes.DWORD),
-            ("cntThreads", wintypes.DWORD),
-            ("th32ParentProcessID", wintypes.DWORD),
-            ("pcPriClassBase", wintypes.LONG),
-            ("dwFlags", wintypes.DWORD),
-            ("szExeFile", wintypes.WCHAR * 260),
-        )
-
-    # TH32CS_SNAPPROCESS.  INVALID_HANDLE_VALUE is -1 cast to HANDLE.
-    handle = snapshot(0x00000002, 0)
-    invalid = ctypes.c_void_p(-1).value
-    if not handle or int(handle) == int(invalid):
+    rows = _windows_system_process_snapshot()
+    if rows is None:
         return None
-    try:
-        entry = PROCESSENTRY32W()
-        entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-        parent_to_children: dict[int, list[int]] = {}
-        parent_by_pid: dict[int, int] = {}
-        executable_by_pid: dict[int, str] = {}
-        if not first(handle, ctypes.byref(entry)):
-            return {}
-        while True:
-            pid = int(entry.th32ProcessID)
-            parent = int(entry.th32ParentProcessID)
-            if pid:
-                parent_to_children.setdefault(parent, []).append(pid)
-                parent_by_pid[pid] = parent
-                executable_by_pid[pid] = str(entry.szExeFile)
-            entry.dwSize = ctypes.sizeof(PROCESSENTRY32W)
-            if not next_process(handle, ctypes.byref(entry)):
-                break
-    finally:
-        close_handle(handle)
+    parent_by_pid = {pid: row[0] for pid, row in rows.items() if pid}
+    executable_by_pid = {pid: row[1] for pid, row in rows.items() if pid}
+    creation_by_pid = {pid: row[2] for pid, row in rows.items() if pid}
 
-    candidate_ids: list[int] = []
-    pending = list(parent_to_children.get(int(root_process_id), ()))
-    seen = {int(root_process_id)}
-    while pending:
-        pid = pending.pop(0)
-        if pid in seen:
-            continue
-        seen.add(pid)
-        candidate_ids.append(pid)
-        pending.extend(parent_to_children.get(pid, ()))
-
-    creation_by_pid: dict[int, int] = {}
-    for process_id in candidate_ids:
-        creation_time = None
-        status = "unknown"
-        # A process can disappear between the Toolhelp snapshot and the
-        # identity query, and Windows can transiently deny the first handle
-        # request while a just-created child is initializing.  Retry only
-        # this bounded observation; a persistent unknown still fails closed.
-        for attempt in range(3):
-            creation_time, status = _windows_process_creation_time(process_id)
-            if status != "unknown" or attempt == 2:
-                break
-            time.sleep(0.01)
-        if status == "unknown":
-            return None
-        if status == "gone" or creation_time is None:
-            continue
-        creation_by_pid[process_id] = creation_time
-
-    descendants: dict[int, tuple[int, str, int]] = {}
-    for pid in candidate_ids:
-        parent = parent_by_pid.get(pid, 0)
-        creation_time = creation_by_pid.get(pid)
-        if creation_time is not None:
-            descendants[pid] = (
-                parent,
-                executable_by_pid.get(pid, ""),
-                creation_time,
-            )
-    return descendants
+    if instances is None:
+        # A nonempty ancestry needs an original instance authority. Do not
+        # turn a bare PID into ownership, including private callers/tests.
+        return None if int(root_process_id) in parent_by_pid.values() else {}
+    return _identity_bound_windows_tree(
+        int(root_process_id), parent_by_pid, executable_by_pid, instances,
+        creation_by_pid=creation_by_pid,
+    )
 
 
 def _terminate_windows_process_ids(
     process_ids: Sequence[int],
     *,
+    cleanup_deadline: float,
     expected_creation_times: Mapping[int, int] | None = None,
 ) -> None:
-    """Terminate only observed process instances missed by Job attachment."""
+    """Terminate and await exact observed instances within one cleanup deadline."""
 
     if os.name != "nt":
         return
@@ -607,6 +844,9 @@ def _terminate_windows_process_ids(
     terminate = kernel32.TerminateProcess
     terminate.argtypes = (wintypes.HANDLE, wintypes.UINT)
     terminate.restype = wintypes.BOOL
+    wait = kernel32.WaitForSingleObject
+    wait.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+    wait.restype = wintypes.DWORD
     close_handle = kernel32.CloseHandle
     close_handle.argtypes = (wintypes.HANDLE,)
     close_handle.restype = wintypes.BOOL
@@ -615,24 +855,31 @@ def _terminate_windows_process_ids(
         for process_id, creation_time in (expected_creation_times or {}).items()
     }
     for process_id in sorted(set(int(item) for item in process_ids if int(item))):
-        # Query and terminate through the same handle when an observed
-        # creation time is available.  This prevents a reused PID from being
-        # mistaken for the old descendant between two separate OpenProcess
-        # calls.  Job-owned members without an observation identity remain
-        # protected by the Job Object termination path.
-        access = 0x0001 | (0x1000 if process_id in expected else 0)
-        handle = open_process(access, False, process_id)
+        # A bare PID grants no termination authority. Job-owned members without
+        # an observed birth remain covered by the separate Job termination path.
+        if process_id not in expected:
+            continue
+        handle = open_process(0x0001 | 0x1000 | 0x00100000, False, process_id)
         if not handle:
             continue
         try:
-            if process_id in expected:
-                current_creation, status = _windows_process_creation_time_from_handle(
-                    kernel32,
-                    handle,
+            current_creation, status = _windows_process_creation_time_from_handle(
+                kernel32,
+                handle,
+            )
+            if status != "ok" or current_creation != expected[process_id]:
+                continue
+            if terminate(handle, 1):
+                # TerminateProcess is asynchronous. Keep this same authenticated
+                # handle open until its bounded wait finishes; never reopen by
+                # PID or renew the deadline for another member. Timeout/unknown
+                # does not establish cleanup: final tree observations still own
+                # the terminal verdict below.
+                remaining_ms = min(
+                    0xfffffffe,
+                    max(0, int((cleanup_deadline - time.monotonic()) * 1000)),
                 )
-                if status != "ok" or current_creation != expected[process_id]:
-                    continue
-            terminate(handle, 1)
+                wait(handle, remaining_ms)
         finally:
             close_handle(handle)
 
@@ -642,6 +889,7 @@ def _adopt_windows_launch_descendants(
     root_process_id: int | None,
     *,
     observation_seconds: float = 0.1,
+    instances: _WindowsProcessInstances | None = None,
 ) -> dict[int, tuple[int, str, int]] | None:
     """Adopt launcher/runtime descendants during one bounded launch window.
 
@@ -659,7 +907,7 @@ def _adopt_windows_launch_descendants(
     deadline = time.monotonic() + max(0.0, observation_seconds)
     observed: dict[int, tuple[int, str, int]] = {}
     while True:
-        current = _windows_process_tree_snapshot(root_process_id)
+        current = _windows_process_tree_snapshot(root_process_id, instances=instances)
         if current is None:
             return None
         for process_id, entry in current.items():
@@ -675,6 +923,8 @@ def _adopt_windows_launch_descendants(
 def _windows_process_tree_observation(
     root_process_id: int | None,
     observed_process_ids: Sequence[int],
+    *,
+    instances: _WindowsProcessInstances | None = None,
 ) -> dict[int, tuple[int, str, int]] | None:
     """Take one current snapshot from the root and remembered intermediates.
 
@@ -686,14 +936,11 @@ def _windows_process_tree_observation(
 
     if os.name != "nt" or root_process_id is None:
         return {}
-    roots = (int(root_process_id), *sorted(set(int(item) for item in observed_process_ids)))
-    combined: dict[int, tuple[int, str, int]] = {}
-    for candidate in roots:
-        snapshot = _windows_process_tree_snapshot(candidate)
-        if snapshot is None:
-            return None
-        combined.update(snapshot)
-    return combined
+    # The retained instance forest covers remembered intermediates in one
+    # table observation. Never rescan an old PID as an unrelated new parent.
+    if instances is None and observed_process_ids:
+        return None
+    return _windows_process_tree_snapshot(root_process_id, instances=instances)
 
 
 def _confirmed_windows_process_ids(
@@ -713,6 +960,40 @@ def _confirmed_windows_process_ids(
             and expected.get(int(process_id)) == int(creation_time)
         )
     )
+
+
+def _terminal_process_tree_observation(
+    job: _WindowsJob,
+    group_id: int | None,
+    process: subprocess.Popen[Any] | None,
+    observed_process_ids: Sequence[int],
+    *,
+    observation_seconds: float,
+    instances: _WindowsProcessInstances | None = None,
+) -> tuple[tuple[int, ...] | None, dict[int, tuple[int, str, int]] | None, bool]:
+    """Reobserve an unknown terminal query inside the same command episode.
+
+    Known live roots/descendants are never retried into success here.  Only
+    query uncertainty gets a finite observation window; no command, job or
+    termination owner is started again.  Exhausted uncertainty stays unknown.
+    """
+    deadline = time.monotonic() + max(0.0, observation_seconds)
+    while True:
+        contained = _contained_process_ids(job, group_id)
+        snapshot = _windows_process_tree_observation(
+            process.pid if process is not None else None, observed_process_ids, instances=instances
+        )
+        root_running = process is not None and process.poll() is None
+        if contained is not None and snapshot is not None:
+            return contained, snapshot, root_running
+        if (root_running
+                or _descendant_process_ids(contained, process.pid if process is not None else None)
+                or snapshot):
+            return contained, snapshot, root_running
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return contained, snapshot, root_running
+        time.sleep(min(0.01, remaining))
 
 
 def _descendant_process_ids(
@@ -760,6 +1041,49 @@ def _wait_for_tree_exit(
         if remaining <= 0:
             return process_ids
         time.sleep(min(0.05, remaining))
+
+
+def _clean_windows_observed_descendants(
+    process_ids: Sequence[int],
+    *,
+    root_process_id: int,
+    observed_process_ids: set[int],
+    expected_creation_times: Mapping[int, int],
+    instances: _WindowsProcessInstances | None,
+    record_snapshot: Callable[[Mapping[int, tuple[int, str, int]]], None],
+    cleanup_deadline: float,
+) -> None:
+    """Clean newly authenticated instances once, before the final verdict."""
+
+    if os.name != "nt":
+        return
+    attempted = {
+        (int(pid), int(expected_creation_times[pid]))
+        for pid in process_ids if pid in expected_creation_times
+    }
+    _terminate_windows_process_ids(
+        process_ids, expected_creation_times=expected_creation_times,
+        cleanup_deadline=cleanup_deadline,
+    )
+    while time.monotonic() < cleanup_deadline:
+        snapshot = _windows_process_tree_observation(
+            root_process_id, observed_process_ids, instances=instances,
+        )
+        if snapshot is None:
+            return
+        record_snapshot(snapshot)
+        current_ids = _confirmed_windows_process_ids(snapshot, expected_creation_times)
+        new_ids = tuple(
+            pid for pid in current_ids
+            if (pid, int(expected_creation_times[pid])) not in attempted
+        )
+        if not new_ids or time.monotonic() >= cleanup_deadline:
+            return
+        attempted.update((pid, int(expected_creation_times[pid])) for pid in new_ids)
+        _terminate_windows_process_ids(
+            new_ids, expected_creation_times=expected_creation_times,
+            cleanup_deadline=cleanup_deadline,
+        )
 
 
 def _request_tree_termination(
@@ -857,6 +1181,7 @@ def _run_supervised_core(
     else:
         popen_kwargs["start_new_session"] = True
     process: subprocess.Popen[Any] | None = None
+    process_instances: _WindowsProcessInstances | None = None
     stdout = b""
     stderr = b""
     timed_out = False
@@ -910,6 +1235,7 @@ def _run_supervised_core(
             )
             if os.name == "nt":
                 job.assign(process)
+                process_instances = _WindowsProcessInstances(process)
                 # Adopt the short-lived launcher/runtime chain before waiting
                 # for output.  This keeps the Job Object authoritative for
                 # both ordinary commands and detached descendants without
@@ -917,6 +1243,7 @@ def _run_supervised_core(
                 launch_snapshot = _adopt_windows_launch_descendants(
                     job,
                     process.pid,
+                    instances=process_instances,
                 )
                 if launch_snapshot is None:
                     process_tree_query_failed = True
@@ -961,6 +1288,7 @@ def _run_supervised_core(
                     snapshot = _windows_process_tree_observation(
                         process.pid,
                         observed_process_tree_ids,
+                        instances=process_instances,
                     )
                     if snapshot is None:
                         process_tree_query_failed = True
@@ -998,6 +1326,7 @@ def _run_supervised_core(
         process_tree_before_snapshot = _windows_process_tree_observation(
             process.pid if process is not None else None,
             observed_process_tree_ids,
+            instances=process_instances,
         )
         if process_tree_before_snapshot is None:
             process_tree_query_failed = True
@@ -1046,6 +1375,7 @@ def _run_supervised_core(
             remaining_snapshot = _windows_process_tree_observation(
                 process.pid if process is not None else None,
                 observed_process_tree_ids,
+                instances=process_instances,
             )
             if remaining_snapshot is None:
                 process_tree_query_failed = True
@@ -1061,9 +1391,15 @@ def _run_supervised_core(
             # Job Object termination call.  Terminate the exact parent-table
             # descendants we observed, then take the normal final zero-tree
             # observation below.
-            _terminate_windows_process_ids(
+            cleanup_deadline = time.monotonic() + max(1.0, grace_seconds)
+            _clean_windows_observed_descendants(
                 tuple(sorted(set(descendants_before_cleanup) | remaining_observed_ids)),
+                root_process_id=process.pid,
+                observed_process_ids=observed_process_tree_ids,
                 expected_creation_times=observed_process_tree_creation_times,
+                instances=process_instances,
+                record_snapshot=record_process_tree_snapshot,
+                cleanup_deadline=cleanup_deadline,
             )
             if (
                 remaining_ids is None
@@ -1075,7 +1411,7 @@ def _run_supervised_core(
                     job,
                     group_id,
                     process,
-                    max(1.0, grace_seconds),
+                    max(0.0, cleanup_deadline - time.monotonic()),
                 )
 
             if not communicated:
@@ -1104,24 +1440,25 @@ def _run_supervised_core(
         # it must not poison a later, successful terminal observation.  The
         # terminal state is fail-closed only when the final containment query
         # or final parent-table snapshot is still unknown.
-        observed_descendants = _contained_process_ids(job, group_id)
+        observed_descendants, final_snapshot, root_process_running = (
+            _terminal_process_tree_observation(
+                job, group_id, process, observed_process_tree_ids,
+                observation_seconds=max(0.0, min(1.0, grace_seconds)),
+                instances=process_instances,
+            )
+        )
         descendant_query = _descendant_process_ids(
             observed_descendants,
             process.pid if process is not None else None,
         )
         final_descendant_ids = set(descendant_query or ())
         final_process_tree_query_failed = False
-        final_snapshot = _windows_process_tree_observation(
-            process.pid if process is not None else None,
-            observed_process_tree_ids,
-        )
         if final_snapshot is None:
             final_process_tree_query_failed = True
         else:
             record_process_tree_snapshot(final_snapshot)
             final_descendant_ids.update(live_observed_process_ids(final_snapshot))
         descendants = tuple(sorted(final_descendant_ids))
-        root_process_running = process is not None and process.poll() is None
         cleanup_confirmed = (
             observed_descendants is not None
             and not final_process_tree_query_failed
@@ -1174,7 +1511,11 @@ def _run_supervised_core(
         )
         return _attest_supervised_result(result)
     finally:
-        job.close()
+        try:
+            if process_instances is not None:
+                process_instances.close()
+        finally:
+            job.close()
 
 
 def run_supervised(

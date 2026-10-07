@@ -1,3 +1,5 @@
+import tempfile
+from tests._native_owner_environment import native_owner_environment
 import subprocess
 import sys
 import unittest
@@ -57,28 +59,30 @@ class FlowGuardClosureContractModelTests(unittest.TestCase):
         )
 
     def test_closure_contract_model_runner_succeeds(self):
-        runner = (
-            ROOT
-            / ".flowguard"
-            / "verification"
-            / "owners"
-            / "flowguard_closure_contract"
-            / "run_checks.py"
-        )
-        if not runner.exists():
-            self.skipTest("local .flowguard closure-contract runner is not tracked in this checkout")
-        completed = subprocess.run(
-            [sys.executable, str(runner)],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        with tempfile.TemporaryDirectory() as native_tmp:
+            runner = (
+                ROOT
+                / ".flowguard"
+                / "verification"
+                / "owners"
+                / "flowguard_closure_contract"
+                / "run_checks.py"
+            )
+            if not runner.exists():
+                self.skipTest("local .flowguard closure-contract runner is not tracked in this checkout")
+            completed = subprocess.run(
+                [sys.executable, str(runner)],
+                cwd=ROOT,
+                env=native_owner_environment(ROOT, "flowguard_closure_contract", Path(native_tmp)),
+                check=False,
+                capture_output=True,
+                text=True,
+            )
 
-        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-        self.assertIn("thin_closure_contract: exact model pass", completed.stdout)
-        self.assertIn("known_bad_proofs: 1", completed.stdout)
-        self.assertIn("closure_rescores_blocked_risk", completed.stdout)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertIn("thin_closure_contract: exact model pass", completed.stdout)
+            self.assertIn("known_bad_proofs: 1", completed.stdout)
+            self.assertIn("closure_rescores_blocked_risk", completed.stdout)
 
     def test_closure_can_require_runtime_path_alignment_report(self):
         report = review_flowguard_closure_contract(

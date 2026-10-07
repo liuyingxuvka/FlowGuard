@@ -1,0 +1,576 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:9102f9fa2d99dd3f848be1263531621b3416e20e9c293555656a32e54ddc1b69",
+        "effective_intent_view_fingerprint": "sha256:11e9e3e5a0178735f036e95d899d5a2feb3998dc54593d977858a7dfdd1dabea",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/implementation_blueprint/model.py",
+            "source_fingerprint": "sha256:623a25c4bf8255adb7a5171c0a05c3a251879db9db240df71cf4c2576bf7c3f7"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:behavior_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:binding_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:claim_boundary",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:current_pass_evidence_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:delegated_assertion_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:done_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:finding_codes",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:intent_owner_projection_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:intent_snapshot_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:inventory_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:observed_snapshot_input_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:phase",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:projection_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:readiness_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:scenario_id",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:semantic_authority_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:semantic_intent_lineage_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:static_manifest_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:surface_classification_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:implementation_blueprint:target_system_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "writes_by": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "BlueprintAction",
+          "effects": [],
+          "id": "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint",
+          "inputs": [
+            "external-input:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd"
+          ],
+          "outputs": [
+            "output:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:implementation_blueprint:scenario_id",
+            "field:implementation_blueprint:phase",
+            "field:implementation_blueprint:inventory_status",
+            "field:implementation_blueprint:binding_status",
+            "field:implementation_blueprint:static_manifest_status",
+            "field:implementation_blueprint:behavior_status",
+            "field:implementation_blueprint:readiness_status",
+            "field:implementation_blueprint:target_system_status",
+            "field:implementation_blueprint:projection_status",
+            "field:implementation_blueprint:observed_snapshot_input_status",
+            "field:implementation_blueprint:intent_snapshot_status",
+            "field:implementation_blueprint:intent_owner_projection_status",
+            "field:implementation_blueprint:semantic_intent_lineage_status",
+            "field:implementation_blueprint:surface_classification_status",
+            "field:implementation_blueprint:semantic_authority_status",
+            "field:implementation_blueprint:current_pass_evidence_status",
+            "field:implementation_blueprint:delegated_assertion_status",
+            "field:implementation_blueprint:finding_codes",
+            "field:implementation_blueprint:done_claim",
+            "field:implementation_blueprint:claim_boundary"
+          ],
+          "state_input": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0",
+          "state_output": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:1",
+          "validations": [
+            "validation:implementation_blueprint:invariant:no_done_without_exact_blueprint_path",
+            "validation:implementation_blueprint:invariant:accepted_claim_matches_scope_boundary",
+            "validation:implementation_blueprint:invariant:resource_observation_requires_current_observed_snapshot_input",
+            "validation:implementation_blueprint:invariant:accepted_intent_uses_observed_snapshot_identity",
+            "validation:implementation_blueprint:invariant:accepted_intent_projects_all_exact_realized_owners",
+            "validation:implementation_blueprint:invariant:behavior_semantics_bind_exact_intent_and_expectation",
+            "validation:implementation_blueprint:invariant:structural_surfaces_need_independent_contract_for_behavior",
+            "validation:implementation_blueprint:invariant:self_model_files_cannot_own_behavior_semantics",
+            "validation:implementation_blueprint:invariant:current_pass_requires_independent_evidence",
+            "validation:implementation_blueprint:invariant:accepted_delegated_checker_has_current_direct_terminal"
+          ],
+          "writes": [
+            "field:implementation_blueprint:scenario_id",
+            "field:implementation_blueprint:phase",
+            "field:implementation_blueprint:inventory_status",
+            "field:implementation_blueprint:binding_status",
+            "field:implementation_blueprint:static_manifest_status",
+            "field:implementation_blueprint:behavior_status",
+            "field:implementation_blueprint:readiness_status",
+            "field:implementation_blueprint:target_system_status",
+            "field:implementation_blueprint:projection_status",
+            "field:implementation_blueprint:observed_snapshot_input_status",
+            "field:implementation_blueprint:intent_snapshot_status",
+            "field:implementation_blueprint:intent_owner_projection_status",
+            "field:implementation_blueprint:semantic_intent_lineage_status",
+            "field:implementation_blueprint:surface_classification_status",
+            "field:implementation_blueprint:semantic_authority_status",
+            "field:implementation_blueprint:current_pass_evidence_status",
+            "field:implementation_blueprint:delegated_assertion_status",
+            "field:implementation_blueprint:finding_codes",
+            "field:implementation_blueprint:done_claim",
+            "field:implementation_blueprint:claim_boundary"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint",
+          "producer_id": "transition:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint",
+          "outputs": [
+            "output:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint"
+          ],
+          "reads": [
+            "field:implementation_blueprint:scenario_id",
+            "field:implementation_blueprint:phase",
+            "field:implementation_blueprint:inventory_status",
+            "field:implementation_blueprint:binding_status",
+            "field:implementation_blueprint:static_manifest_status",
+            "field:implementation_blueprint:behavior_status",
+            "field:implementation_blueprint:readiness_status",
+            "field:implementation_blueprint:target_system_status",
+            "field:implementation_blueprint:projection_status",
+            "field:implementation_blueprint:observed_snapshot_input_status",
+            "field:implementation_blueprint:intent_snapshot_status",
+            "field:implementation_blueprint:intent_owner_projection_status",
+            "field:implementation_blueprint:semantic_intent_lineage_status",
+            "field:implementation_blueprint:surface_classification_status",
+            "field:implementation_blueprint:semantic_authority_status",
+            "field:implementation_blueprint:current_pass_evidence_status",
+            "field:implementation_blueprint:delegated_assertion_status",
+            "field:implementation_blueprint:finding_codes",
+            "field:implementation_blueprint:done_claim",
+            "field:implementation_blueprint:claim_boundary"
+          ],
+          "source": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0",
+          "target": "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:1",
+          "trigger": "BlueprintAction",
+          "validations": [
+            "validation:implementation_blueprint:invariant:no_done_without_exact_blueprint_path",
+            "validation:implementation_blueprint:invariant:accepted_claim_matches_scope_boundary",
+            "validation:implementation_blueprint:invariant:resource_observation_requires_current_observed_snapshot_input",
+            "validation:implementation_blueprint:invariant:accepted_intent_uses_observed_snapshot_identity",
+            "validation:implementation_blueprint:invariant:accepted_intent_projects_all_exact_realized_owners",
+            "validation:implementation_blueprint:invariant:behavior_semantics_bind_exact_intent_and_expectation",
+            "validation:implementation_blueprint:invariant:structural_surfaces_need_independent_contract_for_behavior",
+            "validation:implementation_blueprint:invariant:self_model_files_cannot_own_behavior_semantics",
+            "validation:implementation_blueprint:invariant:current_pass_requires_independent_evidence",
+            "validation:implementation_blueprint:invariant:accepted_delegated_checker_has_current_direct_terminal"
+          ],
+          "writes": [
+            "field:implementation_blueprint:scenario_id",
+            "field:implementation_blueprint:phase",
+            "field:implementation_blueprint:inventory_status",
+            "field:implementation_blueprint:binding_status",
+            "field:implementation_blueprint:static_manifest_status",
+            "field:implementation_blueprint:behavior_status",
+            "field:implementation_blueprint:readiness_status",
+            "field:implementation_blueprint:target_system_status",
+            "field:implementation_blueprint:projection_status",
+            "field:implementation_blueprint:observed_snapshot_input_status",
+            "field:implementation_blueprint:intent_snapshot_status",
+            "field:implementation_blueprint:intent_owner_projection_status",
+            "field:implementation_blueprint:semantic_intent_lineage_status",
+            "field:implementation_blueprint:surface_classification_status",
+            "field:implementation_blueprint:semantic_authority_status",
+            "field:implementation_blueprint:current_pass_evidence_status",
+            "field:implementation_blueprint:delegated_assertion_status",
+            "field:implementation_blueprint:finding_codes",
+            "field:implementation_blueprint:done_claim",
+            "field:implementation_blueprint:claim_boundary"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:accepted_claim_matches_scope_boundary",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:accepted_claim_matches_scope_boundary",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:accepted_claim_matches_scope_boundary",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:accepted_delegated_checker_has_current_direct_terminal",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:accepted_delegated_checker_has_current_direct_terminal",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:accepted_delegated_checker_has_current_direct_terminal",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:accepted_intent_projects_all_exact_realized_owners",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:accepted_intent_projects_all_exact_realized_owners",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:accepted_intent_projects_all_exact_realized_owners",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:accepted_intent_uses_observed_snapshot_identity",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:accepted_intent_uses_observed_snapshot_identity",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:accepted_intent_uses_observed_snapshot_identity",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:behavior_semantics_bind_exact_intent_and_expectation",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:behavior_semantics_bind_exact_intent_and_expectation",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:behavior_semantics_bind_exact_intent_and_expectation",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:current_pass_requires_independent_evidence",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:current_pass_requires_independent_evidence",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:current_pass_requires_independent_evidence",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:no_done_without_exact_blueprint_path",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:no_done_without_exact_blueprint_path",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:no_done_without_exact_blueprint_path",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:resource_observation_requires_current_observed_snapshot_input",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:resource_observation_requires_current_observed_snapshot_input",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:resource_observation_requires_current_observed_snapshot_input",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:self_model_files_cannot_own_behavior_semantics",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:self_model_files_cannot_own_behavior_semantics",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:self_model_files_cannot_own_behavior_semantics",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        },
+        {
+          "evidence_boundary_id": "native-runner:implementation_blueprint",
+          "id": "validation:implementation_blueprint:invariant:structural_surfaces_need_independent_contract_for_behavior",
+          "obligation_id": "obligation:native-invariant:implementation_blueprint:structural_surfaces_need_independent_contract_for_behavior",
+          "oracle_id": "oracle:native-invariant:implementation_blueprint:structural_surfaces_need_independent_contract_for_behavior",
+          "subject_fingerprint": "sha256:f0068f0991aa85a7d854a9c712db0637e83befe70ea0dacfc420ab4c02d6a484"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:implementation_blueprint:behavior_status": "field",
+      "field:implementation_blueprint:binding_status": "field",
+      "field:implementation_blueprint:claim_boundary": "field",
+      "field:implementation_blueprint:current_pass_evidence_status": "field",
+      "field:implementation_blueprint:delegated_assertion_status": "field",
+      "field:implementation_blueprint:done_claim": "field",
+      "field:implementation_blueprint:finding_codes": "field",
+      "field:implementation_blueprint:intent_owner_projection_status": "field",
+      "field:implementation_blueprint:intent_snapshot_status": "field",
+      "field:implementation_blueprint:inventory_status": "field",
+      "field:implementation_blueprint:observed_snapshot_input_status": "field",
+      "field:implementation_blueprint:phase": "field",
+      "field:implementation_blueprint:projection_status": "field",
+      "field:implementation_blueprint:readiness_status": "field",
+      "field:implementation_blueprint:scenario_id": "field",
+      "field:implementation_blueprint:semantic_authority_status": "field",
+      "field:implementation_blueprint:semantic_intent_lineage_status": "field",
+      "field:implementation_blueprint:static_manifest_status": "field",
+      "field:implementation_blueprint:surface_classification_status": "field",
+      "field:implementation_blueprint:target_system_status": "field",
+      "function-block:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint": "function_block",
+      "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0": "state",
+      "state:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:1": "state",
+      "transition:workflow:implementation_blueprint:implementation_blueprint:0:d95bae0d0bdd:0:ReviewImplementationBlueprint": "transition",
+      "validation:implementation_blueprint:invariant:accepted_claim_matches_scope_boundary": "validation",
+      "validation:implementation_blueprint:invariant:accepted_delegated_checker_has_current_direct_terminal": "validation",
+      "validation:implementation_blueprint:invariant:accepted_intent_projects_all_exact_realized_owners": "validation",
+      "validation:implementation_blueprint:invariant:accepted_intent_uses_observed_snapshot_identity": "validation",
+      "validation:implementation_blueprint:invariant:behavior_semantics_bind_exact_intent_and_expectation": "validation",
+      "validation:implementation_blueprint:invariant:current_pass_requires_independent_evidence": "validation",
+      "validation:implementation_blueprint:invariant:no_done_without_exact_blueprint_path": "validation",
+      "validation:implementation_blueprint:invariant:resource_observation_requires_current_observed_snapshot_input": "validation",
+      "validation:implementation_blueprint:invariant:self_model_files_cannot_own_behavior_semantics": "validation",
+      "validation:implementation_blueprint:invariant:structural_surfaces_need_independent_contract_for_behavior": "validation"
+    },
+    "subject_fingerprint": "sha256:58f6a484bfd50347168fdab34f15559d368990f6f32d0c1d59485e15b74060f8",
+    "trigger_currentness_id": "sha256:353fddb18901587f18bd02af535a5c875db1233909018b494029a735ac6604dd",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:f0ec9015eb02e8becc5af5b81f90422ccfdc50488718fe39ce654a1d4264b8f7",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

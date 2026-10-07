@@ -129,6 +129,21 @@ class AuthorityCase:
     current_model_owner_denominator_exact: bool = True
     current_model_owner_bindings_exact: bool = True
     legacy_intent_schema_has_no_current_fallback: bool = True
+    r6_declared_element_ids: tuple[str, ...] = ()
+    r6_covered_element_ids: tuple[str, ...] = ()
+    r6_claimed_complete_graph: bool = False
+    r6_native_hard_failures: tuple[str, ...] = ()
+    r6_observation_accepted: bool = False
+    r6_required_improvement_gaps: tuple[str, ...] = ()
+    r6_reported_improvement_gaps: tuple[str, ...] = ()
+    r6_whole_scope_claim: bool = False
+    r6_independent_surface_ids: tuple[str, ...] = ()
+    r6_covered_surface_ids: tuple[str, ...] = ()
+    r7_frozen_scope_claim: bool = False
+    r7_scope_proof_authenticated_current: bool = True
+    r7_live_scope_claim: bool = False
+    r7_registered_surface_ids: tuple[str, ...] = ()
+    r7_live_observed_surface_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -234,6 +249,21 @@ class AuthorityState:
     current_model_owner_denominator_exact: bool = False
     current_model_owner_bindings_exact: bool = False
     legacy_intent_schema_has_no_current_fallback: bool = False
+    r6_declared_element_ids: tuple[str, ...] = ()
+    r6_covered_element_ids: tuple[str, ...] = ()
+    r6_claimed_complete_graph: bool = False
+    r6_native_hard_failures: tuple[str, ...] = ()
+    r6_observation_accepted: bool = False
+    r6_required_improvement_gaps: tuple[str, ...] = ()
+    r6_reported_improvement_gaps: tuple[str, ...] = ()
+    r6_whole_scope_claim: bool = False
+    r6_independent_surface_ids: tuple[str, ...] = ()
+    r6_covered_surface_ids: tuple[str, ...] = ()
+    r7_frozen_scope_claim: bool = False
+    r7_scope_proof_authenticated_current: bool = True
+    r7_live_scope_claim: bool = False
+    r7_registered_surface_ids: tuple[str, ...] = ()
+    r7_live_observed_surface_ids: tuple[str, ...] = ()
 
 
 class EvaluateAuthorityRevision:
@@ -2093,3 +2123,97 @@ if __name__ == "__main__":
     report = run_review()
     print(report.format_text())
     raise SystemExit(0 if report.ok else 1)
+
+
+# Finite R6 policy fixtures preserve the current map and its improvement debt.
+def _r6_complete_declaration(state, _trace):
+    if state.r6_claimed_complete_graph and set(state.r6_declared_element_ids) != set(state.r6_covered_element_ids):
+        return _fail("failure:authoritative_model_system:trace_only_map_accepted", "A trace projection omitted declared structure")
+    return _pass()
+
+
+def _r6_hard_failure_observation(state, _trace):
+    if state.r6_observation_accepted and state.r6_native_hard_failures:
+        return _fail("failure:authoritative_model_system:hard_failure_reclassified", "Native hard failure was relabelled as improvement")
+    return _pass()
+
+
+def _r6_independent_scope(state, _trace):
+    if state.r6_whole_scope_claim and set(state.r6_independent_surface_ids) != set(state.r6_covered_surface_ids):
+        return _fail("failure:authoritative_model_system:self_declared_denominator_hides_writer", "Independent source coverage has an omitted writer")
+    if state.r6_observation_accepted and state.r6_required_improvement_gaps != state.r6_reported_improvement_gaps:
+        return InvariantResult.fail("Accepted observation erased required architecture gaps")
+    return _pass()
+
+
+_R6_INVARIANTS = (
+    Invariant("failure:authoritative_model_system:trace_only_map_accepted", "Complete declarations include unexecuted structure", _r6_complete_declaration),
+    Invariant("failure:authoritative_model_system:hard_failure_reclassified", "Native hard failure always blocks acceptance", _r6_hard_failure_observation),
+    Invariant("failure:authoritative_model_system:self_declared_denominator_hides_writer", "Whole-software claims need independent source coverage", _r6_independent_scope),
+)
+INVARIANTS += _R6_INVARIANTS
+SCENARIOS += (
+    _scenario("faithful_current_with_improvement_gaps", "Faithful observation keeps unresolved duplicate-responsibility improvement", AuthorityCase("r6_faithful_current_with_improvement_gaps", r6_declared_element_ids=("initial", "done", "unexecuted"), r6_covered_element_ids=("initial", "done", "unexecuted"), r6_claimed_complete_graph=True, r6_observation_accepted=True, r6_required_improvement_gaps=("equivalent_responsibility_paths",), r6_reported_improvement_gaps=("equivalent_responsibility_paths",)), ScenarioExpectation(expected_status="ok", required_trace_labels=("r6_faithful_current_with_improvement_gaps",))),
+    _scenario("trace_projection_cannot_claim_full_graph", "Executed paths cannot replace a complete declaration", AuthorityCase("trace_projection_cannot_claim_full_graph", r6_declared_element_ids=("initial", "done", "unexecuted"), r6_covered_element_ids=("initial", "done"), r6_claimed_complete_graph=True), _expect_violation("failure:authoritative_model_system:trace_only_map_accepted", "Trace-only map rejected")),
+    _scenario("native_hard_failure_cannot_be_improvement", "Hard native failure cannot be softened", AuthorityCase("native_hard_failure_cannot_be_improvement", r6_native_hard_failures=("oracle_failed",), r6_observation_accepted=True), _expect_violation("failure:authoritative_model_system:hard_failure_reclassified", "Hard failure remains a blocker")),
+    _scenario("scoped_graph_not_whole_software_confidence", "A self-consistent scope omits an independently discovered writer", AuthorityCase("scoped_graph_not_whole_software_confidence", r6_whole_scope_claim=True, r6_independent_surface_ids=("primary", "hidden_writer"), r6_covered_surface_ids=("primary",)), _expect_violation("failure:authoritative_model_system:self_declared_denominator_hides_writer", "Scoped map cannot claim complete software coverage")),
+)
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export all explicitly declared positive scenario workflows, never traces."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    workflows = tuple(s.workflow for s in SCENARIOS if s.expected.expected_status == "ok")
+    source = compile_declared_path_quality_source(
+        model_id="authoritative_model_system", model_instance_fingerprint=model_instance_fingerprint,
+        source_refs=({"path": ".flowguard/models/owners/authoritative_model_system/model.py", "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/authoritative_model_system/model.py')},),
+        workflows=workflows, invariants=INVARIANTS + tuple(
+            invariant for scenario in SCENARIOS
+            if scenario.name in {"r9_finite_growth_observation", "r9_pointer_detail_navigation"}
+            for invariant in scenario.invariants),
+    )
+
+    from flowguard.native_case_runner import build_r8_architecture_declaration
+    return build_r8_architecture_declaration(Path(__file__).resolve().parents[4], source)
+
+
+# Frozen-boundary evidence authenticates the declared scope, not unseen files.
+def _r7_frozen_scope_is_authenticated(state, _trace):
+    if state.r7_frozen_scope_claim and (not state.r7_scope_proof_authenticated_current or set(state.r6_independent_surface_ids) != set(state.r6_covered_surface_ids)):
+        return _fail("failure:authoritative_model_system:frozen_scope_not_authenticated", "Current independent producer proof and the full frozen denominator are required")
+    return _pass()
+
+
+def _r7_frozen_scope_is_not_live_inventory(state, _trace):
+    if state.r7_live_scope_claim and set(state.r7_registered_surface_ids) != set(state.r7_live_observed_surface_ids):
+        return _fail("failure:authoritative_model_system:frozen_scope_claimed_live_complete", "A read of registered frozen inputs did not observe newly added unregistered surfaces")
+    return _pass()
+
+
+INVARIANTS += (
+    Invariant("failure:authoritative_model_system:frozen_scope_not_authenticated", "Frozen software scope consumes its exact independent authenticated proof", _r7_frozen_scope_is_authenticated),
+    Invariant("failure:authoritative_model_system:frozen_scope_claimed_live_complete", "Frozen completeness does not claim unobserved live inventory", _r7_frozen_scope_is_not_live_inventory),
+)
+SCENARIOS += (
+    _scenario("authenticated_frozen_scope_remains_bounded", "A current complete W1/W2 frozen boundary stays bounded", AuthorityCase("authenticated_frozen_scope_remains_bounded", r7_frozen_scope_claim=True, r6_independent_surface_ids=("W1", "W2"), r6_covered_surface_ids=("W1", "W2")), ScenarioExpectation(expected_status="ok", required_trace_labels=("authenticated_frozen_scope_remains_bounded",))),
+    _scenario("frozen_scope_rejects_consistent_writer_omission", "Deleting W2 from model and bindings does not remove the independent denominator", AuthorityCase("frozen_scope_rejects_consistent_writer_omission", r7_frozen_scope_claim=True, r6_independent_surface_ids=("W1", "W2"), r6_covered_surface_ids=("W1",)), _expect_violation("failure:authoritative_model_system:frozen_scope_not_authenticated", "Omitted writer rejected")),
+    _scenario("frozen_scope_rejects_unverified_producer", "A self-declared current proof cannot establish frozen completeness", AuthorityCase("frozen_scope_rejects_unverified_producer", r7_frozen_scope_claim=True, r7_scope_proof_authenticated_current=False), _expect_violation("failure:authoritative_model_system:frozen_scope_not_authenticated", "Unverified original producer rejected")),
+    _scenario("unregistered_new_surface_is_not_live_complete", "Zero-scan frozen read cannot assert that unregistered W3 was observed", AuthorityCase("unregistered_new_surface_is_not_live_complete", r7_live_scope_claim=True, r7_registered_surface_ids=("W1", "W2"), r7_live_observed_surface_ids=("W1", "W2", "W3")), _expect_violation("failure:authoritative_model_system:frozen_scope_claimed_live_complete", "Live completeness overclaim rejected")),
+)
+
+
+# These cases execute the public production interfaces, not policy booleans.
+from pathlib import Path as _R8Path
+from flowguard.native_case_runner import r8_functional_case_scenario
+SCENARIOS += tuple(r8_functional_case_scenario(_R8Path(__file__).resolve().parents[4], name) for name in (
+    "r8_public_task_context_read", "r8_affected_owner_selection",
+))
+
+# Current normal-use scenarios retain the original R8 scenarios and execute
+# real finite producer, growth and accepted-detail resolver observations.
+SCENARIOS += tuple(r8_functional_case_scenario(_R8Path(__file__).resolve().parents[4], name) for name in (
+    "r9_finite_growth_observation", "r9_pointer_detail_navigation",
+))

@@ -1,0 +1,552 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:f9f7509e1f17f6f3b1765e99a0343e77ca01289559609b7e7726cd0aa66c4385",
+        "effective_intent_view_fingerprint": "sha256:11e9e3e5a0178735f036e95d899d5a2feb3998dc54593d977858a7dfdd1dabea",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/task_local_prediction_replay/model.py",
+            "source_fingerprint": "sha256:9ecd478c048e02b6d799312c00b6c904cee51e7715260de9eea535bd2dc5e3df"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:accepted_candidate_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:active_candidate_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision",
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:base_model_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:current_report_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:frozen_prediction_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction",
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:independent_adapter_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:matching_replay_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:proposed_candidate_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:rejected_candidate_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:task_local_prediction_replay:rolled_back_candidate_ids",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "PredictionRequest",
+          "effects": [],
+          "id": "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction",
+          "inputs": [
+            "external-input:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f"
+          ],
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0",
+          "state_output": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:base_model_ids",
+            "field:task_local_prediction_replay:frozen_prediction_ids",
+            "field:task_local_prediction_replay:independent_adapter_ids"
+          ]
+        },
+        {
+          "accepted_input": "PredictionFrozen",
+          "effects": [],
+          "id": "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction",
+          "inputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ],
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_local_prediction_replay:frozen_prediction_ids"
+          ],
+          "state_input": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1",
+          "state_output": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:current_report_ids",
+            "field:task_local_prediction_replay:matching_replay_ids"
+          ]
+        },
+        {
+          "accepted_input": "ReplayObserved",
+          "effects": [],
+          "id": "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision",
+          "inputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ],
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_local_prediction_replay:base_model_ids",
+            "field:task_local_prediction_replay:frozen_prediction_ids"
+          ],
+          "state_input": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2",
+          "state_output": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:proposed_candidate_ids"
+          ]
+        },
+        {
+          "accepted_input": "RevisionProposed",
+          "effects": [],
+          "id": "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision",
+          "inputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_local_prediction_replay:independent_adapter_ids",
+            "field:task_local_prediction_replay:current_report_ids",
+            "field:task_local_prediction_replay:matching_replay_ids",
+            "field:task_local_prediction_replay:proposed_candidate_ids"
+          ],
+          "state_input": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3",
+          "state_output": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:accepted_candidate_ids",
+            "field:task_local_prediction_replay:rejected_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ]
+        },
+        {
+          "accepted_input": "RevisionAccepted",
+          "effects": [],
+          "id": "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision",
+          "inputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:task_local_prediction_replay:accepted_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ],
+          "state_input": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4",
+          "state_output": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:5",
+          "validations": [
+            "validation:task_local_prediction_replay:invariant:accepted_candidates_have_current_replay",
+            "validation:task_local_prediction_replay:invariant:rejected_candidates_keep_base_active",
+            "validation:task_local_prediction_replay:invariant:rolled_back_candidates_restore_base"
+          ],
+          "writes": [
+            "field:task_local_prediction_replay:rolled_back_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ],
+          "id": "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction",
+          "producer_id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "id": "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction",
+          "producer_id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "id": "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision",
+          "producer_id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "id": "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision",
+          "producer_id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision",
+          "producer_id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:5",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:5"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction",
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction"
+          ],
+          "reads": [],
+          "source": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0",
+          "target": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1",
+          "trigger": "PredictionRequest",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:base_model_ids",
+            "field:task_local_prediction_replay:frozen_prediction_ids",
+            "field:task_local_prediction_replay:independent_adapter_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction",
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction"
+          ],
+          "reads": [
+            "field:task_local_prediction_replay:frozen_prediction_ids"
+          ],
+          "source": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1",
+          "target": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2",
+          "trigger": "PredictionFrozen",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:current_report_ids",
+            "field:task_local_prediction_replay:matching_replay_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision",
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision"
+          ],
+          "reads": [
+            "field:task_local_prediction_replay:base_model_ids",
+            "field:task_local_prediction_replay:frozen_prediction_ids"
+          ],
+          "source": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2",
+          "target": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3",
+          "trigger": "ReplayObserved",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:proposed_candidate_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision",
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision"
+          ],
+          "reads": [
+            "field:task_local_prediction_replay:independent_adapter_ids",
+            "field:task_local_prediction_replay:current_report_ids",
+            "field:task_local_prediction_replay:matching_replay_ids",
+            "field:task_local_prediction_replay:proposed_candidate_ids"
+          ],
+          "source": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3",
+          "target": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4",
+          "trigger": "RevisionProposed",
+          "validations": [],
+          "writes": [
+            "field:task_local_prediction_replay:accepted_candidate_ids",
+            "field:task_local_prediction_replay:rejected_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ]
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision",
+          "outputs": [
+            "output:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision"
+          ],
+          "reads": [
+            "field:task_local_prediction_replay:accepted_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ],
+          "source": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4",
+          "target": "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:5",
+          "trigger": "RevisionAccepted",
+          "validations": [
+            "validation:task_local_prediction_replay:invariant:accepted_candidates_have_current_replay",
+            "validation:task_local_prediction_replay:invariant:rejected_candidates_keep_base_active",
+            "validation:task_local_prediction_replay:invariant:rolled_back_candidates_restore_base"
+          ],
+          "writes": [
+            "field:task_local_prediction_replay:rolled_back_candidate_ids",
+            "field:task_local_prediction_replay:active_candidate_ids"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:task_local_prediction_replay",
+          "id": "validation:task_local_prediction_replay:invariant:accepted_candidates_have_current_replay",
+          "obligation_id": "obligation:native-invariant:task_local_prediction_replay:accepted_candidates_have_current_replay",
+          "oracle_id": "oracle:native-invariant:task_local_prediction_replay:accepted_candidates_have_current_replay",
+          "subject_fingerprint": "sha256:e49b6db74d238e7e41e5ef5eec77aea166d922d3700d71eed418033e548e7dd7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:task_local_prediction_replay",
+          "id": "validation:task_local_prediction_replay:invariant:rejected_candidates_keep_base_active",
+          "obligation_id": "obligation:native-invariant:task_local_prediction_replay:rejected_candidates_keep_base_active",
+          "oracle_id": "oracle:native-invariant:task_local_prediction_replay:rejected_candidates_keep_base_active",
+          "subject_fingerprint": "sha256:e49b6db74d238e7e41e5ef5eec77aea166d922d3700d71eed418033e548e7dd7"
+        },
+        {
+          "evidence_boundary_id": "native-runner:task_local_prediction_replay",
+          "id": "validation:task_local_prediction_replay:invariant:rolled_back_candidates_restore_base",
+          "obligation_id": "obligation:native-invariant:task_local_prediction_replay:rolled_back_candidates_restore_base",
+          "oracle_id": "oracle:native-invariant:task_local_prediction_replay:rolled_back_candidates_restore_base",
+          "subject_fingerprint": "sha256:e49b6db74d238e7e41e5ef5eec77aea166d922d3700d71eed418033e548e7dd7"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:task_local_prediction_replay:accepted_candidate_ids": "field",
+      "field:task_local_prediction_replay:active_candidate_ids": "field",
+      "field:task_local_prediction_replay:base_model_ids": "field",
+      "field:task_local_prediction_replay:current_report_ids": "field",
+      "field:task_local_prediction_replay:frozen_prediction_ids": "field",
+      "field:task_local_prediction_replay:independent_adapter_ids": "field",
+      "field:task_local_prediction_replay:matching_replay_ids": "field",
+      "field:task_local_prediction_replay:proposed_candidate_ids": "field",
+      "field:task_local_prediction_replay:rejected_candidate_ids": "field",
+      "field:task_local_prediction_replay:rolled_back_candidate_ids": "field",
+      "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction": "function_block",
+      "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction": "function_block",
+      "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision": "function_block",
+      "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision": "function_block",
+      "function-block:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision": "function_block",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0": "state",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1": "state",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2": "state",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3": "state",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4": "state",
+      "state:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:5": "state",
+      "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:0:FreezePrediction": "transition",
+      "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:1:ReplayProduction": "transition",
+      "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:2:ProposeRevision": "transition",
+      "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:3:DecideRevision": "transition",
+      "transition:workflow:task_local_prediction_replay:task_local_prediction_replay:0:91f136474a4f:4:RollbackRevision": "transition",
+      "validation:task_local_prediction_replay:invariant:accepted_candidates_have_current_replay": "validation",
+      "validation:task_local_prediction_replay:invariant:rejected_candidates_keep_base_active": "validation",
+      "validation:task_local_prediction_replay:invariant:rolled_back_candidates_restore_base": "validation"
+    },
+    "subject_fingerprint": "sha256:f8c3e9880e20abb2fd8b067739ec6f6e802bdc6b2f7c2ee5236a3e170ecfc372",
+    "trigger_currentness_id": "sha256:353fddb18901587f18bd02af535a5c875db1233909018b494029a735ac6604dd",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:78abedd7daa3207480d451b6721c9b38eccaffac37f1b1d8c4e600631fe57882",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

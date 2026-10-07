@@ -50,9 +50,9 @@
     }
   ],
   "claim_boundary": "The manifest declares exact checks and does not claim execution.",
-  "contract_hash": "sha256:c432877d49c918f63a57ee8c4443f9e195f079738b57023c4cc91e3f22cc0afa",
+  "contract_hash": "sha256:ab2b971ae4166ae242cad2748ec0ef0d4d98e58451166bf74a56a4201935b343",
   "maintenance_unit_id": "unit:flowguard-suite",
-  "manifest_hash": "sha256:e37f6b7245e663351446b6bcff61be592d9208e27a5468703a416812c1b54797",
+  "manifest_hash": "sha256:c1dba9e476e0e51161680fc6847a7a1da839d841e72aaaf5f9d40e0bafbfecd6",
   "schema_version": "skillguard.check_manifest.v3",
   "skill_id": "flowguard"
 }

@@ -1,0 +1,302 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:7ac81b7656cb2554a213e670d68e8fe2ca1aedd3879bcd7d417da1783c8dc804",
+        "effective_intent_view_fingerprint": "sha256:92c32f2ffe32107a8f4040a0f7f4d409a172bce0a7472604cdf361a101021e48",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/model_topology_hazard_review/model.py",
+            "source_fingerprint": "sha256:526accf959a8a6beefeba99d80cc04c878ed2e6c7bf4d5704c43124da95515e4"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:compatibility_disposition",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:final_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:future_hazard_inferred",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:hard_gate_without_anchor",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:hazard_handled_or_scoped",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:legacy_history_possible",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:required_route_created",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:model_topology_hazard_review:topology_anchor_present",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "writes_by": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "TopologyHazardInput",
+          "effects": [],
+          "id": "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate",
+          "inputs": [
+            "external-input:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5"
+          ],
+          "outputs": [
+            "output:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:model_topology_hazard_review:topology_anchor_present",
+            "field:model_topology_hazard_review:future_hazard_inferred",
+            "field:model_topology_hazard_review:hard_gate_without_anchor",
+            "field:model_topology_hazard_review:required_route_created",
+            "field:model_topology_hazard_review:hazard_handled_or_scoped",
+            "field:model_topology_hazard_review:legacy_history_possible",
+            "field:model_topology_hazard_review:compatibility_disposition",
+            "field:model_topology_hazard_review:final_claim"
+          ],
+          "state_input": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0",
+          "state_output": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:1",
+          "validations": [
+            "validation:model_topology_hazard_review:invariant:unanchored_hazards_do_not_become_hard_gates",
+            "validation:model_topology_hazard_review:invariant:anchored_hazards_need_route_or_scope",
+            "validation:model_topology_hazard_review:invariant:compatibility_history_gets_disposition"
+          ],
+          "writes": [
+            "field:model_topology_hazard_review:topology_anchor_present",
+            "field:model_topology_hazard_review:future_hazard_inferred",
+            "field:model_topology_hazard_review:hard_gate_without_anchor",
+            "field:model_topology_hazard_review:required_route_created",
+            "field:model_topology_hazard_review:hazard_handled_or_scoped",
+            "field:model_topology_hazard_review:legacy_history_possible",
+            "field:model_topology_hazard_review:compatibility_disposition",
+            "field:model_topology_hazard_review:final_claim"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate",
+          "producer_id": "transition:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate",
+          "outputs": [
+            "output:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate"
+          ],
+          "reads": [
+            "field:model_topology_hazard_review:topology_anchor_present",
+            "field:model_topology_hazard_review:future_hazard_inferred",
+            "field:model_topology_hazard_review:hard_gate_without_anchor",
+            "field:model_topology_hazard_review:required_route_created",
+            "field:model_topology_hazard_review:hazard_handled_or_scoped",
+            "field:model_topology_hazard_review:legacy_history_possible",
+            "field:model_topology_hazard_review:compatibility_disposition",
+            "field:model_topology_hazard_review:final_claim"
+          ],
+          "source": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0",
+          "target": "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:1",
+          "trigger": "TopologyHazardInput",
+          "validations": [
+            "validation:model_topology_hazard_review:invariant:unanchored_hazards_do_not_become_hard_gates",
+            "validation:model_topology_hazard_review:invariant:anchored_hazards_need_route_or_scope",
+            "validation:model_topology_hazard_review:invariant:compatibility_history_gets_disposition"
+          ],
+          "writes": [
+            "field:model_topology_hazard_review:topology_anchor_present",
+            "field:model_topology_hazard_review:future_hazard_inferred",
+            "field:model_topology_hazard_review:hard_gate_without_anchor",
+            "field:model_topology_hazard_review:required_route_created",
+            "field:model_topology_hazard_review:hazard_handled_or_scoped",
+            "field:model_topology_hazard_review:legacy_history_possible",
+            "field:model_topology_hazard_review:compatibility_disposition",
+            "field:model_topology_hazard_review:final_claim"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:model_topology_hazard_review",
+          "id": "validation:model_topology_hazard_review:invariant:anchored_hazards_need_route_or_scope",
+          "obligation_id": "obligation:native-invariant:model_topology_hazard_review:anchored_hazards_need_route_or_scope",
+          "oracle_id": "oracle:native-invariant:model_topology_hazard_review:anchored_hazards_need_route_or_scope",
+          "subject_fingerprint": "sha256:6451e6d33c488c3d1ed21a3d09547d3a465681b55bc8cddbc514fe5b1294bd5c"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_topology_hazard_review",
+          "id": "validation:model_topology_hazard_review:invariant:compatibility_history_gets_disposition",
+          "obligation_id": "obligation:native-invariant:model_topology_hazard_review:compatibility_history_gets_disposition",
+          "oracle_id": "oracle:native-invariant:model_topology_hazard_review:compatibility_history_gets_disposition",
+          "subject_fingerprint": "sha256:6451e6d33c488c3d1ed21a3d09547d3a465681b55bc8cddbc514fe5b1294bd5c"
+        },
+        {
+          "evidence_boundary_id": "native-runner:model_topology_hazard_review",
+          "id": "validation:model_topology_hazard_review:invariant:unanchored_hazards_do_not_become_hard_gates",
+          "obligation_id": "obligation:native-invariant:model_topology_hazard_review:unanchored_hazards_do_not_become_hard_gates",
+          "oracle_id": "oracle:native-invariant:model_topology_hazard_review:unanchored_hazards_do_not_become_hard_gates",
+          "subject_fingerprint": "sha256:6451e6d33c488c3d1ed21a3d09547d3a465681b55bc8cddbc514fe5b1294bd5c"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:model_topology_hazard_review:compatibility_disposition": "field",
+      "field:model_topology_hazard_review:final_claim": "field",
+      "field:model_topology_hazard_review:future_hazard_inferred": "field",
+      "field:model_topology_hazard_review:hard_gate_without_anchor": "field",
+      "field:model_topology_hazard_review:hazard_handled_or_scoped": "field",
+      "field:model_topology_hazard_review:legacy_history_possible": "field",
+      "field:model_topology_hazard_review:required_route_created": "field",
+      "field:model_topology_hazard_review:topology_anchor_present": "field",
+      "function-block:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate": "function_block",
+      "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0": "state",
+      "state:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:1": "state",
+      "transition:workflow:model_topology_hazard_review:topology_hazard_review_correct:0:865bbeb91eb5:0:CorrectTopologyHazardGate": "transition",
+      "validation:model_topology_hazard_review:invariant:anchored_hazards_need_route_or_scope": "validation",
+      "validation:model_topology_hazard_review:invariant:compatibility_history_gets_disposition": "validation",
+      "validation:model_topology_hazard_review:invariant:unanchored_hazards_do_not_become_hard_gates": "validation"
+    },
+    "subject_fingerprint": "sha256:96862a11eb2b6742930991a44b524edf69b4c5f27cb247f2fc7c985d3b44c4ae",
+    "trigger_currentness_id": "sha256:f2e51d87a2678864d21c841d690f2c087bbd16ef5084603f65542a9ed92551c1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:a95ef64ae103fcf8ebab7b0b0be987722d7dcbe1e755d7e25eb46966daf10c0f",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

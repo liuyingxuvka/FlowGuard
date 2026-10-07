@@ -59,8 +59,12 @@ class ModelSystemInventoryTests(unittest.TestCase):
         )
 
         self.assertEqual(7, len(domain_edges))
-        self.assertEqual(51, len(model_edges))
-        self.assertEqual(13, len(cross_boundary_edges))
+        self.assertEqual(54, len(model_edges))
+        self.assertEqual(15, len(cross_boundary_edges))
+        self.assertTrue(
+            {"model:python_function_state_verification", "model:problem_corpus_coverage", "model:evidence_storage_lifecycle"}
+            <= {item.target.endpoint_id for item in model_edges}
+        )
         self.assertGreaterEqual(len(consumer_edges), 80)
         self.assertFalse(
             any(
@@ -97,7 +101,11 @@ class ModelSystemInventoryTests(unittest.TestCase):
         self.assertFalse(snapshot.unresolved_gap_ids)
         self.assertTrue(snapshot.coverage.complete)
         inventory = inspect_manifest_model_inventory(root)
-        self.assertEqual(51, len(inventory.declared_ids))
+        self.assertEqual(54, len(inventory.declared_ids))
+        self.assertTrue(
+            {"python_function_state_verification", "problem_corpus_coverage", "evidence_storage_lifecycle"}
+            <= set(inventory.declared_ids)
+        )
         self.assertEqual(inventory.declared_ids, inventory.materialized_ids)
         self.assertEqual(inventory.required_ids, inventory.covered_ids)
         self.assertFalse(inventory.missing_ids)

@@ -454,3 +454,18 @@ def export_contract_model():
         }
     )
     return exported
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='minimum_valuable_model_entry', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/minimum_valuable_model_entry/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/minimum_valuable_model_entry/model.py')},),
+        workflows=(correct_workflow(),), invariants=INVARIANTS,
+    )

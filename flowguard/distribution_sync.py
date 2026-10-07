@@ -72,7 +72,7 @@ def _root_identity_aliases(value: str | Path) -> frozenset[str]:
 
     Ownership manifests are authored on the host that owns the Codex
     installation and therefore record that host's absolute spelling (for
-    example ``C:\\Users\\liu_y\\.codex\\skills``).  A formal Linux runner
+    example ``C:\\Users\\<USER>\\.codex\\skills``).  A formal Linux runner
     can inspect the same physical tree through WSL (``/mnt/c/Users/...``).
     These are one target, not two installations.  Keep the ordinary exact
     string comparison, and add only the explicit drive-letter/``/mnt`` alias;
@@ -156,6 +156,12 @@ DEFAULT_EXCLUSION_RULES = (
 
 AUTHOR_EXCLUSION_RULES = tuple(
     rule for rule in DEFAULT_EXCLUSION_RULES if rule.rule_id != "author_control"
+) + (
+    ExclusionRule(
+        "author_runtime_requests",
+        "*/.skillguard/runtime-requests/*",
+        "author execution requests are runtime outputs, not synchronized author source",
+    ),
 )
 
 

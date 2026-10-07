@@ -1,0 +1,329 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:3a750ac8e1afb739584e1069dd47018fb567e591685a9a3f1272be68c4926947",
+        "effective_intent_view_fingerprint": "sha256:dac60887220008644ad16bc6413e1989712ad488be9f43eae5b0df2c189ccd1b",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/codex_skill_satellites/model.py",
+            "source_fingerprint": "sha256:96f98e73f00053d8e3c584e653c43c82f86f7178137ccfb50bf540095167cf28"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:evidence_domains",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:input_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:release_readiness",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:report",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:reviewed_input_fingerprint",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:source",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:stale_domain_ids",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:topology_claim",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:codex_skill_satellites:topology_status",
+          "observable": true,
+          "reads_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "writes_by": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "TopologyAction",
+          "effects": [],
+          "id": "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow",
+          "inputs": [
+            "external-input:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4"
+          ],
+          "outputs": [
+            "output:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:codex_skill_satellites:source",
+            "field:codex_skill_satellites:input_fingerprint",
+            "field:codex_skill_satellites:reviewed_input_fingerprint",
+            "field:codex_skill_satellites:topology_status",
+            "field:codex_skill_satellites:report",
+            "field:codex_skill_satellites:evidence_domains",
+            "field:codex_skill_satellites:stale_domain_ids",
+            "field:codex_skill_satellites:topology_claim",
+            "field:codex_skill_satellites:release_readiness"
+          ],
+          "state_input": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0",
+          "state_output": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:1",
+          "validations": [
+            "validation:codex_skill_satellites:invariant:accepted_topology_matches_current_source",
+            "validation:codex_skill_satellites:invariant:accepted_topology_evidence_is_current",
+            "validation:codex_skill_satellites:invariant:evidence_domains_are_not_collapsed",
+            "validation:codex_skill_satellites:invariant:topology_never_becomes_release_readiness"
+          ],
+          "writes": [
+            "field:codex_skill_satellites:source",
+            "field:codex_skill_satellites:input_fingerprint",
+            "field:codex_skill_satellites:reviewed_input_fingerprint",
+            "field:codex_skill_satellites:topology_status",
+            "field:codex_skill_satellites:report",
+            "field:codex_skill_satellites:evidence_domains",
+            "field:codex_skill_satellites:stale_domain_ids",
+            "field:codex_skill_satellites:topology_claim",
+            "field:codex_skill_satellites:release_readiness"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow",
+          "producer_id": "transition:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow",
+          "outputs": [
+            "output:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow"
+          ],
+          "reads": [
+            "field:codex_skill_satellites:source",
+            "field:codex_skill_satellites:input_fingerprint",
+            "field:codex_skill_satellites:reviewed_input_fingerprint",
+            "field:codex_skill_satellites:topology_status",
+            "field:codex_skill_satellites:report",
+            "field:codex_skill_satellites:evidence_domains",
+            "field:codex_skill_satellites:stale_domain_ids",
+            "field:codex_skill_satellites:topology_claim",
+            "field:codex_skill_satellites:release_readiness"
+          ],
+          "source": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0",
+          "target": "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:1",
+          "trigger": "TopologyAction",
+          "validations": [
+            "validation:codex_skill_satellites:invariant:accepted_topology_matches_current_source",
+            "validation:codex_skill_satellites:invariant:accepted_topology_evidence_is_current",
+            "validation:codex_skill_satellites:invariant:evidence_domains_are_not_collapsed",
+            "validation:codex_skill_satellites:invariant:topology_never_becomes_release_readiness"
+          ],
+          "writes": [
+            "field:codex_skill_satellites:source",
+            "field:codex_skill_satellites:input_fingerprint",
+            "field:codex_skill_satellites:reviewed_input_fingerprint",
+            "field:codex_skill_satellites:topology_status",
+            "field:codex_skill_satellites:report",
+            "field:codex_skill_satellites:evidence_domains",
+            "field:codex_skill_satellites:stale_domain_ids",
+            "field:codex_skill_satellites:topology_claim",
+            "field:codex_skill_satellites:release_readiness"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:codex_skill_satellites",
+          "id": "validation:codex_skill_satellites:invariant:accepted_topology_evidence_is_current",
+          "obligation_id": "obligation:native-invariant:codex_skill_satellites:accepted_topology_evidence_is_current",
+          "oracle_id": "oracle:native-invariant:codex_skill_satellites:accepted_topology_evidence_is_current",
+          "subject_fingerprint": "sha256:86d8f3f81847daeb4de82ccc5bbfd5e190a705e6f23fa0cafc1dee09dd71ca9a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:codex_skill_satellites",
+          "id": "validation:codex_skill_satellites:invariant:accepted_topology_matches_current_source",
+          "obligation_id": "obligation:native-invariant:codex_skill_satellites:accepted_topology_matches_current_source",
+          "oracle_id": "oracle:native-invariant:codex_skill_satellites:accepted_topology_matches_current_source",
+          "subject_fingerprint": "sha256:86d8f3f81847daeb4de82ccc5bbfd5e190a705e6f23fa0cafc1dee09dd71ca9a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:codex_skill_satellites",
+          "id": "validation:codex_skill_satellites:invariant:evidence_domains_are_not_collapsed",
+          "obligation_id": "obligation:native-invariant:codex_skill_satellites:evidence_domains_are_not_collapsed",
+          "oracle_id": "oracle:native-invariant:codex_skill_satellites:evidence_domains_are_not_collapsed",
+          "subject_fingerprint": "sha256:86d8f3f81847daeb4de82ccc5bbfd5e190a705e6f23fa0cafc1dee09dd71ca9a"
+        },
+        {
+          "evidence_boundary_id": "native-runner:codex_skill_satellites",
+          "id": "validation:codex_skill_satellites:invariant:topology_never_becomes_release_readiness",
+          "obligation_id": "obligation:native-invariant:codex_skill_satellites:topology_never_becomes_release_readiness",
+          "oracle_id": "oracle:native-invariant:codex_skill_satellites:topology_never_becomes_release_readiness",
+          "subject_fingerprint": "sha256:86d8f3f81847daeb4de82ccc5bbfd5e190a705e6f23fa0cafc1dee09dd71ca9a"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:codex_skill_satellites:evidence_domains": "field",
+      "field:codex_skill_satellites:input_fingerprint": "field",
+      "field:codex_skill_satellites:release_readiness": "field",
+      "field:codex_skill_satellites:report": "field",
+      "field:codex_skill_satellites:reviewed_input_fingerprint": "field",
+      "field:codex_skill_satellites:source": "field",
+      "field:codex_skill_satellites:stale_domain_ids": "field",
+      "field:codex_skill_satellites:topology_claim": "field",
+      "field:codex_skill_satellites:topology_status": "field",
+      "function-block:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow": "function_block",
+      "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0": "state",
+      "state:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:1": "state",
+      "transition:workflow:codex_skill_satellites:dynamic_skill_suite_topology:0:a6eb0b8e0df4:0:SuiteTopologyFlow": "transition",
+      "validation:codex_skill_satellites:invariant:accepted_topology_evidence_is_current": "validation",
+      "validation:codex_skill_satellites:invariant:accepted_topology_matches_current_source": "validation",
+      "validation:codex_skill_satellites:invariant:evidence_domains_are_not_collapsed": "validation",
+      "validation:codex_skill_satellites:invariant:topology_never_becomes_release_readiness": "validation"
+    },
+    "subject_fingerprint": "sha256:88b029896e5ab84050a945c7f3eb09e1a6571d0ed53bd602290a6a9909146ebe",
+    "trigger_currentness_id": "sha256:1feb376c0cb5f47128a10c89236497db619100bf1cbfdba793cf4c97e8ef6cd3",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:e19c57d2fcc6ab4f5a04f7979e3b413ebba06513259d13adead7c11f7c1d31d2",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

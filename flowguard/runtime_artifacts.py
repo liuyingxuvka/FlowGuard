@@ -36,6 +36,9 @@ _STAGING_PREFIX = ".flowguard/models/authority/staging"
 _EVIDENCE_PREFIX = ".flowguard/evidence"
 _HISTORY_PREFIX = ".flowguard/history"
 _RUN_ARTIFACTS_PREFIX = ".flowguard/run_artifacts"
+_AUTHOR_ASSURANCE_REQUEST_PREFIX = (
+    ".agents/skills/flowguard/.skillguard/runtime-requests/full-author-assurance"
+)
 _BYTECODE_SUFFIXES = frozenset({".pyc", ".pyo"})
 _GOVERNED_SOURCE_SUFFIXES = frozenset({".py", ".json", ".toml"})
 
@@ -103,7 +106,9 @@ def classify_runtime_artifact(
         kind = "authority_staging"
     elif _has_prefix(normalized, _WORKSPACE_PREFIX) or _has_prefix(
         normalized, _FLOWGUARD_WORKSPACE_PREFIX
-    ) or _has_prefix(normalized, _RUN_ARTIFACTS_PREFIX):
+    ) or _has_prefix(normalized, _RUN_ARTIFACTS_PREFIX) or _has_prefix(
+        normalized, _AUTHOR_ASSURANCE_REQUEST_PREFIX
+    ):
         kind = "temporary_workspace"
     elif "__pycache__" in PurePosixPath(normalized).parts:
         kind = "python_cache"

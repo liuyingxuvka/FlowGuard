@@ -1,5 +1,15 @@
 # Core Modeling Protocol
 
+## Current structure and functional direction
+
+Keep the observed structure distinct from the normative goals and their actual
+unresolved differences. Compare authenticated related contexts, preserving
+hard semantic differences, retained obligations and each side's remainder.
+Unrelated responsibilities sharing an input label do not warrant comparison.
+A functional objective needs its current normative source, exact CodeContract,
+independent implementation inventory and original native observed result;
+a passed check whose observed behavior is blocked leaves a required goal open.
+
 Use this protocol before non-trivial behavior changes involving workflow order, state, retries, deduplication, idempotency, caching, side effects, or ordinary module boundaries.
 
 ## Preflight and Risk Intent
@@ -62,6 +72,134 @@ For retry/wait/refresh/queue/human-review cycles, review reachable-state SCCs, s
 
 ## Per-Model Path Quality
 
+Begin with one exact `DeclaredPathQualitySource`: complete declared states,
+inputs, FunctionBlocks, transitions, outputs and groundings for `model_behavior`
+or the honest `native_check_contract` scope. Traces show coverage/consistency;
+they never define the denominator. Retain unobserved elements as `not_run`.
+Self-declared id equality licenses only declared/scoped confidence; software
+architecture additionally needs current independent implementation inventory
+and reverse bindings. Export once in the original native episode before raw
+fingerprinting; admit semantic receipt evidence only after its immutable
+terminal result, without embedding a future receipt or rerunning the exporter.
+
+Compare cross-model responsibilities only for exact affected models and typed
+neighbors using finite input contexts, independent semantic/code/oracle
+bindings and original current native conformance. Equal hard semantics in an
+overlapping context with independent primaries yields a bounded duplicate
+candidate only for that context intersection; retain both variants' remaining
+contexts. Different per-context behavior needs independently admitted facts;
+a whole hash cannot prove local equivalence. Disjoint contexts preserve
+legitimate variants; hard differences are false friends, not equivalent paths.
+Unknown context/evidence stays needs_evidence with its exact missing input and
+native owner; never infer an oracle or pytest selector from similar names.
+
+Read typed goals only from the verified current normative source's unique
+`flowguard-architecture-objectives` strict JSON document and exact admitted
+`target_invariant_ids`. Preserve each required goal's entire scope. No goal
+means no invented centralization target; self `objectives=[]` is intentional.
+Unique-owner/layer/shared-primary constraints consume real current evidence.
+No ordinary task creates a cost goal. An explicit `cost_bound` remains unmet
+with `cost_measurement_missing:<objective_id>` until independent measurement
+admission exists; a scalar, semantic review or self-declared `PathCostVector`
+is not that proof. Existing explicit finite path-cost comparison remains
+separate. Equal independent copy hashes do not prove delegation.
+
+Keep faithful observed acceptance separate from required improvement closure.
+Verified structural/goal gaps remain visible improvement gaps; unknown gaps,
+source/intent drift, native hard failure, oracle failure, nonterminal owners
+or cleanup uncertainty block observation. Existing result fields/fingerprint
+stay unchanged. Store finite suggestions and admitted evidence behind the
+existing immutable detail fingerprint; required unclosed goals block
+completion/release. Suggest explicit candidate lane, affected elements,
+retained obligations, rewrites and native owners without claiming improvement
+already implemented or an unrestricted optimum.
+
+Consume `architecture.improvement_pointers` from the authenticated immutable
+detail as of the same accepted head/revision/subject. Duplicate, goal-mismatch,
+model-gap and temporary-compromise pointers retain affected elements, full
+obligations, exact current source/objective/native refs and next owners.
+Candidates are not resolved improvements. A source-bound deferred compromise
+keeps its reason, context, impact and revisit trigger; it never waives a required
+goal. Only admitted current source supersession/refinement can change that goal.
+Independent inventory/reverse bindings expose consistently omitted writers;
+a declaration and its own checklist cannot establish whole-source coverage.
+
+### Task-local functional understanding
+
+When the task needs a functional sufficiency or stopping judgment, use the
+existing pure helper with already admitted material from the selected route:
+
+```python
+from flowguard.model_maturation import derive_functional_understanding
+
+understanding = derive_functional_understanding(
+    task_facts=task_facts,
+    coverage_demand=coverage_demand,
+    maturation_report=maturation_report,
+    verified_maturation=verified_maturation,
+    selected_read=selected_read,
+    current_effective_intent_view=current_effective_intent_view,
+    binding_report=binding_report,
+    implementation_inventory=implementation_inventory,
+    outcome_refs=outcome_refs,
+    native_materials=native_materials,
+    blueprint_summary=blueprint_summary,
+)
+```
+
+These names denote existing typed inputs, not objects to construct merely to
+make the call pass. Use the same `TaskFacts`, `TaskCoverageDemand` and
+`ModelMaturationReport`; obtain `VerifiedModelMaturation` from the existing
+`verify_model_maturation_receipt` verifier. `selected_read` is the actual
+`SelectedModelClosureRead` returned by
+`flowguard.model_authority_store.read_selected_model_projection`,
+bound to the same head, revision and snapshot as the complete
+`CurrentEffectiveIntentView`. Public read JSON/pages are transport, not that
+typed object or execution proof. Use the selected route's independently
+admitted `ImplementationSurfaceInventory` and
+`ModelImplementationBindingReport`; do not discover a whole repository merely
+to populate these arguments.
+
+Each `outcome_refs` row has exactly `outcome_id`, `contribution_id`,
+`target_kind`, `target_id`, `binding_fingerprints` and
+`native_case_binding_fingerprints`. Select only actual requested outcomes and
+active current contributions. `target_kind` is `obligation`, `invariant` or
+`terminal`; its target must respectively occur in that contribution's
+`target_obligation_ids`, `target_invariant_ids` or `desired_terminal_state_ids`
+and be proved by the actual implementation/native bindings. Fingerprints
+uniquely select existing bindings; similar names or another function's proof
+cannot establish this outcome. Preserve the full required obligations and
+relation/goal closure, even when the user's requested scope is smaller.
+
+`native_materials` may contain only `code_contracts`, `native_contracts`,
+`native_bindings`, `native_results`, `receipts`, `receipt_contexts`,
+`raw_artifact_root` and `current_native_identities`: the original admitted
+contracts, bindings, results, receipts, current identity observations and raw
+artifact verification context. Do not infer case/oracle selectors, manufacture
+receipts or run an owner to fill this call implicitly. `blueprint_summary` may remain
+an existing `BlueprintUnderstandingSummary` or `None`; it is unauthenticated
+metadata in this helper, not proof of canonical blueprint depth. This helper
+does not authenticate blueprint identity, currentness or provenance, so
+`deepest_proven_layer` always remains `unknown`, even when a summary is
+provided. When a task needs proven blueprint depth, obtain it separately
+through the existing authenticated canonical blueprint path. This helper
+establishes task-specific functional sufficiency and stopping only; it starts
+no automatic blueprint work.
+
+Missing or wrong required types are input blockers. Missing verifier evidence,
+native material, target bindings or currentness stays a missing outcome/gap;
+malformed selectors and identity errors are blockers, never successful closure.
+Return `requested_outcome_ids`, `satisfied_outcome_ids`, `missing_outcome_ids`,
+`required_obligation_ids`, `required_owner_ids`, `gap_ids`, `next_actions` and
+`stopping_disposition`. Follow only the first gap's actual next owner/material
+needed to change the conclusion. Stop only when `stopping_disposition` is the
+existing `model_maturation_closed_for_task`, with the matching verified report
+decision and terminal reason, all requested outcomes proved and no required
+open gap. Unrelated domains remain untriggered. The helper creates no
+head/receipt, executes no check and refreshes nothing; do not add task fields
+to the public read request. Public read without task context reports the
+accepted map only.
+
 ModelMaturation owns one provider-neutral path-quality decision for every new
 or materially changed model. Build a `PathQualitySubject` from the exact model,
 purpose, complete effective intent, obligations, provider, dependencies, code,
@@ -73,19 +211,23 @@ invent Python code or software test layers.
 Run `lightweight_path_review(...)` over normalized facts first. It checks
 unreachable states/transitions, duplicate transitions, behavior-irrelevant
 state/fields, pass-through FunctionBlocks, unconsumed outputs, repeated
-validation, duplicate current owners, and no-progress loops. Every retained
-state, transition, branch, FunctionBlock, field, effect, and validation also
-needs one current non-circular `NecessityWitness` naming the obligation,
-counterexample, oracle, and evidence that removal would break. Mere existence,
-self-description, or the path-quality result cannot license a witness.
+validation, duplicate current owners, and no-progress loops. Ordinary changes
+use the selected protected-failure native checks, derived structure coverage,
+and current normalized facts. They do not create or validate per-element
+`NecessityWitness` records. For an explicitly requested architecture
+reduction or candidate comparison, validate current non-circular necessity
+witnesses inside that declared finite comparison boundary. Missing witnesses
+block that comparison claim; their absence does not create a new
+ordinary-change obligation.
 
 With one clear path and no trigger, return `single_clear_path` as one compact
 `PathQualityResult`; do not enumerate candidates or build a deep payload. A
 deep review is admitted only for exact current evidence of `explicit_request`,
 multiple hard-equivalent candidates, material state/transition/branch growth,
-a recognized structural finding, a path-design model miss, a missing necessity
-witness, or a declared high-cost/release-critical boundary. The trigger applies
-only to the affected model and topology-required neighbors.
+a recognized structural finding, a path-design model miss, or a declared
+high-cost/release-critical boundary. A missing necessity witness is a gap only
+inside an explicitly requested finite candidate comparison. Each trigger
+applies only to the affected model and topology-required neighbors.
 
 Deep review compares one named finite candidate/rewrite boundary. Reject a
 candidate before cost comparison if any hard semantic dimension differs:

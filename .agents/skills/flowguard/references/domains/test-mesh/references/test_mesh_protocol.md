@@ -51,12 +51,18 @@ not prove terminal success.
    one executed, reused, or delegated disposition.
 3. Require `planned = executed + not_run` and `failed <= executed`; a
    `declared_complete` run cannot contain not-run work.
-4. Persist each successful child immediately. Parent or sibling failure cannot
-   erase reusable current child evidence.
+4. Persist each terminal-success child immediately after its owner-local
+   post-check. Parent or sibling failure cannot erase reusable current child
+   evidence.
 5. Reject stale, skipped, progress-only, malformed, tampered, ambiguous,
    unknown-impact, and unowned evidence.
 6. A receipt may fan out only within its declared covered-id boundary; copies
    are not additional executions.
+
+For FlowGuard `model_regressions`, incremental leaf publication is currently
+qualified only for `jobs=1`; parallel execution retains batch publication.
+Do not infer incremental durability for another owner without its own current
+implementation and evidence.
 
 ## Model-Purpose Gate
 

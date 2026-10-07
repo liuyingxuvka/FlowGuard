@@ -1,0 +1,224 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:f7081136276a3fcccdf34290fe31ec6cf2a4532c82ca468f8d7dfac030480dd0",
+        "effective_intent_view_fingerprint": "sha256:fbc1ee12e5b6256e60e99dc74165d97c691cea2e3caeef9d3e52f765a55eb68c",
+        "facts_scope": "native_check_contract",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/contract_source_audit/model.py",
+            "source_fingerprint": "sha256:3890cec8fbdc82c9861ae8f8c98028a53e320bdab8a25294a6deec22226a4427"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "contract": {
+            "behavior_commitment_id": "",
+            "behavior_plane": "",
+            "business_intent_id": "",
+            "code_contract_id": "checkout_submit",
+            "delegates_to_code_contract_id": "",
+            "delegation_evidence_current": false,
+            "delegation_evidence_id": "",
+            "delegation_only": false,
+            "error_paths": [],
+            "external_inputs": [
+              "order_id"
+            ],
+            "external_outputs": [
+              "Accepted"
+            ],
+            "implements_obligations": [
+              "accept_valid_order"
+            ],
+            "independent_business_authority": false,
+            "path": "checkout.py",
+            "primary_path_id": "",
+            "relation_code_obligation_ids": [],
+            "relation_ids": [],
+            "required": true,
+            "role": "owner",
+            "side_effects": [],
+            "state_reads": [],
+            "state_writes": [
+              "order_status"
+            ],
+            "surface_type": "function",
+            "symbol": "submit_order"
+          },
+          "id": "function-block:contract_source_audit:contract:code_contract"
+        },
+        {
+          "contract": {
+            "assertion_scope": "external_contract",
+            "behavior_commitment_id": "",
+            "behavior_plane": "",
+            "business_intent_id": "",
+            "closure_evidence_role": "",
+            "command": "",
+            "covered_code_contracts": [
+              "checkout_submit"
+            ],
+            "covered_obligations": [
+              "accept_valid_order"
+            ],
+            "evidence_current": true,
+            "evidence_id": "test_submit_order",
+            "evidence_role": "primary",
+            "evidence_target_id": "",
+            "loaded_receipt": null,
+            "model_fingerprint": "",
+            "model_id": "",
+            "native_execution_owner_id": "",
+            "native_execution_receipt_fingerprint": "",
+            "native_execution_receipt_id": "",
+            "native_execution_verified": false,
+            "overclaims_model_confidence": false,
+            "path": "test_checkout.py",
+            "path_quality_currentness_id": "",
+            "path_quality_result_fingerprint": "",
+            "path_quality_subject_fingerprint": "",
+            "primary_path_id": "",
+            "proof_artifact": null,
+            "receipt_producer_id": "",
+            "receipt_verification": null,
+            "receipt_verification_context_present": false,
+            "result_reused": false,
+            "result_status": "passed",
+            "reuse_ticket": null,
+            "stale_reasons": [],
+            "test_kind": "happy_path",
+            "test_name": "test_submit_order"
+          },
+          "id": "function-block:contract_source_audit:contract:oracle_declaration"
+        },
+        {
+          "contract": [
+            {
+              "code_source": "\ndef submit_order(order_id):\n    state = {}\n    state[\"order_status\"] = \"Accepted\"\n    return \"Accepted\"\n",
+              "expected_codes": [],
+              "expected_ok": true,
+              "name": "good_external_contract_source",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "def other(order_id): return 'Accepted'",
+              "expected_codes": [
+                "source_contract_missing_symbol"
+              ],
+              "expected_ok": false,
+              "name": "missing_code_symbol_blocks",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "def submit_order(): return 'Accepted'",
+              "expected_codes": [
+                "source_contract_missing_input"
+              ],
+              "expected_ok": false,
+              "name": "missing_input_blocks",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "def submit_order(order_id): state = {}; state['order_status'] = 'Accepted'",
+              "expected_codes": [
+                "source_contract_missing_output"
+              ],
+              "expected_ok": false,
+              "name": "missing_return_blocks",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "def submit_order(order_id): return 'Accepted'",
+              "expected_codes": [
+                "source_contract_missing_state_write"
+              ],
+              "expected_ok": false,
+              "name": "missing_state_write_blocks",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "def submit_order(order_id): publish_metric(order_id); return 'Accepted'",
+              "expected_codes": [
+                "source_contract_missing_state_write",
+                "source_contract_extra_side_effect"
+              ],
+              "expected_ok": false,
+              "name": "extra_side_effect_blocks",
+              "test_source": "\ndef test_submit_order():\n    result = submit_order(\"order-1\")\n    assert result == \"Accepted\"\n"
+            },
+            {
+              "code_source": "\ndef submit_order(order_id):\n    state = {}\n    state[\"order_status\"] = \"Accepted\"\n    return \"Accepted\"\n",
+              "expected_codes": [
+                "source_test_missing_code_contract_call",
+                "source_test_internal_path_only"
+              ],
+              "expected_ok": false,
+              "name": "test_calls_helper_blocks",
+              "test_source": "def test_submit_order(): result = helper_submit_order('order-1'); assert result == 'Accepted'"
+            },
+            {
+              "code_source": "\ndef submit_order(order_id):\n    state = {}\n    state[\"order_status\"] = \"Accepted\"\n    return \"Accepted\"\n",
+              "expected_codes": [
+                "source_test_missing_external_assertion",
+                "source_test_internal_path_only"
+              ],
+              "expected_ok": false,
+              "name": "test_without_assertion_blocks",
+              "test_source": "def test_submit_order(): submit_order('order-1')"
+            }
+          ],
+          "id": "function-block:contract_source_audit:contract:source_cases"
+        }
+      ],
+      "outputs": [],
+      "owners": [],
+      "responsibilities": [],
+      "states": [],
+      "transitions": [],
+      "validations": []
+    },
+    "retained_elements": {
+      "function-block:contract_source_audit:contract:code_contract": "function_block",
+      "function-block:contract_source_audit:contract:oracle_declaration": "function_block",
+      "function-block:contract_source_audit:contract:source_cases": "function_block"
+    },
+    "subject_fingerprint": "sha256:bde4d3caa07d0a456a449b68d091085fd7c5bd5e95423fdc80d9ac979d023141",
+    "trigger_currentness_id": "sha256:748c9665eaf8484dbb61d99dd1060428ae3c0abfae6e1fc353db8fc18c057284",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:3fdac765e17948e84267b7076dacc9039a2564a1e8bcc25fb40dd70bcce5511c",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

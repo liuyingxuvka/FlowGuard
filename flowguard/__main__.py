@@ -1241,7 +1241,7 @@ _COMPACT_OPERATIONS = ("read", "change", "release")
 def _compact_help() -> int:
     print(
         "usage: python -m flowguard {read,change,release} --root ROOT "
-        "[--request REQUEST] [--json]"
+        "--request REQUEST [--json]"
     )
     print("operations: read (side-effect free), change (declared scope), release (accepted evidence)")
     print("legacy profiles and command names are rejected; no fallback route is available")
@@ -1249,7 +1249,7 @@ def _compact_help() -> int:
 
 
 def _compact_parse(operation: str, argv: list[str]) -> dict[str, Any]:
-    allowed = {"--root", "--request", "--expected-current", "--json"}
+    allowed = {"--root", "--request", "--json"}
     values: dict[str, Any] = {"json": False}
     index = 0
     while index < len(argv):
@@ -1358,6 +1358,13 @@ def _compact_read_map(closure: Any) -> dict[str, object]:
     }
 
 
+def _read_scope_fingerprint(scope: tuple[str, ...]) -> str:
+    """Bind an opaque cursor to the exact ordered selection without repeating it."""
+    return hashlib.sha256(
+        json.dumps(list(scope), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+
 def _read_cursor_token(
     head_fingerprint: str,
     scope: tuple[str, ...],
@@ -1366,16 +1373,20 @@ def _read_cursor_token(
     intent_offset: int = 0,
     relation_offset: int = 0,
     boundary_offset: int = 0,
+    stale_offset: int = 0,
 ) -> str:
     payload = {
         "head": head_fingerprint,
-        "scope": list(scope),
+        "scope_fingerprint": _read_scope_fingerprint(scope),
         "model_index": model_index,
         "input_offset": input_offset,
         "intent_offset": intent_offset,
         "relation_offset": relation_offset,
         "boundary_offset": boundary_offset,
+        "stale_offset": stale_offset,
     }
+    raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    payload["cursor_digest"] = hashlib.sha256(raw).hexdigest()
     raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -1386,36 +1397,55 @@ def _read_cursor_position(
     head_fingerprint: str,
     scope: tuple[str, ...],
     model_count: int,
-) -> tuple[int, int]:
+    stale_count: int,
+) -> tuple[int, int, int, int, int, int]:
     if not isinstance(token, str) or not token:
         raise ValueError("read cursor must be a non-empty string")
     try:
         padded = token + "=" * (-len(token) % 4)
-        payload = _strict_json_loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+        raw = base64.urlsafe_b64decode(padded)
+        canonical_token = base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+        if canonical_token != token:
+            raise ValueError("read cursor encoding is not canonical")
+        payload = _strict_json_loads(raw.decode("utf-8"))
     except (ValueError, UnicodeError, TypeError) as exc:
         raise ValueError("read cursor is invalid") from exc
     if not isinstance(payload, Mapping) or set(payload) != {
         "head",
-        "scope",
+        "scope_fingerprint",
         "model_index",
         "input_offset",
         "intent_offset",
         "relation_offset",
         "boundary_offset",
+        "stale_offset",
+        "cursor_digest",
     }:
         raise ValueError("read cursor shape is not exact-current")
-    payload_scope = payload["scope"]
-    if not isinstance(payload_scope, list) or any(
-        not isinstance(item, str) for item in payload_scope
-    ):
+    cursor_digest = payload["cursor_digest"]
+    unsigned_payload = {
+        key: value for key, value in payload.items() if key != "cursor_digest"
+    }
+    expected_digest = hashlib.sha256(
+        json.dumps(
+            unsigned_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+    ).hexdigest()
+    if not isinstance(cursor_digest, str) or cursor_digest != expected_digest:
+        raise ValueError("read cursor integrity check failed")
+    payload_scope = payload["scope_fingerprint"]
+    if not isinstance(payload_scope, str) or re.fullmatch(r"[0-9a-f]{64}", payload_scope) is None:
         raise ValueError("read cursor scope is invalid")
-    if payload["head"] != head_fingerprint or tuple(payload_scope) != scope:
+    if payload["head"] != head_fingerprint or payload_scope != _read_scope_fingerprint(scope):
         raise ValueError("read cursor is bound to another authority head or scope")
     model_index = payload["model_index"]
     input_offset = payload["input_offset"]
     intent_offset = payload["intent_offset"]
     relation_offset = payload["relation_offset"]
     boundary_offset = payload["boundary_offset"]
+    stale_offset = payload["stale_offset"]
     if (
         not isinstance(model_index, int)
         or isinstance(model_index, bool)
@@ -1427,15 +1457,125 @@ def _read_cursor_position(
         or isinstance(relation_offset, bool)
         or not isinstance(boundary_offset, int)
         or isinstance(boundary_offset, bool)
+        or not isinstance(stale_offset, int)
+        or isinstance(stale_offset, bool)
         or model_index < 0
         or model_index >= model_count
         or input_offset < 0
         or intent_offset < 0
         or relation_offset < 0
         or boundary_offset < 0
+        or stale_offset < 0
     ):
         raise ValueError("read cursor position is invalid")
-    return model_index, input_offset, intent_offset, relation_offset, boundary_offset
+    if stale_offset > stale_count:
+        raise ValueError(
+            "read cursor stale-obligation offset is outside the selected projection"
+        )
+    return (
+        model_index,
+        input_offset,
+        intent_offset,
+        relation_offset,
+        boundary_offset,
+        stale_offset,
+    )
+
+
+@dataclass(frozen=True)
+class _PreparedReadTransport:
+    models: tuple
+    intents: tuple
+    relations: tuple
+    boundary_nodes: tuple
+    architecture: Any
+    architecture_fields: tuple
+    architecture_tag: str
+    functional: Any
+    functional_fields: tuple
+    functional_tag: str
+    growth_tag: str
+    growth_fields: tuple
+    growth_transport: bool
+    summary_tag: str
+    summary: Any
+    summary_paths: tuple
+    stale_obligations: tuple
+    page_base_payload: Mapping[str, Any]
+
+
+def _prepare_read_transport(
+    base_payload: Mapping[str, Any], compact_map: Mapping[str, Any],
+) -> _PreparedReadTransport:
+    """Prepare the selected transport lanes once for this read invocation."""
+    models = tuple(item for item in compact_map.get("models", ()) if isinstance(item, Mapping))
+    intents = tuple(item for item in compact_map.get("intents", ()) if isinstance(item, Mapping))
+    relations = tuple(item for item in compact_map.get("relations", ()) if isinstance(item, Mapping))
+    boundary_nodes = tuple(item for item in compact_map.get("boundary_nodes", ()) if isinstance(item, Mapping))
+    architecture = base_payload.get("architecture")
+    architecture_fields = ("facts_scope", "objective_refs", "finding_refs", "suggestion_refs", "observation_gap_ids", "improvement_gap_ids", "improvement_pointers", "scope_proof_refs")
+    # Preserve the architecture selection once across context pages. The full
+    # top-level requested/selected IDs and as-of identity still bind each page.
+    if isinstance(architecture, Mapping) and "requested_model_ids" in architecture:
+        architecture_fields += ("requested_model_ids",)
+    architecture_tag = "__flowguard_architecture_transport__"
+    functional_tag = "__flowguard_functional_transport__"
+    growth_tag = "__flowguard_growth_transport__"
+    summary_tag = "__flowguard_summary_transport__"
+    growth_fields = ("growth_gaps", "checked_observed_paths")
+    growth_transport = any(field in base_payload for field in growth_fields)
+    if growth_transport:
+        relations += tuple({growth_tag: field, "value": value}
+            for field in growth_fields for value in base_payload.get(field, ()))
+    summary = architecture.get("summary") if isinstance(architecture, Mapping) else None
+    summary_paths = (("target",), ("gap", "observation_gap_ids"), ("gap", "improvement_gap_ids"),
+        ("gap", "growth_gap_ids"), ("action", "pointer_ids"), ("action", "next_owner_ids"),
+        ("action", "detail_refs"))
+    if isinstance(summary, Mapping) and summary:
+        relations += tuple({summary_tag: ".".join(path), "value": value}
+            for path in summary_paths for value in (summary[path[0]] if len(path) == 1 else summary[path[0]][path[1]]))
+        # These new summary dictionaries are navigation metadata, not the
+        # authority/scope identity repeated on every page. Transport them once
+        # as whole records so a wide scope still leaves room for its exact
+        # compact pointer records. Empty dictionaries on other pages denote
+        # no transported metadata; they never mean an empty accepted scope.
+        relations += tuple({summary_tag: key, "value": dict(summary[key])}
+                           for key in ("current", "scope"))
+    functional = base_payload.get("functional_understanding")
+    functional_fields = tuple(key for key, value in functional.items()
+                              if isinstance(value, (list, tuple))) if isinstance(functional, Mapping) else ()
+    if functional_fields:
+        relations += tuple({functional_tag: key, "value": value}
+                           for key in functional_fields for value in functional[key])
+    if isinstance(architecture, Mapping):
+        # Use the existing context cursor lanes. Architecture records are
+        # transported once, with every exact reference retained across pages;
+        # no large selected-scope list is repeated in each page's metadata.
+        def architecture_rows(field):
+            return tuple({architecture_tag: field, "value": value} for value in architecture.get(field, ()))
+        intents += architecture_rows("objective_refs")
+        relations += tuple(row for field in ("finding_refs", "suggestion_refs", "observation_gap_ids", "improvement_gap_ids", "improvement_pointers") for row in architecture_rows(field))
+        boundary_nodes += architecture_rows("facts_scope") + architecture_rows("scope_proof_refs")
+        if "requested_model_ids" in architecture:
+            boundary_nodes += architecture_rows("requested_model_ids")
+    stale_obligations = base_payload.get("stale_obligations", ())
+    if not isinstance(stale_obligations, (list, tuple)):
+        raise ValueError("read stale obligations must be a list")
+    stale_obligations = tuple(stale_obligations)
+    page_base_payload = {**dict(base_payload), "stale_obligations": []}
+    if growth_transport:
+        page_base_payload.update({field: [] for field in growth_fields})
+    if isinstance(architecture, Mapping):
+        page_base_payload["architecture"] = {**dict(architecture), **{field: [] for field in architecture_fields}}
+    if isinstance(functional, Mapping):
+        page_base_payload["functional_understanding"] = {
+            **dict(functional), **{key: [] for key in functional_fields}}
+    return _PreparedReadTransport(
+        models, intents, relations, boundary_nodes, architecture,
+        architecture_fields, architecture_tag, functional, functional_fields,
+        functional_tag, growth_tag, growth_fields, growth_transport,
+        summary_tag, summary, summary_paths, stale_obligations, page_base_payload,
+    )
 
 
 def _bounded_read_page(
@@ -1445,15 +1585,24 @@ def _bounded_read_page(
     head_fingerprint: str,
     scope: tuple[str, ...],
     cursor: Any,
+    prepared_transport: _PreparedReadTransport | None = None,
 ) -> dict[str, Any]:
     """Return one deterministic read page whose emitted JSON is <= 8192 bytes."""
-
-    models = tuple(item for item in compact_map.get("models", ()) if isinstance(item, Mapping))
-    intents = tuple(item for item in compact_map.get("intents", ()) if isinstance(item, Mapping))
-    relations = tuple(item for item in compact_map.get("relations", ()) if isinstance(item, Mapping))
-    boundary_nodes = tuple(item for item in compact_map.get("boundary_nodes", ()) if isinstance(item, Mapping))
+    prepared = prepared_transport or _prepare_read_transport(base_payload, compact_map)
+    models, intents, relations = prepared.models, prepared.intents, prepared.relations
+    boundary_nodes = prepared.boundary_nodes
+    architecture, architecture_fields = prepared.architecture, prepared.architecture_fields
+    architecture_tag = prepared.architecture_tag
+    functional, functional_fields = prepared.functional, prepared.functional_fields
+    functional_tag = prepared.functional_tag
+    growth_tag, growth_fields = prepared.growth_tag, prepared.growth_fields
+    growth_transport = prepared.growth_transport
+    summary_tag, summary = prepared.summary_tag, prepared.summary
+    summary_paths = prepared.summary_paths
+    stale_obligations = prepared.stale_obligations
+    page_base_payload = prepared.page_base_payload
     start_model, start_offset = (0, 0)
-    start_intent, start_relation, start_boundary = (0, 0, 0)
+    start_intent, start_relation, start_boundary, start_stale = (0, 0, 0, 0)
     if cursor is not None:
         (
             start_model,
@@ -1461,36 +1610,105 @@ def _bounded_read_page(
             start_intent,
             start_relation,
             start_boundary,
+            start_stale,
         ) = _read_cursor_position(
             cursor,
             head_fingerprint=head_fingerprint,
             scope=scope,
             model_count=max(1, len(models)),
+            stale_count=len(stale_obligations),
         )
 
     page_rows: list[dict[str, Any]] = []
     page_intents: list[dict[str, Any]] = []
     page_relations: list[dict[str, Any]] = []
     page_boundaries: list[dict[str, Any]] = []
+    page_stale_obligations: list[Any] = []
     current_model = start_model
     current_offset = start_offset
     current_intent = start_intent
     current_relation = start_relation
     current_boundary = start_boundary
+    current_stale = start_stale
+    next_position: tuple[int, int, int, int, int, int] | None = None
 
-    def candidate(next_pos: tuple[int, int, int, int, int] | None, record_count: int) -> dict[str, Any]:
+    def current_position() -> tuple[int, int, int, int, int, int]:
+        return (
+            current_model,
+            current_offset,
+            current_intent,
+            current_relation,
+            current_boundary,
+            current_stale,
+        )
+
+    def has_more(position: tuple[int, int, int, int, int, int]) -> bool:
+        (
+            model_index,
+            input_offset,
+            intent_offset,
+            relation_offset,
+            boundary_offset,
+            stale_offset,
+        ) = position
+        if (
+            intent_offset < len(intents)
+            or relation_offset < len(relations)
+            or boundary_offset < len(boundary_nodes)
+            or stale_offset < len(stale_obligations)
+        ):
+            return True
+        for index in range(model_index, len(models)):
+            input_paths = list(models[index].get("input_paths", ()))
+            if index == model_index and input_paths:
+                if input_offset < len(input_paths):
+                    return True
+                continue
+            return True
+        return False
+
+    def candidate(
+        next_pos: tuple[int, int, int, int, int, int] | None,
+        record_count: int,
+    ) -> dict[str, Any]:
         next_cursor = (
             None
-            if next_pos is None
+            if next_pos is None or not has_more(next_pos)
             else _read_cursor_token(head_fingerprint, scope, *next_pos)
         )
+        architecture_page = dict(page_base_payload.get("architecture", {}))
+        if isinstance(architecture, Mapping):
+            for field in architecture_fields:
+                architecture_page[field] = [row["value"] for row in (*page_intents, *page_relations, *page_boundaries) if row.get(architecture_tag) == field]
+            if isinstance(summary, Mapping) and summary:
+                summary_page = {**dict(summary), "gap": dict(summary["gap"]), "action": dict(summary["action"])}
+                for key in ("current", "scope"):
+                    rows = [row["value"] for row in page_relations
+                            if row.get(summary_tag) == key]
+                    summary_page[key] = dict(rows[0]) if rows else {}
+                for path in summary_paths:
+                    values = [row["value"] for row in page_relations if row.get(summary_tag) == ".".join(path)]
+                    if len(path) == 1:
+                        summary_page[path[0]] = values
+                    else:
+                        summary_page[path[0]][path[1]] = values
+                architecture_page["summary"] = summary_page
+        functional_page = dict(page_base_payload.get("functional_understanding", {}))
+        for field in functional_fields:
+            functional_page[field] = [row["value"] for row in (*page_intents, *page_relations, *page_boundaries)
+                                      if row.get(functional_tag) == field]
         return {
-            **dict(base_payload),
+            **page_base_payload,
+            **({field: [row["value"] for row in page_relations if row.get(growth_tag) == field]
+                for field in growth_fields} if growth_transport else {}),
+            **({"architecture": architecture_page} if isinstance(architecture, Mapping) else {}),
+            **({"functional_understanding": functional_page} if isinstance(functional, Mapping) else {}),
+            "stale_obligations": page_stale_obligations,
             "map": {
                 "models": page_rows,
-                "intents": page_intents,
-                "relations": page_relations,
-                "boundary_nodes": page_boundaries,
+                "intents": [row for row in page_intents if all(tag not in row for tag in (architecture_tag, functional_tag, growth_tag, summary_tag))],
+                "relations": [row for row in page_relations if all(tag not in row for tag in (architecture_tag, functional_tag, growth_tag, summary_tag))],
+                "boundary_nodes": [row for row in page_boundaries if all(tag not in row for tag in (architecture_tag, functional_tag, growth_tag, summary_tag))],
             },
             "page": {
                 "model_index": start_model,
@@ -1498,13 +1716,39 @@ def _bounded_read_page(
                 "intent_offset": start_intent,
                 "relation_offset": start_relation,
                 "boundary_offset": start_boundary,
+                "stale_offset": start_stale,
                 "record_count": record_count,
             },
             "next_cursor": next_cursor,
         }
 
-    def encoded_size(next_pos: tuple[int, int, int, int, int] | None, count: int) -> int:
-        return len(json.dumps(candidate(next_pos, count), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1
+    def encoded_size(
+        next_pos: tuple[int, int, int, int, int, int] | None,
+        count: int,
+    ) -> int:
+        return len(
+            json.dumps(
+                candidate(next_pos, count),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+        ) + 1
+
+    def finish(
+        next_pos: tuple[int, int, int, int, int, int] | None,
+        count: int,
+    ) -> dict[str, Any]:
+        result = candidate(next_pos, count)
+        encoded = json.dumps(
+            result,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        if len(encoded) + 1 > 8192:
+            raise ValueError("read page metadata exceeds 8192 UTF-8 bytes")
+        return result
 
     record_count = 0
     # Context rows are paged before model rows.  This keeps a large relation or
@@ -1514,7 +1758,11 @@ def _bounded_read_page(
         (relations, page_relations, "relation"),
         (boundary_nodes, page_boundaries, "boundary"),
     ):
-        offset = {"intent": current_intent, "relation": current_relation, "boundary": current_boundary}[offset_name]
+        offset = {
+            "intent": current_intent,
+            "relation": current_relation,
+            "boundary": current_boundary,
+        }[offset_name]
         while offset < len(values):
             target.append(dict(values[offset]))
             next_offsets = {
@@ -1523,16 +1771,19 @@ def _bounded_read_page(
                 "boundary": current_boundary,
             }
             next_offsets[offset_name] = offset + 1
-            following = (current_model, current_offset, next_offsets["intent"], next_offsets["relation"], next_offsets["boundary"])
+            following = (
+                current_model,
+                current_offset,
+                next_offsets["intent"],
+                next_offsets["relation"],
+                next_offsets["boundary"],
+                current_stale,
+            )
             if encoded_size(following, record_count + 1) > 8192:
                 target.pop()
-                if not target:
+                if record_count == 0:
                     raise ValueError("one read context record cannot fit within 8192 UTF-8 bytes")
-                next_position = (current_model, current_offset, current_intent, current_relation, current_boundary)
-                result = candidate(next_position, record_count)
-                if len(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1 > 8192:
-                    raise ValueError("read page metadata exceeds 8192 UTF-8 bytes")
-                return result
+                return finish(current_position(), record_count)
             record_count += 1
             offset += 1
             if offset_name == "intent":
@@ -1541,6 +1792,24 @@ def _bounded_read_page(
                 current_relation = offset
             else:
                 current_boundary = offset
+
+    while current_stale < len(stale_obligations):
+        page_stale_obligations.append(stale_obligations[current_stale])
+        following = (
+            current_model,
+            current_offset,
+            current_intent,
+            current_relation,
+            current_boundary,
+            current_stale + 1,
+        )
+        if encoded_size(following, record_count + 1) > 8192:
+            page_stale_obligations.pop()
+            if record_count == 0:
+                raise ValueError("one stale obligation cannot fit within 8192 UTF-8 bytes")
+            return finish(current_position(), record_count)
+        record_count += 1
+        current_stale += 1
 
     while current_model < len(models):
         original = dict(models[current_model])
@@ -1556,10 +1825,24 @@ def _bounded_read_page(
                 trial_chunk = accepted_chunk + [item]
                 page_rows.append({**original, "input_paths": trial_chunk})
                 following = (
-                    (current_model, current_offset + len(trial_chunk), current_intent, current_relation, current_boundary)
+                    (
+                        current_model,
+                        current_offset + len(trial_chunk),
+                        current_intent,
+                        current_relation,
+                        current_boundary,
+                        current_stale,
+                    )
                     if current_offset + len(trial_chunk) < len(input_paths)
                     else (
-                        (current_model + 1, 0, current_intent, current_relation, current_boundary)
+                        (
+                            current_model + 1,
+                            0,
+                            current_intent,
+                            current_relation,
+                            current_boundary,
+                            current_stale,
+                        )
                         if current_model + 1 < len(models)
                         else None
                     )
@@ -1570,35 +1853,45 @@ def _bounded_read_page(
                     break
                 accepted_chunk.append(item)
             if not accepted_chunk:
-                raise ValueError("one read model record cannot fit within 8192 UTF-8 bytes")
+                if record_count == 0:
+                    raise ValueError("one read model record cannot fit within 8192 UTF-8 bytes")
+                next_position = current_position()
+                break
             page_rows.append({**original, "input_paths": accepted_chunk})
             record_count += 1
             consumed = len(accepted_chunk)
-            if current_offset + consumed < len(input_paths):
-                next_position = (current_model, current_offset + consumed, current_intent, current_relation, current_boundary)
+            current_offset += consumed
+            if current_offset < len(input_paths):
+                next_position = current_position()
                 break
             current_model += 1
             current_offset = 0
-            next_position = (current_model, 0, current_intent, current_relation, current_boundary) if current_model < len(models) else None
+            next_position = None
             continue
         page_rows.append({**original, "input_paths": []})
         following = (
-            (current_model + 1, 0, current_intent, current_relation, current_boundary) if current_model + 1 < len(models) else None
+            (
+                current_model + 1,
+                0,
+                current_intent,
+                current_relation,
+                current_boundary,
+                current_stale,
+            )
+            if current_model + 1 < len(models)
+            else None
         )
         if encoded_size(following, record_count + 1) > 8192:
             page_rows.pop()
-            if not page_rows:
+            if record_count == 0:
                 raise ValueError("one read model record cannot fit within 8192 UTF-8 bytes")
-            next_position = (current_model, 0, current_intent, current_relation, current_boundary)
+            next_position = current_position()
             break
         record_count += 1
         current_model += 1
-        next_position = (current_model, 0, current_intent, current_relation, current_boundary) if current_model < len(models) else None
+        next_position = None
 
-    result = candidate(next_position if 'next_position' in locals() else None, record_count)
-    if len(json.dumps(result, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")) + 1 > 8192:
-        raise ValueError("read page metadata exceeds 8192 UTF-8 bytes")
-    return result
+    return finish(next_position, record_count)
 
 
 def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str, Any]) -> dict[str, Any]:
@@ -1607,11 +1900,15 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
         _load_bound_read_projection,
         load_observed_model_head,
         read_selected_model_projection,
+        _SelectedReadContext,
+        bind_selected_read_authority,
+        freeze_selected_read_observation,
+        verify_selected_read_observation,
     )
 
     expected_fields = {"operation", "target_id", "scope"}
     request_fields = set(request)
-    if request_fields != expected_fields and request_fields != expected_fields | {"cursor"}:
+    if not expected_fields <= request_fields or request_fields - expected_fields - {"cursor", "read_batch", "task_context", "growth_observation"}:
         raise ValueError(
             "read request fields are not exact-current: "
             f"missing={sorted(expected_fields - set(request))}, "
@@ -1632,9 +1929,15 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
     if len(scope) != len(set(scope)):
         raise ValueError("read request scope contains duplicate model IDs")
     cursor = request.get("cursor")
+    read_batch = request.get("read_batch", False)
+    if not isinstance(read_batch, bool):
+        raise ValueError("read_batch must be a boolean")
+    if read_batch and "cursor" in request:
+        raise ValueError("read_batch cannot be combined with cursor")
+    read_context = _SelectedReadContext(root.resolve())
 
     try:
-        head = load_observed_model_head(root)
+        head = load_observed_model_head(root, read_context=read_context)
     except ModelAuthorityError as exc:
         if str(exc) == "project manifest has no model_authority section":
             return {
@@ -1664,7 +1967,8 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
         raise ValueError("read request target_id does not match current authority")
 
     try:
-        projection = _load_bound_read_projection(root, head)
+        projection = _load_bound_read_projection(root, head, read_context=read_context)
+        bind_selected_read_authority(read_context, head=head, projection=projection)
     except (ModelAuthorityError, OSError, ValueError) as exc:
         return {
             "operation": "read",
@@ -1699,6 +2003,7 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
         head=head,
         projection=projection,
         selected_model_ids=tuple(scope),
+        read_context=read_context,
     )
     if not closure.ok:
         return {
@@ -1740,16 +2045,94 @@ def _read_operation(root: Path, request: Mapping[str, Any], values: Mapping[str,
         "write_count": 0,
         "stale_obligations": list(closure.stale_obligations),
         "blockers": [],
+        "architecture": dict(closure.architecture),
         "claim_boundary": "This is an as-of read of the selected accepted projection. It does not execute, accept, install, or publish.",
     }
+    cursor_identity = head.fingerprint
+    if "task_context" in request:
+        from .functional_read import load_functional_read_context
+        task_ref = request["task_context"]
+        base_payload["functional_understanding"] = load_functional_read_context(
+            repository_root=root, task_context_ref=task_ref,
+            selected_read=closure, read_context=read_context,
+        )
+    from .functional_read import apply_functional_growth_to_selected_read
+    from .model_authority_store import refresh_architecture_read_understanding
+    from .evidence_receipts import fingerprint_value
+    understanding = base_payload.get("functional_understanding")
+    growth_ref = None
+    if understanding is None or "functional_task_context_invalid" not in understanding.get("gap_ids", ()):
+        closure, growth_ref = apply_functional_growth_to_selected_read(repository_root=root,
+            selected_read=closure, read_context=read_context,
+            task_context_ref=request.get("task_context"),
+            growth_observation_ref=request.get("growth_observation"),
+            functional_understanding=understanding)
+    elif request.get("growth_observation") is not None:
+        raise ValueError("invalid task context cannot authorize a growth observation")
+    if closure.growth_gaps and understanding is None:
+        first = closure.growth_gaps[0]
+        base_payload["functional_understanding"] = {
+            "task_id": "", "stopping_disposition": "needs_evidence",
+            "gap_ids": [row["gap_id"] for row in closure.growth_gaps],
+            "first_gap": {"gap_id": first["gap_id"], "input_ref": growth_ref["path"],
+                "next_owner_id": first["next_owner_id"], "reason": first["next_action"]},
+            "next_actions": [row["next_owner_id"] + ":" + row["gap_id"] if row["next_owner_id"]
+                             else row["next_action"] for row in closure.growth_gaps],
+            "deepest_proven_layer": "unknown"}
+    closure = refresh_architecture_read_understanding(closure, read_context,
+        functional_understanding=base_payload.get("functional_understanding"))
+    base_payload.update(architecture=dict(closure.architecture),
+        growth_gaps=[dict(row) for row in closure.growth_gaps],
+        checked_observed_paths=list(closure.checked_observed_paths),
+        observation_fingerprint=closure.observation_fingerprint,
+        live_unregistered_file_detection=closure.live_unregistered_file_detection)
+    if "task_context" in request or growth_ref is not None:
+        cursor_identity = fingerprint_value({"head": head.fingerprint,
+            "task_context": request.get("task_context"), "growth_observation": growth_ref})
     try:
-        return _bounded_read_page(
+        compact_map = _compact_read_map(closure)
+        prepared_transport = _prepare_read_transport(base_payload, compact_map)
+        page = _bounded_read_page(
             base_payload,
-            _compact_read_map(closure),
-            head_fingerprint=head.fingerprint,
+            compact_map,
+            head_fingerprint=cursor_identity,
             scope=tuple(scope),
             cursor=cursor,
+            prepared_transport=prepared_transport,
         )
+        if not read_batch:
+            guard = verify_selected_read_observation(
+                freeze_selected_read_observation(read_context), accounting=read_context.accounting)
+            if not guard.ok:
+                return {"operation": "read", "status": "blocked", "target_id": target_id,
+                        "reason": "selected_read_observation_changed", "as_of": dict(closure.as_of),
+                        "map": {}, "producer_count": 0, "write_count": 0,
+                        "observation_boundary": "single_invocation_as_of", "end_guard": guard.to_dict()}
+            return page
+        pages = [page]
+        seen_cursors = set()
+        while page["next_cursor"] is not None:
+            next_cursor = page["next_cursor"]
+            if next_cursor in seen_cursors:
+                raise ValueError("read batch cursor made no progress")
+            seen_cursors.add(next_cursor)
+            page = _bounded_read_page(base_payload, compact_map,
+                head_fingerprint=cursor_identity, scope=tuple(scope), cursor=next_cursor,
+                prepared_transport=prepared_transport)
+            pages.append(page)
+        guard = verify_selected_read_observation(
+            freeze_selected_read_observation(read_context), accounting=read_context.accounting)
+        if not guard.ok:
+            return {"operation": "read", "status": "blocked", "target_id": target_id,
+                    "reason": "selected_read_observation_changed", "as_of": dict(closure.as_of),
+                    "read_mode": "complete_selected_batch", "pages": [], "page_count": 0,
+                    "terminal_next_cursor": None, "producer_count": 0, "write_count": 0,
+                    "observation_boundary": "single_invocation_as_of", "end_guard": guard.to_dict()}
+        return {"operation": "read", "status": "pass", "target_id": target_id,
+                "as_of": dict(closure.as_of), "read_mode": "complete_selected_batch",
+                "pages": pages, "page_count": len(pages), "terminal_next_cursor": None,
+                "producer_count": 0, "write_count": 0,
+                "observation_boundary": "single_invocation_as_of"}
     except ValueError as exc:
         return {
             **base_payload,
@@ -1789,297 +2172,239 @@ def _root_file_reference(
     return path, raw
 
 
+def _scoped_architecture_objective_gaps(gaps, objective_ids):
+    """Preserve a functional goal's missing reference after its complete goal ID."""
+    exact_prefixes = ("architecture_objective_scope_unknown", "cost_measurement_missing",
+                      "required_architecture_objective_unmet")
+    return {gap for gap in gaps if any(
+        gap in {prefix + ":" + goal for prefix in exact_prefixes}
+        or gap.startswith("functional_objective_evidence_missing:" + goal + ":")
+        for goal in objective_ids)}
+
+
 def _native_path_quality_material(
     parent: Any,
     candidate: Any,
     *,
     required_model_ids: tuple[str, ...],
     currentness_id: str,
-) -> tuple[tuple[Any, ...], tuple[Any, ...]]:
-    """Project executed native case evidence into exact path-quality material."""
-
+    effective_intent_view: Any,
+    objective_projection: tuple[Any, ...] = (),
+    semantic_evidence: Mapping[str, Any] | None = None,
+    intent_source_bytes_by_contribution_id: Mapping[str, bytes] | None = None,
+) -> tuple[tuple[Any, ...], tuple[Any, ...], tuple[Any, ...]]:
+    """Consume complete declarations; executed rows prove conformance only."""
     from .model_path_quality import (
-        PathQualitySubject,
-        canonical_fingerprint,
-        derive_retained_elements,
-        lightweight_path_review,
-        normalized_model_facts_fingerprint,
+        DeclaredPathQualitySource, PathQualitySubject, canonical_fingerprint,
+        derive_retained_elements, lightweight_path_review,
+        normalized_model_facts_fingerprint, verify_declared_path_quality_source,
+        find_lightweight_findings, collect_deep_review_triggers,
+        verify_declared_source_scope_coverage,
+        ArchitectureResponsibilityFact, verify_responsibility_semantic_evidence,
+        derive_architecture_relation_candidates, evaluate_architecture_objectives,
+        derive_architecture_model_gaps, derive_architecture_improvement_pointers,
     )
 
+    if effective_intent_view.candidate_snapshot_fingerprint != candidate.fingerprint:
+        raise ValueError("effective_intent_identity_mismatch")
     instances = {item.logical_model_id: item for item in candidate.model_instances}
-    results = {item.model_id: item for item in parent.results}
-    subjects: list[Any] = []
-    reviews: list[Any] = []
+    runs = {item.model_id: item for item in parent.results}
+    subjects, results, details = [], [], []
+    declarations = []
     for model_id in required_model_ids:
-        instance = instances.get(model_id)
-        run = results.get(model_id)
+        instance, run = instances.get(model_id), runs.get(model_id)
         if instance is None or run is None or not run.ok or not run.native_case_results:
-            raise ValueError(
-                f"path-quality owner did not produce native case evidence: {model_id}"
-            )
-        cases = tuple(run.native_case_results)
-        native_result_path = Path(str(run.native_case_result_artifact_path)).resolve()
-        if native_result_path.is_symlink() or not native_result_path.is_file():
-            raise ValueError(
-                f"path-quality native result artifact is missing: {model_id}"
-            )
-        native_result_bytes = native_result_path.read_bytes()
-        native_result_fingerprint = "sha256:" + hashlib.sha256(native_result_bytes).hexdigest()
-        if native_result_fingerprint != run.native_case_result_artifact_fingerprint:
-            raise ValueError(
-                f"path-quality native result artifact fingerprint is stale: {model_id}"
-            )
-        source_path = (
-            native_result_path
-            if native_result_path.name == "native-source.json"
-            else native_result_path.with_name("native-source.json")
-        )
+            raise ValueError(f"path-quality native evidence missing: {model_id}")
+        result_path = Path(str(run.native_case_result_artifact_path)).resolve()
+        if result_path.is_symlink() or not result_path.is_file():
+            raise ValueError(f"path-quality native result missing: {model_id}")
+        result_bytes = result_path.read_bytes()
+        result_fp = "sha256:" + hashlib.sha256(result_bytes).hexdigest()
+        if result_fp != run.native_case_result_artifact_fingerprint:
+            raise ValueError(f"path-quality native result stale: {model_id}")
+        source_path = result_path.with_name("native-source.json")
         if source_path.is_symlink() or not source_path.is_file():
-            raise ValueError(
-                f"path-quality native source artifact is missing: {model_id}"
-            )
+            raise ValueError(f"declared_source_missing:{model_id}")
         source_bytes = source_path.read_bytes()
-        source_fingerprint = "sha256:" + hashlib.sha256(source_bytes).hexdigest()
-        try:
-            source_payload = _strict_json_loads(source_bytes.decode("utf-8"))
-        except (UnicodeError, ValueError, json.JSONDecodeError) as exc:
-            raise ValueError(
-                f"path-quality native source artifact is unreadable: {model_id}"
-            ) from exc
-        if not isinstance(source_payload, Mapping):
-            raise ValueError(f"path-quality native source artifact is not an object: {model_id}")
-        report_payload = source_payload.get("report")
-        report_rows = report_payload.get("results") if isinstance(report_payload, Mapping) else None
-        if not isinstance(report_rows, list) or not report_rows:
-            raise ValueError(
-                f"path-quality native source has no executed report graph: {model_id}"
-            )
-        raw_rows: dict[str, Mapping[str, Any]] = {}
-        for raw_row in report_rows:
-            if not isinstance(raw_row, Mapping):
-                raise ValueError(f"path-quality native report row is not an object: {model_id}")
-            scenario_name = raw_row.get("scenario_name")
-            if not isinstance(scenario_name, str) or not scenario_name.strip():
-                raise ValueError(f"path-quality native report row has no scenario name: {model_id}")
-            if scenario_name in raw_rows:
+        source_fp = "sha256:" + hashlib.sha256(source_bytes).hexdigest()
+        raw = _strict_json_loads(source_bytes.decode("utf-8"))
+        if not isinstance(raw, Mapping) or "declared_path_quality_source" not in raw:
+            raise ValueError(f"declared_source_missing:{model_id}")
+        source = DeclaredPathQualitySource.from_dict(raw["declared_path_quality_source"])
+        for responsibility in source.model_facts.get("responsibilities", ()):
+            fact = ArchitectureResponsibilityFact.from_dict(responsibility)
+            if fact.model_id != source.model_id:
                 raise ValueError(
-                    f"path-quality native report has duplicate scenario: {scenario_name}"
+                    "architecture_responsibility_owner_mismatch:"
+                    + fact.responsibility_id
                 )
-            raw_rows[scenario_name] = raw_row
-
-        states: dict[str, dict[str, Any]] = {}
-        transitions: dict[str, dict[str, Any]] = {}
-        fields: dict[str, dict[str, Any]] = {}
-        function_blocks: dict[str, dict[str, Any]] = {}
-        outputs: dict[str, dict[str, Any]] = {}
-        validations: dict[str, dict[str, Any]] = {}
-        initial_state_ids: set[str] = set()
-        terminal_state_ids: set[str] = set()
-
-        def state_id(case_id: str, value: Any) -> str:
-            return f"state:{case_id}:{canonical_fingerprint(value).split(':', 1)[1]}"
-
-        def add_state(case_id: str, value: Any, *, initial: bool = False, terminal: bool = False) -> str:
-            if value is None:
-                raise ValueError(f"path-quality native trace has no state: {case_id}")
-            identifier = state_id(case_id, value)
-            row = states.setdefault(
-                identifier,
-                {"id": identifier, "initial": False, "terminal": False, "behaviorally_relevant": True},
-            )
-            row["initial"] = bool(row["initial"] or initial)
-            row["terminal"] = bool(row["terminal"] or terminal)
-            if initial:
-                initial_state_ids.add(identifier)
-            if terminal:
-                terminal_state_ids.add(identifier)
-            raw_fields = value.get("fields") if isinstance(value, Mapping) else None
-            if isinstance(raw_fields, Mapping):
-                for name in raw_fields:
-                    field_id = f"field:{case_id}:{name}"
-                    fields[field_id] = {"id": field_id}
-            return identifier
-
-        expected_scenario_names: set[str] = set()
+        if raw.get("owner_id") != "model:" + model_id:
+            raise ValueError("declared_source_identity_mismatch")
+        gaps = verify_declared_path_quality_source(source, instance)
+        if gaps:
+            raise ValueError(";".join(gaps))
+        cases = tuple(run.native_case_results)
+        from .native_case_protocol import fingerprint_payload
+        from .model_regressions import input_inventory_fingerprint
+        expected_input_fp = input_inventory_fingerprint(tuple({"path": item.path, "sha256": item.sha256} for item in instance.inputs))
+        expected_code_fp = fingerprint_payload({"model": instance.model_sha256, "inputs": expected_input_fp})
         for row in cases:
-            if row.child_case_ids:
-                continue
-            native_prefix = f"native-scenario:{model_id}:"
-            case_prefix = f"case:{model_id}:"
-            if row.source_case_id.startswith(native_prefix):
-                scenario_name = row.source_case_id.removeprefix(native_prefix)
-            elif row.source_case_id.startswith(case_prefix):
-                scenario_name = row.source_case_id.removeprefix(case_prefix)
-            else:
-                raise ValueError(
-                    f"path-quality native row identity is not current: {row.source_case_id}"
-                )
-            if scenario_name in expected_scenario_names:
-                raise ValueError(
-                    f"path-quality native report denominator has duplicate leaf: {row.source_case_id}"
-                )
-            expected_scenario_names.add(scenario_name)
-        if set(raw_rows) != expected_scenario_names:
+            if row.owner_id != "model:" + model_id or row.outcome != "pass" or row.result_artifact_fingerprint != source_fp or row.model_fingerprint != instance.model_sha256 or row.input_fingerprint != expected_input_fp or row.test_fingerprint != instance.runner_sha256 or row.code_fingerprint != expected_code_fp:
+                raise ValueError(f"native_hard_invariant_failed:{model_id}:{row.source_case_id}")
+        declarations.append((model_id, instance, source, cases, result_fp))
+    declared_model_ids = {row[0] for row in declarations}
+    for bound in objective_projection:
+        if not declared_model_ids.intersection(bound.objective.model_ids):
             raise ValueError(
-                f"path-quality native report denominator mismatch: {model_id}"
+                "architecture_objective_scope_unassigned:"
+                + bound.objective.objective_id
             )
-        for row in cases:
-            if row.child_case_ids:
-                continue
-            native_prefix = f"native-scenario:{model_id}:"
-            case_prefix = f"case:{model_id}:"
-            if row.source_case_id.startswith(native_prefix):
-                scenario_name = row.source_case_id.removeprefix(native_prefix)
-            elif row.source_case_id.startswith(case_prefix):
-                scenario_name = row.source_case_id.removeprefix(case_prefix)
-            else:
-                raise ValueError(
-                    f"path-quality native row identity is not current: {row.source_case_id}"
-                )
-            raw_row = raw_rows.get(scenario_name)
-            if raw_row is None:
-                raise ValueError(
-                    f"path-quality native report row missing: {row.source_case_id}"
-                )
-            if row.result_artifact_fingerprint != source_fingerprint:
-                raise ValueError(
-                    f"path-quality native source fingerprint is not bound by row: {row.source_case_id}"
-                )
-            scenario_run = raw_row.get("scenario_run")
-            traces = scenario_run.get("traces") if isinstance(scenario_run, Mapping) else None
-            final_states = scenario_run.get("final_states") if isinstance(scenario_run, Mapping) else None
-            if not isinstance(traces, list) or not traces or not isinstance(final_states, list) or not final_states:
-                raise ValueError(
-                    f"path-quality native row has no real executed graph: {row.source_case_id}"
-                )
-            for trace_index, trace in enumerate(traces):
-                if not isinstance(trace, Mapping):
-                    raise ValueError(f"path-quality native trace is not an object: {row.source_case_id}")
-                previous = add_state(
-                    row.source_case_id,
-                    trace.get("initial_state"),
-                    initial=True,
-                )
-                steps = trace.get("steps")
-                if not isinstance(steps, list):
-                    raise ValueError(f"path-quality native trace steps are not an array: {row.source_case_id}")
-                for step_index, step in enumerate(steps):
-                    if not isinstance(step, Mapping):
-                        raise ValueError(f"path-quality native trace step is not an object: {row.source_case_id}")
-                    old = step.get("old_state", trace.get("initial_state") if step_index == 0 else None)
-                    new = step.get("new_state")
-                    if new is None:
-                        raise ValueError(f"path-quality native trace step has no new state: {row.source_case_id}")
-                    source_state = add_state(row.source_case_id, old)
-                    target_state = add_state(row.source_case_id, new)
-                    output_value = step.get("function_output")
-                    output_ids: tuple[str, ...] = ()
-                    if output_value is not None:
-                        output_id = f"output:{row.source_case_id}:{step_index}:{canonical_fingerprint(output_value).split(':', 1)[1]}"
-                        # A native trace's function output is an observed
-                        # terminal value unless the report explicitly models
-                        # a downstream consumer.  Marking it terminal keeps
-                        # the graph honest: the value is retained as a leaf
-                        # observation and is not falsely reported as an
-                        # unconsumed intermediate output.
-                        outputs[output_id] = {"id": output_id, "terminal": True}
-                        output_ids = (output_id,)
-                    function_name = str(step.get("function_name") or "native-step")
-                    block_id = f"function:{row.source_case_id}:{trace_index}:{step_index}:{function_name}"
-                    function_blocks[block_id] = {
-                        "id": block_id,
-                        "outputs": output_ids,
-                    }
-                    transition_id = f"transition:{row.source_case_id}:{trace_index}:{step_index}"
-                    transitions[transition_id] = {
-                        "id": transition_id,
-                        "source": source_state,
-                        "target": target_state,
-                        "trigger": str(step.get("label") or function_name),
-                        "guard": "native-observed",
-                        "outputs": output_ids,
-                    }
-                    previous = target_state
-                final_state = trace.get("final_state")
-                if final_state is not None:
-                    final_id = add_state(row.source_case_id, final_state, terminal=True)
-                    if final_id != previous:
-                        transition_id = f"transition:{row.source_case_id}:{trace_index}:final"
-                        transitions[transition_id] = {
-                            "id": transition_id,
-                            "source": previous,
-                            "target": final_id,
-                            "trigger": "native-final-state",
-                            "guard": "native-observed",
-                        }
-            for final_state in final_states:
-                add_state(row.source_case_id, final_state, terminal=True)
-            for validation_index, oracle in enumerate(row.oracle_results):
-                validation_id = f"validation:{row.source_case_id}:{validation_index}"
-                validations[validation_id] = {
-                    "id": validation_id,
-                    "obligation_id": f"obligation:{row.source_case_id}:{validation_index}",
-                    "oracle_id": str(oracle["oracle_member_id"]),
-                    "subject_fingerprint": source_fingerprint,
-                    "evidence_boundary_id": f"boundary:{model_id}",
-                }
-        facts = {
-            "states": tuple(states.values()),
-            "transitions": tuple(transitions.values()),
-            "fields": tuple(fields.values()),
-            "function_blocks": tuple(function_blocks.values()),
-            "outputs": tuple(outputs.values()),
-            "validations": tuple(validations.values()),
-            "owners": (
-                {
-                    "id": f"owner:{model_id}",
-                    "intent_id": f"intent:{model_id}",
-                    "boundary_id": f"boundary:{model_id}",
-                    "current": True,
-                },
-            ),
-            "initial_state_ids": tuple(sorted(initial_state_ids)),
-            "terminal_state_ids": tuple(sorted(terminal_state_ids)),
+    # Compare the exact declared responsibility universe, including neighbors
+    # named by a cross-model objective. Evidence is supplied by the existing
+    # terminal owner consumer, never by self-attestation in a declaration.
+    evidence = dict(semantic_evidence or {})
+    allowed_evidence = {
+        "binding_report", "implementation_inventory", "code_contracts", "native_contracts", "native_results",
+        "native_bindings", "receipts", "receipt_contexts", "raw_artifact_root",
+        "current_source_fingerprints", "current_native_identities", "native_input_class_ids",
+        "implementation_inventory", "root", "licensed_adapter_pairs",
+        "current_delegation_relation_ids", "delegation_evidence_bindings",
+        "measurements", "measurement_evidence", "responsibility_evidence_bindings",
+        "observed_source_inputs",
+    }
+    if set(evidence) - allowed_evidence:
+        raise ValueError("unknown architecture evidence fields")
+    from dataclasses import replace
+    responsibilities = tuple(
+        ArchitectureResponsibilityFact.from_dict(row)
+        for _, _, source, _, _ in declarations
+        for row in source.model_facts.get("responsibilities", ())
+    )
+    if len({row.responsibility_id for row in responsibilities}) != len(responsibilities):
+        raise ValueError("duplicate architecture responsibility identity")
+    bound_responsibilities = tuple(replace(row, semantic_evidence_bindings=tuple(
+        evidence.get("responsibility_evidence_bindings", {}).get(row.responsibility_id, ())
+    )) for row in responsibilities)
+    proof_keys = {
+        "binding_report", "implementation_inventory", "code_contracts", "native_contracts", "native_results",
+        "native_bindings", "receipts", "receipt_contexts", "raw_artifact_root",
+        "current_source_fingerprints", "current_native_identities", "native_input_class_ids",
+        "observed_source_inputs",
+    }
+    reviews = tuple(verify_responsibility_semantic_evidence(row, **{
+        key: value for key, value in evidence.items() if key in proof_keys
+    }) for row in bound_responsibilities)
+    relations = derive_architecture_relation_candidates(
+        bound_responsibilities, semantic_reviews=reviews,
+        licensed_adapter_pairs=evidence.get("licensed_adapter_pairs", ()),
+        objectives=objective_projection,
+    )
+    objective_keys = {"code_contracts", "current_delegation_relation_ids", "delegation_evidence_bindings", "measurements", "measurement_evidence", "binding_report", "implementation_inventory", "current_source_fingerprints", "root"}
+    native_materials = {key: evidence[key] for key in (
+        "native_contracts", "native_bindings", "native_results", "receipts",
+        "receipt_contexts", "raw_artifact_root", "current_native_identities") if key in evidence}
+    objectives = evaluate_architecture_objectives(
+        objective_projection, bound_responsibilities,
+        semantic_reviews=reviews, native_materials=native_materials,
+        effective_intent_view=effective_intent_view,
+        **{key: value for key, value in evidence.items() if key in objective_keys},
+    )
+    pending, model_gaps = [], []
+    for model_id, instance, source, cases, result_fp in declarations:
+        facts = dict(source.model_facts)
+        scoped_objectives = tuple(obj for obj in objective_projection if model_id in obj.objective.model_ids)
+        local_responsibilities = tuple(row for row in bound_responsibilities if row.model_id == model_id)
+        local_ids = {row.responsibility_id for row in local_responsibilities}
+        local_objective_ids = {obj.objective.objective_id for obj in scoped_objectives}
+        local_relations = [row for row in relations["relations"] if local_ids & set(row["responsibility_ids"])]
+        # All receipt-derived bindings belong to the consumer detail; the
+        # original declaration and immutable raw source are never rewritten.
+        coverage_gaps = verify_declared_source_scope_coverage(source, **{
+            key: value for key, value in evidence.items()
+            if key in {"implementation_inventory", "binding_report", "root"}
+        })
+        semantic_gaps = {gap + ":" + row.responsibility_id for row, review in zip(bound_responsibilities, reviews)
+                         if row.model_id == model_id for gap in review.gap_ids}
+        objective_gaps = _scoped_architecture_objective_gaps(objectives["observation_gap_ids"], local_objective_ids)
+        improvement_gaps = _scoped_architecture_objective_gaps(objectives["improvement_gap_ids"], local_objective_ids)
+        findings = [finding for finding in relations["finding_ids"] if any(identifier in finding for identifier in local_ids)]
+        architecture = {
+            "schema": "flowguard.architecture_facts.v1",
+            "declared_source_fingerprint": source.fingerprint,
+            "effective_intent_view_fingerprint": effective_intent_view.fingerprint,
+            "objective_refs": [obj.to_dict() for obj in scoped_objectives],
+            "responsibilities": [row.to_dict() for row in local_responsibilities],
+            "semantic_evidence_bindings": [proof.to_dict() for row, review in zip(bound_responsibilities, reviews)
+                if row.model_id == model_id and review.ready for proof in row.semantic_evidence_bindings],
+            "relations": local_relations, "finding_ids": findings,
+            "suggestions": [row for row in objectives["suggestions"] if row["objective_id"] in local_objective_ids]
+                + [row for row in relations["rewrite_candidates"] if local_ids & set(row["responsibility_ids"])],
+            "observation_gap_ids": sorted(set(coverage_gaps) | semantic_gaps | objective_gaps),
+            "improvement_gap_ids": sorted(improvement_gaps),
+            "facts_scope": source.graph_scope, "scope_coverage": dict(source.scope_coverage),
+            "source_refs": list(source.source_refs),
         }
-        retained = tuple(derive_retained_elements(facts))
-        obligations = tuple(
-            sorted(f"obligation:{element_id}" for element_id, _kind in retained)
-        )
-        evidence_fingerprint = run.native_case_result_artifact_fingerprint
+        facts["architecture"] = architecture
+        retained = derive_retained_elements(facts)
+        obligations = tuple(sorted(row.source_case_id for row in cases))
         subject = PathQualitySubject(
-            model_id=model_id,
-            boundary_id=f"boundary:{model_id}",
+            model_id=model_id, boundary_id=f"boundary:{model_id}",
             model_fingerprint=instance.fingerprint,
             normalized_facts_fingerprint=normalized_model_facts_fingerprint(facts),
             retained_element_inventory_fingerprint=canonical_fingerprint(dict(retained)),
             purpose_fingerprint=instance.purpose_closure_fingerprint,
-            intent_fingerprint=canonical_fingerprint(
-                {"model_id": model_id, "candidate": candidate.fingerprint}
-            ),
+            intent_fingerprint=effective_intent_view.fingerprint,
             obligation_fingerprint=canonical_fingerprint(list(obligations)),
-            provider_fingerprint=canonical_fingerprint(
-                {"owner_id": f"model:{model_id}", "runner": instance.runner_sha256}
-            ),
+            provider_fingerprint=source.fingerprint,
             dependency_fingerprint=instance.input_inventory_fingerprint,
-            code_fingerprint=canonical_fingerprint(
-                {row.path: row.sha256 for row in instance.inputs}
-            ),
+            code_fingerprint=canonical_fingerprint({row.path: row.sha256 for row in instance.inputs}),
             test_fingerprint=instance.runner_sha256,
-            oracle_fingerprint=canonical_fingerprint(
-                [row.oracle_fingerprint for row in cases]
-            ),
-            evidence_fingerprint=evidence_fingerprint,
-            currentness_id=currentness_id,
+            oracle_fingerprint=canonical_fingerprint([row.oracle_fingerprint for row in cases]),
+            evidence_fingerprint=result_fp, currentness_id=currentness_id,
         )
-        review = lightweight_path_review(
-            subject,
-            facts,
-        )
-        if not review.current or review.unresolved_ids:
-            raise ValueError(f"path-quality review is not current and closed: {model_id}")
+        # Base identities include all observed facts, goals and gaps. The two
+        # derived output fields are excluded by the shared identity helper,
+        # so subject-bound pointers cannot create a fingerprint cycle.
         subjects.append(subject)
-        reviews.append(review)
-    return tuple(subjects), tuple(reviews)
+        pending.append((subject, facts, source, result_fp))
+        if evidence.get("implementation_inventory") is not None and evidence.get("binding_report") is not None:
+            model_gaps.extend(derive_architecture_model_gaps(
+                source, implementation_inventory=evidence["implementation_inventory"],
+                binding_report=evidence["binding_report"], root=evidence.get("root")))
+    from .model_intent import derive_architecture_compromise_projection
+    compromises = ()
+    if intent_source_bytes_by_contribution_id is not None:
+        compromises = derive_architecture_compromise_projection(
+            effective_intent_view,
+            source_bytes_by_contribution_id=dict(intent_source_bytes_by_contribution_id),
+            objectives=objective_projection, responsibilities=bound_responsibilities,
+            subjects=tuple(subjects))
+    native_material_keys = {"native_contracts", "native_bindings", "native_results", "receipts", "receipt_contexts", "raw_artifact_root", "current_native_identities", "code_contracts"}
+    pointers = derive_architecture_improvement_pointers(
+        responsibilities=bound_responsibilities, subjects=tuple(subjects),
+        objectives=objective_projection, relations=relations,
+        objective_evaluation=objectives, semantic_reviews=reviews,
+        code_contracts=evidence.get("code_contracts", ()),
+        binding_report=evidence.get("binding_report"),
+        implementation_inventory=evidence.get("implementation_inventory"),
+        current_source_fingerprints=evidence.get("current_source_fingerprints"),
+        native_materials={key: value for key, value in evidence.items() if key in native_material_keys},
+        model_gaps=tuple(model_gaps), compromises=compromises)
+    for subject, facts, source, result_fp in pending:
+        model_id = subject.model_id
+        facts["architecture"]["improvement_pointers"] = [
+            pointer.to_dict() for pointer in pointers if model_id in pointer.model_ids]
+        findings = find_lightweight_findings(facts)
+        triggers = collect_deep_review_triggers(findings)
+        trigger_proof = canonical_fingerprint({"declaration": source.fingerprint, "native_result": result_fp, "findings": list(findings)})
+        result = lightweight_path_review(
+            subject, facts, trigger_evidence={trigger: trigger_proof for trigger in triggers},
+            trigger_currentness_id=currentness_id, detail_collector=details,
+        )
+        if not result.current or result.observation_gap_ids:
+            raise ValueError(f"path-quality observation blocked:{model_id}:{result.observation_gap_ids}")
+        results.append(result)
+    return tuple(subjects), tuple(results), tuple(details)
 
 
 def _release_leaf_blockers(
@@ -2523,14 +2848,19 @@ def _change_current_operation(
     from .model_intent import ModelIntentContribution, ModelIntentDisposition
     from .model_intent_authority import EffectiveIntentTransition
     from .model_regressions import (
+        ModelRegressionManifest,
         prepare_model_regression_plan,
         run_manifest_regressions,
+        select_entries,
+        verify_selected_reverse_surface_map_currentness,
     )
-    from .model_revision_builder import build_current_model_revision
+    from .model_revision_builder import (
+        build_current_model_revision,
+        preflight_current_model_revision_inputs,
+    )
     from .model_revision_owner_evidence import produce_model_revision_owner_evidence
     from .model_revision_plan import preview_current_model_revision
     from .model_revision_set import RevisionRemovalDisposition
-    from .model_system_inventory import build_manifest_model_system_snapshot
 
     expected_current = request["expected_current"]
     if not isinstance(expected_current, str) or not expected_current.strip():
@@ -2712,6 +3042,42 @@ def _change_current_operation(
         RevisionRemovalDisposition.from_dict(row)
         for row in preparation["removal_dispositions"]
     )
+    reverse_surface_admission = None
+    try:
+        current_manifest = ModelRegressionManifest.load(root)
+        discovery_errors, reverse_surface_admission = verify_selected_reverse_surface_map_currentness(
+            root,
+            current_manifest,
+            select_entries(current_manifest, tier="full"),
+        )
+    except (OSError, TypeError, ValueError, RuntimeError) as exc:
+        discovery_errors = (
+            "current reverse-surface discovery/map preflight failed "
+            f"({type(exc).__name__}: {exc})",
+        )
+        reverse_surface_admission = None
+    if discovery_errors:
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "current_reverse_surface_discovery_not_current",
+            "target_id": head.system_id,
+            "bootstrap": False,
+            "required_count": 0,
+            "producer_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "write_count": 0,
+            "authority_write_count": 0,
+            "head": head.to_dict(),
+            "blockers": ["current_reverse_surface_discovery_not_current"],
+            "error": "; ".join(discovery_errors),
+            "claim_boundary": (
+                "Current reverse-surface source discovery and its semantic map "
+                "must be current before candidate preview, model-owner admission, "
+                "or any receipt/authority write."
+            ),
+        }
     plan = preview_current_model_revision(
         root, snapshot_id=str(preparation["snapshot_id"])
     )
@@ -2719,13 +3085,12 @@ def _change_current_operation(
         raise ValueError("current change preview is blocked or contains no change")
     if plan.observed_head_fingerprint != head.fingerprint:
         raise ValueError("current change preview does not match expected current head")
-    preview_candidate = build_manifest_model_system_snapshot(
-        root,
-        snapshot_id=str(preparation["snapshot_id"]),
-        system_id=base.system_id,
-        subject_lane=base.subject_lane,
-        lifecycle=base.lifecycle,
-    )
+    preview_candidate = plan.candidate_snapshot
+    if (
+        preview_candidate is None
+        or preview_candidate.fingerprint != plan.candidate_snapshot_fingerprint
+    ):
+        raise ValueError("current change preview omitted its exact candidate snapshot")
     current_state = load_current_model_authority_state(
         root,
         head=head,
@@ -2756,9 +3121,61 @@ def _change_current_operation(
             if member.operation in {"add", "replace"}
         )
     )
+    try:
+        candidate_effective_intent_view = preflight_current_model_revision_inputs(
+            root,
+            candidate_snapshot=preview_candidate,
+            expected_head_fingerprint=head.fingerprint,
+            removal_dispositions=removals,
+            intent_contributions=contributions,
+            intent_dispositions=dispositions,
+            effective_intent_transitions=transitions,
+            accepted_boundary_contract=plan.accepted_boundary_contract,
+        )
+        from .model_intent import derive_architecture_objective_projection
+        source_bytes_by_id, source_byte_cache = {}, {}
+        identities = {identity.contribution_id: identity for identity in candidate_effective_intent_view.verified_source_identities}
+        for contribution in candidate_effective_intent_view.active_contributions:
+            has_objective = any(identifier.startswith("objective:") for identifier in contribution.target_invariant_ids)
+            if not has_objective and not contribution.source_ref.endswith(".md"):
+                continue
+            identity = identities[contribution.contribution_id]
+            reference = identity.resolved_project_ref if identity.authority_kind == "project_file" else identity.source_ref
+            source_path = (root / reference).resolve()
+            if root.resolve() not in source_path.parents or not source_path.is_file():
+                if has_objective:
+                    raise ValueError("architecture_objective_source_missing")
+                continue
+            if source_path not in source_byte_cache:
+                source_byte_cache[source_path] = source_path.read_bytes()
+            source_bytes_by_id[contribution.contribution_id] = source_byte_cache[source_path]
+        candidate_architecture_objectives = derive_architecture_objective_projection(
+            candidate_effective_intent_view, source_bytes_by_contribution_id=source_bytes_by_id,
+        )
+    except (ModelAuthorityError, OSError, TypeError, ValueError, RuntimeError) as exc:
+        return {
+            "operation": "change",
+            "status": "blocked",
+            "reason": "revision_input_preflight_failed",
+            "target_id": head.system_id,
+            "bootstrap": False,
+            "required_count": len(required_quality_ids),
+            "producer_count": 0,
+            "run_count": 0,
+            "reused_count": 0,
+            "write_count": 0,
+            "authority_write_count": 0,
+            "affected_model_ids": list(required_quality_ids),
+            "head": head.to_dict(),
+            "blockers": ["revision_input_preflight_failed"],
+            "error": str(exc),
+            "claim_boundary": (
+                "Typed revision input, source, removal, or boundary-contract "
+                "validation failed before any model owner or receipt write."
+            ),
+        }
     receipt_root = root / ".flowguard" / "evidence" / "model-owner-receipts"
     output_root = root / "work" / f"change-{request_sha256[:12]}"
-    receipt_root.mkdir(parents=True, exist_ok=True)
     try:
         prepared_plan = prepare_model_regression_plan(
             root,
@@ -2777,6 +3194,7 @@ def _change_current_operation(
             receipt_dir=receipt_root,
             require_executed_case_ids=True,
             prepared_plan=prepared_plan,
+            reverse_surface_admission=reverse_surface_admission,
         )
     except (OSError, TypeError, ValueError) as exc:
         completed_leaf_artifacts = tuple(
@@ -2860,20 +3278,45 @@ def _change_current_operation(
             snapshot_id=str(preparation["snapshot_id"]),
             receipt_root=receipt_root,
             output_path=output_root / "native-owner-evidence.json",
+            accepted_boundary_contract=plan.accepted_boundary_contract,
         )
-        candidate = build_manifest_model_system_snapshot(
-            root,
-            snapshot_id=str(preparation["snapshot_id"]),
-            system_id=base.system_id,
-            subject_lane=base.subject_lane,
-            lifecycle=base.lifecycle,
-        )
-        subjects, quality_results = _native_path_quality_material(
+        candidate = preview_candidate
+        from .architecture_native_material import collect_architecture_native_evidence
+        architecture_evidence = collect_architecture_native_evidence(
+            root=root, candidate=candidate, parent=parent,
+            planning_observation=prepared_plan.current_observation,
+            receipt_root=receipt_root)
+        subjects, quality_results, quality_details = _native_path_quality_material(
             parent,
             candidate,
-            required_model_ids=required_quality_ids,
+            # Every accepted detail binds the complete candidate intent view.
+            # Re-review reused exact native proofs against that view without
+            # leasing or executing their unaffected native owners again.
+            required_model_ids=tuple(
+                sorted(item.logical_model_id for item in candidate.model_instances)
+            ),
             currentness_id=candidate.fingerprint,
+            effective_intent_view=candidate_effective_intent_view,
+            objective_projection=candidate_architecture_objectives,
+            intent_source_bytes_by_contribution_id=source_bytes_by_id,
+            semantic_evidence={
+                "native_results": tuple(row for run in parent.results for row in run.native_case_results),
+                "current_source_fingerprints": {item.path: item.sha256 for instance in candidate.model_instances for item in instance.inputs},
+                "root": root,
+                **architecture_evidence,
+            },
         )
+        detail_root = output_root / "path-quality-details"
+        detail_root.mkdir(parents=True, exist_ok=True)
+        for detail in quality_details:
+            detail_path = detail_root / (detail.fingerprint.removeprefix("sha256:") + ".json")
+            detail_bytes = (json.dumps(detail.to_dict(), ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+            if detail_path.exists():
+                if detail_path.read_bytes() != detail_bytes:
+                    raise ValueError("architecture detail staging identity conflict")
+            else:
+                with detail_path.open("xb") as stream:
+                    stream.write(detail_bytes)
         built = build_current_model_revision(
             root,
             model_parent_receipt=parent.parent_receipt_path,
@@ -2889,6 +3332,7 @@ def _change_current_operation(
             native_owner_contracts=owner_report.bundle.contracts,
             native_owner_receipts=owner_report.bundle.receipts,
             native_owner_verification_results=owner_report.bundle.verification_results,
+            accepted_boundary_contract=plan.accepted_boundary_contract,
             path_quality_subjects=subjects,
             path_quality_results=quality_results,
             decision_reason=str(preparation["decision_reason"]),
@@ -2903,6 +3347,7 @@ def _change_current_operation(
             root,
             final_candidate,
             revision,
+            path_quality_details=quality_details,
         )
     except (OSError, TypeError, ValueError, RuntimeError) as exc:
         return _post_execution_failure(exc)

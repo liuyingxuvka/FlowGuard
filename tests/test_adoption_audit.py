@@ -117,6 +117,40 @@ class AdoptionAuditTests(unittest.TestCase):
             report.format_text(),
         )
 
+    def test_python_engine_owner_uses_executed_formal_proofs_without_reexploration(self):
+        import importlib.util
+        import sys
+        path = ROOT / ".flowguard/models/owners/python_function_state_verification/model.py"
+        name = "_flowguard_engine_formal_entry_fixture"
+        spec = importlib.util.spec_from_file_location(name, path)
+        self.assertIsNotNone(spec)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        try:
+            spec.loader.exec_module(module)
+            result = module.run_review()
+        finally:
+            sys.modules.pop(name, None)
+        rows = result["native_cases"]
+        self.assertTrue(all(row["ok"] for row in rows), rows)
+        formal = json.loads(result["formal_entry_json"])
+        self.assertTrue(formal["complete_executed_bad_cases"])
+        self.assertEqual({"minimum_model_review": "pass", "known_bad_proof": "pass", "model_check": "pass"}, formal["gates"])
+        actual_bad = {row["name"]: row for row in rows if row["case_kind"] == "bad"}
+        self.assertEqual(set(module.PROTECTED_FAILURE_IDS),
+                         {row["finding_codes"][0] for row in actual_bad.values()})
+        self.assertEqual(set(actual_bad), {proof["case_id"] for proof in formal["plan"]["known_bad_proofs"]})
+        for proof in formal["plan"]["known_bad_proofs"]:
+            row = actual_bad[proof["case_id"]]
+            self.assertEqual(row["observation_json"], proof["observed_failure"])
+            self.assertEqual("expected_violation", proof["observed_status"])
+            self.assertEqual(row["finding_codes"][0], proof["protected_error_class"])
+        self.assertNotEqual("pass", formal["missing_proof_status"])
+        self.assertTrue(any("missing_known_bad_proof" in item for item in formal["missing_proof_findings"]))
+        consumed = json.loads(next(row for row in rows if row["name"] == "runner_preserves_supplied_exploration_report")["observation_json"])
+        self.assertTrue(consumed["consumed_same_report"])
+        self.assertEqual((1, 1), (consumed["calls_before"], consumed["calls_after"]))
+
     def test_missing_flowguard_directory_is_plain_pass(self):
         with tempfile.TemporaryDirectory() as tmp:
             report = audit_flowguard_adoption(tmp, flowguard_available=True)

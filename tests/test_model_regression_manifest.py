@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import pytest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -28,7 +29,189 @@ from flowguard.model_purpose import build_model_purpose_closure, file_fingerprin
 from flowguard.validation_ownership import build_owner_current, resolve_input_manifest
 
 
+@pytest.mark.parametrize("values", (True, "obligation:one", [""], [False], [" obligation:one"], ["model-regression:sample"], ["obligation:one", "obligation:one"]))
+def test_r8_functional_owner_obligations_reject_ambiguous_identity(tmp_path, values):
+    row = ModelRegressionManifestTests.entry("sample", tmp_path)
+    row["functional_obligation_ids"] = values
+    with pytest.raises(ModelRegressionManifestError):
+        ModelRegressionEntry.from_dict(row)
+
+
+def test_r8_functional_owner_obligations_change_only_declared_owner_projection(tmp_path):
+    from dataclasses import replace
+    entry = ModelRegressionEntry.from_dict(ModelRegressionManifestTests.entry("sample", tmp_path))
+    other = replace(entry, model_id="other")
+    manifest = ModelRegressionManifest(tmp_path/"manifest.json", (entry,other), (), (), ())
+    before = manifest.owner_projection_fingerprint(entry)
+    unaffected = manifest.owner_projection_fingerprint(other)
+    changed = replace(entry, functional_obligation_ids=("obligation:one",))
+    assert changed.validation_obligation_ids == ("model-regression:sample", "obligation:one")
+    assert manifest.owner_projection_fingerprint(changed) != before
+    assert manifest.owner_projection_fingerprint(other) == unaffected
+
+
 class ModelRegressionManifestTests(unittest.TestCase):
+    @staticmethod
+    def source_selection_fixture(root, model_id="sample"):
+        for relative, body in (
+            (f".flowguard/models/owners/{model_id}/model.py", "VALUE = 1\n"),
+            (f".flowguard/verification/owners/{model_id}/run_checks.py", "print('ok')\n"),
+            ("tests/fixtures/current.py", "EXPECTED = 1\n"),
+        ):
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding="utf-8")
+        row = ModelRegressionManifestTests.entry(model_id, root)
+        row["input_globs"] = [
+            row["model_path"], row["runner"][1], "tests/fixtures/current.py",
+        ]
+        return row
+
+    def test_snapshot_owner_selection_agrees_for_ignored_literals_and_runtime_requests(self):
+        from flowguard.model_regressions import build_regression_model_instance
+
+        for git_repository in (False, True):
+            with self.subTest(git=git_repository), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                row = self.source_selection_fixture(root)
+                ignored = "ignored/maintenance-fixture.py"
+                runtime_request = ".flowguard/work/flowguard/read-request.json"
+                for relative in (ignored, runtime_request):
+                    path = root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("{}\n", encoding="utf-8")
+                row["input_globs"].extend((ignored, runtime_request))
+                if git_repository:
+                    (root / ".gitignore").write_text(
+                        "ignored/\n.flowguard/work/\n", encoding="utf-8"
+                    )
+                    subprocess.run(["git", "init", "-q", str(root)], check=True)
+                    subprocess.run(
+                        ["git", "-C", str(root), "add", ".gitignore",
+                         row["model_path"], row["runner"][1], "tests/fixtures/current.py"],
+                        check=True,
+                    )
+                entry = ModelRegressionEntry.from_dict(row)
+                snapshot_inputs = resolve_entry_input_inventory(root, entry)
+                owner_inputs = resolve_input_manifest(root, entry.effective_input_patterns)
+                self.assertEqual(owner_inputs, snapshot_inputs)
+                selected = {item["path"] for item in snapshot_inputs}
+                self.assertIn("tests/fixtures/current.py", selected)
+                self.assertNotIn(runtime_request, selected)
+                self.assertEqual(not git_repository, ignored in selected)
+                self.assertEqual(
+                    build_regression_model_instance(root, entry, owner_inputs).fingerprint,
+                    build_regression_model_instance(root, entry, snapshot_inputs).fingerprint,
+                )
+                (root / runtime_request).write_text('{"operation":"change"}\n', encoding="utf-8")
+                self.assertEqual(snapshot_inputs, resolve_entry_input_inventory(root, entry))
+                (root / "tests/fixtures/current.py").write_text("EXPECTED = 2\n", encoding="utf-8")
+                current_inputs = resolve_entry_input_inventory(root, entry)
+                self.assertNotEqual(snapshot_inputs, current_inputs)
+                self.assertEqual(current_inputs, resolve_input_manifest(root, entry.effective_input_patterns))
+
+    def test_snapshot_owner_selection_both_reject_governed_runtime_cache(self):
+        for git_repository in (False, True):
+            with self.subTest(git=git_repository), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                row = self.source_selection_fixture(root)
+                source = root / "tests/__pycache__/governed.py"
+                source.parent.mkdir(parents=True)
+                source.write_text("GOVERNED = True\n", encoding="utf-8")
+                if git_repository:
+                    subprocess.run(["git", "init", "-q", str(root)], check=True)
+                    subprocess.run(["git", "-C", str(root), "add", "tests"], check=True)
+                for selector in ("tests/__pycache__/governed.py", "tests/**/*.py"):
+                    row["input_globs"] = [row["model_path"], selector]
+                    entry = ModelRegressionEntry.from_dict(row)
+                    with self.subTest(selector=selector):
+                        with self.assertRaisesRegex(ValueError, "governed source cannot be hidden"):
+                            resolve_entry_input_inventory(root, entry)
+                        with self.assertRaisesRegex(ValueError, "governed source cannot be hidden"):
+                            resolve_input_manifest(root, entry.effective_input_patterns)
+
+    def test_snapshot_batch_selects_once_and_hashes_shared_inventory_once(self):
+        import flowguard.model_regressions as regression
+        import flowguard.model_system_inventory as inventory
+        from flowguard.validation_ownership import resolve_input_paths
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = [self.source_selection_fixture(root, model_id) for model_id in ("alpha", "beta")]
+            nested = root / "tests/fixtures/nested/current.py"
+            nested.parent.mkdir()
+            nested.write_text("EXPECTED = 2\n", encoding="utf-8")
+            wildcard = "tests/fixtures/**/*.py"
+            rows[1]["input_globs"].remove("tests/fixtures/current.py")
+            rows[1]["input_globs"].append(wildcard)
+            manifest_path = root / ".flowguard/models/regression-manifest.json"
+            manifest_path.write_text(json.dumps({
+                "schema_version": MANIFEST_SCHEMA,
+                "governed_input_globs": [".flowguard/**/*.py", wildcard],
+                "snapshot_only_input_globs": [], "shared_input_groups": [], "models": rows,
+            }), encoding="utf-8")
+            with patch.object(inventory, "resolve_input_paths", wraps=resolve_input_paths) as select, \
+                 patch.object(regression, "resolve_input_paths", side_effect=AssertionError("per-model selection")), \
+                 patch.object(regression, "_matches_declared_pattern", wraps=regression._matches_declared_pattern) as match, \
+                 patch.object(regression, "model_input_fingerprint", wraps=regression.model_input_fingerprint) as fingerprint:
+                snapshot = inventory.build_manifest_model_system_snapshot(root, snapshot_id="fixture:single-selection")
+            self.assertEqual(1, select.call_count)
+            self.assertEqual(2, len(snapshot.model_instances))
+            candidates = {item.path for instance in snapshot.model_instances for item in instance.inputs}
+            self.assertEqual(len(candidates), match.call_count)
+            self.assertEqual(candidates, {call.args[0] for call in match.call_args_list})
+            self.assertTrue(all(call.args[1] == wildcard for call in match.call_args_list))
+            entries = {entry.model_id: entry for entry in ModelRegressionManifest.load(root).entries}
+            for instance in snapshot.model_instances:
+                entry = entries[instance.logical_model_id]
+                owner_inputs = resolve_input_manifest(root, entry.effective_input_patterns)
+                expected = regression.build_regression_model_instance(root, entry, owner_inputs)
+                self.assertEqual(expected, instance)
+                nested_selected = "tests/fixtures/nested/current.py" in {item.path for item in instance.inputs}
+                self.assertEqual(instance.logical_model_id == "beta", nested_selected)
+            inventory_hash_paths = [call.args[1] for call in fingerprint.call_args_list]
+            # Count the inventory layer only; canonical instance materialization
+            # independently constructs its exact functional inputs afterward.
+            self.assertEqual(1, inventory_hash_paths.count("tests/fixtures/current.py"))
+            self.assertEqual(len(inventory_hash_paths), len(set(inventory_hash_paths)))
+            self.assertTrue(all(
+                "tests/fixtures/current.py" in {item.path for item in instance.inputs}
+                for instance in snapshot.model_instances
+            ))
+
+    def test_shared_selection_keeps_exact_map_and_escape_gates(self):
+        from flowguard.reverse_surface_map_identity import IMPLEMENTATION_SURFACE_MAP_PATH
+        from flowguard.validation_ownership import resolve_input_paths
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            row = self.source_selection_fixture(root)
+            entry = ModelRegressionEntry.from_dict(row)
+            map_path = root / IMPLEMENTATION_SURFACE_MAP_PATH
+            map_path.parent.mkdir(parents=True)
+            map_path.write_text("{}\n", encoding="utf-8")
+            # Broad selectors exclude generated maps, while an exact literal
+            # admits the regular path and its actual integrity parser rejects it.
+            self.assertNotIn(map_path, resolve_input_paths(root, (".flowguard/**/*.json",)))
+            self.assertIn(map_path, resolve_input_paths(root, (IMPLEMENTATION_SURFACE_MAP_PATH,)))
+            with self.assertRaises(ValueError):
+                resolve_entry_input_inventory(root, entry, additional_patterns=(IMPLEMENTATION_SURFACE_MAP_PATH,))
+            with self.assertRaises(ValueError):
+                resolve_input_manifest(root, (IMPLEMENTATION_SURFACE_MAP_PATH,))
+            map_path.unlink()
+            map_path.mkdir()
+            with self.assertRaisesRegex(ValueError, "regular|missing"):
+                resolve_input_paths(root, (IMPLEMENTATION_SURFACE_MAP_PATH,))
+            with tempfile.TemporaryDirectory() as outside:
+                external = Path(outside) / "governed.py"
+                external.write_text("GOVERNED = True\n", encoding="utf-8")
+                link = root / "tests/fixtures/escaped.py"
+                link.symlink_to(external)
+                with self.assertRaisesRegex(ValueError, "escapes repository"):
+                    resolve_input_paths(root, ("tests/fixtures/escaped.py",))
+                with self.assertRaisesRegex(ValueError, "outside repository|escapes repository"):
+                    resolve_entry_input_inventory(root, entry, additional_patterns=("tests/fixtures/escaped.py",))
+
     def test_flowguard_runtime_inputs_use_exact_model_owners_not_run_all(self):
         root = Path(__file__).resolve().parents[1]
         manifest = ModelRegressionManifest.load(root)
@@ -75,7 +258,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             ) as publish_current_rebuild:
                 report = self.current_parent_fixture(root)
 
-            self.assertEqual(2, len(resolve_manifest.call_args_list))
+            self.assertEqual(4, len(resolve_manifest.call_args_list))
             expected_observation_patterns = (
                 ".flowguard/models/owners/alpha/*.py",
                 ".flowguard/verification/owners/alpha/*.py",
@@ -84,11 +267,12 @@ class ModelRegressionManifestTests(unittest.TestCase):
                 "flowguard/evidence_receipts.py",
                 "flowguard/validation_ownership.py",
             )
-            self.assertTrue(
-                all(
-                    call.args[1] == expected_observation_patterns
-                    for call in resolve_manifest.call_args_list
-                )
+            self.assertEqual(
+                [expected_observation_patterns,
+                 expected_observation_patterns[:2],
+                 expected_observation_patterns[:2],
+                 expected_observation_patterns],
+                [call.args[1] for call in resolve_manifest.call_args_list],
             )
             self.assertEqual(0, publish_current_rebuild.call_count)
             diagnostics = report.to_dict()["validation_observation"]
@@ -97,7 +281,7 @@ class ModelRegressionManifestTests(unittest.TestCase):
             self.assertTrue(
                 diagnostics["final_freshness_fingerprint"].startswith("sha256:")
             )
-            self.assertEqual(0, diagnostics["per_leaf_source_current_rebuild_count"])
+            self.assertEqual(2, diagnostics["per_leaf_source_current_rebuild_count"])
             self.assertEqual(0, diagnostics["per_leaf_receipt_store_scan_count"])
             self.assertEqual(1, diagnostics["receipt_reconciliation_count"])
 

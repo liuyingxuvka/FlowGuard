@@ -11,6 +11,7 @@ the new decision and never remains authoritative by accident.
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 from dataclasses import replace
@@ -35,7 +36,7 @@ from flowguard.model_authority import (
     build_boundary_contract_from_snapshot,
     write_content_addressed_boundary_contract,
 )
-from flowguard.model_intent import ModelIntentDisposition
+from flowguard.model_intent import ModelIntentContribution, ModelIntentDisposition
 from flowguard.model_intent_authority import EffectiveIntentTransition
 from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
 from flowguard.model_revision_set import derive_revision_snapshot_diff
@@ -205,6 +206,104 @@ def _changed_models(diff) -> tuple[str, ...]:
             if member.operation in {"add", "replace"}
         )
     )
+
+
+def _added_model_intents(root, base, candidate, diff, reviewed_models,
+                         revision_token, relation_targets, occupied_ids=()):
+    """Author only typed additions licensed by independent current promises.
+
+    Source promises and purpose declarations are inputs, never native evidence.
+    Existing models without prior intent cannot enter this addition route.
+    """
+    from flowguard.behavior_commitment import (
+        load_behavior_commitment_ledger, audit_behavior_commitment_source_inventory,
+    )
+    from flowguard.model_authority import ModelInstanceRef, functional_source_fingerprint
+    from flowguard.model_regressions import ModelRegressionManifest
+
+    base_ids = {item.logical_model_id for item in base.model_instances}
+    candidate_by_id = {item.logical_model_id: item for item in candidate.model_instances}
+    if len(candidate_by_id) != len(candidate.model_instances):
+        raise RuntimeError("added model candidate contains duplicate identity")
+    added = {item.member_id for item in diff.members if item.operation == "add"}
+    if added != set(candidate_by_id) - base_ids or not added <= set(reviewed_models):
+        raise RuntimeError("added model intent requires exact typed candidate additions and explicit review")
+    if not added:
+        return ()
+    root = Path(root).resolve(strict=True)
+    manifest = ModelRegressionManifest.load(root)
+    entries = {item.model_id: item for item in manifest.entries}
+    ledger = load_behavior_commitment_ledger(root / ".flowguard/behavior/inventory/ledger.json")
+    audit = audit_behavior_commitment_source_inventory(ledger, root)
+    live = {item.surface_id: item for item in audit.surface_identities}
+    surfaces = {item.surface_id: item for item in ledger.source_surfaces}
+    occupied = set(occupied_ids)
+    result = []
+    for model_id in sorted(added):
+        model = candidate_by_id[model_id]
+        entry = entries.get(model_id)
+        if not isinstance(model, ModelInstanceRef) or entry is None or entry.excluded or entry.purpose_closure is None:
+            raise RuntimeError("added model lacks a typed current manifest/purpose declaration: " + model_id)
+        purpose = entry.purpose_closure
+        if (model.model_path != entry.model_path or model.runner_path != entry.runner[1]
+                or model.model_kind != entry.model_kind
+                or model.purpose_closure_fingerprint != purpose.closure_fingerprint
+                or model.model_sha256 != functional_source_fingerprint(root, entry.model_path)
+                or model.runner_sha256 != functional_source_fingerprint(root, entry.runner[1])
+                or purpose.model_sha256 != model.model_sha256
+                or purpose.runner_sha256 != model.runner_sha256):
+            raise RuntimeError("added model manifest/purpose/current Source identity differs: " + model_id)
+        promises = [item for item in ledger.commitments if item.in_scope
+                    and item.primary_owner_model_id == entry.model_path
+                    and item.metadata.get("primary_native_owner") == model_id]
+        if len(promises) != 1:
+            raise RuntimeError("added model needs one independent current normative functional promise: " + model_id)
+        promise = promises[0]
+        if len(promise.source_surface_ids) != 1 or not promise.evidence.model_obligation_ids:
+            raise RuntimeError("added model normative source/obligation binding is incomplete: " + model_id)
+        surface = surfaces.get(promise.source_surface_ids[0])
+        identity = live.get(promise.source_surface_ids[0])
+        if (surface is None or identity is None or not surface.in_scope
+                or surface.source_authority_role != "normative"
+                or surface.source_classification != "external_normative_contract"
+                or surface.content_fingerprint != identity.content_fingerprint
+                or surface.commitment_ids != (promise.commitment_id,)
+                or surface.business_intent_ids != (promise.business_intent_id,)
+                or surface.source_ref not in promise.source_refs
+                or any(item.surface_id == surface.surface_id for item in audit.findings)):
+            raise RuntimeError("added model normative source is missing, stale or foreign: " + model_id)
+        source_ref, separator, anchor = surface.source_ref.partition("#")
+        if not separator or not anchor or identity.member_paths != (source_ref,):
+            raise RuntimeError("added model normative source must have one exact authored anchor: " + model_id)
+        source = (root / source_ref).resolve(strict=True)
+        if not source.is_relative_to(root) or not source.is_file():
+            raise RuntimeError("added model normative source escapes current project: " + model_id)
+        text = source.read_text(encoding="utf-8")
+        start = text.find("## " + anchor + "\n")
+        end = text.find("\n## ", start + 1) if start >= 0 else -1
+        section = text[start:end if end >= 0 else len(text)]
+        if start < 0 or text.count("## " + anchor + "\n") != 1 or ("**Primary native model:** `" + model_id + "`.") not in section:
+            raise RuntimeError("added model authored anchor does not declare its exact primary owner: " + model_id)
+        new_id = f"current-design:{revision_token}:{model_id}:added"
+        if new_id in occupied:
+            raise RuntimeError("added model contribution identity is already occupied: " + new_id)
+        occupied.add(new_id)
+        result.append(ModelIntentContribution(
+            contribution_id=new_id, source_kind="requirement", source_ref=source_ref,
+            source_fingerprint=source_file_fingerprint(source), subject_lane="normative_target",
+            subject_role="requirement", lifecycle_state="active", decision_state="accepted",
+            logical_model_id="model:" + model_id, unresolved_owner_id="",
+            supersedes_contribution_ids=(), conflicts_with_contribution_ids=(),
+            target_obligation_ids=promise.evidence.model_obligation_ids,
+            target_state_ids=(), target_transition_ids=(), target_invariant_ids=(),
+            target_relation_ids=relation_targets[model_id], desired_terminal_state_ids=(),
+            target_output_ids=(), declared_consumer_ids=(), effective_revision=revision_token,
+            rationale=("Explicit current normative source " + surface.source_ref + ": "
+                       + promise.expected_result + " Failure boundary: " + promise.failure_boundary
+                       + " Native purpose: " + purpose.guarded_purpose
+                       + " Claim boundary: " + purpose.claim_boundary
+                       + " Registration and Source identity do not assert executed native success.")))
+    return tuple(result)
 
 
 def _relation_model_endpoint_deltas(
@@ -519,6 +618,141 @@ def _relation_targets(
     return {model: tuple(sorted(values)) for model, values in rows.items()}
 
 
+def _load_normative_target_extensions(path):
+    """Read the explicit input without accepting duplicate or nonfinite JSON."""
+    path = Path(path)
+    if path.is_symlink() or not path.is_file():
+        raise RuntimeError("normative target extension input is missing or symlinked")
+    def unique(pairs):
+        values = {}
+        for key, value in pairs:
+            if key in values:
+                raise RuntimeError("duplicate normative extension JSON key: " + key)
+            values[key] = value
+        return values
+    def nonfinite(value):
+        raise RuntimeError("nonfinite normative extension JSON number: " + value)
+    return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=unique,
+                      parse_constant=nonfinite)
+
+
+def _authenticate_normative_target_extensions(root, active, reviewed, payload):
+    """Admit explicit additions from current goals and actual code consumers.
+
+    This produces design inputs only. It does not certify native execution or
+    update authority, and it never drops a predecessor target.
+    """
+    if payload is None:
+        return {}
+    fields = ("target_invariant_ids", "target_obligation_ids",
+              "target_output_ids", "declared_consumer_ids")
+    if (not isinstance(payload, Mapping) or set(payload) != {"schema", "subjects"}
+            or payload["schema"] != "flowguard.normative_target_extensions.v1"
+            or not isinstance(payload["subjects"], list) or not payload["subjects"]):
+        raise RuntimeError("normative target extensions require exact current schema/subjects")
+    from flowguard.model_intent import ArchitectureObjectiveSource
+    from flowguard.native_case_runner import r9_functional_code_contracts
+    contracts = {x.code_contract_id: x for x in r9_functional_code_contracts()}
+    root = Path(root).resolve(strict=True)
+    result = {}
+    for row in payload["subjects"]:
+        if not isinstance(row, Mapping) or set(row) != {"logical_model_id", "source_ref", *fields}:
+            raise RuntimeError("normative extension subject requires exact fields")
+        matches = [x for x in active if x.logical_model_id == row["logical_model_id"]
+                   and x.source_ref == row["source_ref"]]
+        if len(matches) != 1:
+            raise RuntimeError("normative extension needs one exact predecessor/source")
+        prior = matches[0]
+        if (prior.contribution_id in result or prior.work_context_id
+                or prior.subject_lane != "normative_target"
+                or prior.logical_model_id.removeprefix("model:") not in reviewed):
+            raise RuntimeError("normative extension is duplicate, foreign or unreviewed")
+        merged = {}
+        for name in fields:
+            values = row[name]
+            if (not isinstance(values, list) or not values
+                    or any(not isinstance(x, str) or not x.strip() or x != x.strip() for x in values)
+                    or values != sorted(set(values))
+                    or set(values) & set(getattr(prior, name))):
+                raise RuntimeError("normative extension must declare canonical new additions: " + name)
+            merged[name] = tuple(sorted(set(getattr(prior, name)) | set(values)))
+        source = (root / prior.source_ref).resolve(strict=True)
+        if not source.is_relative_to(root) or not source.is_file():
+            raise RuntimeError("normative extension Source escapes project")
+        raw = source.read_bytes()
+        goals = ArchitectureObjectiveSource.from_source_bytes(raw).objectives
+        if {x.objective_id for x in goals} != set(merged["target_invariant_ids"]):
+            raise RuntimeError("normative extension goals differ from actual complete Source fence")
+        added_goals = [x for x in goals if x.objective_id in row["target_invariant_ids"]]
+        owner = prior.native_owner_id or prior.logical_model_id
+        if any(x.native_owner_id != owner or x.model_ids != (owner.removeprefix("model:"),)
+               or x.constraint_kind != "functional_obligations" for x in added_goals):
+            raise RuntimeError("normative extension goal has foreign owner or unsupported contract")
+        obligations = {v for x in added_goals for v in x.constraint_values["required_obligation_ids"]}
+        contract_ids = {v for x in added_goals for v in x.constraint_values["required_code_contract_ids"]}
+        if obligations != set(row["target_obligation_ids"]) or not contract_ids <= set(contracts):
+            raise RuntimeError("normative extension obligations/contracts are not Source-authenticated")
+        selected = [contracts[x] for x in sorted(contract_ids)]
+        if (not all(c.is_owner() and c.required for c in selected)
+                or {v for c in selected for v in c.implements_obligations} != obligations
+                or {v for c in selected for v in c.relation_code_obligation_ids} != obligations
+                or {v for c in selected for v in c.external_outputs} != set(row["target_output_ids"])):
+            raise RuntimeError("normative extension actual CodeContract outputs/obligations differ")
+        text = raw.decode("utf-8")
+        if any(("## " + output + "\n") not in text.replace("\r\n", "\n")
+               for output in row["target_output_ids"]):
+            raise RuntimeError("normative extension output needs an authored Source anchor")
+        callees = set()
+        for contract in selected:
+            path = (root / contract.path).resolve(strict=True)
+            if not path.is_relative_to(root):
+                raise RuntimeError("normative CodeContract Source escapes project")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            if not any(isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                       and n.name == contract.symbol for n in tree.body):
+                raise RuntimeError("normative CodeContract symbol does not exist")
+        for consumer in row["declared_consumer_ids"]:
+            prefix = "consumer:python:"
+            if not consumer.startswith(prefix):
+                raise RuntimeError("normative consumer requires explicit Python Source location")
+            module, separator, symbol = consumer[len(prefix):].rpartition(".")
+            if not separator:
+                raise RuntimeError("normative consumer location is incomplete")
+            path = (root / (module.replace(".", "/") + ".py")).resolve(strict=True)
+            if not path.is_relative_to(root):
+                raise RuntimeError("normative consumer Source escapes project")
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            nodes = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                     and n.name == symbol]
+            if len(nodes) != 1:
+                raise RuntimeError("normative consumer needs one actual Source function")
+            bindings = {n.name: module + "." + n.name for n in tree.body
+                        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+            for node in (*tree.body, *ast.walk(nodes[0])):
+                if isinstance(node, ast.ImportFrom):
+                    parts = module.split(".")[:-node.level] if node.level else []
+                    imported_module = ".".join(parts + ([node.module] if node.module else [])) if node.level else node.module
+                    for alias in node.names:
+                        if alias.name != "*":
+                            bindings[alias.asname or alias.name] = imported_module + "." + alias.name
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        bindings[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+            for call in (n for n in ast.walk(nodes[0]) if isinstance(n, ast.Call)):
+                name = call.func
+                suffix = []
+                while isinstance(name, ast.Attribute):
+                    suffix.insert(0, name.attr)
+                    name = name.value
+                if isinstance(name, ast.Name) and name.id in bindings:
+                    callees.add(".".join([bindings[name.id], *suffix]))
+        expected_callees = {c.path.removesuffix(".py").replace("/", ".") + "." + c.symbol for c in selected}
+        if not expected_callees <= callees:
+            raise RuntimeError("normative consumer does not call every added contract")
+        result[prior.contribution_id] = merged
+    return result
+
+
 def build_inputs(
     root: Path,
     *,
@@ -531,6 +765,7 @@ def build_inputs(
     accepted_boundary_contract=None,
     review_map: Mapping[str, object] | None = None,
     derive_reviewed_from_review_map: bool = False,
+    normative_target_extensions: Mapping[str, object] | None = None,
 ) -> dict[str, object]:
     head, base = load_observed_model_system(root)
     revision = load_current_accepted_revision_set(root, head=head, snapshot=base)
@@ -581,10 +816,14 @@ def build_inputs(
         candidate_snapshot=candidate,
     )
     active = revision.current_effective_intent_view.active_contributions
+    extensions = _authenticate_normative_target_extensions(
+        root, active, intent_review_models, normative_target_extensions,
+    )
     active_by_model = {
         item.logical_model_id.removeprefix("model:"): item for item in active
     }
-    missing = tuple(sorted(set(intent_review_models) - set(active_by_model)))
+    added_model_ids = {item.member_id for item in diff.members if item.operation == "add"}
+    missing = tuple(sorted(set(intent_review_models) - set(active_by_model) - added_model_ids))
     if missing:
         raise RuntimeError("changed models have no prior reviewed intent: " + ", ".join(missing))
 
@@ -600,6 +839,22 @@ def build_inputs(
     # past every occupied or already-generated id.
     occupied_contribution_ids = {item.contribution_id for item in active}
     generated_contribution_ids: set[str] = set()
+    added_contributions = _added_model_intents(
+        root, base, candidate, diff, intent_review_models, revision_token,
+        relation_targets, occupied_contribution_ids)
+    if any(item.logical_model_id.removeprefix("model:") in active_by_model for item in added_contributions):
+        raise RuntimeError("typed added model unexpectedly has accepted prior intent")
+    for contribution in added_contributions:
+        contributions.append(contribution)
+        generated_contribution_ids.add(contribution.contribution_id)
+        dispositions.append(ModelIntentDisposition(
+            contribution_id=contribution.contribution_id,
+            contribution_fingerprint=contribution.fingerprint, disposition="accepted",
+            changed_obligation_ids=(), changed_state_ids=(), changed_transition_ids=(),
+            changed_invariant_ids=(), scoped_gap_ids=(), conflict_ids=(),
+            unresolved_effect_ids=(), unreachable_terminal_state_ids=(), unconsumed_output_ids=(),
+            reason="Explicit current normative Source and exact manifest/purpose declaration license this added model; native execution and authority acceptance remain pending.",
+            changed_relation_ids=relation_targets[contribution.logical_model_id.removeprefix("model:")]))
     for prior in active:
         model_name = prior.logical_model_id.removeprefix("model:")
         if model_name not in intent_review_models:
@@ -653,6 +908,7 @@ def build_inputs(
             supersedes_contribution_ids=(prior.contribution_id,),
             effective_revision=revision_token,
             source_fingerprint=refreshed_source_fingerprint,
+            **extensions.get(prior.contribution_id, {}),
             rationale=(
                 "Manual review of the historical specification accepted this "
                 "intent as the current design source for a direct model rebuild. "
@@ -725,8 +981,9 @@ def build_inputs(
         "changed_models": list(intent_review_models),
         "snapshot_changed_models": list(changed),
         "active_intent_count": len(active),
-        "explicit_retain_count": len(active) - len(contributions),
-        "explicit_supersede_count": len(contributions),
+        "explicit_retain_count": sum(item.action == "retain" for item in transitions),
+        "explicit_supersede_count": sum(item.action == "supersede" for item in transitions),
+        "added_model_count": len(added_contributions),
         "intent_output": str(intent_output),
         "path_quality_output": str(path_quality_output),
         "path_quality_result_count": len(material.review.results),
@@ -740,6 +997,8 @@ def main() -> int:
     parser.add_argument("--revision-token", required=True)
     parser.add_argument("--reviewed-model", action="append", default=[])
     parser.add_argument("--review-map", type=Path)
+    parser.add_argument("--normative-target-extensions", type=Path,
+        help="Explicit current Source-authenticated target additions; no inferred targets.")
     parser.add_argument("--boundary-contract", type=Path)
     parser.add_argument(
         "--model-parent-receipt",
@@ -880,6 +1139,10 @@ def main() -> int:
             accepted_boundary_contract=boundary_contract,
             review_map=review_map,
             derive_reviewed_from_review_map=args.prepare_only,
+            normative_target_extensions=(
+                _load_normative_target_extensions(args.normative_target_extensions)
+                if args.normative_target_extensions is not None else None
+            ),
             intent_output=intent_output,
             path_quality_output=path_quality_output,
         )

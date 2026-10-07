@@ -1,0 +1,339 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:a4f5007b18f29d64270b6347204977a32ad1b91e451144e4c9bfa7e54ebf3ede",
+        "effective_intent_view_fingerprint": "sha256:bc0dc687c2084bb6a690a163f50ed7f5305ab52acfcd6bef62bc21da1ef0b353",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/mesh_target_split_derivation/model.py",
+            "source_fingerprint": "sha256:ccee399df79d49a0beff971b096f012b69dc80f7b7dbf7f14d4bdd3a09abc462"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:MeshDerivationState",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:evidence_review_after_derivation",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:mesh_kind",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:no_child_body_expansion",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:ownership_maps",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:parent_boundary",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:partition_coverage",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:rationale",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:source_flowguard_model",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:mesh_target_split_derivation:target_children",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "MeshDerivationCase",
+          "effects": [],
+          "id": "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation",
+          "inputs": [
+            "external-input:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d"
+          ],
+          "outputs": [
+            "output:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:mesh_target_split_derivation:MeshDerivationState"
+          ],
+          "state_input": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0",
+          "state_output": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:1",
+          "validations": [
+            "validation:mesh_target_split_derivation:invariant:parent_mesh_requires_derivation_source",
+            "validation:mesh_target_split_derivation:invariant:target_children_are_derived",
+            "validation:mesh_target_split_derivation:invariant:partition_coverage_is_derived",
+            "validation:mesh_target_split_derivation:invariant:ownership_maps_are_structured",
+            "validation:mesh_target_split_derivation:invariant:evidence_review_follows_derivation",
+            "validation:mesh_target_split_derivation:invariant:parent_mesh_consumes_child_contracts"
+          ],
+          "writes": [
+            "field:mesh_target_split_derivation:case_name",
+            "field:mesh_target_split_derivation:mesh_kind",
+            "field:mesh_target_split_derivation:parent_boundary",
+            "field:mesh_target_split_derivation:source_flowguard_model",
+            "field:mesh_target_split_derivation:target_children",
+            "field:mesh_target_split_derivation:partition_coverage",
+            "field:mesh_target_split_derivation:ownership_maps",
+            "field:mesh_target_split_derivation:rationale",
+            "field:mesh_target_split_derivation:evidence_review_after_derivation",
+            "field:mesh_target_split_derivation:no_child_body_expansion"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation",
+          "producer_id": "transition:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation",
+          "outputs": [
+            "output:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation"
+          ],
+          "reads": [
+            "field:mesh_target_split_derivation:MeshDerivationState"
+          ],
+          "source": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0",
+          "target": "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:1",
+          "trigger": "MeshDerivationCase",
+          "validations": [
+            "validation:mesh_target_split_derivation:invariant:parent_mesh_requires_derivation_source",
+            "validation:mesh_target_split_derivation:invariant:target_children_are_derived",
+            "validation:mesh_target_split_derivation:invariant:partition_coverage_is_derived",
+            "validation:mesh_target_split_derivation:invariant:ownership_maps_are_structured",
+            "validation:mesh_target_split_derivation:invariant:evidence_review_follows_derivation",
+            "validation:mesh_target_split_derivation:invariant:parent_mesh_consumes_child_contracts"
+          ],
+          "writes": [
+            "field:mesh_target_split_derivation:case_name",
+            "field:mesh_target_split_derivation:mesh_kind",
+            "field:mesh_target_split_derivation:parent_boundary",
+            "field:mesh_target_split_derivation:source_flowguard_model",
+            "field:mesh_target_split_derivation:target_children",
+            "field:mesh_target_split_derivation:partition_coverage",
+            "field:mesh_target_split_derivation:ownership_maps",
+            "field:mesh_target_split_derivation:rationale",
+            "field:mesh_target_split_derivation:evidence_review_after_derivation",
+            "field:mesh_target_split_derivation:no_child_body_expansion"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:evidence_review_follows_derivation",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:evidence_review_follows_derivation",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:evidence_review_follows_derivation",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        },
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:ownership_maps_are_structured",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:ownership_maps_are_structured",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:ownership_maps_are_structured",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        },
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:parent_mesh_consumes_child_contracts",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:parent_mesh_consumes_child_contracts",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:parent_mesh_consumes_child_contracts",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        },
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:parent_mesh_requires_derivation_source",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:parent_mesh_requires_derivation_source",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:parent_mesh_requires_derivation_source",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        },
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:partition_coverage_is_derived",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:partition_coverage_is_derived",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:partition_coverage_is_derived",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        },
+        {
+          "evidence_boundary_id": "native-runner:mesh_target_split_derivation",
+          "id": "validation:mesh_target_split_derivation:invariant:target_children_are_derived",
+          "obligation_id": "obligation:native-invariant:mesh_target_split_derivation:target_children_are_derived",
+          "oracle_id": "oracle:native-invariant:mesh_target_split_derivation:target_children_are_derived",
+          "subject_fingerprint": "sha256:3ffdf85fbd577002ac04df075c17539674d2b536603c9afeceaf5ad602462532"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:mesh_target_split_derivation:MeshDerivationState": "field",
+      "field:mesh_target_split_derivation:case_name": "field",
+      "field:mesh_target_split_derivation:evidence_review_after_derivation": "field",
+      "field:mesh_target_split_derivation:mesh_kind": "field",
+      "field:mesh_target_split_derivation:no_child_body_expansion": "field",
+      "field:mesh_target_split_derivation:ownership_maps": "field",
+      "field:mesh_target_split_derivation:parent_boundary": "field",
+      "field:mesh_target_split_derivation:partition_coverage": "field",
+      "field:mesh_target_split_derivation:rationale": "field",
+      "field:mesh_target_split_derivation:source_flowguard_model": "field",
+      "field:mesh_target_split_derivation:target_children": "field",
+      "function-block:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation": "function_block",
+      "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0": "state",
+      "state:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:1": "state",
+      "transition:workflow:mesh_target_split_derivation:mesh_target_split_derivation_rollout:0:aa4401b0df6d:0:EvaluateMeshDerivation": "transition",
+      "validation:mesh_target_split_derivation:invariant:evidence_review_follows_derivation": "validation",
+      "validation:mesh_target_split_derivation:invariant:ownership_maps_are_structured": "validation",
+      "validation:mesh_target_split_derivation:invariant:parent_mesh_consumes_child_contracts": "validation",
+      "validation:mesh_target_split_derivation:invariant:parent_mesh_requires_derivation_source": "validation",
+      "validation:mesh_target_split_derivation:invariant:partition_coverage_is_derived": "validation",
+      "validation:mesh_target_split_derivation:invariant:target_children_are_derived": "validation"
+    },
+    "subject_fingerprint": "sha256:a53a72a3b292a77e35c246d22d61c6ca0f6bd50d069e39ef89c12285972b0bfc",
+    "trigger_currentness_id": "sha256:64136c70f1eeaaefe1621b5f8d792b1e5f77a33d81e33cc1ed8337a6ff0354f1",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:1efea37a280f0f59de486a006358b28ccfe51324a306aa8592353af402673d36",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

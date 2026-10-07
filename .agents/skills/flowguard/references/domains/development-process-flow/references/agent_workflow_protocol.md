@@ -3,10 +3,13 @@
 `agent_workflow` is an internal `development_process_flow` route for capability
 selection and sequencing across skills, tools, plugins, or external actions.
 Requests explicitly naming AgentWorkflowRehearsal or carrying an admitted
-cross-owner/shared-write, post-validation-invalidating-write, agent/route
-workflow-change, or multiple-independent-owner irreversible-risk fact enter
-`DevelopmentProcessFlow`; no public alias exists. Capability labels
-alone stay `not_triggered`.
+shared-write, post-validation-invalidating-write, agent/route workflow-change,
+or multiple-independent-owner irreversible-risk fact enter
+`DevelopmentProcessFlow`; no public alias exists. Capability labels alone
+stay `not_triggered`. An ordinary cross-owner handoff uses the existing
+DevelopmentProcessFlow freshness review; shared writes, post-validation
+invalidation, route changes, multiple-owner irreversible effects, and an
+explicit rehearsal request still enter this route.
 
 The route references other skills, tools, plugins, or external actions as
 inventory only; it does not execute or supervise them, and each owner retains
@@ -22,6 +25,17 @@ validation guidance, and whether its full instructions require deeper reading.
 For non-trivial operations, recall same-plane `agent_operation` commitments
 before selecting a new playbook. Product and process behavior remains typed
 target context and never becomes an AI-operation owner.
+
+An invocation is one admitted bounded workflow decision, not every tool call,
+file edit, progress update, or peer completion. Read the current available
+capability catalog once when this decision opens; deeply read only selected
+capabilities and their named dependencies. Freeze selected owners, ordered
+steps, disjoint write sets, evidence dependencies, and the diagnostic boundary
+for that batch. A completed step continues the same batch and does not reopen
+skill discovery or rehearsal. Reopen only the affected decision when a real
+capability/owner/side-effect/dependency/accepted-scope fact changes. A resumed
+session must recheck current availability before relying on an old plan; an
+old snapshot never becomes current merely because its id matches.
 
 ## Plan Shape
 

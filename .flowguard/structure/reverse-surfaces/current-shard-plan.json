@@ -1,0 +1,2912 @@
+{
+  "claim_boundary": "Complete production implementation-surface partition plan; semantic intent/model/test closure is not inferred.",
+  "entries": [
+    {
+      "source_bytes": 32,
+      "source_fingerprint": "sha256:f31c65a4a1f85c08c33392966ffbf523c11e5be9ddef7dfb9e46101086cc4b9b",
+      "source_path": "examples/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 11216,
+      "source_fingerprint": "sha256:41a766273becb45440f5e6c64ca8d1712c0f04b7bc6e459e403d2bb04dfb289b",
+      "source_path": "examples/adoption_review_helper/model.py",
+      "surface_count": 39
+    },
+    {
+      "source_bytes": 1031,
+      "source_fingerprint": "sha256:15ae6d04a992756b167bb713bb04c758d3a457d9f44bd660e95a9ba504e89e52",
+      "source_path": "examples/adoption_review_helper/run_review.py",
+      "surface_count": 10
+    },
+    {
+      "source_bytes": 46,
+      "source_fingerprint": "sha256:becb2d8ecd880f3793a74c33d8a4db54cd361154d78b058154e0bd886cae30d0",
+      "source_path": "examples/assumption_card_safety/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 9415,
+      "source_fingerprint": "sha256:1718410eba7eb536cf5a8c559c7351bc6384f560c9b1f9d95f8a9e714633f7cf",
+      "source_path": "examples/assumption_card_safety/model.py",
+      "surface_count": 48
+    },
+    {
+      "source_bytes": 1427,
+      "source_fingerprint": "sha256:9ce3379c17a2875aa6a0c7157efd59c88e291d420c28e2c8fb30df21f7fe40ab",
+      "source_path": "examples/assumption_card_safety/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 70,
+      "source_fingerprint": "sha256:1ec10416d4290c20af2327102d14bc29cfe8c951917589ee0351e95dc7962f4c",
+      "source_path": "examples/bounded_system_composition/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 6497,
+      "source_fingerprint": "sha256:5aee778322026f0d183e0c14eb983dd4a2017bca9c87ab89458dbae7cff5b0b2",
+      "source_path": "examples/bounded_system_composition/benchmark.py",
+      "surface_count": 30
+    },
+    {
+      "source_bytes": 274,
+      "source_fingerprint": "sha256:0165bcc0264fb4d36b8dd250ddb6af47020988161f55e115e07d74fc127a41ab",
+      "source_path": "examples/bounded_system_composition/run_benchmark.py",
+      "surface_count": 2
+    },
+    {
+      "source_bytes": 51,
+      "source_fingerprint": "sha256:b50f8c1bce5b35aedc767bf4f5b13145fc60d967716ab55fc482ff686b606860",
+      "source_path": "examples/budgeted_model_groups/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 17305,
+      "source_fingerprint": "sha256:b0e4a7f109d88b2c7304d096d915724dbee88f62a477ac719061d33b89ae568f",
+      "source_path": "examples/budgeted_model_groups/model.py",
+      "surface_count": 77
+    },
+    {
+      "source_bytes": 543,
+      "source_fingerprint": "sha256:f720beeeb6ae9e899c188bca01517907110ae913910578db56ac10de5a7c2f33",
+      "source_path": "examples/budgeted_model_groups/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 2326,
+      "source_fingerprint": "sha256:335d8904ed2c7333b99c4eae42b26a2f7b01051db4810324f909531004cb14a0",
+      "source_path": "examples/budgeted_model_groups/run_large_graph_example.py",
+      "surface_count": 17
+    },
+    {
+      "source_bytes": 41,
+      "source_fingerprint": "sha256:6bee27893a3a5ba7338b1eab47172204ab0357486ac4944b4e751e51ad7a9e7b",
+      "source_path": "examples/evidence_baseline/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 10776,
+      "source_fingerprint": "sha256:54d1bfa929935c82738b9804a63d409d5bdbe9b275ac222a30ce53fa3db6c3ca",
+      "source_path": "examples/evidence_baseline/baseline.py",
+      "surface_count": 34
+    },
+    {
+      "source_bytes": 510,
+      "source_fingerprint": "sha256:14d23cd600670f97962026b54848e25539638fb321fbcecc2d172b27b095d05c",
+      "source_path": "examples/evidence_baseline/run_baseline.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 61,
+      "source_fingerprint": "sha256:cffb16f4f0ab8c224bf2c48e7d24783504485b144affe48dbfd5683c23aea31d",
+      "source_path": "examples/flowguard_agent_workflow_rehearsal/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 11896,
+      "source_fingerprint": "sha256:fb4e29eae5590aaea39ac77602940c7e222b6af09c5f2775774d6eeb90ce3ca8",
+      "source_path": "examples/flowguard_agent_workflow_rehearsal/model.py",
+      "surface_count": 24
+    },
+    {
+      "source_bytes": 617,
+      "source_fingerprint": "sha256:69021afe6788f13b8aeb6ceede196e67697ebcda1bb63eccbbf8f192db3310b6",
+      "source_path": "examples/flowguard_agent_workflow_rehearsal/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 54,
+      "source_fingerprint": "sha256:2faa75a03aba238fffb1fddad2b9b35f66f7fac5311b78cb4a74bf134807f3ad",
+      "source_path": "examples/flowguard_product_boundary/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 20413,
+      "source_fingerprint": "sha256:7026d4af5cce419e8fb49030722ec0b2fa5dde0895de588abf11f09a6fbcb05c",
+      "source_path": "examples/flowguard_product_boundary/model.py",
+      "surface_count": 81
+    },
+    {
+      "source_bytes": 584,
+      "source_fingerprint": "sha256:b9b2218ae8973dfb8e9ba4bb30616663dfd24e68a66ac6680d107c47cebe0d7d",
+      "source_path": "examples/flowguard_product_boundary/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 14918,
+      "source_fingerprint": "sha256:40602db89c5aa5bff2a5bb81a30467a8cb9d64e20ca030eb1ec6ac7d273f9b92",
+      "source_path": "examples/flowguard_progress_heartbeat/model.py",
+      "surface_count": 72
+    },
+    {
+      "source_bytes": 353,
+      "source_fingerprint": "sha256:e4b7160d146cf0d9050a9880c4ec69d5e1a6cb7013f187b854f364063831029d",
+      "source_path": "examples/flowguard_progress_heartbeat/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 70,
+      "source_fingerprint": "sha256:71830952fad7a78ec43be6407ea5212225b246f151837b30956722b216627afa",
+      "source_path": "examples/flowguard_runner_self_review/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 17511,
+      "source_fingerprint": "sha256:bd7f17ba9457e2aa73abca06b6df0a71940d91f6cdb4f8555c5a17ed4c60a43c",
+      "source_path": "examples/flowguard_runner_self_review/model.py",
+      "surface_count": 59
+    },
+    {
+      "source_bytes": 894,
+      "source_fingerprint": "sha256:bc6b43a5ae6c0d233c04e6b7d22aa9f0619ee4041346a0798fa99670c7b093a1",
+      "source_path": "examples/flowguard_runner_self_review/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 73,
+      "source_fingerprint": "sha256:d2ce29ce4a21e78e8fb050689e8b73e56889169c94b1e70e90e67cfa0582e2aa",
+      "source_path": "examples/flowguard_self_review/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 5008,
+      "source_fingerprint": "sha256:382ee3ba4722817bf10d2d6527f17dcfcfd04b7f07eea68c73ce74100181fbcd",
+      "source_path": "examples/flowguard_self_review/conformance.py",
+      "surface_count": 40
+    },
+    {
+      "source_bytes": 45660,
+      "source_fingerprint": "sha256:1e062ce6a9de48e537cf9c92864b5416d6b008c90ee2a6f5e42b01a911e7c49b",
+      "source_path": "examples/flowguard_self_review/model.py",
+      "surface_count": 196
+    },
+    {
+      "source_bytes": 10536,
+      "source_fingerprint": "sha256:11996a3bac7d9051715a3b2831f4368eac89a45f4d60b309416c353ce2fc0fb3",
+      "source_path": "examples/flowguard_self_review/orchestrator.py",
+      "surface_count": 37
+    },
+    {
+      "source_bytes": 1899,
+      "source_fingerprint": "sha256:dd71511d52933a4c732293e5e7821ff487a26e36db4a3f0ed0447ac6b941833a",
+      "source_path": "examples/flowguard_self_review/run_conformance.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 541,
+      "source_fingerprint": "sha256:f3e3c8d0dfe9495d508179ef9f33a2ace730080937ee7b3a7d828e25d122be6d",
+      "source_path": "examples/flowguard_self_review/run_self_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 79,
+      "source_fingerprint": "sha256:324d8cf1f0f01e31c0c5a3b4004b82cec8b276597a3f2c2d5530fd079830d816",
+      "source_path": "examples/flowguard_skill_collaboration/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 32155,
+      "source_fingerprint": "sha256:31a41e8ee296f872afc3eb47de6d4df98e242247699a254b8df4efc7457c935b",
+      "source_path": "examples/flowguard_skill_collaboration/model.py",
+      "surface_count": 126
+    },
+    {
+      "source_bytes": 611,
+      "source_fingerprint": "sha256:c7e8ea8a81a80288f448e7046e30cc0bfc1bb802f24767c7580909c432c378a8",
+      "source_path": "examples/flowguard_skill_collaboration/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 63,
+      "source_fingerprint": "sha256:9f217476026d54eb228a6d190b158a38d5a201c45330a82167bd8e89973da1b7",
+      "source_path": "examples/flowguard_skill_trigger/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 53675,
+      "source_fingerprint": "sha256:4b7aa7faeb994111a0a2b881c00556a9e899d6be8e5e72bbb204ef4ebc642318",
+      "source_path": "examples/flowguard_skill_trigger/model.py",
+      "surface_count": 156
+    },
+    {
+      "source_bytes": 581,
+      "source_fingerprint": "sha256:b3209bb5d776640c6dc28d52cfff268ecbf315796643ef3f3450462d1487cd6f",
+      "source_path": "examples/flowguard_skill_trigger/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 7142,
+      "source_fingerprint": "sha256:c7e4f51505f37ee51c517b0de13b97fbad698a3085dc58f45075565264fdb88c",
+      "source_path": "examples/hierarchical_model_mesh/run_review.py",
+      "surface_count": 17
+    },
+    {
+      "source_bytes": 595,
+      "source_fingerprint": "sha256:c4f0904c4fa2f94481be0a10da8d53ecca4dc8438b6fbdfe59243bc6109f0d50",
+      "source_path": "examples/job_matching/__init__.py",
+      "surface_count": 14
+    },
+    {
+      "source_bytes": 3885,
+      "source_fingerprint": "sha256:850111afc53fec72e6d05e2f9d852fc908fbafe8b6c8e34fbc98ff5abb93f90c",
+      "source_path": "examples/job_matching/conformance.py",
+      "surface_count": 32
+    },
+    {
+      "source_bytes": 12988,
+      "source_fingerprint": "sha256:3020c25755cb5972084d2ba4f1683dbd773f7a474ecf2eb5958084b2e40fed92",
+      "source_path": "examples/job_matching/model.py",
+      "surface_count": 85
+    },
+    {
+      "source_bytes": 5489,
+      "source_fingerprint": "sha256:387ce4f51be9294c18f5ad65c86b8cff0741fd746f692ad63def8f9e138fe249",
+      "source_path": "examples/job_matching/production.py",
+      "surface_count": 25
+    },
+    {
+      "source_bytes": 1216,
+      "source_fingerprint": "sha256:230eb2ffa1a1942b1c8934d1d1f71f3b4687bc69b009dc17665fa9dd5be601ab",
+      "source_path": "examples/job_matching/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 1620,
+      "source_fingerprint": "sha256:3885e6f40a0f0de853408c8f67661a16479a20368797d806757748173dad24c8",
+      "source_path": "examples/job_matching/run_conformance.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 667,
+      "source_fingerprint": "sha256:ce340104f13a5a4ce36fdbf14c315f7200ad625b4def6089e3de82a0ff7ba75e",
+      "source_path": "examples/job_matching/run_scenario_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 31249,
+      "source_fingerprint": "sha256:e381aec35516a10c9fffee1870b16eaffd7e5ef413a16c714fab335723a32838",
+      "source_path": "examples/job_matching/scenarios.py",
+      "surface_count": 98
+    },
+    {
+      "source_bytes": 48,
+      "source_fingerprint": "sha256:a8d5fdf06ff28848f577ee7718e0da42fa982476dd6b998af0c0bd9979e7f3d0",
+      "source_path": "examples/latest_schema_upgrade_policy/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 18302,
+      "source_fingerprint": "sha256:4cd9138220ea243fdcb45e1da27a75ab16127b17d0aba04461ddee1755b17e43",
+      "source_path": "examples/latest_schema_upgrade_policy/model.py",
+      "surface_count": 61
+    },
+    {
+      "source_bytes": 623,
+      "source_fingerprint": "sha256:ea3c7271d38e85a29314241b5b0b3ac3518dcbbb72fc78c07b672057a7d6cbd6",
+      "source_path": "examples/latest_schema_upgrade_policy/run_review.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 58,
+      "source_fingerprint": "sha256:00c89901d706f82d2cf9888c4855127c95c46ffbfa6f00dea3dd5ece11698de0",
+      "source_path": "examples/lightweight_model_miss_review/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 23555,
+      "source_fingerprint": "sha256:5d078bee696016c50706a9899fff4b8d4961c48c95c923d836f53018f2009b2c",
+      "source_path": "examples/lightweight_model_miss_review/model.py",
+      "surface_count": 42
+    },
+    {
+      "source_bytes": 286,
+      "source_fingerprint": "sha256:4392dbb40f0eba299559f010554cfb41b7c57355a98d148737e009379c085243",
+      "source_path": "examples/lightweight_model_miss_review/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 151,
+      "source_fingerprint": "sha256:0254803c4f4abb52dcec42dea5c6190f68cb9c6f043111e748aa4a45d5f7b140",
+      "source_path": "examples/looping_workflow/__init__.py",
+      "surface_count": 3
+    },
+    {
+      "source_bytes": 17939,
+      "source_fingerprint": "sha256:2ed11d950ea07f39fc38ce1089eb88275f8fa89bde0e7f9b7117620836063ce4",
+      "source_path": "examples/looping_workflow/model.py",
+      "surface_count": 39
+    },
+    {
+      "source_bytes": 464,
+      "source_fingerprint": "sha256:e0cb384b109a2479f0b5e559ffc11f83f192dfdfb333e83a6bc3e333b3d8098d",
+      "source_path": "examples/looping_workflow/run_loop_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 1444,
+      "source_fingerprint": "sha256:f2b78078d267b844a868214c89786fe8bcdbb71624e79e04e934bac36377ba21",
+      "source_path": "examples/mermaid_export_example.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 24965,
+      "source_fingerprint": "sha256:9c7f4a582eca363071e626bfd3fe8820da32f56a974aa9f8263246c86cdda24e",
+      "source_path": "examples/model_hardening_gate/model.py",
+      "surface_count": 84
+    },
+    {
+      "source_bytes": 486,
+      "source_fingerprint": "sha256:fd5e08fde4b209cf8fd56e8ba1dcbaf5415cedb7a5058a5a16bb947ce681b1d5",
+      "source_path": "examples/model_hardening_gate/run_checks.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 65,
+      "source_fingerprint": "sha256:bc5e95edd2d1359b56e02f7a14065c79897ddb59191dd9d7d66ba9650dd128f1",
+      "source_path": "examples/plan_detailing_compiler/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 13481,
+      "source_fingerprint": "sha256:e7429369468d68bd58345961edf41bbfcf4431069bad1777da2402d57fa36a36",
+      "source_path": "examples/plan_detailing_compiler/model.py",
+      "surface_count": 30
+    },
+    {
+      "source_bytes": 524,
+      "source_fingerprint": "sha256:d6b49abfff630525c983df65d8b6edbcfc1dcccda9ae4e613abb32059a4a951c",
+      "source_path": "examples/plan_detailing_compiler/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 52,
+      "source_fingerprint": "sha256:a5dd08e08874521df49572b665c1d0060fb9505f4d06b58e98a9a1b6872c40db",
+      "source_path": "examples/problem_corpus/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 12051,
+      "source_fingerprint": "sha256:6b95d30777a9706db3ecf259e620d572e19fc1ad3f6c1b066aeacf210bc4938e",
+      "source_path": "examples/problem_corpus/conformance_seeds.py",
+      "surface_count": 51
+    },
+    {
+      "source_bytes": 1022,
+      "source_fingerprint": "sha256:8889082e86793834841282b469f3862af056f238f577339c86666e77494a5a9f",
+      "source_path": "examples/problem_corpus/coverage_audit.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 1159,
+      "source_fingerprint": "sha256:4569da1fd0cd1f4728de581e07c2760b5e5f18f840274f5ec3426171a33881f3",
+      "source_path": "examples/problem_corpus/executable.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 5562,
+      "source_fingerprint": "sha256:a9de362a60b471977ad378a26de742f39a1bd44fc2388b26a45c866a3fe16265",
+      "source_path": "examples/problem_corpus/family_scenarios.py",
+      "surface_count": 19
+    },
+    {
+      "source_bytes": 2888,
+      "source_fingerprint": "sha256:efe35a751a937651095cf33b962ba1e8f70a7b6ab798348b13541e9b13e9e733",
+      "source_path": "examples/problem_corpus/hardening.py",
+      "surface_count": 13
+    },
+    {
+      "source_bytes": 23838,
+      "source_fingerprint": "sha256:7f1efa5efb624482c8ebe085968353081dee96642cce553321a525db1f8b99bc",
+      "source_path": "examples/problem_corpus/matrix.py",
+      "surface_count": 72
+    },
+    {
+      "source_bytes": 89193,
+      "source_fingerprint": "sha256:7450d185cf90f52fcc9827d42de3440ccc938dc6703257fb7be0f72e433c0ebe",
+      "source_path": "examples/problem_corpus/real_models.py",
+      "surface_count": 182
+    },
+    {
+      "source_bytes": 518,
+      "source_fingerprint": "sha256:30907223b286b2d1d87ba06f7b376cca8cdd446532fbf8d6b404e4b48f142b8c",
+      "source_path": "examples/problem_corpus/run_benchmark_hardening.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 518,
+      "source_fingerprint": "sha256:0a7cdd413887d72615d7d902481df5024cd3ae6bd362814615ea5397abaffc7c",
+      "source_path": "examples/problem_corpus/run_conformance_seeds.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 490,
+      "source_fingerprint": "sha256:2ee981b453fb36dd28511d5d05bb2aef85ba3a1b9e612bd3d904b019fd7950a8",
+      "source_path": "examples/problem_corpus/run_corpus_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 510,
+      "source_fingerprint": "sha256:098e95a650f6bdf5a0a42a058f67f82ffca856f006086cb5b3a19a23ed75e8f4",
+      "source_path": "examples/problem_corpus/run_coverage_audit.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 503,
+      "source_fingerprint": "sha256:108df5cc7385c47fd0663cdf47028902d4f5b40e1c786a99df9e9979251cf43c",
+      "source_path": "examples/problem_corpus/run_executable_corpus_review.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 538,
+      "source_fingerprint": "sha256:e6cd50cef500b801a37fd95c04f49c2057ca0e1afa6718f454948b9685e56d9b",
+      "source_path": "examples/problem_corpus/run_family_scenario_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 28656,
+      "source_fingerprint": "sha256:465441f7a26dc7299758aebbb31ee0dbe67655248212904416fed3139d4fbab8",
+      "source_path": "examples/problem_corpus/taxonomy.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 44,
+      "source_fingerprint": "sha256:e60befb3cbed019f084a9d9d65c5a5c98dc012690a905231268a5bdd7cd1b17b",
+      "source_path": "examples/public_release_adoption/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 16205,
+      "source_fingerprint": "sha256:e507793255471b48397804da70dcad06f5d8df84a2c1dfed9b1729352cd2e0fd",
+      "source_path": "examples/public_release_adoption/model.py",
+      "surface_count": 55
+    },
+    {
+      "source_bytes": 612,
+      "source_fingerprint": "sha256:ec95936978d7cc1d95e1c98b6de1239f65ed73d19f62e2705fd384bfbc2ac6c1",
+      "source_path": "examples/public_release_adoption/run_review.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 44,
+      "source_fingerprint": "sha256:23ccd564afa368f3d951f5bf19a04c56059f5c12aacc94dfaf08a0931f58cf6b",
+      "source_path": "examples/risk_evidence_ledger/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 6249,
+      "source_fingerprint": "sha256:27347705cfeb158638bd41c5e26360697f734da21aceae5aeed52fc65eb90735",
+      "source_path": "examples/risk_evidence_ledger/model.py",
+      "surface_count": 33
+    },
+    {
+      "source_bytes": 1505,
+      "source_fingerprint": "sha256:d07cfcc3f3352b85340587a972f03e6a55ed002efe4e6eec92d39020bb2f0dcd",
+      "source_path": "examples/risk_evidence_ledger/run_checks.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 1032,
+      "source_fingerprint": "sha256:0984bd52d2df6e4d01d9ce41904076cd2543a28a82d11dda2d44ee4bb0b2342c",
+      "source_path": "examples/skill_contract_model_exports/code_structure_recommendation.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 1029,
+      "source_fingerprint": "sha256:cdf7bac7f38d476943678deedfadd32cedd0dc1f2780638f19b6642908aeee6c",
+      "source_path": "examples/skill_contract_model_exports/contract_exhaustion_mesh.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 113632,
+      "source_fingerprint": "sha256:47392c5d6dd0969a4da29728322225fb8ce6d5bc43ea6487aa27f42c30258414",
+      "source_path": "flowguard/__init__.py",
+      "surface_count": 25
+    },
+    {
+      "source_bytes": 186554,
+      "source_fingerprint": "sha256:a62f230abd71b9c738414893f49435a4f2ca72fc5e1e20f04d30edbed7be044f",
+      "source_path": "flowguard/__main__.py",
+      "surface_count": 426
+    },
+    {
+      "source_bytes": 37530,
+      "source_fingerprint": "sha256:27b78c40e98feb6d31cc45e68b37a51bd80f91d9375daa3897492beac6b9ebbc",
+      "source_path": "flowguard/_completion_readiness_impl.py",
+      "surface_count": 145
+    },
+    {
+      "source_bytes": 26148,
+      "source_fingerprint": "sha256:341202695d8b6676dcfd1181d637f6deac5d032eb37e2f362522922b62f9373a",
+      "source_path": "flowguard/_development_process_strategy_review.py",
+      "surface_count": 22
+    },
+    {
+      "source_bytes": 116662,
+      "source_fingerprint": "sha256:b7d418fdf7cddb0650f984e5a471a6a7220a0dd2a48186d1fe627c77606f63c4",
+      "source_path": "flowguard/_eager_exports.py",
+      "surface_count": 50
+    },
+    {
+      "source_bytes": 228,
+      "source_fingerprint": "sha256:ac825588e311204011e0e2931a8dc69b97fde630275c5e40379cbcb6a6aeadaa",
+      "source_path": "flowguard/_hashing.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 1779,
+      "source_fingerprint": "sha256:8da37b82b8d3c3d042c435bbaebf58606a1568c5050d03b3f5db61a93214d110",
+      "source_path": "flowguard/_normalization.py",
+      "surface_count": 22
+    },
+    {
+      "source_bytes": 321,
+      "source_fingerprint": "sha256:88cdc44b91fa137e174bd6e495e2c086ab882e10d17fec5792d5c95447ef8b1f",
+      "source_path": "flowguard/_package_identity.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 922,
+      "source_fingerprint": "sha256:7a70c138e28b6924d955f0a2d60d4582985749e97403c4c0b144914c7944ce9a",
+      "source_path": "flowguard/_runtime_progress.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 1027,
+      "source_fingerprint": "sha256:81a11b213bb7917c83f31f08a6724dfb6f79f0b1d0ce8a2963f8b1065dc4d78d",
+      "source_path": "flowguard/_wire.py",
+      "surface_count": 16
+    },
+    {
+      "source_bytes": 13976,
+      "source_fingerprint": "sha256:c717c3cd1698794093d7b1817d57f4870ea2f67f2bf16ed0d85cba30a44ad21c",
+      "source_path": "flowguard/adoption.py",
+      "surface_count": 83
+    },
+    {
+      "source_bytes": 11256,
+      "source_fingerprint": "sha256:3dbf583b6a0986ad92e13729d87e4ac028ca8c05ecd259887a9c889a52acdb6f",
+      "source_path": "flowguard/adoption_audit.py",
+      "surface_count": 48
+    },
+    {
+      "source_bytes": 224813,
+      "source_fingerprint": "sha256:61737ffa107e5fdf7010c95196bdb43ea7debae9b99c7bf25ff95e44629ac56c",
+      "source_path": "flowguard/affected_blueprint_reader.py",
+      "surface_count": 587
+    },
+    {
+      "source_bytes": 37959,
+      "source_fingerprint": "sha256:ed74fae22eb95269c8f5ed9d061bff245a34a98961b817b586e0d0596216e0c4",
+      "source_path": "flowguard/agent_workflow_rehearsal.py",
+      "surface_count": 164
+    },
+    {
+      "source_bytes": 1650,
+      "source_fingerprint": "sha256:9c1bca53115d8076e27c4de1b2a5ed632ebf12929928ccba2248db4e62c74e4a",
+      "source_path": "flowguard/api_registry.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 6720,
+      "source_fingerprint": "sha256:6eee3e16d86c2f295f5eb375f2333d2bccf5d7fb1f3251e78d383efa325c0a2d",
+      "source_path": "flowguard/architecture_native_material.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 144232,
+      "source_fingerprint": "sha256:2ec354c2b69314958b07cfdb3204441f9c4aa7416c04ac09420215ec1620bf43",
+      "source_path": "flowguard/architecture_reduction.py",
+      "surface_count": 416
+    },
+    {
+      "source_bytes": 2555,
+      "source_fingerprint": "sha256:59350e7600f5bbd1408153485804495b35572612c8930afcaca5d001b69e540f",
+      "source_path": "flowguard/artifact_slices.py",
+      "surface_count": 15
+    },
+    {
+      "source_bytes": 29939,
+      "source_fingerprint": "sha256:3e1620c8bfeda0f4152bb583812eb518d5db066ec96cc634a855d7f9ddc9de1c",
+      "source_path": "flowguard/artifact_upgrade.py",
+      "surface_count": 98
+    },
+    {
+      "source_bytes": 10253,
+      "source_fingerprint": "sha256:c9041104071f7ed712ba965e868dcc6cbb94d5e8e614a09436c44eb28e9baa6a",
+      "source_path": "flowguard/assumptions.py",
+      "surface_count": 63
+    },
+    {
+      "source_bytes": 24223,
+      "source_fingerprint": "sha256:e29299c8532cf3992444518429041442c041d5e70e9eabecfc67b54cc4f6b11d",
+      "source_path": "flowguard/audit.py",
+      "surface_count": 70
+    },
+    {
+      "source_bytes": 21442,
+      "source_fingerprint": "sha256:4326d240e88f6e3a70def4b5833d1d379b55d64e80590cf92f905d34e6ce1ece",
+      "source_path": "flowguard/auto_split.py",
+      "surface_count": 103
+    },
+    {
+      "source_bytes": 6396,
+      "source_fingerprint": "sha256:db33fc7815546441a5b6a073a72921ac815e71c32218b6700cbeeee773a88561",
+      "source_path": "flowguard/baseline.py",
+      "surface_count": 40
+    },
+    {
+      "source_bytes": 179959,
+      "source_fingerprint": "sha256:adc2129f8292c2c716b39c4ca3dbd3e7f4b0ba7c53b2f59cdc9ed316edda6921",
+      "source_path": "flowguard/behavior_commitment.py",
+      "surface_count": 636
+    },
+    {
+      "source_bytes": 19686,
+      "source_fingerprint": "sha256:92e5566cb5c29849b975f72eab94965c14b8d01733549320eed0a47f9ab98a85",
+      "source_path": "flowguard/behavior_commitment_lookup.py",
+      "surface_count": 76
+    },
+    {
+      "source_bytes": 563,
+      "source_fingerprint": "sha256:700353f756c26b68e6ad1241dca83b90aadc795756a8b6a4b9d6a224f426ef78",
+      "source_path": "flowguard/behavior_plane.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 342761,
+      "source_fingerprint": "sha256:0dcaaaed0e4d0c7af2811903dab336746725498a65b7628b5781690f748b30a3",
+      "source_path": "flowguard/behavior_surface_audit.py",
+      "surface_count": 431
+    },
+    {
+      "source_bytes": 3699,
+      "source_fingerprint": "sha256:75a410f0694cf474a94c0ea7295505cb816a2bbc7f7843140ac53dd352fde272",
+      "source_path": "flowguard/benchmark.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 47894,
+      "source_fingerprint": "sha256:1073dbfd7aedfbe3a7f98adef20fe238c276557370d16387cebdd5be0564b888",
+      "source_path": "flowguard/blueprint_compact_projection.py",
+      "surface_count": 80
+    },
+    {
+      "source_bytes": 44073,
+      "source_fingerprint": "sha256:c1d0a267d84ec61e9e53353e89f81c9bae61a7b8fd0b855bbf6bf1a3cacbea60",
+      "source_path": "flowguard/blueprint_topology.py",
+      "surface_count": 118
+    },
+    {
+      "source_bytes": 35474,
+      "source_fingerprint": "sha256:e1e79b4b88f1deeb7b7380ed90a43616804c5b705ac56ac742fb5e5d889d38e7",
+      "source_path": "flowguard/budgeted.py",
+      "surface_count": 171
+    },
+    {
+      "source_bytes": 14091,
+      "source_fingerprint": "sha256:6046c9a27e2ecbb05bb75b1490d5c9a4cb3cf093bc2e07a642c2b3f88ce0a54a",
+      "source_path": "flowguard/canonical_blueprint_projection.py",
+      "surface_count": 25
+    },
+    {
+      "source_bytes": 9954,
+      "source_fingerprint": "sha256:b6226a088ecb1fa5807c6a135d8f8a082401b69599cf3008d0db980c9d682547",
+      "source_path": "flowguard/canonical_relation.py",
+      "surface_count": 58
+    },
+    {
+      "source_bytes": 18805,
+      "source_fingerprint": "sha256:588bccb77861fef98068e82b40f7fee2b35501e5d9d847e9170bcb5c8b5eea0d",
+      "source_path": "flowguard/checks.py",
+      "surface_count": 93
+    },
+    {
+      "source_bytes": 54448,
+      "source_fingerprint": "sha256:95e371af8550c0da9b07d4960b07253a4e9f2a7a8afade90c4027192825f9c32",
+      "source_path": "flowguard/closure_contract.py",
+      "surface_count": 236
+    },
+    {
+      "source_bytes": 30303,
+      "source_fingerprint": "sha256:3985253adb69f361a17427d59649187127e18c67a0902d6549b96043e64f6000",
+      "source_path": "flowguard/code_structure.py",
+      "surface_count": 111
+    },
+    {
+      "source_bytes": 209026,
+      "source_fingerprint": "sha256:b354d0d975d8b037fa0b0e89c8adbaa188c50c95ba29309df2e8a3fe7621c004",
+      "source_path": "flowguard/completion_epoch.py",
+      "surface_count": 807
+    },
+    {
+      "source_bytes": 11892,
+      "source_fingerprint": "sha256:e148bc2eb5ba26c50e97fbdff7cbeabd579c7e3db8899b46a36eb86861129ed0",
+      "source_path": "flowguard/completion_objective.py",
+      "surface_count": 58
+    },
+    {
+      "source_bytes": 22876,
+      "source_fingerprint": "sha256:47751c3cef44a54c975f7cd1f8c6fc6c5bb37c45a0da5ba0a3aa809d8236e5de",
+      "source_path": "flowguard/completion_readiness.py",
+      "surface_count": 62
+    },
+    {
+      "source_bytes": 13689,
+      "source_fingerprint": "sha256:da429a6f22ca86b0d0ba2f318937b2b57597e0bc5e43dc4f138eb9e852e0e2f6",
+      "source_path": "flowguard/completion_run_manifest.py",
+      "surface_count": 73
+    },
+    {
+      "source_bytes": 11259,
+      "source_fingerprint": "sha256:0b9dbd5ae66e870821618afbb7534af7a582ab56fac4c7c13b8e3f1aff416b7c",
+      "source_path": "flowguard/conformance.py",
+      "surface_count": 58
+    },
+    {
+      "source_bytes": 1806,
+      "source_fingerprint": "sha256:1ae537796378c18588285e2e5f4d9bd453d62200cc66bc0d86434a98cb3189a3",
+      "source_path": "flowguard/consumer_wire.py",
+      "surface_count": 15
+    },
+    {
+      "source_bytes": 11282,
+      "source_fingerprint": "sha256:710b09ca56f72dbab6dca52dd65f892f55019cf38ce0c9a8507fef3929b6a762",
+      "source_path": "flowguard/contract.py",
+      "surface_count": 54
+    },
+    {
+      "source_bytes": 250206,
+      "source_fingerprint": "sha256:2bd3d546df508c91700c0cb93160707b8c9fcc5e30edc2c18f62a5a07ae4691b",
+      "source_path": "flowguard/contract_exhaustion.py",
+      "surface_count": 779
+    },
+    {
+      "source_bytes": 57217,
+      "source_fingerprint": "sha256:bb563092accfe7d4035da896fbe36f917b02294ae4a5608b4285353eb0495aa0",
+      "source_path": "flowguard/contract_runtime_evidence.py",
+      "surface_count": 168
+    },
+    {
+      "source_bytes": 8501,
+      "source_fingerprint": "sha256:9d5bc2b694abe125d0c8ad1eff6bfef0555db1b651be41642eb03f82331c2bb4",
+      "source_path": "flowguard/core.py",
+      "surface_count": 82
+    },
+    {
+      "source_bytes": 21323,
+      "source_fingerprint": "sha256:1746339a41406dda77e50be55845e1ffe88b9f4497ce92718888b2f52b65e9bd",
+      "source_path": "flowguard/corpus.py",
+      "surface_count": 74
+    },
+    {
+      "source_bytes": 10642,
+      "source_fingerprint": "sha256:a8c92d9fd91d65d94c24d30194e17fb567c2b089bcd1927d673d07db62f3f966",
+      "source_path": "flowguard/coverage.py",
+      "surface_count": 18
+    },
+    {
+      "source_bytes": 20900,
+      "source_fingerprint": "sha256:1adbfd3e3b199029bbae3cee58daf15fc1e9b9458f47284e0213f7a7d7f2917f",
+      "source_path": "flowguard/coverage_inventory.py",
+      "surface_count": 72
+    },
+    {
+      "source_bytes": 123487,
+      "source_fingerprint": "sha256:c04a3fdfa973f6870426e0eb0ab4b59e56fdf8b07f8d1dcaa59c64b11ab89da8",
+      "source_path": "flowguard/development_process_flow.py",
+      "surface_count": 418
+    },
+    {
+      "source_bytes": 21863,
+      "source_fingerprint": "sha256:7b6f5581509d8934c2ad6283f209a3366d13c1edf7847487585837b6cc70a6b9",
+      "source_path": "flowguard/development_process_simulator.py",
+      "surface_count": 77
+    },
+    {
+      "source_bytes": 9965,
+      "source_fingerprint": "sha256:241b198aa30fb78b3731345a0dc7e254ee655df0fe10269e816fd95550be66f9",
+      "source_path": "flowguard/development_process_strategy.py",
+      "surface_count": 69
+    },
+    {
+      "source_bytes": 145168,
+      "source_fingerprint": "sha256:937426327ed647b672ac5256b39e7c7edc76e7233ec2eb5db6b53d98f3fada82",
+      "source_path": "flowguard/distribution_sync.py",
+      "surface_count": 414
+    },
+    {
+      "source_bytes": 46477,
+      "source_fingerprint": "sha256:f2a0054804771ff0e5b97d574131fe26ad7644988cc7f3d040f7851d5fc5eda2",
+      "source_path": "flowguard/dna_completion_gate.py",
+      "surface_count": 195
+    },
+    {
+      "source_bytes": 5455,
+      "source_fingerprint": "sha256:a3b5a4b5ca47b97c7327191777bcfd4e7a410e5c363d910e356a6d86d43757c5",
+      "source_path": "flowguard/evidence_fields.py",
+      "surface_count": 46
+    },
+    {
+      "source_bytes": 71227,
+      "source_fingerprint": "sha256:681c5a1b9edd20824df419797954d7e5f5dd888c7018d3fcbacc01c69c472011",
+      "source_path": "flowguard/evidence_lifecycle.py",
+      "surface_count": 336
+    },
+    {
+      "source_bytes": 104258,
+      "source_fingerprint": "sha256:3784b1820e796f5d19f2745e7cace5ced0d65c4960a23eb37ee9594acce08c31",
+      "source_path": "flowguard/evidence_receipts.py",
+      "surface_count": 368
+    },
+    {
+      "source_bytes": 17756,
+      "source_fingerprint": "sha256:609aa1a3646ce6583984750e60b5619445f47616383b6c5d85aeabe8710b906b",
+      "source_path": "flowguard/executable.py",
+      "surface_count": 52
+    },
+    {
+      "source_bytes": 23480,
+      "source_fingerprint": "sha256:a941aef48213e024fad37008b1fbc83a7e00cb4eec7049bff76194391d694427",
+      "source_path": "flowguard/execution_profiles.py",
+      "surface_count": 122
+    },
+    {
+      "source_bytes": 124641,
+      "source_fingerprint": "sha256:c9a3ee8364e842b33fd20671dc9f0bbda89069e996456020bfbcd64b6cf79b94",
+      "source_path": "flowguard/existing_model_preflight.py",
+      "surface_count": 307
+    },
+    {
+      "source_bytes": 23928,
+      "source_fingerprint": "sha256:3c8e8e52de9a97510ef1ef70c08a7c397bbd4ecffbd59f606ce57d365c555ee5",
+      "source_path": "flowguard/explorer.py",
+      "surface_count": 64
+    },
+    {
+      "source_bytes": 6316,
+      "source_fingerprint": "sha256:6554067513c169f285229ed42866c664918fe4acba2f0f5f347ef76719b94f6e",
+      "source_path": "flowguard/export.py",
+      "surface_count": 49
+    },
+    {
+      "source_bytes": 12200,
+      "source_fingerprint": "sha256:e95a02bd7b28a1874ae57644245e7c0cbea2c10fba066c3927ead7afee6d5c37",
+      "source_path": "flowguard/fault_matrix_evidence.py",
+      "surface_count": 28
+    },
+    {
+      "source_bytes": 45962,
+      "source_fingerprint": "sha256:eee15ede49287c9a40080c16dfd0ab71d511cf1ef84cb51b9b1ad2e2a2ad819b",
+      "source_path": "flowguard/field_lifecycle.py",
+      "surface_count": 216
+    },
+    {
+      "source_bytes": 23462,
+      "source_fingerprint": "sha256:7170cb7c8dee067d0d5735a62e2ccaafe420569fcc29e9a6da14a8de195928e8",
+      "source_path": "flowguard/formal_runner.py",
+      "surface_count": 86
+    },
+    {
+      "source_bytes": 37082,
+      "source_fingerprint": "sha256:2a5142cf8c52019a6eda3968edbb3b1bfc3df4a9bcd4ef87e6808c6459535583",
+      "source_path": "flowguard/functional_read.py",
+      "surface_count": 124
+    },
+    {
+      "source_bytes": 85875,
+      "source_fingerprint": "sha256:4c843c5c21368b4ec27a609f7ffcc654abd8c4c06e3b2cd2e19ef67b42224b8f",
+      "source_path": "flowguard/functional_task_context.py",
+      "surface_count": 161
+    },
+    {
+      "source_bytes": 115857,
+      "source_fingerprint": "sha256:9dc22ec74d1cfbf04e01d0e7ade9f95e447a877ccbbc2cbca755afe261648b23",
+      "source_path": "flowguard/hierarchy.py",
+      "surface_count": 360
+    },
+    {
+      "source_bytes": 118944,
+      "source_fingerprint": "sha256:5847149af977d57106abf1a3fdfa4dc12be794254c2d2af6ef0e7f9e7c046029",
+      "source_path": "flowguard/implementation_blueprint.py",
+      "surface_count": 345
+    },
+    {
+      "source_bytes": 61294,
+      "source_fingerprint": "sha256:de217cecd7d4133a05707348ea0abdd5e9f763331c250bb3713634290c31a499",
+      "source_path": "flowguard/implementation_inventory.py",
+      "surface_count": 246
+    },
+    {
+      "source_bytes": 68670,
+      "source_fingerprint": "sha256:8a1eabdfd86488886a37f449349ef539b141a5317eedc76cfaf145a300ca9c71",
+      "source_path": "flowguard/implementation_inventory_python.py",
+      "surface_count": 174
+    },
+    {
+      "source_bytes": 92238,
+      "source_fingerprint": "sha256:88007083fd56956c81b4b0d586b113a2cb75a9c5a27dfd5b458ca014f053b670",
+      "source_path": "flowguard/layered_proof.py",
+      "surface_count": 255
+    },
+    {
+      "source_bytes": 9559,
+      "source_fingerprint": "sha256:f460df8321efbb2421fd1b2ce9dfd57a23b9ac7e2ba3915d8e5f7efa9fc0a838",
+      "source_path": "flowguard/legacy_path_disposition.py",
+      "surface_count": 52
+    },
+    {
+      "source_bytes": 11506,
+      "source_fingerprint": "sha256:f8d62617be01594fbc993ac088da80ae83781116d5fb3c3b212abaf8f1ab1620",
+      "source_path": "flowguard/loop.py",
+      "surface_count": 56
+    },
+    {
+      "source_bytes": 14867,
+      "source_fingerprint": "sha256:b988031486a917f42cf288a43f53e0a940280a88c2476e7389fe0caf1d6bbaf4",
+      "source_path": "flowguard/maintenance_obligation.py",
+      "surface_count": 117
+    },
+    {
+      "source_bytes": 6713,
+      "source_fingerprint": "sha256:066b46eefacc146c1c46698ed4d49b3425ac77a54d1bdb0f3ba3d81b82c7492b",
+      "source_path": "flowguard/mermaid.py",
+      "surface_count": 52
+    },
+    {
+      "source_bytes": 10023,
+      "source_fingerprint": "sha256:37f28f933b9302924f4ef5f1c667ddc776fb07d5b4bd55b7d9253ae898dffb9f",
+      "source_path": "flowguard/minimize.py",
+      "surface_count": 53
+    },
+    {
+      "source_bytes": 75597,
+      "source_fingerprint": "sha256:cb89def2ef179268be5cd0ee47e9f8ff31a26d06d5ae50c0d7d5e47bcef68369",
+      "source_path": "flowguard/model_authority.py",
+      "surface_count": 381
+    },
+    {
+      "source_bytes": 248663,
+      "source_fingerprint": "sha256:48626684407008794675ab70e253bac4bb5624d202132ff7895e5da5021eb432",
+      "source_path": "flowguard/model_authority_store.py",
+      "surface_count": 778
+    },
+    {
+      "source_bytes": 36119,
+      "source_fingerprint": "sha256:05bf2688a9abff2b67b05ef1d45bce25439bd4a18041da4ad131569066d70572",
+      "source_path": "flowguard/model_freshness.py",
+      "surface_count": 164
+    },
+    {
+      "source_bytes": 94692,
+      "source_fingerprint": "sha256:f823402cbec1482e3ecb52a77d223583765e273982e5ac10861a14bdd53f07b1",
+      "source_path": "flowguard/model_intent.py",
+      "surface_count": 356
+    },
+    {
+      "source_bytes": 118948,
+      "source_fingerprint": "sha256:d7b80d6507c67afac87a04d91ac9f01ddf58991c797a623d0868414aade0f89d",
+      "source_path": "flowguard/model_intent_authority.py",
+      "surface_count": 389
+    },
+    {
+      "source_bytes": 142746,
+      "source_fingerprint": "sha256:0fb17922a2e61a8d373f70ff63f274a933123e5f46a88b0d1768bf729e7ad7af",
+      "source_path": "flowguard/model_maturation.py",
+      "surface_count": 362
+    },
+    {
+      "source_bytes": 31117,
+      "source_fingerprint": "sha256:8f7a5d7ff8b340e522a0e66cdda84f2b608980da97c5ea7300fc42cdfaf8d17c",
+      "source_path": "flowguard/model_maturation_receipt.py",
+      "surface_count": 72
+    },
+    {
+      "source_bytes": 16325,
+      "source_fingerprint": "sha256:f2704942f597e605475eb0349a461c616e77af921707073d3cb1bcb48f933f8f",
+      "source_path": "flowguard/model_miss_diagnostics.py",
+      "surface_count": 59
+    },
+    {
+      "source_bytes": 227801,
+      "source_fingerprint": "sha256:bad31ad8812336c44a58283ce8949d0caea7e44a316aee420b942f2e238bdc23",
+      "source_path": "flowguard/model_path_quality.py",
+      "surface_count": 608
+    },
+    {
+      "source_bytes": 12389,
+      "source_fingerprint": "sha256:38e169e86905b502c680bdf14354f9bce7d620cdc410bc6f8e0f20bb7eb80131",
+      "source_path": "flowguard/model_purpose.py",
+      "surface_count": 62
+    },
+    {
+      "source_bytes": 299357,
+      "source_fingerprint": "sha256:1f85ae839f42509a07db61da34e3255c63624a73786bc2f888d1fe4e257a7d45",
+      "source_path": "flowguard/model_regressions.py",
+      "surface_count": 738
+    },
+    {
+      "source_bytes": 62793,
+      "source_fingerprint": "sha256:05c53f5fae570ddc00d7768c07d6c01c61aba86ea7a69ce5754f79f12bad9fdb",
+      "source_path": "flowguard/model_revision_builder.py",
+      "surface_count": 140
+    },
+    {
+      "source_bytes": 59906,
+      "source_fingerprint": "sha256:eee3d22a561cfb34df59c34c995670deea75a3688b99f11c0c1e1d697a8ad1aa",
+      "source_path": "flowguard/model_revision_owner_evidence.py",
+      "surface_count": 162
+    },
+    {
+      "source_bytes": 36021,
+      "source_fingerprint": "sha256:55b90224ec24406570bae4959915db0d867be706e89a8faa71f9e14740c436eb",
+      "source_path": "flowguard/model_revision_plan.py",
+      "surface_count": 63
+    },
+    {
+      "source_bytes": 125821,
+      "source_fingerprint": "sha256:60e67220178ef514cc2fdb72f0622fec83562ffe0eb7874188355d38d970eac1",
+      "source_path": "flowguard/model_revision_set.py",
+      "surface_count": 360
+    },
+    {
+      "source_bytes": 74543,
+      "source_fingerprint": "sha256:a28784568c9039976822a5f83e4c2e9c91fa1a5fe770606d391c3c2b9b5598e4",
+      "source_path": "flowguard/model_system_inventory.py",
+      "surface_count": 115
+    },
+    {
+      "source_bytes": 229455,
+      "source_fingerprint": "sha256:277580ea8495bc8c348a6eae9186831724ff1ee37682ebb7d90b87aa3de407ce",
+      "source_path": "flowguard/model_test_alignment.py",
+      "surface_count": 679
+    },
+    {
+      "source_bytes": 22112,
+      "source_fingerprint": "sha256:6c880d670ead9a3dc642b900605b71471597c00f6a4f499c53ffd155f47823e1",
+      "source_path": "flowguard/model_test_alignment_source.py",
+      "surface_count": 41
+    },
+    {
+      "source_bytes": 16686,
+      "source_fingerprint": "sha256:efca2eb93a879052816bc06e921a25254ab1cae990383f6cba509a93645f7894",
+      "source_path": "flowguard/native_case_mapping.py",
+      "surface_count": 74
+    },
+    {
+      "source_bytes": 55697,
+      "source_fingerprint": "sha256:0ffb17aefb2af84399b864cbae226423aeaba98ae5e849f5c1b6b781903a429e",
+      "source_path": "flowguard/native_case_protocol.py",
+      "surface_count": 194
+    },
+    {
+      "source_bytes": 192379,
+      "source_fingerprint": "sha256:54e67dae8281a622efdaa2c75fdeec91e1b540a915b810489281c8b85eb3a687",
+      "source_path": "flowguard/native_case_runner.py",
+      "surface_count": 320
+    },
+    {
+      "source_bytes": 52842,
+      "source_fingerprint": "sha256:f8979bc863e38226c6ecc9ceead4cbdc6d87331fed0a21d76ead2d3c49bf3506",
+      "source_path": "flowguard/obligation_family.py",
+      "surface_count": 208
+    },
+    {
+      "source_bytes": 2123,
+      "source_fingerprint": "sha256:7ac26620970241f7c91797492f30b271fd26655c51ee93c81d642d475a2d78c6",
+      "source_path": "flowguard/observation_metrics.py",
+      "surface_count": 15
+    },
+    {
+      "source_bytes": 310,
+      "source_fingerprint": "sha256:896c2e3f8e151f8077204c34564837259d80d429ea3f100893e027bf6b615cbc",
+      "source_path": "flowguard/packs/__init__.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 2039,
+      "source_fingerprint": "sha256:acaa86462b4d924f8625659b42fa5e7072f0f98d5c55f34516d8621da8098c73",
+      "source_path": "flowguard/packs/cache.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 2108,
+      "source_fingerprint": "sha256:3beb8a440bd60a6e4c9319fdbc18d4955c6c622d70acfeb15e4d66c9d7a8e18c",
+      "source_path": "flowguard/packs/deduplication.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 1941,
+      "source_fingerprint": "sha256:dff47b73ff09a0ff9388cd102e4dda0ace605431a68e315a9684a860fd3cca42",
+      "source_path": "flowguard/packs/retry.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 1818,
+      "source_fingerprint": "sha256:29e2f5bd3ac277515b9c33abe87de06f3afcaaa165cf1e80ad7a3c29fcf3bb0b",
+      "source_path": "flowguard/packs/side_effect.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 15736,
+      "source_fingerprint": "sha256:e8606c13089c166588c2e398e6cb8ad6fcc9cf2b5b0567a7c2bbb0a4bbc4e4c5",
+      "source_path": "flowguard/plan.py",
+      "surface_count": 74
+    },
+    {
+      "source_bytes": 70317,
+      "source_fingerprint": "sha256:c47aa33cbb105ae51529adf7508672809a53fdad30ea83f61082dcc5bd30e96e",
+      "source_path": "flowguard/plan_detailing.py",
+      "surface_count": 273
+    },
+    {
+      "source_bytes": 78059,
+      "source_fingerprint": "sha256:2ebbc16e21ee14a4e28b8ac829cf65a174bf7aeaf5799cc78d59511b42e3f41f",
+      "source_path": "flowguard/plan_intake.py",
+      "surface_count": 421
+    },
+    {
+      "source_bytes": 36008,
+      "source_fingerprint": "sha256:11878454bbfde331b57c6b1f8f704496b35eec7dd554574610e6a1c677cfc84a",
+      "source_path": "flowguard/portable_checker.py",
+      "surface_count": 74
+    },
+    {
+      "source_bytes": 24560,
+      "source_fingerprint": "sha256:57da953b3032c03b7eb3823c751aaff6d0d4d21c06e67667b524e46b716da667",
+      "source_path": "flowguard/portable_model.py",
+      "surface_count": 127
+    },
+    {
+      "source_bytes": 10288,
+      "source_fingerprint": "sha256:abd69e3f656a3e99815187e47b216484fd8c726a31c390897d5404f027a63f93",
+      "source_path": "flowguard/portable_path_quality.py",
+      "surface_count": 19
+    },
+    {
+      "source_bytes": 31966,
+      "source_fingerprint": "sha256:16f075ef069a88eb0b6ad29afbb7a2b8455e3ce98a9d517b4ee98c75987b5814",
+      "source_path": "flowguard/portable_system.py",
+      "surface_count": 177
+    },
+    {
+      "source_bytes": 65280,
+      "source_fingerprint": "sha256:6a09b00f20df1818a209c821865c9e68cc8313fe7973bc938cc52611b937aaef",
+      "source_path": "flowguard/primary_path_authority.py",
+      "surface_count": 244
+    },
+    {
+      "source_bytes": 61978,
+      "source_fingerprint": "sha256:e82708036bb206bb4ea80237aa7ce1abac79da751c6696e8747102c0f74310b7",
+      "source_path": "flowguard/process_supervision.py",
+      "surface_count": 142
+    },
+    {
+      "source_bytes": 10822,
+      "source_fingerprint": "sha256:e8d46c278350a34ec2cfa6cbb8de392a80816289fe079e19acf932d5460590a1",
+      "source_path": "flowguard/progress.py",
+      "surface_count": 53
+    },
+    {
+      "source_bytes": 82379,
+      "source_fingerprint": "sha256:4fb7bbad58b3bfd9fcba976cc250665f8946a238d202fc37521a1be0a43acd3f",
+      "source_path": "flowguard/project_adoption.py",
+      "surface_count": 187
+    },
+    {
+      "source_bytes": 234244,
+      "source_fingerprint": "sha256:854defcca660640fa654ae93de714596f1e93ff33532fc1cd28c4786b50d8a09",
+      "source_path": "flowguard/project_blueprint.py",
+      "surface_count": 355
+    },
+    {
+      "source_bytes": 92479,
+      "source_fingerprint": "sha256:46a3174f8dad84b0802cf1b7a1170a2eff6790790a79fc43a31c4c6ce8a30405",
+      "source_path": "flowguard/project_layout.py",
+      "surface_count": 122
+    },
+    {
+      "source_bytes": 4411,
+      "source_fingerprint": "sha256:04b9244499717313cdceceaa8691e65be52b1946cd8f3841c9f87fa46ab7ef80",
+      "source_path": "flowguard/project_manifest.py",
+      "surface_count": 38
+    },
+    {
+      "source_bytes": 15873,
+      "source_fingerprint": "sha256:4bdfe5a810273492f1184b00b89da2e0a5cb3c8b4970e587883f937fa25e798b",
+      "source_path": "flowguard/prompt_budget.py",
+      "surface_count": 63
+    },
+    {
+      "source_bytes": 40157,
+      "source_fingerprint": "sha256:1f106374e826b65a549d377a49febfb72c58e9df4dd00b77eafbea4d2c620e8e",
+      "source_path": "flowguard/proof_artifact.py",
+      "surface_count": 63
+    },
+    {
+      "source_bytes": 1221,
+      "source_fingerprint": "sha256:4143297654bac3501177685d9ffbe545d85ac4374539b450791737101dc7dc7a",
+      "source_path": "flowguard/pytest_adapter.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 1642,
+      "source_fingerprint": "sha256:b78f09c1ae87f24d5af942d05f5543018841c383e35e39887446903ff0bdc834",
+      "source_path": "flowguard/pytest_nodeid_recorder.py",
+      "surface_count": 8
+    },
+    {
+      "source_bytes": 5440,
+      "source_fingerprint": "sha256:f101814d3f4048607c56b3fb8e25534fc05dd9e4fc645cec4a9b5dcbfaf2705a",
+      "source_path": "flowguard/pytest_shard_plugin.py",
+      "surface_count": 27
+    },
+    {
+      "source_bytes": 23454,
+      "source_fingerprint": "sha256:3c8197336412317357974313dba60a78be37f7c84d727582f2fc848fce70d0c9",
+      "source_path": "flowguard/pytest_shards.py",
+      "surface_count": 75
+    },
+    {
+      "source_bytes": 36756,
+      "source_fingerprint": "sha256:48944814f88a07cea244ff3769da0c8ffd6a9f9c7a15563e0227fd4f1005a723",
+      "source_path": "flowguard/recurring_model_miss.py",
+      "surface_count": 150
+    },
+    {
+      "source_bytes": 101185,
+      "source_fingerprint": "sha256:d9b851ba63be06668df99d15000d856108563eb1f8a86b0be0f86d0f3f2348cc",
+      "source_path": "flowguard/recursive_hierarchy.py",
+      "surface_count": 233
+    },
+    {
+      "source_bytes": 57103,
+      "source_fingerprint": "sha256:4345186efa3b5d1f7539db6f7f802898080c4dd03a0a8deb2ed5607c311bb09c",
+      "source_path": "flowguard/release_verification.py",
+      "surface_count": 162
+    },
+    {
+      "source_bytes": 3815,
+      "source_fingerprint": "sha256:41b2abba4725741fc0131ccccbc51ca4fcd373064b2c5292efd8039852269965",
+      "source_path": "flowguard/replay.py",
+      "surface_count": 42
+    },
+    {
+      "source_bytes": 5387,
+      "source_fingerprint": "sha256:2853330e8b9695a7c0ac15c0a04e84612f2c8360262d9f6df3d94acf8f94827a",
+      "source_path": "flowguard/report.py",
+      "surface_count": 24
+    },
+    {
+      "source_bytes": 17427,
+      "source_fingerprint": "sha256:79878bdabedccc60abb443def4d651e2d508d2bd26bd8feb3531067904a62409",
+      "source_path": "flowguard/reverse_surface_authoring.py",
+      "surface_count": 47
+    },
+    {
+      "source_bytes": 29091,
+      "source_fingerprint": "sha256:4445b0c1d4068dda48a77b8f965076a31bccefa7c917fb00bd8c7dd1a73d6aae",
+      "source_path": "flowguard/reverse_surface_map_identity.py",
+      "surface_count": 119
+    },
+    {
+      "source_bytes": 34195,
+      "source_fingerprint": "sha256:9704dbc13d099649f7398b5ba27b508177979bde2ad8af5a3f018bf0f92fdee7",
+      "source_path": "flowguard/reverse_surface_owner_authority.py",
+      "surface_count": 106
+    },
+    {
+      "source_bytes": 25159,
+      "source_fingerprint": "sha256:865cc2123a377fda51c30ac04e9c36bf61918362ae4426c98b1b2b1b5a1006d9",
+      "source_path": "flowguard/reverse_surface_semantic.py",
+      "surface_count": 74
+    },
+    {
+      "source_bytes": 12134,
+      "source_fingerprint": "sha256:bc3723999cc184a0b500280c80b1e9ae9851a3e5a79ecf6a663ef5dc1c35ac01",
+      "source_path": "flowguard/review.py",
+      "surface_count": 40
+    },
+    {
+      "source_bytes": 14305,
+      "source_fingerprint": "sha256:b9a7575744a84acf815b5c381ce7a22f3d18aee519a808a5d464597ca57b9179",
+      "source_path": "flowguard/risk.py",
+      "surface_count": 76
+    },
+    {
+      "source_bytes": 48936,
+      "source_fingerprint": "sha256:27aa5ac6fea3bcaf96399f7b17903a10f56f359af176b828728f814f5deb7464",
+      "source_path": "flowguard/risk_evidence_ledger.py",
+      "surface_count": 154
+    },
+    {
+      "source_bytes": 52200,
+      "source_fingerprint": "sha256:95efacd076e8ac819e72ec7d3c217b9fcf4481b231580c4dfc51f0b8ffa42e00",
+      "source_path": "flowguard/risk_templates.py",
+      "surface_count": 216
+    },
+    {
+      "source_bytes": 41050,
+      "source_fingerprint": "sha256:b1924384d59bb5a198de487794b961f98d0216a44516fa5dd634d6e59045b1f5",
+      "source_path": "flowguard/route_topology.py",
+      "surface_count": 171
+    },
+    {
+      "source_bytes": 28395,
+      "source_fingerprint": "sha256:f130681390cd728cacbbad7e3797e533c43ef9c259640fba3b693167de1ca64d",
+      "source_path": "flowguard/runner.py",
+      "surface_count": 59
+    },
+    {
+      "source_bytes": 5762,
+      "source_fingerprint": "sha256:14a949d1b97b08f5addd617bab71e3a1bddda05e1f5d70c69183fb125a06286e",
+      "source_path": "flowguard/runtime_artifacts.py",
+      "surface_count": 28
+    },
+    {
+      "source_bytes": 35564,
+      "source_fingerprint": "sha256:7506a05d432240fccec43040a12a57532f28bf8afa9d2cc4488faa905e10bdb5",
+      "source_path": "flowguard/runtime_gateway.py",
+      "surface_count": 155
+    },
+    {
+      "source_bytes": 73221,
+      "source_fingerprint": "sha256:5abb2960063bbc742770e36872316cf60b9a6b7243115c4b4d059b3d89e423e7",
+      "source_path": "flowguard/runtime_path.py",
+      "surface_count": 275
+    },
+    {
+      "source_bytes": 65528,
+      "source_fingerprint": "sha256:e9beb00bbdd2d38feea975c57e8b48a8d782b4cda13f713838ef29ce45780244",
+      "source_path": "flowguard/runtime_test_evidence.py",
+      "surface_count": 212
+    },
+    {
+      "source_bytes": 11687,
+      "source_fingerprint": "sha256:2ff85175075be002d55be56d8852a4d4b3bd5390221f132ce2c0d0d623bfedda",
+      "source_path": "flowguard/scenario.py",
+      "surface_count": 57
+    },
+    {
+      "source_bytes": 23543,
+      "source_fingerprint": "sha256:ff240847c3b64d3500efd050a9a37e29af8f8a5a6400c40170bf38928fb286ef",
+      "source_path": "flowguard/scenario_matrix.py",
+      "surface_count": 70
+    },
+    {
+      "source_bytes": 2469,
+      "source_fingerprint": "sha256:5b56896194aa32c75a2eca2fb2aadb316f1622cb9be87903f188405d9c4e5d48",
+      "source_path": "flowguard/schema.py",
+      "surface_count": 18
+    },
+    {
+      "source_bytes": 243154,
+      "source_fingerprint": "sha256:909792de8edafc8e855d41b23fd27cd795e0f498d383fd92eac9d3fa67bcf0dc",
+      "source_path": "flowguard/self_architecture_reduction.py",
+      "surface_count": 620
+    },
+    {
+      "source_bytes": 191608,
+      "source_fingerprint": "sha256:cea543e504e895874540ed6c132b5152d5313117836508553e2205f21d24d2ce",
+      "source_path": "flowguard/self_blueprint.py",
+      "surface_count": 335
+    },
+    {
+      "source_bytes": 77938,
+      "source_fingerprint": "sha256:4a4bf4aaa8ddb24535b7e82890769f5702fb7a261b3b7f0b98fd495900dcd12c",
+      "source_path": "flowguard/self_maintenance.py",
+      "surface_count": 216
+    },
+    {
+      "source_bytes": 64114,
+      "source_fingerprint": "sha256:ce6297345d80226c67780e6db6bed3999ce52f558b4a16e6e46af967b891e51b",
+      "source_path": "flowguard/self_path_quality.py",
+      "surface_count": 166
+    },
+    {
+      "source_bytes": 135558,
+      "source_fingerprint": "sha256:f291e3ad1fc57f476e09326017eb276f6c53dd2b461a7b25c20a289bc660b2b3",
+      "source_path": "flowguard/self_reduction_inventory.py",
+      "surface_count": 443
+    },
+    {
+      "source_bytes": 15512,
+      "source_fingerprint": "sha256:49bc76ef9f934d5d2b779a2306972c8a07f249055eaf466920ff59d3eef9ccd1",
+      "source_path": "flowguard/shard_safety.py",
+      "surface_count": 49
+    },
+    {
+      "source_bytes": 4498,
+      "source_fingerprint": "sha256:d2ee0c3a0f3b731bd070e1619443c83a1f1a59b0949abfdb22289430eb4ed9db",
+      "source_path": "flowguard/skill_contract_model.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 48239,
+      "source_fingerprint": "sha256:eba60f6db5447661432ec85fa53af8426504e4d2d19a782cf33e4f5088f341d3",
+      "source_path": "flowguard/skill_contracts.py",
+      "surface_count": 67
+    },
+    {
+      "source_bytes": 25095,
+      "source_fingerprint": "sha256:2a3ac3f6c608bf6ea057b3dff8dc150fcc17651574ed5daf2f4fbbc0ce7475f2",
+      "source_path": "flowguard/skill_native_checks.py",
+      "surface_count": 71
+    },
+    {
+      "source_bytes": 21502,
+      "source_fingerprint": "sha256:6aa03fd706d3d32a22ba07abb30c128142634fd2f52fb7b2bb3ba688b93e2edb",
+      "source_path": "flowguard/skill_self_governance.py",
+      "surface_count": 54
+    },
+    {
+      "source_bytes": 24549,
+      "source_fingerprint": "sha256:2eccf11ff94799d71f741294ffa075241b32c7f2187973abc50dc8fe28ec3bde",
+      "source_path": "flowguard/skill_suite.py",
+      "surface_count": 67
+    },
+    {
+      "source_bytes": 13292,
+      "source_fingerprint": "sha256:84ddf077b1e4e4226174fb97d5defa8b18573edf98b4648590fd51ba50d94efe",
+      "source_path": "flowguard/skillguard_template_adapter.py",
+      "surface_count": 38
+    },
+    {
+      "source_bytes": 166779,
+      "source_fingerprint": "sha256:8ba6eef9370f90a1496609b050b47a53e6366c8242643177624d4c787f1a54ec",
+      "source_path": "flowguard/software_blueprint_readiness.py",
+      "surface_count": 401
+    },
+    {
+      "source_bytes": 9671,
+      "source_fingerprint": "sha256:ea347bf82406d719891018d0307719bee1828d77d6dfacce88bd856213eb51db",
+      "source_path": "flowguard/source_identity.py",
+      "surface_count": 52
+    },
+    {
+      "source_bytes": 26447,
+      "source_fingerprint": "sha256:ccd51cedb21912ad039455c6112d0465b590ae72bc258891f8477049d74973b9",
+      "source_path": "flowguard/state_closure.py",
+      "surface_count": 134
+    },
+    {
+      "source_bytes": 21957,
+      "source_fingerprint": "sha256:3f834e6854338a169bcb567ad973d85806c81ed2a298a849b2e4aed10a63dd6a",
+      "source_path": "flowguard/step_contracts.py",
+      "surface_count": 106
+    },
+    {
+      "source_bytes": 7589,
+      "source_fingerprint": "sha256:4b3134cfa0292664b823ec8cb9e942520c4272d75c9a248d150c8a246088d7c1",
+      "source_path": "flowguard/storage_audit.py",
+      "surface_count": 22
+    },
+    {
+      "source_bytes": 40206,
+      "source_fingerprint": "sha256:fb5eb8df70898140502209065e380de29932ad8c4e5664fe93338cf6ded9f76c",
+      "source_path": "flowguard/structuremesh.py",
+      "surface_count": 129
+    },
+    {
+      "source_bytes": 399,
+      "source_fingerprint": "sha256:726e1acc7f6a0ac67456f53fa1a3b4043934e9ffc82f6a3be26e4e82dc1bd94e",
+      "source_path": "flowguard/suite_contract.py",
+      "surface_count": 3
+    },
+    {
+      "source_bytes": 28500,
+      "source_fingerprint": "sha256:0318c6adcb62626455b50dd81cd4d6f65139b8f59cf355c6268d6c2228d569cf",
+      "source_path": "flowguard/summary_report.py",
+      "surface_count": 176
+    },
+    {
+      "source_bytes": 5601,
+      "source_fingerprint": "sha256:4c186bf49091a264485ab76fef3e64865e9f1ad482baf2196e419cfc47c34287",
+      "source_path": "flowguard/symlink_capability.py",
+      "surface_count": 18
+    },
+    {
+      "source_bytes": 18756,
+      "source_fingerprint": "sha256:1cdcc68f883f3884dedd76d8c182a5fa8e259dde9c357341cb06f04fc4fbda51",
+      "source_path": "flowguard/system_composition.py",
+      "surface_count": 36
+    },
+    {
+      "source_bytes": 101513,
+      "source_fingerprint": "sha256:a61679daf25410d07b9107b3ec09b811476d1680f7930a74246a394bb1c879c9",
+      "source_path": "flowguard/target_native_qualification.py",
+      "surface_count": 205
+    },
+    {
+      "source_bytes": 127951,
+      "source_fingerprint": "sha256:63c568593c6f813b64c106c9c437d9e6f437ff3bc8917583f08cc3c83b89a20e",
+      "source_path": "flowguard/target_system_blueprint.py",
+      "surface_count": 496
+    },
+    {
+      "source_bytes": 39674,
+      "source_fingerprint": "sha256:82ec87712cc02ae238d91a40a02016ea7d75e2e93c34b0aa5babde3ea4998cf5",
+      "source_path": "flowguard/task_coverage_demand.py",
+      "surface_count": 198
+    },
+    {
+      "source_bytes": 16165,
+      "source_fingerprint": "sha256:b8b1450b12bb58e95b2f30be365e68d9188aafe211cf40a7cf57f0837182d76f",
+      "source_path": "flowguard/task_local_model.py",
+      "surface_count": 109
+    },
+    {
+      "source_bytes": 54957,
+      "source_fingerprint": "sha256:9fc9ce348d12130f0b79bab5e68c2303f7f4c68a01e7fdde10e1bd60f3fd19c5",
+      "source_path": "flowguard/template_packs.py",
+      "surface_count": 250
+    },
+    {
+      "source_bytes": 87,
+      "source_fingerprint": "sha256:5cb15471a9af29ea973a26273eb794e252ad648f2a4b383df7fc955cb8e2e638",
+      "source_path": "flowguard/template_text/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 12523,
+      "source_fingerprint": "sha256:572d1d8f406772e3bf021e0c2a26b631d30ee771cbc80681c910a2dd14e2af3f",
+      "source_path": "flowguard/template_text/behavior_commitment_ledger.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 8696,
+      "source_fingerprint": "sha256:ec940b61c5267b4e2c1ce44d07a7267b07b9e0ab10c7021cb2d2cb6f3694a17a",
+      "source_path": "flowguard/template_text/code_structure_recommendation.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 4146,
+      "source_fingerprint": "sha256:20c465c055cbf00e5bccd1d3258bd97387143daf6b8999af7f55a8d7bf67b571",
+      "source_path": "flowguard/template_text/contract_exhaustion.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 13261,
+      "source_fingerprint": "sha256:d00e577ae1e4d4280ae93ff460b77743c83950034cc92bde32f22acae52b6862",
+      "source_path": "flowguard/template_text/core.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 23870,
+      "source_fingerprint": "sha256:296fc77bbdc2918c6851f722450edb5c927bdfa404ff2ff765ae66476b6d345f",
+      "source_path": "flowguard/template_text/development_process_flow.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 10256,
+      "source_fingerprint": "sha256:875773818e13e0633d5e5d57412f91e1bfeb54743adb129edb6936060ea158ed",
+      "source_path": "flowguard/template_text/existing_model_preflight.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 9343,
+      "source_fingerprint": "sha256:9fe37389d98da3d5b17ba69ddf3560572b238e213f75aacf9eb332ea08a98a5d",
+      "source_path": "flowguard/template_text/field_lifecycle.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 16055,
+      "source_fingerprint": "sha256:0de44cc7ba1a3b51c9f292085c98a50460ef70cd29802e1d999e5fa34048519f",
+      "source_path": "flowguard/template_text/flowguard_closure_contract.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 9011,
+      "source_fingerprint": "sha256:294fa0bab24ae932f65b57ba2edb6f66086be455703c73a11fa1e18c089a7039",
+      "source_path": "flowguard/template_text/layered_boundary_proof.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 20519,
+      "source_fingerprint": "sha256:d12a1f7b75f4597bc0b1274ca41ae6f5deff053f0635d84b84f6942d8b059ca2",
+      "source_path": "flowguard/template_text/maintenance_workflow.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 4870,
+      "source_fingerprint": "sha256:ce21b1bb6a777e9106280a089518c2cd60c64c552385d40bfdd204fddcd82ed5",
+      "source_path": "flowguard/template_text/model_mesh.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 69315,
+      "source_fingerprint": "sha256:861ee02d87b116ca9abb7c1276b1796c45cfce7e2540b9df153cb71d5d148bb6",
+      "source_path": "flowguard/template_text/model_miss_review.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 42694,
+      "source_fingerprint": "sha256:a0ecdf1f233ebcc7dbec4a5c640c7689c537c87e144d3aed11175edf89e5e902",
+      "source_path": "flowguard/template_text/model_test_alignment.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 11877,
+      "source_fingerprint": "sha256:d9a8738e8e0d7311078ef27266adf99b7064822bb4e4a91ec47f4ad7b69e2ac8",
+      "source_path": "flowguard/template_text/plan_detailing.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 9981,
+      "source_fingerprint": "sha256:77fe9bc9b062fae5a7133ac26a5b00a289253fa86601aebc420198d6f3896a35",
+      "source_path": "flowguard/template_text/primary_path_authority.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 3300,
+      "source_fingerprint": "sha256:b455eac577f08ab7d8295cff1164aa38eacd4a4a236908622e636322b3362171",
+      "source_path": "flowguard/template_text/reverse_surface_closure.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 23597,
+      "source_fingerprint": "sha256:cc53136608d790accf2ab56ebcf9232694a11664031cb3125687a3359b7a7f63",
+      "source_path": "flowguard/template_text/risk_evidence_ledger.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 6681,
+      "source_fingerprint": "sha256:318c048498c5d325b93d0eb39df4f628e0e3acaee60b99e4f43a9380cacb3afd",
+      "source_path": "flowguard/template_text/risk_intent_check_plan.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 5542,
+      "source_fingerprint": "sha256:24804e35269d59eb78e77809dea09b8d11e189ab2b7c0434ddf4800e108d6c33",
+      "source_path": "flowguard/template_text/risk_template_library.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 6786,
+      "source_fingerprint": "sha256:146adf2eef7a83bdf09de15f634cfc086c87667b20f79105c3d7805da03115a0",
+      "source_path": "flowguard/template_text/runtime_path_evidence.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 8944,
+      "source_fingerprint": "sha256:d18c756aa17b414295f89c6e5fb8bd9db7dad1a4822625d195f75e90b12bdaa0",
+      "source_path": "flowguard/template_text/structure_mesh.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 10155,
+      "source_fingerprint": "sha256:c520accdb068fb9950a7e69df8d278b4e53a6cbb0ef94f11d470348d02a3f7b3",
+      "source_path": "flowguard/template_text/test_mesh.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 3948,
+      "source_fingerprint": "sha256:d9bbf21f98071a6e310a8548c19de5abbc237cd990f847c3bfe22f4d5d843ff6",
+      "source_path": "flowguard/template_text/topology_hazard.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 114727,
+      "source_fingerprint": "sha256:66f2617f57d7ce70bdc10caa1594f45a1e678df550728bf84c917f16925427ad",
+      "source_path": "flowguard/template_text/ui_flow_structure.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 2663,
+      "source_fingerprint": "sha256:06e4a41ab31e6f3739b0e787d4a754c4611f3e2eb3e246dcede6870016652809",
+      "source_path": "flowguard/template_text/work_context.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 5225,
+      "source_fingerprint": "sha256:0da8cd9525e18d7a26b35bbec652f8e449ec5c641483ad40b7b54396fed0693a",
+      "source_path": "flowguard/template_text/workflow_step_contracts.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 25926,
+      "source_fingerprint": "sha256:9baa815bd53a7bbd7b830e5476f3c7d76960370eb116ac576b02670983ec1eea",
+      "source_path": "flowguard/templates.py",
+      "surface_count": 177
+    },
+    {
+      "source_bytes": 66382,
+      "source_fingerprint": "sha256:205921e3fc2d26b11c7ea87363fd49ccc72f87fead4528a7865837a0052211f8",
+      "source_path": "flowguard/test_inventory.py",
+      "surface_count": 254
+    },
+    {
+      "source_bytes": 18295,
+      "source_fingerprint": "sha256:db36a41dc4d9c004b7ec01abfcf15f162b5addc4485f642e85de602f2a3732f9",
+      "source_path": "flowguard/test_inventory_python.py",
+      "surface_count": 53
+    },
+    {
+      "source_bytes": 12082,
+      "source_fingerprint": "sha256:7303e968fde384adadc9fa84bf427cb787a5f926a50b340de0e542895b401618",
+      "source_path": "flowguard/test_reuse.py",
+      "surface_count": 34
+    },
+    {
+      "source_bytes": 104238,
+      "source_fingerprint": "sha256:b6c8e2c99cda6e746a57698e7f9f13086a7472fc27270e7612e3f17e79c54a4a",
+      "source_path": "flowguard/testmesh.py",
+      "surface_count": 246
+    },
+    {
+      "source_bytes": 63048,
+      "source_fingerprint": "sha256:35ff1924973cba20b800fb4a44d58bbec7447169e6d78b71a7533f672b0a703b",
+      "source_path": "flowguard/topology_hazard.py",
+      "surface_count": 295
+    },
+    {
+      "source_bytes": 3717,
+      "source_fingerprint": "sha256:c3f95c1f22b2ae5877c908be65121808994afb0d88968404f8703f68c48bdb99",
+      "source_path": "flowguard/trace.py",
+      "surface_count": 48
+    },
+    {
+      "source_bytes": 17114,
+      "source_fingerprint": "sha256:ffd80e596951361dc111fc2a9e0dfa2cb21aae39b3c63bc9b3e56e549df68e35",
+      "source_path": "flowguard/transition_coverage.py",
+      "surface_count": 101
+    },
+    {
+      "source_bytes": 9284,
+      "source_fingerprint": "sha256:d07672d7e234a799b65bf55d47bc6ff127a54622241d1b662805400114f12c9e",
+      "source_path": "flowguard/ui_implementation_evidence.py",
+      "surface_count": 35
+    },
+    {
+      "source_bytes": 554384,
+      "source_fingerprint": "sha256:0824b139bb0575559aaeceedb09f7aaf5755dace2e90f89f5f20e4fb28a6f7a5",
+      "source_path": "flowguard/ui_structure.py",
+      "surface_count": 1773
+    },
+    {
+      "source_bytes": 31353,
+      "source_fingerprint": "sha256:7e6e30e6f58bf5a2533a24f0d4971f41594f3ad22b1da5ad71b678b651a00d80",
+      "source_path": "flowguard/understanding_readiness.py",
+      "surface_count": 70
+    },
+    {
+      "source_bytes": 21899,
+      "source_fingerprint": "sha256:6a59bfdd5c2d9ffe8a23c738c1a581dd6aca62511299c67f170a79d87facef97",
+      "source_path": "flowguard/validation_owner_execution.py",
+      "surface_count": 64
+    },
+    {
+      "source_bytes": 241074,
+      "source_fingerprint": "sha256:7f750c66ad0c2a6b40774e541e8b5f4c274c6c3cd79dd5ad8520c6f2f6c8ffac",
+      "source_path": "flowguard/validation_ownership.py",
+      "surface_count": 592
+    },
+    {
+      "source_bytes": 11576,
+      "source_fingerprint": "sha256:b28a6cfecc4b3ffca4e1e9db4fd87903b10ceed167fa2a8d609988538755687c",
+      "source_path": "flowguard/validation_results.py",
+      "surface_count": 60
+    },
+    {
+      "source_bytes": 24975,
+      "source_fingerprint": "sha256:e828dae8182d61bc97ddf61246073fbbed352e2143647c7f9c6442a4a86d55ca",
+      "source_path": "flowguard/work_context.py",
+      "surface_count": 111
+    },
+    {
+      "source_bytes": 1259,
+      "source_fingerprint": "sha256:d60bafd0d2b3e77222b1f8a04841c63af26c8142f56b569d3e3aa872e7c58dfc",
+      "source_path": "flowguard/work_context_adapters/__init__.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 6635,
+      "source_fingerprint": "sha256:a75afa9ebc8e7222bcfe5970b14f9b259f6cdab77c2726863cd9199e78cfa5d5",
+      "source_path": "flowguard/work_context_adapters/declared_files.py",
+      "surface_count": 23
+    },
+    {
+      "source_bytes": 5394,
+      "source_fingerprint": "sha256:79d1e6adc0160d1f669c924620ea0e6c21b29e19e10a9448e27f0ec049100f47",
+      "source_path": "flowguard/work_context_adapters/openspec.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 6318,
+      "source_fingerprint": "sha256:09a52f157be614feb4d60209078be90e4092e69229ca1f2eb893ebbc6447b08a",
+      "source_path": "flowguard/workflow.py",
+      "surface_count": 17
+    },
+    {
+      "source_bytes": 1260,
+      "source_fingerprint": "sha256:aad4834ede4029bd1d7c21547f9a4810be181dd41c6307efde644b6d42aa85ca",
+      "source_path": "pyproject.toml",
+      "surface_count": 3
+    },
+    {
+      "source_bytes": 75,
+      "source_fingerprint": "sha256:3346cb165152f147686fc33100fc8fe2a8a2de8ca9ac6d74a1e5ba33a181acb1",
+      "source_path": "scripts/__init__.py",
+      "surface_count": 1
+    },
+    {
+      "source_bytes": 22701,
+      "source_fingerprint": "sha256:086790701ce021638381d021d6b23380f1e201576f56d5bcd3ea1874d76db869",
+      "source_path": "scripts/assemble_dna_completion_assessment.py",
+      "surface_count": 33
+    },
+    {
+      "source_bytes": 9274,
+      "source_fingerprint": "sha256:568432b1f003c191380dd5a8200d65f2bea0081fa8b2f8b15cf23d28827e4f13",
+      "source_path": "scripts/audit_public_behavior_surface.py",
+      "surface_count": 18
+    },
+    {
+      "source_bytes": 1782,
+      "source_fingerprint": "sha256:baed79653b5345f9465de8b8f13f9797cfaf7715324dfbb44c003575112e2e1d",
+      "source_path": "scripts/author_current_reverse_surface_owner_authority.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 13088,
+      "source_fingerprint": "sha256:1b5ab35a31d1cb7724b654af66e2cd69a1367afd62199bbc5e8cfb3a8ff450f0",
+      "source_path": "scripts/author_reverse_surface_map_skeleton.py",
+      "surface_count": 29
+    },
+    {
+      "source_bytes": 4911,
+      "source_fingerprint": "sha256:465201181c0f7f754fdb9099aa4c1807792337840140c804506e6e93aac428d4",
+      "source_path": "scripts/author_reverse_surface_semantic_map.py",
+      "surface_count": 20
+    },
+    {
+      "source_bytes": 62858,
+      "source_fingerprint": "sha256:e5715526822f674b1bae923a89327b8b9cba22dd9499dc5e43c5c34ce5eee8ca",
+      "source_path": "scripts/build_direct_model_rebuild_inputs.py",
+      "surface_count": 132
+    },
+    {
+      "source_bytes": 2753,
+      "source_fingerprint": "sha256:0240064c79da30ee49632050a1c4a31f46a7d81e374781f3c57b748a5777448b",
+      "source_path": "scripts/build_reverse_surface_authoring_context.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 35807,
+      "source_fingerprint": "sha256:f8e23dbd941b0672bb4523b2566553e4ee9760b5aa2a6dc067cb1275e0aa5f72",
+      "source_path": "scripts/check_closure_patch_regressions.py",
+      "surface_count": 64
+    },
+    {
+      "source_bytes": 2681,
+      "source_fingerprint": "sha256:63b3b2b14192c4e3bf3e1de32e307a1ed4caa8dbadc9432d405fe85b8ca0c581",
+      "source_path": "scripts/check_flowguard_author_skill_assurance.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 1225,
+      "source_fingerprint": "sha256:cb69babcce605d7902499f421c0b5a2fe09c901952337d39a94cacccc9e4d153",
+      "source_path": "scripts/check_flowguard_route_parity.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 932,
+      "source_fingerprint": "sha256:5209477539e66fe85b91be5149001fd8725e2fc0ccc27458fd7441c2cb8dca40",
+      "source_path": "scripts/check_flowguard_route_topology.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 1955,
+      "source_fingerprint": "sha256:16b858de75c41f922fd94e752e45caf5acfa47b954eafa1195d38607fbb2753b",
+      "source_path": "scripts/check_flowguard_self_governance.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 300693,
+      "source_fingerprint": "sha256:0ab14af8eaddfa0bbb33cda27dfd3d4d80c26221b5dad1e96bd38a5f09700397",
+      "source_path": "scripts/check_flowguard_skill_suite.py",
+      "surface_count": 438
+    },
+    {
+      "source_bytes": 1554,
+      "source_fingerprint": "sha256:606df62a005488b6001bf181f908f114a4272b3899ead24d10c8279172e90c45",
+      "source_path": "scripts/check_openspec_change.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 39315,
+      "source_fingerprint": "sha256:117555f703b2974d8b4b29cd6dae7a368b3bbe4aca4cdfe3581a34770c0914d4",
+      "source_path": "scripts/check_openspec_semantic_sync.py",
+      "surface_count": 105
+    },
+    {
+      "source_bytes": 1045,
+      "source_fingerprint": "sha256:92971eedcdd8579f491ab314406989cb69eb8267dab44135cf9570bd1fc17df9",
+      "source_path": "scripts/check_prompt_budgets.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 2322,
+      "source_fingerprint": "sha256:5c4ef6eda3f419112b8389f0757aae7d89edbef5ffe4652b6c1e4bbb9955339c",
+      "source_path": "scripts/check_self_maintenance_review.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 3519,
+      "source_fingerprint": "sha256:0b3879d2b3be0ff993b0913cab6a9a4072952fe26cabaf72e30b109c2996614d",
+      "source_path": "scripts/classify_behavior_surface_candidates.py",
+      "surface_count": 12
+    },
+    {
+      "source_bytes": 3917,
+      "source_fingerprint": "sha256:5f0bc9d4fbcd057dcbf2ef715f983cbe0ff1ef560489335f15e1500d7956acc2",
+      "source_path": "scripts/compile_flowguard_consumer_suite_authority.py",
+      "surface_count": 13
+    },
+    {
+      "source_bytes": 30839,
+      "source_fingerprint": "sha256:8a9eb649a83516662ccdf444763d18637c0641bbac8280c740d03da57e52d65f",
+      "source_path": "scripts/compile_flowguard_self_blueprint_definition.py",
+      "surface_count": 109
+    },
+    {
+      "source_bytes": 1243,
+      "source_fingerprint": "sha256:c32840a8ffe8c3b3d3c4ac487bf1b5f45926a0c921a79814ce9a7a2aff14b487",
+      "source_path": "scripts/compile_flowguard_skill_contracts.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 56546,
+      "source_fingerprint": "sha256:8cc55c754787a43bf09ab3a76e5663be6fc7e8ba8dc6c21101202a7dd341aec4",
+      "source_path": "scripts/compile_native_case_mapping.py",
+      "surface_count": 121
+    },
+    {
+      "source_bytes": 20488,
+      "source_fingerprint": "sha256:1f1a98a9595711026ac32c020b24d6f190087c65e92c6cc56ba716976024bf4f",
+      "source_path": "scripts/discover_behavior_inventory.py",
+      "surface_count": 49
+    },
+    {
+      "source_bytes": 6270,
+      "source_fingerprint": "sha256:693a406b1265bc2fe8415704d8e09ca37ba73d8e052e13aeac053d88ad3b6781",
+      "source_path": "scripts/discover_behavior_surface_shards.py",
+      "surface_count": 19
+    },
+    {
+      "source_bytes": 13950,
+      "source_fingerprint": "sha256:8eb2231c1de7b9f4c168f206e6839a7f055938c1b9f9a186fe3c1ea3886ec0de",
+      "source_path": "scripts/flowguard_adoption_review_helper.py",
+      "surface_count": 43
+    },
+    {
+      "source_bytes": 11463,
+      "source_fingerprint": "sha256:ad500b07e3cb5b9685656dacd23add55015128ff710932b50ee3ed0e3037bc47",
+      "source_path": "scripts/generate_field_lifecycle_inventory.py",
+      "surface_count": 29
+    },
+    {
+      "source_bytes": 17352,
+      "source_fingerprint": "sha256:d88e7eb9b4852d30d6d23dea48e0624a93ac9ba4433b6446d6f68cb53fc59a34",
+      "source_path": "scripts/generate_lazy_public_api.py",
+      "surface_count": 38
+    },
+    {
+      "source_bytes": 13200,
+      "source_fingerprint": "sha256:4192b56486b4e35f9383c02180b85e40fa30bfb1c946b921bc72520aa0f8b451",
+      "source_path": "scripts/install_flowguard_skills.py",
+      "surface_count": 22
+    },
+    {
+      "source_bytes": 4834,
+      "source_fingerprint": "sha256:3e813519fed8928b2e7f2cc30b694a652bfeba7dca66e53b0ad9b06c7fdece80",
+      "source_path": "scripts/measure_route_costs.py",
+      "surface_count": 16
+    },
+    {
+      "source_bytes": 40901,
+      "source_fingerprint": "sha256:b8316e2d0a063dd5f866ab406b000c665f8c98457e773e4f8dbf2596debabe36",
+      "source_path": "scripts/prepare_completion_repair.py",
+      "surface_count": 226
+    },
+    {
+      "source_bytes": 407,
+      "source_fingerprint": "sha256:5b32486981e6743e2cb7d968c0110537181cd4c3e2264bf5b07e6f922ed4d0d7",
+      "source_path": "scripts/prepare_flowguard_completion_readiness.py",
+      "surface_count": 2
+    },
+    {
+      "source_bytes": 2097,
+      "source_fingerprint": "sha256:e223ff3a326e764ba48469d20847c7910fc2d3f2d7c2930eaeb7c2dd97d09f46",
+      "source_path": "scripts/produce_flowguard_task_context.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 1052,
+      "source_fingerprint": "sha256:09bcc5e262f3ebd403a30238e871980b1099e146326469624098f586be4ed963",
+      "source_path": "scripts/prove_model_shard_safety.py",
+      "surface_count": 4
+    },
+    {
+      "source_bytes": 1189,
+      "source_fingerprint": "sha256:19ca0ed796d39b1b3966a3bc7f14757c116fb7f99158cbf5341ffa470ce3f9d8",
+      "source_path": "scripts/read_flowguard_artifact_slice.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 3071,
+      "source_fingerprint": "sha256:c76eeacd6d404591f1aa69456d47f254069567364647f1548904a7a9983641ac",
+      "source_path": "scripts/refresh_behavior_commitment_ledger.py",
+      "surface_count": 5
+    },
+    {
+      "source_bytes": 1887,
+      "source_fingerprint": "sha256:388b410d6c854d9d266bca36cd15a7449ae6642c4d9139f1de8d27dc23ce2990",
+      "source_path": "scripts/render_current_authority_join.py",
+      "surface_count": 10
+    },
+    {
+      "source_bytes": 1037,
+      "source_fingerprint": "sha256:6ed1747595c45f24d025b5cb89fabe95cc126427a252bfcd94ff01fa30575297",
+      "source_path": "scripts/rewrite_current_layout_manifest.py",
+      "surface_count": 6
+    },
+    {
+      "source_bytes": 8616,
+      "source_fingerprint": "sha256:8177dd83914cfb151bfd5bd0fbf06109724c4d5d75f73d2baa5e2ab0a44c9aa3",
+      "source_path": "scripts/run_flowguard_model_regressions.py",
+      "surface_count": 10
+    },
+    {
+      "source_bytes": 48502,
+      "source_fingerprint": "sha256:0d80e3922357e1ac73d615757f439d107003145e9b13c8e476e994247d82fc7d",
+      "source_path": "scripts/run_flowguard_pytest_shards.py",
+      "surface_count": 62
+    },
+    {
+      "source_bytes": 2409,
+      "source_fingerprint": "sha256:0bc7061bdd25e5b3badb1669bac047fc5fa936d6c5dc0bdfa92a74349f73cba3",
+      "source_path": "scripts/run_flowguard_skill_native_checks.py",
+      "surface_count": 7
+    },
+    {
+      "source_bytes": 2117,
+      "source_fingerprint": "sha256:d4b07e7a046d19810857907ee3ed29cea75a4d494f012168471a97b3d2417222",
+      "source_path": "scripts/run_openspec_selected_check.py",
+      "surface_count": 11
+    },
+    {
+      "source_bytes": 17821,
+      "source_fingerprint": "sha256:e569861fc07a1eb35c62557cd95d7706de24d4584ddd2079b5c38c2f80ea1f73",
+      "source_path": "scripts/verify_external_consumer.py",
+      "surface_count": 35
+    },
+    {
+      "source_bytes": 3885,
+      "source_fingerprint": "sha256:c0c3b68591385da386d01a9000096a87328e69e35c86692183af6c5f3aa02366",
+      "source_path": "scripts/verify_flowguard_release.py",
+      "surface_count": 10
+    },
+    {
+      "source_bytes": 6971,
+      "source_fingerprint": "sha256:da4de07840aedb94480a3c492e7eb50f785c35bb5482b79666a820b382c354bd",
+      "source_path": "scripts/verify_guard_simulation_readiness.py",
+      "surface_count": 24
+    },
+    {
+      "source_bytes": 4132,
+      "source_fingerprint": "sha256:856ebf338ca70cd0bd9ae01d184c56f964f639923240d1bafb1ac4426cc4ecb7",
+      "source_path": "scripts/verify_openspec_recorded_check.py",
+      "surface_count": 13
+    },
+    {
+      "source_bytes": 2523,
+      "source_fingerprint": "sha256:9171d4f8176e14120a997e7023333fcafbc2862f9a2eb3939c715dc1aa0371da",
+      "source_path": "scripts/verify_skill_suite_markers.py",
+      "surface_count": 8
+    }
+  ],
+  "findings": [],
+  "max_rows": 5000,
+  "plan_fingerprint": "sha256:c82c43f847069036bf3a321fbee44b462732002d431c014840d317f781d45a1c",
+  "schema_version": "flowguard.implementation_surface_shard_plan.v1",
+  "shards": [
+    {
+      "estimated_surface_count": 4614,
+      "shard_id": "implementation-surface-0000",
+      "source_bytes": 1661489,
+      "source_file_count": 109,
+      "source_paths": [
+        "examples/__init__.py",
+        "examples/adoption_review_helper/model.py",
+        "examples/adoption_review_helper/run_review.py",
+        "examples/assumption_card_safety/__init__.py",
+        "examples/assumption_card_safety/model.py",
+        "examples/assumption_card_safety/run_checks.py",
+        "examples/bounded_system_composition/__init__.py",
+        "examples/bounded_system_composition/benchmark.py",
+        "examples/bounded_system_composition/run_benchmark.py",
+        "examples/budgeted_model_groups/__init__.py",
+        "examples/budgeted_model_groups/model.py",
+        "examples/budgeted_model_groups/run_checks.py",
+        "examples/budgeted_model_groups/run_large_graph_example.py",
+        "examples/evidence_baseline/__init__.py",
+        "examples/evidence_baseline/baseline.py",
+        "examples/evidence_baseline/run_baseline.py",
+        "examples/flowguard_agent_workflow_rehearsal/__init__.py",
+        "examples/flowguard_agent_workflow_rehearsal/model.py",
+        "examples/flowguard_agent_workflow_rehearsal/run_review.py",
+        "examples/flowguard_product_boundary/__init__.py",
+        "examples/flowguard_product_boundary/model.py",
+        "examples/flowguard_product_boundary/run_review.py",
+        "examples/flowguard_progress_heartbeat/model.py",
+        "examples/flowguard_progress_heartbeat/run_checks.py",
+        "examples/flowguard_runner_self_review/__init__.py",
+        "examples/flowguard_runner_self_review/model.py",
+        "examples/flowguard_runner_self_review/run_review.py",
+        "examples/flowguard_self_review/__init__.py",
+        "examples/flowguard_self_review/conformance.py",
+        "examples/flowguard_self_review/model.py",
+        "examples/flowguard_self_review/orchestrator.py",
+        "examples/flowguard_self_review/run_conformance.py",
+        "examples/flowguard_self_review/run_self_review.py",
+        "examples/flowguard_skill_collaboration/__init__.py",
+        "examples/flowguard_skill_collaboration/model.py",
+        "examples/flowguard_skill_collaboration/run_review.py",
+        "examples/flowguard_skill_trigger/__init__.py",
+        "examples/flowguard_skill_trigger/model.py",
+        "examples/flowguard_skill_trigger/run_review.py",
+        "examples/hierarchical_model_mesh/run_review.py",
+        "examples/job_matching/__init__.py",
+        "examples/job_matching/conformance.py",
+        "examples/job_matching/model.py",
+        "examples/job_matching/production.py",
+        "examples/job_matching/run_checks.py",
+        "examples/job_matching/run_conformance.py",
+        "examples/job_matching/run_scenario_review.py",
+        "examples/job_matching/scenarios.py",
+        "examples/latest_schema_upgrade_policy/__init__.py",
+        "examples/latest_schema_upgrade_policy/model.py",
+        "examples/latest_schema_upgrade_policy/run_review.py",
+        "examples/lightweight_model_miss_review/__init__.py",
+        "examples/lightweight_model_miss_review/model.py",
+        "examples/lightweight_model_miss_review/run_checks.py",
+        "examples/looping_workflow/__init__.py",
+        "examples/looping_workflow/model.py",
+        "examples/looping_workflow/run_loop_review.py",
+        "examples/mermaid_export_example.py",
+        "examples/model_hardening_gate/model.py",
+        "examples/model_hardening_gate/run_checks.py",
+        "examples/plan_detailing_compiler/__init__.py",
+        "examples/plan_detailing_compiler/model.py",
+        "examples/plan_detailing_compiler/run_review.py",
+        "examples/problem_corpus/__init__.py",
+        "examples/problem_corpus/conformance_seeds.py",
+        "examples/problem_corpus/coverage_audit.py",
+        "examples/problem_corpus/executable.py",
+        "examples/problem_corpus/family_scenarios.py",
+        "examples/problem_corpus/hardening.py",
+        "examples/problem_corpus/matrix.py",
+        "examples/problem_corpus/real_models.py",
+        "examples/problem_corpus/run_benchmark_hardening.py",
+        "examples/problem_corpus/run_conformance_seeds.py",
+        "examples/problem_corpus/run_corpus_review.py",
+        "examples/problem_corpus/run_coverage_audit.py",
+        "examples/problem_corpus/run_executable_corpus_review.py",
+        "examples/problem_corpus/run_family_scenario_review.py",
+        "examples/problem_corpus/taxonomy.py",
+        "examples/public_release_adoption/__init__.py",
+        "examples/public_release_adoption/model.py",
+        "examples/public_release_adoption/run_review.py",
+        "examples/risk_evidence_ledger/__init__.py",
+        "examples/risk_evidence_ledger/model.py",
+        "examples/risk_evidence_ledger/run_checks.py",
+        "examples/skill_contract_model_exports/code_structure_recommendation.py",
+        "examples/skill_contract_model_exports/contract_exhaustion_mesh.py",
+        "flowguard/__init__.py",
+        "flowguard/__main__.py",
+        "flowguard/_completion_readiness_impl.py",
+        "flowguard/_development_process_strategy_review.py",
+        "flowguard/_eager_exports.py",
+        "flowguard/_hashing.py",
+        "flowguard/_normalization.py",
+        "flowguard/_package_identity.py",
+        "flowguard/_runtime_progress.py",
+        "flowguard/_wire.py",
+        "flowguard/adoption.py",
+        "flowguard/adoption_audit.py",
+        "flowguard/affected_blueprint_reader.py",
+        "flowguard/agent_workflow_rehearsal.py",
+        "flowguard/api_registry.py",
+        "flowguard/architecture_native_material.py",
+        "flowguard/architecture_reduction.py",
+        "flowguard/artifact_slices.py",
+        "flowguard/artifact_upgrade.py",
+        "flowguard/assumptions.py",
+        "flowguard/audit.py",
+        "flowguard/auto_split.py",
+        "flowguard/baseline.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4937,
+      "shard_id": "implementation-surface-0001",
+      "source_bytes": 1607644,
+      "source_file_count": 29,
+      "source_paths": [
+        "flowguard/behavior_commitment.py",
+        "flowguard/behavior_commitment_lookup.py",
+        "flowguard/behavior_plane.py",
+        "flowguard/behavior_surface_audit.py",
+        "flowguard/benchmark.py",
+        "flowguard/blueprint_compact_projection.py",
+        "flowguard/blueprint_topology.py",
+        "flowguard/budgeted.py",
+        "flowguard/canonical_blueprint_projection.py",
+        "flowguard/canonical_relation.py",
+        "flowguard/checks.py",
+        "flowguard/closure_contract.py",
+        "flowguard/code_structure.py",
+        "flowguard/completion_epoch.py",
+        "flowguard/completion_objective.py",
+        "flowguard/completion_readiness.py",
+        "flowguard/completion_run_manifest.py",
+        "flowguard/conformance.py",
+        "flowguard/consumer_wire.py",
+        "flowguard/contract.py",
+        "flowguard/contract_exhaustion.py",
+        "flowguard/contract_runtime_evidence.py",
+        "flowguard/core.py",
+        "flowguard/corpus.py",
+        "flowguard/coverage.py",
+        "flowguard/coverage_inventory.py",
+        "flowguard/development_process_flow.py",
+        "flowguard/development_process_simulator.py",
+        "flowguard/development_process_strategy.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4659,
+      "shard_id": "implementation-surface-0002",
+      "source_bytes": 1358555,
+      "source_file_count": 26,
+      "source_paths": [
+        "flowguard/distribution_sync.py",
+        "flowguard/dna_completion_gate.py",
+        "flowguard/evidence_fields.py",
+        "flowguard/evidence_lifecycle.py",
+        "flowguard/evidence_receipts.py",
+        "flowguard/executable.py",
+        "flowguard/execution_profiles.py",
+        "flowguard/existing_model_preflight.py",
+        "flowguard/explorer.py",
+        "flowguard/export.py",
+        "flowguard/fault_matrix_evidence.py",
+        "flowguard/field_lifecycle.py",
+        "flowguard/formal_runner.py",
+        "flowguard/functional_read.py",
+        "flowguard/functional_task_context.py",
+        "flowguard/hierarchy.py",
+        "flowguard/implementation_blueprint.py",
+        "flowguard/implementation_inventory.py",
+        "flowguard/implementation_inventory_python.py",
+        "flowguard/layered_proof.py",
+        "flowguard/legacy_path_disposition.py",
+        "flowguard/loop.py",
+        "flowguard/maintenance_obligation.py",
+        "flowguard/mermaid.py",
+        "flowguard/minimize.py",
+        "flowguard/model_authority.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4428,
+      "shard_id": "implementation-surface-0003",
+      "source_bytes": 1587241,
+      "source_file_count": 15,
+      "source_paths": [
+        "flowguard/model_authority_store.py",
+        "flowguard/model_freshness.py",
+        "flowguard/model_intent.py",
+        "flowguard/model_intent_authority.py",
+        "flowguard/model_maturation.py",
+        "flowguard/model_maturation_receipt.py",
+        "flowguard/model_miss_diagnostics.py",
+        "flowguard/model_path_quality.py",
+        "flowguard/model_purpose.py",
+        "flowguard/model_regressions.py",
+        "flowguard/model_revision_builder.py",
+        "flowguard/model_revision_owner_evidence.py",
+        "flowguard/model_revision_plan.py",
+        "flowguard/model_revision_set.py",
+        "flowguard/model_system_inventory.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4895,
+      "shard_id": "implementation-surface-0004",
+      "source_bytes": 1736588,
+      "source_file_count": 39,
+      "source_paths": [
+        "flowguard/model_test_alignment.py",
+        "flowguard/model_test_alignment_source.py",
+        "flowguard/native_case_mapping.py",
+        "flowguard/native_case_protocol.py",
+        "flowguard/native_case_runner.py",
+        "flowguard/obligation_family.py",
+        "flowguard/observation_metrics.py",
+        "flowguard/packs/__init__.py",
+        "flowguard/packs/cache.py",
+        "flowguard/packs/deduplication.py",
+        "flowguard/packs/retry.py",
+        "flowguard/packs/side_effect.py",
+        "flowguard/plan.py",
+        "flowguard/plan_detailing.py",
+        "flowguard/plan_intake.py",
+        "flowguard/portable_checker.py",
+        "flowguard/portable_model.py",
+        "flowguard/portable_path_quality.py",
+        "flowguard/portable_system.py",
+        "flowguard/primary_path_authority.py",
+        "flowguard/process_supervision.py",
+        "flowguard/progress.py",
+        "flowguard/project_adoption.py",
+        "flowguard/project_blueprint.py",
+        "flowguard/project_layout.py",
+        "flowguard/project_manifest.py",
+        "flowguard/prompt_budget.py",
+        "flowguard/proof_artifact.py",
+        "flowguard/pytest_adapter.py",
+        "flowguard/pytest_nodeid_recorder.py",
+        "flowguard/pytest_shard_plugin.py",
+        "flowguard/pytest_shards.py",
+        "flowguard/recurring_model_miss.py",
+        "flowguard/recursive_hierarchy.py",
+        "flowguard/release_verification.py",
+        "flowguard/replay.py",
+        "flowguard/report.py",
+        "flowguard/reverse_surface_authoring.py",
+        "flowguard/reverse_surface_map_identity.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4920,
+      "shard_id": "implementation-surface-0005",
+      "source_bytes": 1665112,
+      "source_file_count": 37,
+      "source_paths": [
+        "flowguard/reverse_surface_owner_authority.py",
+        "flowguard/reverse_surface_semantic.py",
+        "flowguard/review.py",
+        "flowguard/risk.py",
+        "flowguard/risk_evidence_ledger.py",
+        "flowguard/risk_templates.py",
+        "flowguard/route_topology.py",
+        "flowguard/runner.py",
+        "flowguard/runtime_artifacts.py",
+        "flowguard/runtime_gateway.py",
+        "flowguard/runtime_path.py",
+        "flowguard/runtime_test_evidence.py",
+        "flowguard/scenario.py",
+        "flowguard/scenario_matrix.py",
+        "flowguard/schema.py",
+        "flowguard/self_architecture_reduction.py",
+        "flowguard/self_blueprint.py",
+        "flowguard/self_maintenance.py",
+        "flowguard/self_path_quality.py",
+        "flowguard/self_reduction_inventory.py",
+        "flowguard/shard_safety.py",
+        "flowguard/skill_contract_model.py",
+        "flowguard/skill_contracts.py",
+        "flowguard/skill_native_checks.py",
+        "flowguard/skill_self_governance.py",
+        "flowguard/skill_suite.py",
+        "flowguard/skillguard_template_adapter.py",
+        "flowguard/software_blueprint_readiness.py",
+        "flowguard/source_identity.py",
+        "flowguard/state_closure.py",
+        "flowguard/step_contracts.py",
+        "flowguard/storage_audit.py",
+        "flowguard/structuremesh.py",
+        "flowguard/suite_contract.py",
+        "flowguard/summary_report.py",
+        "flowguard/symlink_capability.py",
+        "flowguard/system_composition.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 4523,
+      "shard_id": "implementation-surface-0006",
+      "source_bytes": 1726054,
+      "source_file_count": 44,
+      "source_paths": [
+        "flowguard/target_native_qualification.py",
+        "flowguard/target_system_blueprint.py",
+        "flowguard/task_coverage_demand.py",
+        "flowguard/task_local_model.py",
+        "flowguard/template_packs.py",
+        "flowguard/template_text/__init__.py",
+        "flowguard/template_text/behavior_commitment_ledger.py",
+        "flowguard/template_text/code_structure_recommendation.py",
+        "flowguard/template_text/contract_exhaustion.py",
+        "flowguard/template_text/core.py",
+        "flowguard/template_text/development_process_flow.py",
+        "flowguard/template_text/existing_model_preflight.py",
+        "flowguard/template_text/field_lifecycle.py",
+        "flowguard/template_text/flowguard_closure_contract.py",
+        "flowguard/template_text/layered_boundary_proof.py",
+        "flowguard/template_text/maintenance_workflow.py",
+        "flowguard/template_text/model_mesh.py",
+        "flowguard/template_text/model_miss_review.py",
+        "flowguard/template_text/model_test_alignment.py",
+        "flowguard/template_text/plan_detailing.py",
+        "flowguard/template_text/primary_path_authority.py",
+        "flowguard/template_text/reverse_surface_closure.py",
+        "flowguard/template_text/risk_evidence_ledger.py",
+        "flowguard/template_text/risk_intent_check_plan.py",
+        "flowguard/template_text/risk_template_library.py",
+        "flowguard/template_text/runtime_path_evidence.py",
+        "flowguard/template_text/structure_mesh.py",
+        "flowguard/template_text/test_mesh.py",
+        "flowguard/template_text/topology_hazard.py",
+        "flowguard/template_text/ui_flow_structure.py",
+        "flowguard/template_text/work_context.py",
+        "flowguard/template_text/workflow_step_contracts.py",
+        "flowguard/templates.py",
+        "flowguard/test_inventory.py",
+        "flowguard/test_inventory_python.py",
+        "flowguard/test_reuse.py",
+        "flowguard/testmesh.py",
+        "flowguard/topology_hazard.py",
+        "flowguard/trace.py",
+        "flowguard/transition_coverage.py",
+        "flowguard/ui_implementation_evidence.py",
+        "flowguard/ui_structure.py",
+        "flowguard/understanding_readiness.py",
+        "flowguard/validation_owner_execution.py"
+      ]
+    },
+    {
+      "estimated_surface_count": 2650,
+      "shard_id": "implementation-surface-0007",
+      "source_bytes": 1135700,
+      "source_file_count": 55,
+      "source_paths": [
+        "flowguard/validation_ownership.py",
+        "flowguard/validation_results.py",
+        "flowguard/work_context.py",
+        "flowguard/work_context_adapters/__init__.py",
+        "flowguard/work_context_adapters/declared_files.py",
+        "flowguard/work_context_adapters/openspec.py",
+        "flowguard/workflow.py",
+        "pyproject.toml",
+        "scripts/__init__.py",
+        "scripts/assemble_dna_completion_assessment.py",
+        "scripts/audit_public_behavior_surface.py",
+        "scripts/author_current_reverse_surface_owner_authority.py",
+        "scripts/author_reverse_surface_map_skeleton.py",
+        "scripts/author_reverse_surface_semantic_map.py",
+        "scripts/build_direct_model_rebuild_inputs.py",
+        "scripts/build_reverse_surface_authoring_context.py",
+        "scripts/check_closure_patch_regressions.py",
+        "scripts/check_flowguard_author_skill_assurance.py",
+        "scripts/check_flowguard_route_parity.py",
+        "scripts/check_flowguard_route_topology.py",
+        "scripts/check_flowguard_self_governance.py",
+        "scripts/check_flowguard_skill_suite.py",
+        "scripts/check_openspec_change.py",
+        "scripts/check_openspec_semantic_sync.py",
+        "scripts/check_prompt_budgets.py",
+        "scripts/check_self_maintenance_review.py",
+        "scripts/classify_behavior_surface_candidates.py",
+        "scripts/compile_flowguard_consumer_suite_authority.py",
+        "scripts/compile_flowguard_self_blueprint_definition.py",
+        "scripts/compile_flowguard_skill_contracts.py",
+        "scripts/compile_native_case_mapping.py",
+        "scripts/discover_behavior_inventory.py",
+        "scripts/discover_behavior_surface_shards.py",
+        "scripts/flowguard_adoption_review_helper.py",
+        "scripts/generate_field_lifecycle_inventory.py",
+        "scripts/generate_lazy_public_api.py",
+        "scripts/install_flowguard_skills.py",
+        "scripts/measure_route_costs.py",
+        "scripts/prepare_completion_repair.py",
+        "scripts/prepare_flowguard_completion_readiness.py",
+        "scripts/produce_flowguard_task_context.py",
+        "scripts/prove_model_shard_safety.py",
+        "scripts/read_flowguard_artifact_slice.py",
+        "scripts/refresh_behavior_commitment_ledger.py",
+        "scripts/render_current_authority_join.py",
+        "scripts/rewrite_current_layout_manifest.py",
+        "scripts/run_flowguard_model_regressions.py",
+        "scripts/run_flowguard_pytest_shards.py",
+        "scripts/run_flowguard_skill_native_checks.py",
+        "scripts/run_openspec_selected_check.py",
+        "scripts/verify_external_consumer.py",
+        "scripts/verify_flowguard_release.py",
+        "scripts/verify_guard_simulation_readiness.py",
+        "scripts/verify_openspec_recorded_check.py",
+        "scripts/verify_skill_suite_markers.py"
+      ]
+    }
+  ],
+  "source_count": 354,
+  "source_paths": [
+    "examples/__init__.py",
+    "examples/adoption_review_helper/model.py",
+    "examples/adoption_review_helper/run_review.py",
+    "examples/assumption_card_safety/__init__.py",
+    "examples/assumption_card_safety/model.py",
+    "examples/assumption_card_safety/run_checks.py",
+    "examples/bounded_system_composition/__init__.py",
+    "examples/bounded_system_composition/benchmark.py",
+    "examples/bounded_system_composition/run_benchmark.py",
+    "examples/budgeted_model_groups/__init__.py",
+    "examples/budgeted_model_groups/model.py",
+    "examples/budgeted_model_groups/run_checks.py",
+    "examples/budgeted_model_groups/run_large_graph_example.py",
+    "examples/evidence_baseline/__init__.py",
+    "examples/evidence_baseline/baseline.py",
+    "examples/evidence_baseline/run_baseline.py",
+    "examples/flowguard_agent_workflow_rehearsal/__init__.py",
+    "examples/flowguard_agent_workflow_rehearsal/model.py",
+    "examples/flowguard_agent_workflow_rehearsal/run_review.py",
+    "examples/flowguard_product_boundary/__init__.py",
+    "examples/flowguard_product_boundary/model.py",
+    "examples/flowguard_product_boundary/run_review.py",
+    "examples/flowguard_progress_heartbeat/model.py",
+    "examples/flowguard_progress_heartbeat/run_checks.py",
+    "examples/flowguard_runner_self_review/__init__.py",
+    "examples/flowguard_runner_self_review/model.py",
+    "examples/flowguard_runner_self_review/run_review.py",
+    "examples/flowguard_self_review/__init__.py",
+    "examples/flowguard_self_review/conformance.py",
+    "examples/flowguard_self_review/model.py",
+    "examples/flowguard_self_review/orchestrator.py",
+    "examples/flowguard_self_review/run_conformance.py",
+    "examples/flowguard_self_review/run_self_review.py",
+    "examples/flowguard_skill_collaboration/__init__.py",
+    "examples/flowguard_skill_collaboration/model.py",
+    "examples/flowguard_skill_collaboration/run_review.py",
+    "examples/flowguard_skill_trigger/__init__.py",
+    "examples/flowguard_skill_trigger/model.py",
+    "examples/flowguard_skill_trigger/run_review.py",
+    "examples/hierarchical_model_mesh/run_review.py",
+    "examples/job_matching/__init__.py",
+    "examples/job_matching/conformance.py",
+    "examples/job_matching/model.py",
+    "examples/job_matching/production.py",
+    "examples/job_matching/run_checks.py",
+    "examples/job_matching/run_conformance.py",
+    "examples/job_matching/run_scenario_review.py",
+    "examples/job_matching/scenarios.py",
+    "examples/latest_schema_upgrade_policy/__init__.py",
+    "examples/latest_schema_upgrade_policy/model.py",
+    "examples/latest_schema_upgrade_policy/run_review.py",
+    "examples/lightweight_model_miss_review/__init__.py",
+    "examples/lightweight_model_miss_review/model.py",
+    "examples/lightweight_model_miss_review/run_checks.py",
+    "examples/looping_workflow/__init__.py",
+    "examples/looping_workflow/model.py",
+    "examples/looping_workflow/run_loop_review.py",
+    "examples/mermaid_export_example.py",
+    "examples/model_hardening_gate/model.py",
+    "examples/model_hardening_gate/run_checks.py",
+    "examples/plan_detailing_compiler/__init__.py",
+    "examples/plan_detailing_compiler/model.py",
+    "examples/plan_detailing_compiler/run_review.py",
+    "examples/problem_corpus/__init__.py",
+    "examples/problem_corpus/conformance_seeds.py",
+    "examples/problem_corpus/coverage_audit.py",
+    "examples/problem_corpus/executable.py",
+    "examples/problem_corpus/family_scenarios.py",
+    "examples/problem_corpus/hardening.py",
+    "examples/problem_corpus/matrix.py",
+    "examples/problem_corpus/real_models.py",
+    "examples/problem_corpus/run_benchmark_hardening.py",
+    "examples/problem_corpus/run_conformance_seeds.py",
+    "examples/problem_corpus/run_corpus_review.py",
+    "examples/problem_corpus/run_coverage_audit.py",
+    "examples/problem_corpus/run_executable_corpus_review.py",
+    "examples/problem_corpus/run_family_scenario_review.py",
+    "examples/problem_corpus/taxonomy.py",
+    "examples/public_release_adoption/__init__.py",
+    "examples/public_release_adoption/model.py",
+    "examples/public_release_adoption/run_review.py",
+    "examples/risk_evidence_ledger/__init__.py",
+    "examples/risk_evidence_ledger/model.py",
+    "examples/risk_evidence_ledger/run_checks.py",
+    "examples/skill_contract_model_exports/code_structure_recommendation.py",
+    "examples/skill_contract_model_exports/contract_exhaustion_mesh.py",
+    "flowguard/__init__.py",
+    "flowguard/__main__.py",
+    "flowguard/_completion_readiness_impl.py",
+    "flowguard/_development_process_strategy_review.py",
+    "flowguard/_eager_exports.py",
+    "flowguard/_hashing.py",
+    "flowguard/_normalization.py",
+    "flowguard/_package_identity.py",
+    "flowguard/_runtime_progress.py",
+    "flowguard/_wire.py",
+    "flowguard/adoption.py",
+    "flowguard/adoption_audit.py",
+    "flowguard/affected_blueprint_reader.py",
+    "flowguard/agent_workflow_rehearsal.py",
+    "flowguard/api_registry.py",
+    "flowguard/architecture_native_material.py",
+    "flowguard/architecture_reduction.py",
+    "flowguard/artifact_slices.py",
+    "flowguard/artifact_upgrade.py",
+    "flowguard/assumptions.py",
+    "flowguard/audit.py",
+    "flowguard/auto_split.py",
+    "flowguard/baseline.py",
+    "flowguard/behavior_commitment.py",
+    "flowguard/behavior_commitment_lookup.py",
+    "flowguard/behavior_plane.py",
+    "flowguard/behavior_surface_audit.py",
+    "flowguard/benchmark.py",
+    "flowguard/blueprint_compact_projection.py",
+    "flowguard/blueprint_topology.py",
+    "flowguard/budgeted.py",
+    "flowguard/canonical_blueprint_projection.py",
+    "flowguard/canonical_relation.py",
+    "flowguard/checks.py",
+    "flowguard/closure_contract.py",
+    "flowguard/code_structure.py",
+    "flowguard/completion_epoch.py",
+    "flowguard/completion_objective.py",
+    "flowguard/completion_readiness.py",
+    "flowguard/completion_run_manifest.py",
+    "flowguard/conformance.py",
+    "flowguard/consumer_wire.py",
+    "flowguard/contract.py",
+    "flowguard/contract_exhaustion.py",
+    "flowguard/contract_runtime_evidence.py",
+    "flowguard/core.py",
+    "flowguard/corpus.py",
+    "flowguard/coverage.py",
+    "flowguard/coverage_inventory.py",
+    "flowguard/development_process_flow.py",
+    "flowguard/development_process_simulator.py",
+    "flowguard/development_process_strategy.py",
+    "flowguard/distribution_sync.py",
+    "flowguard/dna_completion_gate.py",
+    "flowguard/evidence_fields.py",
+    "flowguard/evidence_lifecycle.py",
+    "flowguard/evidence_receipts.py",
+    "flowguard/executable.py",
+    "flowguard/execution_profiles.py",
+    "flowguard/existing_model_preflight.py",
+    "flowguard/explorer.py",
+    "flowguard/export.py",
+    "flowguard/fault_matrix_evidence.py",
+    "flowguard/field_lifecycle.py",
+    "flowguard/formal_runner.py",
+    "flowguard/functional_read.py",
+    "flowguard/functional_task_context.py",
+    "flowguard/hierarchy.py",
+    "flowguard/implementation_blueprint.py",
+    "flowguard/implementation_inventory.py",
+    "flowguard/implementation_inventory_python.py",
+    "flowguard/layered_proof.py",
+    "flowguard/legacy_path_disposition.py",
+    "flowguard/loop.py",
+    "flowguard/maintenance_obligation.py",
+    "flowguard/mermaid.py",
+    "flowguard/minimize.py",
+    "flowguard/model_authority.py",
+    "flowguard/model_authority_store.py",
+    "flowguard/model_freshness.py",
+    "flowguard/model_intent.py",
+    "flowguard/model_intent_authority.py",
+    "flowguard/model_maturation.py",
+    "flowguard/model_maturation_receipt.py",
+    "flowguard/model_miss_diagnostics.py",
+    "flowguard/model_path_quality.py",
+    "flowguard/model_purpose.py",
+    "flowguard/model_regressions.py",
+    "flowguard/model_revision_builder.py",
+    "flowguard/model_revision_owner_evidence.py",
+    "flowguard/model_revision_plan.py",
+    "flowguard/model_revision_set.py",
+    "flowguard/model_system_inventory.py",
+    "flowguard/model_test_alignment.py",
+    "flowguard/model_test_alignment_source.py",
+    "flowguard/native_case_mapping.py",
+    "flowguard/native_case_protocol.py",
+    "flowguard/native_case_runner.py",
+    "flowguard/obligation_family.py",
+    "flowguard/observation_metrics.py",
+    "flowguard/packs/__init__.py",
+    "flowguard/packs/cache.py",
+    "flowguard/packs/deduplication.py",
+    "flowguard/packs/retry.py",
+    "flowguard/packs/side_effect.py",
+    "flowguard/plan.py",
+    "flowguard/plan_detailing.py",
+    "flowguard/plan_intake.py",
+    "flowguard/portable_checker.py",
+    "flowguard/portable_model.py",
+    "flowguard/portable_path_quality.py",
+    "flowguard/portable_system.py",
+    "flowguard/primary_path_authority.py",
+    "flowguard/process_supervision.py",
+    "flowguard/progress.py",
+    "flowguard/project_adoption.py",
+    "flowguard/project_blueprint.py",
+    "flowguard/project_layout.py",
+    "flowguard/project_manifest.py",
+    "flowguard/prompt_budget.py",
+    "flowguard/proof_artifact.py",
+    "flowguard/pytest_adapter.py",
+    "flowguard/pytest_nodeid_recorder.py",
+    "flowguard/pytest_shard_plugin.py",
+    "flowguard/pytest_shards.py",
+    "flowguard/recurring_model_miss.py",
+    "flowguard/recursive_hierarchy.py",
+    "flowguard/release_verification.py",
+    "flowguard/replay.py",
+    "flowguard/report.py",
+    "flowguard/reverse_surface_authoring.py",
+    "flowguard/reverse_surface_map_identity.py",
+    "flowguard/reverse_surface_owner_authority.py",
+    "flowguard/reverse_surface_semantic.py",
+    "flowguard/review.py",
+    "flowguard/risk.py",
+    "flowguard/risk_evidence_ledger.py",
+    "flowguard/risk_templates.py",
+    "flowguard/route_topology.py",
+    "flowguard/runner.py",
+    "flowguard/runtime_artifacts.py",
+    "flowguard/runtime_gateway.py",
+    "flowguard/runtime_path.py",
+    "flowguard/runtime_test_evidence.py",
+    "flowguard/scenario.py",
+    "flowguard/scenario_matrix.py",
+    "flowguard/schema.py",
+    "flowguard/self_architecture_reduction.py",
+    "flowguard/self_blueprint.py",
+    "flowguard/self_maintenance.py",
+    "flowguard/self_path_quality.py",
+    "flowguard/self_reduction_inventory.py",
+    "flowguard/shard_safety.py",
+    "flowguard/skill_contract_model.py",
+    "flowguard/skill_contracts.py",
+    "flowguard/skill_native_checks.py",
+    "flowguard/skill_self_governance.py",
+    "flowguard/skill_suite.py",
+    "flowguard/skillguard_template_adapter.py",
+    "flowguard/software_blueprint_readiness.py",
+    "flowguard/source_identity.py",
+    "flowguard/state_closure.py",
+    "flowguard/step_contracts.py",
+    "flowguard/storage_audit.py",
+    "flowguard/structuremesh.py",
+    "flowguard/suite_contract.py",
+    "flowguard/summary_report.py",
+    "flowguard/symlink_capability.py",
+    "flowguard/system_composition.py",
+    "flowguard/target_native_qualification.py",
+    "flowguard/target_system_blueprint.py",
+    "flowguard/task_coverage_demand.py",
+    "flowguard/task_local_model.py",
+    "flowguard/template_packs.py",
+    "flowguard/template_text/__init__.py",
+    "flowguard/template_text/behavior_commitment_ledger.py",
+    "flowguard/template_text/code_structure_recommendation.py",
+    "flowguard/template_text/contract_exhaustion.py",
+    "flowguard/template_text/core.py",
+    "flowguard/template_text/development_process_flow.py",
+    "flowguard/template_text/existing_model_preflight.py",
+    "flowguard/template_text/field_lifecycle.py",
+    "flowguard/template_text/flowguard_closure_contract.py",
+    "flowguard/template_text/layered_boundary_proof.py",
+    "flowguard/template_text/maintenance_workflow.py",
+    "flowguard/template_text/model_mesh.py",
+    "flowguard/template_text/model_miss_review.py",
+    "flowguard/template_text/model_test_alignment.py",
+    "flowguard/template_text/plan_detailing.py",
+    "flowguard/template_text/primary_path_authority.py",
+    "flowguard/template_text/reverse_surface_closure.py",
+    "flowguard/template_text/risk_evidence_ledger.py",
+    "flowguard/template_text/risk_intent_check_plan.py",
+    "flowguard/template_text/risk_template_library.py",
+    "flowguard/template_text/runtime_path_evidence.py",
+    "flowguard/template_text/structure_mesh.py",
+    "flowguard/template_text/test_mesh.py",
+    "flowguard/template_text/topology_hazard.py",
+    "flowguard/template_text/ui_flow_structure.py",
+    "flowguard/template_text/work_context.py",
+    "flowguard/template_text/workflow_step_contracts.py",
+    "flowguard/templates.py",
+    "flowguard/test_inventory.py",
+    "flowguard/test_inventory_python.py",
+    "flowguard/test_reuse.py",
+    "flowguard/testmesh.py",
+    "flowguard/topology_hazard.py",
+    "flowguard/trace.py",
+    "flowguard/transition_coverage.py",
+    "flowguard/ui_implementation_evidence.py",
+    "flowguard/ui_structure.py",
+    "flowguard/understanding_readiness.py",
+    "flowguard/validation_owner_execution.py",
+    "flowguard/validation_ownership.py",
+    "flowguard/validation_results.py",
+    "flowguard/work_context.py",
+    "flowguard/work_context_adapters/__init__.py",
+    "flowguard/work_context_adapters/declared_files.py",
+    "flowguard/work_context_adapters/openspec.py",
+    "flowguard/workflow.py",
+    "pyproject.toml",
+    "scripts/__init__.py",
+    "scripts/assemble_dna_completion_assessment.py",
+    "scripts/audit_public_behavior_surface.py",
+    "scripts/author_current_reverse_surface_owner_authority.py",
+    "scripts/author_reverse_surface_map_skeleton.py",
+    "scripts/author_reverse_surface_semantic_map.py",
+    "scripts/build_direct_model_rebuild_inputs.py",
+    "scripts/build_reverse_surface_authoring_context.py",
+    "scripts/check_closure_patch_regressions.py",
+    "scripts/check_flowguard_author_skill_assurance.py",
+    "scripts/check_flowguard_route_parity.py",
+    "scripts/check_flowguard_route_topology.py",
+    "scripts/check_flowguard_self_governance.py",
+    "scripts/check_flowguard_skill_suite.py",
+    "scripts/check_openspec_change.py",
+    "scripts/check_openspec_semantic_sync.py",
+    "scripts/check_prompt_budgets.py",
+    "scripts/check_self_maintenance_review.py",
+    "scripts/classify_behavior_surface_candidates.py",
+    "scripts/compile_flowguard_consumer_suite_authority.py",
+    "scripts/compile_flowguard_self_blueprint_definition.py",
+    "scripts/compile_flowguard_skill_contracts.py",
+    "scripts/compile_native_case_mapping.py",
+    "scripts/discover_behavior_inventory.py",
+    "scripts/discover_behavior_surface_shards.py",
+    "scripts/flowguard_adoption_review_helper.py",
+    "scripts/generate_field_lifecycle_inventory.py",
+    "scripts/generate_lazy_public_api.py",
+    "scripts/install_flowguard_skills.py",
+    "scripts/measure_route_costs.py",
+    "scripts/prepare_completion_repair.py",
+    "scripts/prepare_flowguard_completion_readiness.py",
+    "scripts/produce_flowguard_task_context.py",
+    "scripts/prove_model_shard_safety.py",
+    "scripts/read_flowguard_artifact_slice.py",
+    "scripts/refresh_behavior_commitment_ledger.py",
+    "scripts/render_current_authority_join.py",
+    "scripts/rewrite_current_layout_manifest.py",
+    "scripts/run_flowguard_model_regressions.py",
+    "scripts/run_flowguard_pytest_shards.py",
+    "scripts/run_flowguard_skill_native_checks.py",
+    "scripts/run_openspec_selected_check.py",
+    "scripts/verify_external_consumer.py",
+    "scripts/verify_flowguard_release.py",
+    "scripts/verify_guard_simulation_readiness.py",
+    "scripts/verify_openspec_recorded_check.py",
+    "scripts/verify_skill_suite_markers.py"
+  ],
+  "status": "planned",
+  "unassigned_source_paths": []
+}

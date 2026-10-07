@@ -168,4 +168,4 @@ if __name__ == "__main__":
             / f"model-topology-hazard-review-{os.getpid()}"
         ),
     )
-    raise SystemExit(native_main("model:model_topology_hazard_review", main))
+    raise SystemExit(native_main("model:model_topology_hazard_review", main, declared_source_exporter=__import__('model').export_path_quality_source))

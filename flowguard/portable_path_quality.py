@@ -223,6 +223,8 @@ def path_quality_binding_errors(
         errors.add("path_quality_result_subject_mismatch")
     if result.currentness_id != subject.currentness_id:
         errors.add("path_quality_result_currentness_mismatch")
+    if set(result.observation_gap_ids) | set(result.improvement_gap_ids) != set(result.finding_ids) | set(result.unresolved_ids):
+        errors.add("path_quality_gap_classification_mismatch")
     if not result.current:
         errors.add("path_quality_result_stale")
     if result.producer_id != "model_maturation":

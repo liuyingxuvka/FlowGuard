@@ -36,6 +36,12 @@ re-read and merged; restoring an older green snapshot is not permission to
 overwrite concurrent work. Background logs, PIDs, and heartbeats prove only
 liveness until a terminal TestMesh receipt exists.
 
+When a registered artifact declares a non-empty `owner`, every action that
+writes or invalidates it must use an `actor` exactly equal to that owner. This
+also applies before validation and blocks independently of evidence freshness;
+generic actor labels do not bypass the rule. Read-only actions, claims, and
+writes to artifacts without an owner are not blocked by this owner check.
+
 For behavior-bearing work, DevelopmentProcessFlow is also the first routing
 place to select the behavior-ledger change mode: `bootstrap_ledger`,
 `add_behavior`, `change_behavior`, `remove_or_replace_behavior`,

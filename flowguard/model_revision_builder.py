@@ -21,11 +21,13 @@ from .model_authority import (
     REVISION_EVIDENCE_REQUIRED,
     ModelAuthorityError,
     ModelSystemSnapshot,
+    build_boundary_contract_from_snapshot,
     validate_accepted_boundary_contract_for_snapshot,
     write_content_addressed_boundary_contract,
     _reject_duplicate_json_keys,
 )
 from .model_authority_store import (
+    load_current_model_authority_state,
     load_current_accepted_revision_set,
     load_observed_model_system,
 )
@@ -35,6 +37,7 @@ from .model_intent import (
     verify_model_intent_sources,
 )
 from .model_intent_authority import (
+    CurrentEffectiveIntentView,
     EffectiveIntentBootstrapReceipt,
     EffectiveIntentTransition,
     allow_upgrade_bootstrap_source_schemas,
@@ -146,6 +149,7 @@ class ModelRevisionBuildReport:
     missing_owner_routes: tuple[str, ...]
     missing_path_quality_model_ids: tuple[str, ...]
     affected_id_count: int
+    improvement_blocked_model_ids: tuple[str, ...] = ()
     status: str = "incomplete"
     schema: str = MODEL_REVISION_BUILD_REPORT_SCHEMA
     claim_boundary: str = (
@@ -181,6 +185,7 @@ class ModelRevisionBuildReport:
             "missing_path_quality_model_ids": list(
                 self.missing_path_quality_model_ids
             ),
+            "improvement_blocked_model_ids": list(self.improvement_blocked_model_ids),
             "affected_id_count": self.affected_id_count,
             "claim_boundary": self.claim_boundary,
         }
@@ -384,7 +389,7 @@ def _verify_model_parent_receipt(
             raise ModelAuthorityError(
                 f"model parent child is not the exact current receipt: {model_id}"
             )
-        expected_obligations = (f"model-regression:{model_id}",)
+        expected_obligations = currents[owner_id].contract.obligation_ids
         if (
             receipt.result_status != RECEIPT_STATUS_PASS
             or receipt.exit_code != 0
@@ -808,6 +813,228 @@ def _validate_bootstrap_revision_delta(
             )
 
 
+def preflight_current_model_revision_inputs(
+    root: str | Path,
+    *,
+    candidate_snapshot: ModelSystemSnapshot,
+    expected_head_fingerprint: str,
+    removal_dispositions: Iterable[RevisionRemovalDisposition],
+    intent_contributions: Iterable[ModelIntentContribution],
+    intent_dispositions: Iterable[ModelIntentDisposition],
+    effective_intent_transitions: Iterable[EffectiveIntentTransition],
+    accepted_boundary_contract: AcceptedBoundaryContract | None = None,
+) -> CurrentEffectiveIntentView:
+    """Reject invalid current-revision semantics before any model owner starts.
+
+    The full builder repeats these checks after owner execution to protect its
+    freshness boundary. This preflight intentionally performs only typed
+    identity/source validation and candidate-diff derivation so malformed
+    preparation cannot trigger an expensive regression batch first.
+    """
+
+    root_path = Path(root).resolve()
+    removals = tuple(removal_dispositions)
+    contributions = tuple(intent_contributions)
+    dispositions = tuple(intent_dispositions)
+    transitions = tuple(effective_intent_transitions)
+    if not isinstance(candidate_snapshot, ModelSystemSnapshot):
+        raise ModelAuthorityError(
+            "current revision preflight requires a typed candidate snapshot"
+        )
+    if any(not isinstance(item, RevisionRemovalDisposition) for item in removals):
+        raise ModelAuthorityError(
+            "current revision preflight requires typed removal dispositions"
+        )
+    if any(not isinstance(item, ModelIntentContribution) for item in contributions):
+        raise ModelAuthorityError(
+            "current revision preflight requires typed intent contributions"
+        )
+    if any(not isinstance(item, ModelIntentDisposition) for item in dispositions):
+        raise ModelAuthorityError(
+            "current revision preflight requires typed intent dispositions"
+        )
+    if any(not isinstance(item, EffectiveIntentTransition) for item in transitions):
+        raise ModelAuthorityError(
+            "current revision preflight requires typed intent transitions"
+        )
+
+    manifest_path = root_path / ".flowguard" / "project.toml"
+    with project_manifest_lock(manifest_path):
+        head, base = load_observed_model_system(root_path)
+        if head.fingerprint != expected_head_fingerprint:
+            raise ModelAuthorityError(
+                "current revision preflight observed a different authority head"
+            )
+        if candidate_snapshot.system_id != base.system_id:
+            raise ModelAuthorityError(
+                "current revision preflight candidate targets a different system"
+            )
+
+        prior_state = load_current_model_authority_state(
+            root_path,
+            head=head,
+            snapshot=base,
+            reverify_current_sources=False,
+        )
+        predecessor_contract = prior_state.accepted_boundary_contract
+        live_candidate = build_manifest_model_system_snapshot(
+            root_path,
+            snapshot_id=candidate_snapshot.snapshot_id,
+            system_id=base.system_id,
+            subject_lane=base.subject_lane,
+            lifecycle=base.lifecycle,
+        )
+        live_boundary_contract: AcceptedBoundaryContract | None = None
+        if predecessor_contract is not None:
+            live_boundary_contract = build_boundary_contract_from_snapshot(
+                live_candidate,
+                contract_id=predecessor_contract.contract_id,
+                model_id=predecessor_contract.model_id,
+                axis_payloads=predecessor_contract.axis_payloads,
+                interaction_group_payloads=(
+                    predecessor_contract.interaction_group_payloads
+                ),
+                group_relation_ids=predecessor_contract.group_relation_ids,
+            )
+            live_candidate = build_manifest_model_system_snapshot(
+                root_path,
+                snapshot_id=candidate_snapshot.snapshot_id,
+                system_id=base.system_id,
+                subject_lane=base.subject_lane,
+                lifecycle=base.lifecycle,
+                accepted_boundary_contract=live_boundary_contract,
+            )
+            validate_accepted_boundary_contract_for_snapshot(
+                live_boundary_contract,
+                live_candidate,
+                require_endpoint=True,
+            )
+        if live_candidate.identity_payload() != candidate_snapshot.identity_payload():
+            raise ModelAuthorityError(
+                "current revision candidate changed after its read-only preview"
+            )
+        if (
+            (live_boundary_contract is None)
+            != (accepted_boundary_contract is None)
+            or (
+                live_boundary_contract is not None
+                and accepted_boundary_contract is not None
+                and live_boundary_contract.fingerprint
+                != accepted_boundary_contract.fingerprint
+            )
+        ):
+            raise ModelAuthorityError(
+                "current revision boundary contract changed after its read-only preview"
+            )
+        if predecessor_contract is None:
+            if accepted_boundary_contract is not None:
+                raise ModelAuthorityError(
+                    "minimal current change cannot introduce a boundary contract"
+                )
+        else:
+            if accepted_boundary_contract is None:
+                raise ModelAuthorityError(
+                    "current revision candidate omitted its accepted boundary contract"
+                )
+            if (
+                accepted_boundary_contract.contract_id
+                != predecessor_contract.contract_id
+                or accepted_boundary_contract.model_id
+                != predecessor_contract.model_id
+                or accepted_boundary_contract.axis_payloads
+                != predecessor_contract.axis_payloads
+                or accepted_boundary_contract.interaction_group_payloads
+                != predecessor_contract.interaction_group_payloads
+                or accepted_boundary_contract.group_relation_ids
+                != predecessor_contract.group_relation_ids
+            ):
+                raise ModelAuthorityError(
+                    "minimal current change altered accepted boundary semantics"
+                )
+            validate_accepted_boundary_contract_for_snapshot(
+                accepted_boundary_contract,
+                candidate_snapshot,
+                require_endpoint=True,
+            )
+
+        current_revision = _load_current_accepted_revision_set_for_build(
+            root_path,
+            head=head,
+            snapshot=base,
+        )
+        active_contributions = fold_effective_intent_contributions(
+            current_revision.current_effective_intent_view,
+            contributions,
+            dispositions,
+            transitions,
+        )
+        diff = derive_revision_snapshot_diff(base, candidate_snapshot)
+        expected_removal_ids = {
+            item_id
+            for item_id in diff.removed_ids
+            if not item_id.startswith("unresolved_gap:")
+        }
+        actual_removal_ids = [item.removed_id for item in removals]
+        if len(actual_removal_ids) != len(set(actual_removal_ids)):
+            raise ModelAuthorityError(
+                "current revision removal dispositions contain duplicate identities"
+            )
+        actual_removal_set = set(actual_removal_ids)
+        if actual_removal_set != expected_removal_ids:
+            raise ModelAuthorityError(
+                "current revision removal dispositions do not exactly cover the "
+                "candidate diff: "
+                f"missing={sorted(expected_removal_ids - actual_removal_set)}, "
+                f"extra={sorted(actual_removal_set - expected_removal_ids)}"
+            )
+
+        intent_source_inputs = _unique_intent_source_inputs(
+            active_contributions,
+            contributions,
+        )
+        frozen_sources = verify_model_intent_sources(
+            root_path,
+            intent_source_inputs,
+        )
+        frozen_by_id = {
+            item.contribution_id: item for item in frozen_sources
+        }
+        frozen_active_sources = tuple(
+            frozen_by_id[item.contribution_id]
+            for item in active_contributions
+        )
+        manifest = ModelRegressionManifest.load(root_path)
+        binding_errors = audit_intent_source_input_bindings(
+            root_path,
+            manifest,
+            active_contributions,
+            frozen_active_sources,
+        )
+        if binding_errors:
+            raise ModelAuthorityError(
+                "candidate intent-source model-input binding is incomplete: "
+                + "; ".join(binding_errors)
+            )
+        validate_candidate_intent_source_input_bindings(
+            candidate_snapshot,
+            active_contributions,
+            frozen_active_sources,
+        )
+
+
+        candidate_view = build_current_effective_intent_view(
+            current_revision.current_effective_intent_view, candidate_snapshot,
+            active_contributions, frozen_active_sources, transitions,
+        )
+        validate_current_effective_intent_view(candidate_snapshot, candidate_view)
+        validate_current_effective_intent_refinement(
+            root_path, base_view=current_revision.current_effective_intent_view,
+            candidate_snapshot=candidate_snapshot, revision_contributions=contributions,
+            revision_dispositions=dispositions, candidate_view=candidate_view,
+        )
+        return candidate_view
+
+
 def build_current_model_revision(
     root: str | Path,
     *,
@@ -1009,6 +1236,10 @@ def build_current_model_revision(
                 revision_dispositions=contribution_dispositions,
                 candidate_view=current_effective_intent_view,
             )
+        for path_subject in path_subjects:
+            typed_subject = path_subject if isinstance(path_subject, PathQualitySubject) else PathQualitySubject.from_dict(path_subject)
+            if typed_subject.intent_fingerprint != current_effective_intent_view.fingerprint:
+                raise ModelAuthorityError("path-quality subject intent is not the complete current effective intent")
         diff = derive_revision_snapshot_diff(base, candidate)
         closure = derive_revision_affected_closure(base, candidate, diff)
         if not closure.affected_ids:
@@ -1149,7 +1380,7 @@ def build_current_model_revision(
             required_evidence_refs=required,
         )
         revision = proposed
-        if not missing_owner_routes and proposed.path_quality_acceptance_ready:
+        if not missing_owner_routes and proposed.path_quality_observation_ready:
             revision = proposed.accept(
                 (
                     replace(item, status=REVISION_EVIDENCE_PASS)
@@ -1246,7 +1477,8 @@ def build_current_model_revision(
         snapshot_id=candidate.snapshot_id,
         affected_owner_routes=tuple(sorted(ids_by_owner)),
         missing_owner_routes=missing_owner_routes,
-        missing_path_quality_model_ids=revision.path_quality_blocked_model_ids,
+        missing_path_quality_model_ids=revision.path_quality_observation_blocked_model_ids,
+        improvement_blocked_model_ids=revision.path_quality_improvement_blocked_model_ids,
         affected_id_count=len(closure.affected_ids),
         status=("pass" if revision.status == "accepted" else "incomplete"),
     )
@@ -1257,4 +1489,5 @@ __all__ = [
     "ModelRevisionBuildReport",
     "build_current_model_revision",
     "load_revision_removal_dispositions",
+    "preflight_current_model_revision_inputs",
 ]

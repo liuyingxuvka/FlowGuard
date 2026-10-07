@@ -1,3 +1,5 @@
+import tempfile
+from tests._native_owner_environment import native_owner_environment
 import os
 import subprocess
 import sys
@@ -87,33 +89,25 @@ class MaintenanceObligationTests(unittest.TestCase):
         self.assertIn("open_required=1", obligation_summary)
 
     def test_self_model_checks_pass(self):
-        env = os.environ.copy()
-        env["PYTHONPATH"] = str(ROOT) + os.pathsep + env.get("PYTHONPATH", "")
-        # native_main scans FLOWGUARD_OUTPUT_DIR for current owner evidence.
-        # Keep this subprocess bounded to one run-owned evidence directory;
-        # scanning the repository root would ingest historical JSON and make a
-        # perfectly finite model check look non-terminating.
-        output_dir = ROOT / "work" / "flowguard" / "native-owner-tests" / f"maintenance-obligation-{os.getpid()}"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        env["FLOWGUARD_OUTPUT_DIR"] = str(output_dir)
-        result = subprocess.run(
-            [
-                sys.executable,
-                ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py",
-            ],
-            cwd=ROOT,
-            env=env,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory() as native_tmp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py",
+                ],
+                cwd=ROOT,
+                env=native_owner_environment(ROOT, "maintenance_obligation_memory", Path(native_tmp)),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn(
-            "correct_maintenance_obligation_memory: observed=OK expected=OK match=yes",
-            result.stdout,
-        )
-        self.assertIn("maintenance_obligation_bad_claim: observed=VIOLATION expected=VIOLATION", result.stdout)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn(
+                "correct_maintenance_obligation_memory: observed=OK expected=OK match=yes",
+                result.stdout,
+            )
+            self.assertIn("maintenance_obligation_bad_claim: observed=VIOLATION expected=VIOLATION", result.stdout)
 
 
 if __name__ == "__main__":

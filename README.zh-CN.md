@@ -21,7 +21,7 @@
 
 | 公开版本 | Schema | Runtime | License |
 | --- | --- | --- | --- |
-| `v0.69.7` | `1.0` | 仅使用 Python 标准库 | MIT |
+| `v0.69.8` | `1.0` | 仅使用 Python 标准库 | MIT |
 
 [English](./README.md) · [快速开始](#快速开始) · [概念介绍](./docs/concept.md) · [文档地图](#文档地图)
 
@@ -66,6 +66,26 @@ DNA 说明这份持续维护的模型包含什么。**Current** 则说明当前�
 这三种搜索是理解 FlowGuard 当前能力的三种方式，不是三条额外的公开 route。
 它们都有明确边界。FlowGuard 不会发现任意软件中所有未知事实，
 不会证明整个生产系统都正确，也不会保证找到全局最优的软件架构。
+
+架构审查会检查所选模型完整声明的图，包括分支、状态变化、guard、输出和实现绑定。
+在这个有限边界内，它按照责任适用的上下文比较关系，并依据明确的有限目标或已验证的
+重复边界提出调整建议。内容完全相同不能单独证明它们共用同一机制。Current read 分别
+报告事实、目标、发现、建议、观察缺口和改善缺口：一份忠实的地图仍可能包含尚未完成的
+改善。读取完整结果时，保持相同选择范围，跟随每个 `next_cursor`，直到它为 null。
+这些结果只支持已声明的模型边界，不证明完整软件覆盖或全局最优架构。
+
+当前功能是否完成，按它要求的结果、实际实现绑定、当前原生证据和经过验证的成熟度
+共同判断。功能 A 没有依赖功能 B 时，不为完成 A 而展开 B。必要义务缺失、证据过期、
+任务被限缩或迭代次数耗尽，都不能冒充完成。普通任务没有默认成本上限；明确提出的
+成本目标仍需要独立、当前的测量证据。
+
+改善指针保留实际模型、代码位置、适用上下文、目标、义务、证据缺口和下一负责入口。
+只证明部分上下文相同，就只建议共享该部分，保留各自剩余变体。临时妥协保持可见，
+不会自动关闭必要目标；进一步修改依照当前任务的授权范围执行。
+
+同一次读取共享源码字节及其身份投影，每次新调用重新观测。完整所选地图与分页结果
+保留相同的必要引用。冻结范围的证明不涵盖随后出现的未登记入口；实际字节和读取
+次数分别测量，不能直接把字节变化称为模型 token 或整体运行时间的节省。
 
 ## 为什么需要 FlowGuard
 
@@ -459,10 +479,9 @@ cd FlowGuard
 对于 AI agent，完整 setup 表示：
 
 1. 读取 `AGENTS.md`；
-2. 按照宿主 agent 的技能机制，加载或复制 `.agents/skills/` 下的全部技能；
-3. 从 `.agents/skills/flowguard/SKILL.md` 开始；
-4. 保持唯一的 FlowGuard 技能和选中的 domain protocol 可见；
-5. 只有需要当前可执行证据时，才运行检查脚本。
+2. 按照宿主 agent 的技能机制加载 `.agents/skills/flowguard/SKILL.md`；
+3. 由该技能按需加载所选的内置 domain reference；
+4. 只有需要当前可执行证据时，才运行检查脚本。
 
 运行一个小检查，对比正确模型和几个坏版本：
 
@@ -510,8 +529,8 @@ python -m flowguard release --root <target-project> --request release.json --jso
 -> 查询已有 Current owner
 -> 描述 Input、State、Output、副作用、owner 和完成证据
 -> 添加一项 invariant 或 scenario
--> 运行 protected-failure 检查和派生结构覆盖
--> 只有明确做 reduction 或 candidate comparison 时，才添加必要的 good/bad case
+-> 针对当前变更运行 protected-failure 检查和派生结构覆盖
+-> 只有明确触发 reduction 或 candidate comparison 的深入审查时，才做逐元素 good/bad 对照
 -> 检查 counterexample
 -> 修改模型、计划、代码、测试、UI 或声明
 ```
@@ -646,8 +665,10 @@ python -m flowguard release --root . --request release.json --json
 
 仓库里的 runner 和 evidence-owner 脚本仍是内部维护工具，不增加 alias、兼容读取器或 fallback。
 
-默认的人类可读输出保持简洁。`--json` 输出规范的机器结果，`--full` 展开人类可读的
-子项细节；两者都不会扩大证据范围。完整 stdout/stderr 只会以确定性的 gzip 对象保存一次，
+在内部套件 runner `scripts/check_flowguard_skill_suite.py` 中，默认的人类可读输出保持简洁。
+`--json` 输出该 runner 的规范机器结果；`--full` 展开同一组 owner 结果的人类可读摘要，
+不会改变选中的 owner 或证据范围。公开 `python -m flowguard` 的 `read`/`change`/`release`
+dispatcher 也支持 `--json`，并输出对应操作的机器结果；`--full` 仅属于维护 runner。完整 stdout/stderr 只会以确定性的 gzip 对象保存一次，
 并记录逻辑和存储哈希。长时间的前台或后台运行中，progress event 只表示仍在运行；只有
 选定输出目录中的最终 `report.json`、`evidence-run.json`、Current head binding 和终态子收据
 齐全时，运行才算完成。
@@ -690,7 +711,7 @@ distribution；`check` 与 `parity` 是只读的，因此不接受 `--dry-run`�
 模板文件由选中的 skill route 按需加载，不是公共 CLI 操作。运行 `python -m flowguard --help`
 查看当前精确的三个操作。
 
-FlowGuard v0.69.7 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
+FlowGuard v0.69.8 只发布源码：不可变 Git tag 才是 release authority；release 不应包含 wheel、source distribution
 或 GitHub Release asset。
 
 公共 `release` 只在本地核验已接受 current；打 tag 和 GitHub 发布是独立维护事务：

@@ -2,9 +2,9 @@
 
 The parent in this module never accepts caller-authored ``current`` or
 ``pass`` flags.  It loads immutable child receipts, verifies every child
-against an independently supplied current context, and consumes the exact
+against an independently reconstructed current native context, and consumes the exact
 receipt identities and fingerprints.  Repository-local evidence is stored by
-``flowguard.evidence_receipts`` under ``.flowguard/evidence/skill-suite``.
+``flowguard.evidence_receipts`` in the exact canonical model store used by its native children.
 """
 
 from __future__ import annotations
@@ -14,14 +14,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from ._normalization import string_tuple as _as_tuple
 from ._package_identity import flowguard_package_version as _package_version
 
 from .evidence_receipts import (
     ChildReceiptRequirement,
     ConsumedChildReceipt,
     EvidenceReceipt,
-    InputSnapshot,
     RECEIPT_STATUS_PASS,
     ReceiptVerificationContext,
     ReceiptVerificationResult,
@@ -223,43 +221,6 @@ class SkillSelfGovernanceReport:
         return "\n".join(lines)
 
 
-def verification_context_from_dict(data: Mapping[str, Any]) -> ReceiptVerificationContext:
-    """Parse a context manifest produced independently from a child receipt."""
-
-    snapshots_raw = data.get("input_snapshots", {})
-    if isinstance(snapshots_raw, Sequence) and not isinstance(snapshots_raw, (str, bytes, bytearray)):
-        snapshots = {str(item["artifact_id"]): InputSnapshot.from_dict(item) for item in snapshots_raw}
-    else:
-        snapshots = {
-            str(key): value if isinstance(value, InputSnapshot) else InputSnapshot.from_dict(value)
-            for key, value in dict(snapshots_raw).items()
-        }
-    return ReceiptVerificationContext(
-        input_snapshots=snapshots,
-        contract_hash=str(data.get("contract_hash", "")),
-        check_manifest_hash=str(data.get("check_manifest_hash", "")),
-        suite_map_hash=str(data.get("suite_map_hash", "")),
-        producer_id=str(data.get("producer_id", "")),
-        producer_version=str(data.get("producer_version", "")),
-        environment_fingerprint=str(data.get("environment_fingerprint", "")),
-        proof_artifact_fingerprint=str(data.get("proof_artifact_fingerprint", "")),
-        result_fingerprint=str(data.get("result_fingerprint", "")),
-        command=tuple(str(item) for item in data.get("command", ())),
-        working_directory_token=str(data.get("working_directory_token", "")),
-        proof_artifact_id=str(data.get("proof_artifact_id", "")),
-        required_obligation_ids=_as_tuple(data.get("required_obligation_ids", ())),
-        eligible_claim_scopes=_as_tuple(data.get("eligible_claim_scopes", ("full",))),
-    )
-
-
-def load_verification_contexts(path: str | Path) -> dict[str, ReceiptVerificationContext]:
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    values = data.get("contexts", data)
-    if not isinstance(values, Mapping):
-        raise ValueError("verification context manifest must be an object keyed by receipt or subject id")
-    return {str(key): verification_context_from_dict(value) for key, value in values.items()}
-
-
 def _latest_receipts_by_subject(receipts: Sequence[EvidenceReceipt]) -> dict[str, EvidenceReceipt]:
     latest: dict[str, EvidenceReceipt] = {}
     for receipt in receipts:
@@ -408,9 +369,12 @@ def run_skill_self_governance(
     repository_root: str | Path = ".",
     *,
     receipts: Sequence[EvidenceReceipt] | None = None,
-    verification_contexts: Mapping[str, ReceiptVerificationContext] | None = None,
     output_directory: str | Path | None = None,
     save_parent_receipt: bool = True,
+    completion_run_manifest: str | Path | None = None,
+    model_receipt_dir: str | Path | None = None,
+    owner_plan_path: str | Path | None = None,
+    validation_receipt_dir: str | Path | None = None,
 ) -> SkillSelfGovernanceReport:
     """Verify and exactly consume all current required child receipts."""
 
@@ -419,9 +383,9 @@ def run_skill_self_governance(
     receipt_values = tuple(
         receipts
         if receipts is not None
-        else list_evidence_receipts(root, output_directory=output_directory)
+        else list_evidence_receipts(root, output_directory=output_directory,
+                                    subject_ids=tuple(item.subject_id for item in requirements))
     )
-    contexts = dict(verification_contexts or {})
     latest = _latest_receipts_by_subject(receipt_values)
     child_reports: list[SelfMaintenanceChildReport] = []
     verification_results: list[ReceiptVerificationResult] = []
@@ -445,11 +409,11 @@ def run_skill_self_governance(
                 )
             )
             continue
-        context = (
-            contexts.get(receipt.receipt_id)
-            or contexts.get(requirement.subject_id)
-            or build_current_native_receipt_context(receipt, root)
-        )
+        context = build_current_native_receipt_context(
+            receipt, root, completion_run_manifest=completion_run_manifest,
+            model_receipt_dir=model_receipt_dir, owner_plan_path=owner_plan_path,
+            validation_receipt_dir=validation_receipt_dir,
+            output_directory=output_directory)
         if context is not None:
             context = ReceiptVerificationContext(
                 input_snapshots=context.input_snapshots,
@@ -469,6 +433,11 @@ def run_skill_self_governance(
                 child_receipts=context.child_receipts,
                 child_verification_results=context.child_verification_results,
                 latest_child_receipt_ids=context.latest_child_receipt_ids,
+                receipt_store_repository_root=context.receipt_store_repository_root,
+                receipt_store_output_directory=context.receipt_store_output_directory,
+                receipt_store_subject_ids=context.receipt_store_subject_ids,
+                receipt_store_receipt_ids=context.receipt_store_receipt_ids,
+                receipt_identity_version=context.receipt_identity_version,
             )
         result = verify_evidence_receipt(receipt, context)
         verification_results.append(result)
@@ -548,8 +517,6 @@ __all__ = [
     "SELF_GOVERNANCE_SUBJECT",
     "SkillSelfGovernanceReport",
     "load_governance_requirements",
-    "load_verification_contexts",
     "run_skill_self_governance",
     "skill_contract_obligation_id",
-    "verification_context_from_dict",
 ]

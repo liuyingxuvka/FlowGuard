@@ -1,0 +1,396 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:55b53b0724dd22d2a3ab8fe3170ac6c3c5fb6e4cd510bf738a739bb87fb3990d",
+        "effective_intent_view_fingerprint": "sha256:a6afe493d6d329a2ab6ea0a7a4b97640878c53a479a98631ea601982b70ab747",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/compositional_verification_kernel/model.py",
+            "source_fingerprint": "sha256:fba15635ea7df22d23d1c2aca5efaa47a001d6adf501861b4ef69543e2fbc401"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [],
+      "function_blocks": [
+        {
+          "accepted_input": "VerificationRequest",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema",
+          "inputs": [
+            "external-input:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "accepted_input": "ModelValidated",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics",
+          "inputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "accepted_input": "SemanticsChecked",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement",
+          "inputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "accepted_input": "RefinementChecked",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition",
+          "inputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "accepted_input": "CompositionChecked",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions",
+          "inputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "accepted_input": "SystemInteractionsChecked",
+          "effects": [],
+          "id": "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification",
+          "inputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions"
+          ],
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification"
+          ],
+          "pass_through": false,
+          "reads": [],
+          "state_input": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5",
+          "state_output": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:6",
+          "validations": [
+            "validation:compositional_verification_kernel:invariant:accepted_have_all_evidence"
+          ],
+          "writes": []
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics"
+          ],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement"
+          ],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition"
+          ],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions"
+          ],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification"
+          ],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions",
+          "terminal": false
+        },
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification",
+          "producer_id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5",
+          "initial": false,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:6",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:6"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1",
+          "trigger": "VerificationRequest",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2",
+          "trigger": "ModelValidated",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3",
+          "trigger": "SemanticsChecked",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4",
+          "trigger": "RefinementChecked",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5",
+          "trigger": "CompositionChecked",
+          "validations": [],
+          "writes": []
+        },
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification",
+          "outputs": [
+            "output:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification"
+          ],
+          "reads": [],
+          "source": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5",
+          "target": "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:6",
+          "trigger": "SystemInteractionsChecked",
+          "validations": [
+            "validation:compositional_verification_kernel:invariant:accepted_have_all_evidence"
+          ],
+          "writes": []
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:compositional_verification_kernel",
+          "id": "validation:compositional_verification_kernel:invariant:accepted_have_all_evidence",
+          "obligation_id": "obligation:native-invariant:compositional_verification_kernel:accepted_have_all_evidence",
+          "oracle_id": "oracle:native-invariant:compositional_verification_kernel:accepted_have_all_evidence",
+          "subject_fingerprint": "sha256:efe67785c7c7e0e7557f833d6d0a66d01018c97e78d198e2e6adfed2378be0f0"
+        }
+      ]
+    },
+    "retained_elements": {
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema": "function_block",
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics": "function_block",
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement": "function_block",
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition": "function_block",
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions": "function_block",
+      "function-block:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification": "function_block",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5": "state",
+      "state:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:6": "state",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:0:ValidateCurrentSchema": "transition",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:1:CheckPortableSemantics": "transition",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:2:CheckRefinement": "transition",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:3:CheckComposition": "transition",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:4:CheckSystemInteractions": "transition",
+      "transition:workflow:compositional_verification_kernel:portable_compositional_verification:0:d6811af35f7a:5:CloseVerification": "transition",
+      "validation:compositional_verification_kernel:invariant:accepted_have_all_evidence": "validation"
+    },
+    "subject_fingerprint": "sha256:f1feed8a88c40ba3a3038b6d7c0bb9739244a6c9d0a9e1ff4eb04f8dbbf580d7",
+    "trigger_currentness_id": "sha256:e11fa9a3cf125f754246df335044a832437091e5d97510260082d9abb250bc5a",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:309f56f6f6a3adac1fca9b94e44acd18fd1d5796312f961d098d1c1ecd0ebd81",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

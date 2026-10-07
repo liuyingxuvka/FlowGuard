@@ -9,9 +9,11 @@ choose different cycle identities.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 import hashlib
 import os
 from pathlib import Path
+import re
 import stat
 from typing import Any
 
@@ -142,6 +144,52 @@ def _relative_artifact_paths(change_root: Path) -> tuple[str, ...]:
     return tuple(discovered)
 
 
+def _resolve_change_root(changes_root: Path, safe_name: str) -> Path:
+    """Locate one current objective, retaining its identity after archival."""
+
+    active = changes_root / safe_name
+    archive = changes_root / "archive"
+    candidates: list[Path] = []
+    if archive.exists() or archive.is_symlink():
+        if _is_reparse_point(archive) or not archive.is_dir():
+            raise CompletionObjectiveError(
+                "completion_objective_invalid_archive",
+                "OpenSpec archive must be a real directory",
+            )
+        pattern = re.compile(r"\d{4}-\d{2}-\d{2}-" + re.escape(safe_name))
+        for child in archive.iterdir():
+            if not pattern.fullmatch(child.name):
+                continue
+            try:
+                date.fromisoformat(child.name[:10])
+            except ValueError:
+                continue
+            if _is_reparse_point(child) or not child.is_dir():
+                raise CompletionObjectiveError(
+                    "completion_objective_invalid_root",
+                    f"archived objective is not a real directory: {child.name}",
+                )
+            candidates.append(child)
+    active_exists = active.exists() or active.is_symlink()
+    if active_exists and candidates:
+        raise CompletionObjectiveError(
+            "completion_objective_duplicate_identity",
+            "objective exists in both active changes and archive",
+        )
+    if len(candidates) > 1:
+        raise CompletionObjectiveError(
+            "completion_objective_ambiguous_archive",
+            "multiple archives have the exact requested objective name",
+        )
+    if active_exists:
+        return active
+    if candidates:
+        return candidates[0]
+    raise CompletionObjectiveError(
+        "completion_objective_unknown", f"OpenSpec change does not exist: {safe_name}"
+    )
+
+
 def resolve_completion_objective(
     repository_root: str | Path,
     change_name: str,
@@ -166,7 +214,7 @@ def resolve_completion_objective(
             "completion_objective_changes_root_invalid",
             f"OpenSpec changes root is a symlink/reparse point: {changes_root}",
         )
-    change_root = changes_root / safe_name
+    change_root = _resolve_change_root(changes_root, safe_name)
     try:
         change_root.relative_to(changes_root)
     except ValueError as exc:  # pragma: no cover - defensive after name check
@@ -174,12 +222,6 @@ def resolve_completion_objective(
             "completion_objective_unsafe_name",
             "objective escapes the OpenSpec changes root",
         ) from exc
-    if not change_root.exists():
-        raise CompletionObjectiveError(
-            "completion_objective_unknown",
-            f"OpenSpec change does not exist: {safe_name}",
-        )
-
     artifact_paths = _relative_artifact_paths(change_root)
     artifacts: list[dict[str, Any]] = []
     for relative_text in artifact_paths:
@@ -210,9 +252,60 @@ def resolve_completion_objective(
     )
 
 
+def require_archived_completion_objective(
+    repository_root: str | Path,
+    change_name: str,
+) -> CompletionObjective:
+    """Resolve one objective and require its unique, valid dated archive copy.
+
+    Readiness producers and full/plan-only consumers must independently
+    enforce archive state.  The content fingerprint intentionally excludes
+    the objective's location, so a consumer cannot infer that it remains
+    archived merely because a readiness receipt carries the same fingerprint.
+    """
+
+    root = Path(repository_root).expanduser().resolve()
+    objective = resolve_completion_objective(root, change_name)
+    active_path = root / "openspec" / "changes" / objective.change_name
+    if active_path.exists() or active_path.is_symlink():
+        raise CompletionObjectiveError(
+            "completion_objective_not_archived",
+            "release readiness requires the unique valid dated archive and no active copy",
+        )
+
+    archive_root = root / "openspec" / "changes" / "archive"
+    archive_pattern = re.compile(
+        r"\d{4}-\d{2}-\d{2}-" + re.escape(objective.change_name)
+    )
+    try:
+        children = sorted(archive_root.iterdir(), key=lambda item: item.name)
+    except OSError as exc:
+        raise CompletionObjectiveError(
+            "completion_objective_invalid_archive",
+            f"cannot inspect archive: {type(exc).__name__}: {exc}",
+        ) from exc
+    for child in children:
+        if not archive_pattern.fullmatch(child.name):
+            continue
+        try:
+            parsed_date = date.fromisoformat(child.name[:10])
+        except ValueError as exc:
+            raise CompletionObjectiveError(
+                "completion_objective_invalid_archive_date",
+                f"a matching archive has an invalid calendar date: {child.name}",
+            ) from exc
+        if parsed_date.isoformat() != child.name[:10]:
+            raise CompletionObjectiveError(
+                "completion_objective_invalid_archive_date",
+                f"archive date is not canonical: {child.name}",
+            )
+    return objective
+
+
 __all__ = [
     "COMPLETION_OBJECTIVE_SCHEMA",
     "CompletionObjective",
     "CompletionObjectiveError",
+    "require_archived_completion_objective",
     "resolve_completion_objective",
 ]

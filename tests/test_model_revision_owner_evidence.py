@@ -26,10 +26,12 @@ from flowguard.model_authority_store import (
     bootstrap_model_authority,
     load_observed_model_system,
 )
-from flowguard.model_intent import ModelIntentContribution
+from flowguard.model_intent import ModelIntentContribution, verify_model_intent_sources
 from flowguard.model_intent_authority import (
+    bootstrap_current_effective_intent_view,
     build_current_intent_bootstrap_receipt,
 )
+from flowguard.model_path_quality import PathQualitySubject, lightweight_path_review
 from flowguard.model_purpose import build_model_purpose_closure, file_fingerprint
 from flowguard.model_regressions import MANIFEST_SCHEMA, run_manifest_regressions
 from flowguard.model_revision_builder import build_current_model_revision
@@ -213,12 +215,14 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
 
     def _current_parent(self):
         self._write_models(2)
-        return run_manifest_regressions(
+        parent = run_manifest_regressions(
             self.root,
             tier="full",
             jobs=1,
             output_dir=self.root / "runs" / "full",
         )
+        self.assertEqual("pass", parent.status, parent.to_dict())
+        return parent
 
     def _affected_owner_routes(self, snapshot_id: str) -> tuple[str, ...]:
         _head, base = load_observed_model_system(self.root)
@@ -332,6 +336,7 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
         }
 
     def _path_quality_kwargs(self, snapshot_id: str) -> dict[str, object]:
+        intent_material = self._intent_bootstrap_kwargs(snapshot_id)
         _head, base = load_observed_model_system(self.root)
         candidate = build_manifest_model_system_snapshot(
             self.root,
@@ -340,9 +345,25 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
             subject_lane=base.subject_lane,
             lifecycle=base.lifecycle,
         )
+        contributions = intent_material["current_design_intent_contributions"]
+        current_intent = bootstrap_current_effective_intent_view(
+            candidate, contributions, verify_model_intent_sources(self.root, contributions),
+            intent_material["effective_intent_bootstrap_receipt"],
+        )
+        details = []
+        def review_with_detail(subject, facts, **kwargs):
+            return lightweight_path_review(subject, facts, detail_collector=details, **kwargs)
+        def current_intent_path_quality(model_id, model_fingerprint, currentness_id):
+            # Bind the complete admitted current view before constructing any
+            # witness/result, and retain the detail from that same review.
+            with patch("tests.test_model_maturation.PathQualitySubject",
+                side_effect=lambda **values: PathQualitySubject(
+                    **{**values, "intent_fingerprint": current_intent.fingerprint})), patch(
+                "tests.test_model_maturation.lightweight_path_review", side_effect=review_with_detail):
+                return _path_quality(model_id, model_fingerprint, currentness_id)
         diff = derive_revision_snapshot_diff(base, candidate)
         rows = tuple(
-            _path_quality(
+            current_intent_path_quality(
                 member.member_id,
                 member.candidate_instance_fingerprint,
                 candidate.fingerprint,
@@ -350,6 +371,11 @@ class ModelRevisionOwnerEvidenceTests(unittest.TestCase):
             for member in diff.members
             if member.operation in {"add", "replace"}
         )
+        self.assertEqual(len(rows), len(details))
+        self.path_quality_details = {detail.fingerprint: detail for detail in details}
+        for subject, result in rows:
+            self.assertEqual(current_intent.fingerprint, subject.intent_fingerprint)
+            self.assertFalse(self.path_quality_details[result.detail_evidence_fingerprint].binding_errors(subject, result))
         return {
             "path_quality_subjects": tuple(
                 subject for subject, _result in rows

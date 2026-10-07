@@ -62,7 +62,7 @@ class ProjectIntegrationTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("one public skill", skill)
-        self.assertIn("The only public operations are `read`, `change`, and `release`", skill)
+        self.assertIn("Only `read`, `change`, and `release` are public.", skill)
         self.assertIn("references/domains/<subject>/", skill)
         self.assertIn("No mode/fallback path is", skill)
         self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', core)

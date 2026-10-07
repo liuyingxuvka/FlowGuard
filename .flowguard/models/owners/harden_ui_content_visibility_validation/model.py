@@ -466,3 +466,29 @@ __all__ = [
     "risk_evidence_ledger_plan",
     "test_mesh_plan",
 ]
+
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export plan declarations as source expressions, without loading proof outputs."""
+    import ast
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+    source_path = ".flowguard/models/owners/harden_ui_content_visibility_validation/model.py"
+    root = Path(__file__).resolve().parents[4]
+    text = Path(__file__).read_text(encoding="utf-8")
+    tree = ast.parse(text)
+    symbols = ("contract_exhaustion_plan", "model_test_alignment_plan", "test_mesh_plan", "risk_evidence_ledger_plan")
+    declarations = {}
+    for symbol in symbols:
+        definitions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == symbol]
+        if len(definitions) != 1:
+            raise ValueError("declared_source_missing:" + symbol)
+        declarations[symbol] = {"source_symbol": symbol, "declaration": ast.get_source_segment(text, definitions[0]), "evidence_role": "source_contract_only"}
+    return compile_declared_path_quality_source(
+        model_id="harden_ui_content_visibility_validation", model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope="native_check_contract",
+        source_refs=({"path": source_path, "source_fingerprint": functional_source_fingerprint(root, source_path)},),
+        declared_contracts=declarations,
+    )

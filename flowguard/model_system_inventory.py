@@ -27,6 +27,7 @@ from .model_authority import (
     validate_accepted_boundary_contract_for_snapshot,
 )
 from .source_identity import functional_source_fingerprint
+from .validation_ownership import resolve_input_paths
 from .model_regressions import (
     ModelRegressionEntry,
     ModelRegressionManifest,
@@ -698,11 +699,23 @@ def build_manifest_model_system_snapshot(
     )
     if not entries:
         raise ModelSystemInventoryError("no available manifest model instances")
-    # Many model owners intentionally share the same governed inputs.  Resolve
-    # each manifest selector once for this frozen snapshot instead of asking
-    # the filesystem to enumerate the same directory for every model.  The
-    # cache is invocation-local and stores only matched paths; every file is
-    # still fingerprinted into each owner's exact inventory below.
+    # Observe one finite candidate set through the owner's selection policy.
+    # Every model projects its selectors from that same invocation-local set;
+    # shared paths are selected and hashed only once for the snapshot.
+    selected_paths = resolve_input_paths(
+        root_path,
+        tuple(dict.fromkeys(
+            pattern
+            for entry in entries
+            for pattern in (
+                *entry.effective_input_patterns,
+                *manifest.owner_patterns_for(entry.model_id),
+            )
+        )),
+    )
+    selected_input_paths = {
+        path.relative_to(root_path).as_posix(): path for path in selected_paths
+    }
     pattern_cache: dict[str, tuple[Path, ...]] = {}
     fingerprint_cache: dict[str, str] = {}
     inventories = {
@@ -712,6 +725,7 @@ def build_manifest_model_system_snapshot(
             additional_patterns=manifest.owner_patterns_for(entry.model_id),
             _pattern_cache=pattern_cache,
             _fingerprint_cache=fingerprint_cache,
+            _selected_input_paths=selected_input_paths,
         )
         for entry in entries
     }

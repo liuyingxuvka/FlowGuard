@@ -1,9 +1,16 @@
 import copy
+import json
+from dataclasses import replace
 from types import SimpleNamespace
 from pathlib import Path
 
 import flowguard.behavior_surface_audit as surface_audit
 import flowguard.reverse_surface_owner_authority as reverse_owner_authority
+from flowguard.behavior_commitment import (
+    load_behavior_commitment_ledger,
+    refresh_behavior_commitment_source_inventory,
+    review_behavior_commitment_ledger,
+)
 from flowguard.behavior_surface_audit import (
     IMPLEMENTATION_SURFACE_CURRENT_AUTHORITY_JOIN_SCHEMA,
     IMPLEMENTATION_SURFACE_MAP_SCHEMA,
@@ -60,6 +67,112 @@ def _fixture_root(tmp_path: Path) -> Path:
     project.mkdir()
     (project / "project.toml").write_text("[project]\n", encoding="utf-8")
     return tmp_path
+
+
+def _pending_registration_fixture(root: Path):
+    """Author one real typed promise; neither fixture writes execution proof."""
+    repository = load_behavior_commitment_ledger(
+        Path(__file__).resolve().parents[1]
+        / ".flowguard/behavior/inventory/ledger.json"
+    )
+    pending = next(row for row in repository.commitments if not row.evidence.current)
+    source = next(row for row in repository.source_surfaces
+                  if row.surface_id in pending.source_surface_ids)
+    (root / "promise.md").write_text("# Promise\nFinite fixture contract.\n", encoding="utf-8")
+    source = replace(source, source_ref="promise.md#Promise",
+                     native_artifact_id="promise.md#Promise", metadata={})
+    pending = replace(pending, primary_owner_model_id=".flowguard/models/owners/fixture-model/model.py",
+                      source_surface_ids=(source.surface_id,))
+    registration = replace(
+        repository, claim_scope="registration", require_current_evidence=False,
+        current_revision="fixture-registration-current",
+        commitments=(pending,), source_surfaces=(source,),
+        expected_commitment_ids=(pending.commitment_id,),
+        expected_business_intent_ids=(pending.business_intent_id,),
+        expected_source_surface_ids=(source.surface_id,), metadata={},
+    )
+    registration = refresh_behavior_commitment_source_inventory(registration, root)
+    path = root / ".flowguard/behavior/inventory/ledger.json"
+    _write_registration_fixture(path, registration)
+    return path, registration
+
+
+def _write_registration_fixture(path: Path, registration):
+    # Match the actual Source authority's direct current mapping.  The general
+    # serializer emits an envelope, which is not this identity loader's wire.
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(registration.to_dict()), encoding="utf-8")
+
+
+def test_registration_identity_join_keeps_native_owner_receipt_gate(monkeypatch, tmp_path):
+    root = _fixture_root(tmp_path)
+    path, registration = _pending_registration_fixture(root)
+    bindings = root / ".flowguard/structure/owner-bindings.json"
+    bindings.parent.mkdir(parents=True)
+    bindings.write_text(json.dumps({
+        "schema": "flowguard.native_owner_model_bindings.v1",
+        "bindings": [{"owner_route": "fixture-owner", "model_ids": ["fixture-model"]}],
+    }), encoding="utf-8")
+    original = path.read_bytes()
+    vocabulary = surface_audit._load_current_behavior_ledger_join(root)
+    assert vocabulary["status"] == "current", vocabulary
+    assert not registration.commitments[0].evidence.has_current_pass()
+    native_join = _current_join()
+    monkeypatch.setattr(surface_audit, "_load_current_authority_join", lambda _root: native_join)
+    discovery = discover_implementation_behavior_surfaces(root)
+    mapping = _complete_map(discovery, native_join)
+    promise = registration.commitments[0]
+    obligation = promise.evidence.model_obligation_ids[0]
+    for row in mapping["surfaces"]:
+        row.update(disposition="governed", intent_id=promise.business_intent_id,
+                   model_owner_id="fixture-model", model_obligation_ids=[obligation])
+    mapping["model_obligations"] = [{
+        "obligation_id": obligation, "disposition": "governed",
+        "surface_ids": [row["surface_id"] for row in mapping["surfaces"]],
+        "intent_id": promise.business_intent_id, "model_owner_id": "fixture-model",
+    }]
+    mapping["current_behavior_ledger_join"] = vocabulary
+    accepted = audit_implementation_behavior_surface(root, mapping, discovery=discovery)
+    assert accepted["status"] == "passed", accepted["findings"]
+    for missing in (True, False):
+        invalid = copy.deepcopy(mapping)
+        if missing:
+            invalid["surfaces"][0].pop("owner_receipt_id")
+            expected = "implementation_surface_current_owner_receipt_missing"
+        else:
+            invalid["surfaces"][0]["owner_receipt_fingerprint"] = "sha256:" + "f" * 64
+            expected = "implementation_surface_current_owner_receipt_mismatch"
+        blocked = audit_implementation_behavior_surface(root, invalid, discovery=discovery)
+        assert blocked["status"] == "blocked"
+        assert expected in {row["code"] for row in blocked["findings"]}
+    assert path.read_bytes() == original
+    assert load_behavior_commitment_ledger(path) == registration
+
+
+def test_registration_identity_join_rejects_broad_required_and_stale_claims(tmp_path):
+    root = _fixture_root(tmp_path)
+    path, registration = _pending_registration_fixture(root)
+    full = replace(registration, claim_scope="full", require_current_evidence=True)
+    assert not review_behavior_commitment_ledger(full, project_root=root).ok
+    for scope, required in (("full", False), ("release", False), ("registration", True)):
+        _write_registration_fixture(path, replace(
+            registration, claim_scope=scope, require_current_evidence=required,
+        ))
+        blocked = surface_audit._load_current_behavior_ledger_join(root)
+        assert blocked["status"] == "blocked", blocked
+        assert "current_pass" in blocked["load_error"]
+    # A truthy/coerced wire value never opts into the registration exception.
+    malformed = registration.to_dict()
+    malformed["require_current_evidence"] = "false"
+    path.write_text(json.dumps(malformed), encoding="utf-8")
+    assert surface_audit._load_current_behavior_ledger_join(root)["status"] == "blocked"
+    _write_registration_fixture(path, registration)
+    assert surface_audit._load_current_behavior_ledger_join(root)["status"] == "current"
+    (root / "promise.md").write_text("# Promise\nChanged unauthored contract.\n", encoding="utf-8")
+    stale = surface_audit._load_current_behavior_ledger_join(root)
+    assert stale["status"] == "blocked"
+    assert "stale" in stale["load_error"]
+    assert load_behavior_commitment_ledger(path) == registration
 
 
 def _current_join() -> dict:

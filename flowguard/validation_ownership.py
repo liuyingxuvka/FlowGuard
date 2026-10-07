@@ -49,7 +49,13 @@ from .evidence_receipts import (
 from .source_identity import (
     functional_source_fingerprint,
     functional_source_payload,
+    model_input_fingerprint,
     source_file_fingerprint,
+)
+from .reverse_surface_map_identity import (
+    CURRENT_SURFACE_DISCOVERY_PATH,
+    IMPLEMENTATION_SURFACE_MAP_PATH,
+    require_regular_implementation_surface_map,
 )
 from .process_supervision import run_supervised_bytes
 from .runtime_artifacts import (
@@ -131,16 +137,47 @@ class GitQueryCleanupUnconfirmed(ValueError):
         query_category: str,
         elapsed_seconds: float,
         terminal_reason: str,
+        episode_token: str | None = None,
+        root_process_id: int | None = None,
+        exit_code: int | None = None,
+        containment_query_succeeded: bool | None = None,
+        root_process_running: bool | None = None,
+        descendant_process_ids: Sequence[int] | None = None,
     ) -> None:
         self.code = "git_query_cleanup_unconfirmed"
         self.query_category = query_category
         self.elapsed_seconds = max(0.0, float(elapsed_seconds))
         self.cleanup_confirmed = False
         self.terminal_reason = terminal_reason
+        self.episode_token = episode_token[:128] if episode_token is not None else None
+        self.root_process_id = root_process_id
+        self.exit_code = exit_code
+        self.containment_query_succeeded = containment_query_succeeded
+        self.root_process_running = root_process_running
+        self.descendant_process_count = (
+            len(descendant_process_ids) if descendant_process_ids is not None else None
+        )
+        self.descendant_process_ids = (
+            tuple(descendant_process_ids[:32])
+            if descendant_process_ids is not None else None
+        )
+        # Preserve terminal process facts in the existing error surface. Never
+        # include argv, environment, or command output in this bounded diagnostic.
+        self.supervision_diagnostics = {
+            "episode_token": self.episode_token,
+            "root_process_id": self.root_process_id,
+            "exit_code": self.exit_code,
+            "containment_query_succeeded": self.containment_query_succeeded,
+            "root_process_running": self.root_process_running,
+            "descendant_process_ids": self.descendant_process_ids,
+            "descendant_process_count": self.descendant_process_count,
+        }
         super().__init__(
             f"{self.code}: query_category={query_category} "
             f"elapsed_seconds={self.elapsed_seconds:.3f} "
-            f"cleanup_confirmed=false terminal_reason={terminal_reason}"
+            f"cleanup_confirmed=false terminal_reason={terminal_reason} "
+            "supervision="
+            + json.dumps(self.supervision_diagnostics, separators=(",", ":"))
         )
 
 
@@ -239,6 +276,7 @@ def _bounded_git_observation(function):
     return wrapped
 
 _OUTPUT_PREFIXES = (
+    ".agents/skills/flowguard/.skillguard/runtime-requests/full-author-assurance/",
     ".flowguard/evidence/",
     ".flowguard/history/",
     ".flowguard/run_artifacts/",
@@ -271,11 +309,28 @@ _OUTPUT_BASENAMES = {
     "skillguard_progress_ledger.jsonl",
 }
 
+# These immutable objects remain current authority and release inputs, but
+# cannot become validation source merely because a CAS persisted new objects.
+_IMMUTABLE_AUTHORITY_OUTPUT_CATEGORIES = (
+    "read-projection-indexes", "read-model-shards", "path-quality-details",
+)
+_IMMUTABLE_AUTHORITY_OUTPUT_RE = re.compile(
+    r"\.flowguard/models/authority/(?:"
+    + "|".join(_IMMUTABLE_AUTHORITY_OUTPUT_CATEGORIES)
+    + r")/[0-9a-f]{64}\.json"
+)
+
 # Git pathspec exclusions are kept in the same ownership layer as the
 # fallback classifier.  Tracked run objects are just as non-authoritative as
 # their untracked siblings; omitting them only from ``--others`` would let a
 # staged run artifact refresh a source observation.
 _GIT_OUTPUT_EXCLUDES = (
+    *(
+        ":(top,glob,exclude).flowguard/models/authority/" + category + "/"
+        + "[0-9a-f]" * 64 + ".json"
+        for category in _IMMUTABLE_AUTHORITY_OUTPUT_CATEGORIES
+    ),
+    ":(top,glob,exclude).agents/skills/flowguard/.skillguard/runtime-requests/full-author-assurance/**",
     ":(top,glob,exclude).flowguard/evidence/**",
     ":(top,glob,exclude).flowguard/history/**",
     ":(top,glob,exclude).flowguard/run_artifacts/**",
@@ -530,6 +585,8 @@ def _receipt_result_status(status: str) -> str:
 
 def _is_evidence_output(relative: str) -> bool:
     normalized = relative.replace("\\", "/")
+    if _IMMUTABLE_AUTHORITY_OUTPUT_RE.fullmatch(normalized):
+        return True
     try:
         if classify_runtime_artifact(normalized) is not None:
             return True
@@ -682,22 +739,27 @@ def _git_candidate_paths(
         raise
     except ValueError:
         return None
-    return tuple(
-        sorted(
-            {
-                relative
-                for item in raw.split(b"\0")
-                if item
-                for relative in (item.decode("utf-8").replace("\\", "/"),)
-                if not _is_evidence_output(relative)
-            }
-        )
-    )
+    candidates: set[str] = set()
+    for item in raw.split(b"\0"):
+        if not item:
+            continue
+        relative = item.decode("utf-8").replace("\\", "/")
+        if _is_evidence_output(relative):
+            if is_governed_source_in_runtime_cache(relative):
+                raise ValueError(
+                    "governed source cannot be hidden inside runtime cache: "
+                    + relative
+                )
+            continue
+        candidates.add(relative)
+    return tuple(sorted(candidates))
 
 
 def _fingerprint_manifest_paths(
     root: Path,
     relatives: Iterable[str],
+    *,
+    explicitly_admitted_paths: Iterable[str] = (),
 ) -> tuple[dict[str, str], ...]:
     """Fingerprint a finite input set with bounded read concurrency.
 
@@ -708,12 +770,22 @@ def _fingerprint_manifest_paths(
     order.
     """
 
+    explicitly_admitted = {
+        str(value).replace("\\", "/") for value in explicitly_admitted_paths
+    }
+    if explicitly_admitted - {IMPLEMENTATION_SURFACE_MAP_PATH}:
+        raise ValueError("only the exact implementation surface map may bypass output filtering")
+    if explicitly_admitted:
+        root_path = root.resolve()
+        require_regular_implementation_surface_map(root_path)
     selected_values: set[str] = set()
     for value in relatives:
         relative = str(value).replace("\\", "/")
         if not relative:
             continue
-        if _is_evidence_output(relative):
+        if relative == CURRENT_SURFACE_DISCOVERY_PATH:
+            continue
+        if _is_evidence_output(relative) and relative not in explicitly_admitted:
             if is_governed_source_in_runtime_cache(relative):
                 raise ValueError(
                     "governed source cannot be hidden inside runtime cache: "
@@ -810,17 +882,42 @@ def validation_task_body_fingerprint(path: str | Path) -> str:
 
 
 @_bounded_git_observation
-def resolve_input_manifest(
+def resolve_input_paths(
     root: str | Path,
     patterns: Sequence[str],
-) -> tuple[dict[str, str], ...]:
-    """Resolve declared patterns to a deterministic content manifest."""
+) -> tuple[Path, ...]:
+    """Select current source paths without hashing or creating evidence.
+
+    Snapshot builders and owner observations share this exact Git/non-Git,
+    output, and explicit surface-map boundary. The result is invocation-local;
+    it carries no freshness or validation authority on its own.
+    """
 
     root_path = Path(root).resolve()
-    rows: dict[str, str] = {}
     unique_patterns = tuple(
-        dict.fromkeys(str(item) for item in patterns if str(item))
+        dict.fromkeys(
+            str(item).replace("\\", "/") for item in patterns if str(item)
+        )
     )
+    explicitly_admitted = (
+        (IMPLEMENTATION_SURFACE_MAP_PATH,)
+        if IMPLEMENTATION_SURFACE_MAP_PATH in unique_patterns
+        else ()
+    )
+    if explicitly_admitted:
+        require_regular_implementation_surface_map(root_path)
+    for pattern in unique_patterns:
+        if not any(token in pattern for token in ("*", "?", "[")):
+            # Ignoring an explicitly named governed cache source cannot hide
+            # it from the Git candidate list and turn it into an empty input.
+            if is_governed_source_in_runtime_cache(pattern):
+                path = root_path / pattern
+                if path.is_file():
+                    path.resolve().relative_to(root_path)
+                    raise ValueError(
+                        "governed source cannot be hidden inside runtime cache: "
+                        + pattern
+                    )
     candidates = _git_candidate_paths(root_path, unique_patterns)
     if candidates is not None:
         candidate_set = set(candidates)
@@ -837,6 +934,10 @@ def resolve_input_manifest(
             for pattern in literal_patterns
             if pattern.replace("\\", "/") in candidate_set
         }
+        # The map remains an output for every broad selector and in Git's
+        # directory-wide exclusion. Admit it only when the contract names this
+        # exact literal path; this also works when Git ignores the artifact.
+        selected.update(explicitly_admitted)
         if wildcard_patterns:
             selected.update(
                 relative
@@ -846,33 +947,52 @@ def resolve_input_manifest(
                     for pattern in wildcard_patterns
                 )
             )
-        return _fingerprint_manifest_paths(root_path, selected)
-
-    for pattern in unique_patterns:
-        for path in root_path.glob(pattern):
-            if not path.is_file():
-                continue
-            resolved = path.resolve()
-            try:
-                relative = resolved.relative_to(root_path).as_posix()
-            except ValueError as exc:
+    else:
+        selected = {
+            path.absolute().relative_to(root_path).as_posix()
+            for pattern in unique_patterns
+            for path in root_path.glob(pattern)
+            if path.is_file()
+        }
+    paths: list[Path] = []
+    for relative in sorted(selected):
+        path = root_path / relative
+        if not path.is_file():
+            continue
+        try:
+            path.resolve().relative_to(root_path)
+        except ValueError as exc:
+            raise ValueError(f"validation input escapes repository: {path}") from exc
+        if relative == CURRENT_SURFACE_DISCOVERY_PATH:
+            continue
+        if _is_evidence_output(relative) and relative not in explicitly_admitted:
+            if is_governed_source_in_runtime_cache(relative):
                 raise ValueError(
-                    f"validation input escapes repository: {path}"
-                ) from exc
-            if _is_evidence_output(relative):
-                if is_governed_source_in_runtime_cache(relative):
-                    raise ValueError(
-                        "governed source cannot be hidden inside runtime cache: "
-                        + relative
-                    )
-                continue
-            rows[relative] = str(resolved)
+                    "governed source cannot be hidden inside runtime cache: "
+                    + relative
+                )
+            continue
+        paths.append(path)
+    return tuple(paths)
+
+
+def resolve_input_manifest(
+    root: str | Path,
+    patterns: Sequence[str],
+) -> tuple[dict[str, str], ...]:
+    """Fingerprint the same finite source selection used by snapshots."""
+
+    root_path = Path(root).resolve()
+    paths = resolve_input_paths(root_path, patterns)
     return _fingerprint_manifest_paths(
         root_path,
-        (
-            relative
-            for relative, path in rows.items()
-            if path
+        (path.relative_to(root_path).as_posix() for path in paths),
+        explicitly_admitted_paths=(
+            (IMPLEMENTATION_SURFACE_MAP_PATH,)
+            if IMPLEMENTATION_SURFACE_MAP_PATH in tuple(
+                str(pattern).replace("\\", "/") for pattern in patterns
+            )
+            else ()
         ),
     )
 
@@ -889,7 +1009,9 @@ def filter_resolved_input_manifest(
     """
 
     unique_patterns = tuple(
-        dict.fromkeys(str(item) for item in patterns if str(item))
+        dict.fromkeys(
+            str(item).replace("\\", "/") for item in patterns if str(item)
+        )
     )
     manifest_by_path: dict[str, str] = {}
     for item in manifest:
@@ -897,6 +1019,8 @@ def filter_resolved_input_manifest(
         fingerprint = str(item.get("sha256", ""))
         if not relative or not fingerprint:
             raise ValueError("resolved input manifest row is incomplete")
+        if relative == CURRENT_SURFACE_DISCOVERY_PATH:
+            continue
         if relative in manifest_by_path and manifest_by_path[relative] != fingerprint:
             raise ValueError("resolved input manifest contains conflicting rows")
         manifest_by_path[relative] = fingerprint
@@ -917,6 +1041,11 @@ def filter_resolved_input_manifest(
     }
     if wildcard_patterns:
         for relative, fingerprint in manifest_by_path.items():
+            if (
+                relative == IMPLEMENTATION_SURFACE_MAP_PATH
+                and IMPLEMENTATION_SURFACE_MAP_PATH not in literal_patterns
+            ):
+                continue
             if any(
                 _matches_declared_pattern(relative, pattern)
                 for pattern in wildcard_patterns
@@ -1061,16 +1190,24 @@ def _run_git_bytes_query(
             cleanup_confirmed=completed.cleanup_confirmed,
             terminal_reason=completed.terminal_reason,
         )
+    if not completed.cleanup_confirmed:
+        raise GitQueryCleanupUnconfirmed(
+            query_category=query_category,
+            elapsed_seconds=elapsed,
+            terminal_reason=completed.terminal_reason,
+            episode_token=getattr(completed, "episode_token", None),
+            root_process_id=getattr(completed, "root_process_id", None),
+            exit_code=completed.exit_code,
+            containment_query_succeeded=getattr(
+                completed, "containment_query_succeeded", None
+            ),
+            root_process_running=getattr(completed, "root_process_running", None),
+            descendant_process_ids=getattr(completed, "descendant_process_ids", None),
+        )
     if bool(getattr(completed, "cancelled", False)) or bool(
         getattr(completed, "interrupted", False)
     ):
         raise GitQueryAborted(
-            query_category=query_category,
-            elapsed_seconds=elapsed,
-            terminal_reason=completed.terminal_reason,
-        )
-    if not completed.cleanup_confirmed:
-        raise GitQueryCleanupUnconfirmed(
             query_category=query_category,
             elapsed_seconds=elapsed,
             terminal_reason=completed.terminal_reason,
@@ -1399,6 +1536,67 @@ def model_authority_release_paths(root: Path) -> tuple[str, ...]:
         )
     else:
         raise ValueError("model authority generation must be positive")
+    if generation > 1:
+        # Follow only the current typed transition. Directory discovery would
+        # publish unrelated history and cannot prove any current reference.
+        from .model_authority_store import (
+            load_current_model_authority_state, _load_bound_read_projection,
+            _load_selected_read_shards, _read_content_addressed_payload,
+        )
+        from .model_path_quality import PathQualityArchitectureDetail
+        state = load_current_model_authority_state(root, reverify_current_sources=False)
+        if (
+            state.head.generation != generation
+            or state.head.snapshot_fingerprint != observed_fingerprint
+            or state.head.accepted_revision_set_fingerprint != accepted
+            or state.head.activation_receipt_fingerprint != activation
+            or state.head.previous_snapshot_fingerprint != previous
+            or state.head.fingerprint != authority.get("head_fingerprint")
+        ):
+            raise ValueError("current release authority changed during closure observation")
+        projection = _load_bound_read_projection(root, state.head)
+        index = projection["index"]
+        instances = {item.logical_model_id: item for item in state.snapshot.model_instances}
+        if index.get("schema") != "flowguard.accepted_read_projection.v1" or set(index["models"]) != set(instances):
+            raise ValueError("current release read index does not cover the exact snapshot models")
+
+        def retain(category: str, fingerprint: str) -> None:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", fingerprint):
+                raise ValueError("current release authority fingerprint is invalid")
+            relative = ".flowguard/models/authority/" + category + "/" + fingerprint[7:] + ".json"
+            candidate = root / relative
+            for component in (candidate, *candidate.parents):
+                if component == root:
+                    break
+                if component.is_symlink() or getattr(component.lstat(), "st_file_attributes", 0) & 0x400:
+                    raise ValueError("current release authority object is a reparse path: " + relative)
+            if not candidate.is_file():
+                raise ValueError("current release authority object is missing: " + relative)
+            paths.append(relative)
+
+        retain("read-projection-indexes", projection["index_fingerprint"])
+        shards = _load_selected_read_shards(root, projection, sorted(instances))
+        for shard in shards:
+            model_id = shard["logical_model_id"]
+            if index["models"][model_id]["model_fingerprint"] != instances[model_id].fingerprint:
+                raise ValueError("current release read shard is foreign to the snapshot")
+            retain("read-model-shards", shard["fingerprint"])
+        revision = state.accepted_revision
+        if revision is None:
+            raise ValueError("current release has no accepted revision")
+        subjects = {item.fingerprint: item for item in revision.path_quality_subjects}
+        for result in revision.path_quality_results:
+            subject = subjects.get(result.subject_fingerprint)
+            if subject is None:
+                raise ValueError("current release architecture detail has no subject")
+            retain("path-quality-details", result.detail_evidence_fingerprint)
+            detail = PathQualityArchitectureDetail.from_dict(
+                _read_content_addressed_payload(root, "path-quality-details", result.detail_evidence_fingerprint)
+            )
+            if detail.binding_errors(subject, result):
+                raise ValueError("current release architecture detail binding is invalid")
+        if state.accepted_boundary_contract is not None:
+            retain("boundary-contracts", state.accepted_boundary_contract.fingerprint)
     return tuple(dict.fromkeys(paths))
 
 
@@ -2254,11 +2452,18 @@ def build_owner_receipt_context(
     current: ValidationOwnerCurrent,
     receipt: EvidenceReceipt,
     receipt_root: str | Path,
+    *,
+    read_context=None,
 ) -> ReceiptVerificationContext | None:
     proof_path = _proof_path(Path(receipt_root).resolve(), receipt)
     if proof_path is None or not proof_path.is_file():
         return None
-    proof_fingerprint = _sha256_bytes(proof_path.read_bytes())
+    if read_context is None:
+        proof_bytes = proof_path.read_bytes()
+    else:
+        proof_relative = proof_path.absolute().relative_to(read_context.root).as_posix()
+        proof_bytes = read_context.artifact_bytes(proof_relative)
+    proof_fingerprint = _sha256_bytes(proof_bytes)
     return _owner_receipt_context_for_proof(
         current,
         receipt,
@@ -3026,6 +3231,87 @@ def refresh_validation_owner_observation_receipts(
     )
 
 
+def _assert_validation_owner_current_fresh(
+    observation: ValidationOwnerObservation,
+    owner_id: str,
+    root: str | Path,
+) -> ValidationObservationFreshness:
+    """Compare one serial owner's live inputs with its frozen current context.
+
+    This deliberately returns only one owner. It cannot substitute for the
+    final full observation, whose consumer requires the complete owner set.
+    No receipt lookup or whole-observation source scan occurs here.
+    """
+
+    started_at = time.perf_counter()
+    expected = observation.current_by_owner.get(owner_id)
+    if expected is None:
+        raise ValueError(f"owner is outside the frozen observation: {owner_id}")
+    current = build_owner_current(
+        root, expected.contract, all_contracts=observation.contracts
+    )
+    if current.owner_identity != expected.owner_identity:
+        raise ValueError(f"frozen validation owner inputs changed: {owner_id}")
+    return ValidationObservationFreshness(
+        status="pass",
+        initial_observation_fingerprint=observation.observation_fingerprint,
+        final_observation_fingerprint=fingerprint_value(
+            {
+                "schema": "flowguard.validation_owner_local_freshness.v1",
+                "initial_observation_fingerprint": observation.observation_fingerprint,
+                "owner_id": owner_id,
+                "owner_identity": current.owner_identity,
+            }
+        ),
+        observation_seconds=max(0.0, time.perf_counter() - started_at),
+        owner_currents=(current,),
+    )
+
+
+def _receipt_inventory_after_owned_publications(
+    observation: ValidationOwnerObservation,
+    published_receipts: Sequence[EvidenceReceipt],
+) -> tuple[tuple[str, str, str], ...]:
+    """Advance only the exact subjects actually published by this invocation."""
+
+    by_subject: dict[str, EvidenceReceipt] = {}
+    currents = observation.current_by_owner
+    for receipt in published_receipts:
+        _assert_owner_receipt_integrity(receipt)
+        owner_id = receipt.subject_id.removeprefix("validation-owner:")
+        current = currents.get(owner_id)
+        if (
+            current is None
+            or receipt.subject_id != f"validation-owner:{owner_id}"
+            or str(receipt.metadata.get("owner_identity", "")) != current.owner_identity
+        ):
+            raise ValueError("owned publication is outside the frozen owner context")
+        if receipt.subject_id in by_subject:
+            raise ValueError("owned publications must contain one receipt per owner")
+        by_subject[receipt.subject_id] = receipt
+    baseline = observation.receipt_inventory_identities
+    published = _receipt_inventory_identities(tuple(by_subject.values()))
+    if observation.receipt_inventory_mode == "latest_model":
+        # The latest index replaces a subject's prior tuple; historical rows
+        # must not be carried into the expected latest-only inventory.
+        retained = tuple(row for row in baseline if row[0] not in by_subject)
+        return tuple(sorted((*retained, *published)))
+    if observation.receipt_inventory_mode != "all":
+        raise ValueError("unknown validation receipt inventory mode")
+    by_identity = {(row[0], row[1]): row[2] for row in baseline}
+    for subject, receipt_id, fingerprint in published:
+        previous = by_identity.get((subject, receipt_id))
+        if previous is not None and previous != fingerprint:
+            raise ValueError("owned publication changed an immutable receipt")
+        by_identity[(subject, receipt_id)] = fingerprint
+    return tuple(
+        sorted(
+            (subject, receipt_id, value)
+            for (subject, receipt_id), value in by_identity.items()
+        )
+    )
+
+
 def assert_validation_owner_observation_fresh(
     observation: ValidationOwnerObservation,
     root: str | Path,
@@ -3033,6 +3319,7 @@ def assert_validation_owner_observation_fresh(
     *,
     additional_receipt_subject_ids: Sequence[str] = (),
     receipt_ids: Sequence[str] = (),
+    published_receipts: Sequence[EvidenceReceipt] = (),
 ) -> ValidationObservationFreshness:
     """Make one fresh identity comparison without repeating native verifiers.
 
@@ -3042,10 +3329,14 @@ def assert_validation_owner_observation_fresh(
     boundary the normal subject-scoped lookup also sees historical attempts
     for the same subject; that is correct for a broad owner observation, but
     would make a bounded parent observation appear stale every time an
-    unrelated aggregate receipt is published.
+    unrelated aggregate receipt is published. ``published_receipts`` is the
+    caller-owned serial publication ledger, never an arbitrary new inventory.
+    It advances only those exact tuples; foreign publication still blocks.
     """
 
     started_at = time.perf_counter()
+    if receipt_ids and published_receipts:
+        raise ValueError("owned publications cannot narrow the receipt inventory")
     root_path = Path(root).resolve()
     receipt_root_path = Path(receipt_root).resolve()
     current_manifest = resolve_input_manifest(
@@ -3116,7 +3407,9 @@ def assert_validation_owner_observation_fresh(
         )
     expected_receipts = tuple(
         item
-        for item in observation.receipt_inventory_identities
+        for item in _receipt_inventory_after_owned_publications(
+            observation, published_receipts
+        )
         if item[0] in subject_ids
     )
     current_receipts = tuple(
@@ -3163,13 +3456,12 @@ def assert_validation_owner_observation_receipts_fresh(
     *,
     additional_receipt_subject_ids: Sequence[str] = (),
 ) -> ValidationObservationFreshness:
-    """Complete one final boundary after batched leaf publication.
+    """Complete the final receipt boundary after leaf publication.
 
-    The source observation is made once after all native producers terminate
-    and before any new validation-owner leaf is published.  Publication then
-    consumes those exact fresh owner contexts.  This function performs only
-    the receipt-store half of the final comparison, so adding N leaf receipts
-    cannot trigger N source-current rebuilds or a third repository scan.
+    Batched leaves consume the single post-run source observation; serial
+    leaves consume local pre/post checks and then a full source observation
+    with their exact publication ledger. This final composition check performs
+    only the receipt-store comparison, never a third full source observation.
     """
 
     started_at = time.perf_counter()
@@ -4637,18 +4929,19 @@ def verify_parent_receipt(
     # not re-walk each owner's patterns and then repeat the walk while
     # reconstructing the parent plan.
     try:
+        resolved_owner_manifest = resolve_input_manifest(
+            root_path,
+            _owner_observation_patterns(contracts),
+        )
         validation_manifest = _validation_input_manifest_from_observation(
-            resolve_input_manifest(
-                root_path,
-                _owner_observation_patterns(contracts),
-            )
+            resolved_owner_manifest
         )
         currents = {
             contract.owner_id: _build_owner_current(
                 root_path,
                 contract,
                 all_contracts=contracts,
-                resolved_input_manifest=validation_manifest,
+                resolved_input_manifest=resolved_owner_manifest,
             )
             for contract in contracts
         }
@@ -5449,7 +5742,7 @@ def build_affected_impact_plan(
             if not file_path.is_file():
                 blockers.append(f"changed_path_missing:{path}")
                 continue
-            fingerprint = source_file_fingerprint(file_path)
+            fingerprint = model_input_fingerprint(root_path, path)
             component_file_fingerprints.setdefault(row["component_id"], {})[path] = fingerprint
             direct_owners.add(owner_id)
             metadata = component_metadata.setdefault(
@@ -5765,6 +6058,7 @@ __all__ = [
     "plan_validation_owners",
     "release_tree_manifest",
     "resolve_input_manifest",
+    "resolve_input_paths",
     "validation_task_body_fingerprint",
     "selected_owner_ids",
     "record_validation_owner_nonpass",

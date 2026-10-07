@@ -94,6 +94,37 @@ def _summary_payload(payload: dict[str, Any], *, full_report_path: str = "") -> 
         {"source": "extra_files", "index": index, "relative_path": str(item)}
         for index, item in enumerate(extras)
     )
+    comparisons = payload.get("comparisons")
+    if payload.get("artifact_type") == "flowguard_skill_tree_parity":
+        if not isinstance(comparisons, dict) or not comparisons:
+            issues.append({
+                "source": "comparisons", "index": 0,
+                "code": "parity_comparisons_missing",
+                "message": "No configured tree comparison was evaluated.",
+                "relative_path": "",
+            })
+        else:
+            for name, comparison in comparisons.items():
+                issue_start = len(issues)
+                for field in (
+                    "missing_files", "extra_files", "raw_mismatches",
+                    "semantic_mismatches", "missing_members", "unsafe_paths",
+                ):
+                    for index, relative in enumerate(comparison.get(field, ())):
+                        issues.append({
+                            "source": "comparisons", "comparison": str(name),
+                            "field": field, "index": index,
+                            "code": "parity_" + field,
+                            "message": str(name) + ": " + field,
+                            "relative_path": str(relative),
+                        })
+                if comparison.get("ok") is not True and len(issues) == issue_start:
+                    issues.append({
+                        "source": "comparisons", "comparison": str(name),
+                        "index": 0, "code": "parity_comparison_blocked_without_detail",
+                        "message": str(name) + ": comparison did not pass and supplied no differences.",
+                        "relative_path": "",
+                    })
     changed = {
         *payload.get("copied_files", ()),
         *payload.get("removed_files", ()),

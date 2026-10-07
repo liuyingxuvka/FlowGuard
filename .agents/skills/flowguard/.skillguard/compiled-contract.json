@@ -131,7 +131,7 @@
     "release_manifest_path": "consumer-release.json",
     "root_path": "."
   },
-  "contract_hash": "sha256:c432877d49c918f63a57ee8c4443f9e195f079738b57023c4cc91e3f22cc0afa",
+  "contract_hash": "sha256:ab2b971ae4166ae242cad2748ec0ef0d4d98e58451166bf74a56a4201935b343",
   "inputs": [
     {
       "id": "input:1",
@@ -241,7 +241,7 @@
   "schema_version": "skillguard.compiled_contract.v3",
   "skill_id": "flowguard",
   "source_identity": {
-    "content_hash": "sha256:d935432ade241cbfd5ca764dda048173dfe53208e8f6d88f02f5ae789021c711",
+    "content_hash": "sha256:b39f569ce78a9b1d37b703243266f3034b48bb873e6fa8e09cc8adfbeefc1f9d",
     "path": ".skillguard/contract-source.json"
   },
   "steps": [

@@ -855,6 +855,82 @@ def save(value):
             ):
                 contract(bounded, bounded_key, ())
 
+    def test_literal_import_contracts_reject_open_mixed_stale_and_foreign_owner(self) -> None:
+        from dataclasses import replace
+
+        source = (
+            "import importlib\n\n"
+            "def literal_import():\n    return __import__('model')\n\n"
+            "def literal_module():\n    return importlib.import_module('flowguard.model_intent')\n\n"
+            "def open_import(name):\n    return __import__(name)\n\n"
+            "def mixed_import(name):\n    __import__('model')\n    return __import__(name)\n\n"
+            "def open_module(name):\n    return importlib.import_module(name)\n\n"
+            "def mixed_module(name):\n    importlib.import_module('model')\n    return importlib.import_module(name)\n\n"
+            "def empty_import():\n    return __import__('')\n\n"
+            "def named_constant():\n    name = 'model'\n    return __import__(name)\n\n"
+            "def no_selector():\n    return __import__()\n\n"
+            "def blank_import():\n    return __import__(' ')\n\n"
+            "def wildcard_import():\n    return __import__('*')\n\n"
+            "def unrelated_method(value):\n    return value.import_module('model')\n"
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary), source=source)
+
+            def observe():
+                return discover_python_implementation_surfaces(
+                    root=root,
+                    file_disposition=self._python_file_disposition(root / "src/app.py"),
+                )
+
+            def project(raw, contracts):
+                return project_python_implementation_observation(
+                    raw,
+                    surface_dispositions={
+                        implementation_surface_key(surface.path, surface.symbol):
+                        IMPLEMENTATION_DISPOSITION_MODEL for surface in raw.surfaces
+                    },
+                    dynamic_selector_contracts=contracts,
+                )
+
+            raw = observe()
+            contracts = derive_static_dynamic_selector_contracts(raw)
+            by_symbol = {surface.symbol: surface for surface in raw.surfaces}
+            by_key = {contract.surface_key: contract for contract in contracts}
+            self.assertEqual(set(by_key), {"src/app.py#literal_import", "src/app.py#literal_module"})
+            self.assertEqual(by_key["src/app.py#literal_import"].selector_values, ("model",))
+            self.assertEqual(by_key["src/app.py#literal_module"].operation, "importlib.import_module")
+            projected = project(raw, contracts)
+            blocked_ids = {
+                finding.surface_id for finding in projected.findings
+                if finding.code == "dynamic_python_surface"
+            }
+            for symbol in ("literal_import", "literal_module"):
+                self.assertNotIn(by_symbol[symbol].surface_id, blocked_ids)
+                surface = next(item for item in projected.surfaces if item.symbol == symbol)
+                self.assertIn("dynamic_bounded", surface.roles)
+            for symbol in ("open_import", "mixed_import", "open_module", "mixed_module",
+                           "empty_import", "named_constant", "no_selector", "blank_import",
+                           "wildcard_import", "unrelated_method"):
+                self.assertNotIn("src/app.py#" + symbol, by_key)
+            for symbol in ("open_import", "mixed_import", "open_module", "mixed_module",
+                           "empty_import", "named_constant", "no_selector", "blank_import",
+                           "wildcard_import"):
+                self.assertIn(by_symbol[symbol].surface_id, blocked_ids)
+
+            literal = by_key["src/app.py#literal_import"]
+            wrong_owner = project(raw, (replace(literal, owner_surface_id=by_symbol["literal_module"].surface_id),))
+            self.assertIn("dynamic_selector_contract_owner_mismatch", {item.code for item in wrong_owner.findings})
+            wrong_values = project(raw, (replace(literal, selector_values=("foreign",)),))
+            self.assertIn("dynamic_selector_contract_values_mismatch", {item.code for item in wrong_values.findings})
+            wrong_source = project(raw, (replace(literal, selector_source_fingerprint="sha256:" + "0" * 64),))
+            self.assertIn("dynamic_selector_contract_source_mismatch", {item.code for item in wrong_source.findings})
+
+            (root / "src/app.py").write_text(source.replace("__import__('model')", "__import__('changed')", 1), encoding="utf-8")
+            changed = observe()
+            stale = project(changed, (literal,))
+            self.assertIn("dynamic_selector_contract_stale", {item.code for item in stale.findings})
+            self.assertTrue(any(item.code == "dynamic_python_surface" and item.surface_id == by_symbol["literal_import"].surface_id for item in stale.findings))
+
     def test_static_dynamic_selector_contracts_cover_comprehensions_without_authored_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = self._repository(

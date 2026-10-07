@@ -349,6 +349,8 @@ def build_executable_corpus_report(
     ok = (
         len(result_tuple) == total
         and executable_cases == total
+        and accepted_executable_cases == total
+        and failure_cases == 0
         and not_executable == 0
         and real_model_cases == total
         and generic_fallback_cases == 0

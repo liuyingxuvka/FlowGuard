@@ -1,0 +1,576 @@
+{
+  "body": {
+    "cost_evidence": {},
+    "cost_thresholds": {},
+    "finding_ids": [],
+    "measured_costs": {},
+    "mode": "lightweight",
+    "model_facts": {
+      "architecture": {
+        "declared_source_fingerprint": "sha256:926e7547177a9aaf50ed7f53332359ff051d6dd03d50d604a241cbae0fae21f5",
+        "effective_intent_view_fingerprint": "sha256:3d21d7dc5d0a763f41c3aaed3c96391c0779f141c7ca100c8181c93a232dd892",
+        "facts_scope": "model_behavior",
+        "finding_ids": [],
+        "improvement_gap_ids": [],
+        "improvement_pointers": [],
+        "objective_refs": [],
+        "observation_gap_ids": [],
+        "relations": [],
+        "responsibilities": [],
+        "schema": "flowguard.architecture_facts.v1",
+        "scope_coverage": {
+          "binding_report_fingerprint": "",
+          "claim_scope": "declared_model",
+          "claimed_surface_ids": [],
+          "coverage_gap_ids": [],
+          "covered_surface_ids": [],
+          "implementation_inventory_fingerprint": "",
+          "implementation_inventory_id": ""
+        },
+        "semantic_evidence_bindings": [],
+        "source_refs": [
+          {
+            "path": ".flowguard/models/owners/skill_kernel_modularization/model.py",
+            "source_fingerprint": "sha256:9d317515288c53bfaa5c7623dc38af5eb0b1fcbce240c7d11e1dfb8c122b2855"
+          }
+        ],
+        "suggestions": []
+      },
+      "branches": [],
+      "effects": [],
+      "fields": [
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:SkillKernelState",
+          "observable": false,
+          "reads_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ],
+          "writes_by": []
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:advanced_routes_are_escalation",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:all_subprotocol_routes",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:case_name",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:compact_kernel",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:current_satellite_topology_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:external_planner_generic",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:hard_gates_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:helper_apis_not_subskills",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:model_test_alignment_independent",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:model_test_alignment_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:no_duplicate_rule_ownership",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:ordinary_work_avoids_framework_suite",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:oversize_hint_not_gate",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:public_internal_boundary_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:release_sync_route_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:soft_oversize_hint_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:standalone_flowguard_preserved",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:test_mesh_hierarchy_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        },
+        {
+          "behaviorally_relevant": true,
+          "declared": true,
+          "id": "field:skill_kernel_modularization:thin_default_path_visible",
+          "observable": true,
+          "reads_by": [],
+          "writes_by": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ]
+        }
+      ],
+      "function_blocks": [
+        {
+          "accepted_input": "SkillKernelCase",
+          "effects": [],
+          "id": "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan",
+          "inputs": [
+            "external-input:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca"
+          ],
+          "outputs": [
+            "output:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ],
+          "pass_through": false,
+          "reads": [
+            "field:skill_kernel_modularization:SkillKernelState"
+          ],
+          "state_input": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0",
+          "state_output": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:1",
+          "validations": [
+            "validation:skill_kernel_modularization:invariant:thin_default_path_stays_visible",
+            "validation:skill_kernel_modularization:invariant:advanced_routes_are_escalations",
+            "validation:skill_kernel_modularization:invariant:public_internal_boundary_stays_visible",
+            "validation:skill_kernel_modularization:invariant:satellite_topology_stays_current",
+            "validation:skill_kernel_modularization:invariant:kernel_stays_compact",
+            "validation:skill_kernel_modularization:invariant:hard_gates_remain_visible",
+            "validation:skill_kernel_modularization:invariant:subprotocol_routes_are_complete",
+            "validation:skill_kernel_modularization:invariant:helper_apis_remain_helpers",
+            "validation:skill_kernel_modularization:invariant:rule_ownership_is_not_duplicated",
+            "validation:skill_kernel_modularization:invariant:standalone_use_is_preserved",
+            "validation:skill_kernel_modularization:invariant:heavy_checks_are_scoped",
+            "validation:skill_kernel_modularization:invariant:release_sync_stays_visible",
+            "validation:skill_kernel_modularization:invariant:testmesh_hierarchy_stays_visible",
+            "validation:skill_kernel_modularization:invariant:soft_oversize_hint_stays_visible",
+            "validation:skill_kernel_modularization:invariant:oversize_hint_remains_soft",
+            "validation:skill_kernel_modularization:invariant:planner_language_stays_generic",
+            "validation:skill_kernel_modularization:invariant:model_test_alignment_route_stays_visible",
+            "validation:skill_kernel_modularization:invariant:model_test_alignment_stays_independent"
+          ],
+          "writes": [
+            "field:skill_kernel_modularization:case_name",
+            "field:skill_kernel_modularization:thin_default_path_visible",
+            "field:skill_kernel_modularization:advanced_routes_are_escalation",
+            "field:skill_kernel_modularization:public_internal_boundary_visible",
+            "field:skill_kernel_modularization:current_satellite_topology_visible",
+            "field:skill_kernel_modularization:compact_kernel",
+            "field:skill_kernel_modularization:hard_gates_visible",
+            "field:skill_kernel_modularization:all_subprotocol_routes",
+            "field:skill_kernel_modularization:helper_apis_not_subskills",
+            "field:skill_kernel_modularization:no_duplicate_rule_ownership",
+            "field:skill_kernel_modularization:standalone_flowguard_preserved",
+            "field:skill_kernel_modularization:ordinary_work_avoids_framework_suite",
+            "field:skill_kernel_modularization:release_sync_route_visible",
+            "field:skill_kernel_modularization:test_mesh_hierarchy_visible",
+            "field:skill_kernel_modularization:soft_oversize_hint_visible",
+            "field:skill_kernel_modularization:oversize_hint_not_gate",
+            "field:skill_kernel_modularization:external_planner_generic",
+            "field:skill_kernel_modularization:model_test_alignment_visible",
+            "field:skill_kernel_modularization:model_test_alignment_independent"
+          ]
+        }
+      ],
+      "initial_state_ids": [
+        "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0"
+      ],
+      "outputs": [
+        {
+          "consumer_ids": [],
+          "id": "output:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan",
+          "producer_id": "transition:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan",
+          "terminal": true
+        }
+      ],
+      "owners": [],
+      "provider_kind": "flowguard.executable-workflow-structure.v1",
+      "responsibilities": [],
+      "states": [
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0",
+          "initial": true,
+          "terminal": false
+        },
+        {
+          "behaviorally_relevant": true,
+          "id": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:1",
+          "initial": false,
+          "terminal": true
+        }
+      ],
+      "terminal_state_ids": [
+        "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:1"
+      ],
+      "transitions": [
+        {
+          "effects": [],
+          "function_block_ids": [
+            "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ],
+          "guard": "flowguard-block-acceptance",
+          "id": "transition:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan",
+          "outputs": [
+            "output:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan"
+          ],
+          "reads": [
+            "field:skill_kernel_modularization:SkillKernelState"
+          ],
+          "source": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0",
+          "target": "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:1",
+          "trigger": "SkillKernelCase",
+          "validations": [
+            "validation:skill_kernel_modularization:invariant:thin_default_path_stays_visible",
+            "validation:skill_kernel_modularization:invariant:advanced_routes_are_escalations",
+            "validation:skill_kernel_modularization:invariant:public_internal_boundary_stays_visible",
+            "validation:skill_kernel_modularization:invariant:satellite_topology_stays_current",
+            "validation:skill_kernel_modularization:invariant:kernel_stays_compact",
+            "validation:skill_kernel_modularization:invariant:hard_gates_remain_visible",
+            "validation:skill_kernel_modularization:invariant:subprotocol_routes_are_complete",
+            "validation:skill_kernel_modularization:invariant:helper_apis_remain_helpers",
+            "validation:skill_kernel_modularization:invariant:rule_ownership_is_not_duplicated",
+            "validation:skill_kernel_modularization:invariant:standalone_use_is_preserved",
+            "validation:skill_kernel_modularization:invariant:heavy_checks_are_scoped",
+            "validation:skill_kernel_modularization:invariant:release_sync_stays_visible",
+            "validation:skill_kernel_modularization:invariant:testmesh_hierarchy_stays_visible",
+            "validation:skill_kernel_modularization:invariant:soft_oversize_hint_stays_visible",
+            "validation:skill_kernel_modularization:invariant:oversize_hint_remains_soft",
+            "validation:skill_kernel_modularization:invariant:planner_language_stays_generic",
+            "validation:skill_kernel_modularization:invariant:model_test_alignment_route_stays_visible",
+            "validation:skill_kernel_modularization:invariant:model_test_alignment_stays_independent"
+          ],
+          "writes": [
+            "field:skill_kernel_modularization:case_name",
+            "field:skill_kernel_modularization:thin_default_path_visible",
+            "field:skill_kernel_modularization:advanced_routes_are_escalation",
+            "field:skill_kernel_modularization:public_internal_boundary_visible",
+            "field:skill_kernel_modularization:current_satellite_topology_visible",
+            "field:skill_kernel_modularization:compact_kernel",
+            "field:skill_kernel_modularization:hard_gates_visible",
+            "field:skill_kernel_modularization:all_subprotocol_routes",
+            "field:skill_kernel_modularization:helper_apis_not_subskills",
+            "field:skill_kernel_modularization:no_duplicate_rule_ownership",
+            "field:skill_kernel_modularization:standalone_flowguard_preserved",
+            "field:skill_kernel_modularization:ordinary_work_avoids_framework_suite",
+            "field:skill_kernel_modularization:release_sync_route_visible",
+            "field:skill_kernel_modularization:test_mesh_hierarchy_visible",
+            "field:skill_kernel_modularization:soft_oversize_hint_visible",
+            "field:skill_kernel_modularization:oversize_hint_not_gate",
+            "field:skill_kernel_modularization:external_planner_generic",
+            "field:skill_kernel_modularization:model_test_alignment_visible",
+            "field:skill_kernel_modularization:model_test_alignment_independent"
+          ]
+        }
+      ],
+      "validations": [
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:advanced_routes_are_escalations",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:advanced_routes_are_escalations",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:advanced_routes_are_escalations",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:hard_gates_remain_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:hard_gates_remain_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:hard_gates_remain_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:heavy_checks_are_scoped",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:heavy_checks_are_scoped",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:heavy_checks_are_scoped",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:helper_apis_remain_helpers",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:helper_apis_remain_helpers",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:helper_apis_remain_helpers",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:kernel_stays_compact",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:kernel_stays_compact",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:kernel_stays_compact",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:model_test_alignment_route_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:model_test_alignment_route_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:model_test_alignment_route_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:model_test_alignment_stays_independent",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:model_test_alignment_stays_independent",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:model_test_alignment_stays_independent",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:oversize_hint_remains_soft",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:oversize_hint_remains_soft",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:oversize_hint_remains_soft",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:planner_language_stays_generic",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:planner_language_stays_generic",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:planner_language_stays_generic",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:public_internal_boundary_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:public_internal_boundary_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:public_internal_boundary_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:release_sync_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:release_sync_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:release_sync_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:rule_ownership_is_not_duplicated",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:rule_ownership_is_not_duplicated",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:rule_ownership_is_not_duplicated",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:satellite_topology_stays_current",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:satellite_topology_stays_current",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:satellite_topology_stays_current",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:soft_oversize_hint_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:soft_oversize_hint_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:soft_oversize_hint_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:standalone_use_is_preserved",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:standalone_use_is_preserved",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:standalone_use_is_preserved",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:subprotocol_routes_are_complete",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:subprotocol_routes_are_complete",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:subprotocol_routes_are_complete",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:testmesh_hierarchy_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:testmesh_hierarchy_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:testmesh_hierarchy_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        },
+        {
+          "evidence_boundary_id": "native-runner:skill_kernel_modularization",
+          "id": "validation:skill_kernel_modularization:invariant:thin_default_path_stays_visible",
+          "obligation_id": "obligation:native-invariant:skill_kernel_modularization:thin_default_path_stays_visible",
+          "oracle_id": "oracle:native-invariant:skill_kernel_modularization:thin_default_path_stays_visible",
+          "subject_fingerprint": "sha256:65619ea374e71fb025a8ed8b37bf050497192b013ad19360e29c2817adef9b7f"
+        }
+      ]
+    },
+    "retained_elements": {
+      "field:skill_kernel_modularization:SkillKernelState": "field",
+      "field:skill_kernel_modularization:advanced_routes_are_escalation": "field",
+      "field:skill_kernel_modularization:all_subprotocol_routes": "field",
+      "field:skill_kernel_modularization:case_name": "field",
+      "field:skill_kernel_modularization:compact_kernel": "field",
+      "field:skill_kernel_modularization:current_satellite_topology_visible": "field",
+      "field:skill_kernel_modularization:external_planner_generic": "field",
+      "field:skill_kernel_modularization:hard_gates_visible": "field",
+      "field:skill_kernel_modularization:helper_apis_not_subskills": "field",
+      "field:skill_kernel_modularization:model_test_alignment_independent": "field",
+      "field:skill_kernel_modularization:model_test_alignment_visible": "field",
+      "field:skill_kernel_modularization:no_duplicate_rule_ownership": "field",
+      "field:skill_kernel_modularization:ordinary_work_avoids_framework_suite": "field",
+      "field:skill_kernel_modularization:oversize_hint_not_gate": "field",
+      "field:skill_kernel_modularization:public_internal_boundary_visible": "field",
+      "field:skill_kernel_modularization:release_sync_route_visible": "field",
+      "field:skill_kernel_modularization:soft_oversize_hint_visible": "field",
+      "field:skill_kernel_modularization:standalone_flowguard_preserved": "field",
+      "field:skill_kernel_modularization:test_mesh_hierarchy_visible": "field",
+      "field:skill_kernel_modularization:thin_default_path_visible": "field",
+      "function-block:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan": "function_block",
+      "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0": "state",
+      "state:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:1": "state",
+      "transition:workflow:skill_kernel_modularization:skill_kernel_modularization:0:e65b7aa240ca:0:EvaluateSkillKernelPlan": "transition",
+      "validation:skill_kernel_modularization:invariant:advanced_routes_are_escalations": "validation",
+      "validation:skill_kernel_modularization:invariant:hard_gates_remain_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:heavy_checks_are_scoped": "validation",
+      "validation:skill_kernel_modularization:invariant:helper_apis_remain_helpers": "validation",
+      "validation:skill_kernel_modularization:invariant:kernel_stays_compact": "validation",
+      "validation:skill_kernel_modularization:invariant:model_test_alignment_route_stays_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:model_test_alignment_stays_independent": "validation",
+      "validation:skill_kernel_modularization:invariant:oversize_hint_remains_soft": "validation",
+      "validation:skill_kernel_modularization:invariant:planner_language_stays_generic": "validation",
+      "validation:skill_kernel_modularization:invariant:public_internal_boundary_stays_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:release_sync_stays_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:rule_ownership_is_not_duplicated": "validation",
+      "validation:skill_kernel_modularization:invariant:satellite_topology_stays_current": "validation",
+      "validation:skill_kernel_modularization:invariant:soft_oversize_hint_stays_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:standalone_use_is_preserved": "validation",
+      "validation:skill_kernel_modularization:invariant:subprotocol_routes_are_complete": "validation",
+      "validation:skill_kernel_modularization:invariant:testmesh_hierarchy_stays_visible": "validation",
+      "validation:skill_kernel_modularization:invariant:thin_default_path_stays_visible": "validation"
+    },
+    "subject_fingerprint": "sha256:abc2d09fbe4388ba4125c2c36be5e065b22e0e1b52b059b84dbf464ffb266088",
+    "trigger_currentness_id": "sha256:671bcacf7f8d76f42266d39b03a1cf7cd81d61aa7262d2d4acdb466040ae778d",
+    "trigger_evidence": {},
+    "trigger_ids": [],
+    "unresolved_ids": [],
+    "witness_fingerprints": []
+  },
+  "fingerprint": "sha256:25eab68818f73840a019396347685050b106a1dc7c8d6a8449bd41a7469241f0",
+  "schema": "flowguard.path_quality_architecture_detail.v1"
+}

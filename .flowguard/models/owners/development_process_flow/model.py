@@ -9,6 +9,10 @@ reviews whether lifecycle claims can reuse validation evidence after later
 artifact or verifier changes and keeps source, consumer projection, installed
 package, installed skill, model authority, OpenSpec, Git commit, tag, and
 GitHub Release as independent currentness identities.
+The independent producer submodel requires one retained reservation, ordered
+dependencies and shared resources, an authentic exact terminal episode, and
+known zero descendants before publication. Its finite negative-model cases
+are paired with exact current source implementation test oracles in the runner.
 
 Guards against:
 - release or done claims that reuse stale validation evidence;
@@ -2090,3 +2094,150 @@ __all__ = [
     "path_quality_lifecycle_initial_state",
     "terminal_predicate",
 ]
+
+
+@dataclass(frozen=True)
+class ProducerAction:
+    """A finite owner episode, separate from publication-identity currentness."""
+
+    action_type: str
+    reservation_available: bool = True
+    dependencies_current: bool = True
+    shared_resource_ordered: bool = True
+    authentic_terminal: bool = True
+    exact_episode: bool = True
+    exit_code: int | None = 0
+    cleanup_known: bool = True
+    live_descendant_count: int = 0
+    foreign_pid_owned: bool = False
+    cancelled: bool = False
+    interrupted: bool = False
+
+
+@dataclass(frozen=True)
+class ProducerState:
+    reserved: bool = False
+    launched: bool = False
+    terminal: ProducerAction | None = None
+    reservation_count: int = 0
+    invalid_launch: bool = False
+    receipt_published: bool = False
+
+
+def producer_terminal_is_current(value: ProducerAction | None) -> bool:
+    return value is not None and (
+        value.authentic_terminal
+        and value.exact_episode
+        and value.exit_code == 0
+        and value.cleanup_known
+        and value.live_descendant_count == 0
+        and not value.foreign_pid_owned
+        and not value.cancelled
+        and not value.interrupted
+    )
+
+
+class ProducerEpisodeGate:
+    name = "ProducerEpisodeGate"
+    reads = ("reserved", "launched", "terminal", "reservation_count", "invalid_launch", "receipt_published")
+    writes = reads
+    accepted_input_type = ProducerAction
+    input_description = "Exact reservation, ordered owner launch and contained terminal episode"
+    output_description = "Retained one-full reservation or current producer receipt decision"
+    idempotency = "A consumed reservation never admits a second producer."
+
+    def __init__(self, *, broken: bool = False) -> None:
+        self.broken = broken
+
+    def apply(self, input_obj: ProducerAction, state: ProducerState) -> Iterable[FunctionResult]:
+        action = input_obj.action_type
+        if action == "reserve":
+            valid = input_obj.reservation_available and not state.reserved
+            if valid or self.broken:
+                yield FunctionResult(LifecycleOutput("reserved"), replace(state, reserved=True, reservation_count=state.reservation_count + 1), label="producer_reserved")
+            else:
+                yield FunctionResult(LifecycleOutput("blocked"), state, label="producer_reservation_blocked")
+        elif action == "launch":
+            valid = state.reserved and state.reservation_count == 1 and not state.launched and input_obj.dependencies_current and input_obj.shared_resource_ordered
+            if valid or self.broken:
+                yield FunctionResult(LifecycleOutput("launched"), replace(state, launched=True, invalid_launch=state.invalid_launch or not valid), label="producer_launched")
+            else:
+                yield FunctionResult(LifecycleOutput("blocked"), state, label="producer_launch_blocked")
+        elif action == "terminal":
+            if state.launched:
+                yield FunctionResult(LifecycleOutput("terminal_observed"), replace(state, terminal=input_obj), label="producer_terminal_observed")
+            else:
+                yield FunctionResult(LifecycleOutput("blocked"), state, label="producer_terminal_blocked")
+        elif action == "publish":
+            valid = state.launched and not state.invalid_launch and state.reservation_count == 1 and producer_terminal_is_current(state.terminal)
+            if valid or self.broken:
+                yield FunctionResult(LifecycleOutput("published"), replace(state, receipt_published=True), label="producer_receipt_published")
+            else:
+                yield FunctionResult(LifecycleOutput("blocked"), state, label="producer_publication_blocked")
+        else:
+            yield FunctionResult(LifecycleOutput("blocked"), state, label="producer_action_blocked")
+
+
+def producer_episode_preserves_exact_owner(state: ProducerState, _trace) -> InvariantResult:
+    if state.reservation_count > 1 or state.invalid_launch:
+        return InvariantResult.fail("duplicate reservation or unordered owner launch")
+    if state.receipt_published and not (state.launched and state.reservation_count == 1 and producer_terminal_is_current(state.terminal)):
+        return InvariantResult.fail("receipt lacks authentic current zero-descendant terminal episode")
+    return InvariantResult.pass_()
+
+
+PRODUCER_INVARIANTS = (
+    Invariant("producer_exact_reservation_order_and_terminal", "One retained reservation, exact ordered launch, and authentic zero-descendant non-cancelled episode precede receipt publication.", producer_episode_preserves_exact_owner),
+)
+PRODUCER_GOOD_SEQUENCE = (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal"), ProducerAction("publish"))
+# The source implementation selectors below are paired with these model
+# counterexamples. A model-only pass never substitutes for the selected tests.
+PRODUCER_FAILURE_CASES = (
+    ("duplicate_full_reservation", "development-producer:duplicate-full-reservation", (ProducerAction("reserve"), ProducerAction("reserve"))),
+    ("unknown_dependency", "development-producer:unknown-or-cyclic-owner-order", (ProducerAction("reserve"), ProducerAction("launch", dependencies_current=False))),
+    ("unordered_shared_resource", "development-producer:unordered-shared-resource", (ProducerAction("reserve"), ProducerAction("launch", shared_resource_ordered=False))),
+    ("caller_green_terminal", "development-producer:caller-green-replaces-actual-process", (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal", authentic_terminal=False), ProducerAction("publish"))),
+    ("cleanup_unknown", "development-producer:cleanup-unconfirmed-promoted-to-pass", (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal", cleanup_known=False), ProducerAction("publish"))),
+    ("foreign_pid_instance", "development-producer:pid-reuse-grants-foreign-ownership", (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal", foreign_pid_owned=True), ProducerAction("publish"))),
+    ("live_descendant", "development-producer:live-descendants-promoted-to-pass", (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal", live_descendant_count=1), ProducerAction("publish"))),
+    ("cancelled_episode", "development-producer:cancelled-receipt-reused", (ProducerAction("reserve"), ProducerAction("launch"), ProducerAction("terminal", cancelled=True), ProducerAction("publish"))),
+)
+PRODUCER_IMPLEMENTATION_ORACLES = (
+    ("duplicate_full_reservation", "tests/test_completion_epoch.py::test_persistent_reservation_blocks_second_producer_and_keeps_terminal_state"),
+    ("unknown_dependency", "tests/test_validation_execution_ownership.py::ValidationExecutionOwnershipTests::test_unknown_dependency_and_cycle_block"),
+    ("unordered_shared_resource", "tests/test_validation_execution_ownership.py::ValidationExecutionOwnershipTests::test_shared_resource_must_be_dependency_ordered"),
+    ("caller_green_terminal", "tests/test_validation_owner_execution.py::test_caller_constructed_green_result_cannot_publish_pass"),
+    ("cleanup_unknown", "tests/test_process_supervision.py::ProcessSupervisionTests::test_unknown_containment_query_blocks_deterministically"),
+    ("foreign_pid_instance", "tests/test_process_supervision.py::ProcessSupervisionTests::test_reused_parent_never_grants_ownership_to_foreign_child"),
+    ("live_descendant", "tests/test_process_supervision.py::ProcessSupervisionTests::test_root_exit_with_detached_grandchild_is_cleaned_but_not_passed"),
+    ("cancelled_episode", "tests/test_validation_owner_execution.py::test_authentic_cancelled_episode_cannot_publish_receipt"),
+)
+PRODUCER_GOOD_IMPLEMENTATION_SELECTORS = (
+    "tests/test_validation_owner_execution.py::test_real_short_command_publishes_exact_current_owner_receipt",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_success_requires_zero_contained_processes",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_windows_termination_waits_on_verified_handle_before_close",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_windows_termination_never_kills_or_waits_wrong_birth",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_windows_termination_timeout_or_unknown_never_confirms_cleanup",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_windows_cleanup_cleans_late_authenticated_child_once_with_shared_deadline",
+    "tests/test_process_supervision.py::ProcessSupervisionTests::test_windows_cleanup_stops_on_known_attempted_unknown_or_deadline",
+)
+NATIVE_PYTEST_SELECTORS = (*PRODUCER_GOOD_IMPLEMENTATION_SELECTORS, *(selector for _case, selector in PRODUCER_IMPLEMENTATION_ORACLES))
+
+
+def build_producer_workflow(*, broken: bool = False) -> Workflow:
+    return Workflow((ProducerEpisodeGate(broken=broken),), name="development_producer_broken" if broken else "development_producer_current")
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='development_process_flow', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/development_process_flow/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/development_process_flow/model.py')},),
+        workflows=(build_author_sync_workflow(),build_admission_workflow(),build_correct_workflow(),build_path_quality_lifecycle_workflow(),build_producer_workflow(),), invariants=(*INVARIANTS, *PRODUCER_INVARIANTS),
+    )

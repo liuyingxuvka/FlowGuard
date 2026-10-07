@@ -66,7 +66,12 @@ def _component(component_id: str, first: bool) -> PortableModel:
     return PortableModel(component_id + "-model", (PortableState(source), PortableState("done")), (PortableTransition(transition_id, source, transition_id, transition_id, "done"),), (source,), ("done",))
 
 
-def _case(family_id: str, component_ids: tuple[str, ...], variant: str) -> BenchmarkCaseResult:
+def build_case_inputs(family_id: str, component_ids: tuple[str, ...], variant: str):
+    """Construct exact finite benchmark inputs without executing the checker."""
+    if family_id not in FAMILIES or component_ids != FAMILIES[family_id]:
+        raise ValueError("unknown benchmark family or component boundary")
+    if variant not in ("bad", "repaired", "missing-semantics", "truncated"):
+        raise ValueError("unknown benchmark variant")
     models = tuple(_component(component_id, index == 0) for index, component_id in enumerate(component_ids))
     refs = tuple(SystemComponentRef(component_id, model.model_id, model.fingerprint) for component_id, model in zip(component_ids, models))
     if variant == "repaired":
@@ -87,6 +92,11 @@ def _case(family_id: str, component_ids: tuple[str, ...], variant: str) -> Bench
     bound = 1 if variant == "truncated" else 100
     request = SystemCompositionRequest(f"{family_id}:{variant}", definition.system_id, definition.fingerprint, (component_ids[0],), max_states=bound)
     expected = {"bad": "fail", "repaired": "pass", "missing-semantics": "blocked", "truncated": "blocked"}[variant]
+    return models, definition, request, expected
+
+
+def _case(family_id: str, component_ids: tuple[str, ...], variant: str) -> BenchmarkCaseResult:
+    models, definition, request, expected = build_case_inputs(family_id, component_ids, variant)
     return BenchmarkCaseResult(family_id, variant, expected, check_system_composition(definition, request, models))
 
 
@@ -94,5 +104,4 @@ def run_bounded_system_benchmark() -> BoundedSystemBenchmarkReport:
     return BoundedSystemBenchmarkReport(tuple(_case(family_id, component_ids, variant) for family_id, component_ids in FAMILIES.items() for variant in ("bad", "repaired", "missing-semantics", "truncated")))
 
 
-__all__ = ["BenchmarkCaseResult", "BoundedSystemBenchmarkReport", "FAMILIES", "run_bounded_system_benchmark"]
-
+__all__ = ["BenchmarkCaseResult", "BoundedSystemBenchmarkReport", "FAMILIES", "build_case_inputs", "run_bounded_system_benchmark"]

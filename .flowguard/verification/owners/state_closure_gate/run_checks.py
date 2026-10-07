@@ -165,4 +165,4 @@ if __name__ == "__main__":
             / f"state-closure-gate-{os.getpid()}"
         ),
     )
-    raise SystemExit(native_main("model:state_closure_gate", main))
+    raise SystemExit(native_main("model:state_closure_gate", main, declared_source_exporter=__import__('model').export_path_quality_source))

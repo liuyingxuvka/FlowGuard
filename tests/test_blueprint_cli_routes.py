@@ -652,10 +652,30 @@ class BlueprintCliRouteTests(unittest.TestCase):
         help_text = output.getvalue()
         self.assertEqual(0, exit_code)
         self.assertIn("{read,change,release}", help_text)
+        self.assertIn("--root ROOT --request REQUEST", help_text)
+        self.assertNotIn("[--request REQUEST]", help_text)
         self.assertIn("read (side-effect free)", help_text)
         self.assertIn("legacy profiles and command names are rejected", help_text)
         self.assertNotIn("target-system-blueprint-audit", help_text)
         self.assertNotIn("project-blueprint-audit", help_text)
+
+    def test_compact_cli_rejects_expected_current_as_an_unsupported_flag(self):
+        output = StringIO()
+        with redirect_stdout(output):
+            exit_code = main([
+                "read",
+                "--root",
+                ".",
+                "--request",
+                "missing-request.json",
+                "--expected-current",
+                "sha256:current",
+            ])
+        payload = json.loads(output.getvalue())
+        self.assertEqual(1, exit_code)
+        self.assertEqual("blocked", payload["status"])
+        self.assertEqual(0, payload["producer_count"])
+        self.assertEqual("unsupported argument: --expected-current", payload["error"])
 
     def _affected_understanding_artifacts(self):
         shard_payloads = {

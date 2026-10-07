@@ -1,6 +1,6 @@
 """Validate the FlowGuard skill suite at light, affected, or full repository scope.
 
-The default ``light`` scope checks the current 15-member
+The default ``light`` scope checks the declared single-public-entry
 inventory/compiler/SkillGuard check.  ``full`` is the release-facing
 composition: every required child keeps its own stdout, stderr, and canonical
 result artifact, and the parent uses FlowGuard's shared validation-result
@@ -19,6 +19,7 @@ import os
 import re
 import shutil
 import shlex
+import stat
 import subprocess
 import sys
 import tempfile
@@ -122,6 +123,9 @@ from flowguard.validation_results import (
     ValidationResult,
     aggregate_status,
 )
+from flowguard.skill_native_checks import (
+    NATIVE_OWNER_UNIT_COMPONENT, _native_owner_unit_fingerprint,
+)
 from flowguard.completion_epoch import (
     COMPLETION_CLAIM_SCOPE_LOCAL_VALIDATION,
     COMPLETION_CLAIM_SCOPE_RELEASE,
@@ -149,6 +153,7 @@ from flowguard.completion_run_manifest import (
 )
 from flowguard.completion_objective import (
     CompletionObjectiveError,
+    require_archived_completion_objective,
     resolve_completion_objective,
 )
 from flowguard.observation_metrics import InvocationMetrics
@@ -229,6 +234,7 @@ class ChildSpec:
     external_component_bindings: tuple[tuple[str, str], ...] = ()
     external_component_paths: tuple[tuple[str, str], ...] = ()
     result_identity_requirement: ValidationOwnerResultIdentityRequirement | None = None
+    native_completion_unit_projection: str = ""
     timeout_seconds: float = 900.0
     required_path: Path | None = None
     missing_reason: str = ""
@@ -280,8 +286,8 @@ def _external_tree_fingerprint(path: Path) -> str:
 
 
 LIGHT_SUITE_INDEX_SCHEMA = "flowguard.light_suite_index.v1"
-LIGHT_SUITE_OPERATION_BUDGET = 256
-LIGHT_SUITE_TIME_BUDGET_SECONDS = 30.0
+LIGHT_SUITE_OPERATION_BUDGET = None
+LIGHT_SUITE_TIME_BUDGET_SECONDS = None
 _LIGHT_SUITE_CACHE_RELATIVE = Path(
     ".flowguard"
 ) / "work" / "flowguard" / "light-suite-index.json"
@@ -297,8 +303,8 @@ class _LightSuiteBudgetExceeded(ValueError):
 
 @dataclass
 class _LightSuiteCost:
-    operation_budget: int
-    time_budget_seconds: float
+    operation_budget: int | None
+    time_budget_seconds: float | None
     operation_count: int = 0
     started_at: float = 0.0
 
@@ -310,22 +316,24 @@ class _LightSuiteCost:
         return max(0.0, time.perf_counter() - self.started_at)
 
     def check(self) -> None:
-        if self.operation_budget < 0:
+        if self.operation_budget is not None and self.operation_budget < 0:
             raise _LightSuiteBudgetExceeded(
                 "light_suite_invalid_operation_budget",
                 "light operation budget must be non-negative",
             )
-        if not math.isfinite(self.time_budget_seconds) or self.time_budget_seconds < 0:
+        if self.time_budget_seconds is not None and (
+            not math.isfinite(self.time_budget_seconds) or self.time_budget_seconds < 0
+        ):
             raise _LightSuiteBudgetExceeded(
                 "light_suite_invalid_time_budget",
                 "light time budget must be finite and non-negative",
             )
-        if self.operation_count > self.operation_budget:
+        if self.operation_budget is not None and self.operation_count > self.operation_budget:
             raise _LightSuiteBudgetExceeded(
                 "light_suite_operation_budget_exceeded",
                 "light suite bounded operation budget exceeded",
             )
-        if self.elapsed_seconds > self.time_budget_seconds:
+        if self.time_budget_seconds is not None and self.elapsed_seconds > self.time_budget_seconds:
             raise _LightSuiteBudgetExceeded(
                 "light_suite_time_budget_exceeded",
                 "light suite bounded time budget exceeded",
@@ -934,8 +942,8 @@ def run_light_suite(
     skillguard: str = "all",
     members: Sequence[str] = (),
     installed_root: str | Path | None = None,
-    operation_budget: int = LIGHT_SUITE_OPERATION_BUDGET,
-    time_budget_seconds: float = LIGHT_SUITE_TIME_BUDGET_SECONDS,
+    operation_budget: int | None = LIGHT_SUITE_OPERATION_BUDGET,
+    time_budget_seconds: float | None = LIGHT_SUITE_TIME_BUDGET_SECONDS,
     allow_cache_write: bool = False,
 ) -> dict[str, Any]:
     """Read the compact currentness surface without starting a producer.
@@ -952,8 +960,8 @@ def run_light_suite(
     root_path = Path(root).resolve()
     selected_hint = tuple(str(item) for item in members)
     cost = _LightSuiteCost(
-        operation_budget=int(operation_budget),
-        time_budget_seconds=float(time_budget_seconds),
+        operation_budget=None if operation_budget is None else int(operation_budget),
+        time_budget_seconds=None if time_budget_seconds is None else float(time_budget_seconds),
     )
     cache_path = _light_suite_cache_path(root_path)
     identity: dict[str, Any] = {}
@@ -1118,114 +1126,363 @@ def run_light_suite(
     }
 
 
-def run_author_skill_assurance(
-    root: Path,
-    *,
-    skillguard: str = "all",
-    members: Sequence[str] = (),
+_AUTHOR_REQUEST_DIRECTORY = Path(".skillguard/runtime-requests/full-author-assurance")
+_AUTHOR_CHECKPOINT_SCHEMA = "flowguard.author_assurance_checkpoint.v1"
+
+
+class _AuthorAssuranceBlocked(ValueError):
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        super().__init__(f"{code}: {message}")
+
+
+def _validate_author_state_root(root: Path, value: str | Path | None) -> Path:
+    """Validate the external directory without creating state or starting owners."""
+    if value is None or not str(value).strip():
+        raise _AuthorAssuranceBlocked(
+            "author_state_root_required", "--author-state-root is required for full release qualification"
+        )
+    root = root.resolve()
+    state_root = Path(value).expanduser().resolve()
+    if (not state_root.is_dir() or state_root == root
+            or root in state_root.parents or state_root in root.parents):
+        raise _AuthorAssuranceBlocked(
+            "author_state_root_invalid",
+            "author_state_root must be an existing directory separate from the repository",
+        )
+    return state_root
+
+
+def _author_source_identity(target: Path, skill_id: str) -> tuple[Mapping[str, Any], str]:
+    """Hash only the contract and its literal declared source inputs."""
+    contract_path = target / ".skillguard" / "contract-source.json"
+    if any(path.is_symlink() for path in (contract_path, contract_path.parent)):
+        raise _AuthorAssuranceBlocked("author_input_symlink", "author contract is a symbolic link")
+    contract_bytes = contract_path.read_bytes()
+    contract = json.loads(contract_bytes.decode("utf-8"))
+    if (not isinstance(contract, dict) or contract.get("skill_id") != skill_id
+            or not contract.get("maintenance_unit_id")):
+        raise _AuthorAssuranceBlocked("author_contract_invalid", "author contract member/unit identity is invalid")
+    inputs = contract.get("inputs")
+    if not isinstance(inputs, list) or not inputs:
+        raise _AuthorAssuranceBlocked("author_inputs_invalid", "author contract must declare its source inputs")
+    rows: list[dict[str, Any]] = []
+    ids: set[str] = set()
+    paths: set[str] = set()
+    for item in inputs:
+        if (not isinstance(item, Mapping) or not isinstance(item.get("id"), str)
+                or not item["id"].strip() or item["id"] != item["id"].strip()
+                or not isinstance(item.get("path"), str)
+                or not isinstance(item.get("required"), bool)
+                or not isinstance(item.get("role"), str) or not item["role"].strip()):
+            raise _AuthorAssuranceBlocked("author_inputs_invalid", "invalid declared input fields")
+        relative = item["path"].replace("\\", "/")
+        parts = relative.split("/")
+        if (not relative or any(part in {"", ".", ".."} for part in parts)
+                or Path(relative).is_absolute() or Path(relative).drive
+                or any(char in relative for char in "*?[]:")):
+            raise _AuthorAssuranceBlocked("author_input_path_invalid", relative)
+        normalized = Path(relative).as_posix()
+        if item["id"] in ids or os.path.normcase(normalized) in paths:
+            raise _AuthorAssuranceBlocked("author_input_duplicate", normalized)
+        ids.add(item["id"])
+        paths.add(os.path.normcase(normalized))
+        # These are output namespaces, never an author source declaration.
+        if any(normalized == prefix or normalized.startswith(prefix + "/") for prefix in (
+            ".skillguard/runtime-requests", ".skillguard/checkpoints",
+            ".skillguard/receipts", "flowguard-author-assurance",
+        )):
+            raise _AuthorAssuranceBlocked("author_input_is_output", normalized)
+        path = target
+        for part in parts:
+            path = path / part
+            if path.is_symlink():
+                raise _AuthorAssuranceBlocked("author_input_symlink", normalized)
+        if target not in path.resolve().parents:
+            raise _AuthorAssuranceBlocked("author_input_path_invalid", normalized)
+        if not path.exists():
+            if item["required"]:
+                raise _AuthorAssuranceBlocked("author_required_input_missing", normalized)
+            status, digest = "missing", ""
+        elif not path.is_file():
+            raise _AuthorAssuranceBlocked("author_input_not_file", normalized)
+        else:
+            status, digest = "present", hashlib.sha256(path.read_bytes()).hexdigest()
+        rows.append({"id": item["id"], "path": normalized, "required": item["required"],
+                     "role": item["role"], "status": status, "sha256": digest})
+    return contract, fingerprint_payload({
+        "schema_version": "flowguard.author_source_inputs.v1",
+        "contract_sha256": hashlib.sha256(contract_bytes).hexdigest(),
+        "inputs": sorted(rows, key=lambda row: (row["id"], row["path"])),
+    })
+
+
+def _author_toolchain_fingerprint(cli: Path) -> str:
+    """Bind the actual author runtime; distribution-tree hashing is unrelated."""
+    if not cli.is_file():
+        return fingerprint_payload({"missing_cli": str(cli)})
+    files = []
+    for path in sorted(cli.parent.rglob("*.py")):
+        if "__pycache__" in path.parts:
+            continue
+        if path.is_symlink():
+            raise ValueError("author toolchain contains a symbolic link")
+        files.append((path.relative_to(cli.parent).as_posix(), hashlib.sha256(path.read_bytes()).hexdigest()))
+    return fingerprint_payload({
+        "cli": str(cli), "files": files, "python": sys.version,
+        "executable": str(Path(sys.executable).resolve()), "platform": sys.platform,
+    })
+
+
+def _author_terminal_success(result: Mapping[str, Any]) -> bool:
+    payload = result.get("payload")
+    return bool(result.get("exit_code") == 0 and isinstance(payload, Mapping)
+                and payload.get("status") == "pass" and payload.get("decision") == "pass"
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", str(payload.get("accepted_id", ""))))
+
+
+def _qualify_author_member(
+    *, target: Path, state_root: Path, cli: Path, skill_id: str,
+    toolchain_identity: str,
 ) -> dict[str, Any]:
-    """Run the current compact SkillGuard lifecycle qualification.
+    """Persist a recoverable CLI chain, never SkillGuard's accepted authority."""
+    contract, input_identity = _author_source_identity(target, skill_id)
+    binding = {"root": str(target), "author_state_root": str(state_root),
+               "skill_id": skill_id, "maintenance_unit_id": contract["maintenance_unit_id"]}
+    identity = fingerprint_payload({
+        **binding, "input_identity": input_identity,
+        "toolchain_identity": toolchain_identity,
+    })
+    checkpoint_path = state_root / "flowguard-author-assurance" / skill_id / "checkpoint.json"
+    checkpoint: dict[str, Any] = {}
+    if checkpoint_path.exists():
+        checkpoint = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        if not isinstance(checkpoint, dict) or checkpoint.get("schema_version") != _AUTHOR_CHECKPOINT_SCHEMA or checkpoint.get("binding") != binding:
+            raise ValueError("author checkpoint belongs to a different root/member/unit")
+        if checkpoint.get("phase") not in {"planned", "change", "release", "complete"}:
+            raise ValueError("author checkpoint phase is invalid")
+    elif any(state_root.iterdir()):
+        raise ValueError("nonempty author state has no checkpoint for this owner")
+    request_root = target / _AUTHOR_REQUEST_DIRECTORY
+    request_root.mkdir(parents=True, exist_ok=True)
+    evidence_root = checkpoint_path.parent / "invocations" / uuid.uuid4().hex
+    evidence_root.mkdir(parents=True)
+    results: dict[str, Any] = {}
+    calls = 0
+    accepted_id = checkpoint.get("accepted_id")
+    phase = checkpoint.get("phase", "planned")
 
-    This is intentionally not a fourth public execution profile.  It is the
-    target-owned author-assurance producer consumed by the existing full child
-    owner. Keeping it separate lets routine ``light`` reads remain zero
-    producer while making the three public SkillGuard lifecycle operations the
-    only cross-skill qualification surface.
-    """
+    def assert_current_inputs() -> None:
+        if _author_source_identity(target, skill_id)[1] != input_identity:
+            raise _AuthorAssuranceBlocked("author_inputs_changed", "declared source changed during author qualification")
+        if _author_toolchain_fingerprint(cli) != toolchain_identity:
+            raise _AuthorAssuranceBlocked("author_toolchain_changed", "author runtime changed during qualification")
 
+    def save_checkpoint(new_phase: str, current_id: str | None) -> None:
+        nonlocal checkpoint, phase, accepted_id
+        phase, accepted_id = new_phase, current_id
+        checkpoint = {"schema_version": _AUTHOR_CHECKPOINT_SCHEMA, "binding": binding,
+                      "identity": identity, "phase": phase, "accepted_id": accepted_id,
+                      "last_invocation": str(evidence_root)}
+        write_json_atomic(checkpoint_path, checkpoint)
+
+    def invoke(operation: str, *, scope: str, label: str) -> dict[str, Any]:
+        nonlocal calls
+        assert_current_inputs()
+        request: dict[str, Any] = {
+            "operation": operation, "target_id": skill_id, "scope": [scope],
+            "contract_path": ".skillguard/contract-source.json", "author_state_root": str(state_root),
+        }
+        if operation in {"change", "release"}:
+            request.update(expected_current=accepted_id, facts={"operation": operation})
+        request_path = request_root / f"{operation}.json"
+        write_json_atomic(request_path, request)
+        command = [sys.executable, str(cli), operation, "--root", str(target),
+                   "--request", str(request_path.relative_to(target)), "--json"]
+        if operation in {"change", "release"}:
+            # Persist the exact invocation locator before the CAS operation.
+            # Its committed phase/identity remain unchanged until the result is durable.
+            write_json_atomic(checkpoint_path, {
+                **checkpoint, "last_invocation": str(evidence_root),
+                "pending_operation": operation, "pending_identity": identity,
+            })
+        calls += 1
+        result = _run_json_command(command, target)
+        results[label] = result
+        write_json_atomic(evidence_root / f"{calls:02d}-{label}.json", {
+            "schema_version": "flowguard.author_assurance_invocation.v1", "binding": binding,
+            "request": request, "request_fingerprint": fingerprint_payload(request),
+            "result": result, "input_identity": identity, "toolchain_identity": toolchain_identity,
+        })
+        assert_current_inputs()
+        payload = result.get("payload")
+        if (operation in {"change", "release"} and result.get("exit_code") != 0
+                and isinstance(payload, Mapping) and payload.get("status") == "blocked"
+                and payload.get("decision") == "block" and not payload.get("accepted_id")):
+            # A recorded non-success can be retried explicitly with the same CAS
+            # token. Never relabel its old accepted source as the new identity.
+            write_json_atomic(checkpoint_path, {**checkpoint, "last_invocation": str(evidence_root)})
+        return result
+
+    def row(ok: bool, reason: str = "", *, reused: bool = False) -> dict[str, Any]:
+        return {"skill_id": skill_id, "ok": ok,
+                "author_assurance_status": "pass" if ok else "blocked",
+                "read_ok": ok, "change_ok": ok, "release_ok": ok,
+                "results": results, "author_subprocess_count": calls,
+                "accepted_id": accepted_id, "state_root": str(state_root),
+                "checkpoint_path": str(checkpoint_path), "input_identity": identity,
+                "reused_current": reused, "blocker": reason}
+
+    def qualify() -> dict[str, Any]:
+        if accepted_id is not None:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(accepted_id)) or phase == "planned":
+                raise ValueError("author checkpoint accepted identity is invalid")
+        elif phase != "planned":
+            raise ValueError("author checkpoint is missing its accepted identity")
+        pending_operation = checkpoint.get("pending_operation")
+        if pending_operation:
+            if (pending_operation not in {"change", "release"}
+                    or checkpoint.get("pending_identity") != identity
+                    or (pending_operation == "release" and phase != "change")):
+                return row(False, "author_recovery_identity_mismatch")
+            previous = Path(str(checkpoint.get("last_invocation", "")))
+            invocation_parent = checkpoint_path.parent / "invocations"
+            if (not previous.is_absolute() or previous.parent != invocation_parent
+                    or not previous.is_dir() or previous.is_symlink()
+                    or previous.resolve().parent != invocation_parent.resolve()):
+                return row(False, "author_recovery_locator_invalid")
+            candidates = list(previous.glob(f"*-{pending_operation}.json"))
+            if len(candidates) != 1 or candidates[0].is_symlink():
+                return row(False, "author_recovery_result_missing" if not candidates else "author_recovery_result_ambiguous")
+            try:
+                recorded = json.loads(candidates[0].read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                return row(False, "author_recovery_result_invalid")
+            request = {"operation": pending_operation, "target_id": skill_id,
+                       "scope": [f"route:{pending_operation}"],
+                       "contract_path": ".skillguard/contract-source.json", "author_state_root": str(state_root),
+                       "expected_current": accepted_id, "facts": {"operation": pending_operation}}
+            recorded_result = recorded.get("result", {}) if isinstance(recorded, Mapping) else {}
+            expected_command = [sys.executable, str(cli), pending_operation, "--root", str(target),
+                                "--request", str(_AUTHOR_REQUEST_DIRECTORY / f"{pending_operation}.json"), "--json"]
+            if (not isinstance(recorded, Mapping)
+                    or recorded.get("schema_version") != "flowguard.author_assurance_invocation.v1"
+                    or recorded.get("binding") != binding or recorded.get("input_identity") != identity
+                    or recorded.get("toolchain_identity") != toolchain_identity
+                    or recorded.get("request") != request
+                    or recorded.get("request_fingerprint") != fingerprint_payload(request)
+                    or not isinstance(recorded_result, Mapping)
+                    or recorded_result.get("command") != expected_command
+                    or not _author_terminal_success(recorded_result)):
+                return row(False, "author_recovery_result_invalid")
+            observed = invoke("read", scope=f"route:{pending_operation}", label="recovery_read")
+            recovered_id = recorded_result["payload"]["accepted_id"]
+            if not _author_terminal_success(observed) or observed["payload"]["accepted_id"] != recovered_id:
+                return row(False, "author_recovery_current_mismatch")
+            save_checkpoint(pending_operation, recovered_id)
+            results["recovered_invocation"] = {"path": str(candidates[0]), "accepted_id": recovered_id,
+                                               "operation": pending_operation}
+            if pending_operation == "release":
+                save_checkpoint("complete", accepted_id)
+                return row(True, reused=True)
+
+        same_identity = checkpoint.get("identity") == identity
+        if accepted_id is not None:
+            if not re.fullmatch(r"sha256:[0-9a-f]{64}", str(accepted_id)) or phase == "planned":
+                raise ValueError("author checkpoint accepted identity is invalid")
+            scope = "route:change" if phase == "change" else "route:release"
+            observed = results.get("recovery_read") or invoke("read", scope=scope, label="current_read")
+            if not _author_terminal_success(observed) or observed["payload"]["accepted_id"] != accepted_id:
+                return row(False, "accepted_current_mismatch")
+            if same_identity and phase in {"release", "complete"}:
+                save_checkpoint("complete", accepted_id)
+                return row(True, reused=True)
+        elif phase != "planned":
+            raise ValueError("author checkpoint is missing its accepted identity")
+        if not same_identity or phase == "planned":
+            if not checkpoint:
+                save_checkpoint("planned", None)
+            changed = invoke("change", scope="route:change", label="change")
+            if not _author_terminal_success(changed):
+                return row(False, "author_change_failed")
+            save_checkpoint("change", changed["payload"]["accepted_id"])
+        released = invoke("release", scope="route:release", label="release")
+        if not _author_terminal_success(released):
+            return row(False, "author_release_failed")
+        save_checkpoint("release", released["payload"]["accepted_id"])
+        observed = invoke("read", scope="route:release", label="read")
+        if not _author_terminal_success(observed) or observed["payload"]["accepted_id"] != accepted_id:
+            return row(False, "author_release_read_failed")
+        save_checkpoint("complete", accepted_id)
+        return row(True)
+
+    try:
+        return qualify()
+    except (OSError, TypeError, ValueError) as exc:
+        # Keep the attempted call count and any durable native results even
+        # when post-call freshness or checkpoint publication blocks this member.
+        reason = exc.code if isinstance(exc, _AuthorAssuranceBlocked) else "author_assurance_invalid"
+        failed = row(False, reason)
+        failed["error_detail"] = f"{type(exc).__name__}: {exc}"
+        return failed
+
+
+def run_author_skill_assurance(
+    root: Path, *, author_state_root: Path,
+    skillguard: str = "all", members: Sequence[str] = (),
+) -> dict[str, Any]:
+    """Qualify only the declared author routes under one persistent owner."""
+    root = root.resolve()
+    state_root = Path(author_state_root).expanduser().resolve()
     inventory = validate_skill_suite(root)
     compiler = compile_skill_suite(root, write=False)
     selected = tuple(members) if members else inventory.declared_member_ids
     cli = _skillguard_cli(skillguard)
     member_rows: list[dict[str, Any]] = []
     blockers: list[str] = []
-    author_subprocess_count = 0
+    try:
+        state_root = _validate_author_state_root(root, author_state_root)
+    except _AuthorAssuranceBlocked as exc:
+        blockers.append(str(exc))
+    if not inventory.ok or not compiler.ok:
+        blockers.append("author inventory or contract parity is blocked")
+    if len(set(selected)) != len(selected) or any(member not in inventory.declared_member_ids for member in selected):
+        blockers.append("author members must be unique declared identities")
     if not cli.is_file():
         blockers.append(f"SkillGuard CLI is missing: {cli}")
-    else:
-        for skill_id in selected:
-            target = root / FLOWGUARD_SKILL_ROOT / skill_id
-            with tempfile.TemporaryDirectory(prefix="flowguard-skillguard-state-") as state_directory:
-                state_root = Path(state_directory)
-                with tempfile.TemporaryDirectory(prefix=".skillguard-author-", dir=str(target)) as request_directory:
-                    request_root = Path(request_directory)
-                    commands: dict[str, list[str]] = {}
-                    for operation in ("read", "change", "release"):
-                        request_path = request_root / f"{operation}.json"
-                        write_json_atomic(
-                            request_path,
-                            {
-                                "contract_path": ".skillguard/contract-source.json",
-                                "author_state_root": str(state_root),
-                                "claim_scope": "enforced",
-                                "target_id": skill_id,
-                                "facts": {"operation": operation},
-                            },
-                        )
-                        commands[operation] = [
-                            sys.executable,
-                            str(cli),
-                            operation,
-                            "--root",
-                            str(target),
-                            "--request",
-                            str(request_path.relative_to(target)),
-                            "--json",
-                        ]
-                    author_subprocess_count += len(commands)
-                    results = {
-                        name: _run_json_command(command, target)
-                        for name, command in commands.items()
-                    }
-            read_ok = results["read"]["exit_code"] == 0 and (results["read"]["payload"] or {}).get("decision") == "pass"
-            change_ok = results["change"]["exit_code"] == 0 and (results["change"]["payload"] or {}).get("decision") == "pass"
-            release_ok = results["release"]["exit_code"] == 0 and (results["release"]["payload"] or {}).get("decision") == "pass"
-            current_ok = read_ok and change_ok and release_ok
-            member_rows.append(
-                {
-                    "skill_id": skill_id,
-                    "ok": current_ok,
-                    "read_ok": read_ok,
-                    "change_ok": change_ok,
-                    "release_ok": release_ok,
-                    "author_assurance_status": "pass" if current_ok else "blocked",
-                    "results": results,
-                }
-            )
-
-    ok = inventory.ok and compiler.ok and not blockers and len(member_rows) == len(selected) and all(
-        row["ok"] for row in member_rows
-    )
+    if not blockers:
+        try:
+            toolchain_identity = _author_toolchain_fingerprint(cli)
+            for skill_id in selected:
+                target = (root / FLOWGUARD_SKILL_ROOT / skill_id).resolve()
+                if root not in target.parents:
+                    raise ValueError("author member root escapes the repository")
+                member_row = _qualify_author_member(
+                    target=target, state_root=state_root, cli=cli, skill_id=skill_id,
+                    toolchain_identity=toolchain_identity,
+                )
+                member_rows.append(member_row)
+                if not member_row["ok"]:
+                    blockers.append(member_row["blocker"])
+                    break
+        except (OSError, TypeError, ValueError) as exc:
+            blockers.append(f"author_assurance_invalid: {type(exc).__name__}: {exc}")
+    ok = not blockers and len(member_rows) == len(selected) and all(row["ok"] for row in member_rows)
     return {
-        "artifact_type": "flowguard_skill_suite_certification",
-        "ok": ok,
-        "status": "pass" if ok else "blocked",
-        "scope": "author_assurance",
-        "inventory_hash": inventory.inventory_hash,
-        "semantic_hash": inventory.semantic_hash,
-        "compiler_version": compiler.compiler_version,
-        "route_registry_hash": compiler.route_registry_hash,
-        "requested_members": list(selected),
-        "passed_members": sum(bool(row["ok"]) for row in member_rows),
-        "total_members": len(selected),
-        "inventory": inventory.to_dict(),
-        "compiler": compiler.to_dict(),
-        "members": member_rows,
-        "blockers": blockers,
-        "checks_run": ["author_read", "author_change", "author_release"],
+        "artifact_type": "flowguard_skill_suite_certification", "ok": ok,
+        "status": "pass" if ok else "blocked", "scope": "author_assurance",
+        "inventory_hash": inventory.inventory_hash, "semantic_hash": inventory.semantic_hash,
+        "compiler_version": compiler.compiler_version, "route_registry_hash": compiler.route_registry_hash,
+        "requested_members": list(selected), "passed_members": sum(bool(row["ok"]) for row in member_rows),
+        "total_members": len(selected), "inventory": inventory.to_dict(), "compiler": compiler.to_dict(),
+        "members": member_rows, "blockers": blockers,
+        "checks_run": [f"author_{name}" for row in member_rows for name in row["results"]],
         "checks_not_run": ["native_owner", "model_regression", "pytest", "release_parity"],
-        "skipped_checks": [] if cli.is_file() else ["SkillGuard author checks"],
-        "author_subprocess_count": author_subprocess_count,
-        "native_producer_count": 0,
-        "input_manifest_lookup_count": len(selected),
-        "receipt_lookup_count": 0,
-        "residual_risk": [
-            "Author assurance certifies the selected compact SkillGuard lifecycle routes only; native receipts, parent self-governance, model, test, and publication gates remain separate."
-        ],
-        "claim_boundary": (
-            "Pass certifies the current author-side SkillGuard read/change/release surface for the selected members; "
-            "it is not a light currentness result or whole-system release proof."
-        ),
+        "skipped_checks": [], "author_subprocess_count": sum(row["author_subprocess_count"] for row in member_rows),
+        "native_producer_count": 0, "input_manifest_lookup_count": len(selected),
+        "receipt_lookup_count": sum("current_read" in row["results"] for row in member_rows),
+        "residual_risk": ["Author routes prove their declared surface checks only; native and publication claims remain separate."],
+        "claim_boundary": "Only the selected current SkillGuard author routes are qualified; this is not native or whole-system release proof.",
     }
 
 
@@ -2165,6 +2422,49 @@ def _print_light(
             )
 
 
+def _project_audit_read_request_fingerprint(root: Path) -> str:
+    """Bind the ignored fixed read request even when Git omits runtime state."""
+
+    relative = ".flowguard/read-request.json"
+    guard_root = root / ".flowguard"
+    request_path = root / relative
+    reparse_attribute = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400)
+    try:
+        guard_stat = os.stat(guard_root, follow_symlinks=False)
+    except FileNotFoundError:
+        # Runtime evidence may create ``.flowguard`` after owner preflight.
+        # The parent directory is not part of this component: in both cases
+        # the declared read-request file is simply absent.
+        return fingerprint_payload({"path": relative, "state": "missing-file"})
+    guard_reparse = guard_root.is_symlink() or bool(
+        int(getattr(guard_stat, "st_file_attributes", 0)) & reparse_attribute
+    )
+    if guard_reparse or not stat.S_ISDIR(guard_stat.st_mode):
+        return fingerprint_payload({"path": relative, "state": "invalid-directory"})
+    try:
+        request_stat = os.stat(request_path, follow_symlinks=False)
+    except FileNotFoundError:
+        return fingerprint_payload({"path": relative, "state": "missing-file"})
+    request_reparse = request_path.is_symlink() or bool(
+        int(getattr(request_stat, "st_file_attributes", 0)) & reparse_attribute
+    )
+    if request_reparse or not stat.S_ISREG(request_stat.st_mode):
+        return fingerprint_payload({"path": relative, "state": "invalid-file"})
+    try:
+        raw = request_path.read_bytes()
+    except OSError as exc:
+        raise ValueError(
+            f"cannot read fixed project-audit request input: {request_path}"
+        ) from exc
+    return fingerprint_payload(
+        {
+            "path": relative,
+            "state": "regular-file",
+            "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        }
+    )
+
+
 def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, ...]:
     from flowguard.execution_profiles import ValidationExecutionPolicy
 
@@ -2204,17 +2504,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         else root / ".flowguard" / "evidence" / "model-owner-receipts"
     )
 
-    self_blueprint_command = [
-        sys.executable,
-        "-m",
-        "flowguard",
-        "flowguard-self-blueprint-check",
-        "--root",
-        str(root),
-        "--include-architecture-reduction",
-        "--compact",
-        "--json",
-    ]
+    self_review_script = root / "scripts" / "check_self_maintenance_review.py"
+    self_blueprint_command = [sys.executable, str(self_review_script), "--root", str(root), "--json"]
     if getattr(args, "require_executed_evidence", False):
         self_blueprint_command.append("--require-executed-evidence")
     self_blueprint_command.extend(("--model-receipt-dir", str(model_receipt_root)))
@@ -2223,6 +2514,19 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         Path(args.output_dir).expanduser().resolve()
         if getattr(args, "output_dir", None)
         else root / ".flowguard" / "evidence" / "validation-child-artifacts"
+    )
+
+    # Native03/04 consume the exact05 terminal and model-owned evidence.
+    # The output option is already a registered run-only command projection;
+    # its parent holds the frozen actual owner-plan.json, never a new pointer.
+    native_receipt_root = child_output_root / "skill-native-consumer"
+    completion_manifest_path, _ = _completion_run_manifest_path(args, root)
+    native_context_args = (
+        "--completion-run-manifest", str(completion_manifest_path or ""),
+        "--model-receipt-dir", str(model_receipt_root),
+        "--validation-receipt-dir", str(Path(args.receipt_dir).expanduser().resolve()
+            if getattr(args, "receipt_dir", None)
+            else root / ".flowguard/evidence/validation-owners"),
     )
 
     author_assurance_command = [
@@ -2240,6 +2544,9 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
         "full-validation",
         "--json",
     ]
+    author_state_root = str(getattr(args, "author_state_root", "") or "").strip()
+    if author_state_root:
+        author_assurance_command.extend(("--author-state-root", author_state_root))
     model_command = [
         sys.executable,
         str(model_script),
@@ -2393,11 +2700,18 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             (
                 "AGENTS.md",
                 ".flowguard/project.toml",
+                ".flowguard/read-request.json",
                 ".agents/skills/**/*",
                 "flowguard/project_adoption.py",
                 "flowguard/skill_suite.py",
             ),
             ("validation:current_read",),
+            external_component_bindings=(
+                (
+                    "project-audit-read-request",
+                    _project_audit_read_request_fingerprint(root),
+                ),
+            ),
         ),
         ChildSpec(
             "skill_suite_light",
@@ -2412,6 +2726,9 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "scripts/check_flowguard_author_skill_assurance.py",
             ),
             ("validation:skill_suite_light",),
+            external_component_bindings=(("toolchain:skillguard-author-runtime",
+                _author_toolchain_fingerprint(_skillguard_cli(args.skillguard))),)
+                if claim_scope == VALIDATION_CLAIM_SCOPE_RELEASE else (),
         ),
         ChildSpec(
             "skill_native_checks",
@@ -2422,7 +2739,7 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 str(root),
                 "--output-dir",
                 str(native_receipt_root),
-                "--resume",
+                *native_context_args,
                 "--json",
             ),
             (
@@ -2431,17 +2748,24 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "flowguard/evidence_receipts.py",
                 "flowguard/process_supervision.py",
                 "flowguard/skill_native_checks.py",
+                "flowguard/model_regressions.py",
+                "flowguard/native_case_mapping.py",
+                "flowguard/native_case_protocol.py",
+                "flowguard/model_authority_store.py",
+                "flowguard/completion_run_manifest.py",
+                "flowguard/validation_ownership.py",
+                ".flowguard/models/regression-manifest.json",
+                ".flowguard/models/native-case-mapping.json",
                 "scripts/run_flowguard_skill_native_checks.py",
             ),
             ("validation:skill_native_checks",),
+            dependency_owner_ids=("model_regressions_full",),
             resource_keys=("resource:validation-native-receipts",),
             required_path=native_script,
-            # The fifteen target-owned native checks execute serially.  A
-            # single check may use the full native timeout, so the supervisor
-            # must not terminate the batch at the per-check default boundary.
+            # Independent receipt and oracle verification has no model runners.
             timeout_seconds=native_owner_timeout,
             missing_reason=(
-                "skill-native check producer is required before "
+                "current model-evidence consumer is required before "
                 "self-governance can consume current child receipts"
             ),
         ),
@@ -2453,7 +2777,10 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 "--root",
                 str(root),
                 "--output-directory",
+                str(model_receipt_root),
+                "--output-dir",
                 str(native_receipt_root),
+                *native_context_args,
                 "--json",
             ),
             (
@@ -2461,6 +2788,14 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 ".skillguard/**/*",
                 "flowguard/evidence_receipts.py",
                 "flowguard/skill_native_checks.py",
+                "flowguard/model_regressions.py",
+                "flowguard/native_case_mapping.py",
+                "flowguard/native_case_protocol.py",
+                "flowguard/model_authority_store.py",
+                "flowguard/completion_run_manifest.py",
+                "flowguard/validation_ownership.py",
+                ".flowguard/models/regression-manifest.json",
+                ".flowguard/models/native-case-mapping.json",
                 "flowguard/skill_self_governance.py",
                 "scripts/check_flowguard_self_governance.py",
             ),
@@ -2475,6 +2810,9 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             tuple(model_command),
             _model_regression_input_patterns(root),
             ("validation:model_regressions_full",),
+            native_completion_unit_projection=_native_owner_unit_fingerprint(
+                getattr(args, "maintenance_unit_id", None) or COMPLETION_MAINTENANCE_UNIT_ID,
+                getattr(args, "completion_work_id", None) or COMPLETION_DEFAULT_WORK_ID),
             required_path=model_script,
             missing_reason="manifest model-regression runner is required for full closure",
             # A child model run may need to rebuild its exact-current source
@@ -2530,6 +2868,8 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
                 content_fingerprint_field="projection_fingerprint",
             ),
             dependency_owner_ids=("model_regressions_full",),
+            required_path=self_review_script,
+            missing_reason="composed self-maintenance script is required for full closure",
             timeout_seconds=self_maintenance_timeout,
         ),
         ChildSpec(
@@ -2615,25 +2955,34 @@ def _full_child_specs(args: argparse.Namespace, root: Path) -> tuple[ChildSpec, 
             missing_reason=parity_missing_reason,
         ),
     )
+    by_id = {spec.child_id: spec for spec in specs}
+    order = tuple(spec.child_id for spec in specs if spec.child_id != "model_regressions_full")
+    position = order.index("skill_native_checks")
+    order = order[:position] + ("model_regressions_full",) + order[position:]
+    ordered = tuple(by_id[item] for item in order)
     if claim_scope == VALIDATION_CLAIM_SCOPE_LOCAL:
-        # Local validation closes functional model/test/process obligations.
-        # Author assurance, self-governance, OpenSpec, and release-tree
-        # projections are separate qualification claims. They must not appear
-        # as zero-producer placeholder owners in the local owner DAG or
-        # completion budget.
-        return tuple(
-            spec for spec in specs if spec.child_id in LOCAL_FUNCTIONAL_CHILD_IDS
-        )
-    return specs
+        # Local scope retains only its three functional owners. Native05 still
+        # precedes03; no author/self-governance placeholder is manufactured.
+        return tuple(spec for spec in ordered if spec.child_id in LOCAL_FUNCTIONAL_CHILD_IDS)
+    return ordered
 
 
 def _required_child_ids(specs: Sequence[ChildSpec]) -> tuple[str, ...]:
-    """Return the exact terminal owner set for one frozen child plan."""
+    """Project terminal obligation identity independently of execution topology.
+
+    FULL_CHILD_IDS is the declared suite inventory and its stable identity order.
+    Child specs carry dependency execution order; changing that order must not
+    change the terminal obligation tuple of the same completion work.
+    """
 
     result = tuple(spec.child_id for spec in specs)
     if len(result) != len(set(result)):
         raise ValueError("full validation child owners must be unique")
-    return result
+    unknown = set(result) - set(FULL_CHILD_IDS)
+    if unknown:
+        raise ValueError("full validation child owners are undeclared: " + ", ".join(sorted(unknown)))
+    present = set(result)
+    return tuple(owner_id for owner_id in FULL_CHILD_IDS if owner_id in present)
 
 
 def _completion_epoch_plan(
@@ -2666,10 +3015,13 @@ def _completion_epoch_plan(
         getattr(args, "completion_objective_change", "") or ""
     ).strip()
     if objective_change:
-        objective_fingerprint = resolve_completion_objective(
-            root,
-            objective_change,
-        ).fingerprint
+        objective = (
+            require_archived_completion_objective(root, objective_change)
+            if getattr(args, "claim_scope", VALIDATION_CLAIM_SCOPE_RELEASE)
+            == VALIDATION_CLAIM_SCOPE_RELEASE
+            else resolve_completion_objective(root, objective_change)
+        )
+        objective_fingerprint = objective.fingerprint
     authorization = None
     authorization_path = str(
         getattr(args, "completion_authorization", "") or ""
@@ -3620,13 +3972,12 @@ def _owner_contracts(specs: Sequence[ChildSpec]) -> tuple[ValidationOwnerContrac
                 input_patterns=spec.input_patterns,
                 obligation_ids=spec.obligation_ids,
                 projected_inputs=(
-                    (
-                        "result_identity_requirement",
-                        spec.result_identity_requirement.fingerprint,
-                    ),
-                )
-                if spec.result_identity_requirement is not None
-                else (),
+                    (("result_identity_requirement", spec.result_identity_requirement.fingerprint),)
+                    if spec.result_identity_requirement is not None else ()
+                ) + (
+                    ((NATIVE_OWNER_UNIT_COMPONENT, spec.native_completion_unit_projection),)
+                    if spec.native_completion_unit_projection else ()
+                ),
                 dependency_owner_ids=dependencies,
                 resource_keys=spec.resource_keys
                 or (f"resource:validation-owner:{spec.child_id}",),
@@ -4899,6 +5250,14 @@ def _completion_run_manifest_blocked_result(
 
 
 def run_full_validation(args: argparse.Namespace) -> ValidationResult:
+    root = Path(args.root).resolve()
+    if getattr(args, "author_state_root", None):
+        try:
+            args.author_state_root = str(
+                _validate_author_state_root(root, args.author_state_root)
+            )
+        except _AuthorAssuranceBlocked as exc:
+            return _command_error(VALIDATION_STATUS_INVALID_INPUT, str(exc), scope="full")
     # The ordinary full invocation is the finite functional closure.  The
     # historical readiness/epoch/repair machinery remains available only when
     # a caller explicitly supplies one of those legacy completion artifacts;
@@ -4940,6 +5299,15 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
         functional_args.claim_scope = VALIDATION_CLAIM_SCOPE_LOCAL
         return run_local_functional_validation(functional_args)
 
+    try:
+        args.author_state_root = str(
+            _validate_author_state_root(
+                root,
+                getattr(args, "author_state_root", None),
+            )
+        )
+    except _AuthorAssuranceBlocked as exc:
+        return _command_error(VALIDATION_STATUS_INVALID_INPUT, str(exc), scope="full")
     planning_started_epoch = time.time()
     root = Path(args.root).resolve()
     # The pytest child owns path-sensitive capability qualification.  It
@@ -4996,6 +5364,16 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
         receipt_root=receipt_root,
         metrics=metrics,
     )
+    from flowguard.self_blueprint import validate_completion_source_prerequisites
+
+    try:
+        validate_completion_source_prerequisites(
+            root,
+            resolved_manifest=planning_observation.repository_input_manifest,
+            model_receipt_dir=getattr(args, "model_receipt_dir", None),
+        )
+    except (OSError, TypeError, ValueError) as exc:
+        return _command_error(VALIDATION_STATUS_BLOCKED, str(exc), scope="full")
     owner_plan = build_validation_owner_plan(
         root,
         contracts,
@@ -5604,6 +5982,14 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
     args.output_dir = str(output_dir)
     specs = _full_child_specs(args, root)
     plan_path = output_dir / "owner-plan.json"
+    # Exact Source projections for the03/04 read-only consumer. These are
+    # frozen plan facts, never extra execution receipts or model authority.
+    plan_payload.update({
+        "validation_input_manifest": [dict(row) for row in owner_plan.validation_input_manifest],
+        "release_tree_manifest": [dict(row) for row in owner_plan.release_tree_manifest],
+        "observation_patterns": list(planning_observation.observation_patterns),
+        "repository_input_manifest": [dict(row) for row in planning_observation.repository_input_manifest],
+    })
     plan_path.write_text(
         json.dumps(plan_payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -5919,7 +6305,7 @@ def run_full_validation(args: argparse.Namespace) -> ValidationResult:
             "Remote publication and post-publication verification remain separate release gates.",
         ),
         claim_boundary=(
-            "Full pass requires exact pass from project adoption, all 15 light/deep skill contracts, "
+            "Full pass requires exact pass from project adoption, all declared author skill contracts, "
             "receipt-bound self-governance, manifest full models, pytest, strict OpenSpec, and complete "
             "formal/shadow/installed distribution checks for one frozen owner plan; exact-current prior receipts may be reused."
         ),
@@ -6064,6 +6450,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument("--output-dir", help="Full-scope parent and child artifact directory")
+    parser.add_argument("--author-state-root", help="Persistent external state for the release author owner")
     parser.add_argument(
         "--pytest-resume-output",
         default="",
@@ -6433,13 +6820,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0 if payload["ok"] else 1
     invalid_reason = ""
-    if args.model_jobs < 1:
+    if args.claim_scope == VALIDATION_CLAIM_SCOPE_RELEASE or args.author_state_root:
+        try:
+            _validate_author_state_root(Path(args.root), args.author_state_root)
+        except _AuthorAssuranceBlocked as exc:
+            invalid_reason = str(exc)
+    if not invalid_reason and args.model_jobs < 1:
         invalid_reason = "--model-jobs must be at least 1"
-    elif args.model_timeout is not None and args.model_timeout <= 0:
+    elif not invalid_reason and args.model_timeout is not None and args.model_timeout <= 0:
         invalid_reason = "--model-timeout must be positive"
-    elif args.member:
+    elif not invalid_reason and args.member:
         invalid_reason = "--member is light/affected-only; full scope always requires all declared members"
-    elif args.authority_kind != "standalone" or args.parent_scope:
+    elif not invalid_reason and (args.authority_kind != "standalone" or args.parent_scope):
         invalid_reason = "--authority-kind and --parent-scope are light/affected-only"
     if invalid_reason:
         result = _command_error(VALIDATION_STATUS_INVALID_INPUT, invalid_reason, scope="full")
@@ -6454,24 +6846,38 @@ def main(argv: Sequence[str] | None = None) -> int:
     # an ordinary change or read-only audit must use its matching shallower
     # profile and can never silently escalate into the full producer graph.
     from flowguard.execution_profiles import (
-        EXECUTION_PROFILE_FULL,
+        ExecutionProfileError,
+        LIFECYCLE_RELEASE,
         OPERATION_KIND_QUALIFICATION,
         select_execution_profile,
     )
 
-    full_profile_decision = select_execution_profile(
-        EXECUTION_PROFILE_FULL,
-        operation_kind=args.operation_kind or OPERATION_KIND_QUALIFICATION,
-        modeling_mode="layered_boundary_proof",
-        # Readiness/epoch admission owns the actual freeze evidence.  These
-        # flags only validate the profile/operation pairing here; passing them
-        # avoids duplicating readiness inference before the full owner runs.
-        governed_writes_frozen=True,
-        projections_frozen=True,
-        openspec_frozen=True,
-        owner_dag_frozen=True,
-        reverse_input_frozen=True,
-    )
+    try:
+        full_profile_decision = select_execution_profile(
+            LIFECYCLE_RELEASE,
+            operation_kind=args.operation_kind or OPERATION_KIND_QUALIFICATION,
+            modeling_mode="layered_boundary_proof",
+            # Readiness/epoch admission owns the actual freeze evidence. These
+            # flags validate the profile/operation pairing without duplicating
+            # readiness inference before the full owner runs.
+            governed_writes_frozen=True,
+            projections_frozen=True,
+            openspec_frozen=True,
+            owner_dag_frozen=True,
+            reverse_input_frozen=True,
+        )
+    except ExecutionProfileError as exc:
+        result = _command_error(
+            VALIDATION_STATUS_INVALID_INPUT,
+            str(exc),
+            scope="full",
+        )
+        print(
+            result.terminal_json_text()
+            if args.json
+            else result.format_text(full=args.full)
+        )
+        return result.exit_code
     if not full_profile_decision.ok:
         result = _command_error(
             VALIDATION_STATUS_BLOCKED,

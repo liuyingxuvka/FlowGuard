@@ -1161,6 +1161,9 @@ def review_model_implementation_bindings(
     for finding in tuple(_value(inventory, "findings", ())):
         severity = str(_value(finding, "severity", ""))
         if severity in {"blocker", "blocked", "error"}:
+            from .implementation_inventory import implementation_finding_blocks_selected_scope
+            if not implementation_finding_blocks_selected_scope(finding, surface_by_id, required_surfaces):
+                continue
             finding_id = str(
                 _value(finding, "surface_id", _value(finding, "path", _value(finding, "code", "")))
             )

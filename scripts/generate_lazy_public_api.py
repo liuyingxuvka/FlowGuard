@@ -193,8 +193,8 @@ def _resolve_public(
     return []
 
 
-def _explicit_owners(tree: ast.Module) -> dict[str, str]:
-    owners: dict[str, str] = {}
+def _explicit_bindings(tree: ast.Module) -> dict[str, tuple[str, str]]:
+    bindings: dict[str, tuple[str, str]] = {}
     for node in ast.walk(tree):
         if not isinstance(node, ast.ImportFrom) or node.level != 1 or not node.module:
             continue
@@ -204,8 +204,8 @@ def _explicit_owners(tree: ast.Module) -> dict[str, str]:
                 continue
             public_name = alias.asname or alias.name
             if not public_name.startswith("_"):
-                owners[public_name] = owner
-    return owners
+                bindings[public_name] = (owner, alias.name)
+    return bindings
 
 
 def _decode_current() -> dict[str, Any]:
@@ -240,17 +240,28 @@ def build_metadata() -> dict[str, Any]:
         module_cache,
         set(),
     )
-    generated_names = {
-        "implementation_coverage_obligation_id",
-        "NativeSuiteContext",
-        "prepare_native_suite_context",
+    generated_names = {"implementation_coverage_obligation_id"}
+    # These two maintained namespaces were directly replaced. Their current
+    # source exports, rather than a previously generated payload, own removal
+    # as well as addition. Other namespaces keep their existing baseline.
+    current_namespace_exports = {
+        module: set(_module_all(module, module_cache))
+        for module in ("flowguard.skill_native_checks", "flowguard.skill_self_governance")
     }
     # ``source_public`` is the source-derived order.  A few eager
     # comprehensions use runtime ``globals()`` filtering, so the generated
     # artifact's already-current names remain the compatibility baseline for
     # those resolved rows.  Newly declared names are inserted using the
     # nearest source-derived anchor rather than appended arbitrarily.
-    baseline_names = [name for name in current["names"] if name not in generated_names]
+    baseline_names = [
+        name for name in current["names"]
+        if name not in generated_names
+        and (
+            current["owners"].get(name) not in current_namespace_exports
+            or current.get("targets", {}).get(name, name)
+            in current_namespace_exports[current["owners"][name]]
+        )
+    ]
     names = list(baseline_names)
 
     def insert_from_source(name: str, source_order: list[str]) -> None:
@@ -267,8 +278,20 @@ def build_metadata() -> dict[str, Any]:
                 return
         names.append(name)
 
-    for name in ("NativeSuiteContext", "prepare_native_suite_context"):
-        insert_from_source(name, list(_module_all("flowguard.skill_native_checks", module_cache)))
+    implementation_surface_history = values.get("IMPLEMENTATION_SURFACE_AUDIT_API", ())
+    if implementation_surface_history:
+        implementation_surface_source = _resolve_public(
+            implementation_surface_history[-1],
+            values,
+            aliases,
+            module_cache,
+            set(),
+        )
+        # This aggregate is a direct projection of one module's __all__ (no
+        # runtime globals filter). Keep new module exports visible from the
+        # lazy package facade just as the eager facade does.
+        for name in implementation_surface_source:
+            insert_from_source(name, implementation_surface_source)
     # route_topology gained this public lifecycle discriminator after the
     # compact facade was first generated. Keep the derived facade in lockstep
     # with the authoritative route-topology export.
@@ -310,10 +333,10 @@ def build_metadata() -> dict[str, Any]:
         names.insert(portable_index, "implementation_coverage_obligation_id")
 
     owners = dict(current["owners"])
-    explicit = _explicit_owners(tree)
+    explicit = _explicit_bindings(tree)
     for name in names:
         if name in explicit:
-            owners[name] = explicit[name]
+            owners[name] = explicit[name][0]
     # Public groups such as FLOWGUARD_GOVERNANCE_API are built from module
     # ``__all__`` values through a small loop.  Resolve those module exports
     # from source as well, without importing the eager facade.
@@ -329,6 +352,7 @@ def build_metadata() -> dict[str, Any]:
         "schema_version": current.get("schema_version", 28),
         "names": names,
         "owners": {name: owners[name] for name in names},
+        "targets": {name: explicit[name][1] if name in explicit else name for name in names},
     }
 
 

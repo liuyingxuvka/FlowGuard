@@ -1,3 +1,5 @@
+import tempfile
+from tests._native_owner_environment import native_owner_environment
 import subprocess
 import sys
 import unittest
@@ -217,20 +219,22 @@ class StateClosureTests(unittest.TestCase):
         self.assertIn("state_closure_plan: provided", dict(summary.metadata)["plan"].format_text())
 
     def test_self_model_checks_pass(self):
-        result = subprocess.run(
-            [
-                sys.executable,
-                ".flowguard/verification/owners/state_closure_gate/run_checks.py",
-            ],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory() as native_tmp:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    ".flowguard/verification/owners/state_closure_gate/run_checks.py",
+                ],
+                cwd=ROOT,
+                env=native_owner_environment(ROOT, "state_closure_gate", Path(native_tmp)),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_state_closure_gate: observed=OK expected=OK match=yes", result.stdout)
-        self.assertIn("state_closure_missing_generation: observed=VIOLATION expected=VIOLATION", result.stdout)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("correct_state_closure_gate: observed=OK expected=OK match=yes", result.stdout)
+            self.assertIn("state_closure_missing_generation: observed=VIOLATION expected=VIOLATION", result.stdout)
 
 
 if __name__ == "__main__":

@@ -1252,7 +1252,140 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
         report = review_development_process_flow(plan)
 
         self.assertFalse(report.ok)
-        self.assertIn("unknown_writer_invalidates_evidence", {finding.code for finding in report.findings})
+        codes = {finding.code for finding in report.findings}
+        self.assertIn("unknown_writer_invalidates_evidence", codes)
+        self.assertNotIn("process_action_writer_owner_mismatch", codes)
+
+    def test_named_foreign_writer_is_blocked_before_validation(self):
+        plan = DevelopmentProcessPlan(
+            "named-foreign-writer",
+            artifacts=(
+                ProcessArtifact(
+                    "code.search",
+                    PROCESS_ARTIFACT_CODE,
+                    "1",
+                    owner="agent:r07-code-owner",
+                ),
+            ),
+            actions=(
+                ProcessAction(
+                    "edit-code",
+                    action_type="implementation",
+                    writes_artifacts=("code.search",),
+                    actor="agent:r07-foreign-writer",
+                ),
+                ProcessAction(
+                    "validate-code",
+                    action_type="validation",
+                    order_after=("edit-code",),
+                    produced_evidence_ids=("code-validation",),
+                ),
+            ),
+            evidence=(
+                ProcessEvidence(
+                    "code-validation",
+                    evidence_kind="unit",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    covered_versions={"code.search": "1"},
+                    produced_by_action_id="validate-code",
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+        findings = [
+            finding
+            for finding in report.findings
+            if finding.code == "process_action_writer_owner_mismatch"
+        ]
+
+        self.assertFalse(report.ok)
+        self.assertEqual(1, len(findings))
+        finding = findings[0]
+        self.assertEqual("blocker", finding.severity)
+        self.assertEqual("edit-code", finding.action_id)
+        self.assertEqual("code.search", finding.artifact_id)
+        self.assertEqual(
+            "action edit-code actor 'agent:r07-foreign-writer' does not match "
+            "owner 'agent:r07-code-owner' for artifact code.search",
+            finding.message,
+        )
+        self.assertEqual("agent:r07-foreign-writer", finding.metadata["actor"])
+        self.assertEqual("agent:r07-code-owner", finding.metadata["artifact_owner"])
+        self.assertEqual("edit-code", finding.metadata["action"]["action_id"])
+        self.assertEqual("agent:r07-code-owner", finding.metadata["artifact"]["owner"])
+        self.assertNotIn("stale_evidence_after_artifact_change", {item.code for item in report.findings})
+
+    def test_generic_actor_cannot_write_an_explicitly_owned_artifact(self):
+        for actor in ("", "agent", "user", "system", "unknown", "peer", "peer_agent", "peer-agent"):
+            with self.subTest(actor=actor):
+                plan = DevelopmentProcessPlan(
+                    "generic-actor-owned-write",
+                    artifacts=(
+                        ProcessArtifact("code.search", owner="agent:r07-code-owner"),
+                    ),
+                    actions=(
+                        ProcessAction(
+                            "generic-write",
+                            writes_artifacts=("code.search",),
+                            actor=actor,
+                        ),
+                    ),
+                )
+
+                report = review_development_process_flow(plan)
+                findings = [
+                    finding
+                    for finding in report.findings
+                    if finding.code == "process_action_writer_owner_mismatch"
+                ]
+
+                self.assertFalse(report.ok)
+                self.assertEqual(1, len(findings))
+                self.assertEqual("generic-write", findings[0].action_id)
+                self.assertEqual("code.search", findings[0].artifact_id)
+                self.assertEqual(actor, findings[0].metadata["actor"])
+                self.assertEqual("agent:r07-code-owner", findings[0].metadata["artifact_owner"])
+
+    def test_matching_owner_writes_and_non_write_actions_do_not_block(self):
+        plan = DevelopmentProcessPlan(
+            "named-owner-write",
+            artifacts=(
+                ProcessArtifact("code.search", owner="agent:r07-code-owner"),
+                ProcessArtifact("unowned.report", owner=""),
+            ),
+            actions=(
+                ProcessAction(
+                    "owned-write",
+                    writes_artifacts=("code.search",),
+                    actor="agent:r07-code-owner",
+                ),
+                ProcessAction(
+                    "foreign-read",
+                    reads_artifacts=("code.search",),
+                    actor="agent:r07-foreign-writer",
+                ),
+                ProcessAction(
+                    "foreign-claim",
+                    action_type="claim_done",
+                    actor="agent:r07-foreign-writer",
+                ),
+                ProcessAction(
+                    "unowned-write",
+                    writes_artifacts=("unowned.report",),
+                    actor="agent:r07-foreign-writer",
+                ),
+            ),
+        )
+
+        report = review_development_process_flow(plan)
+
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn(
+            "process_action_writer_owner_mismatch",
+            {finding.code for finding in report.findings},
+        )
 
     def test_process_evidence_rejects_auto_split_metrics(self):
         removed_field_sets = (

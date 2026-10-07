@@ -31,6 +31,9 @@ from .task_coverage_demand import (
     COVERAGE_DISPOSITION_SATISFIED,
     OwnerCoverageResolution,
     TaskCoverageDemand,
+    TaskFacts,
+    compile_task_coverage_demand,
+    project_owner_resolution_to_demand,
 )
 
 
@@ -550,7 +553,8 @@ class ModelMaturationCoverageContribution:
         resolution = self.owner_resolution
         expected_demand_id = demand.demand_id if demand is not None else str(demand_id)
         expected_demand_fingerprint = (
-            demand.fingerprint if demand is not None else str(demand_fingerprint)
+            (demand.resolution_basis_fingerprint or demand.fingerprint)
+            if demand is not None else str(demand_fingerprint)
         )
         expected_task_id = demand.task_id if demand is not None else self.task_id
         demanded_obligations = (
@@ -625,6 +629,7 @@ class ModelMaturationIntake:
     base_model_fingerprint: str
     candidate_model_fingerprint: str
     coverage_demand: TaskCoverageDemand
+    task_facts: TaskFacts | None = None
     contributions: tuple[ModelMaturationCoverageContribution, ...] = ()
     required_path_quality_model_ids: tuple[str, ...] = ()
     path_quality_subjects: tuple[PathQualitySubject, ...] = ()
@@ -721,16 +726,65 @@ class ModelMaturationIntake:
         object.__setattr__(self, "prior_state_fingerprints", _as_tuple(self.prior_state_fingerprints))
 
 
+def _coverage_task_facts_from_dict(value: Mapping[str, Any]) -> TaskFacts:
+    """Reconstruct frozen facts without duplicating snapshot observations."""
+    from dataclasses import fields
+    if set(value) - {f.name for f in fields(TaskFacts)}:
+        raise ValueError("unknown coverage task fact fields")
+    payload = dict(value)
+    snapshot_keys = {
+        (row["fact_id"], row["source_plane"])
+        for snapshot in payload.get("source_snapshots", ())
+        for row in snapshot.get("observations", ())
+    }
+    payload["fact_observations"] = tuple(
+        row for row in payload.get("fact_observations", ())
+        if (row["fact_id"], row["source_plane"]) not in snapshot_keys
+    )
+    return TaskFacts(**payload)
+
+
+def _verify_closed_coverage_demand(
+    facts: TaskFacts, closed: Mapping[str, Any],
+    resolutions: Sequence[OwnerCoverageResolution],
+) -> TaskCoverageDemand:
+    """Replay canonical resolutions from independent facts, never from closed rows."""
+    original = compile_task_coverage_demand(facts)
+    if closed.get("resolution_basis_fingerprint") != original.fingerprint:
+        raise ValueError("closed demand has a foreign original resolution basis")
+    owners = [r.owner_route for r in resolutions]
+    if len(owners) != len(set(owners)) or set(owners) != set(original.required_owner_ids):
+        raise ValueError("closed demand requires exactly one resolution per demanded owner")
+    rebuilt = original
+    for resolution in sorted(resolutions, key=lambda r: r.owner_route):
+        rebuilt = project_owner_resolution_to_demand(rebuilt, resolution)
+    if rebuilt.to_dict() != dict(closed):
+        raise ValueError("closed demand differs from its exact canonical resolution projection")
+    return rebuilt
+
+
 def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMaturationPlan":
     """Compile against the independent task demand without reinterpreting owners."""
 
+    basis_fingerprint = (
+        intake.coverage_demand.resolution_basis_fingerprint
+        or intake.coverage_demand.fingerprint
+    )
+    if intake.coverage_demand.resolution_basis_fingerprint:
+        if intake.task_facts is None:
+            raise ValueError("resolved demand requires its original task facts")
+        _verify_closed_coverage_demand(
+            intake.task_facts, intake.coverage_demand.to_dict(),
+            tuple(c.owner_resolution for c in intake.contributions
+                  if c.owner_resolution is not None),
+        )
     contribution_owners = {
         item.owner_route
         for item in intake.contributions
         if item.owner_resolution is not None
         and item.owner_resolution.task_id == intake.task_id
         and item.owner_resolution.demand_id == intake.coverage_demand.demand_id
-        and item.owner_resolution.demand_fingerprint == intake.coverage_demand.fingerprint
+        and item.owner_resolution.demand_fingerprint == basis_fingerprint
         and item.owner_resolution.owner_route == item.owner_route
     }
     missing_contributions = tuple(
@@ -753,8 +807,18 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         )
         + tuple(f"missing-contribution:{item}" for item in missing_contributions)
     )
+    supplied_probes = {
+        coverage_id: (
+            contribution.required_probe_ids[index]
+            if index < len(contribution.required_probe_ids)
+            else f"probe:{contribution.owner_route}:{coverage_id}"
+        )
+        for contribution in intake.contributions
+        for index, coverage_id in enumerate(contribution.coverage_ids)
+    }
     probe_ids = _unique(
-        tuple(f"probe:demand:{coverage_id}" for coverage_id in demanded_coverage_ids)
+        tuple(supplied_probes.get(coverage_id, f"probe:demand:{coverage_id}")
+              for coverage_id in demanded_coverage_ids)
         + tuple(
             (
                 contribution.required_probe_ids[index]
@@ -796,6 +860,12 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
         path_quality_results=intake.path_quality_results,
         coverage_universe_id=intake.coverage_demand.demand_id,
         coverage_demand_fingerprint=intake.coverage_demand.fingerprint,
+        coverage_resolution_basis_fingerprint=basis_fingerprint,
+        coverage_task_facts=(intake.task_facts.to_dict() if intake.task_facts else {}),
+        coverage_closed_demand=(
+            intake.coverage_demand.to_dict()
+            if intake.coverage_demand.resolution_basis_fingerprint else {}
+        ),
         coverage_owner="task_coverage_demand",
         coverage_source_refs=coverage_source_refs,
         coverage_ids=coverage_ids,
@@ -973,7 +1043,13 @@ def compile_model_maturation_plan(intake: ModelMaturationIntake) -> "ModelMatura
             )
         )
     evidence_fingerprint = _stable_fingerprint(
-        {"intake_id": intake.intake_id, "evidence": sorted(evidence_identities)}
+        {"intake_id": intake.intake_id, "evidence": sorted(evidence_identities),
+         "resolution_basis": basis_fingerprint,
+         "coverage_demand": intake.coverage_demand.to_dict(),
+         "task_facts": intake.task_facts.to_dict() if intake.task_facts else {},
+         "resolutions": [c.owner_resolution.to_dict() for c in
+                         sorted(intake.contributions, key=lambda c: c.owner_route)
+                         if c.owner_resolution is not None]}
     )
     return replace(
         skeleton,
@@ -1179,6 +1255,9 @@ class ModelMaturationPlan:
     path_quality_result_set_fingerprint: str = ""
     coverage_universe_id: str = ""
     coverage_demand_fingerprint: str = ""
+    coverage_resolution_basis_fingerprint: str = ""
+    coverage_task_facts: Mapping[str, Any] = field(default_factory=dict)
+    coverage_closed_demand: Mapping[str, Any] = field(default_factory=dict)
     coverage_universe_fingerprint: str = ""
     coverage_owner: str = ""
     coverage_source_refs: tuple[str, ...] = ()
@@ -1241,6 +1320,11 @@ class ModelMaturationPlan:
         )
         object.__setattr__(self, "coverage_universe_id", str(self.coverage_universe_id))
         object.__setattr__(self, "coverage_demand_fingerprint", str(self.coverage_demand_fingerprint))
+        object.__setattr__(self, "coverage_resolution_basis_fingerprint", str(
+            self.coverage_resolution_basis_fingerprint or self.coverage_demand_fingerprint
+        ))
+        object.__setattr__(self, "coverage_task_facts", dict(self.coverage_task_facts))
+        object.__setattr__(self, "coverage_closed_demand", dict(self.coverage_closed_demand))
         object.__setattr__(self, "coverage_universe_fingerprint", str(self.coverage_universe_fingerprint))
         object.__setattr__(self, "coverage_owner", str(self.coverage_owner))
         object.__setattr__(self, "coverage_source_refs", _as_tuple(self.coverage_source_refs))
@@ -1296,6 +1380,7 @@ class ModelMaturationPlan:
             "required_path_quality_model_ids", "path_quality_subjects",
             "path_quality_results", "path_quality_result_set_fingerprint",
             "coverage_demand_fingerprint", "coverage_universe_fingerprint", "coverage_owner",
+            "coverage_resolution_basis_fingerprint", "coverage_task_facts", "coverage_closed_demand",
             "coverage_source_refs", "coverage_ids", "required_probe_ids",
             "iteration", "max_iterations", "prior_gap_fingerprints",
             "prior_iteration_fingerprint", "prior_candidate_fingerprint",
@@ -1334,6 +1419,9 @@ class ModelMaturationPlan:
             ),
             coverage_universe_id=str(value.get("coverage_universe_id", "")),
             coverage_demand_fingerprint=str(value.get("coverage_demand_fingerprint", "")),
+            coverage_resolution_basis_fingerprint=str(value.get("coverage_resolution_basis_fingerprint", "")),
+            coverage_task_facts=value.get("coverage_task_facts", {}),
+            coverage_closed_demand=value.get("coverage_closed_demand", {}),
             coverage_universe_fingerprint=str(value.get("coverage_universe_fingerprint", "")),
             coverage_owner=str(value.get("coverage_owner", "")),
             coverage_source_refs=tuple(value.get("coverage_source_refs", ())),
@@ -1385,6 +1473,9 @@ class ModelMaturationPlan:
             ),
             "coverage_universe_id": self.coverage_universe_id,
             "coverage_demand_fingerprint": self.coverage_demand_fingerprint,
+            "coverage_resolution_basis_fingerprint": self.coverage_resolution_basis_fingerprint,
+            "coverage_task_facts": dict(self.coverage_task_facts),
+            "coverage_closed_demand": dict(self.coverage_closed_demand),
             "coverage_universe_fingerprint": self.coverage_universe_fingerprint,
             "coverage_owner": self.coverage_owner,
             "coverage_source_refs": list(self.coverage_source_refs),
@@ -1563,6 +1654,14 @@ class ModelMaturationReport:
             "owner_resolution_owner_ids",
             _as_tuple(self.owner_resolution_owner_ids),
         )
+
+    @property
+    def path_quality_observation_gap_ids(self) -> tuple[str, ...]:
+        return tuple(sorted({gap for result in self.path_quality_results for gap in result.observation_gap_ids}))
+
+    @property
+    def path_quality_improvement_gap_ids(self) -> tuple[str, ...]:
+        return tuple(sorted({gap for result in self.path_quality_results for gap in result.improvement_gap_ids}))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1855,7 +1954,7 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
     for contribution in plan.owner_resolution_contributions:
         if not contribution.evidence_is_current(
             demand_id=plan.coverage_universe_id,
-            demand_fingerprint=plan.coverage_demand_fingerprint,
+            demand_fingerprint=plan.coverage_resolution_basis_fingerprint,
             candidate_model_fingerprint=plan.candidate_model_fingerprint,
         ):
             findings.append(
@@ -1865,6 +1964,21 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
                     action=MATURITY_ACTION_REFRESH_EVIDENCE,
                 )
             )
+    if plan.coverage_resolution_basis_fingerprint != plan.coverage_demand_fingerprint:
+        try:
+            rebuilt = _verify_closed_coverage_demand(
+                _coverage_task_facts_from_dict(plan.coverage_task_facts),
+                plan.coverage_closed_demand,
+                tuple(c.owner_resolution for c in plan.owner_resolution_contributions
+                      if c.owner_resolution is not None),
+            )
+            if rebuilt.fingerprint != plan.coverage_demand_fingerprint:
+                raise ValueError("closed demand fingerprint differs from plan")
+        except (TypeError, ValueError, KeyError) as error:
+            findings.append(_plan_finding(
+                "coverage_resolution_basis_invalid", str(error),
+                action=MATURITY_ACTION_REFRESH_EVIDENCE,
+            ))
     if plan.coverage_universe_fingerprint and plan.coverage_universe_fingerprint != plan.expected_coverage_fingerprint():
         findings.append(_plan_finding("coverage_universe_fingerprint_mismatch", "coverage universe fingerprint does not match its owner, sources, coverage, and probes"))
     if plan.iteration > 0:
@@ -1972,7 +2086,7 @@ def review_model_maturation_loop(plan: ModelMaturationPlan) -> ModelMaturationRe
                     action=MATURITY_ACTION_REFRESH_EVIDENCE,
                 )
             )
-        elif result.conclusion == "unresolved" or result.unresolved_ids:
+        elif result.conclusion == "unresolved" or result.unresolved_ids or result.observation_gap_ids or result.improvement_gap_ids:
             findings.append(
                 _plan_finding(
                     "path_quality_unresolved",
@@ -2431,6 +2545,207 @@ def review_model_maturation_session(
         terminal_reason=terminal_reason,
         findings=tuple(session_findings),
     )
+
+
+def review_functional_outcome_bindings(*, task_facts, selected_read,
+        current_effective_intent_view, binding_report, implementation_inventory,
+        outcome_refs=(), native_materials=None, read_context=None):
+    """Check actual outcome bindings independently of final maturation evidence."""
+    from .model_path_quality import verify_architecture_native_case_refs, _exact_object, _canonical_ids
+    from .implementation_blueprint import review_model_implementation_bindings
+    from .implementation_inventory import review_implementation_surface_inventory
+    gaps, next_actions = set(), set()
+    repeated = review_model_implementation_bindings(implementation_inventory,
+        required_model_element_ids=binding_report.required_model_element_ids,
+        bindings=binding_report.bindings, semantic_specs=binding_report.semantic_specs,
+        oracles=binding_report.oracles)
+    if not repeated.ok or repeated.fingerprint != binding_report.fingerprint or not review_implementation_surface_inventory(implementation_inventory).ok:
+        gaps.add("implementation_model_coverage_not_proven")
+    view = current_effective_intent_view
+    selected = {str(row.get("logical_model_id", "")).removeprefix("model:"): row for row in selected_read.selected_models}
+    normalize = lambda value: value.removeprefix("model:")
+    required_surfaces = set(binding_report.required_implementation_surface_ids)
+    material = dict(native_materials or {})
+    allowed = {"code_contracts", "native_contracts", "native_bindings", "native_results", "receipts", "receipt_contexts", "raw_artifact_root", "current_native_identities"}
+    if set(material) - allowed: raise ValueError("unknown functional native material")
+    contributions = {row.contribution_id: row for row in view.active_contributions}
+    bindings = {row.fingerprint: row for row in binding_report.bindings}
+    native_bindings = {row.fingerprint: row for row in material.get("native_bindings", ())}
+    case_contracts = {(row.owner_id, row.source_case_id): row
+                      for row in material.get("native_contracts", ())}
+    code_contracts = {row.code_contract_id: row
+                      for row in material.get("code_contracts", ())}
+    if len(bindings) != len(binding_report.bindings) or len(native_bindings) != len(material.get("native_bindings", ())): raise ValueError("duplicate outcome binding identity")
+    requested = set(task_facts.requested_outcome_ids)
+    by_outcome = {outcome: [] for outcome in requested}
+    obligations = set()
+    for raw in outcome_refs:
+        row = _exact_object(raw, ("outcome_id", "contribution_id", "target_kind", "target_id", "binding_fingerprints", "native_case_binding_fingerprints"), "outcome ref")
+        if row["outcome_id"] not in requested or row["target_kind"] not in {"obligation", "invariant", "terminal"}: raise ValueError("outcome selector is outside task")
+        by_outcome[row["outcome_id"]].append(row)
+    missing = set()
+    for outcome, refs in sorted(by_outcome.items()):
+        outcome_ok = bool(refs)
+        for row in refs:
+            contribution = contributions.get(row["contribution_id"])
+            target_field = {"obligation": "target_obligation_ids", "invariant": "target_invariant_ids", "terminal": "desired_terminal_state_ids"}[row["target_kind"]]
+            if contribution is None or row["target_id"] not in getattr(contribution, target_field, ()) or normalize(contribution.logical_model_id) not in selected:
+                outcome_ok = False; gaps.add("outcome_current_target_missing:" + outcome); continue
+            binding_fps = _canonical_ids(row["binding_fingerprints"], "outcome binding fingerprints")
+            native_fps = _canonical_ids(row["native_case_binding_fingerprints"], "outcome native fingerprints")
+            matched = [bindings[fp] for fp in binding_fps if fp in bindings]
+            native = [native_bindings[fp] for fp in native_fps if fp in native_bindings]
+            external_output = outcome != row["target_id"]
+            matched_codes = [code_contracts[item.owner_contract_id] for item in matched
+                             if item.owner_contract_id in code_contracts]
+            if external_output and (
+                    outcome not in contribution.target_output_ids
+                    or not matched or len(matched_codes) != len(matched)
+                    or any(item.implementation_owner_id != "model:" + normalize(contribution.logical_model_id)
+                           for item in matched)
+                    or any(outcome not in contract.external_outputs
+                           or row["target_id"] not in {*contract.implements_obligations, *contract.relation_code_obligation_ids}
+                           for contract in matched_codes)):
+                outcome_ok = False; gaps.add("outcome_declared_output_mapping_missing:" + outcome); continue
+            retained = ({row["target_id"]} if external_output
+                        else set(contribution.target_obligation_ids))
+            for binding in matched: retained.update(binding.model_obligation_ids)
+            for contract in material.get("code_contracts", ()):
+                if contract.code_contract_id in {binding.owner_contract_id for binding in matched}:
+                    retained.update(contract.relation_code_obligation_ids)
+                    retained.update(contract.implements_obligations)
+            obligations.update(retained)
+            def original_case_targets(binding):
+                # Native source cases and software function elements are
+                # different identities. Authenticate their callable through
+                # the declared code contract rather than renaming either.
+                targets = {target for item in matched
+                           for target in (item.model_element_id, *item.model_obligation_ids)}
+                if binding.blueprint_source_case_id in targets:
+                    return True
+                for case_id in binding.native_case_ids:
+                    contract = case_contracts.get((binding.owner_id, case_id))
+                    if contract is None:
+                        return False
+                    admitted = [item for item in matched
+                                if item.implementation_owner_id == binding.owner_id
+                                and item.owner_contract_id in code_contracts]
+                    if not any(contract.callable_ref == code_contracts[item.owner_contract_id].path
+                               + "#" + code_contracts[item.owner_contract_id].symbol
+                               and row["target_id"] in set(code_contracts[item.owner_contract_id].implements_obligations)
+                               | set(code_contracts[item.owner_contract_id].relation_code_obligation_ids)
+                               for item in admitted):
+                        return False
+                return bool(binding.native_case_ids)
+            if (not matched or len(matched) != len(binding_fps) or not native or len(native) != len(native_fps)
+                    or row["target_id"] not in {target for binding in matched for target in (binding.model_element_id, *binding.model_obligation_ids)}
+                    or any(not original_case_targets(binding) for binding in native)
+                    or (not external_output and not set(contribution.target_obligation_ids) <= {item for binding in matched for item in binding.model_obligation_ids})
+                    or any(binding.implementation_surface_id not in required_surfaces for binding in matched)
+                    or any(binding.owner_id not in {item.implementation_owner_id for item in matched} for binding in native)
+                    or (task_facts.implementation_requested and any(binding.evidence_scope != "implementation_boundary" for binding in native))
+                    or not set(contribution.target_relation_ids) <= {relation.get("relation_id") for relation in selected_read.relations}):
+                outcome_ok = False; gaps.add("outcome_implementation_native_binding_missing:" + outcome); continue
+            payload = {key: value for key, value in material.items() if key != "code_contracts"}
+            payload["native_bindings"] = tuple(native)
+            native_refs, absent = verify_architecture_native_case_refs(**payload, required_obligation_ids=tuple(sorted(retained)), read_context=read_context)
+            if absent or len(native_refs) != sum(len(binding.native_case_ids) for binding in native):
+                outcome_ok = False
+                for item in absent:
+                    gaps.add(item["kind"] + ":" + item["reference_id"])
+                    if item["next_owner_id"]: next_actions.add(item["next_owner_id"] + ":" + item["kind"] + ":" + item["reference_id"])
+        if not outcome_ok:
+            missing.add(outcome)
+            next_actions.add("outcome_binding:" + outcome)
+    if gaps:
+        missing.update(requested)
+    return {"requested_outcome_ids": sorted(requested),
+            "missing_outcome_ids": sorted(missing),
+            "required_obligation_ids": sorted(obligations),
+            "gap_ids": sorted(gaps), "next_actions": sorted(next_actions),
+            "ok": bool(requested) and not missing and not gaps}
+
+
+def derive_functional_understanding(*, task_facts, coverage_demand, maturation_report, verified_maturation, selected_read, current_effective_intent_view, binding_report, implementation_inventory, outcome_refs=(), native_materials=None, blueprint_summary=None, read_context=None):
+    """A task-local view of existing verified evidence, never a new authority."""
+    from .task_coverage_demand import TaskFacts
+    from .model_intent_authority import CurrentEffectiveIntentView
+    from .model_authority_store import SelectedModelClosureRead
+    from .model_maturation_receipt import VerifiedModelMaturation
+    from .implementation_inventory import ImplementationSurfaceInventory, review_implementation_surface_inventory
+    from .implementation_blueprint import ModelImplementationBindingReport, review_model_implementation_bindings
+    from .model_path_quality import verify_architecture_native_case_refs, _exact_object, _canonical_ids
+    required_types = ((task_facts, TaskFacts), (coverage_demand, TaskCoverageDemand), (maturation_report, ModelMaturationReport), (selected_read, SelectedModelClosureRead), (current_effective_intent_view, CurrentEffectiveIntentView), (binding_report, ModelImplementationBindingReport), (implementation_inventory, ImplementationSurfaceInventory))
+    if any(not isinstance(value, cls) for value, cls in required_types): raise TypeError("functional understanding requires current typed material")
+    gaps, next_actions = set(), set(maturation_report.next_actions)
+    report, view = maturation_report, current_effective_intent_view
+    if coverage_demand.task_id != task_facts.task_id or coverage_demand.task_fingerprint != task_facts.fingerprint:
+        gaps.add("task_coverage_demand_identity_mismatch")
+    if not coverage_demand.closed: gaps.add("task_coverage_demand_open")
+    if selected_read.authority_integrity not in {"pass", "pass_with_gaps"} or selected_read.selected_source_currentness != "current" or selected_read.stale_obligations:
+        gaps.add("selected_model_source_not_current")
+    architecture = selected_read.architecture or {}
+    if view.candidate_snapshot_fingerprint != selected_read.snapshot_fingerprint or architecture.get("effective_intent_view_fingerprint") != view.fingerprint:
+        gaps.add("selected_effective_intent_identity_mismatch")
+    selected = {str(row.get("logical_model_id", "")).removeprefix("model:"): row for row in selected_read.selected_models}
+    normalize = lambda value: value.removeprefix("model:")
+    if (normalize(report.model_id) not in selected or selected[normalize(report.model_id)].get("fingerprint") != report.candidate_model_fingerprint
+            or not {normalize(value) for value in report.required_path_quality_model_ids} <= {normalize(value) for value in selected_read.selected_model_ids}):
+        gaps.add("selected_candidate_identity_mismatch")
+    for subject in report.path_quality_subjects:
+        model = selected.get(normalize(subject.model_id))
+        if model is None or model.get("fingerprint") != subject.model_fingerprint or subject.intent_fingerprint != view.fingerprint or subject.currentness_id != selected_read.snapshot_fingerprint:
+            gaps.add("selected_path_quality_subject_identity_mismatch")
+    if architecture.get("observation_gap_ids") or architecture.get("improvement_gap_ids"):
+        gaps.add("required_architecture_goal_open")
+    repeated = review_model_implementation_bindings(implementation_inventory, required_model_element_ids=binding_report.required_model_element_ids, bindings=binding_report.bindings, semantic_specs=binding_report.semantic_specs, oracles=binding_report.oracles)
+    if not repeated.ok or repeated.fingerprint != binding_report.fingerprint or not review_implementation_surface_inventory(implementation_inventory).ok:
+        gaps.add("implementation_model_coverage_not_proven")
+    required_surfaces = set(binding_report.required_implementation_surface_ids)
+    if not set(task_facts.affected_surface_ids) <= required_surfaces:
+        gaps.add("task_surface_outside_independent_inventory")
+    verified = verified_maturation
+    verified_names = ("task_id", "model_id", "candidate_model_fingerprint", "coverage_demand_fingerprint", "coverage_universe_id", "coverage_universe_fingerprint", "input_fingerprint", "evidence_id", "evidence_fingerprint", "path_quality_result_set_fingerprint", "required_path_quality_model_ids", "owner_resolution_ids", "owner_resolution_fingerprints", "owner_resolution_owner_ids", "confidence")
+    # The receipt factory canonicalizes these independent identity inventories.
+    # Reports retain owner order; hash order does not express an owner mapping.
+    unordered_verified_names = {"owner_resolution_ids", "owner_resolution_fingerprints", "owner_resolution_owner_ids"}
+    if (not isinstance(verified, VerifiedModelMaturation) or not verified.current or not verified.eligible_for_full_claim or not verified.supports_full_confidence()
+            or any(getattr(verified, name) != (tuple(sorted(getattr(report, name))) if name in unordered_verified_names else getattr(report, name)) for name in verified_names)):
+        gaps.add("verified_maturation_current_receipt_missing_or_mismatched")
+    if (report.task_id != task_facts.task_id or report.coverage_demand_fingerprint != coverage_demand.fingerprint
+            or report.coverage_universe_id != coverage_demand.demand_id or set(report.owner_resolution_owner_ids) != set(coverage_demand.required_owner_ids)):
+        gaps.add("maturation_task_demand_owner_identity_mismatch")
+    if report.decision != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK or report.terminal_reason != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK or report.open_gap_fingerprints or not report.ok:
+        gaps.add("maturation_not_closed_for_task")
+    outcomes = review_functional_outcome_bindings(
+        task_facts=task_facts, selected_read=selected_read,
+        current_effective_intent_view=view, binding_report=binding_report,
+        implementation_inventory=implementation_inventory,
+        outcome_refs=outcome_refs, native_materials=native_materials, read_context=read_context)
+    requested = set(outcomes["requested_outcome_ids"])
+    missing = set(outcomes["missing_outcome_ids"])
+    obligations = set(outcomes["required_obligation_ids"])
+    gaps.update(outcomes["gap_ids"])
+    next_actions.update(outcomes["next_actions"])
+    admission_gaps = set(gaps)
+    if admission_gaps:
+        # Functional success includes the verified task/domain joins, even
+        # when individual target selectors happen to find their materials.
+        missing.update(requested)
+        for owner in coverage_demand.required_owner_ids:
+            next_actions.add(owner + ":" + sorted(admission_gaps)[0])
+    closed = bool(requested) and not missing and not gaps
+    return {"task_id": task_facts.task_id, "task_fingerprint": task_facts.fingerprint, "coverage_demand_fingerprint": coverage_demand.fingerprint,
+        "requested_outcome_ids": sorted(requested), "selected_model_ids": list(selected_read.selected_model_ids), "affected_surface_ids": list(task_facts.affected_surface_ids),
+        "required_obligation_ids": sorted(obligations), "required_owner_ids": list(coverage_demand.required_owner_ids),
+        "satisfied_outcome_ids": sorted(requested - missing), "missing_outcome_ids": sorted(missing), "next_actions": sorted(next_actions),
+        "stopping_disposition": (MODEL_MATURATION_DECISION_CLOSED_FOR_TASK if closed
+            else report.terminal_reason if report.terminal_reason in MODEL_MATURATION_TERMINAL_REASONS
+                and report.terminal_reason != MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+            else "needs_evidence"), "gap_ids": sorted(gaps),
+        # The optional summary is unverified metadata: this function has no
+        # canonical blueprint proof or currentness verification inputs.
+        "deepest_proven_layer": "unknown"}
 
 
 __all__ = [

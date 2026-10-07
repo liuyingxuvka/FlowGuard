@@ -7,6 +7,7 @@ CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Head
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Recommend an implementation structure from a FlowGuard functional model before production code is written.
 Guards against: monolithic implementation plans, unclear state ownership, mixed side effects, missing facades, and test boundaries that do not map back to the model.
+Architecture direction: compare only authenticated related contexts, retain hard semantic differences and partial remainders, and point to required goals not satisfied by actual observed behavior.
 Use before editing: Ask for this recommendation when a model-first feature needs a code architecture plan before implementation.
 Run: python .flowguard/verification/owners/code_structure_recommendation/run_checks.py
 """
@@ -127,6 +128,50 @@ By default the result is recommendation-only. Set
 `implementation_ready_requested=True` only when attaching the exact current
 `ImplementationAdmissionReport`; every target module id or path must remain
 inside that admission's allowed scope.
+
+First bind complete declared affected structure, honest graph scope and
+independent semantic/context evidence. Traces supply coverage only; scoped
+declarations do not establish whole-software confidence. Read goals from exact
+verified normative source bytes and admitted target ids; no goal creates no
+default centralization requirement. Preserve actual observed owners, rare
+not_run branches, disjoint legitimate variants and hard-semantic differences.
+
+Consume ModelMaturation's authenticated finite directions rather than
+performing another optimization. A shared target requires one real canonical
+primary plus exact current consumer delegation, not equal hashes on copies.
+Record observed identity, goal/element ids, candidate lane, hard differences,
+retained obligations, rewrites and exact native contract/binding/result/receipt
+refs. Consume matching accepted architecture.improvement_pointers; never infer
+native selectors or oracles from names. Partial context overlap permits only
+that overlap's candidate; retain each variant's remaining contexts. A temporary
+compromise requires current source, reason, context, impact and revisit trigger.
+It cannot waive a required goal; only current source supersession/refinement
+can change the requirement. Missing proof returns an exact input/next-owner ref.
+
+No ordinary task creates a default cost goal. Explicit cost_bound without
+independent measurement admission stays cost_measurement_missing; a scalar,
+semantic review or self-declared PathCostVector cannot satisfy it. Existing
+explicit finite path comparison is separate. Accepted observation never closes
+an unmet required improvement objective. No unrestricted optimum, implemented
+improvement or speed gain is implied.
+
+Return the requested function, accepted head/revision/as-of, actual dependency
+and required-goal scope, finding/pointer refs and first missing input/owner.
+Default to compact output with addressable details; preserve every required
+ref rather than hiding evidence to save bytes. Structure recommendations are
+not completion proof: only current verified maturation plus all required
+outcome/native evidence permits MODEL_MATURATION_DECISION_CLOSED_FOR_TASK
+(model_maturation_closed_for_task) in both decision and terminal reason.
+Missing external input, scope_excluded and iteration_limit remain non-success.
+Public read without typed task context reports only its accepted map.
+
+Three task-neutral examples:
+- Export-format change: map format, actual callers and compatibility contracts
+  only; unrelated modules are not implied obligations.
+- Shared-cache change: include all actual writers, invalidation and retry
+  boundaries before recommending shared ownership.
+- Explicit whole-architecture review: consume independently complete inventory
+  and reverse bindings; selected declarations are not whole-source proof.
 
 For field-heavy changes, every reader and writer should point to exactly one
 field owner. Old or replacement fields should stay visible here until

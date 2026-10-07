@@ -727,3 +727,18 @@ def export_contract_model():
         business_intent="Derive and verify a model-owned structural split while preserving facades, configuration, dependencies, and parity.",
         claim_boundary="Projection only; partition ownership, facade compatibility, cycle checks, and parity evidence remain native StructureMesh authority.",
     )
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='structure_refactor_mesh', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/structure_refactor_mesh/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/structure_refactor_mesh/model.py')},),
+        workflows=(build_workflow(),), invariants=INVARIANTS,
+    )

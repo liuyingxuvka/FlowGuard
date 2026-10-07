@@ -152,3 +152,18 @@ def run_inventory_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
 
 
 __all__ = ["cases", "run_inventory_review"]
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Project explicitly selected source contracts; run no check or review."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    root = Path(__file__).resolve().parents[4]
+    return compile_declared_path_quality_source(
+        model_id='runtime_gateway_adoption', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='native_check_contract',
+        source_refs=tuple({"path": path, "source_fingerprint": functional_source_fingerprint(root, path)} for path in ('.flowguard/models/owners/runtime_gateway_adoption/model.py',)),
+        declared_contracts={'state_surface': surface(), 'gateway': gateway(), 'cases': tuple(c.plan for c in cases())},
+    )

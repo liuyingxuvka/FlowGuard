@@ -405,6 +405,34 @@ def test_cancelled_or_interrupted_command_does_not_publish_receipt(
     assert result.verification is None
 
 
+@pytest.mark.parametrize("interrupted", (False, True))
+def test_authentic_cancelled_episode_cannot_publish_receipt(tmp_path, interrupted):
+    """Exercise the supervisor's own cancellation path before publication."""
+    import flowguard.process_supervision as supervision
+
+    class CancelAtObservation:
+        def is_set(self):
+            if interrupted:
+                raise KeyboardInterrupt
+            return True
+
+    command = (sys.executable, "-c", "import time; time.sleep(30)")
+    contract, current = _owner(tmp_path, command=command)
+    terminal = run_supervised(command, cwd=tmp_path, timeout_seconds=5,
+                              grace_seconds=0.05, cancel_event=CancelAtObservation())
+    assert supervision._is_authentic_supervised_result(terminal)
+    assert terminal.interrupted if interrupted else terminal.cancelled
+    assert terminal.cleanup_confirmed and not terminal.descendant_process_ids
+    assert not terminal.ok
+    receipt_root = tmp_path / "receipts"
+    result = publish_supervised_validation_owner_result(
+        current, terminal, tmp_path, receipt_root, all_contracts=(contract,),
+        child_id="child:supervised-owner", evidence_context={"subject": "current"},
+        summary="Actual cancelled contained episode", claim_boundary="Exact cancelled episode only.")
+    assert not result.ok and result.receipt is None and result.verification is None
+    assert not receipt_root.exists()
+
+
 def test_inputs_changed_during_execution_do_not_publish_receipt(tmp_path):
     contract, current = _owner(
         tmp_path,

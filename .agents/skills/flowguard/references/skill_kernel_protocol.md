@@ -1,5 +1,15 @@
 # FlowGuard Skill Kernel Protocol
 
+## Task understanding boundary
+
+A useful functional map joins current accepted structure, independently checked
+responsibility semantics, required goals, implementation bindings and actual
+observed results. It exposes temporary compromises and precise improvement
+gaps; faithful observation alone does not satisfy the required goals.
+Use the selected dependency closure and finite observed growth inputs. Unknown
+new implementation paths remain explicit gaps until current inventory/binding
+proof covers them. Do not substitute a default cost ceiling for this boundary.
+
 The `flowguard` Skill is the kernel entry, not a monolith. The kernel
 owns trigger selection, hard gates, route selection, and resource discovery.
 Detailed procedures live in sub-protocol references or in the selected domain
@@ -213,13 +223,33 @@ angles into one `ModelMaturationIntake`; it never requires unrelated routes for
 ceremony and never reinterprets native semantics. Model Maturation alone owns
 whether the exact task/candidate/coverage is sufficiently understood.
 
+For task-local functional understanding, use `derive_functional_understanding`
+with the same typed task/demand, accepted selected read, complete current
+intent, independent implementation bindings, admitted native materials and
+verifier-created `VerifiedModelMaturation`. The view does not execute checks
+or create authority. Return requested/satisfied/missing outcomes, exact owners
+and obligations, and the first current gap/next owner; whole intent identity
+and every required goal's full scope remain intact.
+
+Stop only when the report decision and terminal reason are the existing
+`MODEL_MATURATION_DECISION_CLOSED_FOR_TASK` (actual value
+`model_maturation_closed_for_task`), verified evidence is current, all required
+outcomes are proved and no required open gap remains. Human text may abbreviate
+this as closed_for_task; code never compares that abbreviation. `scope_excluded`,
+`iteration_limit`, a constructed report or missing external input is non-success.
+No task context means no functional-completion projection in public `read`.
+FULL selected understanding is complete within its actual dependency closure,
+not proof of unrelated functions or a reason to materialize a whole blueprint.
+No default cost goal or launcher budget defines sufficient understanding.
+
 If implementation is requested, DevelopmentProcessFlow consumes that exact
-evidence and returns the independent admission result. User permission may
-produce only an exact bounded `ready_scoped` result while open gaps remain; it
-does not change the maturation decision. Read-only work is
-`no_code_requested`. Missing/stale identity, scope expansion, unavailable real
-toolchain, destructive-boundary uncertainty, or active ownership conflict
-blocks admission.
+evidence and returns the independent admission result. Direct user choice is
+recorded as `not_requested` with `direct`; it is not model-first readiness and
+does not close open gaps. A `ready` result still requires closed-for-task full
+confidence with no open gaps. Read-only work is `no_code_requested`.
+Missing/stale identity, scope expansion, unavailable real toolchain,
+destructive-boundary uncertainty, or active ownership conflict blocks
+admission.
 
 ## Target-neutral Blueprint Contract
 

@@ -582,3 +582,18 @@ def export_contract_model():
 
 
 __all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='default_replacement_field_lifecycle', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/default_replacement_field_lifecycle/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/default_replacement_field_lifecycle/model.py')},),
+        workflows=(build_correct_workflow(),), invariants=INVARIANTS,
+    )

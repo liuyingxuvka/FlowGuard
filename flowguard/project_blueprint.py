@@ -2221,32 +2221,29 @@ def _owner_surface_contracts(
     primary_good_cases = tuple(
         case for case in good_cases if not case.protected_failure_ids
     )
-    preservation_good_cases = tuple(
-        case for case in good_cases if case.protected_failure_ids
-    )
     boundary_cases = tuple(
         case for case in declared_cases if case.case_kind == "boundary"
     )
-    bad_cases = tuple(case for case in declared_cases if case.case_kind == "bad")
+    unprotected_boundary_cases = tuple(
+        case for case in boundary_cases if not case.protected_failure_ids
+    )
     bound_failures = set(portable_binding.protected_failure_ids)
-    bad_case_failures = {
+    # Declared native variants may share a failure, preserve it in a good
+    # case, or exercise it at a boundary. Their exact identities stay intact;
+    # coverage is a block-local set, not a one-case-per-failure cardinality.
+    case_failures = {
         failure_id
-        for case in bad_cases
+        for case in declared_cases
         for failure_id in case.protected_failure_ids
     }
-    preserved_case_failures = {
-        failure_id
-        for case in preservation_good_cases
-        for failure_id in case.protected_failure_ids
-    }
-    case_failures = bad_case_failures | preserved_case_failures
     if (
-        len(primary_good_cases) != 1
-        or len(boundary_cases) != 1
-        or len(bad_cases) != len(bound_failures - preserved_case_failures)
+        not primary_good_cases
+        or not unprotected_boundary_cases
         or case_failures != bound_failures
         or any(
-            set(case.protected_failure_ids) - bound_failures
+            case.case_kind not in {"good", "bad", "boundary"}
+            or (case.case_kind == "bad" and not case.protected_failure_ids)
+            or set(case.protected_failure_ids) - bound_failures
             for case in declared_cases
         )
     ):

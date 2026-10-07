@@ -865,6 +865,52 @@ class AuthorProjectionSyncTests(AuthorSyncFixture):
         self.assertTrue(any("/.skillguard/" in path for path in source_paths))
         self.assertFalse(any("/.skillguard/" in path for path in installed_paths))
 
+    def test_author_parity_excludes_requests_but_keeps_contract_identity(self) -> None:
+        report = author_sync_skill_suite(self.source, self.target)
+        self.assertTrue(report.ok, report.to_dict())
+        member = self.members[0]
+        directory = self.source / member / ".skillguard" / "runtime-requests" / "full-author-assurance"
+        directory.mkdir(parents=True)
+        for operation in ("change", "read", "release"):
+            (directory / (operation + ".json")).write_text(
+                json.dumps({"operation": operation, "author_state_root": "private-state"}),
+                encoding="utf-8",
+            )
+        roots = {"source": self.source, "shadow": self.target}
+        roles = {"source": PARITY_ROLE_AUTHOR_SOURCE, "shadow": PARITY_ROLE_AUTHOR_SOURCE}
+        parity = compare_configured_skill_trees(roots, root_roles=roles, member_ids=self.members)
+        self.assertTrue(parity.ok, parity.to_dict())
+        excluded = {row.relative_path: row.rule_id for row in parity.inventories["source"].excluded_files}
+        expected = {f"{member}/.skillguard/runtime-requests/full-author-assurance/{operation}.json" for operation in ("change", "read", "release")}
+        self.assertTrue(expected <= set(excluded))
+        self.assertTrue(all(excluded[path] == "author_runtime_requests" for path in expected))
+        self.assertTrue(all((self.source / path).is_file() and not (self.target / path).exists() for path in expected))
+        contract = self.source / member / ".skillguard" / "compiled-contract.json"
+        contract.write_text(json.dumps({"member": member, "artifact": "changed-contract"}), encoding="utf-8")
+        parity = compare_configured_skill_trees(roots, root_roles=roles, member_ids=self.members)
+        self.assertFalse(parity.ok)
+        self.assertEqual((f"{member}/.skillguard/compiled-contract.json",), parity.comparisons["shadow"].raw_mismatches)
+
+    def test_parity_summary_retains_real_missing_and_contract_drift(self) -> None:
+        from scripts.install_flowguard_skills import _summary_payload
+        report = author_sync_skill_suite(self.source, self.target)
+        self.assertTrue(report.ok, report.to_dict())
+        member = self.members[0]
+        (self.target / member / ".skillguard" / "check-manifest.json").unlink()
+        (self.target / member / ".skillguard" / "compiled-contract.json").write_text("{}", encoding="utf-8")
+        parity = compare_configured_skill_trees(
+            {"source": self.source, "shadow": self.target}, member_ids=self.members,
+            root_roles={"source": PARITY_ROLE_AUTHOR_SOURCE, "shadow": PARITY_ROLE_AUTHOR_SOURCE},
+        )
+        summary = _summary_payload(parity.to_dict())
+        self.assertFalse(summary["ok"])
+        issues = {(row["comparison"], row["field"], row["relative_path"]) for row in summary["issues"]}
+        self.assertIn(("shadow", "missing_files", f"{member}/.skillguard/check-manifest.json"), issues)
+        self.assertIn(("shadow", "raw_mismatches", f"{member}/.skillguard/compiled-contract.json"), issues)
+        self.assertIn(("shadow", "semantic_mismatches", f"{member}/.skillguard/compiled-contract.json"), issues)
+        self.assertEqual(0, summary["truncated_count"])
+        self.assertEqual(parity.to_dict()["claim_boundary"], summary["claim_boundary"])
+
     def test_cli_exposes_explicit_author_sync_dry_run(self) -> None:
         before = self.snapshot()
         result = subprocess.run(
@@ -1023,6 +1069,38 @@ class ConsumerSuiteAuthorityTests(unittest.TestCase):
         payload = json.loads(result.stdout)
         self.assertTrue(payload["ok"], payload)
         self.assertFalse(payload["changed"])
+
+
+@pytest.mark.parametrize("field", ("missing_files", "extra_files", "raw_mismatches", "semantic_mismatches", "missing_members", "unsafe_paths"))
+def test_parity_summary_reports_each_formal_difference_field(field: str) -> None:
+    from flowguard.distribution_sync import TreeParity, ConfiguredParityReport
+    from scripts.install_flowguard_skills import _summary_payload
+    difference = TreeParity(
+        reference="source", candidate="shadow",
+        **{name: ("flowguard/actual-difference",) if name == field else () for name in (
+            "missing_files", "extra_files", "raw_mismatches", "semantic_mismatches", "missing_members", "unsafe_paths",
+        )},
+    )
+    payload = ConfiguredParityReport("source", {"source": PARITY_ROLE_AUTHOR_SOURCE, "shadow": PARITY_ROLE_AUTHOR_SOURCE}, {}, {"shadow": difference}).to_dict()
+    summary = _summary_payload(payload)
+    assert summary["issues"] == [{"source": "comparisons", "comparison": "shadow", "field": field, "index": 0, "code": "parity_" + field, "message": "shadow: " + field, "relative_path": "flowguard/actual-difference"}]
+    assert summary["ok"] == payload["ok"]  # A semantic-only difference remains diagnostic; raw equality still decides parity.
+
+
+def test_parity_summary_exposes_zero_coverage_and_bounded_truncation() -> None:
+    from flowguard.distribution_sync import TreeParity, ConfiguredParityReport
+    from scripts.install_flowguard_skills import _summary_payload
+    empty = ConfiguredParityReport("source", {"source": PARITY_ROLE_AUTHOR_SOURCE}, {}, {}).to_dict()
+    summary = _summary_payload(empty)
+    assert summary["ok"] is False
+    assert summary["issues"][0]["code"] == "parity_comparisons_missing"
+    difference = TreeParity(reference="source", candidate="shadow", missing_files=tuple(f"flowguard/missing-{n}" for n in range(12)), extra_files=(), raw_mismatches=(), semantic_mismatches=(), missing_members=(), unsafe_paths=())
+    payload = ConfiguredParityReport("source", {"source": PARITY_ROLE_AUTHOR_SOURCE, "shadow": PARITY_ROLE_AUTHOR_SOURCE}, {}, {"shadow": difference}).to_dict()
+    summary = _summary_payload(payload, full_report_path="retained-full-report.json")
+    assert len(summary["issues"]) == 10
+    assert summary["truncated_count"] == 2
+    assert [row["relative_path"] for row in summary["issues"]] == list(difference.missing_files[:10])
+    assert summary["full_report_path"] == "retained-full-report.json"
 
 
 if __name__ == "__main__":

@@ -334,3 +334,18 @@ if __name__ == "__main__":
     report = run_review()
     print(report.format_text())
     raise SystemExit(0 if report.ok else 1)
+
+
+def export_path_quality_source(model_instance_fingerprint: str):
+    """Export the complete declared model scope without executing its checks."""
+    from pathlib import Path
+    from flowguard.model_path_quality import compile_declared_path_quality_source
+    from flowguard.source_identity import functional_source_fingerprint
+
+    return compile_declared_path_quality_source(
+        model_id='mesh_target_split_derivation', model_instance_fingerprint=model_instance_fingerprint,
+        graph_scope='model_behavior',
+        source_refs=({"path": '.flowguard/models/owners/mesh_target_split_derivation/model.py',
+                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/mesh_target_split_derivation/model.py')},),
+        workflows=(build_workflow(),), invariants=INVARIANTS,
+    )

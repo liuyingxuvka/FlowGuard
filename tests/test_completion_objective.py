@@ -48,6 +48,59 @@ def test_objective_changes_when_reviewed_artifact_changes(tmp_path: Path):
     assert second.fingerprint != first.fingerprint
 
 
+def _archive(change: Path, day: str = "2026-09-28") -> Path:
+    archive = change.parent / "archive"
+    archive.mkdir(exist_ok=True)
+    return change.rename(archive / f"{day}-{change.name}")
+
+
+def test_archive_keeps_original_identity_and_task_progress(tmp_path: Path):
+    change = _write_change(tmp_path)
+    before = resolve_completion_objective(tmp_path, change.name)
+    archived = _archive(change)
+    (archived / "tasks.md").write_text("- [x] done\n", encoding="utf-8")
+    assert resolve_completion_objective(tmp_path, change.name) == before
+    (archived / "design.md").write_text("Changed reviewed behavior\n", encoding="utf-8")
+    assert resolve_completion_objective(tmp_path, change.name).fingerprint != before.fingerprint
+
+
+@pytest.mark.parametrize("duplicate_active", [True, False])
+def test_duplicate_archive_identity_is_rejected(tmp_path: Path, duplicate_active: bool):
+    change = _write_change(tmp_path)
+    _archive(change)
+    second = _write_change(tmp_path)
+    if not duplicate_active:
+        _archive(second, "2026-09-29")
+    expected = "completion_objective_duplicate_identity" if duplicate_active else "completion_objective_ambiguous_archive"
+    with pytest.raises(CompletionObjectiveError) as error:
+        resolve_completion_objective(tmp_path, change.name)
+    assert error.value.code == expected
+
+
+@pytest.mark.parametrize("name", [
+    "2026-09-28-other-demo-objective", "2026-09-28-demo-objective-extra",
+    "2026-02-30-demo-objective", "demo-objective", "2026-9-28-demo-objective",
+])
+def test_archive_requires_exact_name_and_real_date(tmp_path: Path, name: str):
+    archive = tmp_path / "openspec" / "changes" / "archive"
+    (archive / name).mkdir(parents=True)
+    with pytest.raises(CompletionObjectiveError) as error:
+        resolve_completion_objective(tmp_path, "demo-objective")
+    assert error.value.code == "completion_objective_unknown"
+
+
+@pytest.mark.parametrize("reparse_archive", [True, False])
+def test_archive_and_candidate_reparse_points_are_rejected(tmp_path: Path, monkeypatch, reparse_archive: bool):
+    from flowguard import completion_objective as module
+    archived = _archive(_write_change(tmp_path))
+    forbidden = archived.parent if reparse_archive else archived
+    original = module._is_reparse_point
+    monkeypatch.setattr(module, "_is_reparse_point", lambda path: path == forbidden or original(path))
+    with pytest.raises(CompletionObjectiveError) as error:
+        resolve_completion_objective(tmp_path, "demo-objective")
+    assert error.value.code == ("completion_objective_invalid_archive" if reparse_archive else "completion_objective_invalid_root")
+
+
 @pytest.mark.parametrize(
     ("name", "code"),
     (

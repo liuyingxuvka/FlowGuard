@@ -10,6 +10,11 @@ import re
 import tomllib
 from typing import Any, Mapping
 
+from .reverse_surface_map_identity import (
+    IMPLEMENTATION_SURFACE_MAP_PATH,
+    load_current_reverse_surface_map_model_input_projection,
+    require_regular_implementation_surface_map,
+)
 from .runtime_artifacts import classify_runtime_artifact
 
 
@@ -106,7 +111,11 @@ def functional_source_payload(root: str | Path, relative_path: str) -> Any:
     if not normalized or PurePosixPath(normalized).is_absolute() or ".." in PurePosixPath(normalized).parts:
         raise ValueError(f"functional source path must be repository-relative: {relative_path!r}")
     normalized = assert_current_source_path(normalized)
-    path = Path(root).resolve() / normalized
+    root_path = Path(root).resolve()
+    if normalized == IMPLEMENTATION_SURFACE_MAP_PATH:
+        require_regular_implementation_surface_map(root_path)
+        return load_current_reverse_surface_map_model_input_projection(root_path)
+    path = root_path / normalized
     if not path.is_file():
         raise ValueError(f"functional source path is missing: {normalized}")
     if normalized == ".flowguard/project.toml":
@@ -150,6 +159,30 @@ def functional_source_fingerprint(root: str | Path, relative_path: str) -> str:
             separators=(",", ":"),
         ).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
+
+
+def model_input_fingerprint(root: str | Path, relative_path: str) -> str:
+    """Return the model-input identity for one exact repository path.
+
+    Model inventories retain raw canonical-file identity for ordinary inputs.
+    The reverse-surface map is the one explicit exception: its integrity is
+    verified over the complete authored artifact, while model freshness uses
+    the stable semantic projection that omits generated currentness joins.
+    """
+
+    normalized = str(relative_path or "").replace("\\", "/")
+    if not normalized or PurePosixPath(normalized).is_absolute() or ".." in PurePosixPath(normalized).parts:
+        raise ValueError(f"model input path must be repository-relative: {relative_path!r}")
+    root_path = Path(root).resolve()
+    if normalized == IMPLEMENTATION_SURFACE_MAP_PATH:
+        require_regular_implementation_surface_map(root_path)
+        return functional_source_fingerprint(root_path, normalized)
+    path = (root_path / normalized).resolve()
+    if root_path not in path.parents:
+        raise ValueError(f"model input path escapes repository: {relative_path!r}")
+    if not path.is_file():
+        raise ValueError(f"model input path is missing: {normalized}")
+    return source_file_fingerprint(path)
 
 
 def canonical_source_bytes(path: str | Path) -> bytes:
@@ -208,5 +241,6 @@ __all__ = [
     "canonical_source_bytes",
     "functional_source_fingerprint",
     "functional_source_payload",
+    "model_input_fingerprint",
     "source_file_fingerprint",
 ]

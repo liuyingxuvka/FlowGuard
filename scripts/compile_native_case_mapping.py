@@ -19,7 +19,6 @@ from typing import Any, Iterable, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIT_ROOT = ROOT.parent / "Codex" / "2026-09-01" / "flowguard-b" / "FlowGuard-audit-20260904"
 CATALOG_NAME = "owner-case-catalog.json"
 SCENARIO_NAME = "MAPPING_SCENARIO.md"
 FORMAL_NAME = "MAPPING_FORMAL.md"
@@ -182,8 +181,23 @@ def _sections(lines: Sequence[str], pattern: re.Pattern[str]) -> dict[str, list[
 
 
 def _read_json(path: Path) -> Mapping[str, Any]:
+    def reject_pairs(pairs: Sequence[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise CompileError(f"duplicate JSON source key: {key}")
+            value[key] = item
+        return value
+
+    def reject_constant(value: str) -> None:
+        raise CompileError(f"non-finite JSON source value: {value}")
+
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(
+            path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_pairs,
+            parse_constant=reject_constant,
+        )
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         raise CompileError(f"cannot read JSON source {path}: {exc}") from exc
     if not isinstance(payload, Mapping):
@@ -760,6 +774,8 @@ def _surface_ids(root: Path) -> dict[str, str]:
         path_text, sep, symbol = surface_key.partition("#")
         if not sep:
             raise CompileError(f"surface_key lacks symbol separator: {surface_key}")
+        if owner in result:
+            raise CompileError(f"duplicate blueprint composite owner: {owner}")
         result[owner] = implementation_surface_id(path_text, symbol, "module")
     return result
 
@@ -778,7 +794,9 @@ def _producer_override_bindings(path: Path, binding_type: Any) -> tuple[Any, ...
     if path.is_symlink() or not path.is_file():
         raise CompileError(f"producer override source is missing or a symlink: {path}")
     payload = _read_json(path)
-    if payload.get("schema_version") != "flowguard.native_case_producer_overrides.v1":
+    if set(payload) != {"schema_version", "bindings", "composite_owner_declarations"}:
+        raise CompileError("producer override source fields must exactly match current v2")
+    if payload.get("schema_version") != "flowguard.native_case_producer_overrides.v2":
         raise CompileError("producer override schema is not current")
     raw_bindings = payload.get("bindings")
     if not isinstance(raw_bindings, list) or not raw_bindings:
@@ -816,6 +834,35 @@ def _producer_override_bindings(path: Path, binding_type: Any) -> tuple[Any, ...
     return tuple(result)
 
 
+def _validate_current_producer_extensions(
+    root: Path,
+    manifest: Mapping[str, Any],
+    catalog_owner_ids: set[str],
+    surface_owner_ids: set[str],
+    source: Mapping[str, Any],
+    bindings: Sequence[Any],
+) -> None:
+    from flowguard.self_blueprint import (
+        FlowGuardSelfBlueprintError,
+        _validate_current_native_producer_declarations,
+    )
+
+    try:
+        _validate_current_native_producer_declarations(
+            root, manifest, catalog_owner_ids, surface_owner_ids, source, bindings,
+        )
+        definition = _read_json(root / ".flowguard/models/owners/authoritative_model_system/software_blueprint_definition.json")
+        contracts = definition.get("composite_behavior_contracts")
+        if not isinstance(contracts, list) or any(not isinstance(row, Mapping) for row in contracts):
+            raise CompileError("current composite Source contracts are missing")
+        keys = {row.get("owner_id"): row.get("surface_key") for row in contracts}
+        if len(keys) != len(contracts) or set(keys) != surface_owner_ids:
+            raise CompileError("current composite Source owners are missing or ambiguous")
+        if any(keys.get(row["model_id"]) != row["composite_surface_key"] for row in source["composite_owner_declarations"]):
+            raise CompileError("current composite declaration surface does not match blueprint Source")
+    except FlowGuardSelfBlueprintError as exc:
+        raise CompileError(str(exc)) from exc
+
 def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
     # Import the package from the requested source root, not from a similarly
     # named checkout.  This keeps the compiler's identity tied to the target.
@@ -827,8 +874,6 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
     custom = _custom_mappings(audit_root / CUSTOM_NAME, catalog)
     benchmark = _benchmark_mappings(audit_root / BENCHMARK_NAME, catalog)
     surface_ids = _surface_ids(root)
-    if set(surface_ids) != set(catalog):
-        raise CompileError("blueprint composite surface inventory does not match catalog owners")
 
     manifest = root / ".flowguard" / "models" / "regression-manifest.json"
     if manifest.is_symlink() or not manifest.is_file():
@@ -845,16 +890,15 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
     source_manifest_fingerprint = source_file_fingerprint(manifest)
     producer_override_path = root / ".flowguard" / "models" / PRODUCER_OVERRIDES_NAME
     producer_overrides = _producer_override_bindings(producer_override_path, NativeCaseBinding)
+    _validate_current_producer_extensions(
+        root, _read_json(manifest), set(catalog), set(surface_ids),
+        _read_json(producer_override_path), producer_overrides,
+    )
     source_paths = tuple(
         item.replace("\\", "/")
         for item in (
             ".flowguard/models/regression-manifest.json",
             ".flowguard/models/" + PRODUCER_OVERRIDES_NAME,
-            str((audit_root / CATALOG_NAME).resolve()),
-            str((audit_root / SCENARIO_NAME).resolve()),
-            str((audit_root / FORMAL_NAME).resolve()),
-            str((audit_root / CUSTOM_NAME).resolve()),
-            str((audit_root / BENCHMARK_NAME).resolve()),
             ".flowguard/models/owners/authoritative_model_system/software_blueprint_definition.json",
         )
     )
@@ -985,6 +1029,33 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
         )
     )
 
+    # Overrides are genuine leaves of the same owner episode.  Close each
+    # existing aggregate after all leaves have been admitted, including
+    # independent boundary leaves.  Diagnostics never become obligations.
+    from dataclasses import replace
+
+    aggregate_by_owner: dict[str, Any] = {}
+    leaves_by_owner: dict[str, set[str]] = {}
+    for binding in bindings_without_fp:
+        if binding.required_child_case_ids:
+            if binding.case_kind != "boundary" or binding.owner_id in aggregate_by_owner:
+                raise CompileError(f"owner requires one boundary aggregate: {binding.owner_id}")
+            aggregate_by_owner[binding.owner_id] = binding
+        else:
+            leaves_by_owner.setdefault(binding.owner_id, set()).update(binding.native_case_ids)
+    if set(aggregate_by_owner) != set(leaves_by_owner):
+        raise CompileError("aggregate owner set does not match declared leaf owner set")
+    diagnostic_ids = set(diagnostic_native_case_ids)
+    rebuilt = []
+    for binding in bindings_without_fp:
+        if binding.required_child_case_ids:
+            children = tuple(sorted(leaves_by_owner[binding.owner_id]))
+            if not children or diagnostic_ids.intersection(children):
+                raise CompileError(f"invalid aggregate child closure: {binding.owner_id}")
+            binding = replace(binding, required_child_case_ids=children)
+        rebuilt.append(binding)
+    bindings_without_fp = rebuilt
+
     mapping_fp = compute_native_case_mapping_fingerprint(
         source_manifest_fingerprint=source_manifest_fingerprint,
         source_paths=source_paths,
@@ -1031,7 +1102,7 @@ def compile_registry(root: Path, audit_root: Path) -> Mapping[str, Any]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=ROOT)
-    parser.add_argument("--audit-root", type=Path, default=AUDIT_ROOT)
+    parser.add_argument("--audit-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=None)
     args = parser.parse_args(argv)
     root = args.root.expanduser().resolve()

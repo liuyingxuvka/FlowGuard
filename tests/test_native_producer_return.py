@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -14,6 +15,9 @@ from flowguard.__main__ import (
 )
 from flowguard.native_case_mapping import load_native_case_mapping
 from flowguard.native_case_runner import native_main
+from flowguard.native_case_protocol import (
+    NativeModelCaseResult, load_native_model_case_results, verify_native_case_bindings,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,7 +60,20 @@ def test_stdout_json_is_not_strict_native_evidence(tmp_path, monkeypatch, capsys
 def test_current_native_mapping_contains_all_override_bindings():
     registry = load_native_case_mapping(ROOT)
 
-    assert len(registry.bindings) == 371
+    declarations = json.loads((ROOT / ".flowguard/models/native-case-producer-overrides.json").read_text())
+    actual = {(row.owner_id, row.blueprint_case_id): row for row in registry.bindings}
+    assert len(actual) == len(registry.bindings)
+    for declared in declarations["bindings"]:
+        binding = actual[(declared["owner_id"], declared["blueprint_case_id"])]
+        assert set(binding.native_case_ids) == set(declared["native_case_ids"])
+        assert set(binding.protected_failure_ids) == set(declared["protected_failure_ids"])
+        assert set(binding.expected_finding_codes) == set(declared["expected_finding_codes"])
+    # Producer extensions declare new obligations independently of the
+    # registry's incidental total; an omitted extension leaf must fail.
+    for declaration in declarations["composite_owner_declarations"]:
+        rows = registry.bindings_by_owner["model:" + declaration["model_id"]]
+        actual_native_ids = {case for row in rows for case in row.native_case_ids}
+        assert set(declaration["native_leaf_case_ids"]) <= actual_native_ids
     assert ".flowguard/models/native-case-producer-overrides.json" in registry.source_paths
     for owner_id in STRICT_OWNERS:
         owner_rows = registry.bindings_by_owner[f"model:{owner_id}"]
@@ -75,11 +92,13 @@ def _path_quality_fixtures(tmp_path: Path):
         inputs=(),
     )
     candidate = SimpleNamespace(model_instances=(instance,), fingerprint=fingerprint)
-    return fingerprint, candidate
+    from tests.test_model_authority import detached_current_intent_view
+    intent = detached_current_intent_view(candidate.fingerprint, "alpha")
+    return fingerprint, candidate, intent
 
 
 def test_path_quality_rejects_missing_native_artifact_before_graph_projection(tmp_path):
-    fingerprint, candidate = _path_quality_fixtures(tmp_path)
+    fingerprint, candidate, intent = _path_quality_fixtures(tmp_path)
     row = SimpleNamespace(
         source_case_id="native-scenario:alpha:good",
         child_case_ids=(),
@@ -94,17 +113,18 @@ def test_path_quality_rejects_missing_native_artifact_before_graph_projection(tm
         native_case_result_artifact_fingerprint=fingerprint,
     )
 
-    with pytest.raises(ValueError, match="native result artifact is missing"):
+    with pytest.raises(ValueError, match="path-quality native result missing: alpha"):
         _native_path_quality_material(
             SimpleNamespace(results=(run,)),
             candidate,
             required_model_ids=("alpha",),
             currentness_id=fingerprint,
+            effective_intent_view=intent,
         )
 
 
-def test_synthetic_native_case_row_cannot_license_path_quality(tmp_path):
-    fingerprint, candidate = _path_quality_fixtures(tmp_path)
+def test_synthetic_native_case_row_without_declaration_cannot_license_path_quality(tmp_path):
+    fingerprint, candidate, intent = _path_quality_fixtures(tmp_path)
     native_result_path = tmp_path / "native-case-results.json"
     native_result_path.write_text("{}", encoding="utf-8")
     source_path = tmp_path / "native-source.json"
@@ -136,12 +156,13 @@ def test_synthetic_native_case_row_cannot_license_path_quality(tmp_path):
         ),
     )
 
-    with pytest.raises(ValueError, match="no real executed graph"):
+    with pytest.raises(ValueError, match="declared_source_missing:alpha"):
         _native_path_quality_material(
             SimpleNamespace(results=(run,)),
             candidate,
             required_model_ids=("alpha",),
             currentness_id=fingerprint,
+            effective_intent_view=intent,
         )
 
 
@@ -308,3 +329,87 @@ def test_release_direct_leaf_rejects_native_artifact_hash_mismatch(
     )
 
     assert "release.native_leaf_native_artifact_hash_mismatch:model:alpha" in blockers
+
+
+# These two tests execute only the named finite owner functions in temporary
+# output roots. They do not qualify the repository54 inventory or launch a
+# validation-owner/full process.
+def _load_exact_native_owner_runner(monkeypatch, owner):
+    import importlib.util
+    import sys
+    root = Path(__file__).resolve().parents[1]
+    model_path = root / ".flowguard/models/owners" / owner / "model.py"
+    model_spec = importlib.util.spec_from_file_location("model", model_path)
+    model_module = importlib.util.module_from_spec(model_spec)
+    monkeypatch.setitem(sys.modules, "model", model_module)
+    model_spec.loader.exec_module(model_module)
+    runner_path = root / ".flowguard/verification/owners" / owner / "run_checks.py"
+    runner_spec = importlib.util.spec_from_file_location("finite_native_" + owner, runner_path)
+    runner = importlib.util.module_from_spec(runner_spec)
+    monkeypatch.setitem(sys.modules, runner_spec.name, runner)
+    runner_spec.loader.exec_module(runner)
+    return root, runner
+
+
+def test_corpus_owner_captures_real_structured_review_once(tmp_path, monkeypatch, capsys):
+    from flowguard.native_case_runner import native_main
+    from flowguard.native_case_mapping import load_native_case_mapping
+    root, runner = _load_exact_native_owner_runner(monkeypatch, "problem_corpus_coverage")
+    calls = []
+    actual_review = runner.run_review
+    def counted_review():
+        calls.append("actual-corpus")
+        return actual_review()
+    monkeypatch.setattr(runner, "run_review", counted_review)
+    monkeypatch.setenv("FLOWGUARD_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setenv("FLOWGUARD_PROJECT_ROOT", str(root))
+    assert native_main("model:problem_corpus_coverage", runner.main) == 0
+    capsys.readouterr()
+    assert calls == ["actual-corpus"]
+    raw = json.loads((tmp_path / "native-source.json").read_text())
+    assert len(raw["structured_reports"]) == 1
+    payload = json.loads((tmp_path / "native-case-results.json").read_text())
+    rows = load_native_model_case_results(tmp_path / "native-case-results.json")
+    bindings = load_native_case_mapping(root).bindings_by_owner["model:problem_corpus_coverage"]
+    verified = verify_native_case_bindings(bindings, rows)
+    assert verified.ok, verified.to_dict()
+    leaves = {row.source_case_id: row for row in rows}
+    assert leaves["case:problem_corpus_coverage:corpus_actual_baseline"].observed_status == "ok"
+    for failure in runner.model.PROTECTED_FAILURES:
+        row = leaves["case:problem_corpus_coverage:" + failure]
+        assert row.observed_status == "blocked"
+        assert failure in row.observed_finding_codes
+
+
+def test_producer_counterexamples_keep_exact_protected_ids_and_missing_id_blocks(tmp_path, monkeypatch, capsys):
+    from flowguard.native_case_runner import native_main
+    from flowguard.native_case_mapping import load_native_case_mapping
+    root, runner = _load_exact_native_owner_runner(monkeypatch, "development_process_flow")
+    monkeypatch.setenv("FLOWGUARD_OUTPUT_DIR", str(tmp_path))
+    monkeypatch.setenv("FLOWGUARD_PROJECT_ROOT", str(root))
+    # Exercise actual finite scenarios, without the separate nested pytest
+    # implementation producer owned by the model's complete native entry.
+    def episode_only():
+        return 0 if runner.run_producer_episode_model() else 1
+    assert native_main("model:development_process_flow", episode_only) == 0
+    capsys.readouterr()
+    payload = json.loads((tmp_path / "native-case-results.json").read_text())
+    wanted = {"case:development_process_flow:broken_producer_" + case_id: failure_id
+              for case_id, failure_id, _sequence in runner.model.PRODUCER_FAILURE_CASES}
+    rows = tuple(row for row in load_native_model_case_results(tmp_path / "native-case-results.json")
+                 if row.source_case_id in wanted)
+    assert len(rows) == len(wanted) == 8
+    for row in rows:
+        assert row.outcome == "pass" and row.observed_status == "violation"
+        assert wanted[row.source_case_id] in row.observed_finding_codes
+        assert "producer_exact_reservation_order_and_terminal" in row.observed_finding_codes
+    bindings = tuple(binding for binding in load_native_case_mapping(root).bindings_by_owner[
+        "model:development_process_flow"] if set(binding.native_case_ids) <= set(wanted))
+    assert len(bindings) == 8
+    verified = verify_native_case_bindings(bindings, rows)
+    assert verified.ok, verified.to_dict()
+    damaged = replace(rows[0], observed_finding_codes=tuple(
+        code for code in rows[0].observed_finding_codes if code != wanted[rows[0].source_case_id]))
+    rejected = verify_native_case_bindings(bindings, (damaged, *rows[1:]))
+    assert not rejected.ok
+    assert any(code.startswith("binding_protected_failure_missing:") for code in rejected.findings)

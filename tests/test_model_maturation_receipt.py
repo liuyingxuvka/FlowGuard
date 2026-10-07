@@ -520,3 +520,18 @@ class ModelMaturationReceiptTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_observation_acceptance_is_not_required_architecture_closure():
+    import pytest
+    fixture = ModelMaturationReceiptTests()
+    fixture.setUp()
+    result = fixture.report.path_quality_results[0]
+    gap = "required_architecture_objective_unmet:objective:fixture:service-layer-writer"
+    changed = replace(result, finding_ids=(gap,), unresolved_ids=(gap,), conclusion="unresolved")
+    assert not changed.observation_gap_ids
+    assert changed.improvement_gap_ids == (gap,)
+    report = replace(fixture.report, path_quality_results=(changed,), path_quality_result_fingerprints=(), path_quality_result_set_fingerprint="")
+    assert report.path_quality_improvement_gap_ids == (gap,)
+    with pytest.raises(ValueError, match="path-quality"):
+        build_model_maturation_receipt(report, fixture.publication)

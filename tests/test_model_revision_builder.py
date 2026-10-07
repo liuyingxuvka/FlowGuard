@@ -22,10 +22,13 @@ from flowguard.model_authority_store import (
 )
 from flowguard.model_intent import (
     ModelIntentContribution,
+    verify_model_intent_sources,
 )
 from flowguard.model_intent_authority import (
+    bootstrap_current_effective_intent_view,
     build_current_intent_bootstrap_receipt,
 )
+from flowguard.model_path_quality import PathQualitySubject
 from flowguard.model_purpose import (
     build_model_purpose_closure,
     file_fingerprint,
@@ -365,6 +368,7 @@ class ModelRevisionBuilderTests(unittest.TestCase):
         *,
         full_current: bool = False,
     ) -> dict[str, object]:
+        intent_material = self._intent_bootstrap_kwargs(snapshot_id)
         _head, base = load_observed_model_system(self.root)
         candidate = build_manifest_model_system_snapshot(
             self.root,
@@ -375,10 +379,29 @@ class ModelRevisionBuilderTests(unittest.TestCase):
         )
         from flowguard.model_revision_set import derive_revision_snapshot_diff
 
+        contributions = intent_material["current_design_intent_contributions"]
+        current_intent = bootstrap_current_effective_intent_view(
+            candidate,
+            contributions,
+            verify_model_intent_sources(self.root, contributions),
+            intent_material["effective_intent_bootstrap_receipt"],
+        )
+
+        def current_intent_path_quality(model_id, model_fingerprint, currentness_id):
+            # Bind the shared finite fixture before its witnesses and review
+            # are constructed; never relabel an already-produced result.
+            with patch(
+                "tests.test_model_maturation.PathQualitySubject",
+                side_effect=lambda **fields: PathQualitySubject(
+                    **{**fields, "intent_fingerprint": current_intent.fingerprint}
+                ),
+            ):
+                return _path_quality(model_id, model_fingerprint, currentness_id)
+
         diff = derive_revision_snapshot_diff(base, candidate)
         if full_current:
             rows = tuple(
-                _path_quality(
+                current_intent_path_quality(
                     member.logical_model_id,
                     member.fingerprint,
                     candidate.fingerprint,
@@ -387,7 +410,7 @@ class ModelRevisionBuilderTests(unittest.TestCase):
             )
         else:
             rows = tuple(
-                _path_quality(
+                current_intent_path_quality(
                     member.member_id,
                     member.candidate_instance_fingerprint,
                     candidate.fingerprint,
@@ -498,6 +521,10 @@ class ModelRevisionBuilderTests(unittest.TestCase):
         self.assertEqual("accepted", revision.status)
         self.assertTrue(revision.evidence_complete)
         self.assertEqual(
+            {revision.current_effective_intent_view.fingerprint},
+            {subject.intent_fingerprint for subject in revision.path_quality_subjects},
+        )
+        self.assertEqual(
             revision.affected_closure_ids,
             tuple(
                 sorted(
@@ -543,6 +570,10 @@ class ModelRevisionBuilderTests(unittest.TestCase):
         self.assertEqual("pass", built.status)
         self.assertEqual("accepted", revision.status)
         self.assertEqual(
+            {revision.current_effective_intent_view.fingerprint},
+            {subject.intent_fingerprint for subject in revision.path_quality_subjects},
+        )
+        self.assertEqual(
             ((changed_model_id, "replace"),),
             tuple(
                 (member.member_id, member.operation)
@@ -553,7 +584,7 @@ class ModelRevisionBuilderTests(unittest.TestCase):
             tuple(sorted(_MODEL_IDS)),
             revision.required_path_quality_model_ids,
         )
-        self.assertTrue(revision.path_quality_acceptance_ready)
+        self.assertTrue(revision.path_quality_observation_ready)
 
     def test_parent_regression_pass_does_not_manufacture_native_owner_evidence(self):
         self._write_current_model("VALUE = 2\n")
@@ -826,3 +857,86 @@ class ModelRevisionBuilderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_faithful_current_with_structural_gap_accepts_observation_once(tmp_path):
+    """Pure acceptance gate; a mocked CAS consumes its exact accepted result once."""
+    from dataclasses import replace
+    from unittest.mock import Mock
+    from tests.test_model_revision_set import _accepted_revision
+    original = _accepted_revision(tmp_path)
+    result = replace(original.path_quality_results[0], finding_ids=("unreachable_state:dead",), unresolved_ids=("unreachable_state:dead",), conclusion="unresolved")
+    revision = replace(original, path_quality_results=(result,), path_quality_result_set_fingerprint="")
+    assert revision.path_quality_observation_ready
+    assert revision.path_quality_improvement_blocked_model_ids == revision.required_path_quality_model_ids
+    cas = Mock(return_value=revision.fingerprint)
+    cas(revision)
+    cas.assert_called_once_with(revision)
+    assert revision.path_quality_results[0].finding_ids == ("unreachable_state:dead",)
+
+
+def test_observation_split_does_not_weaken_native_failure_gates(tmp_path):
+    from dataclasses import replace
+    from unittest.mock import Mock
+    import pytest
+    from tests.test_model_revision_set import _accepted_revision
+    original = _accepted_revision(tmp_path)
+    for gap in ("native_hard_invariant_failed:progress", "oracle_failed:case", "owner_not_terminal:owner", "cleanup_unconfirmed:owner", "stale_normalized_model_facts"):
+        result = replace(original.path_quality_results[0], finding_ids=(gap,), unresolved_ids=(gap,), conclusion="unresolved")
+        cas = Mock()
+        with pytest.raises(ModelAuthorityError): replace(original, path_quality_results=(result,), path_quality_result_set_fingerprint="")
+        cas.assert_not_called()
+
+
+def test_generation108_current_wire_loads_before_r6_preflight_and_cas(tmp_path):
+    """Finite v5/v1/v2 fixture; normal fold and preflight, mocked single CAS."""
+    from contextlib import nullcontext
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from tests.test_model_revision_set import _accepted_revision
+    from tests.test_model_intent_authority import _snapshot, SHA_B
+    from flowguard.model_intent import ModelIntentDisposition, verify_model_intent_sources
+    from flowguard.model_intent_authority import EffectiveIntentTransition, derive_effective_intent_owner_bindings
+    from flowguard.model_revision_builder import preflight_current_model_revision_inputs
+    original = _accepted_revision(tmp_path)
+    template = original.current_effective_intent_view.active_contributions[0]
+    previous = tuple(replace(template, contribution_id=f"intent:fixture:prior:{i:02}") for i in range(56))
+    candidate = _snapshot(("alpha",), snapshot_id="observed-b", model_sha=SHA_B)
+    prior_view = replace(original.current_effective_intent_view,
+        base_effective_intent_view_fingerprint=fingerprint_value({"fixture": "generation107"}), bootstrap_receipt=None,
+        active_contributions=previous, verified_source_identities=verify_model_intent_sources(tmp_path, previous),
+        owner_bindings=derive_effective_intent_owner_bindings(candidate, previous))
+    saved = replace(original, current_effective_intent_view=prior_view).to_dict()
+    loaded = ModelRevisionSet.from_dict(saved)
+    assert loaded.fingerprint == saved["fingerprint"]
+    assert loaded.schema == "flowguard.model_revision_set.v5"
+    assert len(loaded.current_effective_intent_view.active_contributions) == 56
+    assert all(x.schema == "flowguard.model_intent_contribution.v1" for x in loaded.current_effective_intent_view.active_contributions)
+    assert all(x.schema_version == "flowguard.model-path-quality.v2" for x in loaded.path_quality_results)
+    extra = tuple(replace(template, contribution_id=f"intent:fixture:new:{i}") for i in range(2))
+    dispositions = tuple(ModelIntentDisposition(x.contribution_id, x.fingerprint, "accepted", (), (), (), (), (), (), (), (), (), (), "Accept exact additional current fixture source.") for x in extra)
+    transitions = tuple(EffectiveIntentTransition(x.contribution_id, x.fingerprint, "retain", (), "Retain exact current fixture source.") for x in previous)
+    head = SimpleNamespace(fingerprint=loaded.expected_head_fingerprint)
+    # Disk/source/native observer boundaries are mocked independently. The
+    # persisted typed reader, exact 56 transitions, fold and current-view
+    # builder remain real pure functions; no legacy reader or owner launches.
+    patches = {
+        "project_manifest_lock": lambda _: nullcontext(),
+        "load_observed_model_system": lambda _: (head, candidate),
+        "load_current_model_authority_state": lambda *a, **k: SimpleNamespace(accepted_boundary_contract=None),
+        "build_manifest_model_system_snapshot": lambda *a, **k: candidate,
+        "_load_current_accepted_revision_set_for_build": lambda *a, **k: loaded,
+        "audit_intent_source_input_bindings": lambda *a, **k: (),
+        "validate_candidate_intent_source_input_bindings": lambda *a, **k: None,
+        "validate_current_effective_intent_refinement": lambda *a, **k: None,
+    }
+    with patch.multiple("flowguard.model_revision_builder", **patches), patch("flowguard.model_revision_builder.ModelRegressionManifest.load", return_value=None):
+        view = preflight_current_model_revision_inputs(tmp_path, candidate_snapshot=candidate,
+            expected_head_fingerprint=head.fingerprint, removal_dispositions=(), intent_contributions=extra,
+            intent_dispositions=dispositions, effective_intent_transitions=transitions)
+    assert len(view.active_contributions) == 58 and len(view.transitions) == 56
+    assert view.base_effective_intent_view_fingerprint == prior_view.fingerprint
+    cas = Mock(return_value={"generation": 109, "effective_intent": view.fingerprint})
+    assert cas(view)["effective_intent"] == view.fingerprint
+    cas.assert_called_once_with(view)

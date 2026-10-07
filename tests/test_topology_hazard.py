@@ -1,3 +1,5 @@
+import tempfile
+from tests._native_owner_environment import native_owner_environment
 import subprocess
 import sys
 import unittest
@@ -305,20 +307,22 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertIn("topology_hazard_review_blocked", {finding.code for finding in blocked.findings})
 
     def test_self_model_checks_pass(self):
-        result = subprocess.run(
-            [sys.executable, ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory() as native_tmp:
+            result = subprocess.run(
+                [sys.executable, ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"],
+                cwd=ROOT,
+                env=native_owner_environment(ROOT, "model_topology_hazard_review", Path(native_tmp)),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
 
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        self.assertIn("correct_topology_hazard_review: observed=OK expected=OK match=yes", result.stdout)
-        self.assertIn(
-            "topology_hazard_unanchored_hard_gate: observed=VIOLATION expected=VIOLATION",
-            result.stdout,
-        )
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("correct_topology_hazard_review: observed=OK expected=OK match=yes", result.stdout)
+            self.assertIn(
+                "topology_hazard_unanchored_hard_gate: observed=VIOLATION expected=VIOLATION",
+                result.stdout,
+            )
 
 
 if __name__ == "__main__":

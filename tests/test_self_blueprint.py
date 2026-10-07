@@ -8,7 +8,7 @@ import pytest
 
 from flowguard.blueprint_topology import TOPOLOGY_ROOT_SENTINEL
 from flowguard.evidence_receipts import fingerprint_value
-from flowguard.implementation_blueprint import BlueprintResourceReference
+from flowguard.implementation_blueprint import BlueprintResourceReference, ModelImplementationBinding
 from flowguard.implementation_inventory import (
     ImplementationFileDisposition,
     ImplementationSurface,
@@ -31,6 +31,7 @@ from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
 from flowguard.self_blueprint import (
     FlowGuardSelfBlueprintError,
     _declared_owner_composite_contracts,
+    _declared_native_source_bindings,
     _discover_surface_declarations,
     _exact_owner_composite_surface,
     _exact_owner_for_path,
@@ -45,6 +46,7 @@ from flowguard.self_blueprint import (
     _self_path_quality_bindings,
     _self_topology,
     _self_surface_disposition,
+    _validate_self_blueprint_materialization_invariants,
     build_flowguard_self_blueprint,
     capture_flowguard_self_blueprint_build_input_identity,
 )
@@ -1772,6 +1774,48 @@ def test_exact_module_owner_and_native_checker_identity_are_preserved():
     assert artifact.artifact_path == ".flowguard/verification/owners/work_context/run_checks.py"
     assert artifact.artifact_fingerprint == "sha256:" + "1" * 64
 
+    # Synthetic owners cannot detect missing declarations for new repository files.
+    # Exercise the actual source inventory before native evidence is consulted.
+    import json
+    from pathlib import Path
+
+    repository = Path(__file__).resolve().parents[1]
+    definition_path = (
+        repository / ".flowguard/models/owners/authoritative_model_system"
+        / "software_blueprint_definition.json"
+    )
+    definition = json.loads(definition_path.read_text(encoding="utf-8"))
+    manifest_path = repository / ".flowguard/models/regression-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    declared_entries = {entry["model_id"]: entry for entry in manifest["models"]}
+    declared_overrides = definition["owner_overrides"]
+    expected_owners = {
+        "flowguard/architecture_native_material.py": "authoritative_model_system",
+        "flowguard/functional_read.py": "authoritative_model_system",
+        "flowguard/functional_task_context.py": "model_maturation_loop",
+        "scripts/produce_flowguard_task_context.py": "model_maturation_loop",
+    }
+    for path, owner in expected_owners.items():
+        assert (repository / path).is_file()
+        assert declared_overrides[path] == owner
+        assert _exact_owner_for_path(
+            path, entries=declared_entries, overrides=declared_overrides,
+        ) == owner
+    paths = {
+        file.relative_to(repository).as_posix()
+        for pattern in definition["scan_python_patterns"]
+        for file in repository.glob(pattern)
+        if file.is_file()
+    }
+    assert set(expected_owners) <= paths
+    errors = []
+    for path in sorted(paths):
+        try:
+            _exact_owner_for_path(path, entries=declared_entries, overrides=declared_overrides)
+        except FlowGuardSelfBlueprintError as exc:
+            errors.append(str(exc))
+    assert errors == []
+
 
 def test_self_resource_observation_is_independent_from_the_declaration(tmp_path):
     resource_path = tmp_path / "runtime.txt"
@@ -1868,6 +1912,11 @@ def test_self_blueprint_initializes_observed_snapshot_before_resource_observatio
     )
     monkeypatch.setattr(
         "flowguard.self_blueprint._project_owners",
+        lambda *_args, **_kwargs: (),
+    )
+    # Isolate resource-observation ordering; this fixture claims no Source admission.
+    monkeypatch.setattr(
+        "flowguard.self_blueprint._declared_native_source_bindings",
         lambda *_args, **_kwargs: (),
     )
     monkeypatch.setattr(
@@ -2064,3 +2113,529 @@ def test_self_helper_discovery_registers_nested_helpers_without_leaf_collision(
         "tests/test_nested.py::test_two",
     }
     assert all(row.terminal_member_fingerprints for row in helpers)
+
+
+
+def test_self_owner_native_leaf_declarations_preserve_boundary_and_positive_conformance():
+    import json
+    from pathlib import Path
+    from flowguard.software_blueprint_readiness import BEHAVIOR_CASE_DIMENSIONS, BEHAVIOR_DIMENSIONS
+    from flowguard.native_case_protocol import NativeModelCaseResult, verify_native_case_bindings
+
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+    # Source-only producer declarations remain usable before mapping is rebuilt.
+    with mock.patch("flowguard.self_blueprint.load_native_case_mapping", side_effect=AssertionError("generated mapping must not be read")):
+        source_bindings = _declared_native_source_bindings(root)
+        # Preserve every original leaf and name each added functional leaf.
+        # Exact IDs and kinds expose omissions, duplicates, and foreign cases;
+        # a count alone could silently replace one protected case with another.
+        expected_cases = {
+            "authoritative_model_system": {
+                "good": {
+                    "faithful_current_with_improvement_gaps",
+                    "authenticated_frozen_scope_remains_bounded",
+                    "r8_public_task_context_read",
+                    "r8_affected_owner_selection",
+                    "r9_finite_growth_observation",
+                    "r9_pointer_detail_navigation",
+                },
+                "bad": {
+                    "trace_projection_cannot_claim_full_graph",
+                    "native_hard_failure_cannot_be_improvement",
+                    "frozen_scope_rejects_consistent_writer_omission",
+                    "frozen_scope_rejects_unverified_producer",
+                    "unregistered_new_surface_is_not_live_complete",
+                },
+                "boundary": {"scoped_graph_not_whole_software_confidence"},
+            },
+            "model_maturation_loop": {
+                "good": {
+                    "generic_duplicate_responsibility_direction",
+                    "verified_task_outcomes_allow_bounded_stop",
+                    "partial_context_candidate_preserves_variants",
+                    "r8_context_indexed_comparison",
+                    "r9_normal_task_context",
+                },
+                "bad": {
+                    "identical_copy_not_shared_primary",
+                    "required_architecture_gap_blocks_completion",
+                    "constructed_report_cannot_close_task",
+                    "other_function_proof_cannot_close_requested_outcome",
+                    "deferred_required_goal_cannot_close_task",
+                    "partial_context_cannot_merge_whole_paths",
+                },
+                "boundary": {"disjoint_context_variant_preserved"},
+            },
+        }
+        expected_positive = {
+            "case:" + model_id + ":" + name
+            for model_id, kinds in expected_cases.items()
+            for name in kinds["good"]
+        } | {"case:model_maturation_loop:disjoint_context_variant_preserved"}
+        expected_negative = {
+            "case:" + model_id + ":" + name
+            for model_id, kinds in expected_cases.items()
+            for name in kinds["bad"]
+        } | {"case:authoritative_model_system:scoped_graph_not_whole_software_confidence"}
+        functional_cases = {
+            "case:authoritative_model_system:r8_public_task_context_read": (
+                "model:authoritative_model_system",
+                "native-scenario:authoritative_model_system:r8_public_task_context_read",
+                "behavior-case:authoritative_model_system:scenario:r8_public_task_context_read",
+                "r8_public_task_context_read",
+            ),
+            "case:authoritative_model_system:r8_affected_owner_selection": (
+                "model:authoritative_model_system",
+                "native-scenario:authoritative_model_system:r8_affected_owner_selection",
+                "behavior-case:authoritative_model_system:scenario:r8_affected_owner_selection",
+                "r8_affected_owner_selection",
+            ),
+            "case:model_maturation_loop:r8_context_indexed_comparison": (
+                "model:model_maturation_loop",
+                "case:model_maturation_loop:r8_context_indexed_comparison",
+                "behavior-case:model_maturation_loop:scenario:r8_context_indexed_comparison",
+                "r8_context_indexed_comparison",
+            ),
+        }
+        functional_cases.update({
+            "case:" + model + ":" + name: (
+                "model:" + model,
+                ("native-scenario:" if model == "authoritative_model_system" else "case:") + model + ":" + name,
+                "behavior-case:" + model + ":scenario:" + name,
+                name,
+            ) for model, name in (
+                ("authoritative_model_system", "r9_finite_growth_observation"),
+                ("authoritative_model_system", "r9_pointer_detail_navigation"),
+                ("model_maturation_loop", "r9_normal_task_context"),
+            )
+        })
+        observed_positive, observed_negative = set(), set()
+        observed_functional = set()
+        observed_composite = set()
+        for model_id in expected_cases:
+            entry = next(row for row in manifest["models"] if row["model_id"] == model_id)
+            bindings = tuple(row for row in source_bindings if row.owner_id == "model:" + model_id)
+            expected_by_source = {
+                "case:" + model_id + ":" + name: kind
+                for kind, names in expected_cases[model_id].items()
+                for name in names
+            }
+            assert len(bindings) == len(expected_by_source)
+            assert {
+                binding.blueprint_source_case_id: binding.case_kind
+                for binding in bindings
+            } == expected_by_source
+            # The three production-function scenarios have independent native
+            # implementation boundaries. They are not model module composites.
+            composite_bindings = tuple(
+                binding for binding in bindings
+                if binding.blueprint_source_case_id not in functional_cases
+            )
+            function_bindings = tuple(
+                binding for binding in bindings
+                if binding.blueprint_source_case_id in functional_cases
+            )
+            assert {
+                binding.blueprint_source_case_id for binding in composite_bindings
+            } == set(expected_by_source) - set(functional_cases)
+            assert {
+                binding.blueprint_source_case_id for binding in function_bindings
+            } == set(expected_by_source) & set(functional_cases)
+            surface_id = composite_bindings[0].blueprint_case_id.split(
+                ":" + composite_bindings[0].case_kind + ":"
+            )[0].removeprefix("behavior-case:")
+            surface = ImplementationSurface(
+                surface_id=surface_id, path=entry["model_path"], symbol="<module>",
+                surface_kind="module", parent_surface_id="", disposition="model_implementation",
+                content_fingerprint=entry["purpose_closure"]["model_sha256"],
+                structure_fingerprint="fp:finite-source-fixture", roles=("behavior",), returns_value=True,
+            )
+            inventory = ImplementationSurfaceInventory(
+                inventory_id="inventory:finite-native-source", manifest_fingerprint="fp:fixture-manifest",
+                boundary=SoftwareBoundary(boundary_id="boundary:finite-native-source", subject_revision="revision:fixture", production_patterns=(".flowguard/**/*.py",)),
+                file_dispositions=(), surfaces=(surface,), findings=(), claim_boundary="Pure finite source projection only",
+            )
+            owner = _project_owners(
+                root, inventory, {model_id: entry}, {entry["model_path"]: model_id},
+                _composite_contracts(model_id, entry["model_path"] + "#<module>", entry),
+                _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id),
+                declared_native_bindings=composite_bindings,
+            )[0]
+            by_source = {case.source_case_id: case for case in owner.behavior_case_contracts}
+            assert len(by_source) == len(owner.behavior_case_contracts)
+            assert not set(functional_cases) & set(by_source)
+            if model_id == "authoritative_model_system":
+                for name in (
+                    "frozen_scope_rejects_consistent_writer_omission",
+                    "unregistered_new_surface_is_not_live_complete",
+                ):
+                    source_id = "case:" + model_id + ":" + name
+                    native_id = "native-scenario:" + model_id + ":" + name
+                    binding = next(row for row in composite_bindings if row.blueprint_source_case_id == source_id)
+                    assert binding.native_case_ids == (native_id,)
+                    assert native_id not in by_source
+                    assert sum(case.case_id == binding.blueprint_case_id for case in owner.behavior_case_contracts) == 1
+                    assert by_source[source_id].protected_failure_ids == binding.protected_failure_ids
+                    assert len(BEHAVIOR_CASE_DIMENSIONS[by_source[source_id].case_kind]) == 6
+            for binding in composite_bindings:
+                observed_composite.add(binding.blueprint_source_case_id)
+                native_prefix = "native-scenario:" if model_id == "authoritative_model_system" else "case:"
+                assert tuple(binding.native_case_ids) == (
+                    native_prefix + binding.blueprint_source_case_id.removeprefix("case:"),
+                )
+                case = by_source[binding.blueprint_source_case_id]
+                assert case.case_id == case.parameter_case_id == binding.blueprint_case_id
+                assert case.case_kind == binding.case_kind
+                assert set(BEHAVIOR_CASE_DIMENSIONS[case.case_kind]) == set(binding.covered_dimensions)
+                assert case.protected_failure_ids == binding.protected_failure_ids
+                assert case.expected_errors == binding.expected_finding_codes
+                native_dimensions = BEHAVIOR_CASE_DIMENSIONS[case.case_kind]
+                fixture_fp = fingerprint_value({"case": case.case_id, "kind": "finite-projection-fixture"})
+                result = NativeModelCaseResult(
+                    owner_id=binding.owner_id, source_case_id=binding.native_case_ids[0],
+                    outcome="pass", observed_status=binding.expected_observed_status,
+                    observed_finding_codes=case.expected_errors, executed_dimensions=native_dimensions,
+                    oracle_results=tuple({"dimension": dimension, "oracle_member_id": "fixture:" + dimension, "status": binding.expected_observed_status, "ok": True} for dimension in native_dimensions),
+                    result_artifact_fingerprint=fixture_fp, input_fingerprint=fixture_fp,
+                    model_fingerprint=fixture_fp, code_fingerprint=fixture_fp, test_fingerprint=fixture_fp,
+                    oracle_fingerprint=fixture_fp, toolchain_fingerprint=fixture_fp, environment_fingerprint=fixture_fp,
+                    raw_artifact_path="finite-projection-fixture.json",
+                )
+                report = verify_native_case_bindings((binding,), (result,))
+                assert report.ok, report.findings
+                if binding.protected_failure_ids:
+                    assert binding.blueprint_source_case_id not in observed_negative
+                    observed_negative.add(binding.blueprint_source_case_id)
+                    purpose = next(row for row in entry["purpose_closure"]["failure_bindings"] if row["failure_id"] in binding.protected_failure_ids)
+                    assert purpose.get("expected_case_kind", "bad") == "bad"
+                    if case.case_kind == "boundary":
+                        wrong_dimensions = BEHAVIOR_CASE_DIMENSIONS["bad"]
+                        incorrect = replace(result, executed_dimensions=wrong_dimensions, oracle_results=tuple({"dimension": dimension, "oracle_member_id": "fixture:" + dimension, "status": "violation", "ok": True} for dimension in wrong_dimensions))
+                        report = verify_native_case_bindings((binding,), (incorrect,))
+                        assert not report.ok
+                        assert any("missing=retry,timeout:extra=effect,state" in finding for finding in report.findings)
+                else:
+                    assert binding.blueprint_source_case_id not in observed_positive
+                    observed_positive.add(binding.blueprint_source_case_id)
+                    assert not case.protected_failure_ids and not case.expected_errors
+            # The core owner boundary remains separate from both boundary leaves.
+            assert sum(case.source_case_id == "boundary:" + model_id for case in owner.behavior_case_contracts) == 1
+            coverage = tuple(SimpleNamespace(coverage_id=f"coverage:{case.case_id}:{dimension}") for case in owner.behavior_case_contracts for dimension in BEHAVIOR_CASE_DIMENSIONS[case.case_kind])
+            if model_id == "authoritative_model_system":
+                for name in ("frozen_scope_rejects_consistent_writer_omission", "unregistered_new_surface_is_not_live_complete"):
+                    case_id = by_source["case:" + model_id + ":" + name].case_id
+                    assert sum(row.coverage_id.startswith("coverage:" + case_id + ":") for row in coverage) == 6
+            # The real project-neutral producer binds cases to one concrete
+            # surface oracle; the unprojected owner oracle is not that object.
+            surface_oracle = f"oracle:{owner.model_element_id}:{surface_id}"
+            implementation_binding = ModelImplementationBinding(
+                binding_id="binding:" + surface_id,
+                model_element_id=owner.model_element_id,
+                model_obligation_ids=(owner.model_element_id,),
+                implementation_surface_id=surface_id, relation_kind="implements",
+                owner_contract_id=owner.owner_contract_id,
+                implementation_source_id=surface.path,
+                implementation_owner_id=owner.owner_id,
+                implementation_content_fingerprint=surface.content_fingerprint,
+                semantic_spec_ids=tuple(spec.semantic_spec_id for spec in owner.semantic_specs),
+                oracle_ids=(surface_oracle,),
+            )
+            projected_cases = tuple(
+                replace(case, oracle_id=surface_oracle)
+                for case in owner.behavior_case_contracts
+            )
+            fake_bundle = SimpleNamespace(
+                inventory=inventory,
+                binding_report=SimpleNamespace(bindings=(implementation_binding,)),
+                behavior_report=SimpleNamespace(
+                    contracts=(SimpleNamespace(behavior_block_id="behavior-block:" + surface_id, implementation_surface_id=surface_id, owner_id=owner.owner_id, model_element_id=owner.model_element_id, owner_contract_id=owner.owner_contract_id, oracle_ids=(surface_oracle,), source_fingerprint=surface.content_fingerprint, protected_failure_ids=owner.protected_failure_ids, dimensions=tuple(SimpleNamespace(applicability_surface_ids=(surface_id,)) for _ in BEHAVIOR_DIMENSIONS)),),
+                    case_contracts=projected_cases, supporting_surface_ids=(), supporting_relations=(), coverage_edges=coverage,
+                ),
+                normalized_shared_objects=tuple((row.coverage_id, {"kind": "behavior_coverage_edge"}) for row in coverage),
+                normalized_shards=(("shard:fixture", {"coverage_ids": tuple(row.coverage_id for row in coverage)}),),
+            )
+            _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            foreign_oracle = replace(projected_cases[0], oracle_id="oracle:foreign")
+            fake_bundle.behavior_report.case_contracts = (foreign_oracle, *projected_cases[1:])
+            with pytest.raises(FlowGuardSelfBlueprintError) as rejected_oracle:
+                _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            assert "block=behavior-block:" + surface_id in str(rejected_oracle.value)
+            assert "conditions=case_fields" in str(rejected_oracle.value)
+            assert "fields=oracle_id" in str(rejected_oracle.value)
+            fake_bundle.behavior_report.case_contracts = projected_cases
+            for invalid_bindings in (
+                (),
+                (implementation_binding, implementation_binding),
+                (replace(implementation_binding, oracle_ids=("oracle:foreign",)),),
+                (replace(implementation_binding, oracle_ids=()),),
+                (replace(implementation_binding, model_element_id="model:foreign"),),
+                (replace(implementation_binding, owner_contract_id="contract:foreign"),),
+                (replace(implementation_binding, implementation_content_fingerprint="fp:foreign"),),
+            ):
+                fake_bundle.binding_report.bindings = invalid_bindings
+                with pytest.raises(FlowGuardSelfBlueprintError, match="conditions=implementation_binding"):
+                    _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            fake_bundle.binding_report.bindings = (implementation_binding,)
+            _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            # Multiple declared surface oracles remain legal: the producer
+            # projects cases to the first oracle and preserves the full binding.
+            multiple_oracles = (surface_oracle, "oracle:second")
+            fake_bundle.binding_report.bindings = (
+                replace(implementation_binding, oracle_ids=multiple_oracles),
+            )
+            fake_bundle.behavior_report.contracts[0].oracle_ids = multiple_oracles
+            _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            fake_bundle.binding_report.bindings = (implementation_binding,)
+            fake_bundle.behavior_report.contracts[0].oracle_ids = (surface_oracle,)
+            omitted = next(case for case in projected_cases if case.source_case_id == composite_bindings[0].blueprint_source_case_id)
+            fake_bundle.behavior_report.case_contracts = tuple(case for case in projected_cases if case != omitted)
+            with pytest.raises(FlowGuardSelfBlueprintError, match="materialization is not block-local and exact"):
+                _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            fake_bundle.behavior_report.case_contracts = (*projected_cases, omitted)
+            with pytest.raises(FlowGuardSelfBlueprintError, match="materialization is not block-local and exact"):
+                _validate_self_blueprint_materialization_invariants(fake_bundle, owner.behavior_case_contracts)
+            counterfeit = replace(composite_bindings[-1], protected_failure_ids=("failure:foreign",))
+            with pytest.raises(FlowGuardSelfBlueprintError, match="protected-failure assertion|exact canonical current Source contract"):
+                _project_owners(root, inventory, {model_id: entry}, {entry["model_path"]: model_id}, _composite_contracts(model_id, entry["model_path"] + "#<module>", entry), _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=(*composite_bindings[:-1], counterfeit))
+            if model_id == "authoritative_model_system":
+                exact = next(row for row in composite_bindings if row.blueprint_source_case_id == "case:authoritative_model_system:frozen_scope_rejects_consistent_writer_omission")
+                duplicated_source = "case:authoritative_model_system:foreign_duplicate_native"
+                ambiguous = replace(exact, blueprint_source_case_id=duplicated_source, blueprint_case_id=f"behavior-case:{surface_id}:bad:{duplicated_source}")
+                with pytest.raises(FlowGuardSelfBlueprintError, match="ambiguous exact native bindings"):
+                    _project_owners(root, inventory, {model_id: entry}, {entry["model_path"]: model_id}, _composite_contracts(model_id, entry["model_path"] + "#<module>", entry), _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=(*composite_bindings, ambiguous))
+                for wrong in (
+                    replace(exact, protected_failure_ids=("failure:foreign",)),
+                    replace(exact, native_case_ids=("native-scenario:authoritative_model_system:foreign",)),
+                ):
+                    changed = tuple(wrong if row == exact else row for row in composite_bindings)
+                    with pytest.raises(FlowGuardSelfBlueprintError, match="canonical current Source|protected-failure assertion"):
+                        _project_owners(root, inventory, {model_id: entry}, {entry["model_path"]: model_id}, _composite_contracts(model_id, entry["model_path"] + "#<module>", entry), _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=changed)
+                with pytest.raises(FlowGuardSelfBlueprintError, match="foreign model owner"):
+                    _project_owners(root, inventory, {model_id: entry}, {entry["model_path"]: model_id}, _composite_contracts(model_id, entry["model_path"] + "#<module>", entry), _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=(replace(exact, owner_id="model:foreign"),))
+            for binding in function_bindings:
+                source_id = binding.blueprint_source_case_id
+                expected_owner, expected_native_id, expected_blueprint_id, expected_trace = functional_cases[source_id]
+                assert binding.owner_id == expected_owner
+                assert tuple(binding.native_case_ids) == (expected_native_id,)
+                assert binding.blueprint_case_id == expected_blueprint_id
+                assert binding.case_kind == "good"
+                assert binding.evidence_scope == "implementation_boundary"
+                assert binding.expected_status == "pass"
+                assert binding.expected_observed_status == "ok"
+                assert not binding.protected_failure_ids
+                assert not binding.expected_finding_codes
+                assert not binding.required_child_case_ids
+                assert tuple(binding.required_trace_labels) == (expected_trace,)
+                dimensions = BEHAVIOR_CASE_DIMENSIONS["good"]
+                assert set(binding.covered_dimensions) == set(dimensions)
+                assert len(binding.covered_dimensions) == len(set(dimensions))
+                # These envelopes test exact finite declaration/projection only;
+                # actual function semantics remain the native owner's checks.
+                fixture_fp = fingerprint_value({"case": source_id, "kind": "finite-function-projection-fixture"})
+                result = NativeModelCaseResult(
+                    owner_id=expected_owner, source_case_id=expected_native_id,
+                    outcome="pass", observed_status="ok", observed_finding_codes=(),
+                    executed_dimensions=dimensions,
+                    oracle_results=tuple({"dimension": dimension, "oracle_member_id": "fixture:" + dimension, "status": "ok", "ok": True} for dimension in dimensions),
+                    result_artifact_fingerprint=fixture_fp, input_fingerprint=fixture_fp,
+                    model_fingerprint=fixture_fp, code_fingerprint=fixture_fp, test_fingerprint=fixture_fp,
+                    oracle_fingerprint=fixture_fp, toolchain_fingerprint=fixture_fp, environment_fingerprint=fixture_fp,
+                    raw_artifact_path="finite-function-projection-fixture.json",
+                )
+                report = verify_native_case_bindings((binding,), (result,))
+                assert report.ok, report.findings
+                missing = verify_native_case_bindings((binding,), ())
+                assert not missing.ok
+                assert any(finding.startswith("binding_native_result_missing:") for finding in missing.findings)
+                duplicate_binding = verify_native_case_bindings((binding, binding), (result,))
+                assert not duplicate_binding.ok
+                assert "duplicate_binding:" + expected_blueprint_id in duplicate_binding.findings
+                duplicate_result = verify_native_case_bindings((binding,), (result, result))
+                assert not duplicate_result.ok
+                assert any(finding.startswith("duplicate_native_result:") for finding in duplicate_result.findings)
+                foreign = verify_native_case_bindings((binding,), (replace(result, source_case_id="case:foreign:unmapped"),))
+                assert not foreign.ok
+                assert any(finding.startswith("foreign_native_case:") for finding in foreign.findings)
+                wrong_status = verify_native_case_bindings((binding,), (replace(result, observed_status="violation"),))
+                assert not wrong_status.ok
+                assert any(finding.startswith("binding_observed_status_mismatch:") for finding in wrong_status.findings)
+                failed_oracle = replace(result, oracle_results=(
+                    {**result.oracle_results[0], "ok": False}, *result.oracle_results[1:]
+                ))
+                assert not verify_native_case_bindings((binding,), (failed_oracle,)).ok
+                assert source_id not in observed_positive and source_id not in observed_functional
+                observed_positive.add(source_id)
+                observed_functional.add(source_id)
+        expected_union = expected_positive | expected_negative
+        assert observed_functional == set(functional_cases)
+        assert observed_composite == expected_union - set(functional_cases)
+        assert not observed_composite & observed_functional
+        assert observed_composite | observed_functional == expected_union
+        assert observed_positive == expected_positive
+        assert observed_negative == expected_negative
+        assert not observed_positive & observed_negative
+
+
+def test_declared_native_source_bindings_reject_unknown_duplicate_and_nonfinite_source(tmp_path):
+    import json
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    payload = json.loads((root / ".flowguard/models/native-case-producer-overrides.json").read_text(encoding="utf-8"))
+    source = tmp_path / ".flowguard/models/native-case-producer-overrides.json"
+    source.parent.mkdir(parents=True)
+    source.write_text(json.dumps(payload), encoding="utf-8")
+    manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+    (tmp_path / ".flowguard/models/regression-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+    definition_path = tmp_path / ".flowguard/models/owners/authoritative_model_system/software_blueprint_definition.json"
+    definition_path.parent.mkdir(parents=True)
+    # Isolate the read-only declaration parser from live definition authoring.
+    # Every fixture owner and source path comes from the actual current Source
+    # manifest; this fixture makes no claim of a generated blueprint or proof.
+    declared_keys = {row["model_id"]: row["composite_surface_key"] for row in payload["composite_owner_declarations"]}
+    definition_path.write_text(json.dumps({"composite_behavior_contracts": [
+        {"owner_id": row["model_id"], "surface_key": declared_keys.get(row["model_id"], row["model_path"] + "#<module>")}
+        for row in manifest["models"]
+    ]}), encoding="utf-8")
+    for row in payload["composite_owner_declarations"]:
+        for relative in (row["model_path"], row["runner_path"], row["composite_surface_key"].split("#", 1)[0]):
+            target = tmp_path / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes((root / relative).read_bytes())
+    admitted = _declared_native_source_bindings(tmp_path)
+    assert len(admitted) == len(payload["bindings"])
+    assert {(row.owner_id, row.blueprint_source_case_id) for row in admitted} == {
+        (row["owner_id"], row["blueprint_source_case_id"]) for row in payload["bindings"]
+    }
+    for invalid in (
+        {**payload, "unknown": True},
+        {**payload, "bindings": [payload["bindings"][0], payload["bindings"][0]]},
+        {**payload, "bindings": [{**payload["bindings"][0], "unknown": True}]},
+    ):
+        source.write_text(json.dumps(invalid), encoding="utf-8")
+        with pytest.raises(FlowGuardSelfBlueprintError):
+            _declared_native_source_bindings(tmp_path)
+    source.write_text('{"schema_version":"flowguard.native_case_producer_overrides.v2","bindings":NaN}', encoding="utf-8")
+    with pytest.raises(FlowGuardSelfBlueprintError, match="non-finite"):
+        _declared_native_source_bindings(tmp_path)
+    source.write_text('{"schema_version":"flowguard.native_case_producer_overrides.v2","bindings":[],"bindings":[]}', encoding="utf-8")
+    with pytest.raises(FlowGuardSelfBlueprintError, match="duplicate"):
+        _declared_native_source_bindings(tmp_path)
+
+
+def test_declared_native_source_current_schema_requires_owner_declarations(tmp_path):
+    import json
+
+    source = tmp_path / ".flowguard/models/native-case-producer-overrides.json"
+    source.parent.mkdir(parents=True)
+    for payload in (
+        {"schema_version": "flowguard.native_case_producer_overrides.v1", "bindings": []},
+        {"schema_version": "flowguard.native_case_producer_overrides.v2", "bindings": []},
+    ):
+        source.write_text(json.dumps(payload), encoding="utf-8")
+        with pytest.raises(FlowGuardSelfBlueprintError, match="not current"):
+            _declared_native_source_bindings(tmp_path)
+
+
+@pytest.mark.parametrize("model_id", ["python_function_state_verification", "problem_corpus_coverage", "evidence_storage_lifecycle", "development_process_flow"])
+def test_current_explicit_native_contract_projects_actual_findings_and_scope(model_id):
+    import json
+    from pathlib import Path
+    from flowguard.implementation_inventory import implementation_surface_id
+    from flowguard.source_identity import source_file_fingerprint
+
+    root = Path(__file__).resolve().parents[1]
+    manifest = json.loads((root / ".flowguard/models/regression-manifest.json").read_text(encoding="utf-8"))
+    definition = json.loads((root / ".flowguard/models/owners/authoritative_model_system/software_blueprint_definition.json").read_text(encoding="utf-8"))
+    entry = next(row for row in manifest["models"] if row["model_id"] == model_id)
+    key = next(row["surface_key"] for row in definition["composite_behavior_contracts"] if row["owner_id"] == model_id)
+    path, symbol = key.split("#", 1)
+    surface = ImplementationSurface(
+        surface_id=implementation_surface_id(path, symbol, "module"), path=path, symbol=symbol,
+        surface_kind="module", parent_surface_id="", disposition="model_implementation",
+        content_fingerprint=source_file_fingerprint(root / path), structure_fingerprint="fp:finite-source-fixture",
+        roles=("behavior",), returns_value=True,
+    )
+    inventory = ImplementationSurfaceInventory(
+        inventory_id="inventory:finite-current-native-source", manifest_fingerprint="fp:fixture-manifest",
+        boundary=SoftwareBoundary(boundary_id="boundary:finite-current-native-source", subject_revision="revision:fixture", production_patterns=("flowguard/**/*.py",)),
+        file_dispositions=(), surfaces=(surface,), findings=(), claim_boundary="Source projection fixture; no native execution",
+    )
+    bindings = tuple(row for row in _declared_native_source_bindings(root) if row.owner_id == "model:" + model_id)
+    owner = _project_owners(
+        root, inventory, {model_id: entry}, {path: model_id}, _composite_contracts(model_id, key, entry),
+        _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=bindings,
+    )[0]
+    cases = {case.source_case_id: case for case in owner.behavior_case_contracts}
+    for binding in bindings:
+        case = cases[binding.blueprint_source_case_id]
+        assert case.case_id == binding.blueprint_case_id
+        assert case.case_kind == binding.case_kind
+        assert case.protected_failure_ids == binding.protected_failure_ids
+        assert case.expected_errors == binding.expected_finding_codes
+    atomic = next(row for row in bindings if not row.required_child_case_ids and row.protected_failure_ids)
+    counterfeit = replace(atomic, expected_finding_codes=("forged-green-finding",))
+    with pytest.raises(FlowGuardSelfBlueprintError, match="canonical current Source contract"):
+        _project_owners(root, inventory, {model_id: entry}, {path: model_id}, _composite_contracts(model_id, key, entry), _TestInventory(()), _accepted_intent_inventory("model-obligation:" + model_id), declared_native_bindings=tuple(counterfeit if row == atomic else row for row in bindings))
+
+
+def test_self_helper_discovery_uses_native_lexical_metadata_for_same_named_methods(tmp_path):
+    from flowguard.test_inventory import TestFileDisposition
+    from flowguard.test_inventory_python import discover_python_test_file
+
+    nodes = []
+    expected = {}
+    for filename, classes in (("test_one.py", ("TestOne", "TestSibling")), ("test_two.py", ("TestTwo",))):
+        path = tmp_path / "tests" / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("\n".join(
+            f"class {name}:\n"
+            "    def assert_saved(self, value):\n        assert value\n"
+            "    def test_first(self):\n        self.assert_saved(True)\n"
+            "    def test_second(self):\n        self.assert_saved(True)\n"
+            for name in classes
+        ), encoding="utf-8")
+        relative = path.relative_to(tmp_path).as_posix()
+        discovered = discover_python_test_file(
+            root=tmp_path,
+            file_disposition=TestFileDisposition(relative, source_file_fingerprint(path), "unresolved"),
+        )
+        nodes.extend(discovered.nodes)
+        for name in classes:
+            expected[f"delegated-helper:{relative}::{name}.assert_saved"] = {
+                node.node_id for node in discovered.nodes if node.class_name == name
+            }
+    helpers = _flowguard_delegated_assertion_helpers(tmp_path, _TestInventory(tuple(nodes)))
+    assert len(helpers) == 3
+    assert all(helper.test_node_id in expected[helper.helper_id] for helper in helpers)
+    assert len({helper.test_node_id for helper in helpers}) == 3
+    assert all(helper.terminal_member_fingerprints for helper in helpers)
+
+
+def test_self_helper_discovery_uses_pytest_nodeid_for_nested_hashed_identity(tmp_path):
+    from flowguard.test_inventory import TestFileDisposition
+    from flowguard.test_inventory_python import discover_python_test_file
+
+    path = tmp_path / "tests" / "test_nested.py"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        "def test_one():\n"
+        "    def assert_outer():\n"
+        "        def assert_inner():\n            assert True\n"
+        "    def assert_saved():\n        assert True\n"
+        "    assert_saved()\n\n"
+        "def test_two():\n"
+        "    def assert_saved():\n        assert True\n"
+        "    assert_saved()\n", encoding="utf-8")
+    discovered = discover_python_test_file(
+        root=tmp_path,
+        file_disposition=TestFileDisposition("tests/test_nested.py", source_file_fingerprint(path), "unresolved"),
+    )
+    helpers = _flowguard_delegated_assertion_helpers(tmp_path, _TestInventory(discovered.nodes))
+    by_id = {helper.helper_id: helper for helper in helpers}
+    nodes = {node.function_name: node.node_id for node in discovered.nodes}
+    assert "delegated-helper:tests/test_nested.py::test_one.assert_outer" not in by_id
+    assert by_id["delegated-helper:tests/test_nested.py::test_one.assert_outer.assert_inner"].test_node_id == nodes["test_one"]
+    for name in ("test_one", "test_two"):
+        assert by_id[f"delegated-helper:tests/test_nested.py::{name}.assert_saved"].test_node_id == nodes[name]

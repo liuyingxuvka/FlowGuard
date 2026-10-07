@@ -1,6 +1,6 @@
 import importlib.util
 import json
-import os
+from tests._native_owner_environment import native_owner_environment
 import subprocess
 import sys
 from pathlib import Path
@@ -138,8 +138,7 @@ def _all_mapping_keys(value):
 
 
 def test_runner_emits_complete_compact_v2_scenario_evidence(tmp_path):
-    env = os.environ.copy()
-    env["FLOWGUARD_OUTPUT_DIR"] = str(tmp_path)
+    env = native_owner_environment(ROOT, "validation_evidence_gates", tmp_path)
     completed = subprocess.run(
         [sys.executable, str(RUNNER)],
         cwd=ROOT,

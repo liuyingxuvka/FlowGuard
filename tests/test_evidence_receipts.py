@@ -124,6 +124,28 @@ def current_context(value, **updates):
 
 
 class EvidenceReceiptSchemaTests(unittest.TestCase):
+    def test_relative_hyphen_contract_and_relation_ids_publish_without_rewriting(self):
+        covered = (
+            "coverage:code_contracts:contract:examples/-/-.py",
+            "model_relation:relation:model-realizes-code_contract:model_instance:"
+            "model:template_public_release--code_contract:contract:examples/-/-.py",
+        )
+        value = receipt(covered=covered)
+        with tempfile.TemporaryDirectory() as temporary:
+            path = save_evidence_receipt(value, temporary)
+            restored = load_evidence_receipt(path, temporary)
+        self.assertEqual(covered, restored.covered_obligations)
+        self.assertEqual(value.to_dict(), restored.to_dict())
+        self.assertEqual(value.fingerprint, restored.fingerprint)
+
+    def test_raw_absolute_obligation_paths_still_cannot_publish(self):
+        for raw_path in ("/private/source.py", "note /private/source.py", "--root=/private/source.py", "D:/private/source.py", r"D:\private\source.py", r"\\server\share\source.py", str(Path.home() / "private/source.py")):
+            with self.subTest(raw_path=raw_path), tempfile.TemporaryDirectory() as temporary:
+                value = receipt(covered=(raw_path,))
+                with self.assertRaisesRegex(ReceiptValidationError, "untokenized absolute path|raw home path"):
+                    save_evidence_receipt(value, temporary)
+                self.assertEqual([], list(Path(temporary).rglob("*.json")))
+
     def test_input_snapshot_exists_and_wire_fields_are_exact_current(self):
         present = snapshot_bytes(
             "source",

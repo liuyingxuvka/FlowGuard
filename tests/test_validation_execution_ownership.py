@@ -5,7 +5,9 @@ import sys
 import tempfile
 import unittest
 from dataclasses import replace
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import flowguard.validation_ownership as validation_ownership_module
@@ -45,6 +47,7 @@ from flowguard.validation_ownership import (
     validation_input_manifest,
 )
 from flowguard.observation_metrics import InvocationMetrics
+from flowguard.validation_results import ValidationChildResult
 
 
 def contract(
@@ -79,6 +82,215 @@ def evidence_files(receipt_root: Path) -> tuple[str, ...]:
 
 
 class ValidationExecutionOwnershipTests(unittest.TestCase):
+    def test_git_cancelled_cleanup_status_keeps_unknown_blocked_and_known_aborted(self):
+        for interruption in ("cancelled", "interrupted"):
+            for cleanup_confirmed in (False, True):
+                with self.subTest(interruption=interruption, cleanup=cleanup_confirmed):
+                    completed = SimpleNamespace(
+                        timed_out=False,
+                        cancelled=interruption == "cancelled",
+                        interrupted=interruption == "interrupted",
+                        cleanup_confirmed=cleanup_confirmed, exit_code=0,
+                        terminal_reason=interruption if cleanup_confirmed else "cleanup_unconfirmed",
+                        episode_token="episode:cancel-fixture", root_process_id=123,
+                        root_process_running=False, containment_query_succeeded=cleanup_confirmed,
+                        descendant_process_ids=(),
+                    )
+                    expected_error = (
+                        validation_ownership_module.GitQueryAborted if cleanup_confirmed
+                        else validation_ownership_module.GitQueryCleanupUnconfirmed
+                    )
+                    with patch.object(
+                        validation_ownership_module, "run_supervised_bytes", return_value=completed,
+                    ) as supervise:
+                        with self.assertRaises(expected_error) as raised:
+                            validation_ownership_module._git_bytes(Path.cwd(), "ls-files")
+                    supervise.assert_called_once()
+                    self.assertEqual(cleanup_confirmed, raised.exception.cleanup_confirmed)
+                    self.assertEqual(completed.terminal_reason, raised.exception.terminal_reason)
+                    self.assertIn(
+                        f"cleanup_confirmed={str(cleanup_confirmed).lower()}",
+                        str(raised.exception),
+                    )
+                    if not cleanup_confirmed:
+                        self.assertEqual("episode:cancel-fixture", raised.exception.episode_token)
+                        self.assertFalse(raised.exception.containment_query_succeeded)
+
+    def test_git_timeout_diagnostic_keeps_priority_and_actual_unknown_cleanup(self):
+        completed = SimpleNamespace(
+            timed_out=True, cancelled=True, interrupted=False,
+            cleanup_confirmed=False, exit_code=None, terminal_reason="cleanup_unconfirmed",
+        )
+        with patch.object(
+            validation_ownership_module, "run_supervised_bytes", return_value=completed,
+        ) as supervise:
+            with self.assertRaises(validation_ownership_module.GitQueryTimeout) as raised:
+                validation_ownership_module._git_bytes(Path.cwd(), "ls-files")
+        supervise.assert_called_once()
+        self.assertFalse(raised.exception.cleanup_confirmed)
+        self.assertEqual("cleanup_unconfirmed", raised.exception.terminal_reason)
+
+    def test_git_cleanup_unknown_preserves_actual_terminal_diagnostics(self):
+        completed = SimpleNamespace(
+            timed_out=False, cancelled=False, interrupted=False,
+            cleanup_confirmed=False, exit_code=0,
+            terminal_reason="cleanup_unconfirmed", episode_token="episode:fixture",
+            root_process_id=123, root_process_running=False,
+            containment_query_succeeded=False, descendant_process_ids=(456,),
+            stdout=b"secret command output", stderr=b"secret stderr",
+        )
+        with patch.object(
+            validation_ownership_module, "run_supervised_bytes", return_value=completed,
+        ) as supervise:
+            with self.assertRaises(
+                validation_ownership_module.GitQueryCleanupUnconfirmed,
+            ) as raised:
+                validation_ownership_module._git_bytes(Path.cwd(), "ls-files", "--cached")
+        supervise.assert_called_once()
+        error = raised.exception
+        self.assertFalse(error.cleanup_confirmed)
+        self.assertEqual("episode:fixture", error.episode_token)
+        self.assertEqual(123, error.root_process_id)
+        self.assertEqual(0, error.exit_code)
+        self.assertFalse(error.containment_query_succeeded)
+        self.assertFalse(error.root_process_running)
+        self.assertEqual((456,), error.descendant_process_ids)
+        self.assertEqual(1, error.descendant_process_count)
+        message = str(error)
+        self.assertIn("git_query_cleanup_unconfirmed", message)
+        self.assertIn('"episode_token":"episode:fixture"', message)
+        self.assertIn('"containment_query_succeeded":false', message)
+        self.assertIn('"descendant_process_ids":[456]', message)
+        self.assertNotIn("secret", message)
+        self.assertNotIn("--cached", message)
+
+    def test_git_cleanup_unknown_diagnostics_are_bounded_and_missing_stays_unknown(self):
+        error = validation_ownership_module.GitQueryCleanupUnconfirmed(
+            query_category="ls-files", elapsed_seconds=0.1,
+            terminal_reason="cleanup_unconfirmed", episode_token="e" * 1000,
+            descendant_process_ids=tuple(range(1, 101)),
+        )
+        self.assertEqual("e" * 128, error.episode_token)
+        self.assertEqual(tuple(range(1, 33)), error.descendant_process_ids)
+        self.assertEqual(100, error.descendant_process_count)
+        self.assertLess(len(str(error)), 1000)
+        self.assertIsNone(error.root_process_running)
+        self.assertIsNone(error.containment_query_succeeded)
+        self.assertIn('"root_process_running":null', str(error))
+        self.assertIn('"containment_query_succeeded":null', str(error))
+        completed = SimpleNamespace(
+            timed_out=False, cancelled=False, interrupted=False,
+            cleanup_confirmed=False, exit_code=0,
+            terminal_reason="cleanup_unconfirmed", root_process_running=False,
+            descendant_process_ids=(),
+        )
+        with patch.object(
+            validation_ownership_module, "run_supervised_bytes", return_value=completed,
+        ) as supervise:
+            with self.assertRaises(
+                validation_ownership_module.GitQueryCleanupUnconfirmed,
+            ) as raised:
+                validation_ownership_module._git_bytes(Path.cwd(), "ls-files")
+        supervise.assert_called_once()
+        self.assertIsNone(raised.exception.containment_query_succeeded)
+        self.assertEqual((), raised.exception.descendant_process_ids)
+        self.assertFalse(raised.exception.cleanup_confirmed)
+
+    def test_serial_local_check_is_bounded_and_final_check_still_detects_other_owner_drift(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            (root / "other.txt").write_text("other", encoding="utf-8")
+            owners = (contract("child"), contract("other", input_patterns=("other.txt",)))
+            observation = observe_validation_owners(root, owners, receipt_root=root / "receipts")
+            (root / "other.txt").write_text("changed", encoding="utf-8")
+            with patch.object(validation_ownership_module, "resolve_input_manifest", wraps=resolve_input_manifest) as resolve, patch.object(validation_ownership_module, "list_evidence_receipts") as receipts:
+                local = validation_ownership_module._assert_validation_owner_current_fresh(observation, "child", root)
+            self.assertTrue(local.ok)
+            self.assertEqual(("child",), tuple(local.current_by_owner))
+            self.assertEqual(("source.txt",), resolve.call_args.args[1])
+            receipts.assert_not_called()
+            with self.assertRaisesRegex(ValueError, "repository_input_manifest_changed"):
+                assert_validation_owner_observation_fresh(observation, root, root / "receipts")
+            with patch("flowguard.validation_ownership.platform.machine", return_value="drift"):
+                with self.assertRaisesRegex(ValueError, "inputs changed"):
+                    validation_ownership_module._assert_validation_owner_current_fresh(observation, "child", root)
+            with self.assertRaisesRegex(ValueError, "outside the frozen"):
+                validation_ownership_module._assert_validation_owner_current_fresh(observation, "foreign", root)
+
+    def test_owned_receipt_ledger_preserves_exact_all_and_latest_inventory_semantics(self):
+        for latest in (False, True):
+            with self.subTest(latest=latest), tempfile.TemporaryDirectory() as temporary:
+                root = self._repository(Path(temporary))
+                receipt_root = root / "receipts"
+                owner, first, _ = self._supervised_child(root, receipt_root)
+                observation = observe_validation_owners(root, (owner,), receipt_root=receipt_root, prefer_latest_model_receipt=latest)
+
+                def publish_nonpass(label):
+                    now = datetime.now(timezone.utc).isoformat()
+                    return validation_ownership_module.record_validation_owner_nonpass(
+                        observation.current_by_owner[owner.owner_id],
+                        ValidationChildResult(child_id=owner.owner_id, status="fail", summary=label),
+                        root, receipt_root, all_contracts=(owner,),
+                        started_at=now, finished_at=now,
+                    )
+
+                # An initial successful attempt followed by a failed retry is
+                # a legitimate multi-receipt inventory, not two competing passes.
+                produced = publish_nonpass("owned attempt")
+                expected = validation_ownership_module._receipt_inventory_after_owned_publications(observation, (produced,))
+                self.assertEqual(1 if latest else 2, len(expected))
+                self.assertIn(produced.receipt_id, {row[1] for row in expected})
+                self.assertEqual(not latest, first.receipt_id in {row[1] for row in expected})
+                self.assertTrue(assert_validation_owner_observation_fresh(observation, root, receipt_root, published_receipts=(produced,)).ok)
+                if not latest:
+                    altered = replace(observation, receipt_inventory_identities=((produced.subject_id, produced.receipt_id, "sha256:altered"),))
+                    with self.assertRaisesRegex(ValueError, "immutable receipt"):
+                        validation_ownership_module._receipt_inventory_after_owned_publications(altered, (produced,))
+                with self.assertRaisesRegex(ValueError, "cannot narrow"):
+                    assert_validation_owner_observation_fresh(observation, root, receipt_root, receipt_ids=(produced.receipt_id,), published_receipts=(produced,))
+                with self.assertRaisesRegex(ValueError, "one receipt per owner"):
+                    validation_ownership_module._receipt_inventory_after_owned_publications(observation, (produced, produced))
+                # A later same-subject publication is not owned by this call.
+                publish_nonpass("foreign attempt")
+                with self.assertRaisesRegex(ValueError, "receipt_inventory_changed"):
+                    assert_validation_owner_observation_fresh(observation, root, receipt_root, published_receipts=(produced,))
+
+    def test_owned_receipt_ledger_rejects_foreign_owner_context(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            receipt_root = root / "receipts"
+            _owner, receipt, _ = self._supervised_child(root, receipt_root)
+            foreign_observation = observe_validation_owners(root, (contract("foreign"),), receipt_root=receipt_root)
+            with self.assertRaisesRegex(ValueError, "outside the frozen"):
+                validation_ownership_module._receipt_inventory_after_owned_publications(foreign_observation, (receipt,))
+
+    def test_author_request_outputs_are_excluded_but_contracts_remain_source(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = self._repository(Path(temporary))
+            prefix = ".agents/skills/flowguard/.skillguard/"
+            request_prefix = prefix + "runtime-requests/full-author-assurance/"
+            sources = (
+                prefix + "skill_contract.json",
+                prefix + "compiled/check-manifest.json",
+                prefix + "runtime-requests/full-author-assurance-extra/source.json",
+                ".agents/skills/other/.skillguard/runtime-requests/full-author-assurance/source.json",
+            )
+            for name in (*sources, request_prefix + "tracked.json", request_prefix + "untracked.json"):
+                path = root / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}", encoding="utf-8")
+            subprocess.run(("git", "add", request_prefix + "tracked.json"), cwd=root, check=True)
+            before = resolve_input_manifest(root, (".agents/skills/**/*",))
+            self.assertEqual(set(sources), {row["path"] for row in before})
+            (root / (request_prefix + "tracked.json")).write_text('{"request":2}', encoding="utf-8")
+            self.assertEqual(before, resolve_input_manifest(root, (".agents/skills/**/*",)))
+            with patch.object(validation_ownership_module, "_git_candidate_paths", return_value=None):
+                self.assertEqual(before, resolve_input_manifest(root, (".agents/skills/**/*",)))
+            from flowguard.model_regressions import _tracked_paths
+            self.assertNotIn(root / (request_prefix + "tracked.json"), _tracked_paths(root))
+            (root / sources[0]).write_text('{"contract":2}', encoding="utf-8")
+            self.assertNotEqual(before, resolve_input_manifest(root, (".agents/skills/**/*",)))
+
     def test_owner_required_wire_boolean_cannot_change_protection_denominator(self):
         values = contract("owner").to_dict()
         for invalid in (None, 0, 1, "false"):

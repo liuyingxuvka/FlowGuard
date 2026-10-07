@@ -212,6 +212,8 @@ class VerifiedModelMaturation:
                 bool(item.get("current"))
                 and str(item.get("conclusion", "")) != "unresolved"
                 and not tuple(item.get("unresolved_ids", ()))
+                and not tuple(item.get("observation_gap_ids", ()))
+                and not tuple(item.get("improvement_gap_ids", ()))
                 and str(item.get("selected_candidate_lane", ""))
                 != "normative_target"
                 and str(item.get("subject_fingerprint", "")).startswith(
@@ -380,6 +382,12 @@ def _path_quality_closure_findings(
             findings.append("maturation_path_quality_result_stale")
         if result.currentness_id != subject.currentness_id:
             findings.append("maturation_path_quality_currentness_mismatch")
+        if result.observation_gap_ids:
+            findings.append("maturation_path_quality_observation_blocked")
+        if result.improvement_gap_ids:
+            findings.append("maturation_path_quality_improvement_incomplete")
+        if set(result.observation_gap_ids) | set(result.improvement_gap_ids) != set(result.finding_ids) | set(result.unresolved_ids):
+            findings.append("maturation_path_quality_gap_classification_mismatch")
         if result.conclusion == "unresolved" or result.unresolved_ids:
             findings.append("maturation_path_quality_unresolved")
         if result.selected_candidate_lane == "normative_target":
@@ -533,6 +541,8 @@ def _verified_from(
                     "trigger_ids": result.trigger_ids,
                     "conclusion": result.conclusion,
                     "unresolved_ids": result.unresolved_ids,
+                    "observation_gap_ids": result.observation_gap_ids,
+                    "improvement_gap_ids": result.improvement_gap_ids,
                     "selected_candidate_lane": result.selected_candidate_lane,
                     "detail_evidence_fingerprint": (
                         result.detail_evidence_fingerprint
@@ -588,6 +598,7 @@ def verify_model_maturation_receipt(
     repository_root: str | Path = ".",
     *,
     output_directory: str | Path | None = None,
+    read_context=None,
 ) -> ModelMaturationReceiptVerification:
     """Load canonical content, independently derive freshness, then project."""
 
@@ -595,8 +606,9 @@ def verify_model_maturation_receipt(
         receipt_ref.receipt_id,
         repository_root,
         output_directory=output_directory,
+        read_context=read_context,
     )
-    generic = verify_evidence_receipt(receipt, context.receipt_context)
+    generic = verify_evidence_receipt(receipt, context.receipt_context, read_context=read_context)
     findings: list[str] = []
     if receipt.fingerprint != receipt_ref.receipt_fingerprint:
         findings.append("maturation_receipt_reference_fingerprint_mismatch")

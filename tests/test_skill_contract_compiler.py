@@ -119,9 +119,20 @@ class CurrentSkillContractParityTests(unittest.TestCase):
                     {path.name for path in authority.iterdir() if path.is_file()},
                 )
                 self.assertTrue(
-                    all(path.name == "archive" and path.is_dir() for path in authority.iterdir() if path.is_dir()),
+                    all(path.name in {"archive", "runtime-requests"} for path in authority.iterdir() if path.is_dir()),
                     f"unexpected non-current authority directories: {sorted(path.name for path in authority.iterdir() if path.is_dir())}",
                 )
+                requests = authority / "runtime-requests"
+                if requests.exists():
+                    self.assertEqual({"full-author-assurance"}, {path.name for path in requests.iterdir()})
+                    from flowguard.runtime_artifacts import classify_runtime_artifact
+                    for path in (requests / "full-author-assurance").rglob("*"):
+                        if path.is_file():
+                            classification = classify_runtime_artifact(path.relative_to(ROOT).as_posix())
+                            self.assertIsNotNone(classification)
+                            self.assertTrue(classification.non_authority)
+                    self.assertIsNone(classify_runtime_artifact(
+                        (requests / "source-contract.json").relative_to(ROOT).as_posix()))
 
 
 if __name__ == "__main__":

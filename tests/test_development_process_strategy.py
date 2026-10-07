@@ -4,7 +4,9 @@ import ast
 import dataclasses
 from pathlib import Path
 import unittest
+from unittest.mock import patch
 
+import flowguard._development_process_strategy_review as strategy_review
 import flowguard.development_process_strategy as strategy
 from flowguard.development_process_strategy import (
     ProcessOptimizationCandidate,
@@ -116,18 +118,182 @@ class DevelopmentProcessStrategyTests(unittest.TestCase):
         report = review_process_optimization(_decision())
         self.assertTrue(report.ok)
         self.assertEqual(report.status, "selected")
-        self.assertIn("current qualitative evidence", report.claim_boundary)
-        self.assertIn("no unrestricted global optimum", report.claim_boundary)
-        self.assertIn("Pareto-dominating process candidate", report.selection_rationale)
-        self.assertNotIn("total", report.cost_component_ids)
+        self.assertEqual(report.selected_comparison_basis, "")
+        self.assertEqual(report.cost_component_ids, ())
+        self.assertEqual(report.candidate_cost_rows, ())
+        self.assertEqual(report.non_dominated_candidate_ids, ())
+        self.assertIn("only the declared admissible route", report.claim_boundary)
+        self.assertIn("no Pareto, minimum, or optimality claim", report.claim_boundary)
+        self.assertIn("no cost comparison performed", report.selection_rationale)
         self.assertEqual(
             report.caller_selection_rationale,
             "collect related evidence before one root-cause repair",
         )
 
-    def test_measured_selection_still_does_not_claim_global_optimality(self) -> None:
+    def test_one_declared_route_needs_no_comparison_costs(self) -> None:
+        candidate = _candidate(
+            step_effort_costs=(),
+            step_effort_evidence_ids=(),
+            comparison_evidence_ids=(),
+            comparison_basis="",
+        )
+        with patch.object(
+            strategy_review,
+            "_candidate_cost_vector",
+            side_effect=AssertionError("single declared route must not compare costs"),
+        ):
+            report = review_process_optimization(_decision(candidates=(candidate,)))
+
+        self.assertTrue(report.ok, report.to_dict())
+        self.assertEqual(report.status, "selected")
+        self.assertEqual(report.selected_candidate_id, candidate.candidate_id)
+        self.assertEqual(report.eligible_candidate_ids, (candidate.candidate_id,))
+        self.assertEqual(report.selected_comparison_basis, "")
+        self.assertEqual(report.cost_component_ids, ())
+        self.assertEqual(report.candidate_cost_rows, ())
+        self.assertEqual(report.non_dominated_candidate_ids, ())
+        self.assertIn("no cost comparison performed", report.selection_rationale)
+        self.assertIn("no Pareto, minimum, or optimality claim", report.claim_boundary)
+
+    def test_one_declared_route_keeps_hard_contract_and_owner_gates(self) -> None:
+        cases = (
+            (
+                "terminal outcome",
+                _candidate(terminal_outcome_ids=()),
+                "terminal_outcome_boundary_mismatch",
+            ),
+            (
+                "step owner",
+                _candidate(step_execution_owner_ids=(("diagnose", "execution:owner"),)),
+                "step_execution_owner_incomplete",
+            ),
+            (
+                "DAG",
+                _candidate(
+                    dependency_edges=(("diagnose", "repair"), ("repair", "diagnose"))
+                ),
+                "dependency_cycle",
+            ),
+            (
+                "stale evidence",
+                _candidate(evidence_ids=("evidence:stale",)),
+                "current_evidence_reference_missing:equivalence",
+            ),
+            (
+                "parallel isolation",
+                _candidate(execution_mode="safe_parallel"),
+                "parallel_isolation_evidence_missing",
+            ),
+        )
+        for label, candidate, expected_finding in cases:
+            with self.subTest(label=label):
+                report = review_process_optimization(_decision(candidates=(candidate,)))
+                self.assertFalse(report.ok)
+                self.assertTrue(
+                    any(
+                        code.endswith(expected_finding)
+                        for code in report.rejected_candidate_finding_codes
+                    ),
+                    report.rejected_candidate_finding_codes,
+                )
+                self.assertEqual(report.candidate_cost_rows, ())
+
+    def test_one_declared_route_rejects_invalid_supplied_cost_or_evidence(self) -> None:
+        cases = (
+            (
+                "negative cost",
+                _candidate(step_effort_costs=(("diagnose", -1.0),)),
+                "step_effort_cost_invalid",
+            ),
+            (
+                "NaN cost",
+                _candidate(step_effort_costs=(("diagnose", float("nan")),)),
+                "step_effort_cost_invalid",
+            ),
+            (
+                "duplicate cost step",
+                _candidate(step_effort_costs=(("diagnose", 1.0), ("diagnose", 2.0))),
+                "step_effort_cost_invalid",
+            ),
+            (
+                "unknown cost step",
+                _candidate(step_effort_costs=(("unknown", 1.0),)),
+                "step_effort_cost_invalid",
+            ),
+            (
+                "stale provided evidence",
+                _candidate(comparison_evidence_ids=("evidence:stale",)),
+                "current_evidence_reference_missing:comparison",
+            ),
+        )
+        for label, candidate, expected_finding in cases:
+            with self.subTest(label=label):
+                report = review_process_optimization(_decision(candidates=(candidate,)))
+                self.assertFalse(report.ok)
+                self.assertTrue(
+                    any(
+                        code.endswith(expected_finding)
+                        for code in report.rejected_candidate_finding_codes
+                    ),
+                    report.rejected_candidate_finding_codes,
+                )
+                self.assertEqual(report.candidate_cost_rows, ())
+
+    def test_multiple_declared_routes_do_not_use_single_route_shortcut(self) -> None:
+        missing_cost = _candidate(
+            "candidate:valid-but-unmeasured",
+            step_effort_costs=(),
+            step_effort_evidence_ids=(),
+        )
+        ineligible = _candidate(
+            "candidate:ineligible",
+            covered_obligation_ids=("obligation:a",),
+            step_effort_costs=(),
+            step_effort_evidence_ids=(),
+        )
+        with patch.object(
+            strategy_review,
+            "_candidate_cost_vector",
+            wraps=strategy_review._candidate_cost_vector,
+        ) as cost_vector:
+            report = review_process_optimization(
+                _decision(
+                    candidates=(missing_cost, ineligible),
+                    selected="candidate:valid-but-unmeasured",
+                )
+            )
+
+        self.assertFalse(report.ok)
+        self.assertEqual(cost_vector.call_count, 1)
+        self.assertIn("candidate_cost_vector_incomplete", report.finding_codes)
+        self.assertEqual(report.rejected_candidate_ids, ("candidate:ineligible",))
+
+    def test_multiple_routes_reason_cannot_hide_a_candidate(self) -> None:
         report = review_process_optimization(
-            _decision(candidates=(_candidate(comparison_basis="measured"),))
+            _decision(
+                candidates=(_candidate(),),
+                reasons=("multiple_equivalent_routes",),
+            )
+        )
+
+        self.assertFalse(report.ok)
+        self.assertIn(
+            "multiple_routes_reason_without_multiple_candidates",
+            report.finding_codes,
+        )
+
+    def test_measured_selection_still_does_not_claim_global_optimality(self) -> None:
+        selected = _candidate(
+            comparison_basis="measured",
+            step_effort_costs=(("diagnose", 1.0), ("repair", 1.0)),
+        )
+        slower = _candidate(
+            "candidate:slower",
+            comparison_basis="measured",
+            step_effort_costs=(("diagnose", 2.0), ("repair", 2.0)),
+        )
+        report = review_process_optimization(
+            _decision(candidates=(selected, slower))
         )
         self.assertTrue(report.ok)
         self.assertIn("current measured evidence", report.claim_boundary)
@@ -168,7 +334,13 @@ class DevelopmentProcessStrategyTests(unittest.TestCase):
             comparison_basis="measured",
             step_effort_costs=(("diagnose", 1.0),),
         )
-        report = review_process_optimization(_decision(candidates=(candidate,)))
+        complete = _candidate(
+            "candidate:complete-measured",
+            comparison_basis="measured",
+        )
+        report = review_process_optimization(
+            _decision(candidates=(candidate, complete))
+        )
         self.assertTrue(any(
             code.endswith("measured_step_cost_missing")
             for code in report.rejected_candidate_finding_codes

@@ -26,6 +26,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                 ),
                 multiple_skills_or_tools=True,
                 cross_owner_handoff=True,
+                shared_write=True,
                 staged_validation=True,
                 process_optimization_evidence_ids=("optimization:decision:v1",),
             )
@@ -120,7 +121,6 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
 
     def test_each_material_workflow_risk_fact_admits_internal_mode(self):
         risk_fields = (
-            "cross_owner_handoff",
             "shared_write",
             "post_validation_write",
             "agent_route_workflow_change",
@@ -136,6 +136,43 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                 )
                 self.assertEqual((SIMULATOR_MODE_AGENT_WORKFLOW,), report.selected_modes)
                 self.assertIn(field_name, report.mode_decisions[0].reason)
+
+    def test_cross_owner_handoff_uses_freshness_without_rehearsal(self):
+        report = review_development_process_simulator(
+            DevelopmentProcessSimulationRequest(
+                "handoff-only",
+                cross_owner_handoff=True,
+            )
+        )
+
+        self.assertEqual((SIMULATOR_MODE_EXECUTION_FRESHNESS,), report.selected_modes)
+        self.assertEqual(("review_development_process_flow",), report.required_reviews)
+        self.assertNotIn(SIMULATOR_MODE_AGENT_WORKFLOW, report.selected_modes)
+        self.assertIn("cross-owner handoff", report.mode_decisions[0].reason)
+
+    def test_cross_owner_handoff_material_risks_still_admit_rehearsal(self):
+        material_risks = (
+            "shared_write",
+            "post_validation_write",
+            "agent_route_workflow_change",
+            "multiple_independent_owner_irreversible_side_effects",
+            "explicit_agent_workflow",
+        )
+        for field_name in material_risks:
+            with self.subTest(field_name=field_name):
+                report = review_development_process_simulator(
+                    DevelopmentProcessSimulationRequest(
+                        f"handoff-with-{field_name}",
+                        cross_owner_handoff=True,
+                        **{field_name: True},
+                    )
+                )
+                self.assertEqual(
+                    (SIMULATOR_MODE_AGENT_WORKFLOW, SIMULATOR_MODE_EXECUTION_FRESHNESS),
+                    report.selected_modes,
+                )
+                self.assertIn(field_name, report.mode_decisions[0].reason)
+                self.assertIn("cross-owner handoff", report.mode_decisions[1].reason)
 
     def test_execution_and_release_select_execution_freshness(self):
         report = review_development_process_simulator(
@@ -162,6 +199,7 @@ class DevelopmentProcessSimulatorTests(unittest.TestCase):
                 rough_plan=True,
                 multiple_skills_or_tools=True,
                 cross_owner_handoff=True,
+                shared_write=True,
                 implementation_work=True,
                 staged_validation=True,
                 install_sync=True,

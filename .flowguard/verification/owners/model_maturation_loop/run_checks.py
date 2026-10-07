@@ -18,6 +18,7 @@ import sys
 from flowguard import run_exact_sequence
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
+from model import run_r6_architecture_review, run_r8_architecture_review, run_r9_architecture_review
 
 
 def main() -> int:
@@ -50,8 +51,14 @@ def main() -> int:
         ),
         protected_error_class="model_maturation_authority_bypass",
     )
-    return 0 if correct_ok and report.ok else 1
+    architecture_report = run_r6_architecture_review()
+    print(architecture_report.format_text())
+    functional_report = run_r8_architecture_review()
+    print(functional_report.format_text())
+    normal_report = run_r9_architecture_review()
+    print(normal_report.format_text())
+    return 0 if correct_ok and report.ok and architecture_report.ok and functional_report.ok and normal_report.ok else 1
 
 from flowguard.native_case_runner import native_main
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:model_maturation_loop", main))
+    raise SystemExit(native_main("model:model_maturation_loop", main, declared_source_exporter=model.export_path_quality_source))

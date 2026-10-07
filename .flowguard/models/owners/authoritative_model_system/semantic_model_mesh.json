@@ -5,7 +5,11 @@
   "derivation_base_snapshot_path": ".flowguard/models/authority/snapshots/36aca0a93c42800d7abc84054f1f39524b4b37bf8313911e585e0f45e468836a.json",
   "derivation_base_snapshot_fingerprint": "sha256:36aca0a93c42800d7abc84054f1f39524b4b37bf8313911e585e0f45e468836a",
   "current_manifest_path": ".flowguard/models/regression-manifest.json",
-  "observed_base_added_model_ids": [],
+  "observed_base_added_model_ids": [
+    "evidence_storage_lifecycle",
+    "problem_corpus_coverage",
+    "python_function_state_verification"
+  ],
   "observed_base_removed_model_ids": [
     "ai_surface_streamlining",
     "legacy_compatibility_cleanup",
@@ -22,10 +26,10 @@
     "structure_surface_simplification",
     "template_harvest_closure"
   ],
-  "declared_model_count": 51,
-  "semantic_universe_fingerprint": "sha256:cf78187656ef0f81d2698a9625f7edb4ee465f00ea0b108ac8bc35cf555b803c",
-  "semantic_disposition_fingerprint": "sha256:4bbe8a5d2c1087d24892c610985951d64ca6dace340b30f1238ff28d7155bb07",
-  "semantic_relation_fingerprint": "sha256:d2f926f1ed7a418fc256e9c7e7ae637281ae65daf8c3244fdd0f294f850592f5",
+  "declared_model_count": 54,
+  "semantic_universe_fingerprint": "sha256:0d4ccd2bc1e66cfef226b47d843b3c16089d56563436906e6f9a4bbca91b7e3b",
+  "semantic_disposition_fingerprint": "sha256:7c64444128d2adfec06071b4109a618f28a4cb4a6b04529def7417d65ea23b1c",
+  "semantic_relation_fingerprint": "sha256:33442987277ca84b643c9ba34b32e16d9d5d06ee3bea7424551b6e68930c3d17",
   "semantic_model_status": "candidate_defined_not_verified",
   "whole_system_completion_claim": "not_licensed_until_current_terminal_evidence",
   "currentness_owner": "authoritative_model_system_revision",
@@ -231,6 +235,19 @@
       "rationale": "Provides conditional route-comparison evidence only when the development process has a real optimization trigger.",
       "structural_parent_id": "semantic-parent:development-release-and-adoption",
       "cross_boundary_parent_ids": []
+    },
+    {
+      "model_id": "evidence_storage_lifecycle",
+      "disposition": "connected",
+      "consumer_ids": [
+        "model:development_process_flow",
+        "model:validation_evidence_gates"
+      ],
+      "rationale": "Own temporary-fixture evidence storage identity, current/pinned/preserved retention, exact-subject cleanup, quarantine/restore and gated irreversible purge effects. Development and evidence gates consume storage integrity separately from receipt-currentness; finite storage oracles do not prove production cleanup or target-test success.",
+      "structural_parent_id": "semantic-parent:development-release-and-adoption",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:behavior-contracts-and-evidence"
+      ]
     },
     {
       "model_id": "existing_model_preflight",
@@ -467,6 +484,17 @@
       "cross_boundary_parent_ids": []
     },
     {
+      "model_id": "problem_corpus_coverage",
+      "disposition": "connected",
+      "consumer_ids": [
+        "model:test_evidence_mesh",
+        "model:model_test_code_alignment"
+      ],
+      "rationale": "Own finite corpus report aggregation and the independent case/bug/variant/denominator coverage oracles consumed by test-evidence and alignment review. The owner runs its declared baseline and mutations; an aggregate never proves arbitrary application scenarios or reduces missing/failing cases to success.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": []
+    },
+    {
       "model_id": "project_adoption_version_gate",
       "disposition": "connected",
       "consumer_ids": [
@@ -476,6 +504,19 @@
       "rationale": "Guards package and project adoption currentness without confusing installed, source, or author-maintenance identity.",
       "structural_parent_id": "semantic-parent:development-release-and-adoption",
       "cross_boundary_parent_ids": []
+    },
+    {
+      "model_id": "python_function_state_verification",
+      "disposition": "connected",
+      "consumer_ids": [
+        "model:model_test_code_alignment",
+        "model:compositional_verification_kernel"
+      ],
+      "rationale": "Own the actual Python function/state engine's finite invocation-priority, result-coercion, retained nondeterminism, contracts, invariants, reachability, trace/replay, conformance and nonprogress oracles. Alignment and composition consume this declared engine boundary; arbitrary caller workflows and every implementation helper require their own evidence.",
+      "structural_parent_id": "semantic-parent:behavior-contracts-and-evidence",
+      "cross_boundary_parent_ids": [
+        "semantic-parent:model-mesh-and-composition"
+      ]
     },
     {
       "model_id": "runtime_gateway_adoption",

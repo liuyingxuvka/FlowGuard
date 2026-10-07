@@ -154,7 +154,17 @@ class SelfBlueprintDefinitionCompilerTests(unittest.TestCase):
             ],
             "dynamic_selector_contracts": [],
             "composite_behavior_contracts": contract_rows,
-            "owner_overrides": {"manual.py": owners[0]},
+            "owner_overrides": {
+                "manual.py": owners[0],
+                **{
+                    path: owner
+                    for owner in owners
+                    for path in (
+                        f".flowguard/models/owners/{owner}/model.py",
+                        f".flowguard/verification/owners/{owner}/run_checks.py",
+                    )
+                },
+            },
             "resource_groups": [{"resource_id": "manual-resource"}],
             "claim_boundary": "Keep this exact manually authored blueprint boundary.",
         }
@@ -410,6 +420,67 @@ class SelfBlueprintDefinitionCompilerTests(unittest.TestCase):
                 self.assertIn(case, result["error"])
                 self.assertFalse(result["wrote"])
                 self.assertEqual(before, definition_path.read_bytes())
+
+    def test_current_model_and_runner_overrides_are_required_before_writes(self):
+        for role in ("model", "runner"):
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                definition_path = self._fixture(root, stale_identity=True)
+                payload = json.loads(definition_path.read_text(encoding="utf-8"))
+                path = (
+                    ".flowguard/models/owners/alpha/model.py"
+                    if role == "model"
+                    else ".flowguard/verification/owners/alpha/run_checks.py"
+                )
+                del payload["owner_overrides"][path]
+                definition_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+                manifest_path = root / ".flowguard/models/regression-manifest.json"
+                before = (definition_path.read_bytes(), manifest_path.read_bytes())
+                with patch.object(COMPILER, "_atomic_write") as writer:
+                    with self.assertRaisesRegex(COMPILER.SelfBlueprintDefinitionCompilerError,
+                                                "missing exact model/runner owner override"):
+                        COMPILER.compile_self_blueprint_definition(root, write=True)
+                    writer.assert_not_called()
+                self.assertEqual(before, (definition_path.read_bytes(), manifest_path.read_bytes()))
+
+    def test_known_but_wrong_model_and_runner_override_is_rejected(self):
+        for role in ("model", "runner"):
+            with self.subTest(role=role), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                definition_path = self._fixture(root, owners=("alpha", "beta"))
+                payload = json.loads(definition_path.read_text(encoding="utf-8"))
+                path = (
+                    ".flowguard/models/owners/alpha/model.py"
+                    if role == "model"
+                    else ".flowguard/verification/owners/alpha/run_checks.py"
+                )
+                payload["owner_overrides"][path] = "beta"
+                definition_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+                before = definition_path.read_bytes()
+                with patch.object(COMPILER, "_atomic_write") as writer:
+                    with self.assertRaisesRegex(COMPILER.SelfBlueprintDefinitionCompilerError,
+                                                "wrong exact model/runner owner override"):
+                        COMPILER.compile_self_blueprint_definition(root, write=True)
+                    writer.assert_not_called()
+                self.assertEqual(before, definition_path.read_bytes())
+
+    def test_three_additional_owners_keep_explicit_path_bindings(self):
+        owners = ("python_function_state_verification", "problem_corpus_coverage",
+                  "evidence_storage_lifecycle")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            definition_path = self._fixture(root, owners=owners)
+            before = definition_path.read_bytes()
+            result = COMPILER.compile_self_blueprint_definition(root)
+            self.assertTrue(result["ok"])
+            self.assertEqual(3, result["owner_count"])
+            self.assertFalse(result["wrote"])
+            self.assertEqual(before, definition_path.read_bytes())
+            payload = json.loads(before)
+            for owner in owners:
+                for path in (f".flowguard/models/owners/{owner}/model.py",
+                             f".flowguard/verification/owners/{owner}/run_checks.py"):
+                    self.assertEqual(owner, payload["owner_overrides"][path])
 
     def test_post_write_source_drift_restores_original_definition(self):
         with tempfile.TemporaryDirectory() as directory:

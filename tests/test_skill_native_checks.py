@@ -1,332 +1,36 @@
-import json
+"""The retired SkillGuard command-binding fixture has no current authority.
+
+Its execution, pytest sharing, and command-resume tests belong to the actual
+native/model/process owners. Current03 tests are consumer-only below and in
+ test_skill_native_model_receipts; no old schema reader is kept to pass them.
+"""
 import tempfile
 import unittest
 from pathlib import Path
-
-from flowguard.evidence_receipts import list_evidence_receipts, verify_evidence_receipt
-from flowguard.skill_native_checks import (
-    build_current_native_receipt_context,
-    run_native_skill_check,
-)
-from scripts.run_flowguard_skill_native_checks import _current_receipt_row
-
-
-def write_json(path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value), encoding="utf-8")
-
-
-def build_fixture(root, *, command="python native_check.py"):
-    skill_id = "flowguard-fixture"
-    skill = root / ".agents/skills" / skill_id
-    (skill / "agents").mkdir(parents=True)
-    (skill / ".skillguard").mkdir()
-    (root / "flowguard").mkdir()
-    (root / "flowguard/example.py").write_text("VALUE = 1\n", encoding="utf-8")
-    (skill / "SKILL.md").write_text("---\nname: flowguard-fixture\n---\n# Fixture\n", encoding="utf-8")
-    (skill / "agents/openai.yaml").write_text("interface:\n  display_name: Fixture\n", encoding="utf-8")
-    command_parts = command.split()
-    check = {
-        "check_id": "fixture-check",
-        "kind": "command",
-        "command": command_parts[0],
-        "args": command_parts[1:],
-    }
-    source = {
-        "schema_version": "skillguard.contract_source.v2",
-        "skill_id": skill_id,
-        "native_route_owner": "fixture-owner",
-        "native_check_bindings": [
-            {
-                "authority": "target-native",
-                "check_id": "fixture-check",
-                "owner_id": "fixture-owner",
-            }
-        ],
-        "checks": [check],
-    }
-    contract = {
-        "schema_version": "skillguard.compiled_contract.v2",
-        "skill_id": skill_id,
-        "contract_hash": "FIXTURE-CONTRACT-HASH",
-        "obligations": [
-            {
-                "obligation_id": "fixture-obligation",
-                "required": True,
-                "required_check_ids": ["fixture-check"],
-            }
-        ],
-    }
-    write_json(skill / ".skillguard/contract-source.json", source)
-    write_json(skill / ".skillguard/compiled-contract.json", contract)
-    write_json(
-        skill / ".skillguard/check-manifest.json",
-        {
-            "schema_version": "skillguard.check_manifest.v2",
-            "skill_id": skill_id,
-            "contract_hash": "FIXTURE-CONTRACT-HASH",
-            "checks": [check],
-        },
-    )
-    write_json(
-        root / ".skillguard/flowguard-suite/suite-map.json",
-        {
-            "schema_version": "skillguard.suite_map.v1",
-            "suite_name": "flowguard-agent-skill-suite",
-            "included_skills": [{"name": skill_id}],
-        },
-    )
-    return skill_id
+from unittest.mock import patch
+from flowguard.skill_native_checks import run_native_skill_check
+from scripts.run_flowguard_skill_native_checks import build_parser, main
 
 
 class SkillNativeCheckTests(unittest.TestCase):
-    def test_resume_reuses_only_an_exact_current_terminal_pass(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
+    def test_missing_outer_unit_evidence_never_executes_model_checks(self):
+        with tempfile.TemporaryDirectory() as directory, patch("subprocess.run", side_effect=AssertionError("native consumer must not execute")):
+            with self.assertRaisesRegex(ValueError, "completion_run_manifest_required"):
+                run_native_skill_check(Path(directory), "flowguard")
 
-            current = _current_receipt_row(root, skill_id, None)
+    def test_unregistered_member_is_rejected_before_observation(self):
+        with patch("flowguard.skill_native_checks.observe_current_native_models",
+                   side_effect=AssertionError("foreign member must not be observed")):
+            with self.assertRaisesRegex(ValueError, "unregistered_native_evidence_member"):
+                run_native_skill_check(".", "legacy-fixture")
 
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertIsNotNone(current)
-            self.assertEqual("reuse_current", current["disposition"])
-            self.assertEqual(result.receipt.receipt_id, current["receipt_id"])
-            (root / "native_check.py").write_text("print('changed')\n", encoding="utf-8")
-            self.assertIsNone(_current_receipt_row(root, skill_id, None))
-
-    def test_native_launcher_output_is_isolated_from_repository_root_and_retained(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            package_root = Path(__file__).resolve().parents[1]
-            (root / "native_check.py").write_text(
-                "from pathlib import Path\n"
-                "import os\n"
-                f"import sys\n"
-                f"sys.path.insert(0, {str(package_root)!r})\n"
-                "from flowguard.native_case_runner import native_main\n"
-                "def main():\n"
-                "    output = Path(os.environ['FLOWGUARD_OUTPUT_DIR'])\n"
-                "    (output / 'seen.txt').write_text('isolated\\n', encoding='utf-8')\n"
-                "    print('fixture-case: PASS')\n"
-                "    return 0\n"
-                "if __name__ == '__main__':\n"
-                "    raise SystemExit(native_main('model:fixture', main))\n",
-                encoding="utf-8",
-            )
-            receipts = root / "receipts"
-
-            result = run_native_skill_check(
-                root,
-                skill_id,
-                output_directory=receipts,
-                timeout_seconds=10,
-            )
-
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertFalse((root / "native-source.json").exists())
-            self.assertFalse((root / "native-case-results.json").exists())
-            retained = sorted(
-                receipts.glob(
-                    "check-executions/flowguard-fixture/run-*/fixture-check-*/seen.txt"
-                )
-            )
-            self.assertEqual(1, len(retained))
-            self.assertEqual("isolated\n", retained[0].read_text(encoding="utf-8"))
-            self.assertTrue(
-                retained[0].resolve().is_relative_to(receipts.resolve()),
-                retained[0],
-            )
-            proof = json.loads(result.proof_path.read_text(encoding="utf-8"))
-            self.assertEqual("FLOWGUARD_OUTPUT_DIR", proof["output_isolation"])
-            self.assertIn(
-                "<WORKSPACE>/receipts/check-executions/flowguard-fixture/run-",
-                proof["execution_workspace_path_token"],
-            )
-
-    def test_native_workspace_bounds_long_windows_path_components(self):
-        """A long retained evidence root must not make a native check unlaunchable."""
-
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
-            skill = root / ".agents/skills" / skill_id / ".skillguard"
-            source_path = skill / "contract-source.json"
-            contract_path = skill / "compiled-contract.json"
-            manifest_path = skill / "check-manifest.json"
-            source = json.loads(source_path.read_text(encoding="utf-8"))
-            contract = json.loads(contract_path.read_text(encoding="utf-8"))
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            long_check_id = "check-" + ("long-component-" * 9)
-            source["checks"][0]["check_id"] = long_check_id
-            source["native_check_bindings"][0]["check_id"] = long_check_id
-            contract["obligations"][0]["required_check_ids"] = [long_check_id]
-            manifest["checks"][0]["check_id"] = long_check_id
-            write_json(source_path, source)
-            write_json(contract_path, contract)
-            write_json(manifest_path, manifest)
-
-            evidence_root = root / ("e" * 100)
-            result = run_native_skill_check(
-                root,
-                skill_id,
-                output_directory=evidence_root,
-                timeout_seconds=10,
-            )
-
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertTrue(result.proof_path.is_file())
-            self.assertLessEqual(
-                max(len(str(path)) for path in evidence_root.rglob("*")),
-                260,
-            )
-
-    def test_receipt_binds_every_declared_native_command_input(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('first')\n", encoding="utf-8")
-            (root / "second_check.py").write_text("print('second')\n", encoding="utf-8")
-            skill = root / ".agents/skills" / skill_id / ".skillguard"
-            source_path = skill / "contract-source.json"
-            contract_path = skill / "compiled-contract.json"
-            manifest_path = skill / "check-manifest.json"
-            second = {
-                "check_id": "fixture-second-check",
-                "kind": "command",
-                "command": "python",
-                "args": ["second_check.py"],
-            }
-            source = json.loads(source_path.read_text(encoding="utf-8"))
-            source["checks"].append(second)
-            source["native_check_bindings"].append(
-                {
-                    "authority": "target-native",
-                    "check_id": "fixture-second-check",
-                    "owner_id": "fixture-owner",
-                }
-            )
-            contract = json.loads(contract_path.read_text(encoding="utf-8"))
-            contract["obligations"].append(
-                {
-                    "obligation_id": "fixture-second-obligation",
-                    "required": True,
-                    "required_check_ids": ["fixture-second-check"],
-                }
-            )
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            manifest["checks"].append(second)
-            write_json(source_path, source)
-            write_json(contract_path, contract)
-            write_json(manifest_path, manifest)
-
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
-
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertEqual(2, len(result.runs))
-            self.assertIn(
-                "file:second_check.py",
-                {item.artifact_id for item in result.receipt.input_snapshots},
-            )
-            (root / "second_check.py").write_text("print('changed')\n", encoding="utf-8")
-            stale = verify_evidence_receipt(
-                result.receipt,
-                build_current_native_receipt_context(result.receipt, root),
-            )
-            self.assertFalse(stale.current)
-            self.assertIn("input_raw_hash_mismatch", stale.finding_codes)
-
-    def test_resume_rejects_a_changed_declared_input_artifact_set(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
-            inputs = root / "native_inputs"
-            inputs.mkdir()
-            (inputs / "first.txt").write_text("first\n", encoding="utf-8")
-            skill = root / ".agents/skills" / skill_id / ".skillguard"
-            source_path = skill / "contract-source.json"
-            manifest_path = skill / "check-manifest.json"
-            source = json.loads(source_path.read_text(encoding="utf-8"))
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            selector = {"kind": "path", "path": "native_inputs"}
-            source["checks"][0]["input_selectors"] = [selector]
-            manifest["checks"][0]["input_selectors"] = [selector]
-            write_json(source_path, source)
-            write_json(manifest_path, manifest)
-
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
-
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertIsNotNone(_current_receipt_row(root, skill_id, None))
-            (inputs / "second.txt").write_text("second\n", encoding="utf-8")
-            self.assertIsNone(
-                build_current_native_receipt_context(result.receipt, root)
-            )
-            self.assertIsNone(_current_receipt_row(root, skill_id, None))
-
-    def test_pass_receipt_recomputes_current_context_and_detects_input_change(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('pass')\n", encoding="utf-8")
-
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
-            context = build_current_native_receipt_context(result.receipt, root)
-            verified = verify_evidence_receipt(result.receipt, context)
-
-            self.assertTrue(result.ok, result.to_dict())
-            self.assertTrue(verified.ok, verified.to_dict())
-            self.assertEqual(1, len(list_evidence_receipts(root)))
-            self.assertTrue(result.proof_path.is_file())
-            self.assertTrue(result.log_path.is_file())
-            self.assertNotIn(str(Path.home()), result.receipt.to_json())
-
-            (root / "native_check.py").write_text("print('changed')\n", encoding="utf-8")
-            stale = verify_evidence_receipt(
-                result.receipt,
-                build_current_native_receipt_context(result.receipt, root),
-            )
-            self.assertFalse(stale.current)
-            self.assertIn("input_raw_hash_mismatch", stale.finding_codes)
-
-    def test_failed_native_command_emits_failed_receipt_that_parent_cannot_promote(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("raise SystemExit(7)\n", encoding="utf-8")
-
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
-            verified = verify_evidence_receipt(
-                result.receipt,
-                build_current_native_receipt_context(result.receipt, root),
-            )
-
-            self.assertFalse(result.ok)
-            self.assertEqual("fail", result.receipt.result_status)
-            self.assertEqual(7, result.receipt.exit_code)
-            self.assertFalse(verified.eligible)
-            self.assertIn("native_check_failed:fixture-check:exit=7", result.receipt.blockers)
-
-    def test_binding_mismatch_blocks_without_manufacturing_pass(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            skill_id = build_fixture(root)
-            (root / "native_check.py").write_text("print('would pass')\n", encoding="utf-8")
-            source_path = root / ".agents/skills" / skill_id / ".skillguard/contract-source.json"
-            source = json.loads(source_path.read_text(encoding="utf-8"))
-            source["checks"][0]["args"] = ["another.py"]
-            write_json(source_path, source)
-
-            result = run_native_skill_check(root, skill_id, timeout_seconds=10)
-
-            self.assertFalse(result.ok)
-            self.assertEqual("blocked", result.receipt.result_status)
-            self.assertIn("native_binding_manifest_mismatch:fixture-check", result.receipt.blockers)
-
+    def test_old_resume_and_pytest_producer_options_are_retired(self):
+        parser = build_parser()
+        common = ["--output-dir", "run", "--completion-run-manifest", "manifest.json",
+                  "--model-receipt-dir", "models", "--validation-receipt-dir", "owners"]
+        for flag in ("--resume", "--pytest-leaf-plan", "--keep-going"):
+            with self.subTest(flag=flag), self.assertRaises(SystemExit):
+                parser.parse_args(common + [flag])
 
 if __name__ == "__main__":
     unittest.main()

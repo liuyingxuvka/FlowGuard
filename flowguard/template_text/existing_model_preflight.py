@@ -7,6 +7,7 @@ EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether an agent grounded an existing-system change in the FlowGuard models that already exist.
 Guards against: proposing new modules, rules, workflows, or ownership boundaries before checking existing FunctionBlocks, state owners, side-effect owners, public entrypoints, and model responsibilities.
+Growth observation: preserve unknown, deleted and renamed task paths as exact model_growth_unbound gaps until current independent inventory and binding proof covers them; no observation means NOT_OBSERVED.
 Use before editing: Run this before implementation, OpenSpec proposals, major architecture changes, or risky behavior changes in an existing modeled system.
 Run: python .flowguard/verification/owners/existing_model_preflight/run_checks.py
 """
@@ -182,7 +183,34 @@ or extend FieldLifecycleMesh before changing production behavior.
 
 Use a light grounding note for discussion and early analysis. Use a full
 structured preflight before implementation, OpenSpec proposals, major
-architecture changes, or risky behavior changes.
+architecture changes, or risky behavior changes. FULL+SELECTED is complete
+within the actual affected dependency closure; it is not a global audit and
+must not relabel a light result. Preserve each required objective's full scope.
+Only explicit BROAD/whole qualification consumes whole-target inventory.
+
+Start with requested functional outcomes and the accepted head/revision/as-of
+identity. Return scope/currentness, finding and authenticated detail/pointer
+refs, then the first missing input/owner. Fetch only material needed to change
+the conclusion, retaining every required ref. Similar names or hashes do not
+prove native semantics; retain partial-overlap variant remainders and visible
+source-bound temporary compromises. A deferred note never waives a required
+goal. No ordinary task creates a default cost goal.
+
+Task stopping requires verifier-created current maturation, exact intent,
+implementation/native bindings and receipts for every requested outcome, and
+no required open gap. Both decision and terminal reason use
+MODEL_MATURATION_DECISION_CLOSED_FOR_TASK (model_maturation_closed_for_task),
+not the short human label closed_for_task. A preflight ok, budget or iteration
+limit is not completion; public read without task context stays a map.
+
+Three task-neutral examples:
+- Export-format change: inspect format, actual callers and compatibility
+  contracts; do not expand into unrelated storage or UI work.
+- Shared-cache change: include every related writer, invalidation and retry
+  owner; a small initial request must not hide a required dependency.
+- Explicit whole-architecture review: consume the independent complete
+  inventory and reverse bindings with current proof; affected declarations
+  alone do not establish whole-source coverage.
 
 Use `existing_model_preflight_from_project(...)` when an agent needs a quick
 project inventory from `.flowguard`, docs, and OpenSpec before filling or

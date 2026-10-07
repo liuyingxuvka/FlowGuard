@@ -1,19 +1,2995 @@
 {
-  "schema_version": "flowguard.native_case_producer_overrides.v1",
+  "schema_version": "flowguard.native_case_producer_overrides.v2",
   "bindings": [
-    {"owner_id":"model:hierarchical_model_mesh","blueprint_case_id":"behavior-case:hierarchical_model_mesh:scenario:good_plan_passes","blueprint_source_case_id":"native-scenario:hierarchical_model_mesh:good_plan_passes","native_case_ids":["native-scenario:hierarchical_model_mesh:good_plan_passes"],"case_kind":"good","evidence_scope":"model_policy","covered_dimensions":["input","state","output","effect","order","completion"],"expected_status":"pass","expected_observed_status":"ok","protected_failure_ids":[],"expected_finding_codes":[],"required_child_case_ids":[],"required_trace_labels":["good_hierarchical_mesh_plan"]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:good_plan_passes","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:good_plan_passes","native_case_ids":["native-scenario:structure_refactor_mesh:good_plan_passes"],"case_kind":"good","evidence_scope":"model_policy","covered_dimensions":["input","state","output","effect","order","completion"],"expected_status":"pass","expected_observed_status":"ok","protected_failure_ids":[],"expected_finding_codes":[],"required_child_case_ids":[],"required_trace_labels":["good_structure_mesh_plan"]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:flat_split_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:flat_split_fails","native_case_ids":["native-scenario:structure_refactor_mesh:flat_split_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["parent_child_structure_exists"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:target_not_model_derived_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:target_not_model_derived_fails","native_case_ids":["native-scenario:structure_refactor_mesh:target_not_model_derived_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["target_structure_is_model_derived"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:target_boundary_map_missing_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:target_boundary_map_missing_fails","native_case_ids":["native-scenario:structure_refactor_mesh:target_boundary_map_missing_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["target_structure_maps_model_boundaries"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:missing_owner_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:missing_owner_fails","native_case_ids":["native-scenario:structure_refactor_mesh:missing_owner_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["partition_ownership_is_complete"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:unregistered_owner_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:unregistered_owner_fails","native_case_ids":["native-scenario:structure_refactor_mesh:unregistered_owner_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["partition_ownership_is_complete"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:duplicate_partition_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:duplicate_partition_fails","native_case_ids":["native-scenario:structure_refactor_mesh:duplicate_partition_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["duplicate_owners_are_blocked"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:duplicate_state_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:duplicate_state_fails","native_case_ids":["native-scenario:structure_refactor_mesh:duplicate_state_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["duplicate_owners_are_blocked"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:duplicate_side_effect_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:duplicate_side_effect_fails","native_case_ids":["native-scenario:structure_refactor_mesh:duplicate_side_effect_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["duplicate_owners_are_blocked"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:duplicate_config_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:duplicate_config_fails","native_case_ids":["native-scenario:structure_refactor_mesh:duplicate_config_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["duplicate_owners_are_blocked"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:public_entrypoint_removed_fails","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:public_entrypoint_removed_fails","native_case_ids":["native-scenario:structure_refactor_mesh:public_entrypoint_removed_fails"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["compatibility_stays_preserved"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:release_scope_requires_release_parity","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:release_scope_requires_release_parity","native_case_ids":["native-scenario:structure_refactor_mesh:release_scope_requires_release_parity"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["release_scope_requires_release_parity"],"required_child_case_ids":[],"required_trace_labels":[]},
-    {"owner_id":"model:structure_refactor_mesh","blueprint_case_id":"behavior-case:structure_refactor_mesh:scenario:structuremesh_does_not_refactor_directly","blueprint_source_case_id":"native-scenario:structure_refactor_mesh:structuremesh_does_not_refactor_directly","native_case_ids":["native-scenario:structure_refactor_mesh:structuremesh_does_not_refactor_directly"],"case_kind":"bad","evidence_scope":"model_policy","covered_dimensions":["input","state","effect","error","decision","completion"],"expected_status":"pass","expected_observed_status":"violation","protected_failure_ids":[],"expected_finding_codes":["structuremesh_does_not_refactor_code"],"required_child_case_ids":[],"required_trace_labels":[]}
+    {
+      "owner_id": "model:hierarchical_model_mesh",
+      "blueprint_case_id": "behavior-case:hierarchical_model_mesh:scenario:good_plan_passes",
+      "blueprint_source_case_id": "native-scenario:hierarchical_model_mesh:good_plan_passes",
+      "native_case_ids": [
+        "native-scenario:hierarchical_model_mesh:good_plan_passes"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "good_hierarchical_mesh_plan"
+      ]
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:good_plan_passes",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:good_plan_passes",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:good_plan_passes"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "good_structure_mesh_plan"
+      ]
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:flat_split_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:flat_split_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:flat_split_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "parent_child_structure_exists"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:target_not_model_derived_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:target_not_model_derived_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:target_not_model_derived_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "target_structure_is_model_derived"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:target_boundary_map_missing_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:target_boundary_map_missing_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:target_boundary_map_missing_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "target_structure_maps_model_boundaries"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:missing_owner_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:missing_owner_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:missing_owner_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "partition_ownership_is_complete"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:unregistered_owner_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:unregistered_owner_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:unregistered_owner_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "partition_ownership_is_complete"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:duplicate_partition_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:duplicate_partition_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:duplicate_partition_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "duplicate_owners_are_blocked"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:duplicate_state_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:duplicate_state_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:duplicate_state_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "duplicate_owners_are_blocked"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:duplicate_side_effect_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:duplicate_side_effect_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:duplicate_side_effect_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "duplicate_owners_are_blocked"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:duplicate_config_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:duplicate_config_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:duplicate_config_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "duplicate_owners_are_blocked"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:public_entrypoint_removed_fails",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:public_entrypoint_removed_fails",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:public_entrypoint_removed_fails"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "compatibility_stays_preserved"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:release_scope_requires_release_parity",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:release_scope_requires_release_parity",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:release_scope_requires_release_parity"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "release_scope_requires_release_parity"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:structure_refactor_mesh",
+      "blueprint_case_id": "behavior-case:structure_refactor_mesh:scenario:structuremesh_does_not_refactor_directly",
+      "blueprint_source_case_id": "native-scenario:structure_refactor_mesh:structuremesh_does_not_refactor_directly",
+      "native_case_ids": [
+        "native-scenario:structure_refactor_mesh:structuremesh_does_not_refactor_directly"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [
+        "structuremesh_does_not_refactor_code"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:good:case:authoritative_model_system:faithful_current_with_improvement_gaps",
+      "blueprint_source_case_id": "case:authoritative_model_system:faithful_current_with_improvement_gaps",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:faithful_current_with_improvement_gaps"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r6_faithful_current_with_improvement_gaps"
+      ]
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:bad:case:authoritative_model_system:trace_projection_cannot_claim_full_graph",
+      "blueprint_source_case_id": "case:authoritative_model_system:trace_projection_cannot_claim_full_graph",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:trace_projection_cannot_claim_full_graph"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:trace_only_map_accepted"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:trace_only_map_accepted"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:bad:case:authoritative_model_system:native_hard_failure_cannot_be_improvement",
+      "blueprint_source_case_id": "case:authoritative_model_system:native_hard_failure_cannot_be_improvement",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:native_hard_failure_cannot_be_improvement"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:hard_failure_reclassified"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:hard_failure_reclassified"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:boundary:case:authoritative_model_system:scoped_graph_not_whole_software_confidence",
+      "blueprint_source_case_id": "case:authoritative_model_system:scoped_graph_not_whole_software_confidence",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:scoped_graph_not_whole_software_confidence"
+      ],
+      "case_kind": "boundary",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "error",
+        "decision",
+        "retry",
+        "timeout",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:self_declared_denominator_hides_writer"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:self_declared_denominator_hides_writer"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:good:case:model_maturation_loop:generic_duplicate_responsibility_direction",
+      "blueprint_source_case_id": "case:model_maturation_loop:generic_duplicate_responsibility_direction",
+      "native_case_ids": [
+        "case:model_maturation_loop:generic_duplicate_responsibility_direction"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r6_generic_duplicate_responsibility_direction"
+      ]
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:boundary:case:model_maturation_loop:disjoint_context_variant_preserved",
+      "blueprint_source_case_id": "case:model_maturation_loop:disjoint_context_variant_preserved",
+      "native_case_ids": [
+        "case:model_maturation_loop:disjoint_context_variant_preserved"
+      ],
+      "case_kind": "boundary",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "error",
+        "decision",
+        "retry",
+        "timeout",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r6_disjoint_context_variant_preserved"
+      ]
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:identical_copy_not_shared_primary",
+      "blueprint_source_case_id": "case:model_maturation_loop:identical_copy_not_shared_primary",
+      "native_case_ids": [
+        "case:model_maturation_loop:identical_copy_not_shared_primary"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:hash_copy_claimed_shared_mechanism"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:hash_copy_claimed_shared_mechanism"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:required_architecture_gap_blocks_completion",
+      "blueprint_source_case_id": "case:model_maturation_loop:required_architecture_gap_blocks_completion",
+      "native_case_ids": [
+        "case:model_maturation_loop:required_architecture_gap_blocks_completion"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:accepted_observation_claimed_improvement_done"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:good:case:authoritative_model_system:authenticated_frozen_scope_remains_bounded",
+      "blueprint_source_case_id": "case:authoritative_model_system:authenticated_frozen_scope_remains_bounded",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:authenticated_frozen_scope_remains_bounded"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "authenticated_frozen_scope_remains_bounded"
+      ]
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:bad:case:authoritative_model_system:frozen_scope_rejects_consistent_writer_omission",
+      "blueprint_source_case_id": "case:authoritative_model_system:frozen_scope_rejects_consistent_writer_omission",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:frozen_scope_rejects_consistent_writer_omission"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:frozen_scope_not_authenticated"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:frozen_scope_not_authenticated"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:bad:case:authoritative_model_system:frozen_scope_rejects_unverified_producer",
+      "blueprint_source_case_id": "case:authoritative_model_system:frozen_scope_rejects_unverified_producer",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:frozen_scope_rejects_unverified_producer"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:frozen_scope_not_authenticated"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:frozen_scope_not_authenticated"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:authoritative_model_system",
+      "blueprint_case_id": "behavior-case:implementation-surface:96851650ef5401be95d6a576d98a25d3c0d74ab9c7c047710654d43cddfb4bfb:bad:case:authoritative_model_system:unregistered_new_surface_is_not_live_complete",
+      "blueprint_source_case_id": "case:authoritative_model_system:unregistered_new_surface_is_not_live_complete",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:unregistered_new_surface_is_not_live_complete"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:authoritative_model_system:frozen_scope_claimed_live_complete"
+      ],
+      "expected_finding_codes": [
+        "failure:authoritative_model_system:frozen_scope_claimed_live_complete"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:good:case:model_maturation_loop:verified_task_outcomes_allow_bounded_stop",
+      "blueprint_source_case_id": "case:model_maturation_loop:verified_task_outcomes_allow_bounded_stop",
+      "native_case_ids": [
+        "case:model_maturation_loop:verified_task_outcomes_allow_bounded_stop"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r6_verified_task_outcomes_allow_bounded_stop"
+      ]
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:constructed_report_cannot_close_task",
+      "blueprint_source_case_id": "case:model_maturation_loop:constructed_report_cannot_close_task",
+      "native_case_ids": [
+        "case:model_maturation_loop:constructed_report_cannot_close_task"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:other_function_proof_cannot_close_requested_outcome",
+      "blueprint_source_case_id": "case:model_maturation_loop:other_function_proof_cannot_close_requested_outcome",
+      "native_case_ids": [
+        "case:model_maturation_loop:other_function_proof_cannot_close_requested_outcome"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:deferred_required_goal_cannot_close_task",
+      "blueprint_source_case_id": "case:model_maturation_loop:deferred_required_goal_cannot_close_task",
+      "native_case_ids": [
+        "case:model_maturation_loop:deferred_required_goal_cannot_close_task"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:unproved_functional_task_closed"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:good:case:model_maturation_loop:partial_context_candidate_preserves_variants",
+      "blueprint_source_case_id": "case:model_maturation_loop:partial_context_candidate_preserves_variants",
+      "native_case_ids": [
+        "case:model_maturation_loop:partial_context_candidate_preserves_variants"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "output",
+        "effect",
+        "order",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r6_partial_context_candidate_preserves_variants"
+      ]
+    },
+    {
+      "owner_id": "model:model_maturation_loop",
+      "blueprint_case_id": "behavior-case:implementation-surface:0c1d5f78b8a6aecab0954039a411ae46a4f1cfd3206ab16353e1cd0738cc7b01:bad:case:model_maturation_loop:partial_context_cannot_merge_whole_paths",
+      "blueprint_source_case_id": "case:model_maturation_loop:partial_context_cannot_merge_whole_paths",
+      "native_case_ids": [
+        "case:model_maturation_loop:partial_context_cannot_merge_whole_paths"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "input",
+        "state",
+        "effect",
+        "error",
+        "decision",
+        "completion"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "failure:model_maturation_loop:context_remainder_erased"
+      ],
+      "expected_finding_codes": [
+        "failure:model_maturation_loop:context_remainder_erased"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:invocation_and_input_hooks",
+      "blueprint_source_case_id": "case:python_function_state_verification:invocation_and_input_hooks",
+      "native_case_ids": [
+        "case:python_function_state_verification:invocation_and_input_hooks"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:noninvocable_block_rejected",
+      "blueprint_source_case_id": "case:python_function_state_verification:noninvocable_block_rejected",
+      "native_case_ids": [
+        "case:python_function_state_verification:noninvocable_block_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_unsupported_invocation_hidden"
+      ],
+      "expected_finding_codes": [
+        "engine_unsupported_invocation_hidden"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:result_forms_and_metadata",
+      "blueprint_source_case_id": "case:python_function_state_verification:result_forms_and_metadata",
+      "native_case_ids": [
+        "case:python_function_state_verification:result_forms_and_metadata"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:invalid_result_rejected",
+      "blueprint_source_case_id": "case:python_function_state_verification:invalid_result_rejected",
+      "native_case_ids": [
+        "case:python_function_state_verification:invalid_result_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_result_coercion"
+      ],
+      "expected_finding_codes": [
+        "engine_result_coercion"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:all_nondeterministic_branches",
+      "blueprint_source_case_id": "case:python_function_state_verification:all_nondeterministic_branches",
+      "native_case_ids": [
+        "case:python_function_state_verification:all_nondeterministic_branches"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:unsafe_second_branch_detected",
+      "blueprint_source_case_id": "case:python_function_state_verification:unsafe_second_branch_detected",
+      "native_case_ids": [
+        "case:python_function_state_verification:unsafe_second_branch_detected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_nondeterministic_branch_loss"
+      ],
+      "expected_finding_codes": [
+        "engine_nondeterministic_branch_loss"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:rejected_empty_and_exception_paths",
+      "blueprint_source_case_id": "case:python_function_state_verification:rejected_empty_and_exception_paths",
+      "native_case_ids": [
+        "case:python_function_state_verification:rejected_empty_and_exception_paths"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_exception_or_dead_path_hidden"
+      ],
+      "expected_finding_codes": [
+        "engine_exception_or_dead_path_hidden"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:idempotent_retry_and_reachability",
+      "blueprint_source_case_id": "case:python_function_state_verification:idempotent_retry_and_reachability",
+      "native_case_ids": [
+        "case:python_function_state_verification:idempotent_retry_and_reachability"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:invariant_and_unreachable_label_detected",
+      "blueprint_source_case_id": "case:python_function_state_verification:invariant_and_unreachable_label_detected",
+      "native_case_ids": [
+        "case:python_function_state_verification:invariant_and_unreachable_label_detected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_invariant_or_reachability_miss"
+      ],
+      "expected_finding_codes": [
+        "engine_invariant_or_reachability_miss"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success",
+      "blueprint_source_case_id": "case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success",
+      "native_case_ids": [
+        "case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_incomplete_exploration_claimed_complete"
+      ],
+      "expected_finding_codes": [
+        "engine_incomplete_exploration_claimed_complete"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:immutable_trace_and_state_chain",
+      "blueprint_source_case_id": "case:python_function_state_verification:immutable_trace_and_state_chain",
+      "native_case_ids": [
+        "case:python_function_state_verification:immutable_trace_and_state_chain"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:terminal_predicate_stops_later_blocks",
+      "blueprint_source_case_id": "case:python_function_state_verification:terminal_predicate_stops_later_blocks",
+      "native_case_ids": [
+        "case:python_function_state_verification:terminal_predicate_stops_later_blocks"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay",
+      "blueprint_source_case_id": "case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay",
+      "native_case_ids": [
+        "case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_trace_state_corruption"
+      ],
+      "expected_finding_codes": [
+        "engine_trace_state_corruption"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:declared_write_contract",
+      "blueprint_source_case_id": "case:python_function_state_verification:declared_write_contract",
+      "native_case_ids": [
+        "case:python_function_state_verification:declared_write_contract"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:forbidden_and_undeclared_write_detected",
+      "blueprint_source_case_id": "case:python_function_state_verification:forbidden_and_undeclared_write_detected",
+      "native_case_ids": [
+        "case:python_function_state_verification:forbidden_and_undeclared_write_detected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_step_contract_violation_hidden"
+      ],
+      "expected_finding_codes": [
+        "engine_step_contract_violation_hidden"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:independent_adapter_receives_only_input",
+      "blueprint_source_case_id": "case:python_function_state_verification:independent_adapter_receives_only_input",
+      "native_case_ids": [
+        "case:python_function_state_verification:independent_adapter_receives_only_input"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:duplicate_implementation_effect_rejected",
+      "blueprint_source_case_id": "case:python_function_state_verification:duplicate_implementation_effect_rejected",
+      "native_case_ids": [
+        "case:python_function_state_verification:duplicate_implementation_effect_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_conformance_mismatch_or_expectation_leak"
+      ],
+      "expected_finding_codes": [
+        "engine_conformance_mismatch_or_expectation_leak"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:finite_terminal_graph",
+      "blueprint_source_case_id": "case:python_function_state_verification:finite_terminal_graph",
+      "native_case_ids": [
+        "case:python_function_state_verification:finite_terminal_graph"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:bad:case:python_function_state_verification:nonterminal_bottom_cycle_detected",
+      "blueprint_source_case_id": "case:python_function_state_verification:nonterminal_bottom_cycle_detected",
+      "native_case_ids": [
+        "case:python_function_state_verification:nonterminal_bottom_cycle_detected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "engine_loop_nonprogress_hidden"
+      ],
+      "expected_finding_codes": [
+        "engine_loop_nonprogress_hidden"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:good:case:python_function_state_verification:runner_preserves_supplied_exploration_report",
+      "blueprint_source_case_id": "case:python_function_state_verification:runner_preserves_supplied_exploration_report",
+      "native_case_ids": [
+        "case:python_function_state_verification:runner_preserves_supplied_exploration_report"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:python_function_state_verification",
+      "blueprint_case_id": "behavior-case:implementation-surface:69ca3b8c995193eee2c2ade81bfc10ca5865c148abcb4c5e41341e531edd1afd:boundary:boundary:python_function_state_verification",
+      "blueprint_source_case_id": "boundary:python_function_state_verification",
+      "native_case_ids": [
+        "case:python_function_state_verification:boundary:finite-domain"
+      ],
+      "case_kind": "boundary",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "error",
+        "input",
+        "retry",
+        "timeout"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [
+        "case:python_function_state_verification:all_nondeterministic_branches",
+        "case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay",
+        "case:python_function_state_verification:declared_write_contract",
+        "case:python_function_state_verification:duplicate_implementation_effect_rejected",
+        "case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success",
+        "case:python_function_state_verification:finite_terminal_graph",
+        "case:python_function_state_verification:forbidden_and_undeclared_write_detected",
+        "case:python_function_state_verification:idempotent_retry_and_reachability",
+        "case:python_function_state_verification:immutable_trace_and_state_chain",
+        "case:python_function_state_verification:independent_adapter_receives_only_input",
+        "case:python_function_state_verification:invalid_result_rejected",
+        "case:python_function_state_verification:invariant_and_unreachable_label_detected",
+        "case:python_function_state_verification:invocation_and_input_hooks",
+        "case:python_function_state_verification:noninvocable_block_rejected",
+        "case:python_function_state_verification:nonterminal_bottom_cycle_detected",
+        "case:python_function_state_verification:rejected_empty_and_exception_paths",
+        "case:python_function_state_verification:result_forms_and_metadata",
+        "case:python_function_state_verification:runner_preserves_supplied_exploration_report",
+        "case:python_function_state_verification:terminal_predicate_stops_later_blocks",
+        "case:python_function_state_verification:unsafe_second_branch_detected"
+      ],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:good:case:problem_corpus_coverage:corpus_actual_baseline",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_actual_baseline",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_actual_baseline"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_failed_result_hidden",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_failed_result_hidden",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_failed_result_hidden"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_failed_result_hidden"
+      ],
+      "expected_finding_codes": [
+        "corpus_failed_result_hidden"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_unknown_terminal_accepted",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_unknown_terminal_accepted",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_unknown_terminal_accepted"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_unknown_terminal_accepted"
+      ],
+      "expected_finding_codes": [
+        "corpus_unknown_terminal_accepted"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_case_kind_coverage_missing",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_case_kind_coverage_missing",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_case_kind_coverage_missing"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_case_kind_coverage_missing"
+      ],
+      "expected_finding_codes": [
+        "corpus_case_kind_coverage_missing"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_bug_class_coverage_missing",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_bug_class_coverage_missing",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_bug_class_coverage_missing"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_bug_class_coverage_missing"
+      ],
+      "expected_finding_codes": [
+        "corpus_bug_class_coverage_missing"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_variant_depth_reduced",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_variant_depth_reduced",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_variant_depth_reduced"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_variant_depth_reduced"
+      ],
+      "expected_finding_codes": [
+        "corpus_variant_depth_reduced"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:bad:case:problem_corpus_coverage:corpus_case_denominator_reduced",
+      "blueprint_source_case_id": "case:problem_corpus_coverage:corpus_case_denominator_reduced",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:corpus_case_denominator_reduced"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "blocked",
+      "protected_failure_ids": [
+        "corpus_case_denominator_reduced"
+      ],
+      "expected_finding_codes": [
+        "corpus_case_denominator_reduced"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:problem_corpus_coverage",
+      "blueprint_case_id": "behavior-case:implementation-surface:39f627c98f983221358af06abbf33a2a9b9ec1de3905214cbb197e0bedad4034:boundary:boundary:problem_corpus_coverage",
+      "blueprint_source_case_id": "boundary:problem_corpus_coverage",
+      "native_case_ids": [
+        "case:problem_corpus_coverage:boundary:finite-domain"
+      ],
+      "case_kind": "boundary",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "error",
+        "input",
+        "retry",
+        "timeout"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [
+        "case:problem_corpus_coverage:corpus_actual_baseline",
+        "case:problem_corpus_coverage:corpus_bug_class_coverage_missing",
+        "case:problem_corpus_coverage:corpus_case_denominator_reduced",
+        "case:problem_corpus_coverage:corpus_case_kind_coverage_missing",
+        "case:problem_corpus_coverage:corpus_failed_result_hidden",
+        "case:problem_corpus_coverage:corpus_unknown_terminal_accepted",
+        "case:problem_corpus_coverage:corpus_variant_depth_reduced"
+      ],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:object_escape_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:object_escape_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:object_escape_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_object_escape"
+      ],
+      "expected_finding_codes": [
+        "storage_object_escape"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:corrupted_object_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:corrupted_object_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:corrupted_object_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_object_identity_corruption"
+      ],
+      "expected_finding_codes": [
+        "storage_object_identity_corruption"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_foreign_authority_subject"
+      ],
+      "expected_finding_codes": [
+        "storage_foreign_authority_subject"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_foreign_or_tampered_gc_plan"
+      ],
+      "expected_finding_codes": [
+        "storage_foreign_or_tampered_gc_plan"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:forged_reachable_candidates_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:forged_reachable_candidates_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:forged_reachable_candidates_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_reachable_evidence_removed"
+      ],
+      "expected_finding_codes": [
+        "storage_reachable_evidence_removed"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_stale_gc_plan"
+      ],
+      "expected_finding_codes": [
+        "storage_stale_gc_plan"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:restore_collision_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:restore_collision_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:restore_collision_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_restore_destination_collision"
+      ],
+      "expected_finding_codes": [
+        "storage_restore_destination_collision"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:restore_preserves_original_bytes",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:restore_preserves_original_bytes",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:restore_preserves_original_bytes"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_unknown_or_escaped_quarantine"
+      ],
+      "expected_finding_codes": [
+        "storage_unknown_or_escaped_quarantine"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:invalid_current_blocks_purge",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:invalid_current_blocks_purge",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:invalid_current_blocks_purge"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_invalid_current_purge"
+      ],
+      "expected_finding_codes": [
+        "storage_invalid_current_purge"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_unconfirmed_cleanup_release"
+      ],
+      "expected_finding_codes": [
+        "storage_unconfirmed_cleanup_release"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:good:case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:bad:case:evidence_storage_lifecycle:active_resource_blocks_other_execution",
+      "blueprint_source_case_id": "case:evidence_storage_lifecycle:active_resource_blocks_other_execution",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:active_resource_blocks_other_execution"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "storage_active_resource_reexecution"
+      ],
+      "expected_finding_codes": [
+        "storage_active_resource_reexecution"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:evidence_storage_lifecycle",
+      "blueprint_case_id": "behavior-case:implementation-surface:23c29ed891ed81eef48e5d0a4825748f24fb681789189a9b6c7dbe0757732e45:boundary:boundary:evidence_storage_lifecycle",
+      "blueprint_source_case_id": "boundary:evidence_storage_lifecycle",
+      "native_case_ids": [
+        "case:evidence_storage_lifecycle:boundary:finite-domain"
+      ],
+      "case_kind": "boundary",
+      "evidence_scope": "implementation_boundary",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "error",
+        "input",
+        "retry",
+        "timeout"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [
+        "case:evidence_storage_lifecycle:active_resource_blocks_other_execution",
+        "case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected",
+        "case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent",
+        "case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage",
+        "case:evidence_storage_lifecycle:corrupted_object_rejected",
+        "case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded",
+        "case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual",
+        "case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit",
+        "case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces",
+        "case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected",
+        "case:evidence_storage_lifecycle:forged_reachable_candidates_rejected",
+        "case:evidence_storage_lifecycle:invalid_current_blocks_purge",
+        "case:evidence_storage_lifecycle:object_escape_rejected",
+        "case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run",
+        "case:evidence_storage_lifecycle:restore_collision_rejected",
+        "case:evidence_storage_lifecycle:restore_preserves_original_bytes",
+        "case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected",
+        "case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release"
+      ],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_current_episode_publishes",
+      "blueprint_source_case_id": "case:development_process_flow:producer_current_episode_publishes",
+      "native_case_ids": [
+        "case:development_process_flow:producer_current_episode_publishes"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_receipt_published"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_duplicate_full_reservation_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_duplicate_full_reservation_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_duplicate_full_reservation_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_reservation_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_duplicate_full_reservation",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_duplicate_full_reservation",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_duplicate_full_reservation"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:duplicate-full-reservation"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_unknown_dependency_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_unknown_dependency_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_unknown_dependency_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_launch_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_unknown_dependency",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_unknown_dependency",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_unknown_dependency"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:unknown-or-cyclic-owner-order"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_unordered_shared_resource_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_unordered_shared_resource_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_unordered_shared_resource_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_launch_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_unordered_shared_resource",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_unordered_shared_resource",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_unordered_shared_resource"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:unordered-shared-resource"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_caller_green_terminal_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_caller_green_terminal_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_caller_green_terminal_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_publication_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_caller_green_terminal",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_caller_green_terminal",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_caller_green_terminal"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:caller-green-replaces-actual-process"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_cleanup_unknown_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_cleanup_unknown_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_cleanup_unknown_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_publication_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_cleanup_unknown",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_cleanup_unknown",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_cleanup_unknown"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:cleanup-unconfirmed-promoted-to-pass"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_foreign_pid_instance_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_foreign_pid_instance_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_foreign_pid_instance_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_publication_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_foreign_pid_instance",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_foreign_pid_instance",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_foreign_pid_instance"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:pid-reuse-grants-foreign-ownership"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_live_descendant_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_live_descendant_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_live_descendant_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_publication_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_live_descendant",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_live_descendant",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_live_descendant"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:live-descendants-promoted-to-pass"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:good:case:development_process_flow:producer_cancelled_episode_is_rejected",
+      "blueprint_source_case_id": "case:development_process_flow:producer_cancelled_episode_is_rejected",
+      "native_case_ids": [
+        "case:development_process_flow:producer_cancelled_episode_is_rejected"
+      ],
+      "case_kind": "good",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "ok",
+      "protected_failure_ids": [],
+      "expected_finding_codes": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "producer_publication_blocked"
+      ]
+    },
+    {
+      "owner_id": "model:development_process_flow",
+      "blueprint_case_id": "behavior-case:implementation-surface:68323ff8729fa1fcb9487e72aa7478a391f44f5a0c0dc9b03f6e85abfe09bbc8:bad:case:development_process_flow:broken_producer_cancelled_episode",
+      "blueprint_source_case_id": "case:development_process_flow:broken_producer_cancelled_episode",
+      "native_case_ids": [
+        "case:development_process_flow:broken_producer_cancelled_episode"
+      ],
+      "case_kind": "bad",
+      "evidence_scope": "model_policy",
+      "covered_dimensions": [
+        "completion",
+        "decision",
+        "effect",
+        "error",
+        "input",
+        "state"
+      ],
+      "expected_status": "pass",
+      "expected_observed_status": "violation",
+      "protected_failure_ids": [
+        "development-producer:cancelled-receipt-reused"
+      ],
+      "expected_finding_codes": [
+        "producer_exact_reservation_order_and_terminal"
+      ],
+      "required_child_case_ids": [],
+      "required_trace_labels": []
+    },
+    {
+      "blueprint_case_id": "behavior-case:authoritative_model_system:scenario:r8_public_task_context_read",
+      "blueprint_source_case_id": "case:authoritative_model_system:r8_public_task_context_read",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:r8_public_task_context_read"
+      ],
+      "owner_id": "model:authoritative_model_system",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r8_public_task_context_read"
+      ]
+    },
+    {
+      "blueprint_case_id": "behavior-case:model_maturation_loop:scenario:r8_context_indexed_comparison",
+      "blueprint_source_case_id": "case:model_maturation_loop:r8_context_indexed_comparison",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "case:model_maturation_loop:r8_context_indexed_comparison"
+      ],
+      "owner_id": "model:model_maturation_loop",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r8_context_indexed_comparison"
+      ]
+    },
+    {
+      "blueprint_case_id": "behavior-case:authoritative_model_system:scenario:r8_affected_owner_selection",
+      "blueprint_source_case_id": "case:authoritative_model_system:r8_affected_owner_selection",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:r8_affected_owner_selection"
+      ],
+      "owner_id": "model:authoritative_model_system",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r8_affected_owner_selection"
+      ]
+    },
+    {
+      "blueprint_case_id": "behavior-case:model_maturation_loop:scenario:r9_normal_task_context",
+      "blueprint_source_case_id": "case:model_maturation_loop:r9_normal_task_context",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "case:model_maturation_loop:r9_normal_task_context"
+      ],
+      "owner_id": "model:model_maturation_loop",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r9_normal_task_context"
+      ]
+    },
+    {
+      "blueprint_case_id": "behavior-case:authoritative_model_system:scenario:r9_finite_growth_observation",
+      "blueprint_source_case_id": "case:authoritative_model_system:r9_finite_growth_observation",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:r9_finite_growth_observation"
+      ],
+      "owner_id": "model:authoritative_model_system",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r9_finite_growth_observation"
+      ]
+    },
+    {
+      "blueprint_case_id": "behavior-case:authoritative_model_system:scenario:r9_pointer_detail_navigation",
+      "blueprint_source_case_id": "case:authoritative_model_system:r9_pointer_detail_navigation",
+      "case_kind": "good",
+      "covered_dimensions": [
+        "completion",
+        "effect",
+        "input",
+        "order",
+        "output",
+        "state"
+      ],
+      "evidence_scope": "implementation_boundary",
+      "expected_finding_codes": [],
+      "expected_observed_status": "ok",
+      "expected_status": "pass",
+      "native_case_ids": [
+        "native-scenario:authoritative_model_system:r9_pointer_detail_navigation"
+      ],
+      "owner_id": "model:authoritative_model_system",
+      "protected_failure_ids": [],
+      "required_child_case_ids": [],
+      "required_trace_labels": [
+        "r9_pointer_detail_navigation"
+      ]
+    }
+  ],
+  "composite_owner_declarations": [
+    {
+      "model_id": "python_function_state_verification",
+      "model_path": ".flowguard/models/owners/python_function_state_verification/model.py",
+      "runner_path": ".flowguard/verification/owners/python_function_state_verification/run_checks.py",
+      "native_leaf_case_ids": [
+        "case:python_function_state_verification:invocation_and_input_hooks",
+        "case:python_function_state_verification:noninvocable_block_rejected",
+        "case:python_function_state_verification:result_forms_and_metadata",
+        "case:python_function_state_verification:invalid_result_rejected",
+        "case:python_function_state_verification:all_nondeterministic_branches",
+        "case:python_function_state_verification:unsafe_second_branch_detected",
+        "case:python_function_state_verification:rejected_empty_and_exception_paths",
+        "case:python_function_state_verification:idempotent_retry_and_reachability",
+        "case:python_function_state_verification:invariant_and_unreachable_label_detected",
+        "case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success",
+        "case:python_function_state_verification:immutable_trace_and_state_chain",
+        "case:python_function_state_verification:terminal_predicate_stops_later_blocks",
+        "case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay",
+        "case:python_function_state_verification:declared_write_contract",
+        "case:python_function_state_verification:forbidden_and_undeclared_write_detected",
+        "case:python_function_state_verification:independent_adapter_receives_only_input",
+        "case:python_function_state_verification:duplicate_implementation_effect_rejected",
+        "case:python_function_state_verification:finite_terminal_graph",
+        "case:python_function_state_verification:nonterminal_bottom_cycle_detected",
+        "case:python_function_state_verification:runner_preserves_supplied_exploration_report"
+      ],
+      "good_native_case_ids": [
+        "case:python_function_state_verification:invocation_and_input_hooks",
+        "case:python_function_state_verification:result_forms_and_metadata",
+        "case:python_function_state_verification:all_nondeterministic_branches",
+        "case:python_function_state_verification:idempotent_retry_and_reachability",
+        "case:python_function_state_verification:immutable_trace_and_state_chain",
+        "case:python_function_state_verification:terminal_predicate_stops_later_blocks",
+        "case:python_function_state_verification:declared_write_contract",
+        "case:python_function_state_verification:independent_adapter_receives_only_input",
+        "case:python_function_state_verification:finite_terminal_graph",
+        "case:python_function_state_verification:runner_preserves_supplied_exploration_report"
+      ],
+      "protected_failure_bindings": [
+        {
+          "failure_id": "engine_unsupported_invocation_hidden",
+          "native_case_id": "case:python_function_state_verification:noninvocable_block_rejected"
+        },
+        {
+          "failure_id": "engine_result_coercion",
+          "native_case_id": "case:python_function_state_verification:invalid_result_rejected"
+        },
+        {
+          "failure_id": "engine_nondeterministic_branch_loss",
+          "native_case_id": "case:python_function_state_verification:unsafe_second_branch_detected"
+        },
+        {
+          "failure_id": "engine_exception_or_dead_path_hidden",
+          "native_case_id": "case:python_function_state_verification:rejected_empty_and_exception_paths"
+        },
+        {
+          "failure_id": "engine_invariant_or_reachability_miss",
+          "native_case_id": "case:python_function_state_verification:invariant_and_unreachable_label_detected"
+        },
+        {
+          "failure_id": "engine_incomplete_exploration_claimed_complete",
+          "native_case_id": "case:python_function_state_verification:finite_cutoff_is_not_exhaustive_success"
+        },
+        {
+          "failure_id": "engine_trace_state_corruption",
+          "native_case_id": "case:python_function_state_verification:corrupt_expected_trace_rejected_by_replay"
+        },
+        {
+          "failure_id": "engine_step_contract_violation_hidden",
+          "native_case_id": "case:python_function_state_verification:forbidden_and_undeclared_write_detected"
+        },
+        {
+          "failure_id": "engine_conformance_mismatch_or_expectation_leak",
+          "native_case_id": "case:python_function_state_verification:duplicate_implementation_effect_rejected"
+        },
+        {
+          "failure_id": "engine_loop_nonprogress_hidden",
+          "native_case_id": "case:python_function_state_verification:nonterminal_bottom_cycle_detected"
+        }
+      ],
+      "boundary_native_case_id": "case:python_function_state_verification:boundary:finite-domain",
+      "composite_surface_key": "flowguard/core.py#<module>"
+    },
+    {
+      "model_id": "problem_corpus_coverage",
+      "model_path": ".flowguard/models/owners/problem_corpus_coverage/model.py",
+      "runner_path": ".flowguard/verification/owners/problem_corpus_coverage/run_checks.py",
+      "native_leaf_case_ids": [
+        "case:problem_corpus_coverage:corpus_actual_baseline",
+        "case:problem_corpus_coverage:corpus_failed_result_hidden",
+        "case:problem_corpus_coverage:corpus_unknown_terminal_accepted",
+        "case:problem_corpus_coverage:corpus_case_kind_coverage_missing",
+        "case:problem_corpus_coverage:corpus_bug_class_coverage_missing",
+        "case:problem_corpus_coverage:corpus_variant_depth_reduced",
+        "case:problem_corpus_coverage:corpus_case_denominator_reduced"
+      ],
+      "good_native_case_ids": [
+        "case:problem_corpus_coverage:corpus_actual_baseline"
+      ],
+      "protected_failure_bindings": [
+        {
+          "failure_id": "corpus_failed_result_hidden",
+          "native_case_id": "case:problem_corpus_coverage:corpus_failed_result_hidden"
+        },
+        {
+          "failure_id": "corpus_unknown_terminal_accepted",
+          "native_case_id": "case:problem_corpus_coverage:corpus_unknown_terminal_accepted"
+        },
+        {
+          "failure_id": "corpus_case_kind_coverage_missing",
+          "native_case_id": "case:problem_corpus_coverage:corpus_case_kind_coverage_missing"
+        },
+        {
+          "failure_id": "corpus_bug_class_coverage_missing",
+          "native_case_id": "case:problem_corpus_coverage:corpus_bug_class_coverage_missing"
+        },
+        {
+          "failure_id": "corpus_variant_depth_reduced",
+          "native_case_id": "case:problem_corpus_coverage:corpus_variant_depth_reduced"
+        },
+        {
+          "failure_id": "corpus_case_denominator_reduced",
+          "native_case_id": "case:problem_corpus_coverage:corpus_case_denominator_reduced"
+        }
+      ],
+      "boundary_native_case_id": "case:problem_corpus_coverage:boundary:finite-domain",
+      "composite_surface_key": "flowguard/coverage.py#<module>"
+    },
+    {
+      "model_id": "evidence_storage_lifecycle",
+      "model_path": ".flowguard/models/owners/evidence_storage_lifecycle/model.py",
+      "runner_path": ".flowguard/verification/owners/evidence_storage_lifecycle/run_checks.py",
+      "native_leaf_case_ids": [
+        "case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage",
+        "case:evidence_storage_lifecycle:object_escape_rejected",
+        "case:evidence_storage_lifecycle:corrupted_object_rejected",
+        "case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces",
+        "case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent",
+        "case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded",
+        "case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected",
+        "case:evidence_storage_lifecycle:forged_reachable_candidates_rejected",
+        "case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected",
+        "case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run",
+        "case:evidence_storage_lifecycle:restore_collision_rejected",
+        "case:evidence_storage_lifecycle:restore_preserves_original_bytes",
+        "case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected",
+        "case:evidence_storage_lifecycle:invalid_current_blocks_purge",
+        "case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit",
+        "case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release",
+        "case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual",
+        "case:evidence_storage_lifecycle:active_resource_blocks_other_execution"
+      ],
+      "good_native_case_ids": [
+        "case:evidence_storage_lifecycle:complete_identity_and_deduplicated_storage",
+        "case:evidence_storage_lifecycle:explicit_parent_and_child_namespaces",
+        "case:evidence_storage_lifecycle:current_pin_and_explicit_preserve_excluded",
+        "case:evidence_storage_lifecycle:quarantine_moves_exact_unreachable_run",
+        "case:evidence_storage_lifecycle:restore_preserves_original_bytes",
+        "case:evidence_storage_lifecycle:exact_purge_after_valid_reachability_audit",
+        "case:evidence_storage_lifecycle:exact_episode_and_reported_zero_settle_residual"
+      ],
+      "protected_failure_bindings": [
+        {
+          "failure_id": "storage_object_escape",
+          "native_case_id": "case:evidence_storage_lifecycle:object_escape_rejected"
+        },
+        {
+          "failure_id": "storage_object_identity_corruption",
+          "native_case_id": "case:evidence_storage_lifecycle:corrupted_object_rejected"
+        },
+        {
+          "failure_id": "storage_foreign_authority_subject",
+          "native_case_id": "case:evidence_storage_lifecycle:child_cannot_be_parent_or_replace_parent"
+        },
+        {
+          "failure_id": "storage_foreign_or_tampered_gc_plan",
+          "native_case_id": "case:evidence_storage_lifecycle:foreign_root_and_plan_tamper_rejected"
+        },
+        {
+          "failure_id": "storage_stale_gc_plan",
+          "native_case_id": "case:evidence_storage_lifecycle:changed_candidate_stale_plan_rejected"
+        },
+        {
+          "failure_id": "storage_reachable_evidence_removed",
+          "native_case_id": "case:evidence_storage_lifecycle:forged_reachable_candidates_rejected"
+        },
+        {
+          "failure_id": "storage_restore_destination_collision",
+          "native_case_id": "case:evidence_storage_lifecycle:restore_collision_rejected"
+        },
+        {
+          "failure_id": "storage_unknown_or_escaped_quarantine",
+          "native_case_id": "case:evidence_storage_lifecycle:unknown_and_active_store_purge_rejected"
+        },
+        {
+          "failure_id": "storage_invalid_current_purge",
+          "native_case_id": "case:evidence_storage_lifecycle:invalid_current_blocks_purge"
+        },
+        {
+          "failure_id": "storage_active_resource_reexecution",
+          "native_case_id": "case:evidence_storage_lifecycle:active_resource_blocks_other_execution"
+        },
+        {
+          "failure_id": "storage_unconfirmed_cleanup_release",
+          "native_case_id": "case:evidence_storage_lifecycle:wrong_episode_and_live_descendants_block_release"
+        }
+      ],
+      "boundary_native_case_id": "case:evidence_storage_lifecycle:boundary:finite-domain",
+      "composite_surface_key": "flowguard/evidence_lifecycle.py#<module>"
+    }
   ]
 }
