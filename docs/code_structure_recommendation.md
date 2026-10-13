@@ -91,17 +91,17 @@ print(report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard code-structure-recommendation-template --output .
+python -m flowguard template code-structure-recommendation --output .
 ```
 
-## Risk Evidence Ledger Handoff
+## From Recommendation To Proof
 
 Code Structure Recommendation decides where implementation responsibility
-should live before code changes. It should identify the validation boundaries
-that later become Risk Evidence Ledger proof ids, but it does not count as test
-or replay evidence. After implementation, Model-Test Alignment, StructureMesh,
-or conformance replay should produce current evidence for those boundaries, and
-the ledger should decide whether the final claim is full, scoped, or blocked.
+should live before code changes. It should name the validation boundaries that
+later need real checks, but it does not count as test or replay evidence.
+After implementation, Model-Test Alignment, StructureMesh, or conformance
+replay should exercise those boundaries by running the models and tests, and
+the final claim should say whether it is full, scoped, or blocked.
 
 When a target module will be the lowest FlowGuard leaf, name the observation
 points needed for a complete leaf boundary matrix: accepted/rejected inputs,

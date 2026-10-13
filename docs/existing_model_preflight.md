@@ -38,8 +38,8 @@ missed a branch.
 
 ## Plane-First Commitment Lookup
 
-When the canonical behavior ledger is present, project preflight queries it
-before scanning paths. The caller supplies or resolves one primary plane:
+When a behavior ledger (`.flowguard/behavior/inventory/ledger.json`) is
+present, project preflight queries it before reading the project map. The caller supplies or resolves one primary plane:
 `product_runtime`, `agent_operation`, or `development_process`. The report then
 keeps three groups separate:
 
@@ -49,8 +49,10 @@ keeps three groups separate:
 
 The report also records `behavior_lookup_status`, `primary_behavior_plane`,
 `plane_ambiguity`, `ledger_fingerprint`, and `behavior_lookup_reason`.
-`performed` means canonical lookup completed. `fallback` means the path/model
-inventory supplied partial context after a blocked or unavailable ledger.
+`performed` means the ledger lookup completed. `fallback` means the lookup
+could not resolve one plane or could not load the ledger, so only partial
+context is available. Without a ledger file the status is `not_applicable`
+and owners come from the map alone.
 `blocked` and ambiguity are visible gaps, not permission to mix all planes into
 one instruction list. Related product context never makes an AI/process step
 the owner of product behavior.
@@ -63,8 +65,8 @@ FlowGuard route.
 
 Full mode is for implementation, OpenSpec proposals, major architecture
 decisions, and risky behavior changes. It records searched paths, relevant
-models, ownership snapshots, reuse decisions, duplicate-boundary risks,
-downstream routes, and stale or no-model-found gaps.
+models, declared ownership (`ExistingOwnershipSnapshot`), reuse decisions,
+duplicate-boundary risks, downstream routes, and stale or no-model-found gaps.
 
 ## Public API
 
@@ -84,8 +86,14 @@ The main objects are:
 - `ExistingModelPreflightReport`: structured review output.
 - `BehaviorLookupQuery`, `BehaviorCommitmentHit`, and `BehaviorLookupReport`:
   the existing BCL/preflight-owned, plane-first recall objects.
-- `existing_model_preflight_from_project(...)`: queries the canonical ledger
-  first, then supplements the selected owner context with project path inventory.
+- `existing_model_preflight_from_project(root, task_summary, changed_paths=...)`:
+  queries the behavior ledger first when one exists, then selects owners from
+  `.flowguard/map.json`: the components owning the changed paths plus their
+  one-hop dependencies. A component that is still a draft, or whose stored
+  fingerprint no longer matches its files, is reported as non-current
+  (`stale_obligations`); a changed source file that no component owns becomes a
+  `model_growth_unbound:<path>` gap. Without a map, discovered model files are
+  only adoption candidates.
 - `review_existing_model_preflight(preflight)`: the executable checker.
 
 ## Example
@@ -105,11 +113,11 @@ preflight = ExistingModelPreflight(
     "Extend router scheduling behavior",
     mode="full",
     model_search_performed=True,
-    search_paths=(".flowguard/models/owners/router", "docs"),
+    search_paths=(".flowguard/map.json", "docs"),
     relevant_models=(
         ModelContextHit(
             "router-flow",
-            model_path=".flowguard/models/owners/router/model.py",
+            model_path="models/router_flow.py",
             responsibilities=("route scheduling",),
             function_blocks=("RouteTask",),
             state_owned=("pending_tasks",),
@@ -144,14 +152,18 @@ print(report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard existing-model-preflight-template --output .
+python -m flowguard template existing-model-preflight --write .
 ```
 
-To inspect the commitment lookup without changing the ledger, run:
+From the command line, the same owner lookup is:
 
 ```powershell
-python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
+python -m flowguard read --find router scheduling   # which component owns this
+python -m flowguard map impact <changed files>      # components, tests, models to run
 ```
+
+To inspect the commitment lookup alone, use `query_behavior_commitments_from_path(...)`
+(see [`behavior_commitment_ledger.md`](behavior_commitment_ledger.md)).
 
 This helper improves recall and explains why a model was selected. It does not
 execute a workflow, require a formal model for every ordinary action, or prove
@@ -171,12 +183,13 @@ map to the route that owns the concrete work:
 - UI Flow Structure governs UI behavior and implemented UI evidence.
 - Model-Miss Review repairs models after runtime/test failures.
 - DevelopmentProcessFlow governs staged work and evidence freshness.
-- Risk Evidence Ledger consumes the relevant model ids, evidence ids, scoped
-  gaps, and reuse decisions before a final full-confidence claim.
+- Before a final full-confidence claim, `python -m flowguard map check` must
+  show the selected components as current, and the relevant models and tests
+  must actually run (`python -m flowguard change` lists them).
 
 The preflight catches a different failure: proposing a new system before
-checking the one already modeled. Its output tells the ledger which existing
-model boundary owns the risk; it does not prove the tests or runtime evidence
+checking the one already modeled. Its output tells the downstream route which
+existing model boundary owns the risk; it does not prove the tests or runtime evidence
 by itself.
 
 When layered proof is in scope, preflight should surface the existing parent,
@@ -192,10 +205,11 @@ migration, replay, side effects, or external contracts, record
 a downstream route before code changes. Presentation-only or metadata fields
 can be scoped out, but the scoped-out reason belongs in FieldLifecycleMesh, not
 in a hidden assumption.
+
 ## Read-only WorkContext after plane lookup
 
 Declared WorkContexts are attached only after canonical plane-first commitment
 lookup. Every context preserves its subject lane, adapter, native work,
 artifact identities, fingerprints, and read-only flag. A planning context
-cannot own a product-runtime commitment or any FlowGuard execution evidence.
+cannot own a product-runtime commitment.
 See [`work_context.md`](work_context.md).

@@ -1,4 +1,3 @@
-import json
 import subprocess
 import sys
 import unittest
@@ -54,23 +53,6 @@ class FlowguardSelfReviewConformanceTests(unittest.TestCase):
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("flowguard self-review conformance", completed.stdout)
         self.assertIn("correct_status: OK", completed.stdout)
-
-    def test_self_review_conformance_cli_wrapper_succeeds(self):
-        completed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "self-conformance"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        payload = json.loads(completed.stdout)
-        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual("unknown operation: self-conformance", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -152,7 +152,7 @@ def main() -> int:
     helper_checks = run_helper_cases()
     return 0 if workflow_checks and helper_checks else 1
 
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 if __name__ == "__main__":
     # Native evidence must never scan the repository root.  A root-level
     # default re-ingests historical model/receipt JSON and turns this finite
@@ -168,4 +168,4 @@ if __name__ == "__main__":
             / f"model-topology-hazard-review-{os.getpid()}"
         ),
     )
-    raise SystemExit(native_main("model:model_topology_hazard_review", main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(main))

@@ -1079,32 +1079,4 @@ def run_checks():
     return correct, broken
 
 
-from flowguard.skill_contract_model import build_skill_contract_model_export
-
 FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
-
-
-def export_contract_model():
-    return build_skill_contract_model_export(
-        skill_id="flowguard-model-miss-review",
-        route_id="model_miss_review",
-        owner_id="model_miss_review",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Backfeed observed failures to an existing same-plane commitment or register a real coverage gap.",
-        claim_boundary="This projection binds miss classification and backfeed; a proposed fix remains unproven until owner code, tests, replay, and disposition evidence are current.",
-    )
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='model_miss_review', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='model_behavior',
-        source_refs=({"path": '.flowguard/models/owners/model_miss_review/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/model_miss_review/model.py')},),
-        workflows=(workflow(),), invariants=(),
-    )

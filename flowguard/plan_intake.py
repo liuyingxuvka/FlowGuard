@@ -14,7 +14,7 @@ from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
-from .risk_evidence_ledger import (
+from ._evidence_status import (
     RISK_CONFIDENCE_BLOCKED,
     RISK_CONFIDENCE_FULL,
     RISK_CONFIDENCE_SCOPED,

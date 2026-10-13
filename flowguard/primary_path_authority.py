@@ -14,8 +14,6 @@ from .contract_exhaustion import (
     ContractExhaustionPlan,
     ContractInteractionGroup,
     ContractOracle,
-    _PartitionedProductVerificationContext,
-    bind_partition_context_to_plan,
 )
 from .export import to_jsonable
 from .proof_artifact import (
@@ -1334,8 +1332,6 @@ def primary_path_authority_contract_exhaustion_plan(
     model_id: str = PRIMARY_PATH_ROUTE_ID,
     claim_scope: str = PPA_CLAIM_SCOPE_FULL,
     max_combinations: int = 10000,
-    authority_state: Any | None = None,
-    partition_context: _PartitionedProductVerificationContext | None = None,
 ) -> ContractExhaustionPlan:
     """Build the canonical ContractExhaustionMesh plan for this route.
 
@@ -1390,11 +1386,7 @@ def primary_path_authority_contract_exhaustion_plan(
             claim_scope=claim_scope,
         ),
     )
-    return bind_partition_context_to_plan(
-        plan,
-        authority_state=authority_state,
-        partition_context=partition_context,
-    )
+    return plan
 
 
 __all__ = [

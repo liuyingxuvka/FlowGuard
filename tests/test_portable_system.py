@@ -1,4 +1,3 @@
-import copy
 import json
 import subprocess
 import sys
@@ -170,13 +169,6 @@ class PortableSystemTests(unittest.TestCase):
         self.assertEqual("blocked", report.status)
         self.assertIn("omits closure", " ".join(report.blockers))
 
-    def test_public_api_registry_exposes_one_system_cohort(self):
-        import flowguard
-
-        self.assertIn("check_system_composition", flowguard.PORTABLE_VERIFICATION_API)
-        self.assertIn("PortableSystemDefinition", flowguard.PORTABLE_VERIFICATION_API)
-        self.assertNotIn("_compile", flowguard.PORTABLE_VERIFICATION_API)
-
     def test_cli_and_api_have_status_and_identity_parity(self):
         definition = system(self.models, atomic=True)
         request = self.request(definition)
@@ -195,12 +187,7 @@ class PortableSystemTests(unittest.TestCase):
                 command.extend(("--component", str(path)))
             completed = subprocess.run(command, capture_output=True, text=True, check=False)
         self.assertEqual(2, completed.returncode, completed.stderr + completed.stdout)
-        actual = json.loads(completed.stdout)
-        self.assertEqual("blocked", actual["status"])
-        self.assertEqual("block", actual["decision"])
-        self.assertEqual(0, actual["producer_count"])
-        self.assertEqual("unknown operation: portable-system-check", actual["error"])
-        self.assertEqual(["read", "change", "release"], actual["allowed_operations"])
+        self.assertIn("unknown command 'portable-system-check'", completed.stderr)
         # The direct composition result above remains the functional authority;
         # the retired standalone CLI cannot replace it with a compatibility route.
         self.assertEqual("pass", expected.status)

@@ -1097,20 +1097,7 @@ def build_workflow(*, search_block=None) -> Workflow:
     )
 
 
-from flowguard.skill_contract_model import build_skill_contract_model_export
-
 FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
-
-
-def export_contract_model():
-    return build_skill_contract_model_export(
-        skill_id="flowguard-existing-model-preflight",
-        route_id="existing_model_preflight",
-        owner_id="existing_model_preflight",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Recall the existing same-plane commitment and owner model before non-trivial work.",
-        claim_boundary="This projection binds preflight recall and route selection only; it does not execute the selected model or prove downstream closure.",
-    )
 
 
 __all__ = [
@@ -1126,24 +1113,9 @@ __all__ = [
     "ChangeIdea",
     "State",
     "build_workflow",
-    "export_contract_model",
+    
     "initial_state",
     "terminal_predicate",
 ]
 
 MAX_SEQUENCE_LENGTH = 2
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='existing_model_preflight', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='model_behavior',
-        source_refs=({"path": '.flowguard/models/owners/existing_model_preflight/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/existing_model_preflight/model.py')},),
-        workflows=(build_workflow(),), invariants=INVARIANTS,
-    )

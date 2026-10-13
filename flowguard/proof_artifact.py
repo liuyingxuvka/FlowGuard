@@ -236,13 +236,8 @@ def proof_artifact_integrity_gap_codes(
     # callers that explicitly leave ``require_canonical_receipt`` false, but
     # strict UI/runtime/DNA lanes must not accept that smaller dialect.
     canonical_receipt_error: Exception | None = None
-    try:
-        from .evidence_receipts import EvidenceReceipt
-
-        canonical_receipt = EvidenceReceipt.from_dict(receipt)
-    except Exception as exc:
-        canonical_receipt = None
-        canonical_receipt_error = exc
+    canonical_receipt = None  # experiment: EvidenceReceipt ledger removed
+    canonical_receipt_error = ValueError("canonical EvidenceReceipt ledger removed")
     receipt_view: Mapping[str, Any] = (
         canonical_receipt.to_dict() if canonical_receipt is not None else receipt
     )

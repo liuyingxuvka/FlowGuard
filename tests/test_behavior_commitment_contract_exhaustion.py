@@ -11,18 +11,13 @@ from flowguard import (
 )
 from flowguard.behavior_commitment import BEHAVIOR_COMMITMENT_ROUTE_ID
 
-from tests._partition_context_fixtures import accepted_authority_state
 
 
 class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
-    def setUp(self):
-        self.authority_state = accepted_authority_state(BEHAVIOR_COMMITMENT_ROUTE_ID)
-
     def test_default_universe_generates_cases_shards_and_receipts(self):
         report = review_contract_exhaustion(
             behavior_commitment_contract_exhaustion_plan(
                 max_combinations=50000,
-                authority_state=self.authority_state,
             )
         )
 
@@ -35,25 +30,7 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         self.assertTrue(any("path_sensitive_ppa_handoff" in case.case_id for case in report.generated_cases))
         self.assertTrue(all(case.oracle_id == BEHAVIOR_COMMITMENT_ORACLE_ID for case in report.generated_cases))
 
-    def test_default_universe_without_authority_fails_closed(self):
-        report = review_contract_exhaustion(
-            behavior_commitment_contract_exhaustion_plan(max_combinations=1)
-        )
 
-        self.assertFalse(report.ok)
-        self.assertIn(
-            "partition_boundary_verification_missing",
-            {finding.code for finding in report.findings},
-        )
-
-    def test_unaccepted_authority_cannot_bind_partition_context(self):
-        self.authority_state.transition_kind = "draft"
-
-        with self.assertRaisesRegex(ValueError, "activation or rollback"):
-            behavior_commitment_contract_exhaustion_plan(
-                max_combinations=1,
-                authority_state=self.authority_state,
-            )
 
     def test_change_mode_source_freshness_model_sync_and_miss_axes_are_declared(self):
         axis_ids = {axis.axis_id for axis in default_behavior_commitment_axes()}
@@ -92,7 +69,6 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         report = review_contract_exhaustion(
             behavior_commitment_contract_exhaustion_plan(
                 max_combinations=50000,
-                authority_state=self.authority_state,
             )
         )
         case_ids = {case.case_id for case in report.generated_cases}

@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Mapping
 
-from ..model_authority import SUBJECT_NORMATIVE_TARGET
 from ..work_context import (
+    SUBJECT_NORMATIVE_TARGET,
     WorkContext,
     _artifact_from_path,
     _bounded_path,

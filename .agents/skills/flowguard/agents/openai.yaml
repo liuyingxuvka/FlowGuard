@@ -1,17 +1,13 @@
 interface:
   display_name: "FlowGuard"
-  short_description: "Model behavior and state with bounded evidence"
+  short_description: "Living code map plus executable models of risky flows"
   default_prompt: >-
-    Use $flowguard only for behavior/state modeling, unclear ownership, or
-    cross-route work. The public lifecycle is exactly read, change, release.
-    Freeze the real root, request, task-specific one-or-many protected failures,
-    native good/per-failure bad/oracle/current evidence, and the selected finite
-    boundary. Reusable model types are not permanently single-purpose. Preserve
-    unknown, blocked, skipped, not-run, stale, and
-    failed states. Only declared checks may support completion claims. Read
-    only the accepted current and selected domain reference; change freezes
-    necessary owners and accepts once through CAS; release reuses exact valid
-    evidence and verifies the actual artifact. Never infer a route from
-    keywords, use an old profile, guess a root, or treat a parent summary,
-    installation, Git push, or release tag as business proof. Report bounded
-    evidence, blockers, residual risk, claim boundary, and typed next actions.
+    Use $flowguard at the start of every coding session and after every edit.
+    Start with `python -m flowguard read` (the project map), look up existing
+    owners with `read --find`, and open only the files of the components you
+    touch. After editing run `python -m flowguard change`, fix every check
+    error, run exactly the tests and models it lists, and confirm reviewed
+    components. For retries, idempotency, caching, ordering, money,
+    permissions or multi-step flows, write or update a model in
+    .flowguard/models/ with known-bad variants and conformance. Never claim a
+    check passed unless you ran it.

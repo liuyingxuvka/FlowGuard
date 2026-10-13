@@ -19,14 +19,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from model import run_review  # noqa: E402
 
-from flowguard.native_case_runner import native_main, native_results_from_scenario_report
+from flowguard.map.runner import run_owner
 def _native_owner_main() -> tuple:
     report = run_review()
     print(f"scenario_report: status={'pass' if report.ok else 'blocked'} cases={len(report.results)}")
-    return native_results_from_scenario_report(
-        "model:hierarchical_model_mesh", report
-    )
+    return report
 
 
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:hierarchical_model_mesh", _native_owner_main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(_native_owner_main))

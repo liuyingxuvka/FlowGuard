@@ -18,23 +18,14 @@ import sys
 from flowguard import (
     OBLIGATION_STATUS_RESOLVED,
     MaintenanceObligation,
-    RISK_GATE_MAINTENANCE_OBLIGATION,
-    RiskEvidenceGate,
-    RiskEvidenceLedgerPlan,
-    RiskEvidenceProof,
-    RiskEvidenceRow,
     build_maintenance_obligation_report,
-    public_owner_descriptor,
-    review_risk_evidence_ledger,
     run_exact_sequence,
 )
 from flowguard.formal_runner import FormalWorkflowCase, run_formal_workflow_suite
 import model
 
 
-STRUCTURE_MESH_OWNER_ROUTE = public_owner_descriptor(
-    "structure_mesh_maintenance"
-).route_id
+STRUCTURE_MESH_OWNER_ROUTE = "structure_mesh_maintenance"
 
 
 REQUIRED_LABELS = (
@@ -121,23 +112,6 @@ def run_helper_cases() -> bool:
         (open_obligation,),
     )
 
-    blocked_ledger = review_risk_evidence_ledger(
-        RiskEvidenceLedgerPlan(
-            "self-model-blocked-ledger",
-            rows=(
-                RiskEvidenceRow(
-                    "risk:structure",
-                    model_obligation_id="model:structure",
-                    code_contract_id="code:structure",
-                    proof_evidence_ids=("proof:unit",),
-                    gates=(RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:checkout"),),
-                ),
-            ),
-            proof_evidence=(RiskEvidenceProof("proof:unit", result_status="passed"),),
-            maintenance_obligations=(open_obligation,),
-        )
-    )
-
     resolved_obligation = MaintenanceObligation(
         "structure:checkout",
         owner_route=STRUCTURE_MESH_OWNER_ROUTE,
@@ -145,23 +119,6 @@ def run_helper_cases() -> bool:
         status=OBLIGATION_STATUS_RESOLVED,
         evidence_ids=("structuremesh:passed",),
     )
-    clear_ledger = review_risk_evidence_ledger(
-        RiskEvidenceLedgerPlan(
-            "self-model-clear-ledger",
-            rows=(
-                RiskEvidenceRow(
-                    "risk:structure",
-                    model_obligation_id="model:structure",
-                    code_contract_id="code:structure",
-                    proof_evidence_ids=("proof:unit",),
-                    gates=(RiskEvidenceGate(RISK_GATE_MAINTENANCE_OBLIGATION, "structure:checkout"),),
-                ),
-            ),
-            proof_evidence=(RiskEvidenceProof("proof:unit", result_status="passed"),),
-            maintenance_obligations=(resolved_obligation,),
-        )
-    )
-
     resolved_report = build_maintenance_obligation_report(
         "self-model-resolved-obligation",
         (resolved_obligation,),
@@ -174,16 +131,6 @@ def run_helper_cases() -> bool:
                 open_report.open_required_obligation_ids == ("structure:checkout",)
                 and open_obligation.has_anchor(),
                 open_report.format_text(),
-            ),
-            helper_case(
-                "open_obligation_blocks_risk_ledger",
-                not blocked_ledger.ok and blocked_ledger.decision == "open_maintenance_obligation",
-                blocked_ledger.format_text(),
-            ),
-            helper_case(
-                "resolved_obligation_allows_risk_ledger",
-                clear_ledger.ok and clear_ledger.decision == "risk_evidence_full_confidence",
-                clear_ledger.format_text(),
             ),
             helper_case(
                 "owner_evidence_resolves_the_route_owned_obligation",
@@ -200,6 +147,6 @@ def main() -> int:
     helper_checks = run_helper_cases()
     return 0 if workflow_checks and helper_checks else 1
 
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:maintenance_obligation_memory", main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(main))

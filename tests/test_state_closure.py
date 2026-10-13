@@ -1,5 +1,5 @@
 import tempfile
-from tests._native_owner_environment import native_owner_environment
+from tests._runner_environment import runner_environment
 import subprocess
 import sys
 import unittest
@@ -226,7 +226,7 @@ class StateClosureTests(unittest.TestCase):
                     ".flowguard/verification/owners/state_closure_gate/run_checks.py",
                 ],
                 cwd=ROOT,
-                env=native_owner_environment(ROOT, "state_closure_gate", Path(native_tmp)),
+                env=runner_environment(ROOT),
                 text=True,
                 capture_output=True,
                 check=False,

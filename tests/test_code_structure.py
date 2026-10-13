@@ -8,7 +8,7 @@ from flowguard import (
     review_code_structure_recommendation,
 )
 from flowguard.portable_model import canonical_identity
-from tests._maturation_receipt_support import verified_maturation
+from tests._maturation_fake import verified_maturation
 
 
 def module(module_id: str, **kwargs) -> TargetModuleRecommendation:

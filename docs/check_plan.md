@@ -15,7 +15,7 @@ part of this universal entry.
 
 The deterministic finite exploration engine remains underneath that runner. It
 is not the public first-read path for non-trivial model creation.
-See `docs/api_surface.md` for the API layer map.
+The public names are listed in `flowguard/__init__.py`.
 
 ## RiskProfile
 
@@ -34,7 +34,7 @@ risk_profile = RiskProfile(
         protected_harms=("downstream workflow acts on the same job twice",),
         must_model_state=("records", "side_effect_log"),
         must_model_side_effects=("record_write", "notification_send"),
-        completion_evidence=("record_id", "side_effect_receipt"),
+        completion_evidence=("record_id", "side_effect_log_entry"),
         adversarial_inputs=("same job repeated", "retry after partial progress"),
         hard_invariants=("one record per job", "one side effect per job"),
         known_bad_cases=("retry_writes_second_record",),
@@ -69,12 +69,10 @@ evidence, adversarial inputs to simulate, known-bad cases, hard invariants, and
 blindspots. Missing or thin risk intent, missing completion evidence, or
 missing known-bad cases are pre-modeling gaps.
 
-Enter the single strict `risk_template_library` route only when the user
-explicitly requests template reuse/publication or current executable evidence
-identifies a bounded stable pattern intended for use outside the target
-project. That route records exact used ids or a reviewed no-match and closes
-harvest. Ordinary modeling, repair, maintenance, cleanup, and release are not
-blocked when the route is not triggered.
+Reusing a shared risk template (`python -m flowguard template risk-template-library`)
+is optional. Use it only when the user asks for template reuse or a bounded,
+stable pattern is meant to be used outside the target project. Ordinary
+modeling, repair, maintenance, cleanup, and release never wait on it.
 
 Confidence goals:
 
@@ -103,7 +101,7 @@ plan = FlowGuardCheckPlan(
         protected_error_classes=("duplicate_side_effect",),
         modeled_state=("records", "side_effect_log"),
         modeled_side_effects=("record_write", "notification_send"),
-        completion_evidence=("record_id", "side_effect_receipt"),
+        completion_evidence=("record_id", "side_effect_log_entry"),
         known_bad_cases=("retry_writes_second_record",),
     ),
     known_bad_proofs=(
@@ -121,9 +119,7 @@ plan = FlowGuardCheckPlan(
 Route-specific fields still exist for scenarios, contracts, progress config,
 conformance status/report, scenario matrix config, and metadata. The minimum
 model contract and known-bad proof are not cosmetic; missing items become
-blocked or gap sections instead of silent pass evidence. Template reuse/no-match
-review and template harvest closure have the same strict status only inside an
-admitted `risk_template_library` operation.
+blocked or gap sections instead of silent pass evidence.
 
 ## run_model_first_checks
 
@@ -131,7 +127,7 @@ admitted `risk_template_library` operation.
 
 Execution order:
 
-1. `ModelQualityAudit`
+1. model quality audit (`audit_model`, section `model_quality_audit`)
 2. optional `ScenarioMatrixBuilder`
 3. internal finite model run
 4. counterexample minimization for the first invariant violation
@@ -151,16 +147,18 @@ evidence to the same cell and contract before claiming coverage.
 For same-class, field/schema, payload, transition, parent/child, or no-delta
 coverage beyond one representative known-bad proof, use ContractExhaustionMesh.
 The owning route declares the finite boundary; `review_contract_exhaustion()`
-creates canonical case ids and expected oracle reactions; MTA/TestMesh/ModelMesh
-and the Risk Evidence Ledger close the evidence. Hand-written lookalike
+creates canonical case ids and expected oracle reactions; Model-Test Alignment,
+TestMesh, or ModelMesh then bind those case ids to real tests that run and pass. Hand-written lookalike
 examples are neither the coverage universe nor proof.
 
 For broad/full coverage claims, also declare a `ContractCoverageUniverse`.
 That universe lists the dimensions, axes, interaction groups, payload
-contracts, code boundaries, case ids, and coverage receipts that are in scope.
+contracts, code boundaries, case ids, and coverage result ids
+(`required_coverage_receipt_ids`: ids of the test or shard results that cover
+the cases) that are in scope.
 If a real observed problem is discovered later, backfeed it as
 `ObservedProblemBackfeed`; it must map to generated cases, same-class cases,
-and coverage receipts, or FlowGuard should report a model/coverage gap. Reject,
+and coverage result ids, or FlowGuard should report a model/coverage gap. Reject,
 block, reissue, retry, or repair cases also need actionable oracle feedback
 fields so the report proves the receiver can fix the bad submission, not only
 that the bad submission is rejected.
@@ -170,15 +168,15 @@ Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
 output. The ledger flattens model check failures, audit warnings,
 scenario/live-audit gaps, progress findings, contract findings, conformance
 findings, and skipped/not-run sections into one coverage-first list. The
-maintenance obligations preserve non-pass gaps under their existing owner
-routes; DevelopmentProcessFlow consumes the touched obligations and freshness
+maintenance obligations preserve non-pass gaps under the route that should
+handle them; DevelopmentProcessFlow consumes the touched obligations and freshness
 signals directly when deciding what must rerun. Use them before FlowGuard or
 LiveFlowGuard framework upgrades and non-trivial bug/model-miss repairs so the
 next action is chosen deliberately: fix the real system, adjust the check flow,
 extend the model, or record a boundary as out of scope. For in-scope
 bug/model-miss repairs, the next action also includes root-cause
 backpropagation, projecting the same-class or finite-boundary surface through
-ContractExhaustionMesh, binding the owner code contract, and rerunning
+ContractExhaustionMesh, binding the code contract that owns the fix, and rerunning
 Model-Test Alignment before full closure.
 
 ## Domain Packs

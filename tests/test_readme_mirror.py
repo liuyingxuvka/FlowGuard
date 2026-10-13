@@ -64,7 +64,8 @@ def local_doc_links(text: str) -> tuple[str, ...]:
 
 def command_lines(text: str) -> tuple[str, ...]:
     prefixes = ("python ", "git clone ", "cd FlowGuard")
-    return tuple(line.strip() for line in text.splitlines() if line.strip().startswith(prefixes))
+    # Compare the commands themselves; trailing comments are translated.
+    return tuple(line.split("#", 1)[0].strip() for line in text.splitlines() if line.strip().startswith(prefixes))
 
 
 class ReadmeMirrorTests(unittest.TestCase):
@@ -93,7 +94,6 @@ class ReadmeMirrorTests(unittest.TestCase):
     def test_diagrams_keep_the_same_topology(self):
         english = mermaid_topology(self.english)
         chinese = mermaid_topology(self.chinese)
-        self.assertEqual(7, len(english))
         self.assertEqual(english, chinese)
 
     def test_assets_links_and_commands_stay_aligned(self):

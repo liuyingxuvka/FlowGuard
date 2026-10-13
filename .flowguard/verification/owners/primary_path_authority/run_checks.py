@@ -70,6 +70,6 @@ def main() -> int:
     print("Primary Path Authority self-model checks passed")
     return 0
 
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:primary_path_authority", main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(main))

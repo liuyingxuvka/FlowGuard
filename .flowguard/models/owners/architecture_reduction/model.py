@@ -2170,37 +2170,3 @@ if __name__ == "__main__":
     report = run_review()
     print(report.format_text())
     raise SystemExit(0 if report.ok else 1)
-
-
-from flowguard.skill_contract_model import (  # noqa: E402
-    FLOWGUARD_MODEL_MARKER,
-    build_skill_contract_model_export,
-)
-
-
-def export_contract_model():
-    """Project the existing architecture-reduction owner for SkillGuard V2."""
-
-    return build_skill_contract_model_export(
-        skill_id="flowguard-architecture-reduction",
-        route_id="architecture_reduction",
-        owner_id="architecture_reduction",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Reduce mapped architecture through observable equivalence, or deliberately retire obsolete behavior through one complete current responsibility proof, without creating a second authority.",
-        claim_boundary="Projection only; native equivalence and retirement scenarios, proof status, responsibility dispositions, and downstream parity evidence remain authoritative.",
-    )
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='architecture_reduction', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='model_behavior',
-        source_refs=({"path": '.flowguard/models/owners/architecture_reduction/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/architecture_reduction/model.py')},),
-        workflows=(build_workflow(),), invariants=INVARIANTS,
-    )

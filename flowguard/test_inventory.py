@@ -17,9 +17,68 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Sequence
 
+import hashlib
+import subprocess
+
 from .portable_model import canonical_identity, canonical_json_bytes
-from .source_identity import source_file_fingerprint
-from .validation_ownership import resolve_input_manifest
+
+_TEXT_SUFFIXES = frozenset({".py", ".md", ".txt", ".json", ".toml", ".yaml", ".yml", ".cfg", ".ini"})
+
+
+def source_file_fingerprint(path: str | Path) -> str:
+    """sha256 of file bytes with text newlines normalized (CRLF/CR -> LF)."""
+
+    source = Path(path)
+    payload = source.read_bytes()
+    if source.suffix.casefold() in _TEXT_SUFFIXES:
+        try:
+            payload = payload.decode("utf-8").replace("\r\n", "\n").replace("\r", "\n").encode("utf-8")
+        except UnicodeDecodeError:
+            pass
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
+
+
+def _candidate_paths(root: Path) -> list[str]:
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+            check=True, capture_output=True,
+        ).stdout
+        return sorted({p.decode("utf-8") for p in out.split(b"\0") if p})
+    except (OSError, subprocess.CalledProcessError):
+        return sorted(p.relative_to(root).as_posix() for p in root.rglob("*") if p.is_file())
+
+
+def resolve_input_manifest(root: str | Path, patterns: Sequence[str]) -> tuple[dict[str, str], ...]:
+    """Fingerprint repository files matching glob patterns (``**`` = zero or more dirs)."""
+
+    root_path = Path(root).resolve()
+    rows = []
+    for relative in _candidate_paths(root_path):
+        if any(PurePosixPath(relative).full_match(p) if hasattr(PurePosixPath, "full_match")
+               else _glob_match(relative, p) for p in patterns):
+            path = root_path / relative
+            if path.is_file():
+                rows.append({"path": relative, "sha256": source_file_fingerprint(path)})
+    return tuple(rows)
+
+
+def _glob_match(relative: str, pattern: str) -> bool:
+    import fnmatch, re
+    regex = ""
+    i = 0
+    while i < len(pattern):
+        if pattern.startswith("**/", i):
+            regex += "(?:.*/)?"; i += 3
+        elif pattern.startswith("**", i):
+            regex += ".*"; i += 2
+        elif pattern[i] == "*":
+            regex += "[^/]*"; i += 1
+        elif pattern[i] == "?":
+            regex += "[^/]"; i += 1
+        else:
+            regex += re.escape(pattern[i]); i += 1
+    return re.fullmatch(regex, relative) is not None
 
 
 TEST_INVENTORY_SCHEMA_VERSION = "flowguard.project_test_inventory.v2"

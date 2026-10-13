@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from collections.abc import Mapping as MappingABC, Sequence as SequenceABC
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
@@ -20,14 +19,15 @@ from .contract_exhaustion import (
     ContractProductSignature,
 )
 from .export import to_jsonable
-from .model_authority import canonical_fingerprint
-from .native_case_protocol import (
-    NativeCaseProtocolError,
-    NativeCaseVerification,
-    NativeModelCaseContract,
-    NativeModelCaseResult,
-    verify_native_model_cases,
-)
+import hashlib as _hashlib
+import json as _json
+
+
+def canonical_fingerprint(value: Any) -> str:
+    """Local sha256 over canonical JSON (same bytes as model_authority)."""
+
+    text = _json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + _hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 # This is a direct replacement of the original, self-reported recursive
@@ -1093,7 +1093,7 @@ class RecursiveHierarchyReport:
     # cheap structure-only pass), while callers that provide native case
     # results get an explicit, non-inferred execution projection.
     execution_verified_receipt_ids: tuple[str, ...] = ()
-    native_case_verifications: Mapping[str, NativeCaseVerification] = field(
+    native_case_verifications: Mapping[str, Any] = field(
         default_factory=dict,
         compare=False,
         repr=False,
@@ -1555,140 +1555,8 @@ def is_verified_subtree_receipt(value: Any) -> bool:
     return False
 
 
-def _group_native_rows(
-    rows: Sequence[NativeModelCaseContract | NativeModelCaseResult]
-    | Mapping[str, Sequence[NativeModelCaseContract | NativeModelCaseResult]]
-    | None,
-    *,
-    row_type: type[NativeModelCaseContract] | type[NativeModelCaseResult],
-) -> tuple[dict[str, tuple[Any, ...]], tuple[str, ...]]:
-    """Group typed native rows by their declared owner without inference.
-
-    A mapping is accepted as a convenience for callers that already partition
-    rows by owner, but the row's own ``owner_id`` remains authoritative.  A
-    mismatched mapping key is returned as a finding rather than silently
-    moving the row to the key's owner.
-    """
-
-    if rows is None:
-        return {}, ()
-    groups: dict[str, list[Any]] = {}
-    findings: list[str] = []
-    if isinstance(rows, MappingABC):
-        for declared_owner, raw_rows in rows.items():
-            if isinstance(raw_rows, (str, bytes)) or not isinstance(
-                raw_rows, SequenceABC
-            ):
-                findings.append(f"native_rows_not_array:{declared_owner}")
-                continue
-            for row in raw_rows:
-                if not isinstance(row, row_type):
-                    findings.append(f"native_row_type_invalid:{declared_owner}")
-                    continue
-                owner = str(row.owner_id)
-                if owner != str(declared_owner):
-                    findings.append(
-                        f"native_owner_key_mismatch:{declared_owner}:{owner}"
-                    )
-                    continue
-                groups.setdefault(owner, []).append(row)
-    else:
-        if isinstance(rows, (str, bytes)) or not isinstance(rows, SequenceABC):
-            return {}, ("native_rows_not_array",)
-        for row in rows:
-            if not isinstance(row, row_type):
-                findings.append("native_row_type_invalid")
-                continue
-            groups.setdefault(str(row.owner_id), []).append(row)
-    return (
-        {owner: tuple(values) for owner, values in groups.items()},
-        tuple(sorted(set(findings))),
-    )
-
-
-def verify_recursive_native_execution(
-    plan: RecursiveHierarchyPlan,
-    contracts: Sequence[NativeModelCaseContract]
-    | Mapping[str, Sequence[NativeModelCaseContract]]
-    | None,
-    results: Sequence[NativeModelCaseResult]
-    | Mapping[str, Sequence[NativeModelCaseResult]]
-    | None,
-    *,
-    raw_artifact_root: str | Path | None = None,
-) -> Mapping[str, NativeCaseVerification]:
-    """Verify native case receipts for every declared recursive owner.
-
-    This helper is deliberately independent of hierarchy structure.  It only
-    compares each owner's exact typed case contracts with producer-written
-    results and validates raw-artifact identity.  ``review_recursive_hierarchy``
-    uses its result to decide whether a structurally valid receipt may also be
-    promoted as *executed* evidence.
-    """
-
-    contract_groups, contract_findings = _group_native_rows(
-        contracts, row_type=NativeModelCaseContract
-    )
-    result_groups, result_findings = _group_native_rows(
-        results, row_type=NativeModelCaseResult
-    )
-    available_case_keys = tuple(
-        f"{owner_id}::{result.source_case_id}"
-        for owner_id, owner_rows in sorted(result_groups.items())
-        for result in owner_rows
-    )
-    owner_ids = {node.owner_id for node in plan.nodes if node.owner_id}
-    verifications: dict[str, NativeCaseVerification] = {}
-    for owner_id in sorted(owner_ids | set(contract_groups) | set(result_groups)):
-        local_findings = [*contract_findings, *result_findings]
-        owner_contracts = contract_groups.get(owner_id, ())
-        owner_results = result_groups.get(owner_id, ())
-        if not owner_contracts:
-            local_findings.append("native_contracts_missing")
-        if not owner_results:
-            local_findings.append("native_results_missing")
-        try:
-            verification = verify_native_model_cases(
-                owner_contracts,
-                owner_results,
-                raw_artifact_root=raw_artifact_root,
-                available_case_keys=available_case_keys,
-            )
-        except (NativeCaseProtocolError, TypeError, ValueError) as exc:
-            verification = NativeCaseVerification(
-                ok=False,
-                findings=(f"native_protocol_invalid:{type(exc).__name__}:{exc}",),
-            )
-        if local_findings:
-            verification = NativeCaseVerification(
-                ok=False,
-                findings=tuple(
-                    sorted(set((*verification.findings, *local_findings)))
-                ),
-                missing_case_ids=verification.missing_case_ids,
-                foreign_case_ids=verification.foreign_case_ids,
-                duplicate_case_ids=verification.duplicate_case_ids,
-                unasserted_dimensions=verification.unasserted_dimensions,
-                aggregate_case_ids=verification.aggregate_case_ids,
-                leaf_case_ids=verification.leaf_case_ids,
-                model_policy_pass=verification.model_policy_pass,
-                implementation_boundary_pass=verification.implementation_boundary_pass,
-            )
-        verifications[owner_id] = verification
-    return verifications
-
-
 def review_recursive_hierarchy(
     plan: RecursiveHierarchyPlan,
-    *,
-    native_case_contracts: Sequence[NativeModelCaseContract]
-    | Mapping[str, Sequence[NativeModelCaseContract]]
-    | None = None,
-    native_case_results: Sequence[NativeModelCaseResult]
-    | Mapping[str, Sequence[NativeModelCaseResult]]
-    | None = None,
-    raw_artifact_root: str | Path | None = None,
-    require_native_execution: bool = False,
 ) -> RecursiveHierarchyReport:
     """Review an arbitrary-depth hierarchy in post-order.
 
@@ -1728,19 +1596,10 @@ def review_recursive_hierarchy(
                 "recursive hierarchy authority pointer mode is not current",
             )
         )
-    native_execution_requested = bool(
-        require_native_execution
-        or native_case_contracts is not None
-        or native_case_results is not None
-    )
-    native_verifications: Mapping[str, NativeCaseVerification] = {}
-    if native_execution_requested:
-        native_verifications = verify_recursive_native_execution(
-            plan,
-            native_case_contracts,
-            native_case_results,
-            raw_artifact_root=raw_artifact_root,
-        )
+    # Native case receipts are retired; executed proof comes from running the
+    # models and tests that impact selects, not from stored case rows.
+    native_execution_requested = False
+    native_verifications: Mapping[str, Any] = {}
     if strict and not plan.model_authority_head_fingerprint:
         findings.append(
             _finding(
@@ -2321,6 +2180,5 @@ __all__ = [
     "SubtreeReceipt",
     "VerifiedSubtreeReceipt",
     "is_verified_subtree_receipt",
-    "verify_recursive_native_execution",
     "review_recursive_hierarchy",
 ]

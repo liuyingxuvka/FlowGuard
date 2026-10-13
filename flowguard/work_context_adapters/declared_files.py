@@ -5,8 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
-from ..model_authority import SUBJECT_NORMATIVE_TARGET
 from ..work_context import (
+    SUBJECT_NORMATIVE_TARGET,
     WORK_CONTEXT_ARTIFACT_ROLES,
     WorkContext,
     _artifact_from_path,

@@ -1,0 +1,157 @@
+"""The map file (.flowguard/map.json): load, validate, save, and derived views.
+
+The map is the project's DNA: components with plain-language responsibilities,
+owned files, entrypoints, state, side effects, dependencies, tests and models.
+Git is its history.  Each component's ``fingerprint`` (hash of the files it
+owns, written by ``confirm``) is the "current pointer": when it no longer
+matches, the description is stale and must be re-read and re-confirmed.
+"""
+
+from __future__ import annotations
+
+import ast
+import hashlib
+import json
+import re
+from collections import defaultdict
+from pathlib import Path
+
+from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any
+from .inventory import Inventory
+
+TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "components", "flows", "accepted_debts"}
+COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
+                  "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint"}
+LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
+ID_RE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
+
+
+class MapError(Exception):
+    """The map file is missing or invalid; the message says what to fix."""
+
+
+def map_path(root: Path) -> Path:
+    return root / MAP_RELPATH
+
+
+def validate_map(data: object) -> list[str]:
+    if not isinstance(data, dict):
+        return ["map.json must contain a JSON object"]
+    errors = []
+    if data.get("schema") != SCHEMA:
+        errors.append(f"schema must be {SCHEMA!r}")
+    errors += [f"unknown top-level key {k!r}" for k in sorted(set(data) - TOP_KEYS)]
+    comps = data.get("components")
+    if not isinstance(comps, list):
+        return errors + ["components must be a list"]
+    layers = data.get("layers", [])
+    if not isinstance(layers, list) or len(set(layers)) != len(layers):
+        errors.append("layers must be a list of unique names (first = top, last = bottom)")
+        layers = []
+    seen: set[str] = set()
+    for i, c in enumerate(comps):
+        where = f"components[{i}]"
+        if not isinstance(c, dict):
+            errors.append(f"{where} must be an object")
+            continue
+        errors += [f"{where}: unknown key {k!r}" for k in sorted(set(c) - COMPONENT_KEYS)]
+        cid = c.get("id")
+        if not isinstance(cid, str) or not ID_RE.fullmatch(cid):
+            errors.append(f"{where}.id must match [a-z0-9][a-z0-9_.-]*")
+        elif cid in seen:
+            errors.append(f"duplicate component id {cid!r}")
+        else:
+            seen.add(cid)
+        if c.get("status") not in {"draft", "confirmed"}:
+            errors.append(f"{where}.status must be 'draft' or 'confirmed'")
+        errors += [f"{where}.{k} must be a list of strings" for k in LIST_KEYS
+                   if not isinstance(c.get(k, []), list) or not all(isinstance(x, str) for x in c.get(k, []))]
+        if c.get("layer") and layers and c["layer"] not in layers:
+            errors.append(f"{where}.layer {c['layer']!r} is not one of layers {layers}")
+    for i, flow in enumerate(data.get("flows", [])):
+        if not isinstance(flow, dict) or not isinstance(flow.get("id"), str) or not isinstance(flow.get("steps", []), list):
+            errors.append(f"flows[{i}] needs a string id and a list of steps 'component' or 'component:symbol'")
+    for i, debt in enumerate(data.get("accepted_debts", [])):
+        if not isinstance(debt, dict) or not debt.get("code") or not debt.get("reason"):
+            errors.append(f"accepted_debts[{i}] needs at least 'code' and 'reason'")
+    return errors
+
+
+def load_map(root: Path) -> dict:
+    path = map_path(root)
+    if not path.is_file():
+        raise MapError(f"no map at {path}; run 'python -m flowguard.map scan' first")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise MapError(f"{path} is not valid JSON: {exc}") from exc
+    errors = validate_map(data)
+    if errors:
+        raise MapError(f"invalid {path}:\n  " + "\n  ".join(errors))
+    return data
+
+
+def save_map(root: Path, data: dict) -> None:
+    errors = validate_map(data)
+    if errors:
+        raise MapError("refusing to save an invalid map:\n  " + "\n  ".join(errors))
+    path = map_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def ignore_patterns(data: dict | None) -> list[str]:
+    return DEFAULT_IGNORE + list((data or {}).get("ignore", []))
+
+
+def component_files(comp: dict, inv: Inventory) -> list[str]:
+    """Non-test source files matched by the component's 'files' globs."""
+    pats = comp.get("files", [])
+    return [f for f in inv.source if not is_test_file(f) and matches_any(f, pats)]
+
+
+def owner_index(data: dict, inv: Inventory) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """(file -> first owning component id, file -> all owning ids)."""
+    owners: dict[str, list[str]] = defaultdict(list)
+    for comp in data["components"]:
+        for f in component_files(comp, inv):
+            owners[f].append(comp["id"])
+    return {f: ids[0] for f, ids in owners.items()}, dict(owners)
+
+
+def fingerprint(root: Path, files: list[str]) -> str:
+    h = hashlib.sha256()
+    for f in sorted(files):
+        try:
+            h.update(f"{f}\0{content_digest(root / f)}\n".encode())
+        except OSError:
+            h.update(f"{f}\0missing\n".encode())
+    return "sha256:" + h.hexdigest()
+
+
+def is_stale(root: Path, comp: dict, inv: Inventory) -> bool:
+    return comp.get("status") == "confirmed" and comp.get("fingerprint") != fingerprint(root, component_files(comp, inv))
+
+
+def component_graph(data: dict, inv: Inventory) -> dict[str, set[str]]:
+    """Component -> components it imports (from the real import graph)."""
+    owner, _ = owner_index(data, inv)
+    graph: dict[str, set[str]] = {c["id"]: set() for c in data["components"]}
+    for f, targets in inv.file_deps.items():
+        src = owner.get(f)
+        if src:
+            graph[src].update(owner[t] for t in targets if t in owner and owner[t] != src)
+    return graph
+
+
+def read_model_contract(path: Path) -> dict:
+    """MODEL_ID / COMPONENTS / IMPLEMENTED_BY literals and defined hooks of a model file, without importing it."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    found: dict = {"functions": []}
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
+                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY"}:
+            found[node.targets[0].id] = ast.literal_eval(node.value)
+        elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
+            found["functions"].append(node.name)
+    return found

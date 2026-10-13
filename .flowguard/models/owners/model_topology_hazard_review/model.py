@@ -281,38 +281,3 @@ __all__ = [
 ]
 
 
-from flowguard.skill_contract_model import (
-    FLOWGUARD_MODEL_MARKER,
-    build_skill_contract_model_export,
-)
-
-
-def export_contract_model():
-    """Project the existing topology-hazard owner for SkillGuard V2."""
-
-    return build_skill_contract_model_export(
-        skill_id="flowguard-model-topology-hazard-review",
-        route_id="model_topology_hazard_review",
-        owner_id="model_topology_hazard_review",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Review topology-anchored future-use hazards without converting unanchored concerns into hard gates.",
-        claim_boundary="Projection only; usage anchors, dispositions, compatibility effects, and native hazard checks remain authoritative.",
-    )
-
-
-__all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='model_topology_hazard_review', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='model_behavior',
-        source_refs=({"path": '.flowguard/models/owners/model_topology_hazard_review/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/model_topology_hazard_review/model.py')},),
-        workflows=(build_correct_workflow(),), invariants=INVARIANTS,
-    )

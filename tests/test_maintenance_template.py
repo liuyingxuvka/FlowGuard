@@ -1,4 +1,3 @@
-import json
 import os
 import subprocess
 import sys
@@ -45,25 +44,6 @@ class MaintenanceWorkflowTemplateTests(unittest.TestCase):
             self.assertIn("broken_duplicate_sleep_action: VIOLATION", result.stdout)
             self.assertIn("broken_completed_without_report: VIOLATION", result.stdout)
             self.assertIn("broken_publish_without_install_sync: VIOLATION", result.stdout)
-
-    def test_cli_prints_and_writes_template(self):
-        help_result = subprocess.run(
-            [sys.executable, "-m", "flowguard", "maintenance-template", "--help"],
-            cwd=ROOT,
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        payload = json.loads(help_result.stdout)
-        self.assertEqual(2, help_result.returncode, help_result.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual(
-            "unknown operation: maintenance-template",
-            payload["error"],
-        )
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_template_write_refuses_overwrite_by_default(self):
         with tempfile.TemporaryDirectory() as directory:

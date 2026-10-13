@@ -17,23 +17,7 @@ from ._normalization import (
     unique_sorted_strings as _unique_sorted,
 )
 from .behavior_plane import BCL_BEHAVIOR_PLANES
-from .evidence_receipts import (
-    EvidenceReceipt,
-    ReceiptVerificationContext,
-    ReceiptVerificationResult,
-    fingerprint_value,
-    verify_evidence_receipt,
-    verified_receipt_binding_gap_codes,
-)
 from .export import to_jsonable
-from .model_path_quality import (
-    PathQualityMaterialReview,
-    PathQualityResult,
-    PathQualitySubject,
-    normalize_path_quality_material,
-    path_quality_result_set_fingerprint,
-    review_path_quality_material,
-)
 from .canonical_relation import (
     RELATION_AFFECTED_SIBLING,
     RELATION_SAME_INTENT,
@@ -56,11 +40,15 @@ from .runtime_path import (
     RuntimePathRun,
     review_runtime_path_alignment,
 )
-from .test_reuse import (
-    TestResultReuseTicket,
-    coerce_test_result_reuse_ticket,
-    test_result_reuse_gap_codes,
-)
+import hashlib
+import json
+
+
+def fingerprint_value(value: Any) -> str:
+    """Deterministic content fingerprint (plain sha256 of canonical JSON)."""
+
+    text = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 TEST_STATUS_PASSED = "passed"
@@ -491,19 +479,6 @@ class TestEvidence:
     evidence_role: str = TEST_EVIDENCE_ROLE_PRIMARY
     evidence_target_id: str = ""
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
-    result_reused: bool = False
-    reuse_ticket: TestResultReuseTicket | Mapping[str, Any] | None = None
-    loaded_receipt: EvidenceReceipt | Mapping[str, Any] | None = None
-    receipt_verification_context: ReceiptVerificationContext | None = None
-    receipt_verification: ReceiptVerificationResult | None = None
-    receipt_producer_id: str = ""
-    # Native model-owner evidence is a direct leaf receipt whose exact case
-    # projection is validated by the model-regression package.  It is not a
-    # parent receipt and does not masquerade as ordinary test-node evidence.
-    native_execution_verified: bool = False
-    native_execution_receipt_id: str = ""
-    native_execution_receipt_fingerprint: str = ""
-    native_execution_owner_id: str = ""
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -511,11 +486,6 @@ class TestEvidence:
     business_intent_id: str = ""
     behavior_commitment_id: str = ""
     primary_path_id: str = ""
-    model_id: str = ""
-    model_fingerprint: str = ""
-    path_quality_subject_fingerprint: str = ""
-    path_quality_result_fingerprint: str = ""
-    path_quality_currentness_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "evidence_id", str(self.evidence_id))
@@ -530,151 +500,15 @@ class TestEvidence:
         object.__setattr__(self, "evidence_role", str(self.evidence_role))
         object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
-        object.__setattr__(self, "result_reused", bool(self.result_reused))
-        object.__setattr__(self, "reuse_ticket", coerce_test_result_reuse_ticket(self.reuse_ticket))
-        object.__setattr__(
-            self,
-            "loaded_receipt",
-            self.loaded_receipt
-            if isinstance(self.loaded_receipt, EvidenceReceipt) or self.loaded_receipt is None
-            else EvidenceReceipt.from_dict(self.loaded_receipt),
-        )
-        if self.receipt_verification is not None and not isinstance(
-            self.receipt_verification,
-            ReceiptVerificationResult,
-        ):
-            raise TypeError("receipt_verification must be a ReceiptVerificationResult")
-        if self.receipt_verification_context is not None and not isinstance(
-            self.receipt_verification_context,
-            ReceiptVerificationContext,
-        ):
-            raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
-        object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
-        object.__setattr__(
-            self,
-            "native_execution_verified",
-            bool(self.native_execution_verified),
-        )
-        object.__setattr__(
-            self,
-            "native_execution_receipt_id",
-            str(self.native_execution_receipt_id),
-        )
-        object.__setattr__(
-            self,
-            "native_execution_receipt_fingerprint",
-            str(self.native_execution_receipt_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "native_execution_owner_id",
-            str(self.native_execution_owner_id),
-        )
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
         object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
         object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
         object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
         object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "model_id", str(self.model_id))
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
-        object.__setattr__(
-            self,
-            "path_quality_subject_fingerprint",
-            str(self.path_quality_subject_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_result_fingerprint",
-            str(self.path_quality_result_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_currentness_id",
-            str(self.path_quality_currentness_id),
-        )
 
     def has_current_pass(self) -> bool:
-        if self.result_status not in PASSING_STATUSES or not self.evidence_current:
-            return False
-        if self.native_execution_verified:
-            return bool(
-                self.native_execution_receipt_id
-                and self.native_execution_receipt_fingerprint
-                and self.native_execution_owner_id
-            )
-        if self.requires_receipt_verification():
-            return not self.receipt_gap_codes()
-        return True
-
-    def requires_receipt_verification(self) -> bool:
-        return bool(
-            self.result_reused
-            or self.reuse_ticket is not None
-            or self.loaded_receipt is not None
-            or self.receipt_verification_context is not None
-            or self.receipt_verification is not None
-        )
-
-    def receipt_inventory(self) -> Mapping[str, tuple[str, ...]]:
-        target_id = self.evidence_target_id or self.test_name or self.evidence_id
-        return {
-            "model_obligation_ids": self.covered_obligations,
-            "code_contract_ids": self.covered_code_contracts,
-            "test_target_ids": (target_id,),
-        }
-
-    def receipt_gap_codes(self) -> tuple[tuple[str, str], ...]:
-        derived_verification = (
-            verify_evidence_receipt(
-                self.loaded_receipt,
-                self.receipt_verification_context,
-            )
-            if self.loaded_receipt is not None
-            else None
-        )
-        gaps = list(
-            verified_receipt_binding_gap_codes(
-                self.loaded_receipt,
-                derived_verification,
-                expected_subject_id=self.evidence_id,
-                expected_producer_id=self.receipt_producer_id,
-                expected_obligation_ids=self.covered_obligations,
-                expected_inventory=self.receipt_inventory(),
-            )
-        )
-        if self.receipt_verification_context is None:
-            gaps.append(
-                (
-                    "receipt_verification_context_missing",
-                    "reused test evidence requires independently observed verification inputs",
-                )
-            )
-        if self.receipt_verification is None:
-            gaps.append(
-                (
-                    "receipt_verification_projection_missing",
-                    "reused test evidence must preserve the derived verification identity",
-                )
-            )
-        elif (
-            derived_verification is None
-            or self.receipt_verification.to_dict() != derived_verification.to_dict()
-        ):
-            gaps.append(
-                (
-                    "receipt_verification_projection_mismatch",
-                    "preserved verification projection differs from independent recomputation",
-                )
-            )
-        if not self.receipt_producer_id:
-            gaps.append(
-                (
-                    "verified_receipt_expected_producer_missing",
-                    "reused test evidence must freeze its producer owner id",
-                )
-            )
-        return tuple(dict.fromkeys(gaps))
+        return self.result_status in PASSING_STATUSES and self.evidence_current
 
     def has_external_contract_assertion(self) -> bool:
         return self.assertion_scope in {
@@ -697,20 +531,6 @@ class TestEvidence:
             "evidence_role": self.evidence_role,
             "evidence_target_id": self.evidence_target_id,
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
-            "result_reused": self.result_reused,
-            "reuse_ticket": self.reuse_ticket.to_dict() if self.reuse_ticket else None,
-            "loaded_receipt": self.loaded_receipt.to_dict() if self.loaded_receipt else None,
-            "receipt_verification_context_present": self.receipt_verification_context is not None,
-            "receipt_verification": (
-                self.receipt_verification.to_dict()
-                if self.receipt_verification
-                else None
-            ),
-            "receipt_producer_id": self.receipt_producer_id,
-            "native_execution_verified": self.native_execution_verified,
-            "native_execution_receipt_id": self.native_execution_receipt_id,
-            "native_execution_receipt_fingerprint": self.native_execution_receipt_fingerprint,
-            "native_execution_owner_id": self.native_execution_owner_id,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -718,15 +538,6 @@ class TestEvidence:
             "business_intent_id": self.business_intent_id,
             "behavior_commitment_id": self.behavior_commitment_id,
             "primary_path_id": self.primary_path_id,
-            "model_id": self.model_id,
-            "model_fingerprint": self.model_fingerprint,
-            "path_quality_subject_fingerprint": (
-                self.path_quality_subject_fingerprint
-            ),
-            "path_quality_result_fingerprint": (
-                self.path_quality_result_fingerprint
-            ),
-            "path_quality_currentness_id": self.path_quality_currentness_id,
         }
 
 
@@ -1031,10 +842,6 @@ class ArtifactPayloadEvidence:
     round_trip_ok: bool = False
     evidence_ref: str = ""
     proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
-    loaded_receipt: EvidenceReceipt | Mapping[str, Any] | None = None
-    receipt_verification_context: ReceiptVerificationContext | None = None
-    receipt_verification: ReceiptVerificationResult | None = None
-    receipt_producer_id: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -1051,24 +858,6 @@ class ArtifactPayloadEvidence:
         object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
         object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
-        object.__setattr__(
-            self,
-            "loaded_receipt",
-            self.loaded_receipt
-            if isinstance(self.loaded_receipt, EvidenceReceipt) or self.loaded_receipt is None
-            else EvidenceReceipt.from_dict(self.loaded_receipt),
-        )
-        if self.receipt_verification is not None and not isinstance(
-            self.receipt_verification,
-            ReceiptVerificationResult,
-        ):
-            raise TypeError("receipt_verification must be a ReceiptVerificationResult")
-        if self.receipt_verification_context is not None and not isinstance(
-            self.receipt_verification_context,
-            ReceiptVerificationContext,
-        ):
-            raise TypeError("receipt_verification_context must be a ReceiptVerificationContext")
-        object.__setattr__(self, "receipt_producer_id", str(self.receipt_producer_id))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def has_current_pass(self) -> bool:
@@ -1114,14 +903,6 @@ class ArtifactPayloadEvidence:
             "round_trip_ok": self.round_trip_ok,
             "evidence_ref": self.evidence_ref,
             "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
-            "loaded_receipt": self.loaded_receipt.to_dict() if self.loaded_receipt else None,
-            "receipt_verification_context_present": self.receipt_verification_context is not None,
-            "receipt_verification": (
-                self.receipt_verification.to_dict()
-                if self.receipt_verification
-                else None
-            ),
-            "receipt_producer_id": self.receipt_producer_id,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -1263,18 +1044,9 @@ class ModelTestAlignmentPlan:
     require_stable_authority_ids: bool = False
     require_behavior_plane_binding: bool = False
     scoped_relation_reasons: Mapping[str, str] = field(default_factory=dict)
-    require_implementation_blueprint: bool = False
-    # When set, every planned test row must be backed by a terminal native
-    # execution receipt.  A static design remains explicitly ``not_run`` when
-    # this flag is false or when no execution evidence is supplied.
+    # When set, every planned test row must be a current pass.  A static
+    # design remains explicitly ``not_run`` otherwise.
     require_executed_evidence: bool = False
-    implementation_binding_report: Any | None = None
-    model_fingerprint: str = ""
-    required_path_quality_model_ids: tuple[str, ...] = ()
-    path_quality_subjects: tuple[PathQualitySubject | Mapping[str, Any], ...] = ()
-    path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
-    path_quality_currentness_id: str = ""
-    path_quality_result_set_fingerprint: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1352,43 +1124,8 @@ class ModelTestAlignmentPlan:
         )
         object.__setattr__(
             self,
-            "require_implementation_blueprint",
-            bool(self.require_implementation_blueprint),
-        )
-        object.__setattr__(
-            self,
             "require_executed_evidence",
             bool(self.require_executed_evidence),
-        )
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
-        required_models, subjects, results = normalize_path_quality_material(
-            self.required_path_quality_model_ids,
-            self.path_quality_subjects,
-            self.path_quality_results,
-        )
-        result_set_fingerprint = (
-            path_quality_result_set_fingerprint(required_models, subjects, results)
-            if required_models or subjects or results
-            else ""
-        )
-        supplied_result_set_fingerprint = str(self.path_quality_result_set_fingerprint)
-        if (
-            supplied_result_set_fingerprint
-            and supplied_result_set_fingerprint != result_set_fingerprint
-        ):
-            raise ValueError("model-test alignment path-quality result set is stale")
-        object.__setattr__(self, "required_path_quality_model_ids", required_models)
-        object.__setattr__(self, "path_quality_subjects", subjects)
-        object.__setattr__(self, "path_quality_results", results)
-        object.__setattr__(
-            self,
-            "path_quality_currentness_id",
-            str(self.path_quality_currentness_id),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_result_set_fingerprint",
-            result_set_fingerprint,
         )
 
     def to_dict(self) -> dict[str, Any]:
@@ -1431,25 +1168,7 @@ class ModelTestAlignmentPlan:
             "require_stable_authority_ids": self.require_stable_authority_ids,
             "require_behavior_plane_binding": self.require_behavior_plane_binding,
             "scoped_relation_reasons": to_jsonable(dict(self.scoped_relation_reasons)),
-            "require_implementation_blueprint": self.require_implementation_blueprint,
             "require_executed_evidence": self.require_executed_evidence,
-            "implementation_binding_report": (
-                self.implementation_binding_report.to_dict()
-                if hasattr(self.implementation_binding_report, "to_dict")
-                else to_jsonable(self.implementation_binding_report)
-            ),
-            "model_fingerprint": self.model_fingerprint,
-            "required_path_quality_model_ids": list(self.required_path_quality_model_ids),
-            "path_quality_subjects": [
-                subject.to_dict() for subject in self.path_quality_subjects
-            ],
-            "path_quality_results": [
-                result.to_compact_dict() for result in self.path_quality_results
-            ],
-            "path_quality_currentness_id": self.path_quality_currentness_id,
-            "path_quality_result_set_fingerprint": (
-                self.path_quality_result_set_fingerprint
-            ),
         }
 
 
@@ -1515,10 +1234,6 @@ class ModelCodeTestBindingRow:
     relation_ids: tuple[str, ...] = ()
     relation_test_obligation_ids: tuple[str, ...] = ()
     relation_code_obligation_ids: tuple[str, ...] = ()
-    model_fingerprint: str = ""
-    path_quality_subject_fingerprint: str = ""
-    path_quality_result_fingerprint: str = ""
-    path_quality_currentness_id: str = ""
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
@@ -1561,22 +1276,6 @@ class ModelCodeTestBindingRow:
             "relation_code_obligation_ids",
             _as_tuple(self.relation_code_obligation_ids),
         )
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
-        object.__setattr__(
-            self,
-            "path_quality_subject_fingerprint",
-            str(self.path_quality_subject_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_result_fingerprint",
-            str(self.path_quality_result_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_currentness_id",
-            str(self.path_quality_currentness_id),
-        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1605,14 +1304,6 @@ class ModelCodeTestBindingRow:
             "relation_ids": list(self.relation_ids),
             "relation_test_obligation_ids": list(self.relation_test_obligation_ids),
             "relation_code_obligation_ids": list(self.relation_code_obligation_ids),
-            "model_fingerprint": self.model_fingerprint,
-            "path_quality_subject_fingerprint": (
-                self.path_quality_subject_fingerprint
-            ),
-            "path_quality_result_fingerprint": (
-                self.path_quality_result_fingerprint
-            ),
-            "path_quality_currentness_id": self.path_quality_currentness_id,
         }
 
 
@@ -1627,15 +1318,7 @@ class ModelTestAlignmentReport:
     binding_rows: tuple[ModelCodeTestBindingRow, ...] = ()
     pre_code_status: str = "incomplete"
     executed_evidence_status: str = TEST_STATUS_NOT_RUN
-    implementation_inventory_fingerprint: str = ""
-    implementation_binding_report_fingerprint: str = ""
-    implementation_surface_ids: tuple[str, ...] = ()
-    implementation_semantic_spec_ids: tuple[str, ...] = ()
-    implementation_oracle_ids: tuple[str, ...] = ()
     summary: str = ""
-    path_quality_result_set_fingerprint: str = ""
-    path_quality_verified_model_ids: tuple[str, ...] = ()
-    path_quality_blocked_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
@@ -1644,38 +1327,6 @@ class ModelTestAlignmentReport:
         object.__setattr__(self, "binding_rows", tuple(self.binding_rows))
         object.__setattr__(self, "pre_code_status", str(self.pre_code_status))
         object.__setattr__(self, "executed_evidence_status", str(self.executed_evidence_status))
-        object.__setattr__(
-            self,
-            "implementation_inventory_fingerprint",
-            str(self.implementation_inventory_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "implementation_binding_report_fingerprint",
-            str(self.implementation_binding_report_fingerprint),
-        )
-        object.__setattr__(self, "implementation_surface_ids", _unique_sorted(self.implementation_surface_ids))
-        object.__setattr__(
-            self,
-            "implementation_semantic_spec_ids",
-            _unique_sorted(self.implementation_semantic_spec_ids),
-        )
-        object.__setattr__(self, "implementation_oracle_ids", _unique_sorted(self.implementation_oracle_ids))
-        object.__setattr__(
-            self,
-            "path_quality_result_set_fingerprint",
-            str(self.path_quality_result_set_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_verified_model_ids",
-            _unique_sorted(self.path_quality_verified_model_ids),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_blocked_model_ids",
-            _unique_sorted(self.path_quality_blocked_model_ids),
-        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -1745,20 +1396,6 @@ class ModelTestAlignmentReport:
             "decision": self.decision,
             "pre_code_status": self.pre_code_status,
             "executed_evidence_status": self.executed_evidence_status,
-            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
-            "implementation_binding_report_fingerprint": self.implementation_binding_report_fingerprint,
-            "implementation_surface_ids": list(self.implementation_surface_ids),
-            "implementation_semantic_spec_ids": list(self.implementation_semantic_spec_ids),
-            "implementation_oracle_ids": list(self.implementation_oracle_ids),
-            "path_quality_result_set_fingerprint": (
-                self.path_quality_result_set_fingerprint
-            ),
-            "path_quality_verified_model_ids": list(
-                self.path_quality_verified_model_ids
-            ),
-            "path_quality_blocked_model_ids": list(
-                self.path_quality_blocked_model_ids
-            ),
             "findings": [finding.to_dict() for finding in self.findings],
             "binding_rows": [row.to_dict() for row in self.binding_rows],
             "summary": self.summary,
@@ -2622,76 +2259,6 @@ def _artifact_payload_evidence_by_contract(
     return result
 
 
-def _artifact_payload_receipt_gap_codes(
-    evidence: ArtifactPayloadEvidence,
-    contract: ArtifactPayloadContract | None,
-) -> tuple[tuple[str, str], ...]:
-    obligation_ids = (
-        (contract.model_obligation_id,)
-        if contract is not None and contract.model_obligation_id
-        else ()
-    )
-    inventory = {
-        "model_obligation_ids": obligation_ids,
-        "code_contract_ids": (
-            (contract.code_contract_id,)
-            if contract is not None and contract.code_contract_id
-            else ()
-        ),
-        "payload_contract_ids": (evidence.payload_contract_id,),
-        "payload_case_ids": (evidence.case_id,) if evidence.case_id else (),
-        "test_target_ids": (evidence.evidence_id,),
-    }
-    derived_verification = (
-        verify_evidence_receipt(
-            evidence.loaded_receipt,
-            evidence.receipt_verification_context,
-        )
-        if evidence.loaded_receipt is not None
-        else None
-    )
-    gaps = list(
-        verified_receipt_binding_gap_codes(
-            evidence.loaded_receipt,
-            derived_verification,
-            expected_subject_id=evidence.evidence_id,
-            expected_producer_id=evidence.receipt_producer_id,
-            expected_obligation_ids=obligation_ids,
-            expected_inventory=inventory,
-        )
-    )
-    if evidence.receipt_verification_context is None:
-        gaps.append(
-            (
-                "receipt_verification_context_missing",
-                "artifact payload evidence requires independently observed verification inputs",
-            )
-        )
-    if evidence.receipt_verification is None:
-        gaps.append(
-            (
-                "receipt_verification_projection_missing",
-                "artifact payload evidence must preserve the derived verification identity",
-            )
-        )
-    elif (
-        derived_verification is None
-        or evidence.receipt_verification.to_dict() != derived_verification.to_dict()
-    ):
-        gaps.append(
-            (
-                "receipt_verification_projection_mismatch",
-                "preserved payload verification projection differs from independent recomputation",
-            )
-        )
-    if not evidence.receipt_producer_id:
-        gaps.append(
-            (
-                "verified_receipt_expected_producer_missing",
-                "artifact payload evidence must freeze its producer owner id",
-            )
-        )
-    return tuple(dict.fromkeys(gaps))
 
 
 def _artifact_payload_status_findings(
@@ -2750,22 +2317,11 @@ def _artifact_payload_status_findings(
             )
         )
     if evidence.has_current_external_pass():
-        receipt_gaps = _artifact_payload_receipt_gap_codes(evidence, contract)
-        for code, message in receipt_gaps:
-            findings.append(
-                _payload_finding(
-                    f"artifact_payload_{code}",
-                    message,
-                    contract=contract,
-                    evidence=evidence,
-                    metadata=evidence.to_dict(),
-                )
-            )
-        if receipt_gaps:
+        if not (evidence.evidence_ref or evidence.proof_artifact):
             findings.append(
                 _payload_finding(
                     "artifact_payload_evidence_missing_execution_proof",
-                    f"artifact payload evidence {evidence.evidence_id} lacks an exact independently verified producer receipt",
+                    f"artifact payload evidence {evidence.evidence_id} names no real-surface run (evidence_ref or proof_artifact)",
                     contract=contract,
                     evidence=evidence,
                     metadata=evidence.to_dict(),
@@ -2945,7 +2501,7 @@ def _artifact_payload_required_case_findings(
         evidence
         for evidence in evidence_items
         if evidence.has_current_external_pass()
-        and not _artifact_payload_receipt_gap_codes(evidence, contract)
+        and bool(evidence.evidence_ref or evidence.proof_artifact)
     )
     current_case_ids = {evidence.case_id for evidence in current_external_passes}
     for case in cases_by_id.values():
@@ -3973,46 +3529,6 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
-        if evidence.requires_receipt_verification():
-            for code, message in evidence.receipt_gap_codes():
-                findings.append(
-                    ModelTestAlignmentFinding(
-                        code,
-                        message,
-                        evidence_id=evidence.evidence_id,
-                        metadata=evidence.to_dict(),
-                    )
-                )
-        if evidence.result_reused or evidence.reuse_ticket is not None:
-            for code, message in test_result_reuse_gap_codes(
-                evidence.reuse_ticket,
-                expected_evidence_id=evidence.evidence_id,
-                required_obligation_ids=evidence.covered_obligations,
-            ):
-                findings.append(
-                    ModelTestAlignmentFinding(
-                        code,
-                        message,
-                        evidence_id=evidence.evidence_id,
-                        metadata=evidence.to_dict(),
-                    )
-                )
-            for code, message in proof_artifact_gap_codes(
-                evidence.proof_artifact,
-                declared_status=evidence.result_status,
-                required_obligation_ids=evidence.covered_obligations,
-                require_result_path=True,
-                require_fingerprints=True,
-                require_external_scope=bool(evidence.covered_code_contracts),
-            ):
-                findings.append(
-                    ModelTestAlignmentFinding(
-                        f"test_reuse_{code}",
-                        message,
-                        evidence_id=evidence.evidence_id,
-                        metadata=evidence.to_dict(),
-                    )
-                )
         if plan.require_proof_artifacts:
             for code, message in proof_artifact_gap_codes(
                 evidence.proof_artifact,
@@ -4307,7 +3823,6 @@ def _binding_rows(
                 evidence_ids=evidence_ids,
             )
             if locked_evidence:
-                path_quality_evidence = locked_evidence[0]
                 rows.append(
                     ModelCodeTestBindingRow(
                         model_obligation_id=obligation_id,
@@ -4337,16 +3852,6 @@ def _binding_rows(
                         ),
                         relation_test_obligation_ids=obligation.relation_test_obligation_ids,
                         relation_code_obligation_ids=contract.relation_code_obligation_ids,
-                        model_fingerprint=path_quality_evidence.model_fingerprint,
-                        path_quality_subject_fingerprint=(
-                            path_quality_evidence.path_quality_subject_fingerprint
-                        ),
-                        path_quality_result_fingerprint=(
-                            path_quality_evidence.path_quality_result_fingerprint
-                        ),
-                        path_quality_currentness_id=(
-                            path_quality_evidence.path_quality_currentness_id
-                        ),
                     )
                 )
             else:
@@ -4660,234 +4165,19 @@ def _executed_evidence_status(
     return TEST_STATUS_PASSED
 
 
-def _implementation_blueprint_findings(
-    plan: ModelTestAlignmentPlan,
-) -> list[ModelTestAlignmentFinding]:
-    if not plan.require_implementation_blueprint:
-        return []
-    report = plan.implementation_binding_report
-    if report is None:
-        return [
-            ModelTestAlignmentFinding(
-                "missing_implementation_binding_report",
-                "blueprint alignment has no independent model-implementation binding report",
-                metadata={"model_id": plan.model_id},
-            )
-        ]
-    findings: list[ModelTestAlignmentFinding] = []
-    if not bool(getattr(report, "ok", False)):
-        native_findings = tuple(getattr(report, "findings", ()))
-        if native_findings:
-            for finding in native_findings:
-                code = str(getattr(finding, "code", "implementation_binding_blocked"))
-                findings.append(
-                    ModelTestAlignmentFinding(
-                        code,
-                        str(getattr(finding, "message", "implementation binding is blocked")),
-                        obligation_id=str(getattr(finding, "model_obligation_id", "")),
-                        metadata=(
-                            finding.to_dict()
-                            if hasattr(finding, "to_dict")
-                            else {"binding_report_fingerprint": str(getattr(report, "fingerprint", ""))}
-                        ),
-                    )
-                )
-        else:
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "implementation_binding_blocked",
-                    "the independent model-implementation binding report is not terminal green",
-                )
-            )
-    inventory_fingerprint = str(getattr(report, "inventory_fingerprint", ""))
-    report_fingerprint = str(getattr(report, "fingerprint", ""))
-    if not inventory_fingerprint:
-        findings.append(
-            ModelTestAlignmentFinding(
-                "missing_implementation_inventory_identity",
-                "implementation binding report does not bind an independent inventory fingerprint",
-            )
-        )
-    if not report_fingerprint:
-        findings.append(
-            ModelTestAlignmentFinding(
-                "missing_implementation_binding_identity",
-                "implementation binding report has no canonical fingerprint",
-            )
-        )
-    required_obligations = {
-        obligation.obligation_id for obligation in plan.obligations if obligation.required
-    }
-    bound_obligations = {
-        str(value) for value in getattr(report, "model_obligation_ids", ())
-    }
-    missing_obligations = tuple(sorted(required_obligations - bound_obligations))
-    if missing_obligations:
-        findings.append(
-            ModelTestAlignmentFinding(
-                "model_obligation_implementation_binding_missing",
-                "one or more required model obligations are absent from the implementation binding report",
-                metadata={"missing": missing_obligations},
-            )
-        )
-    if not tuple(getattr(report, "implementation_surface_ids", ())):
-        findings.append(
-            ModelTestAlignmentFinding(
-                "implementation_surface_denominator_missing",
-                "blueprint alignment has no independently inventoried implementation surfaces",
-            )
-        )
-    if not tuple(getattr(report, "semantic_spec_ids", ())):
-        findings.append(
-            ModelTestAlignmentFinding(
-                "source_independent_semantics_missing",
-                "blueprint bindings name paths but no source-independent semantic specifications",
-            )
-        )
-    if not tuple(getattr(report, "oracle_ids", ())):
-        findings.append(
-            ModelTestAlignmentFinding(
-                "implementation_oracles_missing",
-                "blueprint bindings do not identify behavior or validation oracles",
-            )
-        )
-    return findings
 
 
-def _path_quality_review(plan: ModelTestAlignmentPlan) -> PathQualityMaterialReview:
-    expected_model_fingerprints = (
-        {plan.model_id: plan.model_fingerprint}
-        if plan.model_fingerprint and plan.model_id in plan.required_path_quality_model_ids
-        else {}
-    )
-    return review_path_quality_material(
-        plan.required_path_quality_model_ids,
-        plan.path_quality_subjects,
-        plan.path_quality_results,
-        expected_currentness_id=plan.path_quality_currentness_id,
-        expected_model_fingerprints=expected_model_fingerprints,
-        require_exact_currentness=bool(plan.required_path_quality_model_ids),
-        require_exact_model_fingerprints=bool(plan.required_path_quality_model_ids),
-    )
 
 
-def _path_quality_findings(
-    plan: ModelTestAlignmentPlan,
-    review: PathQualityMaterialReview,
-) -> list[ModelTestAlignmentFinding]:
-    findings = [
-        ModelTestAlignmentFinding(
-            gap.code,
-            "required model path-quality material is not exact-current and closed",
-            metadata={
-                "model_id": gap.model_id,
-                "path_quality_gap": gap.to_dict(),
-                "path_quality_material": review.to_compact_dict(),
-            },
-        )
-        for gap in review.gaps
-    ]
-    if review.required_model_ids and review.required_model_ids != (plan.model_id,):
-        findings.append(
-            ModelTestAlignmentFinding(
-                "path_quality_alignment_denominator_foreign_model",
-                "one Model-Test Alignment plan may close path quality only for its exact model",
-                metadata={
-                    "model_id": plan.model_id,
-                    "required_model_ids": list(review.required_model_ids),
-                },
-            )
-        )
-
-    subject = next(
-        (item for item in review.subjects if item.model_id == plan.model_id),
-        None,
-    )
-    result = (
-        next(
-            (
-                item
-                for item in review.results
-                if item.subject_fingerprint == subject.fingerprint
-            ),
-            None,
-        )
-        if subject is not None
-        else None
-    )
-    if plan.model_id not in review.required_model_ids:
-        return findings
-    for evidence in plan.test_evidence:
-        if not evidence.has_current_pass():
-            continue
-        if not evidence.model_id or not evidence.model_fingerprint:
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "test_evidence_model_binding_missing",
-                    "current passing test evidence does not name the exact model and model fingerprint it covers",
-                    evidence_id=evidence.evidence_id,
-                )
-            )
-        elif (
-            evidence.model_id != plan.model_id
-            or subject is None
-            or evidence.model_fingerprint != subject.model_fingerprint
-        ):
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "test_evidence_model_binding_mismatch",
-                    "current passing test evidence is bound to a foreign or stale model",
-                    evidence_id=evidence.evidence_id,
-                    metadata=evidence.to_dict(),
-                )
-            )
-        if (
-            subject is None
-            or evidence.path_quality_subject_fingerprint != subject.fingerprint
-        ):
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "test_evidence_path_quality_subject_mismatch",
-                    "current passing test evidence does not consume the exact current path-quality subject",
-                    evidence_id=evidence.evidence_id,
-                )
-            )
-        if (
-            result is None
-            or evidence.path_quality_result_fingerprint != result.fingerprint
-        ):
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "test_evidence_path_quality_result_mismatch",
-                    "current passing test evidence does not consume the exact current path-quality result",
-                    evidence_id=evidence.evidence_id,
-                )
-            )
-        if (
-            subject is None
-            or evidence.path_quality_currentness_id != subject.currentness_id
-            or evidence.path_quality_currentness_id != plan.path_quality_currentness_id
-        ):
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "test_evidence_path_quality_currentness_mismatch",
-                    "current passing test evidence has a missing, stale, or foreign path-quality currentness identity",
-                    evidence_id=evidence.evidence_id,
-                )
-            )
-    return findings
 
 
 def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignmentReport:
     """Review explicit model obligations against code contracts and test evidence."""
 
-    path_quality_review = _path_quality_review(plan)
     field_lifecycle_findings = _field_lifecycle_findings(plan)
     plan = _plan_with_field_lifecycle_projections(plan)
     obligations_by_id, findings = _obligation_index(plan)
     findings = field_lifecycle_findings + findings
-    path_quality_findings = _path_quality_findings(plan, path_quality_review)
-    findings.extend(path_quality_findings)
     code_contracts_by_id, code_contract_findings = _code_contract_index(plan)
     findings.extend(code_contract_findings)
     findings.extend(_code_contract_findings(plan, obligations_by_id, code_contracts_by_id))
@@ -4945,7 +4235,6 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         findings.extend(_family_findings_as_alignment_findings(family_report.findings))
         findings.extend(_family_alignment_findings(plan))
     findings.extend(_canonical_relation_materialization_findings(plan))
-    findings.extend(_implementation_blueprint_findings(plan))
     canonical_relation_handoff = plan.canonical_relation_handoff
     same_family_relation_ids = (
         canonical_relation_handoff.relation_ids_of_type(
@@ -5021,45 +4310,6 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
         binding_rows=binding_rows,
         pre_code_status=_pre_code_design_status(plan),
         executed_evidence_status=_executed_evidence_status(plan, blockers),
-        implementation_inventory_fingerprint=str(
-            getattr(plan.implementation_binding_report, "inventory_fingerprint", "")
-        ),
-        implementation_binding_report_fingerprint=str(
-            getattr(plan.implementation_binding_report, "fingerprint", "")
-        ),
-        implementation_surface_ids=tuple(
-            getattr(plan.implementation_binding_report, "implementation_surface_ids", ())
-        ),
-        implementation_semantic_spec_ids=tuple(
-            getattr(plan.implementation_binding_report, "semantic_spec_ids", ())
-        ),
-        implementation_oracle_ids=tuple(
-            getattr(plan.implementation_binding_report, "oracle_ids", ())
-        ),
-        path_quality_result_set_fingerprint=(
-            path_quality_review.result_set_fingerprint
-            if (
-                plan.required_path_quality_model_ids
-                or plan.path_quality_subjects
-                or plan.path_quality_results
-            )
-            else ""
-        ),
-        path_quality_verified_model_ids=(
-            ()
-            if path_quality_findings
-            else path_quality_review.verified_model_ids
-        ),
-        path_quality_blocked_model_ids=tuple(
-            sorted(
-                set(path_quality_review.blocked_model_ids)
-                | (
-                    set(path_quality_review.required_model_ids)
-                    if path_quality_findings
-                    else set()
-                )
-            )
-        ),
     )
 
 

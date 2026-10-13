@@ -178,56 +178,5 @@ class PortableCheckerTests(unittest.TestCase):
         blocked = execute_portable_model(model, ("go",), max_traces=1)
         self.assertEqual("blocked", blocked.status)
 
-    def test_current_path_quality_intake_outputs_only_the_compact_record(self):
-        model = eventual_model()
-        subject, result = path_quality_pair(model)
-
-        report = check_portable_model(
-            model,
-            path_quality_subject=subject,
-            path_quality_result=result,
-        )
-
-        self.assertEqual("pass", report.status, report.to_json_text())
-        compact = report.to_dict()["path_quality_result"]
-        self.assertEqual(result.to_compact_dict(), compact)
-        self.assertEqual("unresolved", compact["conclusion"])
-        self.assertNotIn("candidates", compact)
-        self.assertNotIn("necessity_witnesses", compact)
-        self.assertTrue(any("ModelMaturation" in item for item in report.residual_risk))
-
-    def test_path_quality_intake_rejects_partial_stale_or_wrong_model_bindings(self):
-        model = eventual_model()
-        subject, result = path_quality_pair(model)
-
-        partial = check_portable_model(model, path_quality_subject=subject)
-        self.assertEqual("blocked", partial.status)
-        self.assertTrue(any("path_quality_result_missing" in item for item in partial.blockers))
-
-        stale = check_portable_model(
-            model,
-            path_quality_subject=subject,
-            path_quality_result=replace(result, currentness_id="revision:portable:old"),
-        )
-        self.assertEqual("blocked", stale.status)
-        self.assertTrue(
-            any("path_quality_result_currentness_mismatch" in item for item in stale.blockers)
-        )
-
-        changed_model = replace(model, metadata={"revision": "changed"})
-        mismatched = check_portable_model(
-            changed_model,
-            path_quality_subject=subject,
-            path_quality_result=result,
-        )
-        self.assertEqual("blocked", mismatched.status)
-        self.assertTrue(
-            any("path_quality_model_fingerprint_mismatch" in item for item in mismatched.blockers)
-        )
-        self.assertTrue(
-            any("path_quality_normalized_facts_mismatch" in item for item in mismatched.blockers)
-        )
-
-
 if __name__ == "__main__":
     unittest.main()

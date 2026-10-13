@@ -24,8 +24,6 @@ from .contract_exhaustion import (
     ContractExhaustionPlan,
     ContractInteractionGroup,
     ContractOracle,
-    _PartitionedProductVerificationContext,
-    bind_partition_context_to_plan,
 )
 from .export import to_jsonable
 from .behavior_plane import (
@@ -36,8 +34,7 @@ from .behavior_plane import (
     BCL_PLANE_UNCLASSIFIED,
 )
 from .schema import SCHEMA_VERSION
-from .source_identity import canonical_source_bytes, source_file_fingerprint
-from .model_authority import SUBJECT_LANES, SUBJECT_NORMATIVE_TARGET
+from ._hashing import canonical_source_bytes, source_file_fingerprint
 from .primary_path_authority import (
     PPA_CONFIDENCE_BLOCKED,
     PPA_CONFIDENCE_FULL,
@@ -51,6 +48,10 @@ from .primary_path_authority import (
 
 
 BEHAVIOR_COMMITMENT_ROUTE_ID = "behavior_commitment_ledger"
+
+# Model subject lanes (plain vocabulary; the same strings the models use).
+SUBJECT_NORMATIVE_TARGET = "normative_target"
+SUBJECT_LANES = frozenset({"observed_implementation", SUBJECT_NORMATIVE_TARGET, "counterfactual_experiment"})
 BEHAVIOR_COMMITMENT_ORACLE_ID = "behavior_commitment_coverage_must_block"
 
 BCL_SOURCE_FILE_AGGREGATE_SCHEMA = "flowguard.behavior-source-file-aggregate.v1"
@@ -171,10 +172,10 @@ BCL_RELATION_TYPES = (
     BCL_RELATION_REQUIRES_EVIDENCE_FROM,
 )
 
-BCL_LOOKUP_STATUS_PERFORMED = "performed"
-BCL_LOOKUP_STATUS_NOT_APPLICABLE = "not_applicable"
-BCL_LOOKUP_STATUS_FALLBACK = "fallback"
-BCL_LOOKUP_STATUS_BLOCKED = "blocked"
+from .behavior_plane import (  # noqa: E402
+    BCL_LOOKUP_STATUS_BLOCKED, BCL_LOOKUP_STATUS_FALLBACK,
+    BCL_LOOKUP_STATUS_NOT_APPLICABLE, BCL_LOOKUP_STATUS_PERFORMED,
+)
 BCL_LOOKUP_STATUSES = (
     BCL_LOOKUP_STATUS_PERFORMED,
     BCL_LOOKUP_STATUS_NOT_APPLICABLE,
@@ -182,7 +183,7 @@ BCL_LOOKUP_STATUSES = (
     BCL_LOOKUP_STATUS_BLOCKED,
 )
 
-BCL_HIT_ROLE_PRIMARY = "primary"
+from .behavior_plane import BCL_HIT_ROLE_PRIMARY  # noqa: E402
 BCL_HIT_ROLE_INVOKED_TARGET = "invoked_target"
 BCL_HIT_ROLE_VALIDATION_TARGET = "validation_target"
 BCL_HIT_ROLE_GOVERNING_PROCESS = "governing_process"
@@ -4034,8 +4035,6 @@ def behavior_commitment_contract_exhaustion_plan(
     model_id: str = BEHAVIOR_COMMITMENT_ROUTE_ID,
     claim_scope: str = BCL_SCOPE_FULL,
     max_combinations: int = 10000,
-    authority_state: Any | None = None,
-    partition_context: _PartitionedProductVerificationContext | None = None,
 ) -> ContractExhaustionPlan:
     """Build the canonical ContractExhaustionMesh plan for the ledger.
 
@@ -4091,11 +4090,7 @@ def behavior_commitment_contract_exhaustion_plan(
         },
         coverage_universe=default_behavior_commitment_coverage_universe(model_id=model_id, claim_scope=claim_scope),
     )
-    return bind_partition_context_to_plan(
-        plan,
-        authority_state=authority_state,
-        partition_context=partition_context,
-    )
+    return plan
 
 
 def behavior_commitment_risk_gate_ids(report: BehaviorCommitmentCoverageReport) -> tuple[str, ...]:

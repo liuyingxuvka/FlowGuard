@@ -15,7 +15,7 @@ from flowguard.runtime_test_evidence import (
     serialize_runtime_test_evidence,
     write_runtime_test_evidence,
 )
-from flowguard.source_identity import source_file_fingerprint
+from flowguard._hashing import source_file_fingerprint
 from flowguard.test_inventory import (
     TEST_DISPOSITION_REQUIRED,
     TestFileDisposition,

@@ -8,30 +8,22 @@ from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
-from .model_path_quality import (
-    PathQualityMaterialReview,
-    PathQualityResult,
-    PathQualitySubject,
-    normalize_path_quality_material,
-    path_quality_result_set_fingerprint,
-    review_path_quality_material,
+
+
+from ._mesh_vocab import (
+    EVIDENCE_ABSTRACT_GREEN,
+    EVIDENCE_CANDIDATE_ONLY,
+    EVIDENCE_CONFORMANCE_GREEN,
+    EVIDENCE_HAZARD_GREEN,
+    EVIDENCE_LIVE_CURRENT_GREEN,
+    EVIDENCE_MESH_GREEN,
+    OWNERSHIP_CHILD,
+    OWNERSHIP_PARENT,
+    OWNERSHIP_READ_ONLY,
+    OWNERSHIP_SHARED_KERNEL,
 )
-from .recursive_hierarchy import is_verified_subtree_receipt
-
-
-OWNERSHIP_CHILD = "child"
-OWNERSHIP_PARENT = "parent"
-OWNERSHIP_READ_ONLY = "read_only"
-OWNERSHIP_SHARED_KERNEL = "shared_kernel"
 OWNING_MODES = {OWNERSHIP_CHILD, OWNERSHIP_PARENT, OWNERSHIP_SHARED_KERNEL}
 ALLOWED_OWNERSHIP = OWNING_MODES | {OWNERSHIP_READ_ONLY}
-
-EVIDENCE_CANDIDATE_ONLY = "candidate_only"
-EVIDENCE_ABSTRACT_GREEN = "abstract_green"
-EVIDENCE_HAZARD_GREEN = "hazard_green"
-EVIDENCE_LIVE_CURRENT_GREEN = "live_current_green"
-EVIDENCE_CONFORMANCE_GREEN = "conformance_green"
-EVIDENCE_MESH_GREEN = "mesh_green"
 
 MESH_CLOSURE_NORMAL_EXIT = "normal_exit"
 MESH_CLOSURE_FAILURE_EXIT = "failure_exit"
@@ -364,7 +356,6 @@ class ChildReattachmentContract:
 
     child_model_id: str
     consumed_evidence_id: str = ""
-    consumed_path_quality_result_fingerprint: str = ""
     consumed_runtime_path_evidence_ids: tuple[str, ...] = ()
     expected_inputs: tuple[str, ...] = ()
     expected_outputs: tuple[str, ...] = ()
@@ -378,11 +369,6 @@ class ChildReattachmentContract:
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
-        object.__setattr__(
-            self,
-            "consumed_path_quality_result_fingerprint",
-            str(self.consumed_path_quality_result_fingerprint),
-        )
         object.__setattr__(
             self,
             "consumed_runtime_path_evidence_ids",
@@ -399,9 +385,6 @@ class ChildReattachmentContract:
         return {
             "child_model_id": self.child_model_id,
             "consumed_evidence_id": self.consumed_evidence_id,
-            "consumed_path_quality_result_fingerprint": (
-                self.consumed_path_quality_result_fingerprint
-            ),
             "consumed_runtime_path_evidence_ids": list(self.consumed_runtime_path_evidence_ids),
             "expected_inputs": list(self.expected_inputs),
             "expected_outputs": list(self.expected_outputs),
@@ -538,7 +521,6 @@ class MeshClosureModel:
     joins: tuple[MeshClosureJoin, ...] = ()
     terminals: tuple[MeshClosureTerminal, ...] = ()
     required_outputs: tuple[str, ...] = ()
-    consumed_path_quality_result_fingerprints: tuple[str, ...] = ()
     require_normal_exit: bool = True
     rationale: str = ""
 
@@ -549,11 +531,6 @@ class MeshClosureModel:
         object.__setattr__(self, "joins", tuple(self.joins))
         object.__setattr__(self, "terminals", tuple(self.terminals))
         object.__setattr__(self, "required_outputs", _as_tuple(self.required_outputs))
-        object.__setattr__(
-            self,
-            "consumed_path_quality_result_fingerprints",
-            _as_tuple(self.consumed_path_quality_result_fingerprints),
-        )
         object.__setattr__(self, "require_normal_exit", bool(self.require_normal_exit))
         object.__setattr__(self, "rationale", str(self.rationale))
 
@@ -565,9 +542,6 @@ class MeshClosureModel:
             "joins": [join.to_dict() for join in self.joins],
             "terminals": [terminal.to_dict() for terminal in self.terminals],
             "required_outputs": list(self.required_outputs),
-            "consumed_path_quality_result_fingerprints": list(
-                self.consumed_path_quality_result_fingerprints
-            ),
             "require_normal_exit": self.require_normal_exit,
             "rationale": self.rationale,
         }
@@ -677,17 +651,8 @@ class HierarchyPartitionMap:
     closure_model: MeshClosureModel | None = None
     coverage_receipts: tuple[Any, ...] = ()
     required_coverage_receipt_ids: tuple[str, ...] = ()
-    required_path_quality_model_ids: tuple[str, ...] = ()
-    path_quality_subjects: tuple[PathQualitySubject | Mapping[str, Any], ...] = ()
-    path_quality_results: tuple[PathQualityResult | Mapping[str, Any], ...] = ()
-    path_quality_currentness_id: str = ""
-    path_quality_result_set_fingerprint: str = ""
-    subtree_receipts: tuple[Any, ...] = ()
     claim_scope: str = "routine"
     strict: bool | None = None
-    native_receipt_store_repository_root: str = ""
-    native_receipt_store_output_directory: str = ""
-    native_receipt_verification_contexts: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -699,54 +664,9 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
         object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
         object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
-        object.__setattr__(self, "subtree_receipts", tuple(self.subtree_receipts))
         object.__setattr__(self, "claim_scope", str(self.claim_scope))
-        object.__setattr__(
-            self,
-            "native_receipt_store_repository_root",
-            str(self.native_receipt_store_repository_root),
-        )
-        object.__setattr__(
-            self,
-            "native_receipt_store_output_directory",
-            str(self.native_receipt_store_output_directory),
-        )
-        object.__setattr__(
-            self,
-            "native_receipt_verification_contexts",
-            {str(key): value for key, value in dict(self.native_receipt_verification_contexts).items()},
-        )
         if self.strict is not None:
             object.__setattr__(self, "strict", bool(self.strict))
-        required_models, subjects, results = normalize_path_quality_material(
-            self.required_path_quality_model_ids,
-            self.path_quality_subjects,
-            self.path_quality_results,
-        )
-        result_set_fingerprint = (
-            path_quality_result_set_fingerprint(required_models, subjects, results)
-            if required_models or subjects or results
-            else ""
-        )
-        supplied_result_set_fingerprint = str(self.path_quality_result_set_fingerprint)
-        if (
-            supplied_result_set_fingerprint
-            and supplied_result_set_fingerprint != result_set_fingerprint
-        ):
-            raise ValueError("hierarchy path-quality result set fingerprint is stale")
-        object.__setattr__(self, "required_path_quality_model_ids", required_models)
-        object.__setattr__(self, "path_quality_subjects", subjects)
-        object.__setattr__(self, "path_quality_results", results)
-        object.__setattr__(
-            self,
-            "path_quality_currentness_id",
-            str(self.path_quality_currentness_id),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_result_set_fingerprint",
-            result_set_fingerprint,
-        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -772,28 +692,8 @@ class HierarchyPartitionMap:
                 for receipt in self.coverage_receipts
             ],
             "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
-            "required_path_quality_model_ids": list(self.required_path_quality_model_ids),
-            "path_quality_subjects": [
-                subject.to_dict() for subject in self.path_quality_subjects
-            ],
-            "path_quality_results": [
-                result.to_compact_dict() for result in self.path_quality_results
-            ],
-            "path_quality_currentness_id": self.path_quality_currentness_id,
-            "path_quality_result_set_fingerprint": (
-                self.path_quality_result_set_fingerprint
-            ),
-            "subtree_receipts": [
-                receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
-                for receipt in self.subtree_receipts
-            ],
             "claim_scope": self.claim_scope,
             "strict": self.is_strict(),
-            "native_receipt_store_repository_root": self.native_receipt_store_repository_root,
-            "native_receipt_store_output_directory": self.native_receipt_store_output_directory,
-            "native_receipt_verification_context_ids": sorted(
-                self.native_receipt_verification_contexts
-            ),
         }
 
     def is_strict(self) -> bool:
@@ -852,9 +752,6 @@ class HierarchyMeshReport:
     summary: str = ""
     boundary_change_decisions: Mapping[str, str] = field(default_factory=dict)
     closure_report: MeshClosureReport | None = None
-    path_quality_result_set_fingerprint: str = ""
-    path_quality_verified_model_ids: tuple[str, ...] = ()
-    path_quality_blocked_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -863,21 +760,6 @@ class HierarchyMeshReport:
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "split_decisions", dict(self.split_decisions))
         object.__setattr__(self, "boundary_change_decisions", dict(self.boundary_change_decisions))
-        object.__setattr__(
-            self,
-            "path_quality_result_set_fingerprint",
-            str(self.path_quality_result_set_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_verified_model_ids",
-            _as_tuple(self.path_quality_verified_model_ids),
-        )
-        object.__setattr__(
-            self,
-            "path_quality_blocked_model_ids",
-            _as_tuple(self.path_quality_blocked_model_ids),
-        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -930,15 +812,6 @@ class HierarchyMeshReport:
             "boundary_change_decisions": to_jsonable(dict(self.boundary_change_decisions)),
             "closure_report": (
                 self.closure_report.to_dict() if self.closure_report is not None else None
-            ),
-            "path_quality_result_set_fingerprint": (
-                self.path_quality_result_set_fingerprint
-            ),
-            "path_quality_verified_model_ids": list(
-                self.path_quality_verified_model_ids
-            ),
-            "path_quality_blocked_model_ids": list(
-                self.path_quality_blocked_model_ids
             ),
         }
 
@@ -1053,9 +926,6 @@ def _mesh_closure_decision(findings: Sequence[MeshClosureFinding]) -> str:
     if not blocking:
         return "mesh_closure_green"
     priority = (
-        "mesh_closure_duplicate_path_quality_result",
-        "mesh_closure_path_quality_result_missing",
-        "mesh_closure_path_quality_result_foreign",
         "missing_root_entry",
         "unknown_closure_reference",
         "unknown_closure_consumer",
@@ -1081,8 +951,6 @@ def _mesh_closure_decision(findings: Sequence[MeshClosureFinding]) -> str:
 def review_mesh_closure_model(
     closure_model: MeshClosureModel,
     child_models: Sequence[ChildModelEvidence] = (),
-    *,
-    expected_path_quality_result_fingerprints: Sequence[str] = (),
 ) -> MeshClosureReport:
     """Review model-to-model handoff closure without expanding child internals."""
 
@@ -1092,53 +960,6 @@ def review_mesh_closure_model(
     child_outputs = set(_child_output_tokens(child_models))
     required_outputs = set(closure_model.required_outputs) | child_outputs
     consumed_tokens = _closure_consumed_tokens(closure_model)
-    expected_path_quality_fingerprints = tuple(
-        sorted(_as_tuple(expected_path_quality_result_fingerprints))
-    )
-    consumed_path_quality_fingerprints = tuple(
-        sorted(closure_model.consumed_path_quality_result_fingerprints)
-    )
-
-    if len(consumed_path_quality_fingerprints) != len(
-        set(consumed_path_quality_fingerprints)
-    ):
-        findings.append(
-            MeshClosureFinding(
-                "mesh_closure_duplicate_path_quality_result",
-                "mesh closure consumes the same child path-quality result more than once",
-                model_id=closure_model.parent_model_id,
-            )
-        )
-    missing_path_quality = tuple(
-        sorted(
-            set(expected_path_quality_fingerprints)
-            - set(consumed_path_quality_fingerprints)
-        )
-    )
-    extra_path_quality = tuple(
-        sorted(
-            set(consumed_path_quality_fingerprints)
-            - set(expected_path_quality_fingerprints)
-        )
-    )
-    if missing_path_quality:
-        findings.append(
-            MeshClosureFinding(
-                "mesh_closure_path_quality_result_missing",
-                "mesh closure does not consume every required current child path-quality result",
-                model_id=closure_model.parent_model_id,
-                metadata={"missing_result_fingerprints": list(missing_path_quality)},
-            )
-        )
-    if extra_path_quality:
-        findings.append(
-            MeshClosureFinding(
-                "mesh_closure_path_quality_result_foreign",
-                "mesh closure consumes a path-quality result outside the required child denominator",
-                model_id=closure_model.parent_model_id,
-                metadata={"foreign_result_fingerprints": list(extra_path_quality)},
-            )
-        )
 
     if not closure_model.root_entries:
         findings.append(
@@ -1875,90 +1696,6 @@ def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[H
     return findings
 
 
-def _path_quality_review(partition_map: HierarchyPartitionMap) -> PathQualityMaterialReview:
-    children = {child.model_id: child for child in partition_map.child_models}
-    expected_model_fingerprints = {
-        model_id: children[model_id].model_fingerprint
-        for model_id in partition_map.required_path_quality_model_ids
-        if model_id in children and children[model_id].model_fingerprint
-    }
-    return review_path_quality_material(
-        partition_map.required_path_quality_model_ids,
-        partition_map.path_quality_subjects,
-        partition_map.path_quality_results,
-        expected_currentness_id=partition_map.path_quality_currentness_id,
-        expected_model_fingerprints=expected_model_fingerprints,
-        require_exact_currentness=bool(partition_map.required_path_quality_model_ids),
-        require_exact_model_fingerprints=bool(
-            partition_map.required_path_quality_model_ids
-        ),
-    )
-
-
-def _path_quality_findings(
-    partition_map: HierarchyPartitionMap,
-    review: PathQualityMaterialReview,
-) -> list[HierarchyMeshFinding]:
-    findings = [
-        HierarchyMeshFinding(
-            gap.code,
-            "required child path-quality material is not exact-current and closed",
-            model_id=gap.model_id,
-            metadata={
-                "path_quality_gap": gap.to_dict(),
-                "path_quality_material": review.to_compact_dict(),
-            },
-        )
-        for gap in review.gaps
-    ]
-    subjects_by_model = {
-        subject.model_id: subject for subject in review.subjects
-    }
-    results_by_subject = {
-        result.subject_fingerprint: result for result in review.results
-    }
-    contracts_by_child = {
-        contract.child_model_id: contract
-        for contract in partition_map.reattachment_contracts
-    }
-    for model_id in review.required_model_ids:
-        subject = subjects_by_model.get(model_id)
-        result = (
-            results_by_subject.get(subject.fingerprint)
-            if subject is not None
-            else None
-        )
-        contract = contracts_by_child.get(model_id)
-        if contract is None:
-            findings.append(
-                HierarchyMeshFinding(
-                    "child_reattachment_path_quality_result_missing",
-                    "parent reattachment does not consume this required child path-quality result",
-                    model_id=model_id,
-                )
-            )
-        elif result is None or (
-            contract.consumed_path_quality_result_fingerprint
-            != result.fingerprint
-        ):
-            findings.append(
-                HierarchyMeshFinding(
-                    "child_reattachment_path_quality_result_stale",
-                    "parent reattachment consumed a missing, stale, or foreign child path-quality result",
-                    model_id=model_id,
-                    metadata={
-                        "expected_result_fingerprint": (
-                            result.fingerprint if result is not None else ""
-                        ),
-                        "consumed_result_fingerprint": (
-                            contract.consumed_path_quality_result_fingerprint
-                        ),
-                    },
-                )
-            )
-    return findings
-
-
 def _boundary_change_findings(
     partition_map: HierarchyPartitionMap,
 ) -> tuple[list[HierarchyMeshFinding], dict[str, str]]:
@@ -2158,157 +1895,6 @@ def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[Hie
                     },
                 )
             )
-        if partition_map.is_strict() and required_child_ids:
-            # ModelMesh and ContractExhaustion share the same native child
-            # receipt verifier. A strict hierarchy must not silently accept
-            # the legacy id-set projection used by routine callers.
-            try:
-                from .contract_exhaustion import (
-                    ModelContractCoverageReceipt,
-                    review_native_child_evidence,
-                )
-
-                if isinstance(receipt, ModelContractCoverageReceipt):
-                    native_receipt = receipt
-                elif isinstance(receipt, Mapping):
-                    native_receipt = ModelContractCoverageReceipt(**dict(receipt))
-                else:
-                    native_receipt = None
-                if native_receipt is None:
-                    raise ValueError("coverage receipt is not a native model coverage receipt")
-                for native_finding in review_native_child_evidence(
-                    native_receipt,
-                    claim_scope=partition_map.claim_scope,
-                    receipt_store_repository_root=partition_map.native_receipt_store_repository_root,
-                    receipt_store_output_directory=partition_map.native_receipt_store_output_directory,
-                    verification_contexts=partition_map.native_receipt_verification_contexts,
-                ):
-                    findings.append(
-                        HierarchyMeshFinding(
-                            native_finding.code,
-                            native_finding.message,
-                            severity=native_finding.severity,
-                            model_id=model_id,
-                            item_id=receipt_id,
-                            metadata=native_finding.metadata,
-                        )
-                    )
-            except (TypeError, ValueError) as exc:
-                findings.append(
-                    HierarchyMeshFinding(
-                        "model_coverage_native_binding_invalid",
-                        "strict parent coverage receipt cannot be converted to a native evidence binding",
-                        model_id=model_id,
-                        item_id=receipt_id,
-                        metadata={"error": str(exc)},
-                    )
-                )
-    return findings
-
-
-def _subtree_receipt_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
-    """Check exact subtree receipt consumption for strict ModelMesh parents."""
-
-    if not partition_map.is_strict():
-        return []
-    findings: list[HierarchyMeshFinding] = []
-    receipts_by_id = {
-        str(getattr(receipt, "receipt_id", "") or (receipt.get("receipt_id", "") if isinstance(receipt, Mapping) else "")): receipt
-        for receipt in partition_map.subtree_receipts
-    }
-
-    def value(receipt: Any, name: str, default: Any = "") -> Any:
-        if isinstance(receipt, Mapping):
-            return receipt.get(name, default)
-        return getattr(receipt, name, default)
-
-    for child in partition_map.child_models:
-        non_leaf = not child.is_leaf or bool(child.child_model_ids)
-        if not child.owner_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_owner_id_missing",
-                    "strict ModelMesh child must name one owner id",
-                    model_id=child.model_id,
-                )
-            )
-        if not child.model_fingerprint:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_fingerprint_missing",
-                    "strict ModelMesh child must freeze its model fingerprint",
-                    model_id=child.model_id,
-                )
-            )
-        if child.parent_model_id and child.parent_model_id != partition_map.parent_model_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_parent_mismatch",
-                    "strict ModelMesh child names a different parent model",
-                    model_id=child.model_id,
-                    metadata={
-                        "expected": partition_map.parent_model_id,
-                        "actual": child.parent_model_id,
-                    },
-                )
-            )
-        if child.claim_scope and child.claim_scope != partition_map.claim_scope:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_scope_mismatch",
-                    "strict ModelMesh child claim scope differs from its parent",
-                    model_id=child.model_id,
-                    metadata={"expected": partition_map.claim_scope, "actual": child.claim_scope},
-                )
-            )
-        if not non_leaf:
-            continue
-        receipt = receipts_by_id.get(child.subtree_receipt_id)
-        if receipt is None:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_subtree_receipt_missing",
-                    "strict non-leaf ModelMesh child must consume a verified subtree receipt",
-                    model_id=child.model_id,
-                    item_id=child.subtree_receipt_id,
-                )
-            )
-            continue
-        if not is_verified_subtree_receipt(receipt):
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_subtree_receipt_not_verified",
-                    "non-leaf ModelMesh child receipt is not a verified terminal receipt",
-                    model_id=child.model_id,
-                    item_id=child.subtree_receipt_id,
-                    metadata={"receipt": to_jsonable(receipt)},
-                )
-            )
-        expected = {
-            "receipt_id": child.subtree_receipt_id,
-            "fingerprint": child.subtree_receipt_fingerprint,
-            "model_id": child.model_id,
-            "model_fingerprint": child.model_fingerprint,
-            "owner_id": child.owner_id,
-            "parent_model_id": partition_map.parent_model_id,
-            "claim_scope": partition_map.claim_scope,
-            "obligation_ids": tuple(child.validation_evidence or child.functions_owned),
-        }
-        for name, expected_value in expected.items():
-            if not expected_value:
-                continue
-            actual = value(receipt, name, ()) if name == "obligation_ids" else value(receipt, name, "")
-            actual_value = _as_tuple(actual) if name == "obligation_ids" else str(actual)
-            if actual_value != expected_value:
-                findings.append(
-                    HierarchyMeshFinding(
-                        f"model_child_subtree_receipt_{name}_mismatch",
-                        f"child subtree receipt {name} does not match the exact ModelMesh contract",
-                        model_id=child.model_id,
-                        item_id=child.subtree_receipt_id,
-                        metadata={"expected": expected_value, "actual": actual_value},
-                    )
-                )
     return findings
 
 
@@ -2327,18 +1913,6 @@ def review_hierarchical_mesh(
         if _is_large_child(child, large_model_threshold):
             activation_reasons.append(f"large_model:{child.model_id}")
 
-    path_quality_review = _path_quality_review(partition_map)
-    if (
-        partition_map.required_path_quality_model_ids
-        or partition_map.path_quality_subjects
-        or partition_map.path_quality_results
-    ):
-        activation_reasons.append("path_quality")
-    path_quality_findings = _path_quality_findings(
-        partition_map,
-        path_quality_review,
-    )
-    findings.extend(path_quality_findings)
     findings.extend(_target_split_derivation_findings(partition_map))
     findings.extend(_child_reattachment_findings(partition_map))
     boundary_change_findings, boundary_change_decisions = _boundary_change_findings(partition_map)
@@ -2349,7 +1923,6 @@ def review_hierarchical_mesh(
     if partition_map.coverage_receipts or partition_map.required_coverage_receipt_ids:
         activation_reasons.append("model_coverage_receipts")
     findings.extend(coverage_receipt_findings)
-    findings.extend(_subtree_receipt_findings(partition_map))
     closure_report = None
     if partition_map.closure_model is None and _partition_requires_closure_model(partition_map):
         findings.append(
@@ -2376,25 +1949,9 @@ def review_hierarchical_mesh(
         )
     elif partition_map.closure_model is not None:
         activation_reasons.append("closure_model")
-        subjects_by_model = {
-            subject.model_id: subject for subject in path_quality_review.subjects
-        }
-        results_by_subject = {
-            result.subject_fingerprint: result
-            for result in path_quality_review.results
-        }
-        expected_path_quality_result_fingerprints = tuple(
-            results_by_subject[subjects_by_model[model_id].fingerprint].fingerprint
-            for model_id in path_quality_review.required_model_ids
-            if model_id in subjects_by_model
-            and subjects_by_model[model_id].fingerprint in results_by_subject
-        )
         closure_report = review_mesh_closure_model(
             partition_map.closure_model,
             partition_map.child_models,
-            expected_path_quality_result_fingerprints=(
-                expected_path_quality_result_fingerprints
-            ),
         )
         for closure_finding in closure_report.findings:
             findings.append(
@@ -2570,28 +2127,9 @@ def review_hierarchical_mesh(
                 )
             )
 
-    path_quality_consumer_blocked = set(path_quality_review.blocked_model_ids)
-    for finding in findings:
-        if finding.code.startswith("mesh_closure_path_quality_") or (
-            finding.code.startswith("mesh_closure_")
-            and "path_quality" in finding.code
-        ):
-            path_quality_consumer_blocked.update(path_quality_review.required_model_ids)
-        elif finding.code.startswith("path_quality_") or finding.code.startswith(
-            "child_reattachment_path_quality_"
-        ):
-            if finding.model_id in path_quality_review.required_model_ids:
-                path_quality_consumer_blocked.add(finding.model_id)
-            elif not finding.model_id:
-                path_quality_consumer_blocked.update(path_quality_review.required_model_ids)
-    path_quality_consumer_blocked_model_ids = tuple(
-        sorted(path_quality_consumer_blocked)
-    )
     blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
     if not blocking:
         decision = "mesh_green_can_continue"
-    elif any(finding.code.startswith("path_quality_") for finding in blocking):
-        decision = "path_quality_closure_required"
     elif any(finding.code in {
         "missing_target_split_derivation",
         "invalid_target_split_derivation",
@@ -2662,21 +2200,6 @@ def review_hierarchical_mesh(
         split_decisions=split_decisions,
         boundary_change_decisions=boundary_change_decisions,
         closure_report=closure_report,
-        path_quality_result_set_fingerprint=(
-            path_quality_review.result_set_fingerprint
-            if (
-                partition_map.required_path_quality_model_ids
-                or partition_map.path_quality_subjects
-                or partition_map.path_quality_results
-            )
-            else ""
-        ),
-        path_quality_verified_model_ids=tuple(
-            model_id
-            for model_id in path_quality_review.verified_model_ids
-            if model_id not in set(path_quality_consumer_blocked_model_ids)
-        ),
-        path_quality_blocked_model_ids=path_quality_consumer_blocked_model_ids,
     )
 
 

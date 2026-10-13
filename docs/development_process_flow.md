@@ -18,7 +18,7 @@ mode. Ordinary single-route work does not activate it. When an explicit
 request, several equivalent routes, material rework risk, or a meaningful
 diagnostic-boundary choice exists, it first rejects candidates that would
 change the required outcome, evidence, safety, side effects, dependencies, or
-authority. It then chooses a diagnostic boundary (`targeted`,
+ownership. It then chooses a diagnostic boundary (`targeted`,
 `declared_complete`, or `budgeted`) and an execution mode (`sequential` or
 `safe_parallel`). See
 [`development_process_strategy_selection.md`](development_process_strategy_selection.md)
@@ -27,14 +27,14 @@ claim rule.
 
 For product-language and validated-path changes, repository source, shadow
 workspace, formal repository, editable package, installed skills, and local Git
-are separate freshness domains. A passing receipt from one cannot stand in for
+are separate freshness domains. A passing result from one cannot stand in for
 another. DevelopmentProcessFlow consumes one typed `DistributionEvidence`
 from the distribution owner when installation or release parity is required;
 it does not own a fixed suite count or execute installation semantics. Peer or
 unknown-writer edits stale affected evidence and must be
-re-read and merged; restoring an older green snapshot is not permission to
+re-read and merged; restoring an older green copy is not permission to
 overwrite concurrent work. Background logs, PIDs, and heartbeats prove only
-liveness until a terminal TestMesh receipt exists.
+liveness until the run has finished with an exit code and a result file.
 
 When a registered artifact declares a non-empty `owner`, every action that
 writes or invalidates it must use an `actor` exactly equal to that owner. This
@@ -49,8 +49,8 @@ place to select the behavior-ledger change mode: `bootstrap_ledger`,
 a new workflow. It tells the existing routes which evidence to refresh:
 ExistingModelPreflight finds the owner model, Behavior Commitment Ledger
 updates the external behavior row, ContractExhaustionMesh generates DCAR cases,
-Model-Test Alignment and TestMesh bind current evidence, and SelfMaintenance
-consumes the child reports before broad claims.
+and Model-Test Alignment and TestMesh bind current evidence before broad
+claims.
 
 Process actions themselves remain in the `development_process` plane. Use
 `ProcessAction.behavior_plane`, `target_behavior_planes`,
@@ -117,10 +117,16 @@ plan = DevelopmentProcessPlan(
             produced_by_action_id="run-unit",
             proof_artifact=ProofArtifactRef(
                 "artifact:unit-pass",
+                producer_route="test_mesh_maintenance",
+                command="python -m pytest tests/test_checkout.py -q",
+                result_path="tmp/unit-pass.json",
                 result_status="passed",
                 exit_code=0,
-                result_path="tmp/unit-pass.json",
-                artifact_fingerprints={"tmp/unit-pass.json": "sha256:..."},
+                started_at="2026-01-01T10:00:00Z",
+                finished_at="2026-01-01T10:00:05Z",
+                subject_id="code.checkout",
+                subject_fingerprint="sha256:" + "a" * 64,
+                artifact_fingerprints={"tmp/unit-pass.json": "sha256:" + "b" * 64},
                 covered_obligation_ids=("unit-current",),
             ),
         ),
@@ -140,7 +146,15 @@ print(report.format_text())
 ```
 
 The report flags stale evidence because `unit-pass` covered `code.checkout@3`
-while the current artifact is `code.checkout@4`.
+while the current artifact is `code.checkout@4`. With
+`require_proof_artifacts=True` the proof artifact is also checked as a real
+file: `result_path` must exist and every fingerprint must be a full
+`sha256:<64 hex>` digest, so running this snippet without creating
+`tmp/unit-pass.json` additionally reports `proof_result_path_missing`.
+Because the plan contains a `claim_release` action, it also reports
+`full_validation_parent_not_unique`: a broad done/release/archive/publish claim
+needs exactly one current `ProcessEvidence` row of kind `full_validation`,
+named in the plan field `full_validation_parent_receipt_ids`.
 
 ## What It Checks
 
@@ -166,25 +180,21 @@ while the current artifact is `code.checkout@4`.
   evidence role, or test row used to prove closure;
 - bug-repair evidence changes that invalidate earlier closure, such as a new
   root-cause backpropagation record, owner code contract, old-path
-  disposition, observed-regression test, contract-exhaustion case
-  test, or Risk
-  Evidence Ledger row;
+  disposition, observed-regression test, or contract-exhaustion case test;
 - ambiguous freshness policy for declared upstream/downstream artifacts;
 - progress-only background evidence, hidden skipped validation, failed
   evidence, and not-run evidence;
-- background completion claims without a final `run_id`, terminal `passed`
-  status, exit code 0, concrete result artifact and fingerprint, covered
-  obligation ids, inventory revision, and current artifact/verifier versions;
+- background completion claims without a terminal `passed` status, exit code
+  0, concrete result artifact and fingerprint, covered obligation ids, and
+  current artifact/verifier versions;
 - UI task checkboxes without current evidence type, such as model coverage,
   static test, runtime click, browser DOM/geometry, desktop/manual
   observation, native-dialog blindspot, work mode, source baseline,
   source-target mapping, source interaction, observed-source alignment,
   observed inventory, functional chain,
   human-operability, implementation validation, or done-claim review;
-- final done, archive, publish, or release claims that have no current Risk
-  Evidence Ledger decision;
-- FlowGuard framework upgrade claims that have no current model-impact
-  freshness decision for existing `.flowguard` models;
+- install, sync, or distribution claims without current, typed
+  `DistributionEvidence`;
 - missing V-style validation pairs;
 - release-required evidence under routine and release scopes;
 - coverage-complete revalidation recommendations, with `minimum` wording only
@@ -197,19 +207,16 @@ while the current artifact is `code.checkout@4`.
 
 ## Template
 
-Use the starter template in another project:
+Print the starter template, or write it into another project:
 
 ```powershell
-python -m flowguard development-process-flow-template --output .
+python -m flowguard template development-process-flow
+python -m flowguard template development-process-flow --write .
 ```
 
-The template writes:
-
-- `.flowguard/models/owners/development_process_flow/model.py`
-- `.flowguard/verification/owners/development_process_flow/run_checks.py`
-- `docs/flowguard_development_process_flow.md`
-
-The generated model includes one green lifecycle and one broken lifecycle where
+The template contains a runnable model, a `run_checks.py` script that executes
+it, and short notes pages for the flow and for strategy selection. The
+generated model includes one green lifecycle and one broken lifecycle where
 a release claim reuses stale validation evidence after code and requirement
 changes.
 
@@ -243,12 +250,10 @@ consume observed-inventory, functional-chain, source-baseline interaction
 semantics when applicable, `UIImplementationValidation`, and UI done-claim
 review evidence.
 
-For final completion claims, DevelopmentProcessFlow should reference the Risk
-Evidence Ledger decision as one evidence boundary. If the ledger reports
-`risk_evidence_full_confidence`, the process may consume that evidence subject
-to freshness rules. If it reports scoped confidence, stale proof,
-internal-path-only evidence, progress-only evidence, or a missing route handoff,
-the process claim remains scoped or blocked until the owning route supplies
+For final completion claims, the process may consume only current evidence:
+models and tests that were actually run against the current artifact versions.
+Scoped, stale, internal-path-only, progress-only, or missing evidence keeps the
+process claim scoped or blocked until the owning route reruns and supplies
 current proof.
 
 When the final claim depends on layered parent/child model confidence,
@@ -268,8 +273,8 @@ When the final claim closes a model miss or non-trivial bug repair,
 DevelopmentProcessFlow should include Model-Test Alignment as a required
 validation pair for the repaired model obligation, owner code contract, and
 observed/contract-exhaustion case test rows. It should also include the root-cause
-backpropagation record, old-path disposition, and Risk
-Evidence Ledger row as freshness-sensitive artifacts. If the contract-exhaustion
+backpropagation record and old-path disposition as freshness-sensitive
+artifacts. If the contract-exhaustion
 evidence is large, slow, background, layered, or release-only, it should also
 include TestMesh evidence and keep routine confidence scoped until current
 release evidence exists.
@@ -277,15 +282,15 @@ release evidence exists.
 When the work changes a field/schema boundary, same-class family, payload
 contract, transition matrix, parent/child closure, or no-delta loop, rerun
 ContractExhaustionMesh before consuming downstream Model-Test Alignment,
-TestMesh, ModelMesh, or Risk Evidence Ledger evidence. A stale generated case
+TestMesh, or ModelMesh evidence. A stale generated case
 matrix is stale process evidence even when a downstream green test still
 exists.
 
 When later implementation, validation, alignment, mesh, code-boundary, or
 freshness evidence says the model itself is too coarse, stale, disconnected, or
-missing an obligation, DevelopmentProcessFlow should also consume
-`review_model_maturation_loop(...)`. The lifecycle claim stays scoped or blocked
-until the required model upgrade is resolved or explicitly out of scope.
+missing an obligation, route it through Model-Miss Review and rerun the
+upgraded model. The lifecycle claim stays scoped or blocked until the required
+model upgrade is resolved or explicitly out of scope.
 
 Before done, release, archive, publish, or production-confidence claims,
 DevelopmentProcessFlow should review direct model-code-test evidence freshness.
@@ -304,17 +309,16 @@ reports as current evidence. `review_plan_intake_completeness(...)`,
 `review_flowguard_claim_chain(...)` keep plan-only, model-only, or alignment-only
 results from being reported as production confidence.
 
-When a lifecycle claim is a FlowGuard framework upgrade or installed helper
-sync, DevelopmentProcessFlow should also consume
-`review_model_impact_freshness(...)`. Affected old models remain blocked until
-current rerun evidence exists. Unchanged old models can reuse previous evidence
-only when a reuse ticket proves the model, dependencies, FlowGuard semantics,
-previous evidence, and output fingerprint are still current. Unchanged old test
-results can be reused only when a `TestResultReuseTicket` and matching
+When a lifecycle claim follows a FlowGuard upgrade or a dependency change,
+rerun the affected models and tests; `python -m flowguard map check` reports
+which mapped files changed since their recorded fingerprints, and
+`python -m flowguard change` lists what to rerun. Unchanged old test results
+can be reused only when a TestMesh `TestResultReuseTicket` and matching
 `ProofArtifactRef` prove the command, test source, tested artifacts,
 dependencies, environment, result fingerprint, and covered obligation scope are
 current. Later writes that touch any of those fields stale the reuse proof and
 force a rerun or refreshed ticket before done confidence.
+
 ## Read-only WorkContext
 
 External planning sources enter this route as one or more current,
@@ -322,6 +326,6 @@ project-bounded `WorkContext` values. Each preserves its adapter, native owner,
 artifact roles, source references, and content fingerprints.
 DevelopmentProcessFlow may use them to understand scope and order its own work,
 but it never writes or executes the provider, creates provider
-sessions/caches/receipts, converts provider status into test evidence, or
+sessions or caches, converts provider status into test evidence, or
 decides provider lifecycle operations. See
 [`work_context.md`](work_context.md).

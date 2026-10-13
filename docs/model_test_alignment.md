@@ -8,7 +8,8 @@ read TestMesh, StructureMesh, or ModelMesh reports.
 Use it before claiming that model coverage, code behavior, and test coverage
 describe the same behavioral surface.
 
-When behavior authority is in scope, alignment carries the same stable intent,
+When the promise is intent-, commitment-, or path-sensitive, alignment carries
+the same stable intent,
 commitment, and selected-path ids across model obligations, UI transition
 projections, owner and delegating code contracts, runtime evidence, family
 evidence, and tests. Canonical relation, test-obligation, and code-obligation
@@ -52,23 +53,23 @@ proof, add a target-aware closure requirement. Use
 `known_bad_replay`, and make the matching `TestEvidence` cite the same
 `evidence_target_id`, owner code contract, and external assertion scope.
 
-Model-Test Alignment proves the obligation/code/test rows; it does not create a
-separate recurrence authority. The Model-Miss owner declares the exact
-blueprint gap and finite canonical relation ids, ContractExhaustionMesh
-materializes their stable bad-case ids and oracles, and ModelMaturation carries
-the task-bound depth decision into the Risk Evidence Ledger. Generated cases
-can be projected with `contract_exhaustion_to_model_obligations(...)` and must
-bind to the same owner code contract and external test boundary.
+Model-Test Alignment proves the obligation/code/test rows; it does not decide
+which sibling cases belong to the bug class. Model-Miss Review names the finite
+affected relations, and ContractExhaustionMesh turns them into stable bad-case
+ids with executable oracles. Generated cases can be projected with
+`contract_exhaustion_to_model_obligations(...)` and must bind to the same owner
+code contract and external test boundary.
 
 When the claim spans a family of related obligations, add obligation-family
 parity evidence to the same plan. Alignment can prove that each declared
 obligation has tests, but family parity proves that sibling obligations all
 have the required mechanism evidence from an allowed provenance source. A
-manual event or controller receipt cannot prove a family requirement that says
+manual event or controller-level handoff cannot prove a family requirement that says
 the evidence must come from durable reconciliation.
 
 When Model Topology Hazard Review promotes an anchored future-use hazard into a
-testable obligation, include that hazard id in the model obligation row. A green
+testable obligation, use the hazard's `model_obligation_id` as the
+`ModelObligation.obligation_id` so the two rows stay joined. A green
 test suite should not close the hazard unless the test or code-boundary evidence
 covers the specific topology anchor and future failure mode.
 
@@ -143,8 +144,8 @@ This is runtime boundary evidence, not exhaustive semantic proof. It should not
 replace conformance replay when ordered production traces, durable state,
 external systems, or adapter projection are part of the confidence claim.
 It also does not prove that every critical state writer in a target project is
-mediated by a FlowGuard-backed runtime gateway. Use Runtime Gateway Adoption
-for that claim.
+mediated by a FlowGuard-backed runtime gateway; that needs its own runtime path
+evidence for each writer.
 
 ## Artifact Payload Validation
 
@@ -388,19 +389,20 @@ claim depends on real production state, side effects, external systems,
 trace-level behavior, or adapter projection between model traces and runtime
 observations.
 
-Model-Test Alignment produces the rows that a Risk Evidence Ledger can consume:
-model obligation IDs, code contract IDs, test evidence IDs, result status,
-freshness, and assertion scope. It should not claim final done or release
-confidence by itself when other risk rows, mesh evidence, UI journeys, or
-process freshness can still invalidate the broader claim. Feed those rows into
-`review_risk_evidence_ledger(...)` before saying the modeled risk is fully
-covered.
+Model-Test Alignment reports model obligation IDs, code contract IDs, test
+evidence IDs, result status, freshness, and assertion scope. It should not
+claim final done or release confidence by itself when mesh evidence, UI
+journeys, or process freshness can still invalidate the broader claim. Before a
+broad claim, run `python -m flowguard map check` to confirm the mapped files
+have not drifted since the models and tests ran, and use
+`python -m flowguard change` to see which models and tests the edit requires
+rerunning; then rerun them.
 
 When alignment exposes a missing model obligation, stale proof, duplicate
 primary edge path, missing code-boundary observation, or code-boundary mismatch,
-also feed that signal to `review_model_maturation_loop(...)`. The fix may be a
-model upgrade, a child split, a new boundary observation, or a scoped claim;
-adding more tests alone is not always the right repair.
+treat it as a model problem first. The fix may be a model upgrade, a child
+split, a new boundary observation, or a scoped claim; adding more tests alone is
+not always the right repair.
 
 If same-class model-miss coverage needs broad parameterization, property tests,
 seeded fuzz, background shards, release-only runs, or parent/child ownership,

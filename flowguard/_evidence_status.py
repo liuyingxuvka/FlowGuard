@@ -1,0 +1,15 @@
+"""Shared evidence status and confidence vocabulary (no ledger semantics)."""
+
+RISK_PROOF_STATUS_PASSED = "passed"
+RISK_PROOF_STATUS_FAILED = "failed"
+RISK_PROOF_STATUS_SKIPPED = "skipped"
+RISK_PROOF_STATUS_STALE = "stale"
+RISK_PROOF_STATUS_NOT_RUN = "not_run"
+RISK_PROOF_STATUS_RUNNING = "running"
+RISK_PROOF_STATUS_PROGRESS_ONLY = "progress_only"
+RISK_PROOF_STATUS_ERROR = "error"
+
+RISK_CONFIDENCE_FULL = "full"
+RISK_CONFIDENCE_SCOPED = "scoped"
+RISK_CONFIDENCE_PARTIAL = "partial"
+RISK_CONFIDENCE_BLOCKED = "blocked"

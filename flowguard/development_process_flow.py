@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import combinations
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping, Protocol, Sequence, runtime_checkable
 
 from ._normalization import string_sequence as _as_tuple
 from .behavior_plane import (
@@ -20,9 +20,26 @@ from .behavior_plane import (
     BCL_PLANE_DEVELOPMENT_PROCESS,
 )
 from .export import to_jsonable
-from .model_maturation_receipt import VerifiedModelMaturation
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
-from .validation_ownership import verify_parent_receipt
+
+
+@runtime_checkable
+class VerifiedModelMaturation(Protocol):
+    """Structural view of a maturation verdict (no receipt store dependency)."""
+
+    current: bool
+    task_id: str
+    candidate_model_fingerprint: str
+    coverage_universe_fingerprint: str
+    input_fingerprint: str
+    evidence_fingerprint: str
+    open_gap_fingerprints: tuple[str, ...]
+
+    def supports_full_confidence(self) -> bool: ...
+
+    def to_dict(self) -> dict[str, Any]: ...
+
+
 PROCESS_SCOPE_ROUTINE = "routine"
 PROCESS_SCOPE_RELEASE = "release"
 # DPF historically exposed ``routine``/``release`` as decision scopes.  The
@@ -2135,17 +2152,14 @@ def _claim_findings(
 
 def _full_validation_parent_findings(
     plan: DevelopmentProcessPlan,
+    stale_by_evidence: Mapping[str, Mapping[str, tuple[str, str]]] | None = None,
 ) -> list[ProcessFlowFinding]:
     broad_actions = tuple(
         action
         for action in plan.actions
         if action.action_type in {
-            "claim_release",
-            "claim_archive",
-            "claim_publish",
-            "release",
-            "archive",
-            "publish",
+            "claim_release", "claim_archive", "claim_publish",
+            "release", "archive", "publish",
         }
         or (
             action.action_type == "claim_done"
@@ -2161,55 +2175,22 @@ def _full_validation_parent_findings(
         and plan.claim_scope != PROCESS_CLAIM_SCOPE_RELEASE
     ):
         return []
-    receipt_ids = plan.full_validation_parent_receipt_ids
-    if len(receipt_ids) != 1:
-        return [
-            ProcessFlowFinding(
-                "full_validation_parent_not_unique",
-                "broad done/release/archive/publish confidence requires exactly "
-                "one validation-parent:full receipt",
-                action_id=broad_actions[0].action_id if broad_actions else "",
-                metadata={"receipt_ids": list(receipt_ids)},
-            )
-        ]
-    if not plan.validation_repository_root or not plan.validation_receipt_root:
-        return [
-            ProcessFlowFinding(
-                "full_validation_parent_store_missing",
-                "the canonical repository and receipt store are required for "
-                "independent parent verification",
-                action_id=broad_actions[0].action_id if broad_actions else "",
-                metadata={"receipt_id": receipt_ids[0]},
-            )
-        ]
-    try:
-        verification = verify_parent_receipt(
-            receipt_ids[0],
-            plan.validation_repository_root,
-            plan.validation_receipt_root,
-        )
-    except (OSError, ValueError) as exc:
-        return [
-            ProcessFlowFinding(
-                "full_validation_parent_unverifiable",
-                f"validation-parent:full could not be loaded and verified: {exc}",
-                action_id=broad_actions[0].action_id if broad_actions else "",
-                evidence_id=receipt_ids[0],
-            )
-        ]
-    if not verification.ok:
-        return [
-            ProcessFlowFinding(
-                "full_validation_parent_not_current",
-                "validation-parent:full is not independently verified exact-current",
-                action_id=broad_actions[0].action_id if broad_actions else "",
-                evidence_id=receipt_ids[0],
-                metadata={
-                    "finding_codes": list(verification.finding_codes),
-                    "verification": verification.to_dict(),
-                },
-            )
-        ]
+    action_id = broad_actions[0].action_id if broad_actions else ""
+    ids = plan.full_validation_parent_receipt_ids
+    if len(ids) != 1:
+        return [ProcessFlowFinding(
+            "full_validation_parent_not_unique",
+            "broad done/release/archive/publish confidence requires exactly one full-validation evidence id",
+            action_id=action_id, metadata={"receipt_ids": list(ids)},
+        )]
+    evidence = {item.evidence_id: item for item in plan.evidence}.get(ids[0])
+    stale = (stale_by_evidence or {}).get(ids[0], {})
+    if evidence is None or evidence.evidence_kind != "full_validation" or not _evidence_is_current(evidence, stale):
+        return [ProcessFlowFinding(
+            "full_validation_parent_not_current",
+            "full-validation evidence is missing, not kind=full_validation, or not current passing",
+            action_id=action_id, evidence_id=ids[0],
+        )]
     return []
 
 
@@ -2698,7 +2679,7 @@ def review_development_process_flow(plan: DevelopmentProcessPlan) -> Development
     requirement_findings, release_obligations, recommendations, revalidation_boundary = _requirement_findings(plan, stale_by_evidence)
     findings.extend(requirement_findings)
     findings.extend(_claim_findings(plan, stale_by_evidence))
-    findings.extend(_full_validation_parent_findings(plan))
+    findings.extend(_full_validation_parent_findings(plan, stale_by_evidence))
     findings.extend(_distribution_evidence_findings(plan))
 
     blockers = _blocker_findings(findings)

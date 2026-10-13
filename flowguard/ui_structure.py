@@ -18,11 +18,8 @@ from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
-from .proof_artifact import (
-    ProofArtifactRef,
-    coerce_proof_artifact_ref,
-    proof_artifact_gap_codes,
-)
+import hashlib
+from pathlib import Path
 from .ui_implementation_evidence import (
     UIImplementationClaimScopeDecision,
     UIImplementationClaimScopeFinding,
@@ -59,6 +56,72 @@ def _as_int(value: Any, default: int = 0) -> int:
 
 def _is_sha256_fingerprint(value: str) -> bool:
     return bool(re.fullmatch(r"sha256:[0-9a-f]{64}", str(value)))
+
+
+@dataclass(frozen=True)
+class UIRuntimeProof:
+    """A pointer to the real result file a runner wrote for one UI claim."""
+
+    artifact_id: str
+    command: str = ""
+    result_path: str = ""
+    result_status: str = "not_run"
+    exit_code: int | None = None
+    result_fingerprint: str = ""
+    assertion_scope: str = "external_contract"
+    metadata: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name in ("artifact_id", "command", "result_path", "result_status", "result_fingerprint", "assertion_scope"):
+            object.__setattr__(self, name, str(getattr(self, name)))
+        object.__setattr__(self, "metadata", dict(self.metadata))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "artifact_id": self.artifact_id,
+            "command": self.command,
+            "result_path": self.result_path,
+            "result_status": self.result_status,
+            "exit_code": self.exit_code,
+            "result_fingerprint": self.result_fingerprint,
+            "assertion_scope": self.assertion_scope,
+            "metadata": to_jsonable(dict(self.metadata)),
+        }
+
+
+_RUNTIME_PROOF_FIELDS = {"artifact_id", "command", "result_path", "result_status", "exit_code", "result_fingerprint", "assertion_scope", "metadata"}
+
+
+def _coerce_runtime_proof(value: Any) -> Any:
+    if value is None or not isinstance(value, Mapping):
+        return value
+    data = dict(value)
+    if not data.get("result_fingerprint"):
+        data["result_fingerprint"] = dict(data.get("artifact_fingerprints") or {}).get("result", "")
+    return UIRuntimeProof(**{key: data[key] for key in _RUNTIME_PROOF_FIELDS if key in data})
+
+
+def _runtime_proof_gap_codes(artifact: Any) -> list[tuple[str, str]]:
+    if artifact is None:
+        return [("missing_proof_artifact", "evidence has no proof artifact reference")]
+    gaps: list[tuple[str, str]] = []
+    if str(getattr(artifact, "result_status", "")) != "passed":
+        gaps.append(("proof_artifact_not_passing", f"proof artifact status is {getattr(artifact, 'result_status', '')}"))
+    if getattr(artifact, "exit_code", None) != 0:
+        gaps.append(("proof_artifact_nonzero_exit", "proof artifact has no zero exit code"))
+    if not str(getattr(artifact, "command", "")).strip():
+        gaps.append(("proof_artifact_missing_command", "proof artifact has no executed command"))
+    if str(getattr(artifact, "assertion_scope", "")) not in {"external_contract", "mixed"}:
+        gaps.append(("proof_artifact_internal_path_only", "proof artifact does not exercise the external contract"))
+    expected = str(getattr(artifact, "result_fingerprint", "") or dict(getattr(artifact, "artifact_fingerprints", {}) or {}).get("result", ""))
+    path = Path(str(getattr(artifact, "result_path", ""))) if str(getattr(artifact, "result_path", "")) else None
+    if path is None or not path.is_file():
+        gaps.append(("proof_result_path_missing", "proof result path is missing or does not exist"))
+    elif not _is_sha256_fingerprint(expected):
+        gaps.append(("proof_result_fingerprint_invalid", "proof result fingerprint is not canonical"))
+    elif "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+        gaps.append(("proof_result_hash_mismatch", "proof result bytes do not match their fingerprint"))
+    return gaps
 
 
 UI_CONTENT_VISIBILITY_USER_VISIBLE = "user_visible"
@@ -1068,7 +1131,7 @@ class UIImplementationStepEvidence:
     method: str = ""
     result: str = "passed"
     evidence_ref: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    proof_artifact: Any = None
     observed_state_id: str = ""
     observed_output: str = ""
     rationale: str = ""
@@ -1082,7 +1145,7 @@ class UIImplementationStepEvidence:
         object.__setattr__(self, "method", str(self.method))
         object.__setattr__(self, "result", str(self.result))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "proof_artifact", _coerce_runtime_proof(self.proof_artifact))
         object.__setattr__(self, "observed_state_id", str(self.observed_state_id))
         object.__setattr__(self, "observed_output", str(self.observed_output))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -1118,7 +1181,7 @@ class UIImplementationJourneyRun:
     method: str = ""
     result: str = "passed"
     evidence_ref: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    proof_artifact: Any = None
     model_revision: str = ""
     validation_boundaries: tuple[str, ...] = ()
     rationale: str = ""
@@ -1132,7 +1195,7 @@ class UIImplementationJourneyRun:
         object.__setattr__(self, "method", str(self.method))
         object.__setattr__(self, "result", str(self.result))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "proof_artifact", _coerce_runtime_proof(self.proof_artifact))
         object.__setattr__(self, "model_revision", str(self.model_revision))
         object.__setattr__(self, "validation_boundaries", _as_tuple(self.validation_boundaries))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -2111,7 +2174,7 @@ class UIControlFunctionalChain:
     observed_display_id: str = ""
     observed_output: str = ""
     evidence_ref: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
+    proof_artifact: Any = None
     evidence_kind: str = "browser_click"
     result: str = "passed"
     current_revision: str = ""
@@ -2137,7 +2200,7 @@ class UIControlFunctionalChain:
         object.__setattr__(self, "observed_display_id", str(self.observed_display_id))
         object.__setattr__(self, "observed_output", str(self.observed_output))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
+        object.__setattr__(self, "proof_artifact", _coerce_runtime_proof(self.proof_artifact))
         object.__setattr__(self, "evidence_kind", str(self.evidence_kind))
         object.__setattr__(self, "result", str(self.result))
         object.__setattr__(self, "current_revision", str(self.current_revision))
@@ -9500,7 +9563,7 @@ _PURE_UI_EXPOSURES = {"pure_ui", "ui_only", "navigation", "system"}
 
 
 def _ui_runtime_proof_findings(
-    artifact: ProofArtifactRef | None,
+    artifact: Any,
     *,
     item_id: str,
     noun: str,
@@ -9517,21 +9580,7 @@ def _ui_runtime_proof_findings(
     """
 
     findings: list[UIFlowStructureFinding] = []
-    gaps = proof_artifact_gap_codes(
-        artifact,
-        declared_status="passed",
-        require_result_path=True,
-        require_fingerprints=True,
-        require_external_scope=True,
-        require_verifiable_material=True,
-        # A UI runtime claim is a terminal execution claim, not merely a
-        # path-shaped pointer.  Require the same immutable producer receipt
-        # and cleanup confirmation used by the DNA gate so a caller cannot
-        # manufacture a passed ProofArtifactRef around a result file alone.
-        require_receipt=True,
-        require_cleanup_confirmation=True,
-        require_canonical_receipt=True,
-    )
+    gaps = _runtime_proof_gap_codes(artifact)
     for code, message in gaps:
         findings.append(
             UIFlowStructureFinding(
@@ -9541,10 +9590,11 @@ def _ui_runtime_proof_findings(
             )
         )
     if artifact is not None and current_model_revision:
+        _meta = dict(getattr(artifact, "metadata", {}) or {})
         metadata_revision = str(
-            artifact.metadata.get("model_revision", "")
-            or artifact.metadata.get("implementation_revision", "")
-            or artifact.metadata.get("current_revision", "")
+            _meta.get("model_revision", "")
+            or _meta.get("implementation_revision", "")
+            or _meta.get("current_revision", "")
         )
         if metadata_revision and metadata_revision != current_model_revision:
             findings.append(
@@ -11658,6 +11708,7 @@ __all__ = [
     "UIRenderEvidenceSet",
     "UIResponsivenessContract",
     "UIResponsivenessContractReport",
+    "UIRuntimeProof",
     "UIStableRegionRule",
     "UIStateNode",
     "UIStructureDerivation",

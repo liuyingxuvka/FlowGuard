@@ -13,8 +13,8 @@ Path-sensitive evidence also preserves `business_intent_id`,
 `behavior_commitment_id`, and the selected `primary_path_id` through contracts,
 observations, and runs. A broad plan declares every expected same-intent surface
 and candidate. Retained aliases, adapters, wrappers, and facades need a current
-trace that reaches the selected primary path; independent facade success is a
-second-authority failure, not compatibility evidence.
+trace that reaches the selected primary path; a facade that reports success on
+its own is a second success path and a failure, not compatibility evidence.
 
 ## Required Row Shape
 
@@ -29,14 +29,15 @@ Every runtime node observation should carry:
   claim depends on a specific useful business route;
 - input/state case and observed output, next state, writes, effects, or error
   path when relevant;
-- status, freshness, assertion scope, and optional `ProofArtifactRef`.
+- `result_status`, freshness (`evidence_current`), `assertion_scope`, and an
+  optional `proof_artifact` (`ProofArtifactRef`).
 
 Progress output should use `RuntimeNodeObservation.format_progress_line()` or
 the recorder's `format_progress_lines()` so the line says which FlowGuard
 model is being compared:
 
 ```text
-flowguard.runtime_path model=checkout.leaf model_path=.flowguard/models/owners/checkout_leaf/model.py node=validate_order run=run:1 status=passed obligation=accept_valid_order business_path=submit_order
+flowguard.runtime_path model=checkout.leaf node=validate_order run=run:1 status=passed model_path=.flowguard/models/checkout_leaf.py obligation=accept_valid_order business_path=submit_order evidence=o1
 ```
 
 That line is intentionally readable without the model already loaded. A human
@@ -52,4 +53,11 @@ a required business path binding, or emits behavior outside the node contract.
 
 Runtime path evidence is not a replacement for conformance replay, tests,
 ModelMesh, TestMesh, or closure review. It is the structured model/code path
-evidence those routes can consume.
+evidence those routes can consume, for example through
+`ModelTestAlignmentPlan.runtime_node_contracts`, `runtime_node_observations`,
+and `runtime_path_runs` with `require_runtime_path_evidence=True`.
+
+An observation is current only while the code and model it names are
+unchanged. After an edit, `python -m flowguard change` lists the models and
+tests to rerun, and `python -m flowguard map check` flags mapped files that
+drifted; rerun the path before reusing its rows.

@@ -2,9 +2,8 @@
 
 Plan intake and claim-chain helpers guard the boundary before existing
 FlowGuard reports are promoted into broad completion or production-confidence
-claims. They exist for the failure mode where ModelMesh, TestMesh,
-Model-Test Alignment, or Risk Evidence Ledger pass honestly over the structured
-rows they were given, but the upstream plan omitted a repeated failure class,
+claims. They exist for the failure mode where ModelMesh, TestMesh, or
+Model-Test Alignment pass honestly over the structured rows they were given, but the upstream plan omitted a repeated failure class,
 lost adapter evidence, or later overclaimed what a narrow report proved.
 
 These helpers do not parse project files, run tests, or replace the existing

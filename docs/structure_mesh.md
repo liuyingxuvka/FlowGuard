@@ -137,7 +137,7 @@ print(report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard structure-mesh-template --output .
+python -m flowguard template structure-mesh --output .
 ```
 
 ## Known-Bad Hazards
@@ -160,14 +160,18 @@ trusted:
 - insufficient evidence tier;
 - missing release-required parity under release scope.
 
-## Risk Evidence Ledger Handoff
+## Scope Of The Result
 
-StructureMesh can prove that a split kept a public entrypoint, facade, or child
-module parity boundary current. It does not by itself prove every user-facing
-risk in the broader task. For final confidence, pass the relevant public
-entrypoint evidence ids, parity evidence status, and deferred release
-obligations into the Risk Evidence Ledger. A routine StructureMesh warning must
-stay a scoped ledger row, not disappear behind a green local refactor check.
+StructureMesh can show that a split kept a public entrypoint, facade, or child
+module parity boundary intact. It does not by itself prove every user-facing
+risk in the broader task. When reporting the result, name the public
+entrypoints and child modules that were checked, the parity evidence tier each
+one carried, and any release-required obligations that were deferred. A
+routine StructureMesh warning must stay visible in that report as a scoped
+gap, not disappear behind a green local refactor check. The proof itself comes
+from running the parity tests and models; after the split, `python -m flowguard
+map check` shows whether the mapped files are stale and `python -m flowguard
+change` lists what to rerun.
 
 If the split is needed because a FlowGuard leaf was too large for full
 boundary-matrix coverage, StructureMesh only proves the code split and parity

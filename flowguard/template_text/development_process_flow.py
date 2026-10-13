@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from tempfile import TemporaryDirectory
 
 from flowguard import (
     PROCESS_ARTIFACT_CODE,
@@ -47,72 +47,39 @@ from flowguard import (
     DevelopmentProcessPlan,
     FreshnessRule,
     ImplementationAdmissionPlan,
-    MODEL_MATURATION_CONFIDENCE_FULL,
-    MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-    MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,
-    ModelMaturationReceiptPublication,
-    ModelMaturationReceiptRef,
-    ModelMaturationReport,
-    ModelMaturationVerificationContext,
-    ReceiptVerificationContext,
     ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
     ValidationRequirement,
-    build_model_maturation_receipt,
-    fingerprint_value,
     review_development_process_flow,
     review_implementation_admission,
-    save_evidence_receipt,
-    snapshot_bytes,
-    verify_model_maturation_receipt,
 )
-from flowguard.model_path_quality import PathQualityResult, PathQualitySubject
 
 
-def resolved_path_quality(model_id, model_fingerprint):
-    def identity(name):
-        return fingerprint_value({"model_id": model_id, "identity": name})
+def fingerprint_value(value) -> str:
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
-    subject = PathQualitySubject(
-        model_id=model_id,
-        boundary_id=f"behavior:{model_id}",
-        model_fingerprint=model_fingerprint,
-        normalized_facts_fingerprint=identity("normalized-facts"),
-        retained_element_inventory_fingerprint=identity("retained-elements"),
-        purpose_fingerprint=identity("purpose"),
-        intent_fingerprint=identity("intent"),
-        obligation_fingerprint=identity("obligations"),
-        provider_fingerprint=identity("provider"),
-        dependency_fingerprint=identity("dependencies"),
-        code_fingerprint=identity("code"),
-        test_fingerprint=identity("tests"),
-        oracle_fingerprint=identity("oracles"),
-        evidence_fingerprint=identity("evidence"),
-        currentness_id="revision:template-current",
-    )
-    result = PathQualityResult(
-        result_id=f"path-quality:{model_id}",
-        subject_fingerprint=subject.fingerprint,
-        mode="lightweight",
-        trigger_ids=(),
-        finding_ids=(),
-        candidate_ids=(),
-        rewrite_rule_ids=(),
-        conclusion="single_clear_path",
-        unresolved_ids=(),
-        selected_candidate_id="",
-        selected_candidate_lane="",
-        comparison_boundary_id="",
-        candidate_set_fingerprint="",
-        rewrite_set_fingerprint="",
-        necessity_witness_set_fingerprint=identity("necessity-witnesses"),
-        detail_evidence_fingerprint=identity("path-detail"),
-        producer_id="model_maturation:path-quality",
-        currentness_id=subject.currentness_id,
-    )
-    return subject, result
+
+@dataclass(frozen=True)
+class MaturationVerdict:
+    """The model is ready for this task: current, closed, no open gaps."""
+
+    model_id: str
+    task_id: str
+    current: bool
+    candidate_model_fingerprint: str
+    coverage_universe_fingerprint: str
+    input_fingerprint: str
+    evidence_fingerprint: str
+    open_gap_fingerprints: tuple[str, ...] = ()
+
+    def supports_full_confidence(self) -> bool:
+        return self.current and not self.open_gap_fingerprints
+
+    def to_dict(self) -> dict:
+        return asdict(self)
 
 
 def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
@@ -169,100 +136,15 @@ def artifacts(code_version: str = "2", test_version: str = "1", requirement_vers
 
 def implementation_admission():
     model_id = "checkout-functional-model"
-    candidate_model_fingerprint = fingerprint_value(
-        {"model_id": model_id, "candidate": "template-current"}
-    )
-    path_quality_subject, path_quality_result = resolved_path_quality(
-        model_id, candidate_model_fingerprint
-    )
-    report = ModelMaturationReport(
-        ok=True,
-        plan_id="plan:checkout",
-        evidence_id="maturation:checkout",
-        task_id="task:checkout",
+    maturation = MaturationVerdict(
         model_id=model_id,
-        coverage_demand_fingerprint="sha256:demand",
-        candidate_model_fingerprint=candidate_model_fingerprint,
-        coverage_universe_id="coverage:checkout",
+        task_id="task:checkout",
+        current=True,
+        candidate_model_fingerprint=fingerprint_value({"model_id": model_id, "candidate": "template-current"}),
         coverage_universe_fingerprint="sha256:coverage",
         input_fingerprint="sha256:intake",
         evidence_fingerprint="sha256:evidence",
-        decision=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-        confidence=MODEL_MATURATION_CONFIDENCE_FULL,
-        terminal_reason=MODEL_MATURATION_DECISION_CLOSED_FOR_TASK,
-        required_path_quality_model_ids=(model_id,),
-        path_quality_subjects=(path_quality_subject,),
-        path_quality_results=(path_quality_result,),
-        owner_resolution_ids=("resolution:checkout",),
-        owner_resolution_fingerprints=("sha256:resolution-checkout",),
-        owner_resolution_owner_ids=("model_first_function_flow",),
     )
-    snapshot = snapshot_bytes(
-        "artifact:checkout-model",
-        b"checkout-model",
-        path_token="<WORKSPACE>/.flowguard/models/owners/checkout/model.py",
-        obligation_ids=("obligation:checkout-maturation",),
-    )
-    environment = {"python_version": "template"}
-    publication = ModelMaturationReceiptPublication(
-        producer_id="flowguard.model_maturation",
-        producer_version="template",
-        command=("python", ".flowguard/verification/owners/checkout/run_checks.py"),
-        started_at="2026-01-01T00:00:00+00:00",
-        finished_at="2026-01-01T00:00:01+00:00",
-        environment_metadata=environment,
-        contract_hash="sha256:contract",
-        check_manifest_hash="sha256:manifest",
-        suite_map_hash="sha256:suite",
-        input_snapshots=(snapshot,),
-        covered_obligation_ids=("obligation:checkout-maturation",),
-    )
-    receipt = build_model_maturation_receipt(report, publication)
-    with TemporaryDirectory() as receipt_root:
-        save_evidence_receipt(receipt, output_directory=receipt_root)
-        receipt_context = ReceiptVerificationContext(
-            input_snapshots={snapshot.artifact_id: snapshot},
-            contract_hash=publication.contract_hash,
-            check_manifest_hash=publication.check_manifest_hash,
-            suite_map_hash=publication.suite_map_hash,
-            producer_id=publication.producer_id,
-            producer_version=publication.producer_version,
-            environment_fingerprint=fingerprint_value(environment),
-            proof_artifact_fingerprint=report.evidence_fingerprint,
-            result_fingerprint=fingerprint_value(report.to_dict()),
-            command=publication.command,
-            working_directory_token=publication.working_directory_token,
-            proof_artifact_id=report.evidence_id,
-            required_obligation_ids=publication.covered_obligation_ids,
-            eligible_claim_scopes=(MODEL_MATURATION_RECEIPT_CLAIM_SCOPE,),
-            receipt_store_output_directory=receipt_root,
-        )
-        verification = verify_model_maturation_receipt(
-            ModelMaturationReceiptRef(receipt.receipt_id, receipt.fingerprint),
-            ModelMaturationVerificationContext(
-                receipt_context=receipt_context,
-                task_id=report.task_id,
-                model_id=report.model_id,
-                candidate_model_fingerprint=report.candidate_model_fingerprint,
-                coverage_demand_fingerprint=report.coverage_demand_fingerprint,
-                coverage_universe_id=report.coverage_universe_id,
-                coverage_universe_fingerprint=report.coverage_universe_fingerprint,
-                input_fingerprint=report.input_fingerprint,
-                evidence_fingerprint=report.evidence_fingerprint,
-                required_path_quality_model_ids=report.required_path_quality_model_ids,
-                path_quality_subjects=report.path_quality_subjects,
-                path_quality_results=report.path_quality_results,
-                path_quality_result_set_fingerprint=report.path_quality_result_set_fingerprint,
-                owner_resolution_ids=report.owner_resolution_ids,
-                owner_resolution_fingerprints=report.owner_resolution_fingerprints,
-                owner_resolution_owner_ids=report.owner_resolution_owner_ids,
-                required_receipt_fingerprint=receipt.fingerprint,
-            ),
-            output_directory=receipt_root,
-        )
-    maturation = verification.verified_maturation
-    if maturation is None:
-        raise RuntimeError("template maturation receipt did not verify")
     return review_implementation_admission(
         ImplementationAdmissionPlan(
             "admission:checkout",

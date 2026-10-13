@@ -12,7 +12,7 @@ for path in (ROOT, MODEL_ROOT):
 
 import model
 from model import run_review
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 
 
 def main() -> int:
@@ -24,7 +24,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(native_main(
-        "model:problem_corpus_coverage", main,
-        declared_source_exporter=model.export_path_quality_source,
-    ))
+    raise SystemExit(run_owner(main))

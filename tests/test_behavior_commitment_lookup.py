@@ -1,11 +1,8 @@
 import json
-import subprocess
-import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-import flowguard
 from flowguard import (
     BCL_ACTOR_AI_AGENT,
     BCL_ACTOR_AUTOMATION,
@@ -276,64 +273,6 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
             write_behavior_commitment_ledger(target, ledger)
             payload = json.loads(target.read_text(encoding="utf-8"))
             self.assertEqual(behavior_commitment_ledger_to_mapping(ledger), payload)
-
-    def test_lookup_api_stays_under_existing_route_owners(self):
-        self.assertNotIn("behavior_commitment_lookup", flowguard.FLOWGUARD_ROUTE_API)
-        self.assertIn(
-            "query_behavior_commitments",
-            flowguard.FLOWGUARD_ROUTE_API["behavior_commitment_ledger"],
-        )
-        self.assertIn(
-            "query_behavior_commitments",
-            flowguard.FLOWGUARD_ROUTE_API["existing_model_preflight"],
-        )
-
-    def test_lookup_api_remains_current_and_retired_cli_route_does_not_mutate_ledger(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            target = root / ".flowguard" / "behavior" / "inventory" / "ledger.json"
-            write_behavior_commitment_ledger(target, three_plane_ledger())
-            before = target.read_bytes()
-            query = BehaviorLookupQuery(
-                task_summary="connect test port",
-                primary_plane=BCL_PLANE_AGENT_OPERATION,
-                top_k=2,
-            )
-            api = query_behavior_commitments(three_plane_ledger(), query)
-
-            completed = subprocess.run(
-                [
-                    sys.executable,
-                    "-m",
-                    "flowguard",
-                    "behavior-commitment-query",
-                    query.task_summary,
-                    "--root",
-                    directory,
-                    "--plane",
-                    BCL_PLANE_AGENT_OPERATION,
-                    "--top-k",
-                    "2",
-                    "--json",
-                ],
-                cwd=ROOT,
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-
-            self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-            payload = json.loads(completed.stdout)
-            self.assertEqual("blocked", payload["status"])
-            self.assertEqual("block", payload["decision"])
-            self.assertEqual(0, payload["producer_count"])
-            self.assertEqual(
-                "unknown operation: behavior-commitment-query",
-                payload["error"],
-            )
-            self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
-            self.assertTrue(api.to_dict()["primary_hits"])
-            self.assertEqual(before, target.read_bytes())
 
     def test_existing_model_preflight_uses_plane_lookup_before_path_inventory(self):
         with tempfile.TemporaryDirectory() as directory:

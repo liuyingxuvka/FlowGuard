@@ -10,14 +10,14 @@ on:
 permissions:
   contents: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
-  fast-checks:
-    name: Fast checks
-    runs-on: ubuntu-latest
-
+  checks:
+    name: Tests and self-map (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,80 +27,16 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install OpenSpec
-        run: npm install -g @fission-ai/openspec@1.7.0
-
       - name: Install FlowGuard
         run: python -m pip install -e ".[dev]"
 
-      - name: Install FlowGuard consumer skills
-        run: python scripts/install_flowguard_skills.py install --source . --json
+      - name: Unit tests
+        run: python -m pytest -q
 
-      - name: Verify compact public dispatcher
-        run: python -m flowguard --help
+      - name: FlowGuard release gate on its own map and models
+        run: python -m flowguard release
 
-      - name: Verify generated consumer authority
-        run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
-
-      - name: OpenSpec strict validation (closeout change)
-        run: openspec validate close-compact-runtime-acceptance --strict
-
-      - name: Current compact lifecycle tests
-        run: python -m pytest -q tests/test_evidence_receipts.py tests/test_consumer_current_lifecycle.py tests/test_current_public_behavior_manifest.py
-
-  full-current-suite:
-    name: Full current suite (Windows 3.12)
-    runs-on: windows-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Set up Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-
-      - name: Install OpenSpec
-        run: npm install -g @fission-ai/openspec@1.7.0
-
-      - name: Install FlowGuard
-        run: python -m pip install -e ".[dev]"
-
-      - name: Install FlowGuard consumer skills
-        run: python scripts/install_flowguard_skills.py install --source . --json
-
-      - name: Verify compact public dispatcher
-        run: python -m flowguard --help
-
-      - name: Verify generated consumer authority
-        run: python scripts/compile_flowguard_consumer_suite_authority.py --check --json
-
-      - name: OpenSpec strict validation (closeout change)
-        run: openspec validate close-compact-runtime-acceptance --strict
-
-      - name: Run the one final full owner
-        shell: pwsh
+      - name: Skill installs cleanly
         run: |
-          New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP\flowguard-evidence" | Out-Null
-          python -m pytest -q --junitxml="$env:RUNNER_TEMP\flowguard-evidence\pytest-junit.xml"
-
-      - name: Upload full-suite evidence
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: flowguard-full-current-suite-${{ github.sha }}
-          if-no-files-found: ignore
-          path: |
-            ${{ runner.temp }}/flowguard-evidence/pytest-junit.xml
-            work/verification/**/*.json
+          python scripts/install_skill.py --target "${{ runner.temp }}/skills"
+          python scripts/install_skill.py --target "${{ runner.temp }}/skills" --check

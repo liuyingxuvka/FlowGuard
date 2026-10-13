@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-import flowguard
-from tests._partition_context_fixtures import accepted_authority_state
 from flowguard import (
     BCL_ACTOR_END_USER,
     BCL_COMMITMENT_WORKFLOW,
@@ -14,10 +12,6 @@ from flowguard import (
     BCL_SOURCE_UI,
     CANDIDATE_COLLAPSE_ADAPTER,
     CODE_CONTRACT_ROLE_FACADE,
-    CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER,
-    CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE,
-    CONTRACT_MUTATION_RELATION_MATERIALIZATION,
-    CONTRACT_MUTATION_UNMATERIALIZED_RELATION_ID,
     FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
     FAMILY_EVIDENCE_STATUS_PASSED,
     PPA_AUTHORITY_EXTERNAL_FACADE,
@@ -71,12 +65,8 @@ from flowguard import (
     UI_PRODUCT_CLAIM_COMPLETE,
     UI_PRODUCT_CONSISTENCY_KINDS,
     UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
-    behavior_commitment_contract_exhaustion_plan,
-    default_ui_product_language_case_seeds,
-    primary_path_authority_contract_exhaustion_plan,
     review_architecture_reduction,
     review_behavior_commitment_ledger,
-    review_contract_exhaustion,
     review_existing_model_preflight,
     review_model_test_alignment,
     review_obligation_family_parity,
@@ -770,43 +760,3 @@ def test_family_reduction_and_background_inventory_cannot_be_shrunk_or_faked():
     assert "background_incomplete" in finding_codes(mesh_report)
 
 
-def test_exhaustion_contracts_include_identity_omission_and_ui_language_faults():
-    behavior_plan = behavior_commitment_contract_exhaustion_plan(
-        max_combinations=50000,
-        authority_state=accepted_authority_state("behavior_commitment_ledger"),
-    )
-    path_plan = primary_path_authority_contract_exhaustion_plan(
-        max_combinations=50000,
-        authority_state=accepted_authority_state("primary_path_authority"),
-    )
-    behavior_report = review_contract_exhaustion(behavior_plan)
-    path_report = review_contract_exhaustion(path_plan)
-    behavior_axes = {axis.axis_id for axis in behavior_plan.axes}
-    path_axes = {axis.axis_id for axis in path_plan.axes}
-    ui_cases = {seed.mutation_kind: seed for seed in default_ui_product_language_case_seeds()}
-
-    assert behavior_report.ok, behavior_report.format_text()
-    assert path_report.ok, path_report.format_text()
-    assert {"exact_intent_identity_state", "primary_path_binding_shape", "surface_authority_role"} <= behavior_axes
-    assert {"business_intent_identity", "primary_path_selection", "candidate_inventory_state", "runtime_proof_state"} <= path_axes
-    assert {"illegal_visibility_class", "internal_content_leak", "semantic_drift", "invalid_behavior_authority_exception", "valid_presentation_exception"} <= set(ui_cases)
-    assert ui_cases["valid_presentation_exception"].expected_ok
-    assert not ui_cases["internal_content_leak"].expected_ok
-    mutation_names = {
-        CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER,
-        CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE,
-        CONTRACT_MUTATION_RELATION_MATERIALIZATION,
-        CONTRACT_MUTATION_UNMATERIALIZED_RELATION_ID,
-    }
-    assert mutation_names == {
-        "omitted_family_member",
-        "omitted_reduction_candidate",
-        "relation_materialization",
-        "unmaterialized_relation_id",
-    }
-    assert all(name in flowguard.CONTRACT_EXHAUSTION_MESH_API for name in (
-        "CONTRACT_MUTATION_OMITTED_FAMILY_MEMBER",
-        "CONTRACT_MUTATION_OMITTED_REDUCTION_CANDIDATE",
-        "CONTRACT_MUTATION_RELATION_MATERIALIZATION",
-        "CONTRACT_MUTATION_UNMATERIALIZED_RELATION_ID",
-    ))

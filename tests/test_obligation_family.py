@@ -1,7 +1,5 @@
 import unittest
 
-import flowguard
-import flowguard.obligation_family as obligation_family_module
 from flowguard import (
     FAMILY_CONFIDENCE_BLOCKED,
     FAMILY_CONFIDENCE_FULL,
@@ -283,34 +281,6 @@ class ObligationFamilyParityTests(unittest.TestCase):
             cases[0].observed_combination_case_id,
         )
         self.assertEqual(("contract_coverage:packet-router",), cases[0].coverage_receipt_ids)
-
-    def test_public_api_exports_only_family_and_finite_case_helpers(self):
-        for name in (
-            "ObligationFamily",
-            "ObligationFamilyEvidence",
-            "review_obligation_family_parity",
-            "FamilyBadCaseSeed",
-            "DerivedFamilyBadCase",
-            "derive_same_class_bad_cases",
-        ):
-            self.assertIn(name, flowguard.MODELING_HELPER_API)
-            self.assertIn(name, flowguard.__all__)
-            self.assertTrue(hasattr(flowguard, name), name)
-
-        for retired_name in (
-            "AnalogousDefectCandidate",
-            "AnalogousDefectScanFinding",
-            "AnalogousDefectScanReport",
-            "review_analogous_defect_scan",
-            "ANALOGOUS_SCAN_RADII",
-            "ANALOGOUS_SCAN_DISPOSITIONS",
-        ):
-            self.assertNotIn(retired_name, flowguard.MODELING_HELPER_API)
-            self.assertNotIn(retired_name, flowguard.__all__)
-            self.assertFalse(hasattr(flowguard, retired_name), retired_name)
-            self.assertNotIn(retired_name, obligation_family_module.__all__)
-            self.assertFalse(hasattr(obligation_family_module, retired_name), retired_name)
-
 
 if __name__ == "__main__":
     unittest.main()

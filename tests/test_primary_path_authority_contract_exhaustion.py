@@ -11,13 +11,9 @@ from flowguard import (
 )
 from flowguard.primary_path_authority import PRIMARY_PATH_ROUTE_ID
 
-from tests._partition_context_fixtures import accepted_authority_state
 
 
 class PrimaryPathAuthorityContractExhaustionTests(unittest.TestCase):
-    def setUp(self):
-        self.authority_state = accepted_authority_state(PRIMARY_PATH_ROUTE_ID)
-
     def test_identity_inventory_path_selection_and_proof_axes_are_declared(self):
         axis_ids = {axis.axis_id for axis in default_primary_path_authority_axes()}
         self.assertIn("business_intent_identity", axis_ids)
@@ -36,7 +32,6 @@ class PrimaryPathAuthorityContractExhaustionTests(unittest.TestCase):
         report = review_contract_exhaustion(
             primary_path_authority_contract_exhaustion_plan(
                 max_combinations=50000,
-                authority_state=self.authority_state,
             )
         )
 
@@ -49,16 +44,6 @@ class PrimaryPathAuthorityContractExhaustionTests(unittest.TestCase):
         self.assertTrue(any("core_no_fallback" in case.case_id for case in report.generated_cases))
         self.assertTrue(all(case.oracle_id == PPA_CONTRACT_ORACLE_PRIMARY_FAILURE for case in report.generated_cases))
 
-    def test_default_universe_without_authority_fails_closed(self):
-        report = review_contract_exhaustion(
-            primary_path_authority_contract_exhaustion_plan(max_combinations=1)
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn(
-            "partition_boundary_verification_missing",
-            {finding.code for finding in report.findings},
-        )
 
 
 if __name__ == "__main__":

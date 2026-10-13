@@ -4,31 +4,22 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.69.9"
-description = "Model-first workflow checks for AI agents and process preflights."
+version = "0.70.0"
+description = "A living, code-anchored map of your software, executable models of its risky flows, and focused capability reviews for AI-assisted development."
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "setuptools>=61"]
 
 [project.scripts]
 flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
-# The compact public dispatcher lives in ``flowguard.__main__``. Keep the
-# package and its maintained examples available to a source or wheel consumer;
-# examples do not add public lifecycle aliases or fallback routes.
+# The package plus its maintained examples (tests import the examples).
 include = ["flowguard*", "examples*"]
 
-[tool.setuptools.package-data]
-flowguard = ["consumer-suite-authority.json", "prompt_bundle_manifest.json"]
-
 [tool.pytest.ini_options]
-# The repository keeps retained FlowGuard receipts and shard workspaces under
-# ``work/``.  They are evidence storage, not pytest sources; pin collection to
-# the canonical test inventory so historical temporary artifacts cannot expand
-# the discovery surface or consume the collection watchdog.
 testpaths = ["tests"]
 norecursedirs = ["build", "work", "worktrees"]
 markers = [

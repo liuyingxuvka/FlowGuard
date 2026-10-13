@@ -1081,77 +1081,21 @@ def run_checks():
         )
     )
     return correct, broken
-
-
-from flowguard.skill_contract_model import build_skill_contract_model_export
-
-FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
-
-
-def export_contract_model():
-    return build_skill_contract_model_export(
-        skill_id="flowguard-model-miss-review",
-        route_id="model_miss_review",
-        owner_id="model_miss_review",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Backfeed observed failures to an existing same-plane commitment or register a real coverage gap.",
-        claim_boundary="This projection binds miss classification and backfeed; a proposed fix remains unproven until owner code, tests, replay, and disposition evidence are current.",
-    )'''
+'''
 
 MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE = '''"""Run the bug-repair/model-miss review template."""
 
 from model import run_checks
 
 
-def _native_case_projection(correct, broken):
-    """Return finite named diagnostic rows for the native evidence bridge."""
-
-    broken_ok = getattr(broken, "ok", None)
-    if not isinstance(broken_ok, bool):
-        broken_ok = all(not report.ok for report in broken)
-    diagnostic_ok = bool(correct.ok) and bool(broken_ok)
-    status = "ok" if diagnostic_ok else "violation"
-    return (
-        {
-            "name": "diagnostic_projection_positive",
-            "ok": diagnostic_ok,
-            "observed_status": status,
-            "case_kind": "good",
-        },
-        {
-            "name": "diagnostic_budget_bounded",
-            "ok": diagnostic_ok,
-            "observed_status": status,
-            "case_kind": "good",
-        },
-        {
-            "name": "missing_positive_witness",
-            "ok": diagnostic_ok,
-            "expected_ok": True,
-            "observed_status": "blocked" if diagnostic_ok else "violation",
-            "case_kind": "bad",
-            "finding_codes": ["diagnostic_positive_witness_required"],
-        },
-    )
-
-
 def main() -> int:
     correct, broken = run_checks()
-    diagnostic_cases = _native_case_projection(correct, broken)
-    diagnostic_ok = bool(diagnostic_cases) and all(
-        bool(item.get("ok")) for item in diagnostic_cases
-    )
     print(f"{correct.scenario_name}: {correct.status.upper()}")
     for item in correct.evidence:
         print(f"  - {item}")
     print()
     print(broken.format_text(max_counterexamples=2))
-    print()
-    print(
-        "model-miss diagnostic projection: "
-        + ("PASS" if diagnostic_ok else "FAIL")
-    )
-    return 0 if correct.ok and broken.ok and diagnostic_ok else 1
+    return 0 if correct.ok and broken.ok else 1
 
 
 if __name__ == "__main__":

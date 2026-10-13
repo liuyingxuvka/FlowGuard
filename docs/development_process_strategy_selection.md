@@ -7,7 +7,7 @@ does not have to fill in an optimization form.
 The short rule is:
 
 > First prove that two routes owe the same result, evidence, safety, side
-> effects, dependencies, and owner authority. Only then prefer the route that
+> effects, dependencies, and ownership. Only then prefer the route that
 > current evidence suggests will cause less repeated work.
 
 ## When It Activates
@@ -83,7 +83,7 @@ co-occurrence in one test run is not relation evidence.
 - Finding Ledger owns raw finding identity and source evidence.
 - Each external planning provider owns its native authoring and lifecycle.
   FlowGuard receives only read-only `WorkContext` values; it creates no
-  provider dependency, execution owner, or receipt owner.
+  provider dependency and does not run or own the provider's work.
 - Model-Test Alignment owns ordinary obligation, primary code owner, and test
   evidence closure.
 - PlanDetail carries only the plan-level activation reasons and current

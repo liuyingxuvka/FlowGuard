@@ -49,10 +49,13 @@ The exact file format can stay flexible; these fields are the contract:
 
 In current FlowGuard terms, this neutral handoff can be represented as
 `PlanDetail` rows. A rough planner output should be compiled with
-`review_plan_detail(...)`; then the same rows can be projected to PlanIntake,
-WorkflowStepContracts, DevelopmentProcessFlow, and AgentWorkflowRehearsal. This
-keeps collaboration optional while still forcing vague plans to declare state,
-side effects, receipts, validation, rework, and claim evidence.
+`review_plan_detail(...)`; then the same rows can be projected with
+`plan_detail_to_plan_intake(...)`, `plan_detail_to_step_contracts(...)`,
+`plan_detail_to_development_process(...)`, and
+`plan_detail_to_agent_workflow_plan(...)`. This keeps collaboration optional
+while still forcing vague plans to declare state, side effects, the step outputs
+each step produces and requires (`produces_receipts` / `requires_receipts` on
+`PlanDetailStep`), validation, rework, and claim evidence.
 
 ## Collaboration Hazards To Catch
 
@@ -71,12 +74,16 @@ side effects, receipts, validation, rework, and claim evidence.
 
 ## Validation Order
 
-1. Run the collaboration model and confirm good plans pass.
+1. Run the collaboration model
+   (`python examples/flowguard_skill_collaboration/run_review.py`) and confirm
+   good plans pass.
 2. Confirm every known-bad hazard is caught as an expected violation.
 3. Confirm a no-orchestrator fallback scenario still passes.
 4. Update Skill/docs only after the model catches the hazards.
-5. Run focused docs and model tests.
-6. Run the broad repository test suite before release.
+5. Run focused docs and model tests; `python -m flowguard change` lists the
+   models and tests touched by the edited files.
+6. Run the broad repository test suite and `python -m flowguard release`
+   before release.
 7. Test the editable installed checkout after syncing.
 8. Only then commit, tag, push, and publish the release.
 

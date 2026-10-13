@@ -1,5 +1,5 @@
 import tempfile
-from tests._native_owner_environment import native_owner_environment
+from tests._runner_environment import runner_environment
 import subprocess
 import sys
 import unittest
@@ -10,12 +10,7 @@ from flowguard import (
     FunctionResult,
     KnownBadProof,
     MinimumModelContract,
-    RISK_CONFIDENCE_BLOCKED,
-    RISK_GATE_TOPOLOGY_HAZARD,
     RiskIntent,
-    RiskEvidenceGate,
-    RiskEvidenceLedgerPlan,
-    RiskEvidenceRow,
     RiskProfile,
     BusinessPathIdentity,
     TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT,
@@ -35,7 +30,6 @@ from flowguard import (
     Workflow,
     infer_topology_digest,
     infer_topology_hazard_plan,
-    review_risk_evidence_ledger,
     review_topology_hazards,
 )
 from flowguard.plan import FlowGuardCheckPlan
@@ -266,52 +260,12 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertIn("topology_hazard", sections)
         self.assertIn("topology_hazard_report", metadata)
 
-    def test_risk_ledger_consumes_topology_hazard_review(self):
-        report = review_risk_evidence_ledger(
-            RiskEvidenceLedgerPlan(
-                "ledger",
-                rows=(
-                    RiskEvidenceRow(
-                        "future-use-risk",
-                        model_obligation_id="model:future-use",
-                        proof_evidence_ids=("proof:ok",),
-                        gates=(RiskEvidenceGate(RISK_GATE_TOPOLOGY_HAZARD),),
-                    ),
-                ),
-            )
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn("missing_topology_hazard_review", {finding.code for finding in report.findings})
-
-        blocked = review_risk_evidence_ledger(
-            RiskEvidenceLedgerPlan(
-                "ledger",
-                rows=(
-                    RiskEvidenceRow(
-                        "future-use-risk",
-                        model_obligation_id="model:future-use",
-                        proof_evidence_ids=("proof:ok",),
-                        gates=(
-                            RiskEvidenceGate(
-                                RISK_GATE_TOPOLOGY_HAZARD,
-                                "topology:review",
-                                confidence=RISK_CONFIDENCE_BLOCKED,
-                            ),
-                        ),
-                    ),
-                ),
-            )
-        )
-
-        self.assertIn("topology_hazard_review_blocked", {finding.code for finding in blocked.findings})
-
     def test_self_model_checks_pass(self):
         with tempfile.TemporaryDirectory() as native_tmp:
             result = subprocess.run(
                 [sys.executable, ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"],
                 cwd=ROOT,
-                env=native_owner_environment(ROOT, "model_topology_hazard_review", Path(native_tmp)),
+                env=runner_environment(ROOT),
                 text=True,
                 capture_output=True,
                 check=False,

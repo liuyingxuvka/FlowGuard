@@ -13,9 +13,10 @@ from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
-from .development_process_flow import (
-    ImplementationAdmissionReport,
-)
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # type only; the admission report is duck-typed at runtime
+    from .development_process_flow import ImplementationAdmissionReport
 from .canonical_relation import (
     RELATION_FALSE_FRIEND,
     CanonicalRelationHandoff,
@@ -127,7 +128,7 @@ class CodeStructureRecommendation:
     rationale: str = ""
     hierarchical_model_used: bool = False
     implementation_ready_requested: bool = False
-    implementation_admission: ImplementationAdmissionReport | None = None
+    implementation_admission: "ImplementationAdmissionReport | None" = None
     blueprint_required: bool = False
     model_element_universe: tuple[tuple[str, str], ...] = ()
     model_element_universe_fingerprint: str = ""
@@ -172,7 +173,7 @@ class CodeStructureRecommendation:
             tuple(sorted({str(value) for value in self.reverse_implementation_obligation_ids})),
         )
         admission = self.implementation_admission
-        if admission is not None and not isinstance(admission, ImplementationAdmissionReport):
+        if admission is not None and not callable(getattr(admission, "implementation_ready", None)):
             raise TypeError("implementation_admission must be a typed current report")
         object.__setattr__(self, "implementation_admission", admission)
 

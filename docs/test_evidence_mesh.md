@@ -21,20 +21,19 @@ jobs. Project adapters run those commands and pass structured evidence into
 FlowGuard. FlowGuard then checks coverage, ownership, freshness, skipped tests,
 background completion, and routine-vs-release confidence.
 
-For a specification work package, one check execution is one TestMesh child.
-All mapped tasks and obligations remain consumer references on that child; they
-do not create copied receipts or pretend that one command ran several times.
-`reused-current` needs the native reuse ticket and exact command/input/tool/
-environment/coverage identity. Cross-change reuse also needs provider-declared
-`cross_change_safe`; caller preference alone cannot widen the boundary.
+One check execution is one TestMesh child. Several tasks or obligations can
+point at the same child; that does not mean the command ran several times. An
+old result can only be reused with a `TestResultReuseTicket` whose command,
+test source, tested artifact, dependency, and environment fingerprints still
+match the current code.
 
-For a same-intent product-language/path-reuse claim, the parent boundary also
-declares the required inventory revision and every required surface,
-materialized obligation, family member, transition cell, ContractExhaustion
-case, and shard. Passing only the smaller set a caller happened to register is
-not complete evidence. A background PID, heartbeat, log line, or running status
-is liveness only; pass requires a terminal receipt with result artifact,
-fingerprint, covered ids, and current artifact/verifier versions.
+When a claim covers a whole inventory, the parent declares the inventory
+revision and every required item (surfaces, obligations, transition cells,
+ContractExhaustion cases, shards). Passing only the smaller set a caller
+happened to register is not complete evidence. A background PID, heartbeat, log
+line, or running status is liveness only; pass requires a finished run with a
+terminal status, result artifact, result fingerprint, covered ids, and current
+artifact/verifier versions.
 
 The parent test gate should not inline every child test case, fixture, or
 internal state route. It should consume each child suite/script as a contract:
@@ -92,8 +91,6 @@ This is different from hierarchical model mesh only in what is being split.
 Hierarchical model mesh governs FlowGuard model boundaries. TestMesh governs
 test and validation boundaries.
 
-## Partition Ownership
-
 ## Target Split Derivation
 
 Each parent test gate should include a `TestTargetSplitDerivation`:
@@ -109,6 +106,8 @@ Each parent test gate should include a `TestTargetSplitDerivation`:
 
 Missing source, unknown target suites, incomplete partition coverage, or
 prose-only derivations block parent gate confidence.
+
+## Partition Ownership
 
 Each parent test gate should declare partition items. A partition item can name
 a behavior, state field, module, command, side effect, invariant, or release
@@ -153,7 +152,7 @@ Each child suite or child test script reports a `TestSuiteEvidence` summary:
 - owned artifact payload contract ids and case ids when the child suite proves
   synthetic file or work-package cases for downstream Model-Test Alignment;
 - owned ContractExhaustionMesh coverage shard ids when the child suite proves
-  a generated Cartesian shard for downstream model coverage receipts;
+  a generated Cartesian shard that downstream model coverage checks consume;
 - not-run and stale reasons.
 
 These fields describe what actually ran; they do not prescribe one universal
@@ -164,25 +163,25 @@ the reason remains visible. Parallel execution is a separate DPF choice and
 requires current isolation evidence.
 
 Progress output is not completion evidence. A background suite is complete only
-when all final-receipt fields above exist, terminal status is `passed`, exit
+when all final-result fields above exist, terminal status is `passed`, exit
 code is 0, the required ids are covered, final artifacts exist, and the run is
 not progress-only. PID disappearance, heartbeat, logs, or a parent command that
 ended without its canonical result file remain incomplete.
 
-For the behavior-plane upgrade, keep at least these child partitions explicit:
-focused lookup/behavior/contracts/API/skill checks, static skill governance,
-isolated skill installation/parity, focused project models, full registered
-models, full Python tests, project audit, and strict OpenSpec validation. Each
-partition needs its own terminal receipt; a green self-maintenance model cannot
-substitute for any missing child.
+Keep distinct kinds of validation as distinct children, for example focused
+unit checks, focused project models, all project models
+(`python -m flowguard map models` lists them), the full Python test suite, and
+release-only checks. Each child needs its own finished result; a green model
+run cannot substitute for a missing test child, and the reverse is also true.
 If a child suite reuses a previous result, TestMesh requires a current reuse
 ticket and a current proof artifact before the child can support parent
 confidence. A `passed` status string alone is not enough for reused evidence.
 
-When a final FlowGuard confidence claim depends on these suites, feed each
-child suite's evidence id, status, freshness, and scope into the Risk Evidence
-Ledger. TestMesh owns the validation hierarchy; the ledger owns the final
-"does this evidence support this user risk?" claim boundary.
+When a final confidence claim depends on these suites, report each child's
+status, freshness, and scope next to the claim, and list skipped or not-run
+children as gaps. TestMesh decides whether the hierarchy is complete; it does
+not by itself decide whether the tested behavior is the risk the user cares
+about.
 
 For model-miss repair, the parent gate should keep the observed regression and
 ContractExhaustionMesh same-class coverage distinct. A child suite can own the
@@ -293,9 +292,12 @@ report = review_test_mesh(plan)
 assert report.ok
 ```
 
-Create a starter scaffold:
+Create a starter scaffold (prints the files; add `--write .` to write them):
 
 ```powershell
-python -m flowguard test-mesh-template --output .
-python .flowguard/verification/owners/test_mesh/run_checks.py
+python -m flowguard template test-mesh
 ```
+
+Run the generated check script. After later code or test changes,
+`python -m flowguard change` lists which models and tests to rerun, and
+`python -m flowguard map check` reports stale map fingerprints.

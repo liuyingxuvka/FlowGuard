@@ -1,6 +1,5 @@
 import subprocess
 import sys
-import json
 import unittest
 from pathlib import Path
 
@@ -36,44 +35,6 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertNotIn("project-upgrade", text)
         self.assertNotIn("artifact-upgrade", text)
 
-    def test_skill_requires_import_preflight_and_rejects_substitute(self):
-        skill = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard"
-            / "SKILL.md"
-        ).read_text(encoding="utf-8")
-        core = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard"
-            / "references"
-            / "modeling_core_protocol.md"
-        ).read_text(encoding="utf-8")
-        evidence = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard"
-            / "references"
-            / "modeling_evidence_protocol.md"
-        ).read_text(encoding="utf-8")
-
-        self.assertIn("one public skill", skill)
-        self.assertIn("Only `read`, `change`, and `release` are public.", skill)
-        self.assertIn("references/domains/<subject>/", skill)
-        self.assertIn("No mode/fallback path is", skill)
-        self.assertIn('python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"', core)
-        self.assertIn("AGENTS.md managed adoption record", core)
-        self.assertIn("blocked/partial", core)
-        self.assertIn("never create a replacement mini-framework", core)
-        self.assertIn("failed, timeout, error, or blocker", evidence)
-        self.assertIn("skipped/not-run with reason", evidence)
-        self.assertIn("stale or reused without current ticket/proof", evidence)
-        self.assertIn("Broad done/release/archive/publish/production confidence cannot consume", evidence)
-
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(
             [
@@ -89,46 +50,6 @@ class ProjectIntegrationTests(unittest.TestCase):
 
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertRegex(completed.stdout.strip(), r"^\d+\.\d+$")
-
-    def test_skill_toolchain_preflight_helper_runs(self):
-        helper = (
-            ROOT
-            / ".agents"
-            / "skills"
-            / "flowguard"
-            / "assets"
-            / "toolchain_preflight.py"
-        )
-        completed = subprocess.run(
-            [sys.executable, str(helper), "--source", str(ROOT), "--json"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        payload = json.loads(completed.stdout)
-        self.assertTrue(payload["ok"])
-        self.assertIn(payload["mode"], {"installed", "pythonpath_available"})
-
-    def test_module_wrapper_exposes_schema_version(self):
-        completed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "schema-version"],
-            cwd=ROOT,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-
-        payload = json.loads(completed.stdout)
-        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual("unknown operation: schema-version", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
-
 
 if __name__ == "__main__":
     unittest.main()

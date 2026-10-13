@@ -12,14 +12,13 @@ import hashlib
 import tomllib
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Mapping, Protocol, Sequence
+from typing import Any, Mapping, Protocol
 
 from ._normalization import (
     canonical_json_text as _canonical_json,
     string_tuple as _string_tuple,
 )
-from .model_authority import SUBJECT_NORMATIVE_TARGET
-from .model_intent import ModelIntentContribution, WorkContextIntentMapping
+SUBJECT_NORMATIVE_TARGET = "normative_target"
 
 
 WORK_CONTEXT_SCHEMA = "flowguard.work_context.v1"
@@ -247,6 +246,19 @@ class WorkContextAdapter(Protocol):
 
 
 _ADAPTERS: dict[str, WorkContextAdapter] = {}
+_BUILTIN_ADAPTERS_LOADED = False
+
+
+def _ensure_builtin_adapters() -> None:
+    """Register the built-in adapters (OpenSpec, declared files) on first use."""
+
+    global _BUILTIN_ADAPTERS_LOADED
+    if _BUILTIN_ADAPTERS_LOADED:
+        return
+    _BUILTIN_ADAPTERS_LOADED = True
+    from .work_context_adapters import register_builtin_work_context_adapters
+
+    register_builtin_work_context_adapters()
 
 
 def register_work_context_adapter(
@@ -263,6 +275,7 @@ def register_work_context_adapter(
 
 
 def registered_work_context_adapter_ids() -> tuple[str, ...]:
+    _ensure_builtin_adapters()
     return tuple(sorted(_ADAPTERS))
 
 
@@ -317,6 +330,7 @@ def read_work_context(
     adapter_id: str,
     declaration: Mapping[str, Any] | None = None,
 ) -> WorkContext:
+    _ensure_builtin_adapters()
     adapter = _ADAPTERS.get(str(adapter_id))
     if adapter is None:
         raise ValueError("work_context_adapter_unregistered")
@@ -329,6 +343,7 @@ def discover_work_contexts(
     adapter_id: str,
     declaration: Mapping[str, Any] | None = None,
 ) -> tuple[WorkContext, ...]:
+    _ensure_builtin_adapters()
     adapter = _ADAPTERS.get(str(adapter_id))
     if adapter is None:
         raise ValueError("work_context_adapter_unregistered")
@@ -336,79 +351,6 @@ def discover_work_contexts(
         adapter.read(root, work_id, declaration)
         for work_id in adapter.discover(root, declaration)
     )
-
-
-def project_work_context_intent_contributions(
-    context: WorkContext,
-    mappings: Sequence[WorkContextIntentMapping],
-) -> tuple[ModelIntentContribution, ...]:
-    """Project only explicitly admitted artifacts into intent provenance.
-
-    This is a deterministic, read-only projection.  Provider metadata is not
-    consulted for acceptance, test status, or lifecycle authority; the native
-    provider remains the owner of those facts and ``ModelRevisionSet`` remains
-    the only owner that may accept a contribution into a candidate model.
-    """
-
-    review = review_work_context(context)
-    if not review.ok:
-        raise ValueError("work_context_intent_projection_requires_current_context")
-    mapping_items = tuple(
-        sorted(mappings, key=lambda item: item.contribution_id)
-    )
-    if any(
-        not isinstance(item, WorkContextIntentMapping)
-        for item in mapping_items
-    ):
-        raise ValueError("work_context_intent_mapping_requires_current_records")
-    contribution_ids = tuple(item.contribution_id for item in mapping_items)
-    if len(contribution_ids) != len(set(contribution_ids)):
-        raise ValueError("work_context_intent_contribution_identity_duplicate")
-    artifacts = {item.artifact_id: item for item in context.artifacts}
-    projected: list[ModelIntentContribution] = []
-    for mapping in mapping_items:
-        artifact = artifacts.get(mapping.artifact_id)
-        if artifact is None:
-            raise ValueError(
-                "work_context_intent_mapping_artifact_missing: "
-                f"{mapping.artifact_id}"
-            )
-        projected.append(
-            ModelIntentContribution(
-                contribution_id=mapping.contribution_id,
-                source_kind=mapping.source_kind,
-                source_ref=artifact.source_ref,
-                source_fingerprint=artifact.content_fingerprint,
-                subject_lane=context.subject_lane,
-                subject_role=mapping.subject_role,
-                lifecycle_state=mapping.lifecycle_state,
-                decision_state=mapping.decision_state,
-                logical_model_id=mapping.logical_model_id,
-                unresolved_owner_id=mapping.unresolved_owner_id,
-                supersedes_contribution_ids=(
-                    mapping.supersedes_contribution_ids
-                ),
-                conflicts_with_contribution_ids=(
-                    mapping.conflicts_with_contribution_ids
-                ),
-                target_obligation_ids=mapping.target_obligation_ids,
-                target_state_ids=mapping.target_state_ids,
-                target_transition_ids=mapping.target_transition_ids,
-                target_invariant_ids=mapping.target_invariant_ids,
-                target_relation_ids=mapping.target_relation_ids,
-                desired_terminal_state_ids=(
-                    mapping.desired_terminal_state_ids
-                ),
-                target_output_ids=mapping.target_output_ids,
-                declared_consumer_ids=mapping.declared_consumer_ids,
-                effective_revision=mapping.effective_revision,
-                rationale=mapping.rationale,
-                work_context_id=context.context_id,
-                work_context_fingerprint=context.context_fingerprint,
-                native_owner_id=context.native_owner_id,
-            )
-        )
-    return tuple(projected)
 
 
 def read_project_work_contexts(
@@ -486,6 +428,7 @@ def read_project_work_contexts(
             continue
         seen_source_ids.add(source_id)
         canonical_rows.append(row)
+        _ensure_builtin_adapters()
         adapter = _ADAPTERS.get(adapter_id)
         if adapter is None:
             findings.append(
@@ -549,6 +492,7 @@ def read_project_work_contexts(
 
 def review_work_context(context: WorkContext) -> WorkContextReview:
     findings: list[WorkContextFinding] = []
+    _ensure_builtin_adapters()
     if context.adapter_id not in _ADAPTERS:
         findings.append(
             WorkContextFinding(
@@ -708,10 +652,10 @@ __all__ = [
     "WorkContextReview",
     "ProjectWorkContextReview",
     "discover_work_contexts",
-    "project_work_context_intent_contributions",
     "read_project_work_contexts",
     "read_work_context",
     "register_work_context_adapter",
     "registered_work_context_adapter_ids",
     "review_work_context",
 ]
+

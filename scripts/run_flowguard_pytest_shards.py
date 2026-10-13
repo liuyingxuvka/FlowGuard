@@ -36,7 +36,7 @@ from flowguard.symlink_capability import (  # noqa: E402
     capability_satisfies,
     probe_symlink_capability,
 )
-from scripts.check_flowguard_skill_suite import _pytest_junit_projection  # noqa: E402
+from flowguard.pytest_junit import _pytest_junit_projection  # noqa: E402
 
 
 def _probe_symlink_capability() -> dict[str, Any]:

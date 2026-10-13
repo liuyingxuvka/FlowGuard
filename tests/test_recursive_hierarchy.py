@@ -1,7 +1,5 @@
 import unittest
 from dataclasses import replace
-import hashlib
-import json
 
 from flowguard.recursive_hierarchy import (
     RecursiveHierarchyPlan,
@@ -10,11 +8,6 @@ from flowguard.recursive_hierarchy import (
     build_recursive_leaf_product_signature,
     descendant_universe_fingerprint,
     review_recursive_hierarchy,
-)
-from flowguard.native_case_protocol import (
-    GOOD_DIMENSIONS,
-    NativeModelCaseContract,
-    NativeModelCaseResult,
 )
 
 
@@ -208,127 +201,6 @@ def five_level_plan(receipts=None, **overrides):
 
 
 class RecursiveHierarchyTests(unittest.TestCase):
-    def _native_rows(self, plan, root):
-        """Build producer-shaped rows for every node in the five-level tree."""
-
-        def fp(value):
-            return "sha256:" + hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-        contracts = []
-        results = []
-        for node_item in plan.nodes:
-            case_id = f"native:{node_item.model_id}:good"
-            contracts.append(
-                NativeModelCaseContract(
-                    owner_id=node_item.owner_id,
-                    source_case_id=case_id,
-                    case_kind="good",
-                    callable_ref=f"model.{node_item.model_id}.run",
-                    result_selector=f"result.{case_id}",
-                    expected_status="pass",
-                    covered_dimensions=GOOD_DIMENSIONS,
-                    oracle_member_ids=tuple(
-                        f"oracle:{dimension}" for dimension in GOOD_DIMENSIONS
-                    ),
-                    evidence_scope="implementation_boundary",
-                    input_contract_fingerprint=fp(f"input:{node_item.model_id}"),
-                    oracle_content_fingerprint=fp(f"oracle:{node_item.model_id}"),
-                )
-            )
-            raw_path = root / f"{node_item.model_id}.raw.json"
-            raw_path.write_text(
-                json.dumps(
-                    {"owner": node_item.owner_id, "case": case_id},
-                    sort_keys=True,
-                ),
-                encoding="utf-8",
-            )
-            raw_fingerprint = "sha256:" + hashlib.sha256(
-                raw_path.read_bytes()
-            ).hexdigest()
-            results.append(
-                NativeModelCaseResult(
-                    owner_id=node_item.owner_id,
-                    source_case_id=case_id,
-                    outcome="pass",
-                    observed_status="pass",
-                    executed_dimensions=GOOD_DIMENSIONS,
-                    oracle_results=tuple(
-                        {
-                            "dimension": dimension,
-                            "oracle_member_id": f"oracle:{dimension}",
-                            "status": "pass",
-                            "ok": True,
-                        }
-                        for dimension in GOOD_DIMENSIONS
-                    ),
-                    result_artifact_fingerprint=raw_fingerprint,
-                    input_fingerprint=fp(f"input:{node_item.model_id}"),
-                    model_fingerprint=fp(f"model:{node_item.model_id}"),
-                    code_fingerprint=fp(f"code:{node_item.model_id}"),
-                    test_fingerprint=fp(f"test:{node_item.model_id}"),
-                    oracle_fingerprint=fp(f"oracle:{node_item.model_id}"),
-                    toolchain_fingerprint=fp("toolchain:current"),
-                    environment_fingerprint=fp("environment:current"),
-                    raw_artifact_path=str(raw_path),
-                )
-            )
-        return tuple(contracts), tuple(results)
-
-    def test_native_five_level_execution_promotes_only_exact_rows(self):
-        from tempfile import TemporaryDirectory
-
-        plan = five_level_plan()
-        with TemporaryDirectory() as temporary:
-            contracts, results = self._native_rows(plan, __import__("pathlib").Path(temporary))
-            report = review_recursive_hierarchy(
-                plan,
-                native_case_contracts=contracts,
-                native_case_results=results,
-                raw_artifact_root=temporary,
-                require_native_execution=True,
-            )
-
-        self.assertTrue(report.ok, report.format_text())
-        self.assertTrue(report.execution_verified_receipt_ids)
-        self.assertEqual(
-            set(report.verified_receipt_ids),
-            set(report.execution_verified_receipt_ids),
-        )
-        self.assertEqual(5, len(report.execution_verified_receipt_ids))
-        self.assertTrue(report.execution_verified)
-        self.assertTrue(report.to_dict()["execution_verified"])
-
-    def test_native_missing_leaf_cell_blocks_ancestor_promotion(self):
-        from tempfile import TemporaryDirectory
-
-        plan = five_level_plan()
-        with TemporaryDirectory() as temporary:
-            root = __import__("pathlib").Path(temporary)
-            contracts, results = self._native_rows(plan, root)
-            missing = tuple(
-                result
-                for result in results
-                if result.owner_id != "owner:leaf"
-            )
-            report = review_recursive_hierarchy(
-                plan,
-                native_case_contracts=contracts,
-                native_case_results=missing,
-                raw_artifact_root=root,
-                require_native_execution=True,
-            )
-
-        self.assertFalse(report.ok, report.format_text())
-        self.assertIn(
-            "native_case_execution_blocked",
-            {finding.code for finding in report.findings},
-        )
-        self.assertFalse(report.execution_verified)
-        self.assertFalse(report.to_dict()["execution_verified"])
-        self.assertNotIn("subtree:leaf", report.execution_verified_receipt_ids)
-        self.assertNotIn("subtree:root", report.execution_verified_receipt_ids)
-
     def test_five_levels_close_bottom_up(self):
         report = review_recursive_hierarchy(five_level_plan())
 

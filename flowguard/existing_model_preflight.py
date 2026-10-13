@@ -7,65 +7,52 @@ or Model-Miss Review. It checks that the agent first grounded its reasoning in
 the model map that already exists.
 """
 
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 import ast
+import hashlib
+import json
 import re
+import subprocess
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
-from .behavior_commitment import (
-    BCL_BEHAVIOR_PLANES,
-    BCL_HIT_ROLE_PRIMARY,
-    BCL_LOOKUP_STATUS_BLOCKED,
-    BCL_LOOKUP_STATUS_NOT_APPLICABLE,
-    BCL_LOOKUP_STATUS_PERFORMED,
-)
-from .behavior_commitment_lookup import (
-    BehaviorCommitmentHit,
-    BehaviorLookupQuery,
-    query_behavior_commitments_from_path,
-)
+from .behavior_plane import BCL_BEHAVIOR_PLANES
+
+# BCL lookup vocabulary (same strings as behavior_commitment); the heavy BCL
+# modules are imported lazily, only when a project actually has a ledger.
+BCL_HIT_ROLE_PRIMARY = "primary"
+BCL_LOOKUP_STATUS_BLOCKED = "blocked"
+BCL_LOOKUP_STATUS_NOT_APPLICABLE = "not_applicable"
+BCL_LOOKUP_STATUS_PERFORMED = "performed"
+
+
+def _hit(item):
+    from .behavior_commitment_lookup import BehaviorCommitmentHit
+    return item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+
+
+def query_behavior_commitments_from_path(path, query):
+    from .behavior_commitment_lookup import query_behavior_commitments_from_path as _query
+    return _query(path, query)
 from .export import to_jsonable
-from .model_authority import SUBJECT_LANES
 from .canonical_relation import (
     CanonicalRelation,
     CanonicalRelationHandoff,
     normalize_canonical_relation_handoff,
 )
-from .model_authority_store import (
-    EXECUTION_EVIDENCE_NOT_RUN,
-    MODEL_AUTHORITY_STATUS_BLOCKED,
-    SELECTED_SOURCE_UNAVAILABLE,
-    SelectedModelClosureRead,
-    audit_model_authority,
-    load_observed_model_system,
-    read_selected_model_closure,
-    _SelectedReadContext,
-    _observe_growth_paths,
-)
-from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref
-from .task_coverage_demand import (
-    COVERAGE_DISPOSITION_BLOCKED,
-    COVERAGE_DISPOSITION_SATISFIED,
-    OwnerCoverageResolution,
-    TASK_FACT_DISPOSITION_CONTRADICTORY,
-    TASK_FACT_DISPOSITION_DECLARED,
-    TASK_FACT_DISPOSITION_OMITTED,
-    TASK_FACT_DISPOSITION_SCOPED_OUT,
-    TASK_FACT_DISPOSITION_UNKNOWN,
-    TASK_FACT_DISPOSITION_UNMAPPED,
-    TASK_FACT_SOURCE_CURRENT_MODEL,
-    TASK_FACT_SOURCE_STATUS_COMPLETE,
-    TaskCoverageDemand,
-    TaskFactObservation,
-    TaskFactSourceSnapshot,
-    TaskFacts,
-)
-from .evidence_receipts import fingerprint_value
 
+# Formerly imported from model_authority / model_authority_store / evidence_receipts.
+SUBJECT_LANES = frozenset({"observed_implementation", "normative_target", "counterfactual_experiment"})
+EXECUTION_EVIDENCE_NOT_RUN = "not_run"
+
+
+def _fingerprint_value(value: Any) -> str:
+    text = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 PREFLIGHT_MODE_LIGHT = "light"
 PREFLIGHT_MODE_FULL = "full"
@@ -435,9 +422,9 @@ class ExistingModelPreflight:
     behavior_lookup_required: bool = False
     behavior_lookup_status: str = BCL_LOOKUP_STATUS_NOT_APPLICABLE
     primary_behavior_plane: str = ""
-    primary_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
-    related_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
-    candidate_commitment_hits: tuple[BehaviorCommitmentHit | Mapping[str, Any], ...] = ()
+    primary_commitment_hits: tuple[Any, ...] = ()
+    related_commitment_hits: tuple[Any, ...] = ()
+    candidate_commitment_hits: tuple[Any, ...] = ()
     plane_ambiguity: bool = False
     ledger_fingerprint: str = ""
     relevant_models: tuple[ModelContextHit, ...] = ()
@@ -528,7 +515,7 @@ class ExistingModelPreflight:
             self,
             "primary_commitment_hits",
             tuple(
-                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                _hit(item)
                 for item in self.primary_commitment_hits
             ),
         )
@@ -536,7 +523,7 @@ class ExistingModelPreflight:
             self,
             "related_commitment_hits",
             tuple(
-                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                _hit(item)
                 for item in self.related_commitment_hits
             ),
         )
@@ -544,7 +531,7 @@ class ExistingModelPreflight:
             self,
             "candidate_commitment_hits",
             tuple(
-                item if isinstance(item, BehaviorCommitmentHit) else BehaviorCommitmentHit(**dict(item))
+                _hit(item)
                 for item in self.candidate_commitment_hits
             ),
         )
@@ -736,7 +723,7 @@ class ExistingModelPreflightReport:
 
     @property
     def fingerprint(self) -> str:
-        return fingerprint_value(self.to_dict())
+        return _fingerprint_value(self.to_dict())
 
     def format_text(self, max_findings: int = 10) -> str:
         lines = [
@@ -803,7 +790,7 @@ class BlueprintPreflightHandoff:
 
     @property
     def fingerprint(self) -> str:
-        return fingerprint_value(self.to_dict())
+        return _fingerprint_value(self.to_dict())
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -1098,87 +1085,13 @@ def _owner_matches_model_hit(owner_id: str, hit: ModelContextHit) -> bool:
     return bool(owner_fingerprint and owner_fingerprint == evidence_fingerprint)
 
 
-def _lookup_owner_instance_fingerprints(snapshot, lookup_hits) -> set[str]:
-    owner_ids = tuple(
-        hit.primary_owner_model_id
-        for hit in lookup_hits
-        if hit.primary_owner_model_id
-    )
-    selected: set[str] = set()
-    for instance in snapshot.model_instances:
-        if any(_owner_matches_instance(owner_id, instance) for owner_id in owner_ids):
-            selected.add(instance.fingerprint)
-    return selected
-
-
-def _relation_neighbor_fingerprints(snapshot, selected: set[str]) -> set[str]:
-    neighbors: set[str] = set()
-    for relation in snapshot.relations:
-        source = relation.source
-        target = relation.target
-        if (
-            source.endpoint_kind == "model_instance"
-            and target.endpoint_kind == "model_instance"
-        ):
-            if source.fingerprint in selected:
-                neighbors.add(target.fingerprint)
-            if target.fingerprint in selected:
-                neighbors.add(source.fingerprint)
-    return neighbors
-
-
-def _canonical_relations(
-    snapshot,
-    selected: set[str],
-) -> tuple[CanonicalRelation, ...]:
-    """Return exact observed relations directly attached to selected owners."""
-
-    relations: list[CanonicalRelation] = []
-    for relation in snapshot.relations:
-        source = relation.source
-        target = relation.target
-        if (
-            source.endpoint_kind == "model_instance"
-            and source.fingerprint in selected
-        ) or (
-            target.endpoint_kind == "model_instance"
-            and target.fingerprint in selected
-        ):
-            commitment_refs = tuple(
-                endpoint.endpoint_id
-                for endpoint in (source, target)
-                if endpoint.endpoint_kind == "behavior_commitment"
-            )
-            source_ids = tuple(getattr(relation, "evidence_fingerprints", ())) or (
-                str(snapshot.fingerprint),
-            )
-            relations.append(
-                CanonicalRelation(
-                    relation_id=relation.relation_id,
-                    relation_type=relation.kind,
-                    source_endpoint_kind=source.endpoint_kind,
-                    source_endpoint_id=source.endpoint_id,
-                    target_endpoint_kind=target.endpoint_kind,
-                    target_endpoint_id=target.endpoint_id,
-                    source_ids=source_ids,
-                    typed_commitment_relation_refs=commitment_refs,
-                )
-            )
-    return tuple(relations)
-
-
-def _project_declares_model_authority(root_path: Path, *, read_context=None) -> bool:
-    """Distinguish a never-adopted target from a broken current authority."""
-
-    manifest_path = root_path / ".flowguard" / "project.toml"
-    if not manifest_path.is_file():
-        return False
+def _git_head(root_path: Path) -> str:
     try:
-        manifest_text = (read_context.artifact_bytes(".flowguard/project.toml").decode("utf-8", errors="replace")
-                         if read_context is not None else manifest_path.read_text(encoding="utf-8", errors="replace"))
-    except OSError:
-        return True
-    return bool(re.search(r"(?m)^\s*\[model_authority\]\s*$", manifest_text))
+        out = subprocess.run(["git", "-C", str(root_path), "rev-parse", "HEAD"],
+                             capture_output=True, text=True, check=True).stdout.strip()
+        return "git:" + out if out else ""
+    except (OSError, subprocess.CalledProcessError):
+        return ""
 
 
 def existing_model_preflight_from_project(
@@ -1196,433 +1109,186 @@ def existing_model_preflight_from_project(
     error_signatures: Sequence[str] = (),
     workflow_families: Sequence[str] = (),
     ledger_path: str | Path = "",
-    read_context=None,
 ) -> ExistingModelPreflight:
-    """Create an ExistingModelPreflight input from lightweight project inventory.
+    """Collect existing-model context from .flowguard/map.json (the project map).
 
-    This helper collects likely model context only. Use
-    `review_existing_model_preflight(...)` for the actual confidence decision.
+    Selection order: optional BCL plane-first lookup -> owners of changed paths
+    -> responsibility words (light only) -> one-hop map dependencies.  A
+    component whose stored fingerprint no longer matches its files is stale and
+    is reported as non-current. Use `review_existing_model_preflight(...)` for
+    the decision.
     """
 
+    from .map.mapfile import MapError, load_map, ignore_patterns, owner_index, is_stale, component_graph, component_files
+    from .map.inventory import build_inventory
+    from .map.views import find_owners
+
     root_path = Path(root).resolve()
-    if read_context is not None and read_context.root != root_path:
-        raise ValueError("preflight read context belongs to another root")
-    read_context = read_context or _SelectedReadContext(root_path)
-    search_roots = tuple(
-        path
-        for path in (
-            root_path / ".flowguard",
-            root_path / "docs",
-            root_path / "openspec",
-        )
-        if path.exists()
-    )
-    canonical_ledger_path = (
-        Path(ledger_path)
-        if ledger_path
-        else root_path / ".flowguard" / "behavior" / "inventory" / "ledger.json"
-    )
+    map_file = root_path / ".flowguard" / "map.json"
+    search_paths = tuple(p for p in (".flowguard/map.json", ".flowguard", "docs", "openspec") if (root_path / p).exists())
+
+    # Optional plane-first BCL lookup (the behavior-commitment capability).
+    canonical_ledger_path = Path(ledger_path) if ledger_path else root_path / ".flowguard" / "behavior" / "inventory" / "ledger.json"
     if not canonical_ledger_path.is_absolute():
         canonical_ledger_path = root_path / canonical_ledger_path
-    behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.parent.exists()
+    behavior_lookup_required = bool(ledger_path) or canonical_ledger_path.is_file()
     lookup_report = None
     if behavior_lookup_required:
-        lookup_query = BehaviorLookupQuery(
-                task_summary,
-                primary_plane=behavior_plane,
-                canonical_terms=tuple(canonical_terms),
-                changed_paths=tuple(changed_paths),
-                tool_ids=tuple(tool_ids),
-                error_signatures=tuple(error_signatures),
-                workflow_families=tuple(workflow_families),
-            )
-        if read_context is None:
-            lookup_report = query_behavior_commitments_from_path(canonical_ledger_path, lookup_query)
-        else:
-            from .behavior_commitment import behavior_commitment_ledger_from_mapping
-            from .behavior_commitment_lookup import query_behavior_commitments, BehaviorLookupReport, BCL_LOOKUP_STATUS_BLOCKED
-            from .functional_read import strict_json_bytes
-            from .model_authority_store import _selected_path_is_missing
-            try:
-                relative = canonical_ledger_path.absolute().relative_to(root_path).as_posix()
-                if _selected_path_is_missing(root_path, relative, accounting=read_context.accounting):
-                    read_context.missing_paths.add(relative)
-                    raise FileNotFoundError("canonical behavior ledger is missing: " + relative)
-                ledger = behavior_commitment_ledger_from_mapping(strict_json_bytes(read_context.artifact_bytes(relative)))
-                lookup_report = query_behavior_commitments(ledger, lookup_query)
-            except (OSError, ValueError, TypeError, KeyError) as exc:
-                lookup_report = BehaviorLookupReport(BCL_LOOKUP_STATUS_BLOCKED,
-                    fallback_reason=f"canonical behavior ledger unavailable: {type(exc).__name__}: {exc}",
-                    metadata={"ledger_path": str(canonical_ledger_path)})
-    searched_path_values = [
-        str(path.relative_to(root_path) if path.is_relative_to(root_path) else path)
-        for path in search_roots
-    ]
-    if behavior_lookup_required:
-        try:
-            searched_path_values.insert(0, str(canonical_ledger_path.relative_to(root_path)))
-        except ValueError:
-            searched_path_values.insert(0, str(canonical_ledger_path))
-    searched_paths = tuple(dict.fromkeys(searched_path_values))
+        from .behavior_commitment_lookup import BehaviorLookupQuery
+        lookup_report = query_behavior_commitments_from_path(canonical_ledger_path, BehaviorLookupQuery(
+            task_summary, primary_plane=behavior_plane, canonical_terms=tuple(canonical_terms),
+            changed_paths=tuple(changed_paths), tool_ids=tuple(tool_ids),
+            error_signatures=tuple(error_signatures), workflow_families=tuple(workflow_families)))
+        search_paths = (str(canonical_ledger_path.relative_to(root_path)) if canonical_ledger_path.is_relative_to(root_path) else str(canonical_ledger_path),) + search_paths
+    primary_hits = tuple(getattr(lookup_report, "primary_hits", ()) if lookup_report else ())
+    related_hits = tuple(getattr(lookup_report, "related_hits", ()) if lookup_report else ())
+    candidate_hits = tuple(getattr(lookup_report, "candidate_hits", ()) if lookup_report else ())
+    lookup_status = lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
+    owner_lookup_current = not behavior_lookup_required or lookup_status == BCL_LOOKUP_STATUS_PERFORMED
 
-    primary_lookup_hits = tuple(
-        getattr(lookup_report, "primary_hits", ()) if lookup_report else ()
-    )
-    related_lookup_hits = tuple(
-        getattr(lookup_report, "related_hits", ()) if lookup_report else ()
-    )
-    candidate_lookup_hits = tuple(
-        getattr(lookup_report, "candidate_hits", ()) if lookup_report else ()
-    )
-    lookup_hits = (*primary_lookup_hits, *related_lookup_hits)
-    lookup_status = (
-        lookup_report.status if lookup_report else BCL_LOOKUP_STATUS_NOT_APPLICABLE
-    )
-    # Changed paths bound the closure only after required canonical lookup
-    # succeeds. A blocked lookup, including its old owner hints, cannot admit
-    # an authoritative model through path selection or broad materialization.
-    owner_lookup_current = (
-        not behavior_lookup_required or lookup_status == BCL_LOOKUP_STATUS_PERFORMED
+    common = dict(
+        mode=mode, inventory_scope=inventory_scope, model_search_performed=True,
+        search_paths=search_paths, behavior_lookup_required=behavior_lookup_required,
+        behavior_lookup_status=lookup_status,
+        primary_behavior_plane=getattr(lookup_report, "selected_plane", "") if lookup_report else "",
+        primary_commitment_hits=primary_hits, related_commitment_hits=related_hits,
+        candidate_commitment_hits=candidate_hits,
+        plane_ambiguity=getattr(lookup_report, "plane_ambiguity", False) if lookup_report else False,
+        ledger_fingerprint=getattr(lookup_report, "ledger_fingerprint", "") if lookup_report else "",
+        downstream_routes=tuple(downstream_routes),
     )
 
-    # Selected navigation must not pay for a whole live inventory audit.
-    # It loads the one saved authority pair, then the selected reader validates
-    # only that finite typed closure. FULL still materializes its complete
-    # ownership details below; breadth and materialization are independent.
-    selected_navigation = inventory_scope == PREFLIGHT_INVENTORY_SELECTED
-    read_context = read_context or _SelectedReadContext(root_path)
-    authority_report = None
-    authority_snapshot = None
-    authority_head = None
-    selected_read: SelectedModelClosureRead | None = None
-    if selected_navigation:
-        try:
-            authority_head, authority_snapshot = load_observed_model_system(root_path, read_context=read_context)
-        except Exception:
-            # A declared but malformed authority is a modeled-current failure,
-            # not permission to fall back to lexical/root discovery.  For a
-            # target with no declared authority, preserve the existing
-            # adoption-candidate behavior.
-            authority_head = None
-            authority_snapshot = None
-        authority_declared = bool(
-            authority_snapshot is not None
-            or _project_declares_model_authority(root_path, read_context=read_context)
-        )
-        if authority_snapshot is not None and owner_lookup_current:
-            selected_read = read_selected_model_closure(
-                root_path,
-                selected_owner_ids=tuple(
-                    hit.primary_owner_model_id
-                    for hit in lookup_hits
-                    if getattr(hit, "primary_owner_model_id", "")
-                ),
-                changed_paths=tuple(changed_paths),
-                inventory_scope=inventory_scope,
-                head=authority_head,
-                snapshot=authority_snapshot,
-                read_context=read_context,
-            )
-            authority_ok = selected_read.ok
-            authority_status = (
-                selected_read.authority_integrity
-                if authority_ok
-                else MODEL_AUTHORITY_STATUS_BLOCKED
-            )
-        else:
-            authority_ok = False
-            authority_status = MODEL_AUTHORITY_STATUS_BLOCKED if authority_declared else "not_adopted"
-    else:
-        authority_report = audit_model_authority(root_path)
-        authority_ok = bool(authority_report.ok)
-        authority_declared = bool(
-            authority_report.ok or _project_declares_model_authority(root_path, read_context=read_context)
-        )
-        authority_status = (
-            authority_report.status if authority_declared else "not_adopted"
-        )
-    grounding_state = (
-        PREFLIGHT_GROUNDING_MODELED_CURRENT
-        if authority_declared
-        else PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE
-    )
-    authority_snapshot_fingerprint = ""
-    authority_subject_revision = ""
-    authority_gap_ids: tuple[str, ...] = ()
-    affected_relations: tuple[CanonicalRelation, ...] = ()
-    hits: list[ModelContextHit] = []
-    if authority_ok and owner_lookup_current and authority_snapshot is None:
-        # Full/broad mode keeps the historical global audit first and then
-        # loads the single observed snapshot for materialization.
-        try:
-            authority_head, authority_snapshot = load_observed_model_system(root_path, read_context=read_context)
-        except Exception:
-            authority_ok = False
-    if authority_ok and owner_lookup_current and authority_snapshot is not None:
-        authority_snapshot_fingerprint = authority_snapshot.fingerprint
-        authority_subject_revision = authority_snapshot.subject_revision
-        authority_gap_ids = authority_snapshot.unresolved_gap_ids
-        if selected_read is not None:
-            selected_model_ids = set(selected_read.selected_model_ids)
-            selected_fingerprints = {
-                instance.fingerprint
-                for instance in authority_snapshot.model_instances
-                if instance.logical_model_id in selected_model_ids
-            }
-        else:
-            selected_fingerprints = _lookup_owner_instance_fingerprints(
-                authority_snapshot,
-                lookup_hits,
-            )
-            if inventory_scope == PREFLIGHT_INVENTORY_BROAD:
-                selected_fingerprints = {
-                    instance.fingerprint
-                    for instance in authority_snapshot.model_instances
-                }
-            if inventory_scope == PREFLIGHT_INVENTORY_SELECTED:
-                selected_fingerprints.update(
-                    _relation_neighbor_fingerprints(
-                        authority_snapshot,
-                        selected_fingerprints,
-                    )
-                )
-        affected_relations = _canonical_relations(
-            authority_snapshot,
-            selected_fingerprints,
-        )
-        for instance in authority_snapshot.model_instances:
-            if instance.fingerprint not in selected_fingerprints:
+    # No map: adoption candidate. Model files may help write the first map.
+    if not map_file.is_file():
+        hits = []
+        models_root = root_path / ".flowguard"
+        for path in sorted(models_root.rglob("*.py")) if models_root.is_dir() else ():
+            if "__pycache__" in path.parts or "cache" in path.relative_to(models_root).parts[:1]:
                 continue
-            model_path = root_path / instance.model_path
-            model_text = (
-                read_context.bytes(instance.model_path).decode("utf-8", errors="replace")
-                if mode == PREFLIGHT_MODE_FULL and model_path.is_file()
-                else ""
-            )
-            state_owned, side_effects_owned, fields_owned = _full_declared_ownership(model_text) if mode == PREFLIGHT_MODE_FULL else ((), (), ())
-            hits.append(
-                ModelContextHit(
-                    model_id=instance.logical_model_id,
-                    model_path=instance.model_path,
-                    evidence_id=(
-                        f"model-authority:{instance.fingerprint}"
-                    ),
-                    evidence_tier="authoritative_observed",
-                    evidence_current=(
-                        selected_read is None
-                        or selected_read.selected_source_currentness == "current"
-                    ),
-                    responsibilities=(
-                        _purpose_lines(model_text, limit=None)
-                        if mode == PREFLIGHT_MODE_FULL
-                        else (instance.logical_model_id,)
-                    )
-                    or (instance.logical_model_id,),
-                    function_blocks=(
-                        _class_names(model_text)
-                        if mode == PREFLIGHT_MODE_FULL
-                        else ()
-                    ),
-                    fields_owned=fields_owned,
-                    state_owned=state_owned,
-                    side_effects_owned=side_effects_owned,
-                    validation_evidence=(
-                        authority_snapshot.fingerprint,
-                        instance.purpose_closure_fingerprint,
-                    ),
-                    rationale=(
-                        "Selected from the sole observed model-system authority."
-                        + (
-                            " The map is retained as-of the accepted snapshot while "
-                            "one selected source obligation is stale."
-                            if selected_read is not None
-                            and selected_read.selected_source_currentness != "current"
-                            else ""
-                        )
-                    ),
-                )
-            )
-    seen_model_ids = {hit.model_id for hit in hits}
-    seen_model_paths = {hit.model_path.replace("\\", "/") for hit in hits if hit.model_path}
-    flowguard_root = root_path / ".flowguard"
-    if grounding_state == PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE and flowguard_root.exists():
-        for path in sorted(flowguard_root.rglob("*.py")):
-            if "__pycache__" in path.parts:
-                continue
-            text = read_context.bytes(path.relative_to(root_path).as_posix()).decode("utf-8", errors="replace")
+            text = path.read_text(encoding="utf-8", errors="replace")
             if "FlowGuard" not in text and "Workflow" not in text and "Invariant" not in text:
                 continue
             if not _matches_changed_paths(path, text, changed_paths):
                 continue
-            model_id = _model_id_from_path(path, flowguard_root)
-            classes = _class_names(text)
-            responsibilities = _purpose_lines(text) or (model_id,)
-            relative_path = str(path.relative_to(root_path))
-            fields_owned = tuple(dict.fromkeys(re.findall(r"field:[A-Za-z0-9_.:-]+", text)))
-            normalized_relative = relative_path.replace("\\", "/")
-            if model_id in seen_model_ids or normalized_relative in seen_model_paths:
-                continue
-            hits.append(
-                ModelContextHit(
-                    model_id=model_id,
-                    model_path=relative_path,
-                    evidence_tier=PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE,
-                    evidence_current=False,
-                    responsibilities=responsibilities,
-                    function_blocks=classes,
-                    fields_owned=fields_owned,
-                    validation_evidence=(relative_path,),
-                    rationale=(
-                        "Discovered for possible DNA adoption only; it proves no "
-                        "current understanding, ownership, or implementation readiness."
-                    ),
-                )
-            )
-            seen_model_ids.add(model_id)
-            seen_model_paths.add(normalized_relative)
+            rel = path.relative_to(root_path).as_posix()
+            hits.append(ModelContextHit(
+                model_id=_model_id_from_path(path, models_root), model_path=rel,
+                evidence_tier=PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE, evidence_current=False,
+                responsibilities=_purpose_lines(text) or (path.stem,), function_blocks=_class_names(text),
+                validation_evidence=(rel,),
+                rationale="Model file found without a project map; candidate context only."))
+        return ExistingModelPreflight(
+            preflight_id or "project-map-preflight", task_summary,
+            existing_modeled_system=False, grounding_state=PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE,
+            authority_required=False, authority_status="not_adopted",
+            relevant_models=tuple(hits), reuse_decision=REUSE_DECISION_NO_MODEL_FOUND,
+            no_model_found_reason="No validated current model authority (.flowguard/map.json) exists; discovered model files are adoption candidates only.",
+            rationale="Write the project map (python -m flowguard.map scan/confirm) before claiming current ownership.",
+            **common)
 
-    ownership_snapshot = None
-    if authority_ok and hits:
-        ownership_snapshot = ExistingOwnershipSnapshot(
-            function_block_owners=tuple(
-                (block, hit.model_id)
-                for hit in hits
-                for block in hit.function_blocks
-            ),
-            responsibility_owners=tuple(
-                (responsibility, hit.model_id)
-                for hit in hits
-                for responsibility in hit.responsibilities
-            ),
-            field_owners=tuple(
-                (field_id, hit.model_id)
-                for hit in hits
-                for field_id in hit.fields_owned
-            ),
-        )
-    reuse_decision = (
-        REUSE_DECISION_REUSE_EXISTING
-        if authority_ok and hits
-        else REUSE_DECISION_NO_MODEL_FOUND
-    )
-    if grounding_state == PREFLIGHT_GROUNDING_ADOPTION_CANDIDATE:
-        no_model_found_reason = (
-            "No validated current model authority is adopted; discovered paths are "
-            "non-authoritative adoption candidates only."
-        )
-        rationale = (
-            "Candidate discovery may help create the first DNA, but it cannot support "
-            "a current understanding, ownership, or implementation-readiness claim."
-        )
-    elif hits:
-        no_model_found_reason = ""
-        rationale = (
-            "Validated observed authority and exact behavior commitments resolved the "
-            "current owner closure and its canonical affected relations."
-        )
-    else:
-        no_model_found_reason = (
-            "A modeled target exists, but no exact current affected owner was resolved."
-        )
-        rationale = (
-            "Keep current ownership blocked until canonical commitment or affected-owner "
-            "resolution succeeds; repository matches cannot substitute for it."
-        )
-    growth = selected_read.to_dict() if selected_read is not None else _observe_growth_paths(read_context, changed_paths)
+    try:
+        data = load_map(root_path)
+    except MapError as exc:
+        return ExistingModelPreflight(
+            preflight_id or "project-map-preflight", task_summary,
+            authority_required=True, authority_status="blocked", authority_gap_ids=("map_invalid",),
+            reuse_decision=REUSE_DECISION_NO_MODEL_FOUND,
+            no_model_found_reason=f"The project map is invalid: {exc}",
+            rationale="Fix the map before trusting any owner.", **common)
+
+    inv = build_inventory(root_path, ignore_patterns(data))
+    by_id = {c["id"]: c for c in data["components"]}
+    owner, _ = owner_index(data, inv)
+    graph = component_graph(data, inv)
+    norm_changed = tuple(sorted({str(p).replace("\\", "/").lstrip("./") if not str(p).startswith(".flowguard") else str(p).replace("\\", "/") for p in changed_paths}))
+
+    selected: set[str] = set()
+    if owner_lookup_current:
+        owner_ids = [h.primary_owner_model_id for h in (*primary_hits, *related_hits) if getattr(h, "primary_owner_model_id", "")]
+        for cid, comp in by_id.items():
+            if any(_path_identity_equivalent(o, m) or _normalized_model_path(o.removeprefix("model:")) == _normalized_model_path(cid)
+                   for o in owner_ids for m in (cid, *comp.get("models", []))):
+                selected.add(cid)
+        selected |= {owner[p] for p in norm_changed if p in owner}
+        selected |= {cid for cid, comp in by_id.items() if set(comp.get("models", [])) & set(norm_changed)}
+        if not selected and not behavior_lookup_required and not norm_changed:
+            selected |= {cid for _score, cid, _r in find_owners(data, inv, task_summary.split(), limit=3)}
+        if inventory_scope == PREFLIGHT_INVENTORY_BROAD:
+            selected = set(by_id)
+        else:
+            selected |= {d for cid in list(selected) for d in graph.get(cid, ())}
+
+    hits: list[ModelContextHit] = []
+    stale: list[str] = []
+    relations: list[CanonicalRelation] = []
+    for cid in sorted(selected):
+        comp = by_id[cid]
+        fresh = comp.get("status") == "confirmed" and not is_stale(root_path, comp, inv)
+        if not fresh:
+            stale.append(f"component_{'stale' if comp.get('status') == 'confirmed' else 'draft'}:{cid}")
+        model_path = next(iter(comp.get("models", [])), "")
+        text = ""
+        if mode == PREFLIGHT_MODE_FULL and model_path and (root_path / model_path).is_file():
+            text = (root_path / model_path).read_text(encoding="utf-8", errors="replace")
+        states, effects, fields = _full_declared_ownership(text) if text else ((), (), ())
+        hits.append(ModelContextHit(
+            model_id=cid, model_path=model_path,
+            evidence_id=f"map:{cid}@{comp.get('fingerprint', '')}",
+            evidence_tier="authoritative_observed" if fresh else "map_stale_or_draft",
+            evidence_current=fresh,
+            responsibilities=tuple(comp.get("responsibilities", ())) or (comp.get("summary") or cid,),
+            function_blocks=_class_names(text) if text else (),
+            state_owned=tuple(comp.get("state", ())) + states,
+            side_effects_owned=tuple(comp.get("side_effects", ())) + effects,
+            public_entrypoints=tuple(comp.get("entrypoints", ())) if mode == PREFLIGHT_MODE_FULL else (),
+            fields_owned=fields,
+            validation_evidence=tuple(comp.get("tests", ())) + tuple(comp.get("models", ())),
+            rationale="Selected from .flowguard/map.json" + ("" if fresh else "; its files changed since the last confirm."),
+        ))
+        for dep in sorted(graph.get(cid, ())):
+            if dep in selected:
+                relations.append(CanonicalRelation(
+                    relation_id=f"relation:{cid}->{dep}", relation_type="depends_on",
+                    source_endpoint_kind="model", source_endpoint_id=cid,
+                    target_endpoint_kind="model", target_endpoint_id=dep,
+                    source_ids=(f"map:{cid}",)))
+
+    current_hits = [h for h in hits if h.evidence_current]
+    growth_gaps = tuple(
+        {"gap_id": "model_growth_unbound:" + p, "path": p, "observed_state": "present" if (root_path / p).exists() else "missing",
+         "next_action": "add the file to one component's files in .flowguard/map.json"}
+        for p in norm_changed
+        if p not in owner and not p.startswith(".flowguard/") and (p in inv.source or not (root_path / p).exists())
+        and not any(p.startswith(t) for t in ("tests/",)))
+    ownership = ExistingOwnershipSnapshot(
+        function_block_owners=tuple((b, h.model_id) for h in current_hits for b in h.function_blocks),
+        state_owners=tuple((s, h.model_id) for h in current_hits for s in h.state_owned),
+        side_effect_owners=tuple((s, h.model_id) for h in current_hits for s in h.side_effects_owned),
+        public_entrypoint_owners=tuple((e, h.model_id) for h in current_hits for e in h.public_entrypoints),
+        field_owners=tuple((f, h.model_id) for h in current_hits for f in h.fields_owned),
+        responsibility_owners=tuple((r, h.model_id) for h in current_hits for r in h.responsibilities),
+    ) if current_hits else None
+    map_fp = _fingerprint_value({"map": map_file.read_bytes().decode("utf-8", errors="replace")})
     return ExistingModelPreflight(
-        preflight_id or "project-inventory-preflight",
-        task_summary,
-        mode=mode,
-        inventory_scope=inventory_scope,
-        existing_modeled_system=authority_declared,
-        grounding_state=grounding_state,
-        authority_required=authority_declared,
-        authority_status=authority_status,
-        authority_snapshot_fingerprint=authority_snapshot_fingerprint,
-        authority_subject_revision=authority_subject_revision,
-        authority_gap_ids=authority_gap_ids,
-        authority_integrity=(
-            selected_read.authority_integrity
-            if selected_read is not None
-            else authority_status
-        ),
-        selected_source_currentness=(
-            selected_read.selected_source_currentness
-            if selected_read is not None
-            else (
-                SELECTED_SOURCE_UNAVAILABLE
-                if authority_declared and not authority_ok
-                else "not_checked"
-            )
-        ),
-        execution_evidence_status=(
-            selected_read.execution_evidence_status
-            if selected_read is not None
-            else EXECUTION_EVIDENCE_NOT_RUN
-        ),
-        as_of=(selected_read.as_of if selected_read is not None else {}),
-        stale_obligations=(
-            selected_read.stale_obligations if selected_read is not None else ()
-        ),
-        stale_obligation_details=(
-            selected_read.stale_obligation_details
-            if selected_read is not None
-            else ()
-        ),
-        selected_model_paths=(
-            selected_read.selected_model_paths if selected_read is not None else ()
-        ),
-        selected_runner_paths=(
-            selected_read.selected_runner_paths if selected_read is not None else ()
-        ),
-        selected_input_paths=(
-            selected_read.selected_input_paths if selected_read is not None else ()
-        ),
-        selected_intent_paths=(
-            selected_read.selected_intent_paths if selected_read is not None else ()
-        ),
-        selected_contract_paths=(
-            selected_read.selected_contract_paths if selected_read is not None else ()
-        ),
-        selected_read_paths=(
-            selected_read.read_paths if selected_read is not None else ()
-        ),
-        selected_read_counts=(
-            dict(selected_read.read_counts) if selected_read is not None else {}
-        ),
-        selected_closure=(
-            selected_read.to_dict() if selected_read is not None else {}
-        ),
-        growth_gaps=tuple(growth["growth_gaps"]),
-        checked_observed_paths=tuple(growth["checked_observed_paths"]),
-        observation_fingerprint=growth["observation_fingerprint"],
-        live_unregistered_file_detection=growth["live_unregistered_file_detection"],
-        model_search_performed=True,
-        search_paths=searched_paths,
-        behavior_lookup_required=behavior_lookup_required,
-        behavior_lookup_status=lookup_status,
-        primary_behavior_plane=getattr(lookup_report, "selected_plane", "") if lookup_report else "",
-        primary_commitment_hits=primary_lookup_hits,
-        related_commitment_hits=related_lookup_hits,
-        candidate_commitment_hits=candidate_lookup_hits,
-        plane_ambiguity=getattr(lookup_report, "plane_ambiguity", False) if lookup_report else False,
-        ledger_fingerprint=getattr(lookup_report, "ledger_fingerprint", "") if lookup_report else "",
-        relevant_models=tuple(hits),
-        ownership_snapshot=ownership_snapshot,
-        reuse_decision=reuse_decision,
-        downstream_routes=tuple(downstream_routes),
-        rationale=rationale,
-        no_model_found_reason=no_model_found_reason,
-        canonical_relation_handoff=(
-            CanonicalRelationHandoff(
-                relations=affected_relations,
-                affected_model_ids=tuple(hit.model_id for hit in hits),
-                evidence_current=True,
-            )
-            if affected_relations
-            else None
-        ),
-    )
+        preflight_id or "project-map-preflight", task_summary,
+        existing_modeled_system=True, grounding_state=PREFLIGHT_GROUNDING_MODELED_CURRENT,
+        authority_required=True, authority_status="pass",
+        authority_snapshot_fingerprint=map_fp, authority_subject_revision=_git_head(root_path) or map_fp,
+        authority_integrity="pass",
+        selected_source_currentness=("stale" if stale else "current") if hits else "not_selected",
+        stale_obligations=tuple(stale),
+        selected_model_paths=tuple(h.model_path for h in hits if h.model_path),
+        growth_gaps=growth_gaps, checked_observed_paths=norm_changed,
+        observation_fingerprint=_fingerprint_value(list(norm_changed)) if norm_changed else "",
+        live_unregistered_file_detection="FINITE_OBSERVATION" if norm_changed else "NOT_OBSERVED",
+        relevant_models=tuple(hits), ownership_snapshot=ownership,
+        reuse_decision=REUSE_DECISION_REUSE_EXISTING if current_hits else REUSE_DECISION_NO_MODEL_FOUND,
+        no_model_found_reason="" if current_hits else "The map has no current (confirmed, fresh) component owning this task.",
+        rationale=("Owners resolved from the project map." if current_hits
+                   else "Keep ownership open until a current map component owns the change."),
+        canonical_relation_handoff=CanonicalRelationHandoff(relations=tuple(relations), affected_model_ids=tuple(h.model_id for h in hits)) if relations else None,
+        **common)
+
 
 
 def review_existing_model_preflight(
@@ -2428,366 +2094,6 @@ def review_existing_model_preflight(
         primary_path_id=preflight.selected_primary_path_id,
     )
 
-
-def existing_model_preflight_projection_obligation_ids(
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-) -> tuple[str, ...]:
-    """Return the exact native obligations consumed by the standard projection."""
-
-    if preflight.preflight_id != report.preflight_id:
-        raise ValueError("preflight input and report identities do not match")
-    obligation_ids = {
-        "existing-model-owner",
-        f"preflight:{preflight.preflight_id}",
-    }
-    obligation_ids.update(f"model:{model.model_id}" for model in preflight.relevant_models)
-    obligation_ids.update(
-        f"surface:{surface_id}"
-        for surface_id in (
-            set(preflight.expected_surface_ids)
-            | set(report.covered_surface_ids)
-            | set(report.scoped_surface_ids)
-            | set(report.missing_surface_ids)
-        )
-    )
-    return tuple(sorted(obligation_ids))
-
-
-def _validate_current_preflight_proof(
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-    proof: ProofArtifactRef,
-) -> tuple[str, ...]:
-    gaps = list(proof.material_gap_codes())
-    if not proof.has_current_pass():
-        gaps.append("existing_model_preflight_proof_not_current_pass")
-    if proof.producer_route != "existing_model_preflight":
-        gaps.append("existing_model_preflight_proof_wrong_owner")
-    if proof.subject_id != preflight.preflight_id:
-        gaps.append("existing_model_preflight_proof_wrong_subject")
-    if proof.subject_fingerprint != report.fingerprint:
-        gaps.append("existing_model_preflight_proof_wrong_report_fingerprint")
-    if not proof.covers_all(
-        existing_model_preflight_projection_obligation_ids(preflight, report)
-    ):
-        gaps.append("existing_model_preflight_proof_missing_projection_obligations")
-    return tuple(dict.fromkeys(gaps))
-
-
-def _preflight_task_fact_observations(
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-) -> tuple[TaskFactObservation, ...]:
-    disposition_rank = {
-        TASK_FACT_DISPOSITION_DECLARED: 0,
-        TASK_FACT_DISPOSITION_SCOPED_OUT: 1,
-        TASK_FACT_DISPOSITION_UNKNOWN: 2,
-        TASK_FACT_DISPOSITION_OMITTED: 3,
-        TASK_FACT_DISPOSITION_UNMAPPED: 4,
-        TASK_FACT_DISPOSITION_CONTRADICTORY: 5,
-    }
-    observations: dict[str, TaskFactObservation] = {}
-
-    def add(
-        fact_id: str,
-        disposition: str,
-        *,
-        reason: str,
-        owner_route: str = "existing_model_preflight",
-    ) -> None:
-        candidate = TaskFactObservation(
-            fact_id,
-            TASK_FACT_SOURCE_CURRENT_MODEL,
-            disposition,
-            owner_route=owner_route,
-            reason=reason,
-        )
-        current = observations.get(fact_id)
-        if current is None or disposition_rank[disposition] > disposition_rank[
-            current.disposition
-        ]:
-            observations[fact_id] = candidate
-
-    for model in preflight.relevant_models:
-        add(
-            f"model:{model.model_id}",
-            (
-                TASK_FACT_DISPOSITION_DECLARED
-                if model.evidence_current
-                else TASK_FACT_DISPOSITION_UNKNOWN
-            ),
-            reason=model.rationale or "current-model preflight model hit",
-        )
-    ownership = preflight.ownership_snapshot
-    if ownership is not None:
-        for prefix, pairs in (
-            ("function-block", ownership.function_block_owners),
-            ("state", ownership.state_owners),
-            ("side-effect", ownership.side_effect_owners),
-            ("entrypoint", ownership.public_entrypoint_owners),
-            ("field", ownership.field_owners),
-            ("responsibility", ownership.responsibility_owners),
-        ):
-            for item_id, owner_id in pairs:
-                add(
-                    f"{prefix}:{item_id}",
-                    TASK_FACT_DISPOSITION_DECLARED,
-                    reason=f"owned by current model {owner_id}",
-                )
-
-    covered = set(report.covered_surface_ids)
-    scoped = set(report.scoped_surface_ids)
-    missing = set(report.missing_surface_ids)
-    for surface_id in sorted(
-        set(preflight.expected_surface_ids) | covered | scoped | missing
-    ):
-        if surface_id in missing:
-            disposition = TASK_FACT_DISPOSITION_OMITTED
-            reason = "expected public surface was missing from current preflight coverage"
-        elif surface_id in scoped:
-            disposition = TASK_FACT_DISPOSITION_SCOPED_OUT
-            reason = "public surface was explicitly scoped out"
-        elif surface_id in covered:
-            disposition = TASK_FACT_DISPOSITION_DECLARED
-            reason = "public surface was covered by current preflight"
-        else:
-            disposition = TASK_FACT_DISPOSITION_UNMAPPED
-            reason = "expected public surface has no current preflight disposition"
-        add(f"surface:{surface_id}", disposition, reason=reason)
-
-    for gap_id in preflight.authority_gap_ids:
-        add(
-            f"authority-gap:{gap_id}",
-            TASK_FACT_DISPOSITION_UNKNOWN,
-            reason="current observed model authority reported a gap",
-        )
-    for index, finding in enumerate(report.findings):
-        if finding.severity != "blocker":
-            continue
-        finding_id = finding.item_id or finding.model_id or str(index)
-        if "missing" in finding.code or "omitted" in finding.code:
-            disposition = TASK_FACT_DISPOSITION_OMITTED
-        elif "duplicate" in finding.code or "conflict" in finding.code:
-            disposition = TASK_FACT_DISPOSITION_CONTRADICTORY
-        else:
-            disposition = TASK_FACT_DISPOSITION_UNKNOWN
-        add(
-            f"preflight-finding:{finding.code}:{finding_id}",
-            disposition,
-            reason=finding.message,
-        )
-    return tuple(observations[key] for key in sorted(observations))
-
-
-def project_existing_model_preflight_to_task_facts(
-    base_facts: TaskFacts,
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-    proof: ProofArtifactRef | Mapping[str, Any],
-) -> TaskFacts:
-    """Replace the current-model fact plane from one exact native preflight proof."""
-
-    proof_ref = coerce_proof_artifact_ref(proof)
-    proof_gaps = _validate_current_preflight_proof(preflight, report, proof_ref)
-    if proof_gaps:
-        raise ValueError(
-            "current preflight proof is not projection-ready: " + ",".join(proof_gaps)
-        )
-    observations = _preflight_task_fact_observations(preflight, report)
-    snapshot = TaskFactSourceSnapshot(
-        TASK_FACT_SOURCE_CURRENT_MODEL,
-        proof_ref.result_path,
-        report.fingerprint,
-        status=TASK_FACT_SOURCE_STATUS_COMPLETE,
-        observations=observations,
-        reason="standard current-model projection from ExistingModelPreflight",
-    )
-
-    snapshot_observation_keys = {
-        (observation.fact_id, observation.source_plane)
-        for source_snapshot in base_facts.source_snapshots
-        for observation in source_snapshot.observations
-    }
-    explicit_observations = tuple(
-        observation
-        for observation in base_facts.fact_observations
-        if (observation.fact_id, observation.source_plane)
-        not in snapshot_observation_keys
-        and observation.source_plane != TASK_FACT_SOURCE_CURRENT_MODEL
-    )
-    source_snapshots = tuple(
-        source_snapshot
-        for source_snapshot in base_facts.source_snapshots
-        if source_snapshot.source_plane != TASK_FACT_SOURCE_CURRENT_MODEL
-    ) + (snapshot,)
-    return replace(
-        base_facts,
-        fact_observations=explicit_observations,
-        source_snapshots=source_snapshots,
-        related_model_ids=tuple(
-            sorted(
-                set(base_facts.related_model_ids)
-                | {model.model_id for model in preflight.relevant_models}
-            )
-        ),
-        affected_surface_ids=tuple(
-            sorted(
-                set(base_facts.affected_surface_ids)
-                | set(preflight.expected_surface_ids)
-                | set(report.covered_surface_ids)
-                | set(report.scoped_surface_ids)
-                | set(report.missing_surface_ids)
-            )
-        ),
-    )
-
-
-def project_existing_model_preflight_resolution(
-    facts: TaskFacts,
-    demand: TaskCoverageDemand,
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-    proof: ProofArtifactRef | Mapping[str, Any],
-) -> OwnerCoverageResolution:
-    """Project the same preflight proof into the sole owner-resolution value."""
-
-    proof_ref = coerce_proof_artifact_ref(proof)
-    owned_rows = tuple(
-        row
-        for row in demand.rows
-        if row.triggered and row.owner_route == "existing_model_preflight"
-    )
-    if demand.task_id != facts.task_id or demand.task_fingerprint != facts.fingerprint:
-        raise ValueError("preflight resolution requires the exact task demand")
-    if not owned_rows:
-        raise ValueError("task demand does not require existing-model preflight")
-    obligations = tuple(
-        sorted(
-            {
-                coverage_id
-                for row in owned_rows
-                for coverage_id in row.coverage_ids
-            }
-            | set(existing_model_preflight_projection_obligation_ids(preflight, report))
-        )
-    )
-    proof_gaps = list(_validate_current_preflight_proof(preflight, report, proof_ref))
-    snapshot = next(
-        (
-            value
-            for value in facts.source_snapshots
-            if value.source_plane == TASK_FACT_SOURCE_CURRENT_MODEL
-        ),
-        None,
-    )
-    if snapshot is None or snapshot.source_fingerprint != report.fingerprint:
-        proof_gaps.append("existing_model_preflight_task_fact_snapshot_stale")
-    blocker_codes = list(proof_gaps)
-    blocker_codes.extend(
-        finding.code for finding in report.findings if finding.severity == "blocker"
-    )
-    blocker_codes.extend(
-        f"missing_surface:{surface_id}" for surface_id in report.missing_surface_ids
-    )
-    blocker_codes = list(dict.fromkeys(blocker_codes))
-    disposition = (
-        COVERAGE_DISPOSITION_SATISFIED
-        if report.ok and not blocker_codes
-        else COVERAGE_DISPOSITION_BLOCKED
-    )
-    resolution_payload = {
-        "task_id": facts.task_id,
-        "demand_id": demand.demand_id,
-        "demand_fingerprint": demand.fingerprint,
-        "preflight_id": preflight.preflight_id,
-        "report_fingerprint": report.fingerprint,
-        "proof_id": proof_ref.artifact_id,
-        "disposition": disposition,
-    }
-    resolution_id = (
-        "resolution:existing-model-preflight:"
-        + fingerprint_value(resolution_payload).removeprefix("sha256:")[:20]
-    )
-    projection_artifact_id = f"proof:{resolution_id}"
-    projection_fingerprint_values = {
-        "preflight_report": report.fingerprint,
-        "native_preflight_proof": fingerprint_value(proof_ref.to_dict()),
-        **proof_ref.artifact_fingerprints,
-    }
-    evidence_fingerprints = tuple(
-        sorted(set(projection_fingerprint_values.values()))
-    )
-    return OwnerCoverageResolution(
-        resolution_id,
-        facts.task_id,
-        demand.demand_id,
-        demand.fingerprint,
-        "existing_model_preflight",
-        disposition,
-        obligations,
-        evidence_ids=(
-            (projection_artifact_id,)
-            if disposition == COVERAGE_DISPOSITION_SATISFIED
-            else ()
-        ),
-        evidence_fingerprints=(
-            evidence_fingerprints
-            if disposition == COVERAGE_DISPOSITION_SATISFIED
-            else ()
-        ),
-        blocker_codes=tuple(blocker_codes),
-    )
-
-
-def project_existing_model_preflight_maturation_contribution(
-    facts: TaskFacts,
-    demand: TaskCoverageDemand,
-    preflight: ExistingModelPreflight,
-    report: ExistingModelPreflightReport,
-    proof: ProofArtifactRef | Mapping[str, Any],
-    *,
-    candidate_model_fingerprint: str,
-):
-    """Create the canonical maturation view without re-entering owner semantics."""
-
-    from .model_maturation import ModelMaturationCoverageContribution
-
-    proof_ref = coerce_proof_artifact_ref(proof)
-    resolution = project_existing_model_preflight_resolution(
-        facts, demand, preflight, report, proof_ref
-    )
-    projection_fingerprints = {
-        "preflight_report": report.fingerprint,
-        "native_preflight_proof": fingerprint_value(proof_ref.to_dict()),
-        **proof_ref.artifact_fingerprints,
-    }
-    projected_proof = replace(
-        proof_ref,
-        artifact_id=(
-            resolution.evidence_ids[0]
-            if resolution.evidence_ids
-            else f"proof:{resolution.resolution_id}:blocked"
-        ),
-        subject_id=resolution.resolution_id,
-        subject_fingerprint=resolution.resolution_fingerprint,
-        artifact_fingerprints=projection_fingerprints,
-        covered_obligation_ids=resolution.obligation_ids,
-    )
-    return ModelMaturationCoverageContribution(
-        f"contribution:{resolution.resolution_id}",
-        owner_route=resolution.owner_route,
-        task_id=facts.task_id,
-        coverage_source_refs=(preflight.preflight_id, proof_ref.artifact_id),
-        coverage_ids=resolution.obligation_ids,
-        required_probe_ids=(f"probe:{preflight.preflight_id}",),
-        evidence_ref=projected_proof,
-        owner_resolution=resolution,
-        candidate_model_fingerprint=candidate_model_fingerprint,
-        subject_fingerprints=dict(projected_proof.artifact_fingerprints),
-    )
-
-
 __all__ = [
     "BlueprintPreflightHandoff",
     "DUPLICATE_RISK_RESOLUTIONS",
@@ -2812,11 +2118,7 @@ __all__ = [
     "REUSE_DECISION_REUSE_EXISTING",
     "REUSE_DECISION_SKIP",
     "REUSE_DECISIONS",
-    "existing_model_preflight_projection_obligation_ids",
-    "project_existing_model_preflight_maturation_contribution",
     "project_existing_model_preflight_blueprint_handoff",
-    "project_existing_model_preflight_resolution",
-    "project_existing_model_preflight_to_task_facts",
     "review_existing_model_preflight",
     "existing_model_preflight_from_project",
 ]

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from functools import cached_property
 from typing import Any, Mapping, Sequence
 
-from .evidence_receipts import fingerprint_value
+from ._hashing import canonical_fingerprint as fingerprint_value
 from .hierarchy import ChildModelEvidence, ChildReattachmentContract
 
 

@@ -112,22 +112,3 @@ def run_review() -> dict[str, object]:
           "observed_cases": len(results)})
     return {"native_cases": rows,
             "claim_boundary": "One actual finite corpus run plus named report mutations; aggregation semantics only."}
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Declare exact review obligations and sources without running the corpus."""
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-    root = Path(__file__).resolve().parents[4]
-    return compile_declared_path_quality_source(
-        model_id="problem_corpus_coverage",
-        model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope="native_check_contract",
-        source_refs=tuple({"path": p, "source_fingerprint": functional_source_fingerprint(root, p)} for p in SOURCE_PATHS),
-        declared_contracts={failure: {
-            "protected_failure_id": failure,
-            "oracle": "run_review:" + failure,
-            "finite_scope": "actual checked-in finite corpus results; named aggregation mutation",
-            "claim_boundary": "No target-project runtime, publication or optimum-architecture proof.",
-        } for failure in PROTECTED_FAILURES},
-    )

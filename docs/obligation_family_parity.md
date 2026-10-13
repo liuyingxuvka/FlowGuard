@@ -7,7 +7,7 @@ others.
 
 Typical examples:
 
-- one workflow persists a durable reconciliation receipt while a sibling only
+- one workflow persists a durable reconciliation record while a sibling only
   records a controller handoff;
 - one route has observed-regression and same-class proof while a sibling only
   has the point regression;
@@ -60,7 +60,8 @@ contracts, tests, and boundary observations. The family layer adds one more
 gate: related obligations cannot be reported as aligned family coverage unless
 the family matrix passes.
 
-This catches the class of failure where one route had durable receipt evidence,
+This catches the class of failure where one route had durable reconciliation
+evidence,
 a sibling route had only a manual or controller-level event, and both were
 still being treated as the same class of closed work.
 
@@ -74,35 +75,27 @@ observed miss -> FamilyBadCaseSeed
 -> family_bad_case_seed_to_contract_cases(...)
 -> review_contract_exhaustion(...)
 -> repair/cover every required canonical case
--> ModelMaturation and model-code-test alignment
--> feed the one current maturation result into the Risk Evidence Ledger
+-> review_model_test_alignment(...) with the family rows in the same plan
+-> run the models and tests that `python -m flowguard change` lists
 ```
 
-ContractExhaustionMesh is the sole current owner of the stable observed and
-same-class case ids and their executable oracles. It expands only declared
+ContractExhaustionMesh defines the stable observed and same-class case ids and
+their executable oracles. It expands only declared
 family members and current canonical affected relations. A suspected related
 surface with no current relation remains an explicit model/relation gap; it
 does not start a second repository-wide scan or a parallel completion gate.
 
-## Risk Evidence Ledger
+## Freshness
 
-`RiskEvidenceRow` can require a family gate by adding
-`RiskEvidenceGate(RISK_GATE_FAMILY, "family:...")` to its `gates` list. The
-gate carries the evidence id, current flag, confidence, and scoped reasons.
-
-The ledger blocks missing, stale, or blocked family gates. A scoped family gate
-downgrades the final ledger decision unless scoped confidence is explicitly
-allowed.
-
-For a bug-repair claim, the ledger consumes the one current ModelMaturation
-result together with the exact ContractExhaustionMesh case ids, model-code-test
-bindings, affected-topology replay, and any scoped gaps. There is no additional
-same-shape scan receipt to reconcile.
+Family evidence is only current while the files it exercised are unchanged.
+`python -m flowguard map check` reports mapped models whose files drifted since
+the map was confirmed, and `python -m flowguard change` lists which models and
+tests an edit requires rerunning. Mark rows for those members stale (or rerun
+them) before reporting the family as covered.
 
 ## Boundary
 
 This helper is not the canonical bad-case generator. It defines the family and
 checks family evidence parity; ContractExhaustionMesh creates the stable
 bad-case ids and executable oracles. It also does not replace Model-Miss
-Review, ModelMaturation, Model-Test Alignment, TestMesh, or the Risk Evidence
-Ledger.
+Review, Model-Test Alignment, or TestMesh.

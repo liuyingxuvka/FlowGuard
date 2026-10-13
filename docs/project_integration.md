@@ -6,41 +6,50 @@ the executable check engine.
 
 ## Current consumer surface
 
-Start at `$CODEX_HOME/skills/flowguard/SKILL.md`. Once a request names a
+Start at `$CODEX_HOME/skills/flowguard/SKILL.md`. Once a task names a
 subject, load only `references/domains/<subject>/protocol.md` and its explicit
-dependencies. The target repository does not copy the author checkout, author
-receipts, or a second suite map into its own skill tree.
+dependencies. The skill is installed by copying `.agents/skills/flowguard/`:
 
-The installed projection and the source identity in the request must agree. A
-missing, stale, foreign, or contradictory projection blocks the operation.
+```powershell
+python scripts/install_skill.py --target $CODEX_HOME/skills
+python scripts/install_skill.py --target $CODEX_HOME/skills --check
+```
+
+The target repository does not copy the author checkout or a second copy of the
+skill into its own tree. Its own project knowledge lives in
+`.flowguard/map.json` (create a first draft with `python -m flowguard map scan`,
+then fill in and `map confirm` the component descriptions) and in the models
+and tests that map binds to each component.
 
 ## Public operations
 
-Read the accepted current map without side effects:
+Understand the software without side effects:
 
 ```powershell
-python -m flowguard read --root <target-project> --request read.json --json
+python -m flowguard read --root <target-project>
 ```
 
-Change a declared source or model scope through the current compare-and-swap
-boundary:
+After editing, check the map and list what to run:
 
 ```powershell
-python -m flowguard change --root <target-project> --request change.json --json
+python -m flowguard change --root <target-project>
 ```
 
-Verify an already accepted current and its declared release projection:
+Before a release, run the strict gate:
 
 ```powershell
-python -m flowguard release --root <target-project> --request release.json --json
+python -m flowguard release --root <target-project>
 ```
 
-`read` starts zero producers and writes. Its request must include a selected
-identity and explicit page budget. `change` runs only the required current
-owners. Normal changes use protected-failure native checks and derived
-structure coverage; per-element good, bad, and draft evidence is added only for
-an explicit architecture reduction or candidate comparison. `release` reports
-what it actually verified and does not publish GitHub artifacts by itself.
+`read` starts zero producers and writes nothing. `change` compares the changed
+files (from git, or passed explicitly) with the map and lists only the affected
+components, models, and tests; running those models and tests is the proof.
+Normal changes rerun the affected models and tests;
+per-element good, bad, and draft evidence is added only for an explicit
+architecture reduction or candidate comparison. `release` runs the strict map check, the architecture
+review errors, and every model, reports what it actually ran, and does not
+publish GitHub artifacts by itself. Starter model files come from
+`python -m flowguard template <name>` (`--list` shows the names).
 
 ## Engine preflight
 
@@ -52,21 +61,16 @@ python -c "import flowguard; print(flowguard.SCHEMA_VERSION)"
 
 If this fails, record the operation as blocked or partial. Do not substitute a
 local mini-framework, a stale source tree, or an alternate reader. A local
-checkout may be selected explicitly for the check engine; its identity belongs
-in the result.
+checkout may be selected explicitly for the check engine; say which one in the
+result.
 
 ## Evidence and handoff boundary
 
 Every result keeps unknown, blocked, not-run, skipped, stale, failed, and
-scoped states visible. The operation, subject, page budget, owner, source bytes,
-toolchain, and result must agree. A log, checkbox, package version, or clean
-directory does not prove executable evidence.
-
-Route or obligation changes reopen admission and plan identity. When the actual
-check, input, dependency, toolchain, and environment are unchanged, the leaf
-execution key can be reused within the same maintenance unit. Performance and
-installation evidence belongs in one acceptance result with two sections that
-share the frozen identity; no separate delivery handoff service is needed.
+scoped states visible. A log, checkbox, package version, or clean directory
+does not prove that a model or test ran. A component reported as stale by
+`python -m flowguard map check` has changed since its description was confirmed;
+re-read it and confirm it again before relying on that description.
 
 Git tags and GitHub publication remain separate transactions after `release`
-has verified the current projection.
+has passed.

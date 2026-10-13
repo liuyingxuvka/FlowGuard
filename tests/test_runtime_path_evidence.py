@@ -1,6 +1,5 @@
 import unittest
 
-import flowguard
 from flowguard import (
     ProofArtifactRef,
     RuntimeNodeContract,
@@ -544,24 +543,6 @@ class RuntimePathEvidenceTests(unittest.TestCase):
         self.assertIsInstance(run, RuntimePathRun)
         self.assertEqual(("validate_order", "store_order"), tuple(item.node_id for item in run.observations))
         self.assertIn("model=checkout.leaf", recorder.format_progress_lines())
-
-    def test_public_api_exports_runtime_path_helpers_outside_core(self):
-        expected = (
-            "RuntimeNodeContract",
-            "RuntimeNodeObservation",
-            "RuntimePathRun",
-            "RuntimePathAlignmentPlan",
-            "RuntimePathFinding",
-            "RuntimePathAlignmentReport",
-            "RuntimePathRecorder",
-            "review_runtime_path_alignment",
-        )
-        for name in expected:
-            self.assertIn(name, flowguard.MODELING_HELPER_API)
-            self.assertIn(name, flowguard.__all__)
-            self.assertTrue(hasattr(flowguard, name), name)
-            self.assertNotIn(name, flowguard.CORE_API)
-
 
 if __name__ == "__main__":
     unittest.main()

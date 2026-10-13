@@ -19,7 +19,8 @@ enough to proceed.
 - `PlanDetailStateSurface`: durable state or facts the model must see.
 - `PlanDetailSideEffect`: irreversible or external effects that need evidence
   gates.
-- `PlanDetailStep`: ordered work with receipts, evidence gates, and rework.
+- `PlanDetailStep`: ordered work with its step hand-offs (`requires_receipts`,
+  `produces_receipts`, `invalidates_receipts`), evidence gates, and rework.
 - `PlanDetailValidation`: validation obligations and expected evidence.
 - `PlanDetailEvidence`: planned or current evidence rows.
 - `PlanDetailFailureBranch`: failure, retry, blocked, or rework paths.
@@ -44,22 +45,21 @@ does not prove implementation, replay, tests, release, or completion.
 
 ## Template
 
+Print the starter template, or write it into a project:
+
 ```powershell
-python -m flowguard plan-detailing-template --output .
+python -m flowguard template plan-detailing
+python -m flowguard template plan-detailing --write .
 ```
 
-The template writes:
-
-- `.flowguard/models/owners/plan_detailing/model.py`
-- `.flowguard/verification/owners/plan_detailing/run_checks.py`
-- `docs/flowguard_plan_detailing.md`
-
-The generated model includes one complete plan and broken variants for missing
+The template contains a runnable model, a `run_checks.py` script that executes
+it, and a short notes page. The generated model includes one complete plan and broken variants for missing
 failure branches, missing rework gates, and missing validation.
+
 ## Read-only WorkContext sources
 
 PlanDetail may cite one or more current `work_context_id` values, their adapter
 ids, content fingerprints, and the exact generic artifact ids that informed
 the plan. It projects scope and order to DevelopmentProcessFlow only. It
-creates no provider bindings, TestMesh evidence children, sessions, caches,
-receipts, or execution authority. See [`work_context.md`](work_context.md).
+creates no provider bindings, TestMesh evidence children, sessions, or caches,
+and it does not run the provider's work. See [`work_context.md`](work_context.md).

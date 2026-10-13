@@ -594,7 +594,7 @@ def _leaf_axis_fingerprint(
 ) -> str:
     """Derive the only supported fingerprint for a leaf finite axis."""
 
-    from .model_authority import canonical_fingerprint
+    from ._hashing import canonical_fingerprint
 
     return canonical_fingerprint(
         {

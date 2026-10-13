@@ -112,8 +112,13 @@ from flowguard import (
     review_contract_exhaustion,
     ui_content_visibility_candidate_ids_from_field_lifecycle,
 )
-from flowguard.proof_artifact import ProofArtifactRef, sha256_fingerprint
-from flowguard.evidence_receipts import EvidenceReceipt, build_environment_fingerprint, snapshot_bytes
+import hashlib
+
+
+def sha256_fingerprint(data: bytes) -> str:
+    return "sha256:" + hashlib.sha256(data).hexdigest()
+
+
 from flowguard.contract_exhaustion import (
     CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,
     CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
@@ -2650,160 +2655,34 @@ class UIImplementationValidationTests(unittest.TestCase):
         self.assertFalse(strict_report.ok)
         self.assertIn("ui_missing_proof_artifact", finding_codes(strict_report))
 
-    def test_runtime_proof_mode_accepts_current_external_artifact(self):
+    def _light_proof_validation(self, *, tamper: bool):
         context = complete_action_only_implementation_context()
         validation = replace(context[7], require_runtime_proof=True)
-        source_fingerprint = "sha256:" + "1" * 64
-        model_fingerprint = "sha256:" + "2" * 64
-        toolchain_fingerprint = "sha256:" + "3" * 64
-        environment_fingerprint = build_environment_fingerprint({"flowguard_version": "test"}).fingerprint
-
         with tempfile.TemporaryDirectory(prefix="flowguard-ui-proof-") as temp_root:
-            evidence_root = Path(temp_root)
-
-            def proof(artifact_id: str) -> ProofArtifactRef:
-                result_path = evidence_root / f"{artifact_id}.result.json"
-                result_path.write_text(
-                    json.dumps(
-                        {"artifact_id": artifact_id, "status": "passed"},
-                        sort_keys=True,
-                    ),
-                    encoding="utf-8",
-                )
-                result_fingerprint = sha256_fingerprint(result_path.read_bytes())
-                receipt = EvidenceReceipt(
-                    receipt_id=f"receipt:{artifact_id}",
-                    subject_id="ui-project",
-                    subject_kind="ui_runtime",
-                    producer_id="ui.real_surface",
-                    producer_version="test-owner-v1",
-                    claim_scope="external_contract",
-                    command=("browser-runner", "--scenario", "project"),
-                    working_directory_token="<WORKSPACE>",
-                    started_at="2026-08-18T09:00:00+00:00",
-                    finished_at="2026-08-18T09:00:01+00:00",
-                    exit_code=0,
-                    environment_fingerprint=environment_fingerprint,
-                    environment_metadata={"flowguard_version": "test"},
-                    contract_hash="sha256:" + "a" * 64,
-                    check_manifest_hash="sha256:" + "b" * 64,
-                    suite_map_hash="sha256:" + "c" * 64,
-                    input_snapshots=(
-                        snapshot_bytes(
-                            "ui-input",
-                            b"ui-input",
-                            path_token="<WORKSPACE>/ui-input.json",
-                            obligation_ids=("ui.surface",),
-                        ),
-                    ),
-                    proof_artifact_id=artifact_id,
-                    proof_artifact_fingerprint="sha256:" + "d" * 64,
-                    result_status="pass",
-                    result_fingerprint=result_fingerprint,
-                    covered_obligations=("ui.surface",),
-                    claim_boundary="strict UI runtime proof test",
-                    metadata={
-                        "source_fingerprint": source_fingerprint,
-                        "model_fingerprint": model_fingerprint,
-                        "toolchain_fingerprint": toolchain_fingerprint,
-                        "terminal_state": "passed",
-                        "cleanup_state": "confirmed",
-                        "cleanup_verified": True,
-                    },
-                )
-                receipt_path = evidence_root / f"{artifact_id}.receipt.json"
-                receipt_path.write_text(receipt.to_json(), encoding="utf-8")
-                receipt_fingerprint = receipt.fingerprint
-                return ProofArtifactRef(
+            def proof(artifact_id):
+                result_path = Path(temp_root) / f"{artifact_id}.result.json"
+                result_path.write_text('{"status":"passed"}', encoding="utf-8")
+                fingerprint = sha256_fingerprint(result_path.read_bytes())
+                if tamper:
+                    result_path.write_text('{"status":"edited"}', encoding="utf-8")
+                return ui_structure_module.UIRuntimeProof(
                     artifact_id=artifact_id,
-                    producer_route="ui.real_surface",
                     command="browser-runner --scenario project",
                     result_path=str(result_path),
                     result_status="passed",
                     exit_code=0,
-                    started_at="2026-08-18T09:00:00+00:00",
-                    finished_at="2026-08-18T09:00:01+00:00",
-                    subject_id="ui-project",
-                    subject_fingerprint=source_fingerprint,
-                    artifact_fingerprints={"result": result_fingerprint},
-                    assertion_scope="external_contract",
-                    receipt_id=f"receipt:{artifact_id}",
-                    receipt_path=str(receipt_path),
-                    receipt_fingerprint=receipt_fingerprint,
-                    execution_owner_id="ui.real_surface",
-                    source_fingerprint=source_fingerprint,
-                    model_fingerprint=model_fingerprint,
-                    toolchain_fingerprint=toolchain_fingerprint,
-                    environment_fingerprint=environment_fingerprint,
-                    result_fingerprint=result_fingerprint,
-                    terminal_state="passed",
-                    cleanup_state="confirmed",
-                    cleanup_verified=True,
+                    result_fingerprint=fingerprint,
                     metadata={"model_revision": context[7].current_model_revision},
                 )
-
-            runs = []
-            for index, run in enumerate(validation.journey_runs):
-                run_proof = proof(f"ui-run-{index}")
-                steps = tuple(
-                    replace(step, proof_artifact=proof(f"ui-step-{index}-{step.step_id}"))
-                    for step in run.steps
-                )
-                runs.append(replace(run, steps=steps, proof_artifact=run_proof))
-            validation = replace(validation, journey_runs=tuple(runs))
-            report = review_ui_implementation_validation(
-                validation,
-                interaction_model=context[0],
-                journey_coverage=context[1],
-                capability_inventory=context[2],
-                capability_coverage=context[3],
-                visible_surface=context[4],
-                observed_inventory=context[5],
-                content_visibility_plan=context[6],
-            )
-
-            self.assertTrue(report.ok, report.format_text())
-            self.assertTrue(report.broad_confidence_supported)
-
-    def test_runtime_proof_mode_rejects_result_file_without_producer_receipt(self):
-        context = complete_action_only_implementation_context()
-        validation = replace(context[7], require_runtime_proof=True)
-        with tempfile.TemporaryDirectory(prefix="flowguard-ui-proof-no-receipt-") as temp_root:
-            result_path = Path(temp_root) / "result.json"
-            result_path.write_text('{"status":"passed"}', encoding="utf-8")
-            result_fingerprint = sha256_fingerprint(result_path.read_bytes())
-            proof = ProofArtifactRef(
-                artifact_id="ui-no-receipt",
-                producer_route="ui.real_surface",
-                command="browser-runner --scenario project",
-                result_path=str(result_path),
-                result_status="passed",
-                exit_code=0,
-                started_at="2026-08-18T09:00:00+00:00",
-                finished_at="2026-08-18T09:00:01+00:00",
-                subject_id="ui-project",
-                subject_fingerprint="sha256:" + "1" * 64,
-                artifact_fingerprints={"result": result_fingerprint},
-                assertion_scope="external_contract",
-                source_fingerprint="sha256:" + "1" * 64,
-                model_fingerprint="sha256:" + "2" * 64,
-                toolchain_fingerprint="sha256:" + "3" * 64,
-                environment_fingerprint="sha256:" + "4" * 64,
-                result_fingerprint=result_fingerprint,
-                terminal_state="passed",
-                cleanup_state="confirmed",
-                cleanup_verified=True,
-                metadata={"model_revision": context[7].current_model_revision},
-            )
             runs = tuple(
                 replace(
                     run,
-                    proof_artifact=proof,
-                    steps=tuple(replace(step, proof_artifact=proof) for step in run.steps),
+                    proof_artifact=proof(f"run-{i}"),
+                    steps=tuple(replace(step, proof_artifact=proof(f"step-{i}-{step.step_id}")) for step in run.steps),
                 )
-                for run in validation.journey_runs
+                for i, run in enumerate(validation.journey_runs)
             )
-            report = review_ui_implementation_validation(
+            return review_ui_implementation_validation(
                 replace(validation, journey_runs=runs),
                 interaction_model=context[0],
                 journey_coverage=context[1],
@@ -2814,8 +2693,15 @@ class UIImplementationValidationTests(unittest.TestCase):
                 content_visibility_plan=context[6],
             )
 
+    def test_runtime_proof_mode_accepts_real_result_file(self):
+        report = self._light_proof_validation(tamper=False)
+        self.assertTrue(report.ok, report.format_text())
+        self.assertTrue(report.broad_confidence_supported)
+
+    def test_runtime_proof_mode_rejects_result_file_edited_after_run(self):
+        report = self._light_proof_validation(tamper=True)
         self.assertFalse(report.ok, report.format_text())
-        self.assertIn("ui_proof_receipt_missing", finding_codes(report))
+        self.assertIn("ui_proof_result_hash_mismatch", finding_codes(report))
 
     def test_complete_ui_claim_omitting_capability_bundle_blocks(self):
         (

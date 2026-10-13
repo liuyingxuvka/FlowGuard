@@ -12,18 +12,18 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
-from .behavior_commitment import (
+from typing import TYPE_CHECKING
+
+from .behavior_plane import (
     BCL_BEHAVIOR_PLANES,
     BCL_HIT_ROLE_PRIMARY,
     BCL_LOOKUP_STATUS_PERFORMED,
-    BehaviorCommitmentLedger,
-)
-from .behavior_commitment_lookup import (
-    BehaviorCommitmentHit,
-    BehaviorLookupQuery,
-    query_behavior_commitments,
 )
 from .export import to_jsonable
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from .behavior_commitment import BehaviorCommitmentLedger
+    from .behavior_commitment_lookup import BehaviorCommitmentHit
 
 
 def _strict_bool(value: Any, field_name: str) -> bool:
@@ -327,6 +327,8 @@ def backfeed_model_miss_to_behavior_ledger(
     top_k: int = 5,
 ) -> ModelMissBehaviorBackfeed:
     """Find an existing same-plane commitment before proposing a new promise."""
+
+    from .behavior_commitment_lookup import BehaviorLookupQuery, query_behavior_commitments
 
     canonical_terms = (
         (miss.affected_commitment_id,) if miss.affected_commitment_id else ()

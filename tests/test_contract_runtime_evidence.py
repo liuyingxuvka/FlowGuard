@@ -2,7 +2,6 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import flowguard
 from flowguard import (
     CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
     ContractAxis,
@@ -20,16 +19,6 @@ from flowguard import (
 
 
 class ContractRuntimeEvidenceTests(unittest.TestCase):
-    def test_runtime_owner_is_exported_by_contract_and_test_mesh_routes(self):
-        self.assertIn(
-            "reconcile_contract_exhaustion_execution",
-            flowguard.CONTRACT_EXHAUSTION_MESH_API,
-        )
-        self.assertIn(
-            "reconcile_contract_exhaustion_execution",
-            flowguard.TEST_MESH_ROUTE_API,
-        )
-
     def _report(self):
         report = review_contract_exhaustion(
             ContractExhaustionPlan(

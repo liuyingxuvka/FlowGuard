@@ -14,15 +14,18 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
+from typing import TYPE_CHECKING
+
 from .export import to_jsonable
-from .model_test_alignment import (
-    CodeContract,
-    ModelObligation,
-    TEST_KIND_FAILURE_PATH,
-    TEST_KIND_HAPPY_PATH,
-    TEST_KIND_NEGATIVE_PATH,
-    TEST_KIND_REPLAY,
-)
+
+if TYPE_CHECKING:  # Model-Test Alignment is a downstream consumer, loaded lazily.
+    from .model_test_alignment import CodeContract, ModelObligation
+
+# Shared test-kind vocabulary (identical strings to model_test_alignment.TEST_KIND_*).
+TEST_KIND_HAPPY_PATH = "happy_path"
+TEST_KIND_FAILURE_PATH = "failure_path"
+TEST_KIND_NEGATIVE_PATH = "negative_path"
+TEST_KIND_REPLAY = "replay"
 
 
 FIELD_ROLE_STATE = "state"
@@ -291,9 +294,11 @@ class FieldProjection:
         object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
         object.__setattr__(self, "rationale", str(self.rationale))
 
-    def to_model_obligation(self) -> ModelObligation | None:
+    def to_model_obligation(self) -> "ModelObligation | None":
         if not self.model_obligation_id:
             return None
+        from .model_test_alignment import ModelObligation
+
         return ModelObligation(
             self.model_obligation_id,
             obligation_type="field_lifecycle",
@@ -310,9 +315,11 @@ class FieldProjection:
             exact_external_contract=True,
         )
 
-    def to_code_contract(self) -> CodeContract | None:
+    def to_code_contract(self) -> "CodeContract | None":
         if not self.code_contract_id or not self.model_obligation_id:
             return None
+        from .model_test_alignment import CodeContract
+
         return CodeContract(
             self.code_contract_id,
             implements_obligations=(self.model_obligation_id,),
@@ -977,11 +984,11 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
 
 def field_lifecycle_to_model_obligations(
     projections: Sequence[FieldProjection] | FieldLifecycleReport,
-) -> tuple[ModelObligation, ...]:
+) -> "tuple[ModelObligation, ...]":
     """Project field lifecycle rows into Model-Test Alignment obligations."""
 
     projection_rows = projections.projections if isinstance(projections, FieldLifecycleReport) else tuple(projections)
-    result: list[ModelObligation] = []
+    result: list = []
     for projection in projection_rows:
         obligation = projection.to_model_obligation()
         if obligation is not None:
@@ -991,11 +998,11 @@ def field_lifecycle_to_model_obligations(
 
 def field_lifecycle_to_code_contracts(
     projections: Sequence[FieldProjection] | FieldLifecycleReport,
-) -> tuple[CodeContract, ...]:
+) -> "tuple[CodeContract, ...]":
     """Project field lifecycle rows into Model-Test Alignment code contracts."""
 
     projection_rows = projections.projections if isinstance(projections, FieldLifecycleReport) else tuple(projections)
-    result: list[CodeContract] = []
+    result: list = []
     for projection in projection_rows:
         contract = projection.to_code_contract()
         if contract is not None:

@@ -15,7 +15,6 @@ from flowguard import (
 from flowguard.__main__ import main as flowguard_cli_main
 from flowguard.templates import (
     behavior_commitment_ledger_template_files,
-    closure_contract_template_files,
     code_structure_recommendation_template_files,
     contract_exhaustion_template_files,
     development_process_flow_template_files,
@@ -30,13 +29,10 @@ from flowguard.templates import (
     model_test_alignment_template_files,
     plan_detailing_template_files,
     primary_path_authority_template_files,
-    project_adoption_template_files,
     project_template_files,
-    risk_evidence_ledger_template_files,
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
-    reverse_surface_closure_template_files,
     work_context_template_files,
     structure_mesh_template_files,
     test_mesh_template_files as mesh_template_files_factory,
@@ -68,17 +64,14 @@ PUBLIC_TEMPLATE_FACTORIES = (
     code_structure_recommendation_template_files,
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
-    risk_evidence_ledger_template_files,
     runtime_path_evidence_template_files,
     layered_boundary_proof_template_files,
-    closure_contract_template_files,
     ui_flow_structure_template_files,
     development_process_flow_template_files,
     workflow_step_contracts_template_files,
     mesh_template_files_factory,
     model_mesh_template_files,
     contract_exhaustion_template_files,
-    reverse_surface_closure_template_files,
     structure_mesh_template_files,
     topology_hazard_template_files,
     work_context_template_files,
@@ -86,7 +79,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 
 TEMPLATE_CLI_COMMANDS = {
     "project-template": "project",
-    "project-adoption-template": "project_adoption",
     "work-context-template": "work_context",
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
@@ -101,9 +93,7 @@ TEMPLATE_CLI_COMMANDS = {
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
     "field-lifecycle-template": "field_lifecycle",
-    "risk-evidence-ledger-template": "risk_evidence_ledger",
     "layered-boundary-proof-template": "layered_boundary_proof",
-    "closure-contract-template": "closure_contract",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
     "development-process-flow-template": "development_process_flow",
@@ -111,7 +101,6 @@ TEMPLATE_CLI_COMMANDS = {
     "test-mesh-template": "test_mesh",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
-    "reverse-surface-closure-template": "reverse_surface_closure",
     "structure-mesh-template": "structure_mesh",
     "topology-hazard-template": "model_topology_hazard_review",
 }
@@ -180,7 +169,7 @@ class PublicTemplateTests(unittest.TestCase):
 
         self.assertIn("ui_flow_structure", route_modules)
         self.assertNotIn("model_similarity_consolidation", route_modules)
-        self.assertIn("risk_evidence_ledger", route_modules)
+        self.assertNotIn("risk_evidence_ledger", route_modules)
         self.assertLess(len((ROOT / "flowguard" / "templates.py").read_text(encoding="utf-8").splitlines()), 1000)
         self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
 
@@ -501,26 +490,6 @@ class PublicTemplateTests(unittest.TestCase):
         ):
             self.assertIn(text, combined)
 
-    def test_reverse_surface_template_executes_and_exposes_unclosed_fixture(self):
-        output = self.run_written_template(
-            reverse_surface_closure_template_files(),
-            (".flowguard", "verification", "owners", "reverse_surface_closure"),
-        )
-        self.assertIn("reverse-surface authoring contract: PASS", output)
-        self.assertIn("reverse-surface incomplete fixture: BLOCKED", output)
-
-    def test_reverse_surface_template_teaches_two_way_and_ui_closure(self):
-        combined = "\n".join(file.content for file in reverse_surface_closure_template_files())
-        for text in (
-            "independent implementation",
-            "both join directions",
-            "owner/test/receipt/authority joins",
-            "UI-like action joins",
-            "finite dynamic dispatch",
-            "blocked_gap",
-        ):
-            self.assertIn(text, combined)
-
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(
             code_structure_recommendation_template_files(),
@@ -735,18 +704,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("replay:", combined)
         self.assertIn("Field route refs are handoff labels", combined)
 
-    def test_risk_evidence_ledger_template_executes(self):
-        output = self.run_written_template(
-            risk_evidence_ledger_template_files(),
-            (".flowguard", "verification", "owners", "risk_evidence_ledger"),
-        )
-        self.assertIn("flowguard risk evidence ledger", output)
-        self.assertIn("internal_path_only_evidence", output)
-        self.assertIn("proof_evidence_not_passing", output)
-        self.assertIn("missing_artifact_payload_gate", output)
-        self.assertIn("missing_model_split_gate", output)
-        self.assertIn("open_maintenance_obligation", output)
-
     def test_layered_boundary_proof_template_executes(self):
         output = self.run_written_template(
             layered_boundary_proof_template_files(),
@@ -766,59 +723,17 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("Leaf boundary matrix", combined)
         self.assertIn("Input x State", combined)
 
-    def test_closure_contract_template_executes(self):
-        output = self.run_written_template(
-            closure_contract_template_files(),
-            (".flowguard", "verification", "owners", "closure_contract"),
-        )
-        self.assertIn("flowguard closure contract", output)
-        self.assertIn("flowguard_closure_full_confidence", output)
-        self.assertIn("flowguard_closure_blocked", output)
-        self.assertIn("runtime_trace_unmapped_model_obligation", output)
-
-    def test_closure_contract_template_teaches_final_coordinator(self):
-        files = closure_contract_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("final coordinator", combined)
-        self.assertIn("runtime traces", combined)
-        self.assertIn("same-class", combined)
-        self.assertIn("runtime gateway inventory", combined)
-        self.assertIn("Risk Evidence Ledger", combined)
-
     def test_public_model_templates_include_risk_purpose_headers(self):
         for factory in PUBLIC_TEMPLATE_FACTORIES:
             with self.subTest(factory=factory.__name__):
                 model_file = next(file for file in factory() if file.path.endswith("model.py"))
                 self.assert_risk_purpose_header(model_file.content)
 
-    def test_project_adoption_template_includes_version_gate_materials(self):
-        files = project_adoption_template_files()
-        paths = {file.path for file in files}
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("AGENTS.md", paths)
-        self.assertIn(".flowguard/project.toml", paths)
-        self.assertIn("docs/flowguard_adoption_log.md", paths)
-        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", combined)
-        self.assertIn(
-            "flowguard read --root . --request .flowguard/read-request.json --json",
-            combined,
-        )
-        self.assertIn("single current FlowGuard public owner", combined)
-        self.assertNotIn("project-audit", combined)
-        self.assertNotIn("project-upgrade", combined)
-        self.assertIn("latest-schema-first", combined)
-        self.assertIn("affected owners", combined)
-        self.assertIn("adopted_package_version", combined)
-        self.assertIn("schema_version", combined)
-
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {
             factory.__name__.removesuffix("_template_files"): factory
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
-        factories["project_adoption"] = project_adoption_template_files
         factories["risk_intent_check_plan"] = risk_intent_template_files
         factories["model_miss_review_full"] = model_miss_review_full_template_files
         factories["model_test_alignment_full"] = model_test_alignment_full_template_files
@@ -835,11 +750,25 @@ class PublicTemplateTests(unittest.TestCase):
                 written_paths = tuple(Path(directory).rglob("*"))
                 self.assertTrue(written_paths, command)
 
-        # These former CLI names are deliberately outside the compact public
-        # lifecycle. They must reject without invoking a producer.
-        code, stdout, _stderr = self.run_cli(["project-template"])
+        # Every starter template is reachable through one CLI verb.
+        code, stdout, _stderr = self.run_cli(["template", "--list"])
+        self.assertEqual(0, code)
+        listed = stdout.split()
+        self.assertIn("project", listed)
+        self.assertIn("ui-flow-structure-full", listed)
+        for name in listed:
+            code, stdout, stderr = self.run_cli(["template", name])
+            self.assertEqual(0, code, name + stderr)
+            self.assertIn("===== ", stdout, name)
+        with tempfile.TemporaryDirectory() as directory:
+            code, stdout, _stderr = self.run_cli(["template", "structure-mesh", "--write", directory])
+            self.assertEqual(0, code)
+            self.assertTrue(any(Path(directory).rglob("run_checks.py")))
+            code, _stdout, stderr = self.run_cli(["template", "structure-mesh", "--write", directory])
+            self.assertEqual(1, code)
+            self.assertIn("--force", stderr)
+        code, _stdout, _stderr = self.run_cli(["template", "no-such-template"])
         self.assertEqual(2, code)
-        self.assertEqual("blocked", json.loads(stdout)["status"])
 
     def test_risk_template_cli_searches_and_harvests(self):
         search_report = search_risk_templates(
@@ -895,7 +824,7 @@ class PublicTemplateTests(unittest.TestCase):
         ]
         if home_name.lower() not in {"runner", "root"}:
             private_markers.append(home_name)
-        for factory in PUBLIC_TEMPLATE_FACTORIES + (project_adoption_template_files,):
+        for factory in PUBLIC_TEMPLATE_FACTORIES:
             with self.subTest(factory=factory.__name__):
                 for file in factory():
                     for marker in private_markers:

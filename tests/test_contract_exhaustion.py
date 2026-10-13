@@ -550,47 +550,6 @@ class ContractExhaustionTests(unittest.TestCase):
             {finding.code for finding in report.findings},
         )
 
-    def test_composite_result_requires_canonical_store_and_context(self):
-        base = ContractExhaustionPlan(
-            "cross-child-result-canonical-store",
-            seed_cases=(
-                ContractMutationCase(
-                    "cross-child",
-                    mutation_type=CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
-                    required_routes=(
-                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                        CONTRACT_ROUTE_TEST_MESH,
-                    ),
-                    expected_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
-                ),
-            ),
-            claim_scope="full",
-            composite_handoff_results=(
-                CompositeHandoffResult(
-                    result_id="composite-result:cross-child",
-                    acceptance_id="composite_handoff:cross-child",
-                    covered_route_ids=(
-                        CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                        CONTRACT_ROUTE_TEST_MESH,
-                    ),
-                    evidence_ids=("receipt:cross-child",),
-                ),
-            ),
-        )
-
-        with TemporaryDirectory() as folder:
-            report = review_contract_exhaustion(
-                replace(
-                    base,
-                    native_receipt_store_repository_root=folder,
-                )
-            )
-
-        self.assertFalse(report.ok)
-        self.assertIn(
-            "composite_handoff_evidence_missing",
-            {finding.code for finding in report.findings},
-        )
 
     def test_composite_result_rejects_foreign_route(self):
         base = ContractExhaustionPlan(
@@ -799,18 +758,7 @@ class ContractExhaustionTests(unittest.TestCase):
             {finding.code for finding in partitioned.findings},
         )
         self.assertTrue(partitioned.ok, partitioned.format_text())
-        self.assertEqual(CONTRACT_EXHAUSTION_DECISION_SCOPED, partitioned.decision)
-        self.assertIn(
-            "partition_boundary_verification_missing",
-            {finding.code for finding in partitioned.findings},
-        )
-        self.assertTrue(
-            all(
-                finding.severity == "confidence_gap"
-                for finding in partitioned.findings
-                if finding.code == "partition_boundary_verification_missing"
-            )
-        )
+        self.assertNotIn("partition_group_coverage_incomplete", {f.code for f in partitioned.findings})
 
     def test_actionable_oracle_feedback_requires_message_and_repair_fields(self):
         report = review_contract_exhaustion(

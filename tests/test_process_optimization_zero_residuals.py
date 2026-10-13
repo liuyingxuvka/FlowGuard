@@ -1,9 +1,7 @@
-from dataclasses import is_dataclass
 from pathlib import Path
 import unittest
 
 import flowguard
-import flowguard.development_process_strategy as optimization
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -78,8 +76,6 @@ def current_guidance_files():
                 yield path
     for relative in (
         "AGENTS.md",
-        "docs/agents_snippet.md",
-        "docs/api_surface.md",
         "docs/development_process_flow.md",
         "docs/development_process_strategy_selection.md",
         "docs/test_evidence_mesh.md",
@@ -88,16 +84,6 @@ def current_guidance_files():
 
 
 class ProcessOptimizationZeroResidualTests(unittest.TestCase):
-    def test_optimizer_public_surface_is_exactly_five_records_and_one_review(self):
-        self.assertEqual(PUBLIC_OPTIMIZER_API, tuple(optimization.__all__))
-        record_names = tuple(
-            name for name in PUBLIC_OPTIMIZER_API if is_dataclass(getattr(optimization, name))
-        )
-        self.assertEqual(PUBLIC_OPTIMIZER_API[:5], record_names)
-        process_api = set(flowguard.FLOWGUARD_ROUTE_API["development_process_flow"])
-        self.assertTrue(set(PUBLIC_OPTIMIZER_API).issubset(process_api))
-        self.assertNotIn("development_process_strategy", flowguard.FLOWGUARD_ROUTE_API)
-
     def test_retired_runtime_names_have_no_public_authority(self):
         for name in RETIRED_RUNTIME_NAMES:
             with self.subTest(name=name):
@@ -122,9 +108,9 @@ class ProcessOptimizationZeroResidualTests(unittest.TestCase):
         skills = ROOT / ".agents" / "skills"
         self.assertFalse((skills / "flowguard-plan-detailing-compiler").exists())
         self.assertFalse((skills / "flowguard-agent-workflow-rehearsal").exists())
-        dpf = skills / "flowguard" / "references" / "domains" / "development-process-flow"
-        self.assertTrue((dpf / "references" / "plan_detailing_protocol.md").is_file())
-        self.assertTrue((dpf / "references" / "agent_workflow_protocol.md").is_file())
+        protocol = (skills / "flowguard" / "references" / "domains" / "development-process" / "protocol.md").read_text(encoding="utf-8").lower()
+        self.assertIn("plan detailing", protocol)
+        self.assertIn("agent workflow", protocol)
 
 
 if __name__ == "__main__":

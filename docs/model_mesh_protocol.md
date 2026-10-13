@@ -30,10 +30,10 @@ not parent confidence by itself. The parent mesh must reattach the child through
 the input, output, state, side-effect, outgoing-contract, and evidence-id
 handoff that the parent flow consumes.
 
-When a broad final claim depends on mesh evidence, the mesh should provide the
-consumed child evidence ids and freshness status to the Risk Evidence Ledger.
-ModelMesh owns parent/child reattachment; the ledger owns whether that current
-mesh evidence is enough for a specific user-facing risk row.
+When a broad final claim depends on mesh evidence, report the consumed child
+evidence ids and whether each child is still fresh (`python -m flowguard map
+check`). ModelMesh owns parent/child reattachment; it does not by itself decide
+that a specific user-facing risk is covered.
 
 Keep the current bug instance separate from bug-class responsibility.
 Model-Miss Review owns classification of the observed instance and the
@@ -55,7 +55,7 @@ child model structure from a FlowGuard source model or model-of-models. The
 target split derivation should name the source model, target child model ids,
 covered parent partition items, state ownership fields, side-effect ownership
 fields, and the rationale for the split. A supplied partition map is review
-input, not authority by itself.
+input, not proof by itself.
 
 ## Inventory
 
@@ -85,7 +85,7 @@ Before trusting existing models, write a compact inventory:
 | `reattachment_contracts` | Parent expectations for repaired child inputs, outputs, ownership, outgoing guarantees, and consumed evidence ids. |
 | `closure_model` | FlowGuard-style parent/child handoff model for root entries, child outputs, consumers, joins, terminals, and out-of-scope dispositions. |
 | `contract_exhaustion_case_ids` | Canonical case ids projected from closure hazards such as stale child evidence, unconsumed child output, or repeat/no-delta loops. |
-| `coverage_receipt_ids` | Model-scoped Cartesian coverage receipts consumed by this parent or child boundary. |
+| `coverage_receipt_ids` | Ids of `ModelContractCoverageReceipt` rows (model-scoped Cartesian coverage) consumed by this parent or child boundary. |
 
 ## Partition And Overlap Review
 
@@ -154,11 +154,12 @@ the child state graph; it checks whether the child can still plug into the
 parent's modeled handoff.
 
 When ContractExhaustionMesh emits `ModelContractCoverageReceipt` rows, treat
-them as model-local evidence ids. A child receipt is not automatically parent
-coverage. The parent partition map must list required child receipt ids and the
-parent receipt must consume them before a broad parent or root claim can be
-green. Missing, stale, duplicate, incomplete, scoped, blocked, or unconsumed
-receipts keep the mesh decision scoped or blocked.
+them as model-local coverage results. A child's coverage is not automatically
+parent coverage. List the required child coverage ids in
+`HierarchyPartitionMap.required_coverage_receipt_ids` and pass the rows in
+`coverage_receipts` before a broad parent or root claim can be green. Missing,
+stale, duplicate, incomplete, scoped, blocked, or unconsumed coverage rows keep
+the mesh decision scoped or blocked.
 
 ## Mesh Closure Model
 
@@ -223,7 +224,7 @@ Keep the mesh finite and inspectable. A useful mesh state usually contains:
 
 - registered child models and their declared risk boundaries;
 - evidence tier and freshness for each child model;
-- model-scoped Cartesian coverage receipts and required child receipt ids;
+- model-scoped Cartesian coverage rows and the required child coverage ids;
 - live/current run or artifact facts that the decision depends on;
 - cross-model dependencies and contract obligations;
 - child reattachment contracts and consumed child evidence ids when a repaired
@@ -248,7 +249,7 @@ CheckPartitionCoverage x State -> Set(CoverageReport x State)
 CheckSiblingOverlap x State -> Set(OverlapReport x State)
 ReviewMeshClosure x State -> Set(ClosureReport x State)
 ReviewLargeModelSplit x State -> Set(SplitDecision x State)
-DecideMeshAuthority x State -> Set(ContinueOrBlock x State)
+DecideMeshConfidence x State -> Set(ContinueOrBlock x State)
 ```
 
 ## Required Hazards
@@ -260,7 +261,7 @@ At minimum, the mesh must make these broken variants fail:
    inside a green result.
 3. Stale or foreign result files are reused after source, prompt, route, input,
    or runtime facts changed.
-4. A model that is not registered in the inventory is used as authority.
+4. A model that is not registered in the inventory is used as trusted evidence.
 5. Two child models make incompatible claims about the same state, artifact,
    owner, or handoff.
 6. A live blocker, open defect, or unresolved model-miss obligation is hidden
@@ -269,7 +270,7 @@ At minimum, the mesh must make these broken variants fail:
 8. A post-runtime model miss is fixed in code without adding a same-class
    model scenario, invariant, replay adapter, or out-of-scope boundary.
 9. The mesh reads sealed/private packet, report, or result bodies instead of
-   metadata and explicit evidence pointers.
+   metadata and explicit evidence ids.
 10. Local installed skill/source copies are stale but accepted as current.
 11. The mesh expands every child state graph and becomes too large to inspect.
 12. The project has three or more FlowGuard models but no mesh decision is
@@ -308,8 +309,8 @@ At minimum, the mesh must make these broken variants fail:
     produced by a root entry, child output, transition, or join.
 31. A repeated AI packet or rejected input is returned with the same packet or
     token shape and no repair instruction, so the next packet can be identical.
-31. A final full-confidence claim cites child model evidence that was never
-    attached to a Risk Evidence Ledger row.
+32. A final full-confidence claim cites child model evidence that is stale in
+    `python -m flowguard map check` or was never rerun after the change.
 
 ## Prompt Template
 
@@ -405,7 +406,7 @@ The mesh is sufficient for the current decision only when:
 - child boundary changes have propagated to every parent that consumes the
   child evidence id;
 - boundary-change, reattachment, oversized-model, and duplicate-edge-path
-  findings have been resolved or scoped through `review_model_maturation_loop(...)`;
+  findings have been resolved or explicitly scoped;
 - affected siblings with overlapping ownership, read-only dependency,
   shared-kernel use, or outgoing-contract dependency have been reviewed or
   shown unaffected;

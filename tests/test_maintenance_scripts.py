@@ -1,13 +1,8 @@
-import contextlib
-import io
-import json
 import tempfile
 import textwrap
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
-from scripts.run_flowguard_model_regressions import main as run_model_regressions
 from scripts.generate_field_lifecycle_inventory import (
     collect_field_inventory,
     infer_ai_surface_tier,
@@ -17,18 +12,6 @@ from scripts.generate_field_lifecycle_inventory import (
 
 
 class MaintenanceScriptTests(unittest.TestCase):
-    def test_model_regression_runner_requires_manifest_authority(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            output = io.StringIO()
-            with contextlib.redirect_stdout(output):
-                exit_code = run_model_regressions(
-                    ["--root", str(root), "--json"]
-                )
-
-            self.assertEqual(3, exit_code)
-            self.assertIn("missing model regression manifest", output.getvalue())
-
     def test_field_inventory_infers_lifecycle_layers(self):
         self.assertEqual("behavior_or_contract", infer_lifecycle_layer("external_inputs"))
         self.assertEqual("compatibility_or_old_path", infer_lifecycle_layer("legacy_alias"))

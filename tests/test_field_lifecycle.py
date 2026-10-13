@@ -313,14 +313,5 @@ class FieldLifecycleTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(flowguard.FIELD_DECISION_FULL, report.decision)
 
-    def test_field_lifecycle_api_is_route_scoped_not_core(self):
-        for name in ("FieldLifecyclePlan", "FieldLifecycleRow", "review_field_lifecycle"):
-            self.assertIn(name, flowguard.FIELD_LIFECYCLE_MESH_API)
-            self.assertIn(name, flowguard.MODELING_HELPER_API)
-            self.assertIn(name, flowguard.__all__)
-            self.assertTrue(hasattr(flowguard, name))
-            self.assertNotIn(name, flowguard.CORE_API)
-
-
 if __name__ == "__main__":
     unittest.main()

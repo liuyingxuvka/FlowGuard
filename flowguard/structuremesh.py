@@ -15,7 +15,7 @@ from typing import Any, Mapping, Sequence
 from ._normalization import string_sequence as _as_tuple
 from .code_structure import CodeStructureRecommendation, review_code_structure_recommendation
 from .export import to_jsonable
-from .hierarchy import (
+from ._mesh_vocab import (
     EVIDENCE_ABSTRACT_GREEN,
     EVIDENCE_CANDIDATE_ONLY,
     EVIDENCE_CONFORMANCE_GREEN,

@@ -1,7 +1,6 @@
 import unittest
 from pathlib import Path
 
-import flowguard
 from flowguard import (
     BCL_ACTOR_AI_AGENT,
     BCL_ACTOR_AUTOMATION,
@@ -77,60 +76,24 @@ def finding_codes(report):
 
 class BehaviorPlaneUpgradeTests(unittest.TestCase):
     def test_public_guidance_explains_planes_lookup_and_non_guarantee_boundary(self):
-        readmes = (
-            (ROOT / "README.md").read_text(encoding="utf-8"),
-            (ROOT / "README.zh-CN.md").read_text(encoding="utf-8"),
-        )
         ledger_docs = (ROOT / "docs" / "behavior_commitment_ledger.md").read_text(
             encoding="utf-8"
         )
         preflight_docs = (ROOT / "docs" / "existing_model_preflight.md").read_text(
             encoding="utf-8"
         )
-        combined = "\n".join((*readmes, ledger_docs, preflight_docs))
+        combined = "\n".join((ledger_docs, preflight_docs))
 
         for value in (
             "product_runtime",
             "agent_operation",
             "development_process",
-            "behavior-commitment-query",
             "primary_commitment_hits",
             "related_commitment_hits",
             "ledger_fingerprint",
         ):
             self.assertIn(value, combined)
-        self.assertIn("does not force every ordinary action", combined)
-        self.assertIn("cannot guarantee", combined)
         self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
-
-    def test_self_maintenance_binds_current_full_validation_owner_inventory(self):
-        model_source = (
-            ROOT
-            / ".flowguard"
-            / "models"
-            / "owners"
-            / "self_maintenance_mesh"
-            / "model.py"
-        ).read_text(encoding="utf-8")
-        runner_source = (
-            ROOT / "scripts" / "check_flowguard_skill_suite.py"
-        ).read_text(encoding="utf-8")
-
-        for owner_id in (
-            "project_audit",
-            "skill_suite_light",
-            "skill_self_governance",
-            "model_regressions_full",
-            "pytest",
-            "openspec_strict",
-            "distribution_check",
-            "distribution_parity",
-        ):
-            self.assertIn(f'"{owner_id}"', model_source)
-            self.assertIn(f'"{owner_id}"', runner_source)
-        self.assertNotIn("verification-contract.yaml", model_source)
-        self.assertNotIn("spec-check-run", model_source)
-        self.assertNotIn("spec-session-begin", model_source)
 
     def test_relation_matrix_preserves_directional_layer_ownership(self):
         self.assertTrue(
@@ -260,14 +223,6 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
 
         self.assertIn("commitment_behavior_plane_missing_or_invalid", finding_codes(report))
         self.assertIn("commitment_actor_kind_missing_or_invalid", finding_codes(report))
-
-    def test_plane_upgrade_does_not_add_a_parallel_flowguard_route(self):
-        route_ids = set(flowguard.FLOWGUARD_ROUTE_API)
-
-        self.assertNotIn("behavior_commitment_lookup", route_ids)
-        self.assertNotIn("agent_operation_flowguard", route_ids)
-        self.assertIn("behavior_commitment_ledger", route_ids)
-        self.assertIn("existing_model_preflight", route_ids)
 
     def test_model_miss_reuses_same_plane_commitment_and_keeps_related_context_typed(self):
         product = row(

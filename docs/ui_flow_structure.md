@@ -888,8 +888,11 @@ print(text_report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard ui-flow-structure-template --output .
+python -m flowguard template ui-flow-structure --output .
 ```
+
+For the larger scaffold with every UI review stage, use
+`python -m flowguard template ui-flow-structure-full --output .`.
 
 ## Relationship To Other Routes
 

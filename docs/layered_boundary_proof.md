@@ -44,6 +44,9 @@ child contracts and leaf cells cannot be supported by declaration-only
 `passed/current` rows. Each row needs a `ProofArtifactRef` with a result path,
 artifact fingerprint, passing status, current route evidence, matching covered
 obligations, and external-contract scope.
+Strict plans (the default) also require each child contract to name its single
+`owner_id` and the `model_fingerprint` of the model version that produced the
+evidence, so a rerun against a changed model cannot pass as the old result.
 
 ```python
 from flowguard import (
@@ -65,6 +68,8 @@ plan = LayeredBoundaryProofPlan(
     child_contracts=(
         ChildProofContract(
             "validate",
+            owner_id="validate-owner",
+            model_fingerprint="sha256:validate-model",
             evidence_id="validate:v1",
             responsibilities=("validate-submit",),
             inputs_accepted=("empty-submit",),
@@ -123,5 +128,5 @@ assert report.ok
 Generate a project scaffold with:
 
 ```powershell
-python -m flowguard layered-boundary-proof-template --output .
+python -m flowguard template layered-boundary-proof --write .
 ```

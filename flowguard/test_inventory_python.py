@@ -9,8 +9,8 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 from .portable_model import canonical_identity
-from .source_identity import source_file_fingerprint
 from .test_inventory import (
+    source_file_fingerprint,
     TEST_DISPOSITION_UNRESOLVED,
     TestAssertion,
     TestDiscoveryResult,

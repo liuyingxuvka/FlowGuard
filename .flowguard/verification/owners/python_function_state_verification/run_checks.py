@@ -7,8 +7,8 @@ MODEL_ROOT = ROOT / ".flowguard/models/owners/python_function_state_verification
 for path in (ROOT, MODEL_ROOT):
     sys.path.insert(0, str(path))
 
-from model import export_path_quality_source, run_review
-from flowguard.native_case_runner import native_main
+from model import run_review
+from flowguard.map.runner import run_owner
 
 
 def main():
@@ -19,5 +19,4 @@ def main():
 
 
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:python_function_state_verification", main,
-                                declared_source_exporter=export_path_quality_source))
+    raise SystemExit(run_owner(main))

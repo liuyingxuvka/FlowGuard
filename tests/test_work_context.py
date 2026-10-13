@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import tempfile
@@ -11,13 +10,11 @@ import flowguard
 from flowguard.work_context import (
     WorkContext,
     discover_work_contexts,
-    project_work_context_intent_contributions,
     read_work_context,
     read_project_work_contexts,
     registered_work_context_adapter_ids,
     review_work_context,
 )
-from flowguard.model_intent import WorkContextIntentMapping
 from flowguard.work_context_adapters.declared_files import (
     DECLARED_PROFILE_CHANGELOG,
     DECLARED_PROFILE_OPENSPARK,
@@ -71,67 +68,7 @@ def declared_profile(root: Path, name: str) -> dict[str, object]:
 
 
 class WorkContextTests(unittest.TestCase):
-    def test_intent_projection_is_explicit_content_addressed_and_read_only(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_change(root)
-            context = read_work_context(
-                root,
-                "change-one",
-                adapter_id=OPEN_SPEC_ADAPTER_ID,
-            )
-            proposal = next(
-                item for item in context.artifacts
-                if item.source_ref.endswith("/proposal.md")
-            )
-            mappings = (
-                WorkContextIntentMapping(
-                    artifact_id=proposal.artifact_id,
-                    contribution_id="intent:proposal",
-                    source_kind="requirement",
-                    subject_role="requirement",
-                    lifecycle_state="candidate",
-                    decision_state="proposed",
-                    logical_model_id="model:planner",
-                    unresolved_owner_id="",
-                    supersedes_contribution_ids=(),
-                    conflicts_with_contribution_ids=(),
-                    target_obligation_ids=("obligation:planner",),
-                    target_state_ids=(),
-                    target_transition_ids=(),
-                    target_invariant_ids=(),
-                    target_relation_ids=(),
-                    desired_terminal_state_ids=(),
-                    target_output_ids=(),
-                    declared_consumer_ids=(),
-                    effective_revision="candidate:planner-v2",
-                    rationale=(
-                        "The declared proposal contributes one bounded planner "
-                        "requirement and carries no provider authority."
-                    ),
-                ),
-            )
-            self.assertEqual(
-                mappings[0],
-                WorkContextIntentMapping.from_dict(mappings[0].to_dict()),
-            )
-
-            projected = project_work_context_intent_contributions(
-                context,
-                mappings,
-            )
-
-            self.assertEqual(1, len(projected))
-            item = projected[0]
-            self.assertEqual(proposal.source_ref, item.source_ref)
-            self.assertEqual(proposal.content_fingerprint, item.source_fingerprint)
-            self.assertEqual(context.context_id, item.work_context_id)
-            self.assertEqual(context.context_fingerprint, item.work_context_fingerprint)
-            self.assertEqual(context.native_owner_id, item.native_owner_id)
-            self.assertEqual("proposed", item.decision_state)
-            self.assertTrue(context.read_only)
-
-    def test_unmapped_history_stays_context_and_unknown_mapping_fails_closed(self) -> None:
+    def test_unmapped_history_stays_context(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             profile = declared_profile(root, "planner")
@@ -148,34 +85,9 @@ class WorkContextTests(unittest.TestCase):
                 declaration=profile,
             )
 
-            self.assertEqual((), project_work_context_intent_contributions(context, ()))
-            bad = WorkContextIntentMapping(
-                artifact_id="missing:artifact",
-                contribution_id="intent:missing",
-                source_kind="changelog",
-                subject_role="history",
-                lifecycle_state="historical",
-                decision_state="proposed",
-                logical_model_id="",
-                unresolved_owner_id="owner:history",
-                supersedes_contribution_ids=(),
-                conflicts_with_contribution_ids=(),
-                target_obligation_ids=(),
-                target_state_ids=(),
-                target_transition_ids=(),
-                target_invariant_ids=(),
-                target_relation_ids=(),
-                desired_terminal_state_ids=(),
-                target_output_ids=(),
-                declared_consumer_ids=(),
-                effective_revision="history:unknown",
-                rationale=(
-                    "This missing mapping must fail closed instead of inventing "
-                    "a historical behavior commitment."
-                ),
-            )
-            with self.assertRaisesRegex(ValueError, "artifact"):
-                project_work_context_intent_contributions(context, (bad,))
+            history_artifacts = [a for a in context.artifacts if a.source_ref.endswith("CHANGELOG.md")]
+            self.assertEqual(1, len(history_artifacts))
+            self.assertEqual("history", history_artifacts[0].artifact_role)
 
     def test_review_rereads_source_bytes_and_detects_mutation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -437,8 +349,7 @@ required = true
             )
 
     def test_public_api_and_cli_expose_only_current_work_context_surface(self) -> None:
-        self.assertTrue(flowguard.WORK_CONTEXT_API)
-        self.assertIn("read_work_context", flowguard.WORK_CONTEXT_API)
+        self.assertIn("read_work_context", flowguard.__all__)
         for retired in (
             "SPEC_CONTEXT_API",
             "SpecContext",
@@ -471,9 +382,7 @@ required = true
                 check=False,
             )
             self.assertEqual(2, completed.returncode, completed.stderr)
-            payload = json.loads(completed.stdout)
-            self.assertEqual("blocked", payload["status"])
-            self.assertIn("unknown operation", payload["error"])
+            self.assertIn("unknown command", completed.stderr)
 
             help_result = subprocess.run(
                 [sys.executable, "-m", "flowguard", "--help"],

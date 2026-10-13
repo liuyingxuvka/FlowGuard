@@ -3,7 +3,7 @@
 `WorkContext` is FlowGuard's read-only boundary for external requirements,
 plans, designs, tasks, status, and other planning inputs. OpenSpec, Spec Kit,
 Superpowers, custom skills, and declared files are peer sources. No provider is
-the default or the authority for FlowGuard itself.
+the default, and none decides what FlowGuard itself checks.
 
 Each context preserves:
 
@@ -14,13 +14,18 @@ Each context preserves:
 - the native artifact id, source reference, byte size, and SHA-256 content
   fingerprint;
 - the normative, observed, or experimental subject lane;
-- optional behavior-source ids used by the exact coverage inventory.
+- optional behavior-source ids (`behavior_source_surface_ids`) used by the
+  coverage inventory.
 
 The common layer never writes provider files, executes provider commands,
 starts provider sessions, owns provider checks, caches provider status, or
 turns provider completion into model/test evidence. Unknown adapters, paths
-outside the project, missing required roles, stale fingerprints, and
-provider-authority metadata block the context.
+outside the project, missing required roles, stale fingerprints, and metadata
+that claims provider execution rights block the context
+(`review_work_context()` reports finding codes such as
+`work_context_adapter_unregistered`, `work_context_required_role_missing`,
+`work_context_artifact_source_changed`, `work_context_fingerprint_stale`, and
+`work_context_provider_authority_forbidden`).
 
 ## Declaring project sources
 
@@ -50,24 +55,30 @@ explicit bounded file set without embedding provider logic in the core.
 `declared_files_source_profile()` supplies bounded source shapes for `spark`,
 `openspark`, and `changelog`. These are still ordinary declared files, not
 provider execution bridges. A changelog row is `history`; it does not silently
-become intended current behavior. Only an explicit, content-addressed
-`WorkContextIntentMapping` can project one current artifact into a
-`ModelIntentContribution`. ModelRevisionSet then accepts, defers, rejects, or
-supersedes that contribution inside the same model lineage; unresolved or
-conflicting effects block acceptance.
+become intended current behavior. If a current artifact should change what a
+model expects, a person or agent edits the model (and its tests) explicitly,
+then runs the model and tests to show the new behavior holds; the WorkContext
+itself only records which bytes were read.
 
-## Commands
+## API and template
 
-Read one native work item:
+Read one native work item, or discover all active ones for an adapter:
 
-```text
-python -m flowguard work-context --root . --adapter openspec --work-id <change-id> --json
+```python
+from flowguard import read_work_context, discover_work_contexts, review_work_context
+
+context = read_work_context(".", "<change-id>", adapter_id="openspec")
+review = review_work_context(context)
+print(review.ok, review.finding_codes)
+
+contexts = discover_work_contexts(".", adapter_id="openspec")
 ```
 
-Generate a project-local executable example:
+Print a starter model for this capability (add `--write <dir>` to write the
+files):
 
 ```text
-python -m flowguard work-context-template --destination .
+python -m flowguard template work-context
 ```
 
 `read_project_work_contexts()` reads all declared sources, validates their

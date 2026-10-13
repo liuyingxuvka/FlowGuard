@@ -1,66 +1,80 @@
 ---
 name: flowguard
-description: FlowGuard's single public entry for behavior and state modeling, lifecycle checks, and evidence-aware release boundaries.
+description: Living, code-anchored map of the software plus executable models and 14 focused capabilities (existing-model preflight, behavior commitments, architecture reduction, code structure, contract exhaustion, development process, field lifecycle, model mesh, model miss, model-test alignment, topology hazard, structure mesh, test mesh, UI flow). Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
 ---
 
 # FlowGuard
 
-FlowGuard is one public skill using an explicit finite model.
-Domain references load on demand, never wholesale.
+FlowGuard keeps, next to the code and committed to git:
 
-## Fixed public lifecycle
+1. **The map** `.flowguard/map.json`: components, what each one owns (responsibilities, state, side
+   effects), files, entrypoints, dependencies, tests and models. A confirmed component stores a
+   fingerprint of its files; when the code changes it becomes STALE until it is re-read and confirmed.
+2. **Models**: executable `Input x State -> Set(Output x State)` models, either contract files
+   `.flowguard/models/<id>.py` or model runners `.../run_checks.py` listed in a component's `models`.
+   A model must pass for the intended design, FAIL for its known-bad variants, and (when it can)
+   replay its traces against the real code (conformance).
 
-Only `read`, `change`, and `release` are public.
+Commands: `python -m flowguard read | change | release | template` and `python -m flowguard map <command>`.
 
-- `read` consumes accepted current and selected references: zero producers/writes.
-- `change` freezes affected obligations, runs their native owners and accepts
-  once through compare-and-swap.
-- `release` checks declared scope, reuses exact evidence, fills missing artifact
-  obligations and verifies the projection.
+## Every session
 
-Use the real root and one request. Missing/ambiguous/foreign/stale/contradictory
-inputs block; never guess a root, subject, command or profile.
+1. `python -m flowguard read` - the whole map (a few thousand tokens). Read it before opening source files.
+2. Before adding behavior: `python -m flowguard read --find <words>`; extend the existing owner. Create a
+   new component only when nothing owns the responsibility.
+3. Open only the files of the components you touch: `python -m flowguard read --component <id>`.
 
-## Model-purpose gate
+## After editing code
 
-Freeze each instance's task-specific failure(s), candidate, finite boundary and
-native good/bad-per-failure/oracle/current evidence before claiming sufficiency.
-Reusable model types are not permanently single-purpose.
-Only FlowGuard-declared checks may support completion claims.
-No mode/fallback path is available. Ordinary `change` runs
-selected protected-failure checks and derived structure coverage; per-element
-good/bad/draft evidence belongs only to explicit reduction or candidate comparison.
+1. `python -m flowguard change` (check + impact).
+2. Fix every ERROR: `file_unmapped` (add the file to one component), `dep_undeclared` (intended and
+   layer-respecting: add to `depends_on`; otherwise move code or drop the import), `anchor_broken` /
+   `flow_step_broken` / `model_anchor_broken` (update the name).
+3. Run exactly the tests and models it lists. Never claim a test passed unless you ran it.
+4. For each REVIEW component: read the change, update `summary`/`responsibilities`/`state`/
+   `side_effects` if behavior changed, then `python -m flowguard map confirm <id>`.
 
-## Read only what is selected
+## Capabilities: pick at most one per task
 
-Start with `references/route_index.md` and the required accepted model/index.
-Load the selected `references/domains/<subject>/protocol.md` and named dependencies;
-Model changes: `references/modeling_core_protocol.md`.
+Read only the protocol of the capability you pick: `references/domains/<name>/protocol.md`.
+Starter files: `python -m flowguard template --list`, then `python -m flowguard template <name> --write .`.
+If none clearly fits, use plain modeling (`references/model_recipes.md`).
 
-Read the functional map's current structure, admitted target, original gaps, real action locations
-and unknown scope together. Start with required responsibilities/related contexts;
-expand for named missing inputs/obligations. No arbitrary cost ceiling closes
-understanding; no scoped pass proves whole-software optimality.
-Bind finite add/modify/delete/rename observations to the task; absent growth stays
-`NOT_OBSERVED`. Consume its verified result or original diagnostic's gap/input/owner.
-Diagnostic and read
-success cannot close the task: require current verified maturation, every
-requested outcome and no required open gap. Share one invocation's cached reads;
-retain the independent final input/head/index guard. Fetch exact pointer details
-on demand; never invent locations/owners.
+| capability | use when |
+| --- | --- |
+| existing-model | before changing behavior that an existing component or model may already own |
+| behavior-commitment | external promises (API, CLI, UI, workflow) need one owner, a source and tests; no silent fallback paths |
+| architecture-reduction | code may shrink or merge without changing behavior |
+| code-structure | deciding where new code goes before writing it |
+| contract-exhaustion | a finite input universe needs every bad case or combination enumerated |
+| development-process | staged work, freshness of results, what to rerun, release order |
+| field-lifecycle | fields, schemas, defaults, aliases or replacements change |
+| model-mesh | several models must fit together (parent/child, producer/consumer) |
+| model-miss | a bug escaped although the model was green |
+| model-test | rules, code and tests must be checked against each other |
+| topology-hazard | a green model needs review for future-use hazards (shared writers, repeatable effects) |
+| structure-mesh | splitting or refactoring a module while keeping its public surface |
+| test-mesh | the test suite is large, slow, layered or sharded |
+| ui-flow | UI states, journeys, controls, cancel/recover, operability |
 
-## Hard boundaries
+## Models for risky flows
 
-- Preserve `unknown`, `blocked`, `not-run`, `skipped`, stale, and failed.
-- Bind owners to real implementation/oracle/inputs/environment/evidence.
-- Reuse exact functional identity; parent summaries/install receipts are not
-  leaf business proof.
-- Read never refreshes. Change/release stop on drift, CAS conflict, missing
-  owners, cleanup failure or incomplete evidence.
-- Installation, parity, Git, tags, and publication are separate claims.
+Retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions, multi-step
+flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), list it in
+the component's `models`, run `python -m flowguard map models <id>`.
 
-## Result
+## First map of an existing project
 
-Report operation/status, required/run/reuse counts, blockers, evidence locations,
-claim boundary, residual risk and typed next actions. Keep the default result bounded;
-put details at the explicit evidence location. Never truncate checks.
+`references/first_map.md` (scan -> digest -> describe -> deps -> check -> confirm -> lint). `scan`
+also runs discovery: routes, CLI commands, side effects and state writers found in the code
+(`python -m flowguard map discover` shows them). Read digests, not whole files.
+
+## Architecture review and release
+
+`python -m flowguard map lint` (`references/architecture_review.md`). Release: `python -m flowguard
+release` plus the full test suite; both must pass.
+
+## Honesty rules
+
+Keep `draft` when unsure; never invent anchors, owners or results; report what you ran, failed and
+skipped. The map describes the current code; history lives in git.

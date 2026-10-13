@@ -31,6 +31,6 @@ def main() -> int:
     print(report.format_text())
     return 0 if report.ok else 1
 
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:bounded_system_composition_benchmark", main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(main))

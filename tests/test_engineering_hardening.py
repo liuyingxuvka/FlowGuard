@@ -1,6 +1,4 @@
 import json
-import subprocess
-import sys
 import unittest
 
 from flowguard.pytest_adapter import assert_no_executable_corpus_regression
@@ -42,51 +40,6 @@ class EngineeringHardeningTests(unittest.TestCase):
         self.assertIn("run_checks.py", paths)
         for item in files:
             self.assertTrue(item.content.strip())
-
-    def test_cli_schema_version_wrapper(self):
-        completed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "schema-version"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        payload = json.loads(completed.stdout)
-        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual("unknown operation: schema-version", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
-
-    def test_cli_adoption_template_wrapper(self):
-        completed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "adoption-template"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        payload = json.loads(completed.stdout)
-        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual("unknown operation: adoption-template", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
-
-    def test_cli_benchmark_wrapper_preserves_baseline_gate(self):
-        completed = subprocess.run(
-            [sys.executable, "-m", "flowguard", "benchmark"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        payload = json.loads(completed.stdout)
-        self.assertEqual(2, completed.returncode, completed.stdout + completed.stderr)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual("unknown operation: benchmark", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
 
     def test_pytest_adapter_style_regression_assertion(self):
         class Report:

@@ -40,7 +40,6 @@ from flowguard import (
     review_python_contract_source_audit,
     review_model_test_alignment,
 )
-from flowguard.software_blueprint_readiness import DelegatedAssertionHelper
 
 
 @dataclass(frozen=True)
@@ -58,76 +57,12 @@ class RolloutCase:
 # so SkillGuard's native owner cannot claim alignment from the model alone.
 NATIVE_PYTEST_SELECTORS = (
     "tests/test_model_test_alignment.py",
-    "tests/test_implementation_blueprint.py::test_binding_review_is_bidirectional_and_exposes_integration_protocol",
-    "tests/test_implementation_blueprint.py::test_path_binding_without_semantics_and_oracles_is_only_traceability",
-    "tests/test_project_blueprint.py::test_shared_test_glob_is_supporting_and_does_not_grant_coverage_ownership",
-    "tests/test_project_blueprint.py::test_same_owner_behavior_contracts_are_partitioned_by_block",
-    "tests/test_project_blueprint.py::test_external_python_project_uses_generic_read_only_builder",
-    "tests/test_software_blueprint_readiness.py::test_exact_current_leaf_receipt_closes_executed_evidence",
-    "tests/test_software_blueprint_readiness.py::test_execution_receipt_rules_remain_separate_from_design",
-    "tests/test_software_blueprint_readiness.py::test_not_run_skip_or_xfail_dispositions_never_become_executed_pass",
-    "tests/test_software_blueprint_readiness.py::test_portable_binding_must_preserve_the_protected_failure_boundary",
-    "tests/test_software_blueprint_readiness.py::test_sibling_blocks_cannot_borrow_case_design_or_coverage",
-    "tests/test_software_blueprint_readiness.py::test_delegated_assertion_helpers_require_current_terminal_acyclic_paths",
-    "tests/test_software_blueprint_readiness.py::test_placeholder_or_cross_test_member_cannot_close_coverage",
-    "tests/test_software_blueprint_readiness.py::test_validation_parent_receipt_cannot_impersonate_leaf_coverage",
-    "tests/test_software_blueprint_readiness.py::test_one_receipt_cannot_be_reused_across_execution_owners",
-    "tests/test_validation_execution_ownership.py::ValidationExecutionOwnershipTests::test_child_bound_owner_receipt_consumes_real_verified_child",
-    "tests/test_model_revision_owner_evidence.py::ModelRevisionOwnerEvidenceTests::test_produces_distinct_child_bound_owner_receipts_accepted_by_builder",
 )
 
 NATIVE_TEST_OBLIGATION_BINDINGS = (
     (
         "pre_code_design_is_not_execution",
         "tests/test_model_test_alignment.py::ModelTestAlignmentTests::test_pre_code_design_ready_does_not_promote_not_run_evidence",
-    ),
-    (
-        "blueprint_traceability_is_bidirectional_and_not_semantic_proof",
-        "tests/test_implementation_blueprint.py::test_path_binding_without_semantics_and_oracles_is_only_traceability",
-    ),
-    (
-        "executed_pass_requires_exact_current_owner_leaf",
-        "tests/test_software_blueprint_readiness.py::test_exact_current_leaf_receipt_closes_executed_evidence",
-    ),
-    (
-        "validation_parent_cannot_replace_owner_leaf",
-        "tests/test_software_blueprint_readiness.py::test_validation_parent_receipt_cannot_impersonate_leaf_coverage",
-    ),
-    (
-        "one_leaf_receipt_cannot_be_reused_across_owners",
-        "tests/test_software_blueprint_readiness.py::test_one_receipt_cannot_be_reused_across_execution_owners",
-    ),
-    (
-        "block_local_failures_cannot_be_copied_to_siblings",
-        "tests/test_software_blueprint_readiness.py::test_portable_binding_must_preserve_the_protected_failure_boundary",
-    ),
-    (
-        "owner_wide_result_is_not_leaf_execution",
-        "tests/test_software_blueprint_readiness.py::test_execution_receipt_rules_remain_separate_from_design",
-    ),
-    (
-        "planned_checker_without_leaf_receipt_stays_not_run",
-        "tests/test_software_blueprint_readiness.py::test_not_run_skip_or_xfail_dispositions_never_become_executed_pass",
-    ),
-    (
-        "sibling_case_and_checker_evidence_remains_partitioned",
-        "tests/test_software_blueprint_readiness.py::test_sibling_blocks_cannot_borrow_case_design_or_coverage",
-    ),
-    (
-        "coverage_owner_comes_from_exact_coverage_contract",
-        "tests/test_project_blueprint.py::test_shared_test_glob_is_supporting_and_does_not_grant_coverage_ownership",
-    ),
-    (
-        "behavior_block_implementation_binding_is_distinct_from_model_owner",
-        "tests/test_project_blueprint.py::test_external_python_project_uses_generic_read_only_builder",
-    ),
-    (
-        "delegated_checker_requires_current_terminal_graph",
-        "tests/test_software_blueprint_readiness.py::test_delegated_assertion_helpers_require_current_terminal_acyclic_paths",
-    ),
-    (
-        "delegated_checker_cannot_borrow_sibling_test_ownership",
-        "tests/test_software_blueprint_readiness.py::test_placeholder_or_cross_test_member_cannot_close_coverage",
     ),
 )
 
@@ -150,18 +85,6 @@ def native_test_obligation_bindings_are_executed() -> bool:
 
 
 @dataclass(frozen=True)
-class DelegatedHelperGraphInput:
-    """One finite delegated-checker graph and its exact coverage ownership."""
-
-    scenario_id: str
-    helpers: tuple[DelegatedAssertionHelper, ...]
-    expected_helper_fingerprints: tuple[tuple[str, str], ...]
-    current_terminal_fingerprints: tuple[tuple[str, str], ...]
-    test_helper_calls: tuple[tuple[str, str], ...]
-    coverage_checker_bindings: tuple[tuple[str, str, str], ...]
-
-
-@dataclass(frozen=True)
 class DelegatedHelperGraphState:
     phase: str = "start"
     terminal_member_ids: tuple[str, ...] = ()
@@ -178,351 +101,6 @@ class DelegatedHelperGraphOutput:
     ok: bool
     pre_code_status: str
     finding_codes: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class DelegatedHelperGraphCase:
-    name: str
-    model_input: DelegatedHelperGraphInput
-    expected_ok: bool
-    expected_codes: tuple[str, ...] = ()
-
-
-def delegated_helper_graph_transition(
-    model_input: DelegatedHelperGraphInput,
-    state: DelegatedHelperGraphState,
-) -> tuple[tuple[DelegatedHelperGraphOutput, DelegatedHelperGraphState], ...]:
-    """Resolve helper calls only when every branch reaches current evidence."""
-
-    if state.phase != "start":
-        output = DelegatedHelperGraphOutput(
-            model_input.scenario_id,
-            False,
-            "blocked",
-            ("delegated_helper_graph_reentry",),
-        )
-        return ((output, replace(
-            state,
-            phase="blocked",
-            pre_code_status="blocked",
-            finding_codes=output.finding_codes,
-        )),)
-
-    findings: set[str] = set()
-    expected = dict(model_input.expected_helper_fingerprints)
-    member_fingerprints = dict(model_input.current_terminal_fingerprints)
-    helper_by_id: dict[str, DelegatedAssertionHelper] = {}
-    helper_direct_terminal_valid: dict[str, bool] = {}
-    for helper in model_input.helpers:
-        direct_terminal_valid = True
-        if helper.helper_id in helper_by_id:
-            findings.add("duplicate_delegated_assertion_helper")
-        helper_by_id[helper.helper_id] = helper
-        expected_fingerprint = expected.get(helper.helper_id)
-        if (
-            expected_fingerprint is not None
-            and expected_fingerprint != helper.source_fingerprint
-        ):
-            findings.add("delegated_assertion_helper_stale")
-        for terminal_id, terminal_fingerprint in (
-            helper.terminal_member_fingerprints
-        ):
-            current = member_fingerprints.get(terminal_id)
-            if current is not None and current != terminal_fingerprint:
-                findings.add("delegated_assertion_terminal_stale")
-                direct_terminal_valid = False
-            else:
-                member_fingerprints[terminal_id] = terminal_fingerprint
-        helper_direct_terminal_valid[helper.helper_id] = direct_terminal_valid
-
-    terminal_member_ids = set(member_fingerprints)
-    helper_state: dict[str, bool] = {}
-
-    def reaches_terminal(
-        helper_id: str,
-        stack: tuple[str, ...] = (),
-    ) -> bool:
-        if helper_id in helper_state:
-            return helper_state[helper_id]
-        if helper_id in stack:
-            findings.add("delegated_assertion_helper_cycle")
-            helper_state[helper_id] = False
-            return False
-        helper = helper_by_id[helper_id]
-        reaches = bool(helper.terminal_member_fingerprints)
-        valid = helper_direct_terminal_valid[helper_id]
-        for callee_id in helper.callee_member_ids:
-            if callee_id in terminal_member_ids:
-                reaches = True
-            elif callee_id in helper_by_id:
-                child_ok = reaches_terminal(
-                    callee_id,
-                    stack + (helper_id,),
-                )
-                reaches = reaches or child_ok
-                valid = valid and child_ok
-            else:
-                findings.add("delegated_assertion_terminal_missing")
-                valid = False
-        helper_state[helper_id] = valid and reaches
-        return helper_state[helper_id]
-
-    registered_helper_ids = {
-        helper_id
-        for helper_id in helper_by_id
-        if reaches_terminal(helper_id)
-    }
-    helper_owner = {
-        helper_id: helper_by_id[helper_id].test_node_id
-        for helper_id in registered_helper_ids
-    }
-
-    def helper_leaf(helper_id: str) -> str:
-        return helper_id.rsplit("::", 1)[-1].rsplit(".", 1)[-1]
-
-    helper_ids_by_leaf: dict[str, set[str]] = {}
-    for helper_id in helper_by_id:
-        helper_ids_by_leaf.setdefault(helper_leaf(helper_id), set()).add(
-            helper_id
-        )
-    registered_names = {
-        name
-        for helper_id in helper_by_id
-        for name in (helper_id, helper_leaf(helper_id))
-    }
-    for test_node_id, call in model_input.test_helper_calls:
-        leaf = call.rsplit(".", 1)[-1]
-        candidates = helper_ids_by_leaf.get(leaf, set())
-        if len(candidates) >= 2:
-            exact_owners = {
-                helper_id
-                for helper_id in candidates
-                if helper_by_id[helper_id].test_node_id == test_node_id
-            }
-            if len(exact_owners) != 1:
-                findings.add("ambiguous_delegated_assertion_helper")
-        if (
-            leaf.startswith("assert_")
-            and call not in registered_names
-            and leaf not in registered_names
-        ):
-            findings.add("unregistered_assertion_helper")
-
-    known_members = terminal_member_ids | registered_helper_ids
-    for _coverage_id, checker_id, test_node_id in (
-        model_input.coverage_checker_bindings
-    ):
-        if checker_id not in known_members:
-            findings.add("coverage_oracle_member_missing")
-            continue
-        checker_owner = helper_owner.get(checker_id)
-        if checker_owner is not None and checker_owner != test_node_id:
-            findings.add("coverage_cross_test_member")
-
-    finding_codes = tuple(sorted(findings))
-    pre_code_status = "blocked" if finding_codes else "ready"
-    next_state = DelegatedHelperGraphState(
-        phase="reviewed",
-        terminal_member_ids=tuple(sorted(known_members)),
-        registered_helper_ids=tuple(sorted(registered_helper_ids)),
-        helper_owner_bindings=tuple(sorted(helper_owner.items())),
-        coverage_checker_bindings=tuple(
-            sorted(model_input.coverage_checker_bindings)
-        ),
-        pre_code_status=pre_code_status,
-        finding_codes=finding_codes,
-    )
-    output = DelegatedHelperGraphOutput(
-        model_input.scenario_id,
-        not finding_codes,
-        pre_code_status,
-        finding_codes,
-    )
-    return ((output, next_state),)
-
-
-def delegated_helper_graph_invariants(
-    model_input: DelegatedHelperGraphInput,
-    state: DelegatedHelperGraphState,
-) -> bool:
-    codes = set(state.finding_codes)
-    if (state.pre_code_status == "ready") != (not codes):
-        return False
-    registered = set(state.registered_helper_ids)
-    known = set(state.terminal_member_ids)
-    owners = dict(state.helper_owner_bindings)
-    if registered - set(owners):
-        return False
-    for _coverage_id, checker_id, test_node_id in (
-        model_input.coverage_checker_bindings
-    ):
-        if checker_id not in known and "coverage_oracle_member_missing" not in codes:
-            return False
-        if (
-            checker_id in owners
-            and owners[checker_id] != test_node_id
-            and "coverage_cross_test_member" not in codes
-        ):
-            return False
-    return True
-
-
-def delegated_helper_graph_rollout_cases() -> tuple[
-    DelegatedHelperGraphCase, ...
-]:
-    helper_id = "fixture.assert_saved"
-    helper_fingerprint = "sha256:helper-current"
-    terminal_id = "delegated-terminal:assert-saved"
-    terminal_fingerprint = "sha256:terminal-current"
-    direct = DelegatedAssertionHelper(
-        helper_id,
-        "test:save",
-        helper_fingerprint,
-        (),
-        ((terminal_id, terminal_fingerprint),),
-    )
-    base = DelegatedHelperGraphInput(
-        "delegated_direct_terminal",
-        (direct,),
-        ((helper_id, helper_fingerprint),),
-        (),
-        (("test:save", "assert_saved"),),
-        (("coverage:save", helper_id, "test:save"),),
-    )
-    first = replace(
-        direct,
-        helper_id="fixture_a.assert_saved",
-        source_fingerprint="sha256:helper-a",
-        terminal_member_fingerprints=(
-            ("delegated-terminal:helper-a", "sha256:terminal-a"),
-        ),
-    )
-    second = replace(
-        direct,
-        helper_id="fixture_b.assert_saved",
-        source_fingerprint="sha256:helper-b",
-        terminal_member_fingerprints=(
-            ("delegated-terminal:helper-b", "sha256:terminal-b"),
-        ),
-    )
-    cyclic_first = replace(
-        direct,
-        callee_member_ids=("fixture.assert_other",),
-        terminal_member_fingerprints=(),
-    )
-    cyclic_second = DelegatedAssertionHelper(
-        "fixture.assert_other",
-        "test:save",
-        "sha256:helper-other",
-        (helper_id,),
-    )
-    return (
-        DelegatedHelperGraphCase(
-            "delegated_direct_terminal_is_current",
-            base,
-            True,
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_terminal_stale_blocks",
-            replace(
-                base,
-                scenario_id="delegated_terminal_stale",
-                helpers=(
-                    replace(
-                        direct,
-                        terminal_member_fingerprints=(
-                            ("assertion:save", "sha256:terminal-stale"),
-                        ),
-                    ),
-                ),
-                current_terminal_fingerprints=(
-                    ("assertion:save", "sha256:terminal-current"),
-                ),
-            ),
-            False,
-            ("delegated_assertion_terminal_stale",),
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_terminal_ambiguity_blocks",
-            replace(
-                base,
-                scenario_id="delegated_terminal_ambiguous",
-                helpers=(first, second),
-                expected_helper_fingerprints=(
-                    (first.helper_id, first.source_fingerprint),
-                    (second.helper_id, second.source_fingerprint),
-                ),
-                coverage_checker_bindings=(
-                    ("coverage:save", first.helper_id, "test:save"),
-                ),
-            ),
-            False,
-            ("ambiguous_delegated_assertion_helper",),
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_unknown_branch_blocks",
-            replace(
-                base,
-                scenario_id="delegated_terminal_unknown_branch",
-                helpers=(replace(direct, callee_member_ids=("assert_missing",)),),
-            ),
-            False,
-            ("delegated_assertion_terminal_missing",),
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_cycle_blocks",
-            replace(
-                base,
-                scenario_id="delegated_terminal_cycle",
-                helpers=(cyclic_first, cyclic_second),
-                expected_helper_fingerprints=(
-                    (cyclic_first.helper_id, cyclic_first.source_fingerprint),
-                    (cyclic_second.helper_id, cyclic_second.source_fingerprint),
-                ),
-            ),
-            False,
-            ("delegated_assertion_helper_cycle",),
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_nonterminal_call_blocks",
-            replace(
-                base,
-                scenario_id="delegated_terminal_nonterminal",
-                helpers=(),
-                expected_helper_fingerprints=(),
-            ),
-            False,
-            ("unregistered_assertion_helper",),
-        ),
-        DelegatedHelperGraphCase(
-            "delegated_checker_cannot_borrow_sibling_test_owner",
-            replace(
-                base,
-                scenario_id="delegated_coverage_sibling_owner",
-                helpers=(replace(direct, test_node_id="test:sibling"),),
-            ),
-            False,
-            ("coverage_cross_test_member",),
-        ),
-    )
-
-
-def run_delegated_helper_graph_review() -> tuple[
-    tuple[str, bool, tuple[str, ...]], ...
-]:
-    results: list[tuple[str, bool, tuple[str, ...]]] = []
-    for case in delegated_helper_graph_rollout_cases():
-        ((output, state),) = delegated_helper_graph_transition(
-            case.model_input,
-            DelegatedHelperGraphState(),
-        )
-        matched = (
-            output.ok is case.expected_ok
-            and all(code in output.finding_codes for code in case.expected_codes)
-            and delegated_helper_graph_invariants(case.model_input, state)
-        )
-        results.append((case.name, matched, output.finding_codes))
-    return tuple(results)
 
 
 @dataclass(frozen=True)
@@ -1726,59 +1304,24 @@ def run_rollout_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
             )
         )
     results.extend(run_evidence_projection_review())
-    results.extend(run_delegated_helper_graph_review())
     return tuple(results)
 
 
 __all__ = [
     "NATIVE_PYTEST_SELECTORS",
     "NATIVE_TEST_OBLIGATION_BINDINGS",
-    "delegated_helper_graph_invariants",
-    "delegated_helper_graph_rollout_cases",
-    "delegated_helper_graph_transition",
+    
+    
+    
     "evidence_projection_invariants",
     "evidence_projection_rollout_cases",
     "evidence_projection_transition",
     "native_test_obligation_bindings_are_executed",
     "rollout_cases",
-    "run_delegated_helper_graph_review",
+    
     "run_evidence_projection_review",
     "run_rollout_review",
+    
 ]
 
 
-from flowguard.skill_contract_model import (
-    FLOWGUARD_MODEL_MARKER,
-    build_skill_contract_model_export,
-)
-
-
-def export_contract_model():
-    """Project the existing model-test-alignment owner for SkillGuard V2."""
-
-    return build_skill_contract_model_export(
-        skill_id="flowguard-model-test-alignment",
-        route_id="model_test_alignment",
-        owner_id="model_test_alignment",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Bind model obligations to one owner contract and current tests without plane or path drift.",
-        claim_boundary="Projection only; row-level alignment, source audit, replay, canonical relation provenance, and native runner evidence remain authoritative.",
-    )
-
-
-__all__ = [*__all__, "FLOWGUARD_MODEL_MARKER", "export_contract_model"]
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='model_test_code_alignment', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='native_check_contract',
-        source_refs=({"path": '.flowguard/models/owners/model_test_code_alignment/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/model_test_code_alignment/model.py')},),
-        contract_export=export_contract_model(),
-    )

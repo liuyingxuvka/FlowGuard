@@ -65,29 +65,25 @@ Before editing or claiming behavior coverage, classify the ledger work:
 
 ## Canonical Ledger And Relations
 
-The project source of truth is the machine-readable
-`.flowguard/behavior/inventory/ledger.json`. Its model owner is the separate
-`.flowguard/models/owners/behavior_commitment_ledger/model.py`, and its native
-verification owner is
-`.flowguard/verification/owners/behavior_commitment_ledger/run_checks.py`.
-Run outputs and receipts belong under the evidence/work roots; they are not
-adjacent siblings and never become a second behavior inventory. Use
+The ledger is one machine-readable file,
+`.flowguard/behavior/inventory/ledger.json` by default. It is the behavior
+inventory; it is not a second project map. Which code and models belong to
+which component still lives in `.flowguard/map.json`. Use
 `load_behavior_commitment_ledger()`, `write_behavior_commitment_ledger()`, and
-`behavior_commitment_ledger_fingerprint()` at tool boundaries.
+`behavior_commitment_ledger_fingerprint()` at tool boundaries. The fingerprint
+is a stable content identity: when it changes, lookups and reviews made against
+the old fingerprint are stale and must be rerun.
 
-The bundled public template emits the complete current canonical envelope.
-The current loader rejects omitted default fields instead of filling them as a
-compatibility path; update a producer directly whenever the current shape
-changes.
+The bundled template emits the complete current ledger shape. The loader
+rejects omitted fields instead of filling them silently; update a producer
+directly whenever the shape changes.
 
 Commitments connect through typed `BehaviorCommitmentRelation` rows:
 `depends_on`, `invokes`, `validates`, `governs`, or
 `requires_evidence_from`. Cross-plane relations need a reason and never move
-the target commitment into the source plane. Legacy
-`dependency_commitment_ids` is diagnostic evidence of a stale producer only;
-it is never materialized by FlowGuard and never becomes a current relation.
-The maintaining agent must author the current typed relations directly, then
-rerun model, test, and receipt validation under the new identity.
+the target commitment into the source plane. Author typed relations directly,
+then rerun the affected models and tests (`python -m flowguard change` lists
+what to rerun).
 
 ## What The Ledger Checks
 
@@ -130,12 +126,22 @@ plane before scoring. Only same-plane hits can guide the current operation;
 typed related hits are shown separately as invoked targets, validation targets,
 governing processes, or evidence sources.
 
-```powershell
-python -m flowguard behavior-commitment-query "start the UI test and check the port bridge" --root . --plane agent_operation --term port_bridge --json
+```python
+from flowguard import BehaviorLookupQuery, query_behavior_commitments_from_path
+
+report = query_behavior_commitments_from_path(
+    ".flowguard/behavior/inventory/ledger.json",
+    BehaviorLookupQuery(
+        "start the UI test and check the port bridge",
+        primary_plane="agent_operation",
+        canonical_terms=("port_bridge",),
+    ),
+)
+print(report.format_text())
 ```
 
-The output includes deterministic match reasons, relation roles, ambiguity or
-fallback status, and the canonical ledger fingerprint. This is explainable
+The report includes deterministic match reasons, relation roles, ambiguity or
+fallback status, and the ledger fingerprint (`ledger_fingerprint`). This is explainable
 recall, not a runtime supervisor: it does not execute commitments, force every
 ordinary action through FlowGuard, or guarantee future AI compliance.
 
@@ -150,7 +156,7 @@ Behavior Commitment Ledger
 -> path_sensitive=true commitment
 -> Primary Path Authority
 -> no automatic A failed -> B succeeded path
--> TestMesh shards + Risk Evidence Ledger gates
+-> TestMesh shards + risk gates
 ```
 
 The ledger should not recreate alternate-path detection. If a behavior is
@@ -158,13 +164,10 @@ path-sensitive, attach PPA evidence with
 `behavior_path_binding_from_primary_path_report()`. If PPA blocks, the ledger
 blocks that commitment and any broad claim depending on it.
 
-The current runtime binding accepts and emits only one `primary_path_id`.
-Retired `primary_path_ids` is never a runtime input or compatibility alias.
-Historical BCL producer shapes are inspected only to explain why the current
-artifact is blocked. FlowGuard never materializes an old value, rewrites the
-file, or treats a deterministic candidate as current. The maintaining agent
-must directly author the singular current field and supply fresh model, test,
-owner, and receipt evidence; any missing or ambiguous value remains blocked.
+The binding (`BehaviorPathAuthorityBinding`) carries exactly one
+`primary_path_id`. FlowGuard never guesses or rewrites that value: author it
+directly, rerun the model and tests, and treat any missing or ambiguous value
+as blocked.
 
 ## Public API Shape
 
@@ -192,19 +195,20 @@ Core objects:
 Template:
 
 ```powershell
-python -m flowguard behavior-commitment-ledger-template --output <target>
+python -m flowguard template behavior-commitment-ledger            # print
+python -m flowguard template behavior-commitment-ledger --write .  # write files
 ```
 
 ## Broad Claim Rule
 
 For done, release, publish, archive, production, or full-confidence claims, use
-current ledger evidence plus downstream evidence:
+a current ledger review plus downstream evidence:
 
 - ContractExhaustionMesh commitment coverage cases;
 - TestMesh child shard ownership;
 - Model-Test Alignment bindings to model obligations, code contracts, tests,
   and commitment ids;
-- Risk Evidence Ledger gates;
+- risk gates (`risk_gate_ids` on each commitment's evidence);
 - PPA evidence for every `path_sensitive=true` commitment.
 
 If the ledger says behavior is missing, extra, overlapping, stale, or
@@ -220,3 +224,7 @@ contract, tests, evidence, lookup error signatures, and DCAR/same-class
 coverage under that commitment. Create or backfill a gap only when the
 external behavior was never registered in the affected plane. Other planes
 remain typed incident context and do not take over ownership.
+
+Before the claim, `python -m flowguard map check` must show no stale
+components for the affected code, and `python -m flowguard release` runs the
+strict map check, lint errors, and all executable models.

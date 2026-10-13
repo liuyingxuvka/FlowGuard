@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .project_adoption import build_flowguard_agents_block, current_project_manifest_text
 
 from .template_text.code_structure_recommendation import (
     CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE,
@@ -39,11 +38,6 @@ from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_MODEL_TEMPLATE,
     FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
     FIELD_LIFECYCLE_NOTES_TEMPLATE,
-)
-from .template_text.flowguard_closure_contract import (
-    FLOWGUARD_CLOSURE_CONTRACT_MODEL_TEMPLATE,
-    FLOWGUARD_CLOSURE_CONTRACT_RUN_CHECKS_TEMPLATE,
-    FLOWGUARD_CLOSURE_CONTRACT_NOTES_TEMPLATE,
 )
 from .template_text.layered_boundary_proof import (
     LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE,
@@ -81,11 +75,6 @@ from .template_text.primary_path_authority import (
     PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE,
     PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE,
 )
-from .template_text.risk_evidence_ledger import (
-    RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE,
-    RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE,
-    RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE,
-)
 from .template_text.risk_intent_check_plan import (
     RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE,
     RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE,
@@ -120,11 +109,6 @@ from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
     CONTRACT_EXHAUSTION_RUN_CHECKS_TEMPLATE,
     CONTRACT_EXHAUSTION_NOTES_TEMPLATE,
-)
-from .template_text.reverse_surface_closure import (
-    REVERSE_SURFACE_CLOSURE_MODEL_TEMPLATE,
-    REVERSE_SURFACE_CLOSURE_RUN_CHECKS_TEMPLATE,
-    REVERSE_SURFACE_CLOSURE_NOTES_TEMPLATE,
 )
 from .template_text.topology_hazard import (
     TOPOLOGY_HAZARD_MODEL_TEMPLATE,
@@ -166,15 +150,6 @@ def project_template_files() -> tuple[TemplateFile, ...]:
 
 def adoption_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
-        TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
-    )
-
-
-def project_adoption_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile("AGENTS.md", build_flowguard_agents_block() + "\n"),
-        TemplateFile(".flowguard/project.toml", current_project_manifest_text()),
         TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
         TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
     )
@@ -333,27 +308,11 @@ def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def risk_evidence_ledger_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/risk_evidence_ledger/model.py", RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/risk_evidence_ledger/run_checks.py", RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE),
-        TemplateFile("docs/flowguard_risk_evidence_ledger.md", RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE),
-    )
-
-
 def layered_boundary_proof_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/layered_boundary_proof/model.py", LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/layered_boundary_proof/run_checks.py", LAYERED_BOUNDARY_PROOF_RUN_CHECKS_TEMPLATE),
         TemplateFile("docs/flowguard_layered_boundary_proof.md", LAYERED_BOUNDARY_PROOF_NOTES_TEMPLATE),
-    )
-
-
-def closure_contract_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/closure_contract/model.py", FLOWGUARD_CLOSURE_CONTRACT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/closure_contract/run_checks.py", FLOWGUARD_CLOSURE_CONTRACT_RUN_CHECKS_TEMPLATE),
-        TemplateFile("docs/flowguard_closure_contract_review.md", FLOWGUARD_CLOSURE_CONTRACT_NOTES_TEMPLATE),
     )
 
 
@@ -418,23 +377,6 @@ def contract_exhaustion_template_files() -> tuple[TemplateFile, ...]:
         TemplateFile(
             "docs/flowguard_contract_exhaustion.md",
             CONTRACT_EXHAUSTION_NOTES_TEMPLATE,
-        ),
-    )
-
-
-def reverse_surface_closure_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(
-            ".flowguard/models/owners/reverse_surface_closure/model.py",
-            REVERSE_SURFACE_CLOSURE_MODEL_TEMPLATE,
-        ),
-        TemplateFile(
-            ".flowguard/verification/owners/reverse_surface_closure/run_checks.py",
-            REVERSE_SURFACE_CLOSURE_RUN_CHECKS_TEMPLATE,
-        ),
-        TemplateFile(
-            "docs/flowguard_reverse_surface_closure.md",
-            REVERSE_SURFACE_CLOSURE_NOTES_TEMPLATE,
         ),
     )
 
@@ -512,9 +454,6 @@ __all__ = [
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_NOTES_TEMPLATE",
     "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
-    "FLOWGUARD_CLOSURE_CONTRACT_MODEL_TEMPLATE",
-    "FLOWGUARD_CLOSURE_CONTRACT_NOTES_TEMPLATE",
-    "FLOWGUARD_CLOSURE_CONTRACT_RUN_CHECKS_TEMPLATE",
     "LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE",
     "LAYERED_BOUNDARY_PROOF_NOTES_TEMPLATE",
     "LAYERED_BOUNDARY_PROOF_RUN_CHECKS_TEMPLATE",
@@ -546,9 +485,6 @@ __all__ = [
     "RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE",
     "RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE",
     "RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE",
-    "RISK_EVIDENCE_LEDGER_MODEL_TEMPLATE",
-    "RISK_EVIDENCE_LEDGER_NOTES_TEMPLATE",
-    "RISK_EVIDENCE_LEDGER_RUN_CHECKS_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE",
@@ -570,7 +506,6 @@ __all__ = [
     "WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
     "behavior_commitment_ledger_template_files",
-    "closure_contract_template_files",
     "code_structure_recommendation_template_files",
     "contract_exhaustion_template_files",
     "development_process_flow_template_files",
@@ -586,13 +521,10 @@ __all__ = [
     "plan_detailing_template_files",
     "primary_path_authority_template_files",
     "project_template_files",
-    "project_adoption_template_files",
-    "risk_evidence_ledger_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",
     "work_context_template_files",
     "runtime_path_evidence_template_files",
-    "reverse_surface_closure_template_files",
     "structure_mesh_template_files",
     "test_mesh_template_files",
     "topology_hazard_template_files",

@@ -38,9 +38,10 @@ cited.
 
 `archive_only`
 
-The material can remain as historical evidence only. It must not retain runtime
-authority. If it can still write current state or authorize current behavior,
-the classification is blocked.
+The material can remain as historical reference only. It must not stay
+executable: if it can still write current state or decide current behavior,
+the classification is blocked (finding
+`compatibility_surface_archive_has_runtime_authority`).
 
 `prune_candidate`
 

@@ -117,6 +117,6 @@ def main() -> int:
     )
     return 0 if ok else 1
 
-from flowguard.native_case_runner import native_main
+from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    raise SystemExit(native_main("model:user_facing_model_diagrams", main, declared_source_exporter=__import__('model').export_path_quality_source))
+    raise SystemExit(run_owner(main))

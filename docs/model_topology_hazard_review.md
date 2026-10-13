@@ -27,8 +27,8 @@ business path. Unanchored AI concerns stay as observations.
 - Unanchored hard candidates are downgraded to observation-only.
 - Anchored scoped hazards keep confidence scoped until handled or consciously
   scoped with reason.
-- Anchored blocking hazards block broad confidence until current route evidence
-  handles them.
+- Anchored blocking hazards block broad confidence until the follow-up route
+  handles them and its models or tests have been rerun and pass.
 - Old/new compatibility paths need an explicit preserve, migrate, block,
   delete, latest-schema-first cleanup, or scoped-out disposition.
 - Duplicate, conflicting, unproven, or unresolved old/new business paths are
@@ -37,21 +37,31 @@ business path. Unanchored AI concerns stay as observations.
 
 ## Handoffs
 
-- Coarse terminal states and parent/child compression route to Model Maturation.
+Each candidate carries a route code (`TOPOLOGY_ROUTE_*`) and a disposition
+(`TOPOLOGY_DISPOSITION_*`) that say what to do next:
+
+- Coarse terminal states and parent/child compression: refine the model itself
+  (`model_maturation_loop`) or split it with ModelMesh.
 - Testable model obligations route to Model-Test Alignment.
 - Local-only or process evidence overclaim routes to DevelopmentProcessFlow.
-- Old/new compatibility decisions route to Architecture Reduction and Risk
-  Evidence Ledger.
-- Duplicate business paths route to Architecture Reduction with the exact
-  CanonicalRelation evidence, then to Risk Evidence Ledger only when broad
-  confidence depends on the result.
-- Conflicting or unproven business paths route to Model Maturation,
-  Model-Test Alignment, and Risk Evidence Ledger.
-- Broad final confidence routes to Risk Evidence Ledger.
+- Old/new compatibility decisions route to Architecture Reduction.
+- Duplicate business paths route to Architecture Reduction with an explicit
+  `CanonicalRelation` between the paths.
+- Conflicting or unproven business paths need a model refinement plus
+  Model-Test Alignment tests that show which path the real code takes.
+- Broad final confidence (`risk_evidence_ledger` route) means: state the
+  confidence only after the models and tests that cover the hazard have been
+  rerun and pass, and keep anything unproven listed as a gap.
 
-Use the starter template:
+Pass the plan as `FlowGuardCheckPlan(topology_hazard_plan=..., usage_intent=...)`
+to get a topology section in `run_model_first_checks(...)`, or call
+`review_topology_hazards(...)` directly.
+
+Starter template (prints the files; add `--write .` to write them):
 
 ```powershell
-python -m flowguard topology-hazard-template --output .
-python .flowguard/verification/owners/model_topology_hazard_review/run_checks.py
+python -m flowguard template topology-hazard
 ```
+
+Run the generated check script. After later code changes,
+`python -m flowguard change` lists which models to rerun.

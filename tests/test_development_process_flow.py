@@ -43,7 +43,6 @@ from flowguard import (
     FreshnessRule,
     ImplementationAdmissionPlan,
     ImplementationAuthorization,
-    MODEL_MATURATION_DECISION_PROGRESS_STALLED,
     ProofArtifactRef,
     sha256_fingerprint,
     ProcessAction,
@@ -68,7 +67,7 @@ from flowguard.development_process_flow import (
     USER_EXECUTION_CHOICE_DIRECT,
     ModelPathQualityProcessStep,
 )
-from tests._maturation_receipt_support import verified_maturation
+from tests._maturation_fake import MODEL_MATURATION_DECISION_PROGRESS_STALLED, verified_maturation
 
 
 def base_artifacts(*, code_version="2", test_version="1", requirement_version="1"):
@@ -456,23 +455,30 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         current = replace(
             base,
+            artifacts=(ProcessArtifact("code.search", PROCESS_ARTIFACT_CODE, "2"),),
+            evidence=(
+                ProcessEvidence(
+                    "parent:one",
+                    evidence_kind="full_validation",
+                    status=PROCESS_EVIDENCE_PASSED,
+                    covers_artifacts=("code.search",),
+                    covered_versions={"code.search": "2"},
+                ),
+            ),
             full_validation_parent_receipt_ids=("parent:one",),
-            validation_repository_root="C:/repo",
-            validation_receipt_root="C:/receipts",
         )
-        with patch(
-            "flowguard.development_process_flow.verify_parent_receipt",
-            return_value=SimpleNamespace(ok=True),
-        ) as verifier:
-            report = review_development_process_flow(current)
-        verifier.assert_called_once_with(
-            "parent:one",
-            "C:/repo",
-            "C:/receipts",
-        )
+        report = review_development_process_flow(current)
         self.assertNotIn(
             "full_validation_parent_not_current",
             {item.code for item in report.findings},
+        )
+        stale = replace(
+            current,
+            artifacts=(ProcessArtifact("code.search", PROCESS_ARTIFACT_CODE, "3"),),
+        )
+        self.assertIn(
+            "full_validation_parent_not_current",
+            {item.code for item in review_development_process_flow(stale).findings},
         )
 
     def test_local_validation_is_the_default_and_release_scope_is_explicit(self):

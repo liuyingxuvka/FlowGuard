@@ -1942,113 +1942,7 @@ def build_path_quality_lifecycle_workflow(*, broken: bool = False) -> Workflow:
     return Workflow((gate,), name="development_process_path_quality_lifecycle")
 
 
-from flowguard.skill_contract_model import build_skill_contract_model_export
-
 FLOWGUARD_MODEL_MARKER = "flowguard-executable-model"
-
-
-def export_contract_model():
-    exported = build_skill_contract_model_export(
-        skill_id="flowguard-development-process-flow",
-        route_id="development_process_flow",
-        owner_id="development_process_flow",
-        parent_model_id="flowguard.model_first_function_flow",
-        business_intent="Order non-trivial development actions, keep ordinary work lightweight, conditionally select a hard-equivalent lower-rework process shape, reuse one invocation-local validation observation with one final identity freshness check and one batch receipt reconciliation, avoid per-leaf source or receipt rediscovery, keep evidence current across diagnosis, root-cause repair, peer writes, install, and closure, and atomically synchronize a current author-source skill projection into its exact owned shadow paths.",
-        claim_boundary="This projection owns lifecycle order, conditional internal process optimization, bounded validation observation reuse, freshness, and author-shadow synchronization order, not product behavior, distribution inventory semantics, universal collect-all, global optimality, or future-agent compliance; a consumer projection used as author source, stale source fingerprint, unowned write, peer overwrite, partial activation, unnecessary ceremony, repeated semantic verification, per-leaf source or receipt rediscovery, missing final identity freshness or receipt reconciliation, non-equivalent candidate, progress-only evidence, or uncovered affected revalidation cannot close the route.",
-    )
-    for invariant_id in (
-        "invariant:process-strategy-equivalence",
-        "invariant:author-shadow-sync-atomic-currentness",
-        "invariant:validation-observation-bounded-currentness",
-    ):
-        exported["invariant_ids"].append(invariant_id)
-    for obligation_id, invariant_id in (
-        (
-            "obligation:flowguard-development-process-flow:process-strategy-equivalence",
-            "invariant:process-strategy-equivalence",
-        ),
-        (
-            "obligation:flowguard-development-process-flow:author-shadow-sync-atomic-currentness",
-            "invariant:author-shadow-sync-atomic-currentness",
-        ),
-        (
-            "obligation:flowguard-development-process-flow:validation-observation-bounded-currentness",
-            "invariant:validation-observation-bounded-currentness",
-        ),
-    ):
-        exported["obligations"].append(
-            {
-                "obligation_id": obligation_id,
-                "invariant_id": invariant_id,
-                "owner_step_ids": ["step:flowguard-development-process-flow:execute"],
-                "required": True,
-            }
-        )
-    for route_id, namespace, business_intent, claim_boundary in (
-        (
-            "plan_detailing_compiler",
-            "flowguard-development-process-flow:plan-detailing",
-            "Compile a rough non-trivial plan into plane-safe steps, gates, failure branches, and evidence requirements.",
-            "This internal route structures a plan; it does not execute steps or absorb referenced product behavior.",
-        ),
-        (
-            "agent_workflow_rehearsal",
-            "flowguard-development-process-flow:agent-workflow",
-            "Rehearse a selected AI-operation workflow while keeping product commitments as typed target context.",
-            "This internal route rehearses agent-operation order and gates only; it does not own product runtime behavior.",
-        ),
-    ):
-        internal = build_skill_contract_model_export(
-            skill_id="flowguard-development-process-flow",
-            route_id=route_id,
-            owner_id="development_process_flow",
-            parent_model_id=exported["model_id"],
-            business_intent=business_intent,
-            claim_boundary=claim_boundary,
-        )
-        default_step_prefix = "step:flowguard-development-process-flow"
-        internal_step_prefix = f"step:{namespace}"
-        default_obligation_prefix = "obligation:flowguard-development-process-flow"
-        internal_obligation_prefix = f"obligation:{namespace}"
-        for route in internal["routes"]:
-            route["step_ids"] = [
-                step_id.replace(default_step_prefix, internal_step_prefix, 1)
-                for step_id in route["step_ids"]
-            ]
-            route["success_terminal_step_id"] = route["success_terminal_step_id"].replace(
-                default_step_prefix, internal_step_prefix, 1
-            )
-            route["blocked_terminal_step_id"] = route["blocked_terminal_step_id"].replace(
-                default_step_prefix, internal_step_prefix, 1
-            )
-        for step in internal["steps"]:
-            step["step_id"] = step["step_id"].replace(
-                default_step_prefix, internal_step_prefix, 1
-            )
-            step["prerequisite_step_ids"] = [
-                step_id.replace(default_step_prefix, internal_step_prefix, 1)
-                for step_id in step["prerequisite_step_ids"]
-            ]
-        for obligation in internal["obligations"]:
-            obligation["obligation_id"] = obligation["obligation_id"].replace(
-                default_obligation_prefix, internal_obligation_prefix, 1
-            )
-            obligation["owner_step_ids"] = [
-                step_id.replace(default_step_prefix, internal_step_prefix, 1)
-                for step_id in obligation["owner_step_ids"]
-            ]
-        exported["functions"].extend(internal["functions"])
-        exported["routes"].extend(internal["routes"])
-        exported["steps"].extend(internal["steps"])
-        exported["obligations"].extend(internal["obligations"])
-    function_ids = [str(item["function_id"]) for item in exported["functions"]]
-    for function in exported["functions"]:
-        function["composable_with"] = [
-            function_id
-            for function_id in function_ids
-            if function_id != function["function_id"]
-        ]
-    return exported
 
 
 __all__ = [
@@ -2089,7 +1983,7 @@ __all__ = [
     "build_broken_plane_workflow",
     "build_correct_workflow",
     "build_path_quality_lifecycle_workflow",
-    "export_contract_model",
+    
     "initial_state",
     "path_quality_lifecycle_initial_state",
     "terminal_predicate",
@@ -2226,18 +2120,3 @@ NATIVE_PYTEST_SELECTORS = (*PRODUCER_GOOD_IMPLEMENTATION_SELECTORS, *(selector f
 
 def build_producer_workflow(*, broken: bool = False) -> Workflow:
     return Workflow((ProducerEpisodeGate(broken=broken),), name="development_producer_broken" if broken else "development_producer_current")
-
-
-def export_path_quality_source(model_instance_fingerprint: str):
-    """Export the complete declared model scope without executing its checks."""
-    from pathlib import Path
-    from flowguard.model_path_quality import compile_declared_path_quality_source
-    from flowguard.source_identity import functional_source_fingerprint
-
-    return compile_declared_path_quality_source(
-        model_id='development_process_flow', model_instance_fingerprint=model_instance_fingerprint,
-        graph_scope='model_behavior',
-        source_refs=({"path": '.flowguard/models/owners/development_process_flow/model.py',
-                      "source_fingerprint": functional_source_fingerprint(Path(__file__).resolve().parents[4], '.flowguard/models/owners/development_process_flow/model.py')},),
-        workflows=(build_author_sync_workflow(),build_admission_workflow(),build_correct_workflow(),build_path_quality_lifecycle_workflow(),build_producer_workflow(),), invariants=(*INVARIANTS, *PRODUCER_INVARIANTS),
-    )

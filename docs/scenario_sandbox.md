@@ -35,8 +35,8 @@ When scenario patterns are used as "similar bug" or finite-boundary coverage,
 project them through ContractExhaustionMesh with
 `scenario_matrix_to_contract_cases(...)`. The sandbox owns deterministic
 scenario execution and human oracle comparison; ContractExhaustionMesh owns the
-canonical bad-case id, expected reaction, and downstream MTA/TestMesh/Risk
-Ledger handoff.
+canonical bad-case id, expected reaction, and downstream Model-Test
+Alignment/TestMesh handoff.
 
 ## Human Oracle
 
@@ -123,8 +123,8 @@ These scenarios verify that scoring is cached, records are deduplicated, and rep
 `ScenarioMatrixBuilder.challenge_patterns()` extends the same deterministic
 scenario path with proactive bug-discovery routes. It does not create a new
 test workflow; the generated routes are still ordinary `Scenario` records that
-go through Scenario Sandbox, and later through conformance replay, Model-Test
-Alignment, or Risk Evidence Ledger when those evidence layers exist.
+go through Scenario Sandbox, and later through conformance replay or
+Model-Test Alignment when the project uses them.
 
 Challenge routes cover high-risk shapes such as:
 
@@ -141,8 +141,8 @@ are candidate evidence, not proof that real code passed.
 
 Static challenge routes are only the input-shape layer. For model-derived
 proactive bug discovery, use
-`synthesize_challenge_scenarios_from_report(...)` with a model-check
-`CheckReport`. That helper creates ordinary scenarios from actual model
+`synthesize_challenge_scenarios_from_report(...)` (from
+`flowguard.scenario_matrix`) with a model-check `CheckReport`. That helper creates ordinary scenarios from actual model
 evidence:
 
 - invariant counterexample traces;

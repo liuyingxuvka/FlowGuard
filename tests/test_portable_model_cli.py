@@ -54,13 +54,9 @@ class PortableModelCliTests(unittest.TestCase):
         )
 
     def assert_retired_operation(self, result: subprocess.CompletedProcess[str], operation: str) -> None:
+        # The portable checker is a Python API; the CLI has no such command.
         self.assertEqual(2, result.returncode, result.stderr + result.stdout)
-        payload = json.loads(result.stdout)
-        self.assertEqual("blocked", payload["status"])
-        self.assertEqual("block", payload["decision"])
-        self.assertEqual(0, payload["producer_count"])
-        self.assertEqual(f"unknown operation: {operation}", payload["error"])
-        self.assertEqual(["read", "change", "release"], payload["allowed_operations"])
+        self.assertIn(f"unknown command {operation!r}", result.stderr)
 
     def test_validate_and_check_share_status_and_identity(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.70.0 - 2026-10-13 - Map, capabilities kept, ledger retired
+
+- New: `.flowguard/map.json`, a living, code-anchored map of the software (components,
+  responsibilities, state, side effects, files, entrypoints, dependencies, tests, models),
+  verified against the code by `python -m flowguard map check`.
+- New: discovery (reverse wrap). `map scan` and `map discover` find HTTP routes, CLI commands,
+  side effects, how far each entrypoint reaches and which functions write each state attribute;
+  `map lint` reports unlisted entrypoints and undeclared side effects.
+- New: daily verbs `python -m flowguard read | change | release`; `change` lists only the tests
+  and models a change affects. `python -m flowguard template` writes starter files for every
+  capability again.
+- Kept: the modeling engine and all 14 capabilities (existing-model, behavior-commitment,
+  architecture-reduction, code-structure, contract-exhaustion, development-process,
+  field-lifecycle, model-mesh, model-miss, model-test, topology-hazard, structure-mesh,
+  test-mesh, ui-flow), each with a short protocol in the skill.
+- Retired: the stored authority/evidence machinery (model authority snapshots and revision
+  sets, evidence receipts, validation owners, native case rows, blueprints, SkillGuard
+  projections, maturation receipts, the risk evidence ledger, route registries) and its
+  generated JSON. Capability modules no longer import it. The full history stays in git
+  (tag `legacy-v0.69.9`).
+- FlowGuard maps itself: 37 components; 31 self-models plus 2 map models run in about 20 s;
+  the full test suite runs in about 30 s.
+- `import flowguard` loads only the facade (a plain name table).
+
 ## v0.69.9 - 2026-10-06
 
 - Start selected software reads with current/target/gap/temporary-compromise/unknown understanding and actual nullable task denominators.

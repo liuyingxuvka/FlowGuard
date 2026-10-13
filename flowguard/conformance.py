@@ -9,7 +9,6 @@ from typing import Any, Callable, Sequence
 from .core import FrozenMetadata, InvariantResult, freeze_metadata
 from .export import to_jsonable, trace_step_to_dict, trace_to_dict
 from .replay import ReplayInput, ReplayObservation, coerce_observation
-from .task_local_model import TaskPredictionSnapshot
 from .trace import Trace, TraceStep
 
 
@@ -291,27 +290,28 @@ def replay_trace(
     )
 
 
-def replay_prediction(
-    prediction: TaskPredictionSnapshot,
-    adapter: Any,
-    rules: Sequence[ConformanceRule] | None = None,
-    invariants: Sequence[Any] = (),
-) -> ConformanceReport:
-    """Replay one frozen task prediction and bind its identity to the report."""
+def select_covering_traces(traces: Sequence[Trace], *, limit: int | None = None) -> tuple[Trace, ...]:
+    """Pick few traces that together exercise every distinct (state, block, input) step.
 
-    report = replay_trace(
-        trace=prediction.expected_trace,
-        adapter=adapter,
-        rules=rules,
-        invariants=invariants,
-    )
-    return replace(
-        report,
-        prediction_id=prediction.prediction_id,
-        prediction_fingerprint=prediction.prediction_fingerprint,
-        model_fingerprint=prediction.model_version.model_fingerprint,
-        observation_boundary_id=prediction.observation_boundary_id,
-    )
+    Greedy set cover over the model's transitions, so conformance replay checks
+    each modeled transition at least once against the real code without
+    replaying every explored trace.  ``limit`` caps the number of traces.
+    """
+
+    def keys(trace: Trace) -> set:
+        return {(repr(step.old_state), step.function_name, repr(step.function_input)) for step in trace.steps}
+
+    remaining = {index: keys(trace) for index, trace in enumerate(traces)}
+    uncovered = set().union(*remaining.values()) if remaining else set()
+    chosen: list[Trace] = []
+    while uncovered and (limit is None or len(chosen) < limit):
+        best = max(remaining, key=lambda i: (len(remaining[i] & uncovered), -len(traces[i].steps), -i))
+        gained = remaining.pop(best) & uncovered
+        if not gained:
+            break
+        uncovered -= gained
+        chosen.append(traces[best])
+    return tuple(chosen)
 
 
 __all__ = [
@@ -322,6 +322,6 @@ __all__ = [
     "label_matches",
     "projected_output_matches",
     "projected_state_matches",
-    "replay_prediction",
     "replay_trace",
+    "select_covering_traces",
 ]

@@ -5,7 +5,7 @@ import subprocess
 import tempfile
 import unittest
 
-from flowguard.source_identity import source_file_fingerprint
+from flowguard._hashing import source_file_fingerprint
 from flowguard.test_inventory import (
     TEST_DISPOSITION_REQUIRED,
     TEST_DISPOSITION_SUPPORTING,

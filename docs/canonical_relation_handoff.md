@@ -34,12 +34,17 @@ decides what the relation means under its own contract.
 The ordinary path is:
 
 ```text
-current commitment / blueprint / topology owner
+current commitment / map component / topology review
 -> exact CanonicalRelation identities
 -> CanonicalRelationHandoff
 -> ContractExhaustionMesh materializes finite cases when coverage is required
 -> owning route proves code, test, mesh, reduction, or risk obligations
 ```
+
+`existing_model_preflight_from_project(...)` builds one such handoff itself:
+for every selected `.flowguard/map.json` component that depends on another
+selected component it emits a `depends_on` relation whose source identity is
+`map:<component id>`.
 
 ContractExhaustionMesh may use the handoff to materialize stable relation-based
 case ids and to report a gap when a declared relation was not materialized.
@@ -54,7 +59,7 @@ This internal carrier does not:
 - scan a repository for lookalikes;
 - infer maintenance groups from names or source text;
 - score or classify arbitrary pairs;
-- select a primary owner or runtime authority;
+- select a primary owner or a primary runtime path;
 - expand the affected scope beyond declared current identities;
 - recommend a merge merely because two things look alike;
 - run a standalone template, report, or route;
