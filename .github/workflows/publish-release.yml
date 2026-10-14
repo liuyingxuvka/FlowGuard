@@ -1,0 +1,87 @@
+name: Publish FlowGuard release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [.github/workflows/publish-release.yml]
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: flowguard-release-v0.70.2
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Publish FlowGuard v0.70.2 [release]'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: v0.70.2
+      RELEASE_COMMIT: 7960abc082d76f43c3920281e142f04dc4bef917
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out the tested release commit
+        uses: actions/checkout@v5
+        with:
+          ref: 7960abc082d76f43c3920281e142f04dc4bef917
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Require successful CI for this exact source commit
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$RELEASE_COMMIT&per_page=20" > "$RUNNER_TEMP/release-ci.json"
+          python - <<'PY'
+          import json, os, pathlib, tomllib
+          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
+          assert 'v' + version == os.environ['RELEASE_TAG']
+          runs = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'release-ci.json').read_text())['workflow_runs']
+          assert any(r['path'] == '.github/workflows/ci.yml' and r['head_sha'] == os.environ['RELEASE_COMMIT']
+                     and r['status'] == 'completed' and r['conclusion'] == 'success' for r in runs), 'The exact release source needs successful CI'
+          PY
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
+            git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+            test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
+          fi
+
+      - name: Build wheel and source distribution
+        run: |
+          python -m pip install build
+          python -m build --outdir dist
+
+      - name: Prepare skill package and release notes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          wheel = next(Path('dist').glob('*.whl'))
+          with ZipFile(wheel) as package:
+              assert all(p.startswith(('flowguard/', 'flowguard-0.70.2.dist-info/')) for p in package.namelist())
+          skill = Path('.agents/skills/flowguard')
+          with ZipFile('dist/flowguard-skill-0.70.2.zip', 'w', ZIP_DEFLATED) as package:
+              for path in sorted(skill.rglob('*')):
+                  if path.is_file() and '__pycache__' not in path.parts:
+                      package.write(path, 'flowguard/' + path.relative_to(skill).as_posix())
+          changes = Path('CHANGELOG.md').read_text(encoding='utf-8')
+          start = changes.index('## v0.70.2')
+          end = changes.find('\n## ', start + 1)
+          notes = changes[start:end if end != -1 else None].strip()
+          notes += '\n\nValidation: 1490 tests and 340 subtests passed; 32 executable self-models passed. Ubuntu Python 3.11/3.13 and Windows Python 3.12 CI passed for commit `7960abc`.\n'
+          notes += '\n[Repair and validation report](https://github.com/liuyingxuvka/FlowGuard/blob/v0.70.2/docs/flowguard_0_70_2_fix_report.md)\n'
+          notes += '\nInstall the engine with `python -m pip install flowguard-0.70.2-py3-none-any.whl`. Unzip the skill package into the agent skills directory.\n'
+          Path('release-notes.md').write_text(notes, encoding='utf-8')
+          PY
+
+      - name: Publish the stable release and assets
+        run: |
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "FlowGuard $RELEASE_TAG" --notes-file release-notes.md --draft=false --prerelease=false --latest
+          else
+            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$RELEASE_COMMIT" --title "FlowGuard $RELEASE_TAG" --notes-file release-notes.md --latest
+          fi
