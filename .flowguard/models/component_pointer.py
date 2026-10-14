@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 import json
+import shutil
 import tempfile
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, replace
@@ -145,6 +146,9 @@ class _RealMap:
         self._save(data)
         self.last_report = ""
 
+    def close(self) -> None:
+        shutil.rmtree(self.root, ignore_errors=True)
+
     def _write_code(self) -> None:
         (self.root / "app" / "core.py").write_text(f"VERSION = {self.code_version}\n", encoding="utf-8")
         from flowguard.map.mapfile import fingerprint
@@ -204,8 +208,12 @@ def conformance():
     """Replay traces covering every modeled transition against the real implementation."""
     last = None
     for trace in select_covering_traces(build_explorer().explore().traces):
-        last = replay_trace(trace=trace, adapter=_RealMap(), invariants=INVARIANTS,
-                            rules=(projected_state_matches(), projected_output_matches()))
+        adapter = _RealMap()
+        try:
+            last = replay_trace(trace=trace, adapter=adapter, invariants=INVARIANTS,
+                                rules=(projected_state_matches(), projected_output_matches()))
+        finally:
+            adapter.close()
         if not last.ok:
             return last
     return last

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import ast
 import json
+import os
 import re
 import subprocess
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, glob_match, is_test_file, matches_any, norm
+from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_test_file, matches_any, norm, read_source
 from .inventory import Inventory
 from .mapfile import component_graph, is_stale, model_registry
 
@@ -45,10 +46,10 @@ def changed_files(root: Path, base: str) -> list[str]:
     commands = (["git", "-C", str(root), "diff", "--name-status", "-z", "-M", base],
                 ["git", "-C", str(root), "ls-files", "-o", "--exclude-standard", "-z"])
     for i, cmd in enumerate(commands):
-        res = subprocess.run(cmd, capture_output=True, text=True)
-        if res.returncode != 0:
-            raise RuntimeError(res.stderr.strip() or f"failed: {' '.join(cmd)}")
-        fields = res.stdout.rstrip("\0").split("\0") if res.stdout else []
+        try:
+            fields = git_paths(root, *cmd[3:])
+        except subprocess.CalledProcessError as exc:
+            raise RuntimeError(os.fsdecode(exc.stderr or b"").strip() or f"failed: {' '.join(cmd)}") from exc
         if i == 1:
             files.update(norm(f) for f in fields)
             continue
@@ -61,11 +62,22 @@ def changed_files(root: Path, base: str) -> list[str]:
     return sorted(files)
 
 
+def project_relative(root: Path, path: str) -> str:
+    """'C:\\repo\\shop\\api.py', '/repo/shop/api.py' or './shop/api.py' -> 'shop/api.py'."""
+    candidate = Path(path)
+    if candidate.is_absolute():
+        try:
+            return candidate.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            pass                                    # outside the project: reported as unmapped
+    return norm(path)
+
+
 def _previous_map(root: Path, base: str | None) -> dict | None:
     if base is None:
         return None
     res = subprocess.run(["git", "-C", str(root), "show", f"{base}:.flowguard/map.json"],
-                         capture_output=True, text=True)
+                         capture_output=True)                     # bytes: json.loads decodes UTF-8 itself
     try:
         data = json.loads(res.stdout) if res.returncode == 0 else None
         return data if isinstance(data, dict) and isinstance(data.get("components"), list) else None
@@ -101,7 +113,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     """
     if depth is not None and depth < 0:
         raise ValueError("impact depth must be nonnegative")
-    changed = sorted({norm(f) for f in changed})
+    changed = sorted({project_relative(root, f) for f in changed})
     previous = _previous_map(root, base) if base is not None else None
     by_id = {c["id"]: c for c in data["components"]}
     old_by_id = {c["id"]: c for c in (previous or {}).get("components", [])}
@@ -198,7 +210,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         if not any(matches_any(f, by_id[cid].get("files", [])) for cid in affected if cid in by_id):
             continue
         try:
-            text = (root / f).read_text(encoding="utf-8")
+            text = read_source(root / f)
         except OSError:
             continue
         unresolved = False

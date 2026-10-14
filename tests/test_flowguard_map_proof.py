@@ -286,3 +286,15 @@ def test_corrupt_or_nonpass_cache_entry_is_reexecuted(shop, capsys):
     cached["models"] = []
     path.write_text(json.dumps(cached))
     assert models(shop, capsys)[0] == 0
+
+
+def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkeypatch):
+    from flowguard.map.proof import run_runner
+    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")          # the code page a Windows pipe gives a child
+    runner = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
+    runner.parent.mkdir(parents=True)
+    runner.write_text("print('运行检查 ✓')\n", encoding="utf-8")
+    assert run_runner(tmp_path, runner).status == "pass"
+    runner.write_text("print('失败 ✗')\nraise SystemExit(1)\n", encoding="utf-8")
+    result = run_runner(tmp_path, runner)
+    assert result.status == "fail" and "失败 ✗" in result.problems[0], result.problems

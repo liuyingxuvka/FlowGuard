@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any
+from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any, read_source
 from .inventory import Inventory
 
 TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "components", "flows", "accepted_debts"}
@@ -83,7 +83,7 @@ def load_map(root: Path) -> dict:
     if not path.is_file():
         raise MapError(f"no map at {path}; run 'python -m flowguard.map scan' first")
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8-sig"))   # editors on Windows may add a BOM
     except ValueError as exc:
         raise MapError(f"{path} is not valid JSON: {exc}") from exc
     errors = validate_map(data)
@@ -147,7 +147,7 @@ def component_graph(data: dict, inv: Inventory) -> dict[str, set[str]]:
 
 def read_model_contract(path: Path) -> dict:
     """MODEL_ID / COMPONENTS / IMPLEMENTED_BY literals and defined hooks of a model file, without importing it."""
-    tree = ast.parse(path.read_text(encoding="utf-8"))
+    tree = ast.parse(read_source(path))
     found: dict = {"functions": []}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \

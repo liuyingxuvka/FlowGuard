@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 from .check import run_check
-from .common import MAP_RELPATH, print_findings
+from .common import MAP_RELPATH, print_findings, safe_stdio
 from .impact import changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
@@ -249,6 +249,7 @@ HANDLERS = {"discover": cmd_discover, "scan": cmd_scan, "show": cmd_show, "find"
 
 
 def main(argv: list[str] | None = None) -> int:
+    safe_stdio()
     args = build_parser().parse_args(argv)
     root = Path(args.root).resolve()
     try:

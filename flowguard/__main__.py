@@ -14,6 +14,7 @@ import sys
 
 from . import __version__
 from .map.cli import main as map_main
+from .map.common import safe_stdio
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
@@ -77,6 +78,7 @@ def _template(ns: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    safe_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help", "help"}:
         print(__doc__.strip())

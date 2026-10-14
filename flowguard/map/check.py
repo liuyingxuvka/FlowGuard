@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import Finding, glob_match, is_test_file
+from .common import Finding, glob_match, is_test_file, read_source
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, is_stale, model_registry, owner_index, read_model_contract
 
@@ -32,7 +32,7 @@ def anchor_problem(root: Path, inv: Inventory, anchor: str) -> str | None:
         if inv.py[path].parse_error:
             return f"cannot parse {path}: {inv.py[path].parse_error}"
         return None if symbol_defined(inv, path, symbol) else f"symbol {symbol!r} not found in {path}"
-    text = (root / path).read_text(encoding="utf-8", errors="replace")
+    text = read_source(root / path)
     last = symbol.split(".")[-1]
     return None if re.search(rf"\b{re.escape(last)}\b", text) else f"symbol {symbol!r} not found in {path}"
 

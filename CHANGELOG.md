@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+Upgrade notes:
+
+- Components that own files with non-ASCII names (for example Chinese file names) become STALE
+  once after upgrading, because those files were missing from the map before. Re-read and
+  confirm them.
+
 ## v0.70.0 - 2026-10-13 - Map, capabilities kept, ledger retired
 
 - New: `.flowguard/map.json`, a living, code-anchored map of the software (components,

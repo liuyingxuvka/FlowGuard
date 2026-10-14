@@ -1,8 +1,9 @@
 """Repository inventory: files, Python symbols/imports/duplicate fingerprints, JS imports.
 
 Parse results are cached in .flowguard/cache/inventory.json keyed by
-(size, mtime_ns, module).  The cache is a speed-up only, never authority:
-deleting .flowguard/cache/ is always safe.
+(size, mtime_ns, module) plus the parser code and Python version; files
+written in the last 3 s are never cached.  The cache is a speed-up only,
+never authority: deleting .flowguard/cache/ is always safe.
 """
 
 from __future__ import annotations
@@ -12,13 +13,19 @@ import json
 import os
 import re
 import subprocess
+import sys
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, is_test_file, matches_any, norm, sha256_bytes
+from .common import CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
 
-CACHE_SCHEMA = "flowguard.map.inventory_cache.v1"
+CACHE_SCHEMA = "flowguard.map.inventory_cache.v2"
+# A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
+PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
+                         + sys.version.encode())[:16]   # ast results differ between Python versions
+RACY_NS = 3_000_000_000  # never cache the parse of a file written in the last 3 s (FAT/SMB/NTFS clock ticks)
 MIN_DUP_NODES = 40   # functions smaller than this many AST nodes are ignored by duplicate detection
 JS_IMPORT = re.compile(r"""(?:import\s[^'"]*?from\s*|import\s*\(\s*|require\s*\(\s*|import\s+)['"](\.{1,2}/[^'"]+)['"]""")
 
@@ -47,9 +54,8 @@ class Inventory:
 def list_files(root: Path) -> list[str]:
     """Tracked plus untracked-but-not-ignored files (git); os.walk when git is unavailable."""
     try:
-        out = subprocess.run(["git", "-C", str(root), "ls-files", "-co", "--exclude-standard"],
-                             capture_output=True, text=True, check=True).stdout
-        return sorted(f for f in (norm(x) for x in out.splitlines() if x.strip()) if (root / f).is_file())
+        return sorted(f for f in (norm(x) for x in git_paths(root, "ls-files", "-z", "-co", "--exclude-standard"))
+                      if (root / f).is_file())
     except (OSError, subprocess.CalledProcessError):
         found = []
         for dirpath, dirnames, filenames in os.walk(root):
@@ -83,7 +89,7 @@ def module_name(path: str, roots: list[str]) -> str:
 def parse_python(root: Path, path: str, module: str) -> PyInfo:
     info = PyInfo(module=module)
     try:
-        text = (root / path).read_text(encoding="utf-8", errors="replace")
+        text = read_source(root / path)
     except OSError as exc:
         info.parse_error = str(exc)
         return info
@@ -162,7 +168,7 @@ def resolve_import(imp: str, mod_to_path: dict[str, str]) -> str | None:
 def js_imports(root: Path, path: str, files_set: set[str]) -> set[str]:
     """Relative imports/requires of a JS/TS file, resolved to repo files."""
     try:
-        text = (root / path).read_text(encoding="utf-8", errors="replace")
+        text = read_source(root / path)
     except OSError:
         return set()
     found = set()
@@ -178,7 +184,7 @@ def js_imports(root: Path, path: str, files_set: set[str]) -> set[str]:
 def _read_cache(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        return data.get("files", {}) if data.get("schema") == CACHE_SCHEMA else {}
+        return data.get("files", {}) if data.get("schema") == CACHE_SCHEMA and data.get("parser") == PARSER_ID else {}
     except (OSError, ValueError):
         return {}
 
@@ -194,11 +200,12 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
     old, new = _read_cache(cache_path), {}
     py: dict[str, PyInfo] = {}
     mod_to_path: dict[str, str] = {}
+    now_ns = time.time_ns()
     for f in py_files:
         module = module_name(f, roots)
         try:
             st = (root / f).stat()
-            key = [st.st_size, st.st_mtime_ns, module]
+            key = [st.st_size, st.st_mtime_ns, module] if now_ns - st.st_mtime_ns > RACY_NS else None
         except OSError:
             key = None
         hit = old.get(f)
@@ -211,10 +218,10 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
                       "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies}
         py[f] = info
         mod_to_path[module] = f
-    if new != old:
+    if new != old or not cache_path.is_file():
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps({"schema": CACHE_SCHEMA, "files": new}), encoding="utf-8")
+            cache_path.write_text(json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": new}), encoding="utf-8")
         except OSError:
             pass                                  # read-only checkout: run without cache
     deps: dict[str, set[str]] = defaultdict(set)
@@ -229,7 +236,7 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
         if f in py:
             continue
         try:
-            loc[f] = sum(1 for line in (root / f).read_text(encoding="utf-8", errors="replace").splitlines() if line.strip())
+            loc[f] = sum(1 for line in read_source(root / f).splitlines() if line.strip())
         except OSError:
             loc[f] = 0
         if Path(f).suffix in JS_EXTS:

@@ -128,7 +128,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatches daily read/change/release and template commands; reports blocked selectors, executed model counts, unverified declarations and accepted debts.",
+      "summary": "Dispatches daily read/change/release and template commands; reports blocked selectors, executed model counts, unverified declarations and accepted debts; text the console cannot encode prints as escapes.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands"
       ],
@@ -164,7 +164,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:02256ecd48803081659edd3588145bda293ff4134879b0117459f9343b87e641"
+      "fingerprint": "sha256:af47f6d54d0e88eec3956c8acd246e76da7c1767e73f5344044b5ffcfad6923e"
     },
     {
       "id": "public-api",
@@ -858,7 +858,7 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Scans a repository: file list, Python symbols, runtime imports and duplicate-body fingerprints, cached by content.",
+      "summary": "Scans a repository: file list (non-ASCII names too), Python symbols, runtime imports and duplicate-body fingerprints; reads sources as Python does (BOM, coding cookie); the parse cache is keyed by parser code and Python version.",
       "responsibilities": [
         "inventory files, symbols and imports"
       ],
@@ -880,12 +880,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dcfde9c746d482afb0009c09ee99d5edcb7cad2c3199d5ca23d15a3de9730853"
+      "fingerprint": "sha256:6437f8945a7dd4eb1e7ea88015044324f1c05e6af6d978311a6378f61f11aea3"
     },
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Validates, loads and saves the single map, fingerprints component source, and inventories supported executable model IDs and paths.",
+      "summary": "Validates, loads (UTF-8 BOM accepted) and saves the single map, fingerprints component source, and inventories supported executable model IDs and paths.",
       "responsibilities": [
         "validate, load and save the map",
         "compute component fingerprints that detect stale descriptions"
@@ -915,7 +915,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:578be0cdd0153f6d7dd8539f521463af7fefcd5d96fb1bdcff20ea59e84079b1"
+      "fingerprint": "sha256:b4c3e8dc135e25f9c5471dbee89b97f4bc25d6368630ecc1fe9c3ed4a296b335"
     },
     {
       "id": "map-discover",
@@ -942,12 +942,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b2767de1e7f932a23f8701132dd78be7fdb5bfb619893b215cd09bc09e919d9c"
+      "fingerprint": "sha256:82e384d37749a20e35acda3198ae74a8444e6b48dde3c7a352f58e18672198d1"
     },
     {
       "id": "map-analysis",
       "layer": "map",
-      "summary": "Checks map/code ownership and syntax, reviews architecture, and selects checks through the full conservative caller closure, including declared model/test bindings and git mapping changes.",
+      "summary": "Checks map/code ownership and syntax, reviews architecture, and selects checks through the full conservative caller closure, including declared model/test bindings and git mapping changes; accepts absolute or backslash paths.",
       "responsibilities": [
         "verify the map against the code",
         "review the architecture",
@@ -980,12 +980,12 @@
         ".flowguard/models/change_impact.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4555f50356e758551d24950f3c87eb2ffc6cde580b198b1191b7c875ba50a01d"
+      "fingerprint": "sha256:3f11b1fba42e77c19ae0608e64a6ed4539b40b0adb28726077b99cb0fb7c6d67"
     },
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Uses one executable registry to run every declared contract model or runner in isolated processes; validates hook results and reuses PASS only for a known mapped input boundary.",
+      "summary": "Uses one executable registry to run every declared contract model or runner in isolated processes with UTF-8 output; validates hook results and reuses PASS only for a known mapped input boundary.",
       "responsibilities": [
         "run models and their known-bad and conformance checks"
       ],
@@ -1011,7 +1011,7 @@
         ".flowguard/models/model_cache.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:16eea04e78ef9cdda40e370750154c74efa7ee653d634fce49486f9b5c55ab59"
+      "fingerprint": "sha256:30ce654eb71d6e7b0f32ac04a7d1e8296b2daae62cf05591630ba4e3596fdb37"
     },
     {
       "id": "engine-explore",

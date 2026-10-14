@@ -7,7 +7,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from .common import tokens
+from .common import read_source, tokens
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, is_stale, owner_index
 
@@ -93,7 +93,7 @@ def _doc(node: ast.AST) -> str:
 def file_outline(root: Path, path: str) -> list[str]:
     """Public API outline of a Python file: docstrings and signatures, never bodies."""
     try:
-        tree = ast.parse((root / path).read_text(encoding="utf-8", errors="replace"))
+        tree = ast.parse(read_source(root / path))
     except (OSError, SyntaxError) as exc:
         return [f"  (unparseable: {exc})"]
     lines = [f"  doc:{_doc(tree)[3:]}"] if _doc(tree) else []

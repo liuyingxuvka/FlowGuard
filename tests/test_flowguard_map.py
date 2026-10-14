@@ -356,3 +356,111 @@ def test_impact_duplicate_model_id_is_blocked_without_run_hint(impact_project):
     assert any("duplicated" in message for message in imp.blocked)
     assert "storage-proof" not in imp.model_ids
     assert "storage-proof" not in render_impact(imp).split("run: python -m flowguard.map models")[-1]
+
+
+def test_non_ascii_file_names_are_inventoried_and_fingerprinted(project):
+    write(project, "shop/工具.py", "def 帮助():\n    return 1\n")
+    git(project, "add", "-A")
+    inv = build_inventory(project, DEFAULT_IGNORE)
+    assert "shop/工具.py" in inv.source            # git C-quotes this name without -z
+
+
+def test_cli_output_never_crashes_on_text_the_console_cannot_encode(project, capsys, monkeypatch):
+    import io
+    import sys
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    data["components"][0]["summary"] = "运行检查 ✓"
+    save(project, data)
+    console = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")   # Windows pipe code page
+    monkeypatch.setattr(sys, "stdout", console)
+    assert cli.main(["--root", str(project), "show"]) == 0
+    console.flush()
+    assert b"\\u8fd0\\u884c" in console.buffer.getvalue()
+
+
+def test_impact_decodes_previous_map_and_changed_names_as_utf8(project, capsys, monkeypatch):
+    real_run = subprocess.run
+
+    def ansi_run(*args, **kwargs):            # Windows: text=True decodes git output with the ANSI code page
+        if kwargs.pop("text", False):
+            kwargs["encoding"] = "cp1252"
+        return real_run(*args, **kwargs)
+
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    data["components"][0]["summary"] = "运行检查"          # UTF-8 has byte 0x90, undefined in cp1252
+    data["components"][0]["files"].append("shop/工具.py")
+    (project / ".flowguard/map.json").write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    write(project, "shop/工具.py", "VALUE = 1\n")
+    git(project, "add", "-A")
+    git(project, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "chinese map")
+    write(project, "shop/工具.py", "VALUE = 2\n")
+    monkeypatch.setattr(subprocess, "run", ansi_run)
+    code, out = run(project, "impact", "--base", "HEAD", capsys=capsys)
+    assert code == 0, out
+    assert "directly affected: api" in out
+
+
+def test_bom_and_coding_cookie_sources_parse_like_python(project, capsys):
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    data["components"][2]["files"].append("shop/legacy.py")
+    save(project, data)
+    storage = project / "shop/storage.py"
+    storage.write_bytes(b"\xef\xbb\xbf" + storage.read_bytes())            # PowerShell 5.1 / Visual Studio BOM
+    (project / "shop/legacy.py").write_bytes('# -*- coding: gbk -*-\nNAME = "订单"\n'.encode("gbk"))
+    mapping = project / ".flowguard/map.json"
+    mapping.write_bytes(b"\xef\xbb\xbf" + mapping.read_bytes())            # map edited by a Windows tool
+    code, out = run(project, "check", capsys=capsys)
+    assert code == 0 and "source_parse_error" not in out and "anchor_broken" not in out, out
+    code, out = run(project, "impact", "shop/legacy.py", "shop/storage.py", capsys=capsys)
+    assert code == 0 and "directly affected: storage" in out, out
+
+
+def test_inventory_cache_never_trusts_a_parse_of_a_just_written_file(project):
+    import os
+    path = project / "shop/storage.py"
+    path.write_text("def save(x):\n    return x\n", encoding="utf-8")
+    first = build_inventory(project, DEFAULT_IGNORE)
+    assert "save" in first.py["shop/storage.py"].symbols
+    st = path.stat()
+    path.write_text("def keep(x):\n    return x\n", encoding="utf-8")           # same size
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns))                         # same coarse mtime tick
+    second = build_inventory(project, DEFAULT_IGNORE)
+    assert "keep" in second.py["shop/storage.py"].symbols
+
+
+def test_impact_accepts_absolute_and_backslash_paths(project, capsys):
+    run(project, "scan", capsys=capsys)
+    fill(project)
+    code, out = run(project, "impact", str(project / "shop" / "api.py"), "shop\\orders.py", capsys=capsys)
+    assert code == 0 and "UNMAPPED" not in out and "directly affected: api, orders" in out, out
+
+
+def test_parse_cache_written_by_other_parser_code_is_ignored(project):
+    import os
+    import time
+    path = project / "shop/storage.py"
+    old = time.time_ns() - 10_000_000_000
+    os.utime(path, ns=(old, old))                                    # old enough to be cached
+    build_inventory(project, DEFAULT_IGNORE)
+    cache = project / ".flowguard/cache/inventory.json"
+    data = json.loads(cache.read_text(encoding="utf-8"))
+    data["files"]["shop/storage.py"]["symbols"] = ["stale_symbol"]
+    data["parser"] = "written-by-an-older-flowguard"
+    cache.write_text(json.dumps(data), encoding="utf-8")
+    assert "save" in build_inventory(project, DEFAULT_IGNORE).py["shop/storage.py"].symbols
+
+
+def test_parse_cache_key_includes_the_python_version(monkeypatch):
+    import importlib.util
+    import sys
+    from flowguard.map import discover, inventory
+    monkeypatch.setattr(sys, "version", "0.0.0 (another interpreter)")   # ast results differ between versions
+    for module in (inventory, discover):
+        spec = importlib.util.spec_from_file_location(f"{module.__name__}_probe", module.__file__)
+        probe = importlib.util.module_from_spec(spec)
+        monkeypatch.setitem(sys.modules, spec.name, probe)
+        spec.loader.exec_module(probe)
+        assert probe.PARSER_ID != module.PARSER_ID, module.__name__

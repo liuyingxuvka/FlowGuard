@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
+import os
 import re
+import subprocess
+import sys
+import tokenize
 from dataclasses import asdict, dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -31,6 +36,38 @@ def sha256_bytes(data: bytes) -> str:
 def content_digest(path: Path) -> str:
     """sha256 of a file with CRLF normalized to LF, so Windows and Linux checkouts agree."""
     return sha256_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+
+
+def read_source(path: Path) -> str:
+    """Source text as Python reads it: UTF-8 BOM and PEP 263 coding cookie honored, LF newlines,
+    undecodable bytes replaced (never raises UnicodeDecodeError). Raises OSError like read_text."""
+    data = path.read_bytes()
+    encoding = "utf-8-sig"
+    if path.suffix == ".py":
+        try:
+            encoding = tokenize.detect_encoding(io.BytesIO(data).readline)[0]
+        except SyntaxError:                       # unknown or conflicting coding cookie
+            pass
+    try:
+        text = data.decode("utf-8-sig" if encoding == "utf-8" else encoding, errors="replace")
+    except LookupError:
+        text = data.decode("utf-8-sig", errors="replace")
+    return text.replace("\r\n", "\n")
+
+
+def git_paths(root: Path, *args: str) -> list[str]:
+    """NUL-separated git output (run with -z) as file names; never quoted, never locale-decoded."""
+    out = subprocess.run(["git", "-C", str(root), *args], capture_output=True, check=True).stdout
+    return [os.fsdecode(item) for item in out.split(b"\0") if item]
+
+
+def safe_stdio() -> None:
+    """Print text the console code page cannot encode as escapes instead of crashing (Windows cp1252/GBK)."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(errors="backslashreplace")
+        except (AttributeError, ValueError):
+            pass
 
 
 def norm(path: str) -> str:

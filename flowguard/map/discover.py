@@ -16,12 +16,16 @@ from __future__ import annotations
 
 import ast
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
-from .common import CACHE_RELDIR, content_digest, is_test_file
+from .common import CACHE_RELDIR, content_digest, is_test_file, read_source, sha256_bytes
 
-CACHE_SCHEMA = "flowguard.map.discover_cache.v2"  # bump when the analysis changes
+CACHE_SCHEMA = "flowguard.map.discover_cache.v3"
+# Facts are reused only by the exact analysis code that wrote them (upgrades never keep stale facts).
+PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
+                         + sys.version.encode())[:16]   # ast results differ between Python versions
 SUMMARY_LIMIT = 12
 
 ROUTE_LEAVES = {"route", "get", "post", "put", "delete", "patch", "head", "options", "websocket", "api_route"}
@@ -349,7 +353,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) 
     cache_path = root / CACHE_RELDIR / "discover.json"
     try:
         old = json.loads(cache_path.read_text(encoding="utf-8"))
-        old = old.get("files", {}) if old.get("schema") == CACHE_SCHEMA else {}
+        old = old.get("files", {}) if old.get("schema") == CACHE_SCHEMA and old.get("parser") == PARSER_ID else {}
     except (OSError, ValueError):
         old = {}
     facts: dict[str, dict] = {}
@@ -359,7 +363,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) 
         if hit and hit.get("digest") == digest:
             facts[path] = hit
             continue
-        text = (root / path).read_text(encoding="utf-8", errors="replace")
+        text = read_source(root / path)
         package = module if path.endswith("__init__.py") else module.rpartition(".")[0]
         facts[path] = {"digest": digest, **file_facts(text, module, package, path)}
     mod_to_path = {f.get("module", ""): p for p, f in facts.items()}
@@ -373,7 +377,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) 
                 if target and target != f"{path}#{symbol}":
                     edges[f"{path}#{symbol}"].add(target)
                     incoming[target] += 1
-    raw = {"schema": CACHE_SCHEMA, "files": facts,
+    raw = {"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": facts,
            "edges": {k: sorted(v) for k, v in sorted(edges.items())}}
     if write_cache:
         try:

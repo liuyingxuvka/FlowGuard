@@ -36,7 +36,7 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import CACHE_RELDIR, content_digest
+from .common import CACHE_RELDIR, content_digest, read_source
 from .inventory import build_inventory, parse_python, resolve_import
 from .mapfile import (MapError, component_files, component_graph, ignore_patterns, load_map,
                       model_registry, read_model_contract)
@@ -119,7 +119,7 @@ def _cache_inputs(root: Path, path: Path, contract: dict, data: dict, inv) -> tu
                 return [], f"helper {target} is outside the mapped input boundary"
             if not target and top not in sys.stdlib_module_names and top != "flowguard":
                 return [], f"unresolved import {imp!r} in {rel}"
-        tree = ast.parse(source.read_text(encoding="utf-8"))
+        tree = ast.parse(read_source(source))
         for node in ast.walk(tree):
             if isinstance(node, ast.Attribute) and node.attr == "environ":
                 return [], f"environment input in {rel}"
@@ -166,11 +166,12 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelRe
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     rel = path.relative_to(root).as_posix()
     started = time.time()
     try:
         proc = subprocess.run([sys.executable, "-m", "flowguard.map.proof", str(root), str(path)], cwd=root,
-                              env=env, capture_output=True, text=True, timeout=timeout)
+                              env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
     except subprocess.TimeoutExpired:
         return ModelResult(model=path.stem, file=rel, status="error", problems=[f"timed out after {timeout}s"],
                            seconds=round(time.time() - started, 3))
@@ -238,11 +239,12 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelR
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     result = ModelResult(model=model_id_of(path), file=path.relative_to(root).as_posix())
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, str(path)], cwd=root, env=env, capture_output=True, text=True,
-                              timeout=timeout)
+        proc = subprocess.run([sys.executable, str(path)], cwd=root, env=env, capture_output=True,
+                              encoding="utf-8", errors="replace", timeout=timeout)
         if proc.returncode != 0:
             result.status = "fail"
             tail = "\n".join((proc.stdout + proc.stderr).strip().splitlines()[-15:])
