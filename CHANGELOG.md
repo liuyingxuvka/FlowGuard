@@ -8,6 +8,24 @@ Upgrade notes:
   once after upgrading, because those files were missing from the map before. Re-read and
   confirm them.
 
+## v0.70.1 - 2026-10-14 - Scoped impact, model registry, PASS cache, pytest result binding
+
+- `change` and `map impact` follow the full reverse caller closure by default; an explicit
+  `--depth N` cuts it and prints TRUNCATED.
+- `change` also selects the tests, models and runners bound to the affected components, and
+  map.json edits to verification fields (files, entrypoints, depends_on, tests, models, state,
+  side_effects) re-select their components.
+- One executable model registry (`mapfile.model_registry`) is shared by check, `map models` and
+  release. Unknown or duplicate model ids, empty broken_variants(), invalid conformance results
+  and model files that do not parse now fail; release prints declared and executed counts.
+- A PASS cache for contract models in `.flowguard/cache/models.json`; runners are never cached.
+- Model-test alignment can bind real pytest results: `bind_pytest_execution` in
+  `flowguard/model_test_alignment.py`; the source audit rejects same-name calls on the wrong
+  receiver and assertions that are always true.
+- New self-model `.flowguard/models/change_impact.py`; release runs 34 models.
+- Known issue: on Windows, `tests/test_flowguard_map.py::test_fingerprint_ignores_crlf_line_endings`
+  fails (a bug in the test, not in the product), so the Windows CI job is red.
+
 ## v0.70.0 - 2026-10-13 - Map, capabilities kept, ledger retired
 
 - New: `.flowguard/map.json`, a living, code-anchored map of the software (components,
@@ -27,7 +45,7 @@ Upgrade notes:
   sets, evidence receipts, validation owners, native case rows, blueprints, SkillGuard
   projections, maturation receipts, the risk evidence ledger, route registries) and its
   generated JSON. Capability modules no longer import it. The full history stays in git
-  (tag `legacy-v0.69.9`).
+  (the legacy version is commit `2999a09`, v0.69.9).
 - FlowGuard maps itself: 37 components; 31 self-models plus 2 map models run in about 20 s;
   the full test suite runs in about 30 s.
 - `import flowguard` loads only the facade (a plain name table).
