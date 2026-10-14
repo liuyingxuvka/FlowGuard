@@ -208,9 +208,12 @@ def test_invalid_map_is_rejected(project, capsys):
 
 def test_fingerprint_ignores_crlf_line_endings(project, capsys):
     from flowguard.map.mapfile import fingerprint
-    lf = fingerprint(project, ["shop/storage.py"])
     path = project / "shop/storage.py"
-    path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
+    lf_bytes = path.read_bytes().replace(b"\r\n", b"\n")  # write_text already gives CRLF on Windows
+    path.write_bytes(lf_bytes)
+    lf = fingerprint(project, ["shop/storage.py"])
+    path.write_bytes(lf_bytes.replace(b"\n", b"\r\n"))
+    assert b"\r\r\n" not in path.read_bytes()
     assert fingerprint(project, ["shop/storage.py"]) == lf
 
 
