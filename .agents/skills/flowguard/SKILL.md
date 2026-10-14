@@ -64,14 +64,15 @@ flows: write or update a model (`assets/model_template.py`, `references/model_re
 the component's `models`, run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
 Component ids select `read --component`; model ids select `map models`. Unknown model ids fail.
 `change` follows the complete caller closure; explicit `map impact --depth N` is truncated.
-Static Python/relative JS/TS imports are supported; declare lazy/alias edges in `depends_on`.
-Declared edges remain conservative, unverified inputs rather than verified imports.
+Static Python/relative JS/TS imports and literal lazy exports are supported.
+Each declared edge needs an import, module literal or explicit debt reason; unsupported edges fail check.
 
 ## First map of an existing project
 
+Old `.flowguard/project.toml` integrations: follow `references/upgrade_from_0_69.md` first.
+
 `references/first_map.md` (scan -> digest -> describe -> deps -> check -> confirm -> lint). `scan`
-also runs discovery: routes, CLI commands, side effects and state writers found in the code
-(`python -m flowguard map discover` shows them). Read digests, not whole files.
+bounds draft grouping; `python -m flowguard map discover` separately shows routes, commands, effects and state writers. Read digests, not whole files.
 
 ## Architecture review and release
 

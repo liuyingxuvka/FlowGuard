@@ -11,6 +11,8 @@ The Python engine is installed separately: pip install -e <this repository>.
 from __future__ import annotations
 
 import argparse
+import os
+import re
 import filecmp
 import shutil
 import sys
@@ -41,7 +43,14 @@ def main() -> int:
     mode.add_argument("--dry-run", action="store_true")
     mode.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    dst = Path(args.target).expanduser() / "flowguard"
+    # Also accept a literal shell-style path passed through a GUI or quoted command.
+    required = re.findall(r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))|%([A-Za-z_][A-Za-z0-9_]*)%", args.target)
+    missing = [next(part for part in match if part) for match in required
+               if not os.environ.get(next(part for part in match if part))]
+    if missing:
+        parser.error("target environment variable is unset: " + ", ".join(missing))
+    target = re.sub(r"%([A-Za-z_][A-Za-z0-9_]*)%", lambda m: os.environ[m[1]], args.target)
+    dst = Path(os.path.expandvars(target)).expanduser() / "flowguard"
     if not (SOURCE / "SKILL.md").is_file():
         print(f"skill source not found: {SOURCE}", file=sys.stderr)
         return 2

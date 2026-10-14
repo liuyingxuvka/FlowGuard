@@ -11,8 +11,8 @@ subject, load only `references/domains/<subject>/protocol.md` and its explicit
 dependencies. The skill is installed by copying `.agents/skills/flowguard/`:
 
 ```powershell
-python scripts/install_skill.py --target $CODEX_HOME/skills
-python scripts/install_skill.py --target $CODEX_HOME/skills --check
+python scripts/install_skill.py --target "$env:CODEX_HOME/skills"
+python scripts/install_skill.py --target "$env:CODEX_HOME/skills" --check
 ```
 
 The target repository does not copy the author checkout or a second copy of the
@@ -41,7 +41,7 @@ Before a release, run the strict gate:
 python -m flowguard release --root <target-project>
 ```
 
-`read` starts zero producers and writes nothing. `change` compares the changed
+`read` starts zero producers and writes no project data; it may refresh `.flowguard/cache/`. `change` compares the changed
 files (from git, or passed explicitly) with the map and lists only the affected
 components, models, and tests; running those models and tests is the proof.
 Normal changes rerun the affected models and tests;

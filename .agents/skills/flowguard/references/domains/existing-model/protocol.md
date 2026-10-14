@@ -1,5 +1,4 @@
 # Existing Model Preflight
-
 Before you change behavior, find out which component or model already owns it.
 This capability catches the "parallel second owner" bug: an agent adds a new
 scheduler, store, handler or model for something an existing component already
@@ -7,9 +6,7 @@ does. The result is two places that write the same state, fire the same side
 effect, or expose the same action through a second UI/API/CLI path. It also
 catches changed files that no component owns, and selected components whose
 files changed since the last `confirm` (or that are still draft).
-
 ## Use when
-
 - You are about to add a feature, fix a bug, or refactor inside a project that has `.flowguard/map.json`.
 - Your plan creates a new module, model, workflow, handler or entrypoint.
 - The change touches state, side effects, or behavior-bearing fields (config keys, schema keys, prompt fields).
@@ -88,6 +85,9 @@ files changed since the last `confirm` (or that are still draft).
 8. Fix every unmapped file: add it to one component's `files`, then `python -m flowguard map confirm <id>`.
 
 ## What blocks
+
+`behavior_lookup_primary_owner_missing` blocks related commitments with no primary owner;
+an unrelated ledger only warns when the map already resolves the task owner.
 
 | Code | Meaning |
 |---|---|

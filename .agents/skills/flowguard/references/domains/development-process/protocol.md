@@ -1,12 +1,10 @@
 # Development Process Flow
-
 This stops "done" or "release" claims that rest on old test results. Each artifact
 (code, test, model, requirement) has a current version; each evidence row records the
 versions it ran on. The review catches a test that passed on code@1 while code is now
 @2, a peer or unknown writer that changed a file after the run, a requirement edit that
 should have re-run downstream checks, hidden skips, progress-only and failed runs
 reported as current. It also computes a small re-run set. Map fingerprints make good versions.
-
 ## Use when
 
 - You are about to claim done or release after several edits and test runs.
@@ -123,6 +121,8 @@ with `AgentWorkflowStep` rows, then `review_agent_workflow_rehearsal(plan)` (`.o
 - [ ] Your report lists what ran, what was skipped, and the re-run set.
 
 ## Limits
+
+- Test evidence producers route to `test_mesh`; progress alone never completes a test claim.
 
 - It checks the rows you declare. It does not run tests or watch files; an undeclared write is invisible.
 - Versions are only as good as you make them. A draft map component's fingerprint is empty until `map confirm ID`.

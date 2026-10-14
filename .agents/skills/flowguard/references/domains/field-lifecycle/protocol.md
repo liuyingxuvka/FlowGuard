@@ -1,5 +1,4 @@
 # Field Lifecycle
-
 Catches half-done field changes: a renamed field that a reader still uses, a
 routing or permission flag whose new behavior no obligation or test covers, an
 old field that survives because nobody chose to delete, block or migrate it.
@@ -64,7 +63,8 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    `discovery_evidence_ids`, and per row `locations`, `default_semantics`,
    `absence_semantics`, `serialization_semantics`, `privacy_classification`,
    `content_fingerprint`.
-7. Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
+7. Runtime-gateway evidence routes to `model_test_alignment`; closure routes to `development_process_flow`.
+   Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
 8. Edit `complete_field_lifecycle()` and `broken_field_lifecycle()` in `model.py`.
    The runner exits 0 only if the good plan passes, the broken one fails and
    obligations and code contracts were projected (shortened):

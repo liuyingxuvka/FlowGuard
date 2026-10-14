@@ -68,7 +68,7 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
    hazard now covered by a named test, or `replace(c, disposition=TOPOLOGY_DISPOSITION_SCOPED_OUT,
    scoped_reason="...")` with a concrete reason, and rerun with `replace(plan, candidates=...)`.
    Pass every candidate: a non-empty `candidates` turns off automatic candidates.
-   Each candidate's `required_routes` names the follow-up (for example `model_maturation_loop`,
+   Each candidate's `required_routes` names the follow-up (for example `model_miss_review`,
    `model_test_alignment`, `architecture_reduction`, `development_process_flow`).
 6. In `run_checks.py` build the intended plan and the broken plans below; assert the intended
    one gives `report.ok` and `report.confidence == "full"` (or `"scoped"` with the reasons
@@ -122,9 +122,7 @@ Decision values: `topology_hazard_pass`, `topology_hazard_scoped_confidence`, `t
 
 - It reads declared shape only (`reads`, `writes`, `side_effects`, names, business paths).
   It does not run the code or prove idempotency; pair it with real tests.
-- False shared writer: one block with `writes` and `side_effects` yields a `shared_writer` landmark
-  anchored on its own `edge:N:X` and `effect:N:X`. Workaround: if all anchors share the same index N,
-  `replace(c, disposition=TOPOLOGY_DISPOSITION_OBSERVATION)` and rerun with `candidates=`.
+- State/effect edges of one workflow block share one writer; two distinct blocks still flag shared state.
 - Substring keyword match: "threshold" and "hold" match "old" (legacy landmark, a blocker under
   broad usage). Workaround: rename the block, or set that candidate to observation with a note.
 - Any `external_inputs` mark every edge repeatable. Liveness and fairness are not checked here.

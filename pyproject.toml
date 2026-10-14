@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.70.1"
+version = "0.70.2"
 description = "A living, code-anchored map of your software, executable models of its risky flows, and focused capability reviews for AI-assisted development."
 requires-python = ">=3.11"
 dependencies = []
@@ -16,11 +16,12 @@ dev = ["pytest>=8.0", "setuptools>=61"]
 flowguard = "flowguard.__main__:main"
 
 [tool.setuptools.packages.find]
-# The package plus its maintained examples (tests import the examples).
-include = ["flowguard*", "examples*"]
+# Teaching examples stay in the repository, not in site-packages.
+include = ["flowguard*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 norecursedirs = ["build", "work", "worktrees"]
 markers = [
   "flowguard_capability(name): classify a capability-boundary regression test.",

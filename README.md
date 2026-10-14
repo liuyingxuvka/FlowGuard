@@ -8,6 +8,9 @@
 
 [中文说明](./README.zh-CN.md)
 
+Version **0.70.2**: 37 self-map components, 4 flows, 32 executable self-models. See the [repair and validation report](docs/flowguard_0_70_2_fix_report.md) for measured results and remaining limits.
+
+
 ## What it does
 
 AI agents are good at local edits, but every new session has to rediscover: what parts does the
@@ -24,7 +27,7 @@ things in the project:
 3. **Capability reviews** - 14 focused checks an agent picks when the task needs one (table below).
 
 Map and code verify each other: every source file belongs to exactly one component; entrypoints,
-flow steps and model files must exist; declared dependencies must equal the real imports;
+flow steps and model files must exist; every real import must be declared;
 confirming a component records a fingerprint of its files, so any code change marks it STALE until
 someone re-reads and re-confirms it. History lives in git.
 
@@ -35,13 +38,20 @@ pip install -e .                                          # engine, standard lib
 python scripts/install_skill.py --target ~/.claude/skills # skill for your agent (or $CODEX_HOME/skills)
 
 cd your-project
-python -m flowguard map scan              # 1. draft components + discovered routes, commands, side effects
-python -m flowguard map digest all        # 2. API outline, about 3-6% of the source size
+python -m flowguard map scan              # 1. draft components; guess tests from imports (default max 40)
+python -m flowguard map discover all      # inspect routes, commands, effects and state writers
+python -m flowguard map digest all        # 2. API outline, signatures, assignments and docstrings; size varies
 #   edit .flowguard/map.json: merge/split components, write summary, responsibilities, layer ...
 python -m flowguard map deps --write      # 3. dependencies from real imports
 python -m flowguard map check             # 4. fix until 0 errors
 python -m flowguard map confirm all       # 5. the map is current
 python -m flowguard map lint              # 6. architecture review
+```
+
+```powershell
+python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
+# Codex: set CODEX_HOME first; do not substitute an unset variable.
+python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 ```
 
 ## Daily verbs

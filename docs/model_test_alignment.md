@@ -310,11 +310,6 @@ List test evidence with `TestEvidence`:
   carry a proof artifact with a result path, artifact fingerprint, matching
   covered obligations, and external-contract scope when code contracts are
   being proved.
-- optional `result_reused=True` plus `reuse_ticket=TestResultReuseTicket(...)`
-  when the row reuses a previous test result instead of a fresh run. Reused test
-  evidence must carry both a current reuse ticket and a current proof artifact;
-  otherwise Model-Test Alignment reports the reuse/proof gap before the row can
-  support model obligation or code contract coverage.
 
 For field-bearing changes, supply FieldLifecycleMesh reports or projections to
 `ModelTestAlignmentPlan`. Behavior-bearing fields become model obligations and
@@ -415,3 +410,19 @@ plan may have omitted a repeated failure class, a project adapter may have lost
 raw status or freshness, or a narrow report is being promoted to broad
 completion confidence, run the plan-intake and typed claim-chain helpers before
 the alignment result is used as final evidence.
+
+## Binding real pytest results
+
+Execution evidence comes from one outer pytest run, never from a model runner. In a git
+project, set `FLOWGUARD_PYTEST_NODEIDS=.flowguard/cache/pytest-run.json` and run the selected
+tests with `-p flowguard.pytest_nodeid_recorder --junitxml=.flowguard/cache/pytest.xml`.
+The recorder captures exact node IDs, actual statuses, command exit status and input scope
+before and after the run. Do not invent statuses or construct freshness metadata by hand.
+
+In a separate `.flowguard/verification/owners/<owner>/bind_run.py`, load the model's
+ordinary plan, audit its source freshly, and call
+`bind_pytest_execution(plan, evidence_nodeids={evidence_id: exact_nodeid},
+nodeid_manifest=root / ".flowguard/cache/pytest-run.json", project_root=root)`.
+Then review the returned plan. Missing records remain blocked/not_run; failed, skipped,
+stale or mismatched evidence cannot close an implementation claim. Record files stay in
+`.flowguard/cache/`; `model.py` and `run_checks.py` remain independent of pytest evidence.

@@ -118,6 +118,8 @@ Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement
 
 ## Limits
 
+- `strict=True` or full/release rejects explicit child parent/scope values that disagree with the parent; empty optional values are allowed.
+
 - It checks the boundaries you declare. It does not read code; a child that lies about its
   outputs passes. Pair it with each child's own model and real tests.
 - The closure model checks handoff tokens only, not what a child does with them.

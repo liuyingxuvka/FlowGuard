@@ -73,3 +73,5 @@ If a state field has multiple production writers, or if one writer is a cleanup,
 runtime, or finalizer path, conformance replay should be the default next check
 after the model passes. If replay is skipped, record why this round is still
 model-level confidence only.
+
+For the current source inventory of state writers, run `python -m flowguard map discover`.

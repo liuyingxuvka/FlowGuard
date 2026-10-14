@@ -137,7 +137,7 @@ print(report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard template structure-mesh --output .
+python -m flowguard template structure-mesh --write .
 ```
 
 ## Known-Bad Hazards

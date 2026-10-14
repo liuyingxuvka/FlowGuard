@@ -30,11 +30,11 @@ a routine run silently stands in for the release run.
 
 1. Run `python -m flowguard change` and the tests and models it lists. Map any
    unmapped files first; do not guess the test set.
-2. If the selected set is too slow, shard it. In a FlowGuard source checkout run
-   `python scripts/run_flowguard_pytest_shards.py --root . --shards 4 --parallel-shards 4 --json`
+2. If the selected set is too slow, use the packaged shard runner:
+   `python -m flowguard.pytest_shards_cli --root . --shards 4 --parallel-shards 4 --json`
    (also `--collect-timeout`, `--shard-timeout`, `--run-timeout`, `--resume-output`).
    It hashes each collected node id to one shard, runs exact node ids per shard,
-   records the ids that really ran, and checks the shards are a disjoint, exact union.
+   records exact executions in `.flowguard/cache/pytest-shards` and checks a disjoint, exact union.
 3. `python -m flowguard template test-mesh --write .` writes `.flowguard/models/owners/test_mesh/model.py`,
    the runner `.flowguard/verification/owners/test_mesh/run_checks.py`, and notes.
 4. In `model.py`: `from flowguard import TestMeshPlan, TestPartitionItem,

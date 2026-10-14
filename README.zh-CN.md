@@ -8,6 +8,9 @@
 
 [English](./README.md)
 
+当前版本 **0.70.2**：自地图有 37 个组件、4 条流程、32 个可执行自检模型。实测结果和保留边界见[修复与验收报告](docs/flowguard_0_70_2_fix_report.md)。
+
+
 ## 它做什么
 
 AI 擅长局部修改，但每开一个新会话都要重新弄清：软件由哪些部分组成、这件事归谁管、改这里会影响哪里？
@@ -20,8 +23,7 @@ FlowGuard 在项目里保存三样东西：
    一定会失败，并把模型轨迹放到真实代码上回放比对（一致性检查）。
 3. **专项检查**：14 个有针对性的检查，任务需要时由 AI 选用（见下表）。
 
-地图和代码互相校验：每个源文件恰好属于一个组件；入口、流程步骤和模型文件必须真实存在；声明的依赖必须
-等于真实的 import；确认组件时会记下它文件的指纹，代码一改就自动标成“过期”，直到有人重新读过并确认。
+地图和代码互相校验：每个源文件恰好属于一个组件；入口、流程步骤和模型文件必须真实存在；每个真实的 import 都必须声明；确认组件时会记下它文件的指纹，代码一改就自动标成“过期”，直到有人重新读过并确认。
 历史保存在 git 里。
 
 ## 五分钟上手
@@ -31,13 +33,20 @@ pip install -e .                                          # 引擎，只依赖 P
 python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能（或 $CODEX_HOME/skills）
 
 cd your-project
-python -m flowguard map scan              # 1. 草拟组件，并自动发现路由、命令、副作用
-python -m flowguard map digest all        # 2. 接口摘要，大约是源码体积的 3-6%
+python -m flowguard map scan              # 1. 草拟组件，按 import 猜测试（默认最多 40 个组件）
+python -m flowguard map discover all      # 单独查看路由、命令、副作用和状态写入者
+python -m flowguard map digest all        # 2. 接口摘要，签名、赋值和文档；大小随项目变化
 #   编辑 .flowguard/map.json：合并/拆分组件，写 summary、职责、层级……
 python -m flowguard map deps --write      # 3. 从真实 import 生成依赖
 python -m flowguard map check             # 4. 修到 0 个错误
 python -m flowguard map confirm all       # 5. 地图成为当前版本
 python -m flowguard map lint              # 6. 架构审查
+```
+
+```powershell
+python scripts/install_skill.py --target "$env:USERPROFILE\.claude\skills"
+# Codex：先设置 CODEX_HOME；不要使用未设置的变量。
+python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 ```
 
 ## 日常命令

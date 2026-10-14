@@ -72,7 +72,7 @@ Disallowed:
 Before claiming a major upgrade improved flowguard, run:
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest -q
 python examples/problem_corpus/run_corpus_review.py
 python examples/problem_corpus/run_executable_corpus_review.py
 python examples/problem_corpus/run_coverage_audit.py

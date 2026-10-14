@@ -214,5 +214,5 @@ failures: 0
 Run the full test suite:
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest -q
 ```

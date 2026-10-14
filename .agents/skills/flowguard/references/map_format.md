@@ -42,7 +42,7 @@
 | `id` | lowercase `[a-z0-9][a-z0-9_.-]*`, unique | human/AI |
 | `files` | globs (`*` = one directory level, `**` = any depth); every non-test source file must match exactly one component | human/AI |
 | `entrypoints` | `path:Symbol` or `path:Class.method`; must exist (`check`) | human/AI |
-| `depends_on` | components it imports; must equal the real import graph (`check`); `deps --write` fills it | tool, then reviewed |
+| `depends_on` | parsed imports plus conservative lazy/alias edges; undeclared imports error, unverified declarations warn; `deps --write` merges imports | tool, then reviewed |
 | `tests` | test files/globs that exercise the component; must match something (`check`) | human/AI |
 | `models` | contract model files (`.flowguard/models/<id>.py`) or model runners (`.../run_checks.py`) protecting the component; must exist (`check`) | human/AI |
 | `status` | `draft` or `confirmed` | `confirm` |

@@ -91,7 +91,7 @@ print(report.format_text())
 For a ready scaffold, run:
 
 ```powershell
-python -m flowguard template code-structure-recommendation --output .
+python -m flowguard template code-structure-recommendation --write .
 ```
 
 ## From Recommendation To Proof

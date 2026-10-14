@@ -363,17 +363,16 @@ Tasks:
    partition/split/reattachment review and review affected siblings.
 12. Treat background progress as liveness only; require final long-check
    artifacts before using the result as evidence.
-13. Encode the required hazards from `model_mesh_protocol.md` as broken variants.
+13. Encode the required hazards from `model_mesh.md` as broken variants.
 14. Run the formal check plan plus progress/stuck review, hazard review, and conformance or
    live projection when applicable.
-15. Return a decision: `mesh_green_can_continue`, `add_evidence`,
-   `update_child_model`, `split_model_boundary`, `coverage_gap_blocked`,
+15. Return a decision: `mesh_green_can_continue`, 
+   `coverage_gap_blocked`,
    `overlap_too_high_refactor_needed`, `ownership_conflict`,
    `target_split_derivation_required`, `large_model_split_review_required`,
    `child_reattachment_required`, `blocked_by_stale_evidence`,
    `unconsumed_child_output`, `missing_join_point`, `terminal_leak`,
-   `loop_progress_required`, `blocked_by_cross_model_contradiction`, or
-   `model_coverage_insufficient`.
+   `loop_progress_required`.
 16. Report what the mesh proves, what it does not prove, and which checks were
    skipped. Skipped is not pass.
 ```
@@ -417,3 +416,236 @@ The mesh is sufficient for the current decision only when:
 - oversized new or legacy models have a split-review decision;
 - the final decision distinguishes model classification from permission to
   continue the real workflow.
+
+## Where the models live
+
+A project's models are listed in the project map, `.flowguard/map.json`. Run
+`python -m flowguard map models` to see them and `python -m flowguard map check`
+to see which ones are stale because the code or model files they cover changed
+since the map's fingerprints were recorded. A hierarchy is something you
+declare in a `HierarchyPartitionMap`: the parent model id, the child models,
+and which parent items each child owns. Cross-domain support or influence
+belongs in a child's `depends_on`, not in a second structural parent, so each
+child keeps exactly one parent in the partition.
+
+When parent confidence also claims that the underlying code stays inside model
+boundaries, add layered boundary proof. The parent checks coverage and child
+disjointness, consumes current child reattachment evidence, and requires every
+lowest leaf model to prove a complete finite
+`Input x State -> Set(Output x State)` matrix against real-code evidence. A
+child-local green model result alone does not prove that leaf code boundary.
+
+When a child model has runtime path evidence, put the current evidence ids on
+`ChildModelEvidence.runtime_path_evidence_ids`. The parent reattachment
+contract should consume those ids through
+`ChildReattachmentContract.consumed_runtime_path_evidence_ids`; otherwise the
+parent may know the child model is green but not that it consumed the child's
+current real-code path evidence.
+
+For whole-flow parent confidence, the parent boundary also needs a closure
+model. The closure model is a small FlowGuard-style model of the model network:
+root entries, child-output tokens, parent or sibling consumers, required joins,
+normal/failure exits, and explicit out-of-scope dispositions. It proves the
+handoffs close without expanding child internals.
+
+When the parent mesh declares child outputs, runtime path evidence, or
+reattachment contracts, `review_hierarchical_mesh(...)` requires a closure model
+before broad parent green confidence. The mesh can still report local partition
+or evidence facts without that model, but it must not say the parent/child route
+can continue as a closed flow.
+
+If a child model was changed to repair a bug, its own green result is not enough
+for parent confidence. The parent must reattach that child by consuming the
+current child evidence id and checking that the child still accepts the expected
+inputs, emits the expected outputs, owns the expected state and side effects,
+and provides the outgoing guarantees the parent flow depends on.
+
+Keep the bug instance and the bug class separate. Model-Miss Review owns the
+observed defect and the same-class family seed. ContractExhaustionMesh owns the
+generated same-class, stale-child, unconsumed-child, and no-delta case ids. The
+hierarchy owns whether the child boundary changed in a way that makes parent or
+sibling assumptions stale. A patched instance does not make the parent mesh
+green by itself.
+
+Before the parent mesh trusts a child-model layout, it should record the target
+split derivation from a FlowGuard source model or model-of-models. The
+derivation names the source model, target child models, covered partition items,
+state owner fields, side-effect owner fields, and rationale for the split. A
+partition map without this derivation is not enough for green mesh confidence.
+
+
+## Recursive Closure
+
+An arbitrary-depth hierarchy is closed from leaves upward with
+`review_recursive_hierarchy(RecursiveHierarchyPlan(...))`. Each
+`RecursiveModelNode` names its model, its direct children, and, for a leaf, the
+finite input and state cases (`leaf_input_cases`, `leaf_state_cases`) whose
+product is the leaf's boundary. Each node is backed by a
+`RecursiveSubtreeReceipt` that lists the direct-child results it consumed.
+Ordinary `passed` flags or bare string child ids are not a substitute: a
+parent is only closed when every direct child's subtree result is present,
+current, and terminal. Cross-model combinations use typed interface or
+refinement contracts rather than one local Cartesian product.
+
+The review is structural. It tells you whether the hierarchy closes; it does
+not prove that code ran. That proof comes from running the child models and
+the tests that cover the leaf cells. Keep three claims distinct: structural
+composition, executed tests, and cross-sibling interaction.
+
+The finite composition rule is deliberately explicit. A ContractExhaustionMesh
+coverage universe may set `allow_partitioned_product=True` to declare a set of
+disjoint child-local products instead of materialising one enormous
+cross-system table. This only removes the *monolithic* product requirement.
+Each local product still needs its own finite denominator and result, and every
+cross-child route needs a typed handoff obligation that is actually checked. A
+parent cannot turn generated handoff ids, child summaries, or a count into
+execution evidence.
+
+When code or models change, `python -m flowguard change` lists which models
+and tests to rerun; rerun the affected children first, then the parent review.
+
+
+## Partition Maps
+
+
+## Large Model Review
+
+Large model review asks what the next action should be:
+
+- `keep_as_single_model`: the large model is cohesive and evidence is complete;
+- `split_into_children`: the model contains separable child areas;
+- `merge_with_existing_model`: a candidate child overlaps an existing model;
+- `continue_with_budgeted_execution_only`: keep the model for now, but do not
+  report incomplete budgeted work as OK.
+
+Automatic split diagnostics provide the trigger before this review is skipped.
+When direct model evidence reports state counts above the large-model
+threshold, pending budgeted states, separable areas, broad parent obligations,
+or background progress-only status, `review_auto_mesh_splits()` routes the
+candidate to ModelMesh and keeps broad parent confidence blocked or scoped
+until a current target split and child evidence are consumed.
+
+
+## Legacy Compatibility
+
+Legacy models are not rewritten first. They are discovered and classified:
+
+- `standalone_legacy`;
+- `legacy_large_review_needed`;
+- `legacy_candidate_parent`;
+- `legacy_candidate_child`;
+- `legacy_overlaps_existing`;
+- `legacy_stale_or_partial`;
+- `legacy_without_contract`.
+
+A legacy model without a compatibility contract can be registered, but it should
+not become strong child evidence. The compatibility contract records the
+model's risk boundary, owned state, side effects, output contracts, freshness
+rule, skipped checks, and evidence tier.
+
+
+## Minimal API Example
+
+In this example the payment child was rerun (`v0` -> `v1`) without changing
+its inputs or outputs, so the parent only needs to reattach the new evidence
+id. Changing `inputs_accepted` or `outputs_emitted` between the two versions
+would instead return `parent_rerun_required`.
+
+```python
+from flowguard import (
+    ChildModelEvidence,
+    ChildReattachmentContract,
+    HierarchyCoverageItem,
+    HierarchyPartitionMap,
+    MeshClosureJoin,
+    MeshClosureModel,
+    MeshClosureTerminal,
+    MeshClosureTransition,
+    ModelTargetSplitDerivation,
+    review_hierarchical_mesh,
+    summarize_child_boundary_change,
+)
+
+old_payment = ChildModelEvidence(
+    "payment",
+    evidence_id="payment:model-check:v0",
+    evidence_tier="abstract_green",
+    inputs_accepted=("payment_request",),
+    outputs_emitted=("payment_result",),
+)
+new_payment = ChildModelEvidence(
+    "payment",
+    evidence_id="payment:model-check:v1",
+    evidence_tier="abstract_green",
+    inputs_accepted=("payment_request",),
+    outputs_emitted=("payment_result",),
+)
+payment_change = summarize_child_boundary_change(old_payment, new_payment)
+
+partition = HierarchyPartitionMap(
+    parent_model_id="checkout_root",
+    coverage_items=(
+        HierarchyCoverageItem("payment", owner_model_id="payment"),
+        HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+        HierarchyCoverageItem("order_status", ownership="parent"),
+    ),
+    child_models=(
+        new_payment,
+        ChildModelEvidence(
+            "inventory",
+            evidence_tier="abstract_green",
+            outputs_emitted=("inventory_result",),
+        ),
+    ),
+    target_split_derivation=ModelTargetSplitDerivation(
+        "checkout_root",
+        target_child_model_ids=("payment", "inventory"),
+        covered_partition_item_ids=("payment", "inventory", "order_status"),
+        rationale="derived from checkout model blocks and ownership boundaries",
+    ),
+    reattachment_contracts=(
+        ChildReattachmentContract(
+            "payment",
+            consumed_evidence_id="payment:model-check:v1",
+            expected_inputs=("payment_request",),
+            expected_outputs=("payment_result",),
+        ),
+    ),
+    closure_model=MeshClosureModel(
+        "checkout_root",
+        root_entries=("checkout_start",),
+        transitions=(
+            MeshClosureTransition(
+                "payment_handoff",
+                consumes=("checkout_start",),
+                emits=("payment_result",),
+                consumer_model_id="payment",
+            ),
+            MeshClosureTransition(
+                "inventory_handoff",
+                consumes=("checkout_start",),
+                emits=("inventory_result",),
+                consumer_model_id="inventory",
+            ),
+        ),
+        joins=(
+            MeshClosureJoin(
+                "checkout_ready",
+                required_inputs=("payment_result", "inventory_result"),
+                emits=("order_ready",),
+            ),
+        ),
+        terminals=(MeshClosureTerminal("checkout_complete", consumes=("order_ready",)),),
+    ),
+    boundary_changes=(payment_change,),
+)
+
+report = review_hierarchical_mesh(partition)
+assert report.ok
+```
+
+Run the full example:
+
+```powershell
+python examples/hierarchical_model_mesh/run_review.py
+```

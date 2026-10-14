@@ -1,16 +1,56 @@
 # Changelog
 
-## Unreleased
+## v0.70.2 - 2026-10-14 - Honest checks, precise selection and portable operation
 
-Upgrade notes:
+- Models always execute. Remove the PASS cache and its self-model; move the impact self-model's
+  exit-status protection into ordinary tests. The release registry contains 32 models.
+- Runner models must complete actual checks through `run_owner(main)`; empty runners fail.
+  Contract models need a real Explorer, a nonempty explored boundary, and known-bad variants.
+  Python implementation anchors must actually run; crashes or unrelated bad rules do not count.
+- Connect optional `TESTED_BY` invariant/test anchors in both directions. Missing bindings,
+  undeclared owner runners and deleted test symbols are visible failures. Dangerous entries
+  without modeled anchors receive a warning unless `NOT_MODELED` gives an explicit reason.
+- Resolve literal lazy facade exports to their real owner. Keep package initialization in test
+  reachability. Select importing tests, helpers and conftest consumers; test/model-only edits
+  stay narrow. Explicit product paths override test-like names. Report configuration/doc changes,
+  unsupported test commands and unowned source. Confirm alone no longer requests another review.
+- Show architecture drift on change, with import sites. Cycles gate release unless already accepted;
+  near duplicates ignore local variable renaming. Correct the transition-coverage owner instead
+  of prescribing a large refactor; four concrete accepted debts remain and stale debts are visible.
+- Discover console scripts and local imports; improve callback reach and remove constructor noise.
+  Scan groups deep directories into at most 40 draft components and guesses tests from imports.
+- Read the whole self map and four flows within 8,000 characters; preserve detail through
+  `read --component`. Add 0.69 upgrade guidance and six adoptable AGENTS/CLAUDE rules.
+- Bind pytest outcomes, identities and input snapshots from the same recorder run. Missing,
+  skipped, failed, renamed and stale rows cannot support execution claims. Accept common raises,
+  class and src-layout tests; reject tautologies, mocked targets and shadowed names.
+- Keep all 14 capabilities; add focused detection regressions, strict mesh parent/scope checks,
+  capability template aliases, honest topology template exit statuses and single-writer handling.
+- Move generated shard/checkpoint/example output into disposable cache. Remove old receipt assets,
+  the unused runtime_test_evidence module and redundant test/model work; label abstract runners.
+- Fix Windows/newline/encoding handling, Chinese paths, BOM and coding cookies. CI covers Ubuntu
+  Python 3.11/3.13 and Windows Python 3.12 using current actions. Wheels install only flowguard,
+  and the skill installer expands Windows/environment paths with clear errors for missing values.
 
-- Components that own files with non-ASCII names (for example Chinese file names) become STALE
-  once after upgrading, because those files were missing from the map before. Re-read and
-  confirm them.
-- The model PASS cache and `map models --force` are removed: every selected model executes on
-  every call, because a cached PASS could hide a model that now fails. Scripts that pass
-  `--force` now stop with `unrecognized arguments`; drop the flag. `.flowguard/cache/models.json`
-  is no longer written and can be deleted.
+### Upgrade notes
+
+- This release increments only the patch number (0.70.1 to 0.70.2), as requested; these deliberate
+  behavior changes still require updating older generated runners and project bindings.
+- End runners with `from flowguard.map.runner import run_owner` and
+  `raise SystemExit(run_owner(main))`. An exit code alone is not a completed check.
+- `map models --force` and PASS reuse are removed. Every selected model executes; discard old
+  `.flowguard/cache/models.json`. Contract models must declare `broken_variants()`.
+- `dep_unused` is now an error: support dependencies with imports, module literals or a narrowly
+  justified existing debt; `deps --write` removes unsupported declarations. Do not declare cycles
+  just to clear another error. Register standard owner runners to fix `model_unbound`.
+- `TESTED_BY` is optional, but its invariant names and test anchors must exist. `NOT_MODELED`
+  records negative scope and grants no real-code proof. Review warnings instead of hiding them.
+- `runtime_test_evidence` and its unused public exports are removed. Use same-run pytest binding
+  with the recorder, outside models. `test_commands` routes non-Python test patterns explicitly.
+- Capability names have template aliases; architecture-reduction points to its protocol snippet.
+- Components with non-ASCII names or previously excluded test-like product files become STALE
+  once after upgrading. Re-read them and confirm. For 0.69 projects see `upgrade_from_0_69.md`.
+- Release checks map, lint and models only; execute pytest separately. No model launches pytest.
 
 ## v0.70.1 - 2026-10-14 - Scoped impact, model registry, PASS cache, pytest result binding
 

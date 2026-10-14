@@ -8,7 +8,6 @@ claim, and what remains a known limitation.
 The baseline is not a replacement for unit tests. It is a structured scorecard
 that combines several evidence sources:
 
-- unit-test inventory;
 - job-matching scenario review;
 - job-matching conformance replay;
 - job-matching model checks;
@@ -70,7 +69,7 @@ An `EvidenceBaselineReport` aggregates cases into:
 - failed cases;
 - text and JSON export.
 
-The current target is at least 100 structured evidence cases. This count should
+The current target is at least 50 executed evidence cases; the maintained baseline runs 56. This count should
 not be treated as magic. It is a guard against upgrading from too little
 evidence.
 
@@ -78,17 +77,16 @@ evidence.
 
 The Phase 10.5 baseline includes:
 
-- `unit_test_inventory`
 - `scenario:job_matching`
 - `conformance:job_matching`
 - `model_check:job_matching`
 - `loop:looping_workflow`
 
-The unit-test inventory records test presence; actual test execution still
-happens through:
+The baseline runs its declared examples; it does not import test modules or count
+test names as execution evidence. Run the real test suite separately:
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest -q
 ```
 
 ## Bug Classes
@@ -125,7 +123,7 @@ python examples/evidence_baseline/run_baseline.py
 Run the full test suite:
 
 ```powershell
-python -m unittest discover -s tests
+python -m pytest -q
 ```
 
 Before Phase 11 or later upgrades, run both commands and save the observed

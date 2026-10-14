@@ -41,7 +41,7 @@ Each candidate carries a route code (`TOPOLOGY_ROUTE_*`) and a disposition
 (`TOPOLOGY_DISPOSITION_*`) that say what to do next:
 
 - Coarse terminal states and parent/child compression: refine the model itself
-  (`model_maturation_loop`) or split it with ModelMesh.
+  (`model_miss_review`) or split it with ModelMesh.
 - Testable model obligations route to Model-Test Alignment.
 - Local-only or process evidence overclaim routes to DevelopmentProcessFlow.
 - Old/new compatibility decisions route to Architecture Reduction.
@@ -49,7 +49,7 @@ Each candidate carries a route code (`TOPOLOGY_ROUTE_*`) and a disposition
   `CanonicalRelation` between the paths.
 - Conflicting or unproven business paths need a model refinement plus
   Model-Test Alignment tests that show which path the real code takes.
-- Broad final confidence (`risk_evidence_ledger` route) means: state the
+- Broad final confidence (`development_process_flow` route) means: state the
   confidence only after the models and tests that cover the hazard have been
   rerun and pass, and keep anything unproven listed as a gap.
 

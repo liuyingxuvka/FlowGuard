@@ -161,7 +161,6 @@ Run it with:
 
 ```powershell
 python examples/flowguard_self_review/run_conformance.py
-python -m flowguard self-conformance
 ```
 
 This is not user-facing product behavior. It is a regression guard that checks

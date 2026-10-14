@@ -16,6 +16,12 @@ registered `run_checks.py`; component ids are for `read --component`. Unknown se
 Every selected model executes on every call (no result cache). Missing conformance means only
 the abstract boundary was checked.
 
+Optional `TESTED_BY = {"invariant_name": ["tests/test_x.py:test_name"]}` binds model rules
+to real test anchors in both directions. Missing or renamed tests fail `map check`; keys must
+be actual design invariants. `NOT_MODELED = {"path.py:Symbol": "reason"}` records an explicit
+unmodeled entry; it grants no implementation proof. Declared implementation anchors must run
+during exploration or conformance; a bad variant must violate the intended design's property.
+
 Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
 
 ## Five steps
@@ -96,3 +102,10 @@ the runner (`.../run_checks.py`) in the owning component's `models`, and run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
 broken plans are rejected. A runner should print one line per case and end with a non-zero exit
 when any case disagrees with its expectation.
+
+## Helpers
+
+- `minimize_failing_sequence(...)` (flowguard.minimize): shrink a failing input sequence.
+- `audit_model(...)` with `RiskProfile` (flowguard.audit): list gaps for the declared risks.
+- `mermaid_code_block(...)` / `loop_report_to_mermaid_text(...)`: render a model/report;
+  see examples/mermaid_export_example.py.

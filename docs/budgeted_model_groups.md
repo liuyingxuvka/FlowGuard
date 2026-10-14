@@ -41,7 +41,7 @@ It does not shard a graph model or reduce graph memory use.
 Each model group gets a run directory:
 
 ```text
-.flowguard/budgeted-model-groups/<model-name>/<fingerprint>/
+.flowguard/cache/budgeted-model-groups/<model-name>/<fingerprint>/
 ```
 
 Inside that directory FlowGuard writes a SQLite ledger with:

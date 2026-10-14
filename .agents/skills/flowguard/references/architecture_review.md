@@ -33,3 +33,5 @@ Accepting a debt on purpose (it becomes `info` with your reason):
 
 `code` and `reason` are required; `component` and `contains` narrow the match.
 Review accepted debts at every release; delete the ones that are fixed.
+
+`flow_step_unreached` is an INFO hint from the static call graph. Higher-order calls and dynamic receivers can be unresolved; verify or reorder the declared journey. It does not block release.

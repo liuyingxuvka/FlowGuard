@@ -15,6 +15,10 @@ from flowguard.conformance import projected_output_matches, projected_state_matc
 MODEL_ID = "order_placement"
 COMPONENTS = ["orders"]
 IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}
+# Optional exact invariant -> test anchors; replace with tests that really exist:
+# TESTED_BY = {"one_charge_per_order": ["tests/test_orders.py:test_place_once"]}
+# Optional explicit negative scope, not implementation proof:
+# NOT_MODELED = {"shop/orders.py:export_orders": "File export is covered by direct integration tests."}
 
 
 @dataclass(frozen=True)

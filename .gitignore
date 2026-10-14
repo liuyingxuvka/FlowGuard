@@ -23,7 +23,6 @@ env/
 # runners under .flowguard/verification/owners/; never the cache.
 .flowguard/cache/
 .flowguard/**/__pycache__/
-.flowguard/verification/owners/**/result.json
 kb/
 docs/flowguard_adoption_log.md
 docs/adoption_review_*.md

@@ -1,5 +1,4 @@
 # Model-Test Alignment
-
 Use this to cross-check three lists row by row: what the model says must happen
 (obligations), which code function owns each obligation (code contracts), and which tests
 prove it (test evidence). It catches gaps between them. Examples: the model says "reject a
@@ -18,7 +17,7 @@ same rule; a test covers an obligation id that no longer exists.
 
 ## Do not use when
 
-- You need to know whether the model itself is right (reachable bad states, invariants). Run the component's model (`python -m flowguard map models <id>`).
+- You need to know whether the model itself is right (reachable bad states, invariants). Run the component's model (`python -m flowguard map models <MODEL_ID>`).
 - You need every input x state case of one rule. Use contract-exhaustion.
 - The test suite is large, slow or layered and must be split or partitioned. Use test-mesh.
 - A field is added, renamed or removed across many places. Use field-lifecycle first; feed its rows here.
@@ -64,14 +63,12 @@ same rule; a test covers an obligation id that no longer exists.
        require_source_audit=True, require_executed_evidence=True))
    # report.ok, report.decision, report.findings[i].code, report.binding_rows
    ```
-3. Run pytest once outside the runner: set `FLOWGUARD_PYTEST_NODEIDS` to a cache JSON,
-   load `-p flowguard.pytest_nodeid_recorder`, and write `--junitxml=<cache XML>`.
-   Capture `pytest_alignment_input_digest(root, exact_input_paths)` before and after;
-   save command, exit_code, input_paths and both digests as run-local metadata.
-   Call `bind_pytest_execution(plan, evidence_nodeids={evidence_id: exact_nodeid},
-   junit_path=..., nodeid_manifest=..., run_metadata=..., project_root=root)`, then review.
-   The returned plan requires source audit and executed evidence. Missing, skipped, failed
-   or stale rows cannot close execution claims; never type `"passed"` for an unrun test.
+3. Run pytest once outside the runner with `FLOWGUARD_PYTEST_NODEIDS=.flowguard/cache/pytest-run.json`,
+   `-p flowguard.pytest_nodeid_recorder --junitxml=.flowguard/cache/pytest.xml` in a git project.
+   A separate `bind_run.py` audits sources and calls `bind_pytest_execution(plan,
+   evidence_nodeids={evidence_id: exact_nodeid}, nodeid_manifest=..., project_root=root)`.
+   The recorder supplies actual statuses and input freshness; no hand-written digests/statuses.
+   Missing, skipped, failed or stale results remain blocked. Keep evidence outside model/run_checks.
 4. A facade: `CodeContract(..., role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id="orders.place",
    delegation_only=True, delegation_evidence_id=..., delegation_evidence_current=True)`.
 5. Optional runtime path: in a test, `rec = RuntimePathRecorder("run-1")`, call `rec.record(node_id, ...)`
@@ -84,7 +81,7 @@ same rule; a test covers an obligation id that no longer exists.
 7. In `run_checks.py`, return 0 only when the good plan is `ok` and every broken variant is not.
    Run `python .flowguard/verification/owners/<id>/run_checks.py`.
 8. Add that `run_checks.py` path to the component's `models` in `.flowguard/map.json`, then run
-   `python -m flowguard map models <id>` and `python -m flowguard change`.
+   `python -m flowguard map models <MODEL_ID>` and `python -m flowguard change`.
 
 ## What blocks
 
@@ -118,13 +115,13 @@ Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_
 - [ ] Every code contract comes from a map entrypoint that `python -m flowguard map check` accepts.
 - [ ] `run_checks.py` exits 0: the good plan is green and every broken variant is blocked.
 - [ ] Test statuses come from a pytest run in this session; skipped or not-run tests are reported as such.
-- [ ] The tests are in the component's `tests`; the runner is in its `models`; `map models <id>` passes.
+- [ ] The tests are in the component's `tests`; the runner is in its `models`; `map models <MODEL_ID>` passes.
 - [ ] `python -m flowguard change` is clean. Your report lists what ran, what was skipped, and which obligations had no test.
 
 ## Limits
 
 - Declared rows are not execution evidence. Feed exact pytest node statuses through the result
-  connector with current input digests; require source audit and executed evidence for implementation claims.
+  connector with recorder-owned current input scope; require source audit and executed evidence for implementation claims.
 - The AST audit checks simple imports/aliases and direct call-result assertions. Unknown receivers,
   constants-only assertions and complex dataflow cannot close an execution claim. State writes are
   still approximate: a local assignment can resemble a write; review the business meaning yourself.
