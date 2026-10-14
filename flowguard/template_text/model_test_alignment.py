@@ -41,7 +41,8 @@ python .flowguard/verification/owners/model_test_alignment/run_checks.py
 
 This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
 plain model obligations, required owner code external contracts, and plain test
-evidence. If one obligation has several primary edge-path tests, split child
+evidence. All passed statuses and proof artifacts below are sample data, not
+real project results. If one obligation has several primary edge-path tests, split child
 obligations or attach those tests to leaf matrix cells instead of relabeling one
 as generic support.
 """
@@ -69,7 +70,6 @@ from flowguard import (
     TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
-    TestResultReuseTicket,
     TestEvidence,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
@@ -85,11 +85,17 @@ from flowguard import (
 )
 
 
+BUSINESS_INTENT_ID = "checkout.submit-order"
+BEHAVIOR_COMMITMENT_ID = "commitment:checkout.submit-order"
+PRIMARY_PATH_ID = "path:checkout.reject-duplicate"
+
+
 ACCEPT_TRANSITION_CELL_ID = "pending.submit->accepted"
 ACCEPT_TRANSITION_OBLIGATION_ID = transition_obligation_id(ACCEPT_TRANSITION_CELL_ID)
 
 
 def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
+    # Synthetic teaching evidence; this does not attest a real project run.
     result_path = f"tmp/{evidence_id}.json"
     return ProofArtifactRef(
         f"artifact:{evidence_id}",
@@ -101,44 +107,6 @@ def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
     )
 
 
-def reuse_ticket(evidence_id: str, *covered: str) -> TestResultReuseTicket:
-    return TestResultReuseTicket(
-        evidence_id,
-        previous_evidence_id=f"{evidence_id}@previous",
-        reason="same command, source, tested artifact, dependency, environment, and result fingerprints",
-        command_fingerprint="sha256:command",
-        test_source_fingerprint="sha256:test-source",
-        tested_artifact_fingerprint="sha256:tested-artifact",
-        dependency_fingerprints={"flowguard": "template"},
-        environment_fingerprint="python:template",
-        result_fingerprint="sha256:result",
-        covered_obligation_ids=covered,
-        producer_receipt_id=f"receipt:{evidence_id}",
-        producer_terminal=True,
-        producer_status="pass",
-        producer_execution_owner_id="owner:model-test-alignment",
-        current_execution_owner_id="owner:model-test-alignment",
-        producer_fingerprints={
-            "command": "sha256:command",
-            "test_source": "sha256:test-source",
-            "tested_artifact": "sha256:tested-artifact",
-            "dependencies": "sha256:dependencies",
-            "environment": "python:template",
-            "result": "sha256:result",
-            "coverage_scope": "sha256:coverage",
-        },
-        current_fingerprints={
-            "command": "sha256:command",
-            "test_source": "sha256:test-source",
-            "tested_artifact": "sha256:tested-artifact",
-            "dependencies": "sha256:dependencies",
-            "environment": "python:template",
-            "result": "sha256:result",
-            "coverage_scope": "sha256:coverage",
-        },
-    )
-
-
 def transition_matrix() -> TransitionCoverageMatrix:
     return TransitionCoverageMatrix(
         "sample_checkout_transition_matrix",
@@ -146,6 +114,9 @@ def transition_matrix() -> TransitionCoverageMatrix:
         cells=(
             TransitionCoverageCell(
                 ACCEPT_TRANSITION_CELL_ID,
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 source_state="pending",
                 trigger="submit_valid_order",
                 target_state="accepted",
@@ -165,6 +136,9 @@ def transition_code_contracts() -> tuple[CodeContract, ...]:
     return tuple(
         CodeContract(
             contract.code_contract_id,
+            business_intent_id=contract.business_intent_id,
+            behavior_commitment_id=contract.behavior_commitment_id,
+            primary_path_id=contract.primary_path_id,
             path="checkout/service.py",
             symbol=contract.symbol,
             implements_obligations=contract.implements_obligations,
@@ -187,6 +161,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         obligations=(
             ModelObligation(
                 "accept_valid_order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 obligation_type="scenario",
                 description="valid order reaches Accepted",
                 external_inputs=("order_id", "payment_token"),
@@ -196,6 +173,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             ModelObligation(
                 "reject_duplicate_order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 obligation_type="hazard",
                 description="duplicate order is rejected without a second side effect",
                 external_inputs=("order_id",),
@@ -208,6 +188,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             ModelObligation(
                 "model_miss_duplicate_submit_family",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 obligation_type="model_miss",
                 description="post-runtime duplicate-submit miss is closed by observed and ContractExhaustionMesh case tests",
                 model_miss_origin=True,
@@ -229,6 +212,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         code_contracts=(
             CodeContract(
                 "checkout_accept_order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 path="checkout/service.py",
                 symbol="accept_order",
                 implements_obligations=("accept_valid_order",),
@@ -239,6 +225,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             *transition_code_contracts(),
             CodeContract(
                 "checkout_reject_duplicate",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 path="checkout/service.py",
                 symbol="reject_duplicate_order",
                 implements_obligations=("reject_duplicate_order",),
@@ -249,6 +238,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             CodeContract(
                 "checkout_duplicate_submit_family",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 path="checkout/service.py",
                 symbol="reject_duplicate_order",
                 implements_obligations=("model_miss_duplicate_submit_family",),
@@ -260,6 +252,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         test_evidence=(
             TestEvidence(
                 "test_accept_valid_order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_accept_valid_order",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -267,12 +262,13 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_obligations=("accept_valid_order",),
                 covered_code_contracts=("checkout_accept_order",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-                result_reused=True,
-                reuse_ticket=reuse_ticket("test_accept_valid_order", "accept_valid_order"),
                 proof_artifact=proof_artifact("test_accept_valid_order", "accept_valid_order"),
             ),
             TestEvidence(
                 "test_pending_submit_reaches_accepted",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_pending_submit_reaches_accepted",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -289,6 +285,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_reject_duplicate_order_happy",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_reject_duplicate_order_happy",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -303,6 +302,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_reject_duplicate_order_failure",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_reject_duplicate_order_failure",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -317,6 +319,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_observed_duplicate_submit_regression",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_observed_duplicate_submit_regression",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -332,6 +337,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_same_class_duplicate_submit_variants",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_same_class_duplicate_submit_variants",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -347,6 +355,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_duplicate_submit_counterexample_regression",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_duplicate_submit_counterexample_regression",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -363,6 +374,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_duplicate_submit_known_bad_replay",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_duplicate_submit_known_bad_replay",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -382,6 +396,9 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             RuntimeNodeObservation(
                 "obs:checkout.accept_transition",
                 "checkout.accept_transition",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 model_id="sample_checkout_model",
                 model_obligation_id=ACCEPT_TRANSITION_OBLIGATION_ID,
                 code_contract_id="checkout_accept_transition",
@@ -465,6 +482,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         obligations=(
             ModelObligation(
                 "reject_duplicate_order",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 obligation_type="hazard",
                 external_outputs=("Rejected",),
                 side_effects=(),
@@ -474,6 +494,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             ModelObligation(
                 "model_miss_duplicate_submit_family",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 obligation_type="model_miss",
                 model_miss_origin=True,
                 requires_same_class_test_evidence=True,
@@ -492,6 +515,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         code_contracts=(
             CodeContract(
                 "checkout_reject_duplicate",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 path="checkout/service.py",
                 symbol="reject_duplicate_order",
                 implements_obligations=("reject_duplicate_order",),
@@ -501,6 +527,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             CodeContract(
                 "checkout_duplicate_submit_family",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 path="checkout/service.py",
                 symbol="reject_duplicate_order",
                 implements_obligations=("model_miss_duplicate_submit_family",),
@@ -510,6 +539,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
         test_evidence=(
             TestEvidence(
                 "test_duplicate_only_happy",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_duplicate_only_happy",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -520,6 +552,9 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_duplicate_external_happy",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_duplicate_external_happy",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -530,12 +565,18 @@ def broken_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
             ),
             TestEvidence(
                 "test_unbound_helper",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_unbound_helper",
                 path="tests/test_checkout.py",
                 result_status="passed",
             ),
             TestEvidence(
                 "test_observed_duplicate_submit_only",
+                business_intent_id=BUSINESS_INTENT_ID,
+                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
+                primary_path_id=PRIMARY_PATH_ID,
                 test_name="test_observed_duplicate_submit_only",
                 path="tests/test_checkout.py",
                 result_status="passed",
@@ -971,7 +1012,7 @@ def main() -> int:
     print(broken.format_text())
     print()
     print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> synthetic payload case on real surface")
-    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TestResultReuseTicket, TransitionCoverageMatrix, or ModelMesh closure projection")
+    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TransitionCoverageMatrix, or ModelMesh closure projection")
     return 0 if aligned.ok and not broken.ok else 1
 
 

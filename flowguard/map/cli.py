@@ -29,7 +29,7 @@ from .common import MAP_RELPATH, print_findings
 from .impact import changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
-from .mapfile import MapError, component_files, component_graph, fingerprint, ignore_patterns, load_map, map_path, owner_index, save_map
+from .mapfile import MapError, component_files, component_graph, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import render_results, run_models
 from .scan import new_map
 from .views import find_owners, render_digest, render_show
@@ -127,9 +127,9 @@ def cmd_lint(root: Path, a) -> int:
 
 def cmd_impact(root: Path, a) -> int:
     data, inv = _context(root)
-    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), a.depth)
+    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), a.depth, base=a.base)
     print(json.dumps(imp.to_dict(), indent=1) if a.json else render_impact(imp))
-    return 0
+    return 1 if imp.blocked or imp.unmapped else 0
 
 
 def cmd_deps(root: Path, a) -> int:
@@ -138,12 +138,17 @@ def cmd_deps(root: Path, a) -> int:
     changed = 0
     for c in data["components"]:
         actual = sorted(graph.get(c["id"], ()))
+        declared_only = sorted(set(c.get("depends_on", [])) - set(actual))
         print(f"{c['id']}: {', '.join(actual) or '-'}")
-        if a.write and c.get("depends_on") != actual:
-            c["depends_on"], changed = actual, changed + 1
+        if declared_only:
+            print("  declared, unverified: " + ", ".join(declared_only))
+        # Static import extraction cannot disprove lazy/alias dependencies.
+        retained = sorted(set(actual) | (set(c.get("depends_on", [])) & {r["id"] for r in data["components"]}))
+        if a.write and c.get("depends_on") != retained:
+            c["depends_on"], changed = retained, changed + 1
     if a.write:
         save_map(root, data)
-        print(f"updated depends_on of {changed} component(s) from the real import graph")
+        print(f"updated depends_on of {changed} component(s); preserved valid declarations not verified by static imports")
     return 0
 
 
@@ -179,12 +184,31 @@ def cmd_verify(root: Path, a) -> int:
     check = print_findings(run_check(root, data, inv, strict=True), "check --strict", as_json=False, limit=a.limit)
     lint = print_findings([f for f in run_lint(root, data, inv) if f.level == "error"], "lint (errors only)",
                           as_json=False, limit=a.limit)
+    debts = data.get("accepted_debts", [])
+    print(f"accepted debts: {len(debts)}")
+    for debt in debts:
+        print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
+    registry = model_registry(root, data)
     results = run_models(root, [], force=True)
     print(render_results(results))
-    failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results)
+    expected = {(entry.id, entry.path) for entry in registry.entries}
+    executed = [(result.model, result.file) for result in results]
+    complete = len(executed) == len(set(executed)) and set(executed) == expected
+    print(f"models: {len(expected)} declared, {len(executed)} executed" +
+          ("; no model proof" if not expected else ""))
+    if not complete:
+        print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
+    failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
     print(f"verify: {'PASS' if not failed else 'FAIL'}"
           f" (also run the full test suite: {data.get('test_command') or 'python -m pytest -q'})")
     return 1 if failed else 0
+
+
+def _depth(value: str) -> int:
+    depth = int(value)
+    if depth < 0:
+        raise argparse.ArgumentTypeError("depth must be non-negative")
+    return depth
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -208,7 +232,7 @@ def build_parser() -> argparse.ArgumentParser:
     lint.add_argument("--max-responsibilities", type=int, default=7)
     lint.add_argument("--max-fan-out", type=int, default=8)
     s = sub.add_parser("impact"); s.add_argument("files", nargs="*"); s.add_argument("--base", default="HEAD")
-    s.add_argument("--depth", type=int, default=1); s.add_argument("--json", action="store_true")
+    s.add_argument("--depth", type=_depth, default=None, help="explicitly truncate caller traversal to N levels (default: full closure)"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*"); s.add_argument("--force", action="store_true")

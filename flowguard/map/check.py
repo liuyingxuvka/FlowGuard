@@ -10,9 +10,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import MODELS_RELDIR, Finding, glob_match, is_test_file
+from .common import Finding, glob_match, is_test_file
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, is_stale, owner_index, read_model_contract
+from .mapfile import component_files, component_graph, is_stale, model_registry, owner_index, read_model_contract
 
 
 def symbol_defined(inv: Inventory, path: str, symbol: str) -> bool:
@@ -48,6 +48,14 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         if not is_test_file(f) and f not in owner:
             out.append(Finding("error", "file_unmapped", "", f"{f} has no owning component"))
 
+    for path, info in sorted(inv.py.items()):
+        if path in inv.source and not is_test_file(path) and info.parse_error:
+            out.append(Finding("error", "source_parse_error", owner.get(path, ""),
+                               f"cannot parse {path}: {info.parse_error}"))
+    registry = model_registry(root, data)
+    for issue in registry.issues:
+        out.append(Finding("error", issue.code, "", f"{issue.path}: {issue.message}"))
+
     for flow in data.get("flows", []):
         for step in flow.get("steps", []):
             comp_id, _, symbol = step.partition(":")
@@ -64,9 +72,11 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
 
     referenced = {m for c in data["components"] for m in c.get("models", [])}
     referenced |= {f["model"] for f in data.get("flows", []) if f.get("model")}
-    models_dir = root / MODELS_RELDIR
-    for path in sorted(models_dir.glob("*.py")) if models_dir.is_dir() else []:
-        rel = path.relative_to(root).as_posix()
+    for entry in registry.entries:
+        if entry.kind != "contract":
+            continue
+        rel = entry.path
+        path = root / rel
         try:
             contract = read_model_contract(path)
         except (SyntaxError, ValueError) as exc:
@@ -108,8 +118,10 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             out.append(Finding("error", "dep_unknown", cid, f"depends_on {d!r} is not a component"))
         for d in sorted(actual - declared):
             out.append(Finding("error", "dep_undeclared", cid, f"imports {d} but depends_on does not list it"))
-        for d in sorted((declared - actual) & set(by_id)):
-            out.append(Finding("warn", "dep_unused", cid, f"depends_on lists {d} but no import was found"))
+        unverified = sorted((declared - actual) & set(by_id))
+        if unverified:
+            out.append(Finding("warn", "dep_unused", cid,
+                               f"declared but unverified by static imports: {', '.join(unverified)}"))
         if c["status"] == "draft":
             out.append(Finding(stale_level, "draft", cid, "description not confirmed yet"))
         elif not c.get("summary") or not c.get("responsibilities"):

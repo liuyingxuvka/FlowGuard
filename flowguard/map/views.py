@@ -33,6 +33,9 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                 lines.append(f"  {label}: " + "; ".join(c[key]))
         if graph.get(c["id"]):
             lines.append("  uses: " + ", ".join(sorted(graph[c["id"]])))
+        declared_only = set(c.get("depends_on", [])) - graph.get(c["id"], set())
+        if declared_only:
+            lines.append("  declared, unverified: " + ", ".join(sorted(declared_only)))
         if component or detail:
             for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests"), ("models", "models")):
                 if c.get(key):
@@ -45,7 +48,16 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             lines.append(f"\n> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", [])))
     text = "\n".join(lines)
     if len(text) > budget:
-        text = text[:budget].rsplit("\n", 1)[0] + f"\n... truncated at {budget} chars; use --component ID"
+        prefix = text[:max(0, budget - 110)].rsplit("\n", 1)[0]
+        remaining = []
+        for index, comp in enumerate(comps):
+            next_heading = f"\n## {comps[index + 1]['id']} " if index + 1 < len(comps) else "\n> flow "
+            end = text.find(next_heading, text.find(f"\n## {comp['id']} ") + 1)
+            if end < 0:
+                end = len(text)
+            if end > len(prefix):
+                remaining.append(comp["id"])
+        text = prefix + f"\n... truncated at {budget} chars; {len(remaining)} component(s) not fully shown; use --component ID"
     return text
 
 

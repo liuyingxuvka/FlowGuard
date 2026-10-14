@@ -397,7 +397,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("transition_coverage_to_model_obligations", combined)
         self.assertIn("model_mesh_closure_to_transition_coverage", combined)
         self.assertIn("ModelMesh closure projection", combined)
-        self.assertIn("TestResultReuseTicket", combined)
+        self.assertNotIn("TestResultReuseTicket", combined)
+        self.assertNotIn("result_reused=", combined)
+        self.assertNotIn("reuse_ticket=", combined)
+        self.assertIn("sample data, not", combined)
         self.assertIn("audit_python_code_contracts", combined)
         self.assertIn("audit_python_test_assertions", combined)
         self.assertIn("review_python_contract_source_audit", combined)
@@ -409,6 +412,23 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("tests must call the declared code contract symbol", combined)
         self.assertIn("assert or unittest assertion", combined)
         self.assertIn("conservative source audit", combined)
+
+    def test_model_test_alignment_full_template_executes_all_six_reports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_template_files(root, model_test_alignment_full_template_files())
+            result = subprocess.run(
+                [sys.executable, "-c", "import json, run_checks; "
+                 "print(json.dumps([report.ok for report in run_checks.run_checks()]))"],
+                cwd=root / ".flowguard" / "verification" / "owners" / "model_test_alignment",
+                env=_template_env(),
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        # Alignment, boundary conformance and source audit each reject their bad example.
+        self.assertEqual([True, False, True, False, True, False], json.loads(result.stdout))
 
     def test_runtime_path_evidence_template_executes_and_prints_model_target(self):
         output = self.run_written_template(

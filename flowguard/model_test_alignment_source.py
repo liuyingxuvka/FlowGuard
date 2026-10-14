@@ -33,7 +33,7 @@ def _call_name(node: ast.AST) -> str:
         return node.id
     if isinstance(node, ast.Attribute):
         base = _call_name(node.value)
-        return f"{base}.{node.attr}" if base else node.attr
+        return f"{base}.{node.attr}" if base else f"<unknown>.{node.attr}"
     return ""
 
 
@@ -44,7 +44,72 @@ def _final_name(name: str) -> str:
 def _symbol_matches_call(symbol: str, call_name: str) -> bool:
     if not symbol or not call_name:
         return False
-    return call_name == symbol or _final_name(call_name) == _final_name(symbol)
+    # A matching method name says nothing about the receiver's owner.
+    return call_name == symbol
+
+
+def _import_bindings(tree: ast.AST, node: ast.AST) -> dict[str, str]:
+    """Resolve only explicit module/function imports, never receiver types."""
+
+    bindings: dict[str, str] = {}
+    statements = list(getattr(tree, "body", ())) + list(getattr(node, "body", ()))
+    for statement in statements:
+        if isinstance(statement, ast.Import):
+            for alias in statement.names:
+                bindings[alias.asname or alias.name.split(".")[0]] = (
+                    alias.name if alias.asname else alias.name.split(".")[0]
+                )
+        elif isinstance(statement, ast.ImportFrom):
+            for alias in statement.names:
+                if alias.name != "*":
+                    bindings[alias.asname or alias.name] = (
+                        f"{statement.module}.{alias.name}" if statement.module and not statement.level else ""
+                    )
+    # Dynamic fixture arguments and local rebindings are not import evidence.
+    for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
+        bindings[arg.arg] = ""
+    for child in ast.walk(node):
+        if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
+            targets = child.targets if isinstance(child, ast.Assign) else (child.target,)
+            for target in targets:
+                for name in _target_names(target):
+                    bindings[name] = ""
+    return bindings
+
+
+def _call_matches_contract(contract: CodeContract, call: ast.Call, bindings: Mapping[str, str]) -> bool:
+    name = _call_name(call.func)
+    head, _, tail = name.partition(".")
+    if head in bindings:
+        resolved = bindings[head]
+        if not resolved:
+            return False
+        name = f"{resolved}.{tail}" if tail else resolved
+        module = contract.path.removesuffix(".py").replace("/", ".").replace("\\", ".")
+        module = module.removesuffix(".__init__")
+        qualified = f"{module}.{contract.symbol}"
+        return name == qualified or name == contract.symbol
+    return _symbol_matches_call(contract.symbol, name)
+
+
+def _value_contracts(
+    expression: ast.AST,
+    contracts: Sequence[CodeContract],
+    bindings: Mapping[str, str],
+    values: Mapping[str, set[str]],
+) -> set[str]:
+    """Recognize direct results and simple local values, not arbitrary flow."""
+
+    if isinstance(expression, ast.Call):
+        return {contract.code_contract_id for contract in contracts if _call_matches_contract(contract, expression, bindings)}
+    if isinstance(expression, ast.Name):
+        return set(values.get(expression.id, ()))
+    if isinstance(expression, (ast.Compare, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Attribute, ast.Subscript, ast.Tuple, ast.List, ast.Dict)):
+        result: set[str] = set()
+        for child in ast.iter_child_nodes(expression):
+            result.update(_value_contracts(child, contracts, bindings, values))
+        return result
+    return set()
 
 
 def _literal_name(node: ast.AST) -> str:
@@ -258,18 +323,61 @@ def _extract_test_evidence_from_function(
     evidence: TestEvidence,
     code_contracts_by_id: Mapping[str, CodeContract],
     node: ast.FunctionDef | ast.AsyncFunctionDef,
+    tree: ast.AST,
 ) -> PythonTestAssertionEvidence:
     calls = _unique_sorted([_call_name(child.func) for child in ast.walk(node) if isinstance(child, ast.Call)])
+    bindings = _import_bindings(tree, node)
+    contracts = tuple(
+        code_contracts_by_id[code_contract_id]
+        for code_contract_id in evidence.covered_code_contracts
+        if code_contract_id in code_contracts_by_id
+    )
     called_contracts: list[str] = []
-    for code_contract_id in evidence.covered_code_contracts:
-        contract = code_contracts_by_id.get(code_contract_id)
-        if contract is None:
-            continue
-        if any(_symbol_matches_call(contract.symbol, call) for call in calls):
-            called_contracts.append(code_contract_id)
+    for contract in contracts:
+        if any(_call_matches_contract(contract, child, bindings) for child in ast.walk(node) if isinstance(child, ast.Call)):
+            called_contracts.append(contract.code_contract_id)
+    values: dict[str, set[str]] = {}
+    asserted_contracts: set[str] = set()
+    # Straight-line statements only. Branches, dynamic fixtures and helper
+    # wrappers need human review instead of speculative dataflow inference.
+    for statement in node.body:
+        if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            value = statement.value
+            dependent = _value_contracts(value, contracts, bindings, values) if value else set()
+            targets = statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    values[target.id] = dependent
+        elif isinstance(statement, ast.AugAssign):
+            if isinstance(statement.target, ast.Name):
+                values.pop(statement.target.id, None)
+        elif isinstance(statement, ast.Assert):
+            asserted_contracts.update(_value_contracts(statement.test, contracts, bindings, values))
+        elif isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+            call = statement.value
+            assertion_name = _final_name(_call_name(call.func))
+            argument_count = {
+                "assertTrue": 1, "assertFalse": 1, "assertIsNone": 1, "assertIsNotNone": 1,
+                "assertEqual": 2, "assertNotEqual": 2, "assertIn": 2, "assertNotIn": 2,
+                "assertIs": 2, "assertIsNot": 2, "assertGreater": 2, "assertLess": 2,
+                "assertGreaterEqual": 2, "assertLessEqual": 2,
+            }.get(assertion_name, 0)
+            if argument_count:
+                for argument in call.args[:argument_count]:
+                    asserted_contracts.update(_value_contracts(argument, contracts, bindings, values))
+        elif isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith, ast.Try, ast.Match)):
+            # A local may have changed on a path we have not analysed.
+            values.clear()
     assert_count = _assertion_count(node)
-    if called_contracts and assert_count:
+    unresolved_same_name = any(
+        _final_name(call) == _final_name(contract.symbol)
+        for call in calls for contract in contracts
+        if contract.code_contract_id not in called_contracts
+    )
+    if asserted_contracts:
         assertion_scope = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
+    elif unresolved_same_name:
+        assertion_scope = TEST_ASSERTION_SCOPE_UNKNOWN
     elif assert_count:
         assertion_scope = TEST_ASSERTION_SCOPE_INTERNAL_PATH
     else:
@@ -327,7 +435,7 @@ def audit_python_test_assertions(
         if node is None:
             result.append(PythonTestAssertionEvidence(evidence.evidence_id, path=evidence.path, test_name=test_name))
             continue
-        result.append(_extract_test_evidence_from_function(evidence, contracts_by_id, node))
+        result.append(_extract_test_evidence_from_function(evidence, contracts_by_id, node, parsed))
     return tuple(result)
 
 
@@ -346,6 +454,7 @@ def _source_audit_decision(findings: Sequence[ContractSourceAuditFinding]) -> st
         "source_test_parse_error",
         "source_test_missing",
         "source_test_missing_code_contract_call",
+        "source_test_missing_value_dependency",
         "source_test_missing_external_assertion",
         "source_test_internal_path_only",
     )
@@ -498,7 +607,7 @@ def review_python_contract_source_audit(
             findings.append(
                 ContractSourceAuditFinding(
                     "source_test_missing_code_contract_call",
-                    f"test evidence {evidence.evidence_id} does not call declared code contract symbols",
+                    f"test evidence {evidence.evidence_id} has no confirmed call to declared code contract symbols; receiver or import ownership may be unknown",
                     evidence_id=evidence.evidence_id,
                     path=evidence.path,
                     metadata={"missing": sorted(missing_calls), "assertion": assertion.to_dict(), "evidence": evidence.to_dict()},
@@ -518,6 +627,16 @@ def review_python_contract_source_audit(
             TEST_ASSERTION_SCOPE_INTERNAL_PATH,
             TEST_ASSERTION_SCOPE_UNKNOWN,
         }:
+            if assertion.called_code_contracts and assertion.assert_count:
+                findings.append(
+                    ContractSourceAuditFinding(
+                        "source_test_missing_value_dependency",
+                        f"test evidence {evidence.evidence_id} assertions have no confirmed value dependency on the contract result; constant assertions and complex dataflow do not prove the boundary",
+                        evidence_id=evidence.evidence_id,
+                        path=evidence.path,
+                        metadata={"assertion": assertion.to_dict()},
+                    )
+                )
             findings.append(
                 ContractSourceAuditFinding(
                     "source_test_internal_path_only",

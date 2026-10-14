@@ -41,7 +41,7 @@ same rule; a test covers an obligation id that no longer exists.
    `.flowguard/verification/owners/model_test_alignment/run_checks.py` and
    `docs/model_test_alignment.md`. Rename `model_test_alignment` to your component id.
    The template's plan is a small local stand-in; replace it with the real API below.
-   Do not use `model-test-alignment-full`: it still passes a removed `TestEvidence` argument and fails when run.
+   `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.
 2. In `model.py`, build the rows with the real API:
    ```python
    from flowguard import (ModelObligation, CodeContract, TestEvidence, ModelTestAlignmentPlan,
@@ -64,9 +64,14 @@ same rule; a test covers an obligation id that no longer exists.
        require_source_audit=True, require_executed_evidence=True))
    # report.ok, report.decision, report.findings[i].code, report.binding_rows
    ```
-3. Set `result_status` only from tests you actually ran (`passed`, `failed`, `skipped`,
-   `not_run`, ...). Run the component's tests with pytest and map each node id to its outcome.
-   Never type `"passed"` for a test you did not run. Use `evidence_current=False` for an old result.
+3. Run pytest once outside the runner: set `FLOWGUARD_PYTEST_NODEIDS` to a cache JSON,
+   load `-p flowguard.pytest_nodeid_recorder`, and write `--junitxml=<cache XML>`.
+   Capture `pytest_alignment_input_digest(root, exact_input_paths)` before and after;
+   save command, exit_code, input_paths and both digests as run-local metadata.
+   Call `bind_pytest_execution(plan, evidence_nodeids={evidence_id: exact_nodeid},
+   junit_path=..., nodeid_manifest=..., run_metadata=..., project_root=root)`, then review.
+   The returned plan requires source audit and executed evidence. Missing, skipped, failed
+   or stale rows cannot close execution claims; never type `"passed"` for an unrun test.
 4. A facade: `CodeContract(..., role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id="orders.place",
    delegation_only=True, delegation_evidence_id=..., delegation_evidence_current=True)`.
 5. Optional runtime path: in a test, `rec = RuntimePathRecorder("run-1")`, call `rec.record(node_id, ...)`
@@ -118,13 +123,11 @@ Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_
 
 ## Limits
 
-- It checks the rows you declare against each other. It does not run tests or read results:
-  a contract pointing at a missing file with `result_status="passed"` goes green unless you add
-  the source audit. Feed contracts from map anchors and statuses from a real run.
-- The AST audit is weak. It sees a state write only as an assignment to a name, attribute or string
-  key, so `orders[key] = x` is missed (`source_contract_missing_state_write`), while any local assignment
-  to that name passes. A call to another class's method with the same name counts as calling the
-  contract, and `assert 1 == 1` counts as an external assertion. Read the tests yourself.
+- Declared rows are not execution evidence. Feed exact pytest node statuses through the result
+  connector with current input digests; require source audit and executed evidence for implementation claims.
+- The AST audit checks simple imports/aliases and direct call-result assertions. Unknown receivers,
+  constants-only assertions and complex dataflow cannot close an execution claim. State writes are
+  still approximate: a local assignment can resemble a write; review the business meaning yourself.
 - It is not conformance replay. A contract model's `conformance()` (run by `map models`) replays model
   traces on the real code; this review only checks that obligations, code and tests are bound. Use both.
 - Obligations are not derived from your model's explorer; you write them by hand, so a rule you forget is not checked.

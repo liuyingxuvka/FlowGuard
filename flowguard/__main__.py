@@ -1,6 +1,6 @@
 """python -m flowguard: daily verbs on top of the FlowGuard map.
 
-  read      [--root R] [--component ID | --find WORDS...]   understand the software (no writes)
+  read      [--root R] [--component ID | --find WORDS...]   understand the software (business data read-only; disposable caches may update)
   change    [--root R] [--base REF] [FILES...]               after editing: check the map, list what to run
   release   [--root R]                                       release gate: strict check + lint errors + all models
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)

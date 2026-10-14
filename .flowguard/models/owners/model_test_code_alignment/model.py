@@ -52,9 +52,9 @@ class RolloutCase:
     expected_executed_evidence_status: str = ""
 
 
-# These are part of this model's native evidence contract, not a broad suite.
-# The runner executes them in the same foreground command as the rollout cases
-# so SkillGuard's native owner cannot claim alignment from the model alone.
+# These declarations identify the intended native evidence. The rollout runner
+# checks declaration consistency only; pytest executes separately and its exact
+# run-local results must be consumed through bind_pytest_execution.
 NATIVE_PYTEST_SELECTORS = (
     "tests/test_model_test_alignment.py",
 )
@@ -67,8 +67,8 @@ NATIVE_TEST_OBLIGATION_BINDINGS = (
 )
 
 
-def native_test_obligation_bindings_are_executed() -> bool:
-    """Require every declared native obligation to reach an executed selector."""
+def native_test_obligation_bindings_are_consistent() -> bool:
+    """Check declaration uniqueness and selector coverage, without execution."""
 
     obligation_ids = tuple(item[0] for item in NATIVE_TEST_OBLIGATION_BINDINGS)
     evidence_nodes = tuple(item[1] for item in NATIVE_TEST_OBLIGATION_BINDINGS)
@@ -1316,7 +1316,7 @@ __all__ = [
     "evidence_projection_invariants",
     "evidence_projection_rollout_cases",
     "evidence_projection_transition",
-    "native_test_obligation_bindings_are_executed",
+    "native_test_obligation_bindings_are_consistent",
     "rollout_cases",
     
     "run_evidence_projection_review",

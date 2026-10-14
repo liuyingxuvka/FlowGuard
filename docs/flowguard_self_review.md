@@ -1,7 +1,15 @@
-# Flowguard Self-Review Model
+# Historical FlowGuard Self-Review Teaching Example
 
-This document records the first executable self-review of flowguard as a
-product workflow.
+This document preserves a historical teaching example from before v0.70.0. Its results below
+are historical, not current release evidence. The retired `self-review` / `self-conformance`
+CLI verbs are no longer supported.
+
+Current operation is `python -m flowguard read`, `python -m flowguard change`, and
+`python -m flowguard release`, plus the outer test suite. The current authority is
+[the self map](../.flowguard/map.json); its [registered models](../.flowguard/models/)
+protect the declared boundaries, including impact selection and cache freshness.
+
+The original example modeled the adoption workflow as follows.
 
 The model is implemented in:
 
@@ -11,13 +19,11 @@ The model is implemented in:
 - `examples/flowguard_self_review/run_self_review.py`
 - `examples/flowguard_self_review/run_conformance.py`
 
-Run it with:
+Run the historical teaching scripts directly:
 
 ```powershell
 python examples/flowguard_self_review/run_self_review.py
-python -m flowguard self-review
 python examples/flowguard_self_review/run_conformance.py
-python -m flowguard self-conformance
 ```
 
 ## Modeled Product Boundary
@@ -95,7 +101,7 @@ Broken variants:
 
 ## Current Result
 
-The current self-review reports:
+The historical self-review reported:
 
 ```text
 total: 15

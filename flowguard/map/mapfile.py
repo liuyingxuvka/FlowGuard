@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any
@@ -155,3 +156,82 @@ def read_model_contract(path: Path) -> dict:
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
             found["functions"].append(node.name)
     return found
+
+
+@dataclass(frozen=True)
+class ModelEntry:
+    id: str
+    path: str
+    kind: str                         # contract | runner
+
+
+@dataclass(frozen=True)
+class RegistryIssue:
+    code: str
+    path: str
+    message: str
+
+
+@dataclass
+class ModelRegistry:
+    entries: list[ModelEntry] = field(default_factory=list)
+    issues: list[RegistryIssue] = field(default_factory=list)
+
+
+def model_registry(root: Path, data: dict | None = None) -> ModelRegistry:
+    """The single executable inventory: top-level contracts and declared runners.
+
+    Paths outside these conventions are not silently counted as proof. Discovery
+    only reads literals; importing and executing belongs to the proof runner.
+    """
+    if data is None:
+        try:
+            data = load_map(root)
+        except MapError:
+            data = {}
+    referenced = {m for c in data.get("components", []) for m in c.get("models", [])}
+    referenced |= {f["model"] for f in data.get("flows", []) if f.get("model")}
+    base = root / ".flowguard/models"
+    paths = {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")}
+    registry = ModelRegistry()
+    for rel in sorted(paths | referenced):
+        if Path(rel).is_absolute() or ".." in Path(rel).parts:
+            registry.issues.append(RegistryIssue("model_path_unsupported", rel,
+                                  f"{rel}: model paths must stay inside the project"))
+            continue
+        path = root / rel
+        if not path.is_file():
+            registry.issues.append(RegistryIssue("model_missing", rel, f"model file {rel} missing"))
+            continue
+        if path.name == "run_checks.py" and rel in referenced:
+            entry = ModelEntry(path.parent.name, rel, "runner")
+        elif rel in paths:
+            try:
+                contract = read_model_contract(path)
+                mid = contract.get("MODEL_ID")
+                if not isinstance(mid, str) or not mid or "build_explorer" not in contract["functions"]:
+                    raise ValueError("needs a nonempty string MODEL_ID and def build_explorer()")
+                if not isinstance(contract.get("COMPONENTS", []), list) or not all(
+                        isinstance(c, str) for c in contract.get("COMPONENTS", [])):
+                    raise ValueError("COMPONENTS must be a list of component ids")
+                anchors = contract.get("IMPLEMENTED_BY", {})
+                if not isinstance(anchors, dict) or not all(isinstance(k, str) and isinstance(v, str)
+                                                           for k, v in anchors.items()):
+                    raise ValueError("IMPLEMENTED_BY must map block names to string anchors")
+                entry = ModelEntry(mid, rel, "contract")
+            except (OSError, SyntaxError, ValueError, TypeError) as exc:
+                registry.issues.append(RegistryIssue("model_contract", rel, f"{rel}: {exc}"))
+                continue
+        else:
+            registry.issues.append(RegistryIssue("model_path_unsupported", rel,
+                                  f"{rel}: expected a top-level .flowguard/models/*.py contract or declared run_checks.py"))
+            continue
+        registry.entries.append(entry)
+    by_id: dict[str, list[str]] = defaultdict(list)
+    for entry in registry.entries:
+        by_id[entry.id].append(entry.path)
+    for mid, rels in sorted(by_id.items()):
+        if len(rels) > 1:
+            registry.issues.append(RegistryIssue("model_id_duplicate", rels[0],
+                                  f"model id {mid!r} is shared by {', '.join(rels)}"))
+    return registry

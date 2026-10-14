@@ -165,7 +165,7 @@ def test_impact_selects_only_affected_tests(project, capsys):
     code, out = run(project, "impact", capsys=capsys)
     assert code == 0
     assert "directly affected: storage" in out
-    assert "dependents: orders" in out
+    assert "dependents: api, orders" in out
     assert "tests/test_storage.py" in out and "tests/test_orders.py" in out
     assert "REVIEW storage" in out
 
@@ -212,3 +212,144 @@ def test_fingerprint_ignores_crlf_line_endings(project, capsys):
     path = project / "shop/storage.py"
     path.write_bytes(path.read_bytes().replace(b"\n", b"\r\n"))
     assert fingerprint(project, ["shop/storage.py"]) == lf
+
+
+@pytest.fixture()
+def impact_project(project, capsys):
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    data["components"][0]["tests"] = ["tests/test_api.py"]
+    data["components"][1]["models"] = [".flowguard/verification/owners/orders/run_checks.py"]
+    data["components"][2]["models"] = [".flowguard/models/persistence.py"]
+    write(project, "tests/test_api.py", "def test_api():\n    assert True\n")
+    write(project, "tests/test_web.py", "def test_web():\n    assert True\n")
+    data["components"][3]["tests"] = ["tests/test_web.py"]
+    write(project, ".flowguard/verification/owners/orders/run_checks.py", "raise SystemExit(0)\n")
+    write(project, ".flowguard/models/owners/orders/model.py", "VALUE = True\n")
+    write(project, ".flowguard/models/owners/orders/helper.py", "VALUE = True\n")
+    write(project, ".flowguard/models/persistence.py", "MODEL_ID = 'storage-proof'\nCOMPONENTS = ['storage']\ndef build_explorer():\n    pass\n")
+    save(project, data)
+    git(project, "add", "-A")
+    git(project, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "map with checks")
+    return project, data
+
+
+def impact_of(root, data, changed, **kwargs):
+    from flowguard.map.impact import compute_impact
+    return compute_impact(root, data, build_inventory(root, DEFAULT_IGNORE), changed, **kwargs)
+
+
+def test_impact_default_full_closure_and_explicit_depth(impact_project):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    full = impact_of(root, data, ["shop/storage.py"])
+    assert full.direct == ["storage"] and full.dependents == ["api", "orders"]
+    assert full.tests == ["tests/test_api.py", "tests/test_orders.py", "tests/test_storage.py"]
+    limited = impact_of(root, data, ["shop/storage.py"], depth=1)
+    assert limited.dependents == ["orders"]
+    assert "TRUNCATED" in render_impact(limited)
+    data["components"][1]["depends_on"].append("api")
+    cyclic = impact_of(root, data, ["shop/storage.py"])
+    assert cyclic.tests == full.tests
+
+
+@pytest.mark.parametrize("surface", ["lazy", "alias"])
+def test_impact_declared_edges_bridge_unsupported_imports(impact_project, surface):
+    root, data = impact_project
+    if surface == "lazy":
+        write(root, "shop/api.py", "import importlib\ndef handle(req):\n    return importlib.import_module('shop.orders').place_order(req)\n")
+    else:
+        write(root, "web/app.js", "import { api } from '@shop/orders';\n")
+        data["components"][3]["depends_on"] = ["orders"]
+    imp = impact_of(root, data, ["shop/orders.py"])
+    expected = "api" if surface == "lazy" else "web"
+    assert expected in imp.dependents
+    assert any(f"{expected} -> orders: declared but unverified" in message for message in imp.uncertainty)
+    assert any("unresolved" in message for message in imp.uncertainty)
+
+
+@pytest.mark.parametrize("change", ["delete", "rename", "contract", "nested", "helper", "runner", "test", "mapping"])
+def test_impact_verification_backreferences_and_old_paths(impact_project, change):
+    from flowguard.map.impact import changed_files, render_impact
+    root, data = impact_project
+    changed = []
+    if change == "delete":
+        (root / "shop/storage.py").unlink()
+        changed = changed_files(root, "HEAD")
+        assert "shop/storage.py" in changed
+    elif change == "rename":
+        (root / "shop/storage.py").rename(root / "shop/persist.py")
+        git(root, "add", "-A")
+        changed = changed_files(root, "HEAD")
+        assert {"shop/storage.py", "shop/persist.py"} <= set(changed)
+    elif change == "mapping":
+        write(root, ".flowguard/models/new_storage.py", "MODEL_ID = 'new-storage-proof'\ndef build_explorer():\n    pass\n")
+        data["components"][2]["models"] = [".flowguard/models/new_storage.py"]
+        save(root, data)
+        changed = [".flowguard/map.json"]
+    else:
+        changed = [{"contract": ".flowguard/models/persistence.py", "nested": ".flowguard/models/owners/orders/model.py",
+                    "helper": ".flowguard/models/owners/orders/helper.py", "runner": ".flowguard/verification/owners/orders/run_checks.py",
+                    "test": "tests/test_orders.py"}[change]]
+    imp = impact_of(root, data, changed, base="HEAD")
+    assert "tests/test_orders.py" in imp.tests and "tests/test_api.py" in imp.tests
+    assert "tests/test_web.py" not in imp.tests
+    assert ".flowguard/verification/owners/orders/run_checks.py" in imp.models
+    assert "orders" in imp.model_ids and " models model" not in render_impact(imp)
+    if change == "mapping":
+        assert "new-storage-proof" in imp.model_ids and "storage-proof" not in imp.model_ids
+    elif change not in {"nested", "helper", "runner", "test"}:
+        assert "storage-proof" in imp.model_ids
+    assert not imp.blocked
+
+
+def test_impact_shared_test_binding_and_unknown_helper(impact_project):
+    root, data = impact_project
+    data["components"][2]["tests"].append("tests/test_orders.py")
+    imp = impact_of(root, data, ["tests/test_orders.py"])
+    assert imp.direct == ["orders", "storage"]
+    assert set(imp.model_ids) == {"orders", "storage-proof"}
+    unknown = impact_of(root, data, [".flowguard/models/owners/unbound/helper.py"])
+    assert unknown.blocked and not unknown.models and not unknown.model_ids
+
+
+def test_impact_summary_only_map_change_does_not_select_checks(impact_project):
+    root, data = impact_project
+    data["components"][1]["summary"] = "Clarified order rules"
+    save(root, data)
+    imp = impact_of(root, data, [".flowguard/map.json"], base="HEAD")
+    assert imp.map_review == ["orders"]
+    assert not imp.tests and not imp.models and not imp.blocked
+
+
+def test_impact_cli_uses_full_closure_and_discloses_depth(impact_project, capsys):
+    root, data = impact_project
+    code, out = run(root, "impact", "shop/storage.py", capsys=capsys)
+    assert code == 0 and "dependents: api, orders" in out
+    code, out = run(root, "impact", "shop/storage.py", "--depth", "1", capsys=capsys)
+    assert code == 0 and "TRUNCATED" in out and "dependents: orders" in out
+
+
+def test_deps_write_keeps_unverified_declared_dependencies(impact_project, capsys):
+    root, data = impact_project
+    write(root, "shop/api.py", "import importlib\ndef handle(req):\n    return importlib.import_module('shop.orders').place_order(req)\n")
+    run(root, "deps", "--write", capsys=capsys)
+    assert load(root)["components"][0]["depends_on"] == ["orders"]
+
+
+def test_impact_static_parenthesized_import_is_not_dynamic(impact_project):
+    root, data = impact_project
+    write(root, "shop/api.py", "from shop.orders import (\n    place_order,\n)\n")
+    imp = impact_of(root, data, ["shop/orders.py"])
+    assert "api" in imp.dependents
+    assert not any("shop/api.py: dynamic" in message for message in imp.uncertainty)
+
+
+def test_impact_duplicate_model_id_is_blocked_without_run_hint(impact_project):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    write(root, ".flowguard/models/duplicate.py", "MODEL_ID = 'storage-proof'\ndef build_explorer():\n    pass\n")
+    imp = impact_of(root, data, ["shop/storage.py"])
+    assert any("duplicated" in message for message in imp.blocked)
+    assert "storage-proof" not in imp.model_ids
+    assert "storage-proof" not in render_impact(imp).split("run: python -m flowguard.map models")[-1]

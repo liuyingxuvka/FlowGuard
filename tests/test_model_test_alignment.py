@@ -1551,6 +1551,93 @@ def submit_order(order_id):
         self.assertIn("source_contract_missing_state_write", codes)
         self.assertIn("source_contract_extra_side_effect", codes)
 
+    def _payment_source_audit(self, test_source):
+        contract = code_contract(
+            "checkout.pay", "accept_payment", path="checkout.py", symbol="pay",
+            external_inputs=("amount",), external_outputs=("accepted",),
+        )
+        test_item = contract_evidence(
+            "test_pay", "accept_payment", "checkout.pay",
+            path="test_checkout.py", test_name="test_pay",
+        )
+        code_audit = api_name("audit_python_code_contracts")(
+            (contract,), {"checkout.py": 'def pay(amount):\n    return "accepted"\n'},
+        )
+        assertions = api_name("audit_python_test_assertions")(
+            (test_item,), (contract,), {"test_checkout.py": test_source},
+        )
+        report = api_name("review_python_contract_source_audit")(
+            (contract,), (test_item,), code_audit, assertions,
+        )
+        return contract, test_item, report
+
+    def test_source_audit_accepts_direct_import_aliases_and_local_results(self):
+        sources = (
+            'from checkout import pay\ndef test_pay():\n    assert pay(3) == "accepted"\n',
+            'from checkout import pay as charge\ndef test_pay():\n    result = charge(3)\n    assert result == "accepted"\n',
+            'import checkout as service\ndef test_pay():\n    result = service.pay(3)\n    accepted = result\n    self.assertEqual(accepted, "accepted")\n',
+        )
+        for source in sources:
+            with self.subTest(source=source):
+                _, _, report = self._payment_source_audit(source)
+                self.assertTrue(report.ok, report.format_text())
+                self.assertEqual(("checkout.pay",), report.test_evidence[0].called_code_contracts)
+
+    def test_source_audit_rejects_unknown_receiver_and_wrong_import_owner(self):
+        sources = (
+            'def test_pay(other):\n    assert other.pay(3) == "accepted"\n',
+            'def test_pay():\n    assert get_other().pay(3) == "accepted"\n',
+            'def test_pay(services):\n    assert services[0].pay(3) == "accepted"\n',
+            'from other import pay\ndef test_pay():\n    assert pay(3) == "accepted"\n',
+            'import other as checkout\ndef test_pay():\n    assert checkout.pay(3) == "accepted"\n',
+            'from checkout import pay\ndef test_pay(pay):\n    assert pay(3) == "accepted"\n',
+        )
+        for source in sources:
+            with self.subTest(source=source):
+                _, _, report = self._payment_source_audit(source)
+                self.assertFalse(report.ok)
+                self.assertEqual("unknown", report.test_evidence[0].assertion_scope)
+                self.assertIn("source_test_missing_code_contract_call", source_audit_finding_codes(report))
+
+    def test_source_audit_rejects_constants_and_assertion_messages_as_value_evidence(self):
+        assertions = (
+            "assert True", "assert 1 == 1", "self.assertTrue(True)",
+            "self.assertEqual(1, 1, pay(3))", "self.assertTrue(True, pay(3))",
+        )
+        for assertion in assertions:
+            with self.subTest(assertion=assertion):
+                _, _, report = self._payment_source_audit(
+                    f"from checkout import pay\ndef test_pay():\n    pay(3)\n    {assertion}\n"
+                )
+                self.assertFalse(report.ok)
+                self.assertIn("source_test_missing_value_dependency", source_audit_finding_codes(report))
+
+    def test_source_audit_does_not_guess_complex_value_flow(self):
+        bodies = (
+            'result = helper(pay(3))\n    assert result == "accepted"',
+            'result = pay(3)\n    if flag:\n        result = "accepted"\n    assert result == "accepted"',
+            'result = pay(3)\n    result = "accepted"\n    assert result == "accepted"',
+        )
+        for body in bodies:
+            with self.subTest(body=body):
+                _, _, report = self._payment_source_audit(
+                    f"from checkout import pay\ndef test_pay():\n    {body}\n"
+                )
+                self.assertFalse(report.ok)
+                self.assertIn("source_test_missing_value_dependency", source_audit_finding_codes(report))
+
+    def test_unknown_receiver_source_audit_blocks_execution_claim(self):
+        contract, test_item, source_report = self._payment_source_audit(
+            'def test_pay(other):\n    assert other.pay(3) == "accepted"\n'
+        )
+        report = review_model_test_alignment(ModelTestAlignmentPlan(
+            model_id="checkout", require_source_audit=True,
+            obligations=(obligation("accept_payment"),), code_contracts=(contract,),
+            test_evidence=(test_item,), source_audit_reports=(source_report,),
+        ))
+        self.assertFalse(report.ok)
+        self.assertIn("source_audit_blocked", finding_codes(report))
+
     def test_python_source_audit_flags_missing_symbol(self):
         contract = code_contract(
             "checkout.submit",

@@ -104,7 +104,7 @@
     {
       "id": "skill-assets",
       "layer": "examples",
-      "summary": "Copyable model files shipped with the agent skill for target projects.",
+      "summary": "Copyable model files shipped with the agent skill for target projects. The skill package tests cover distribution only; model-template execution coverage is not declared.",
       "responsibilities": [
         "ship copyable model files with the skill"
       ],
@@ -128,7 +128,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Command line: python -m flowguard read|change|release|map|template and python -m flowguard.map <command>.",
+      "summary": "Dispatches daily read/change/release and template commands; reports blocked selectors, executed model counts, unverified declarations and accepted debts.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands"
       ],
@@ -164,12 +164,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4c9bf5b1575816f9475c3b1c83e6187fa351c30ec6a6c89f4e98b772c07e9e4d"
+      "fingerprint": "sha256:02256ecd48803081659edd3588145bda293ff4134879b0117459f9343b87e641"
     },
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "The flowguard package facade: a plain table of public names, each loaded from its owner module on first use.",
+      "summary": "Lazily exposes public names from a plain module table; the corresponding owner dependencies are declared for conservative impact selection and remain statically unverified.",
       "responsibilities": [
         "expose public names without importing their modules early"
       ],
@@ -181,7 +181,35 @@
       ],
       "state": [],
       "side_effects": [],
-      "depends_on": [],
+      "depends_on": [
+        "adoption-log",
+        "architecture-reduction",
+        "behavior-commitment",
+        "code-structure",
+        "contract-exhaustion",
+        "development-process",
+        "engine-conformance",
+        "engine-core",
+        "engine-explore",
+        "engine-path-quality",
+        "engine-properties",
+        "engine-runner",
+        "engine-scenarios",
+        "existing-model",
+        "field-lifecycle",
+        "model-mesh",
+        "model-miss",
+        "model-test",
+        "portable-models",
+        "problem-corpus",
+        "shared-vocabulary",
+        "structure-mesh",
+        "templates",
+        "test-mesh",
+        "topology-hazard",
+        "ui-flow",
+        "work-context"
+      ],
       "tests": [
         "tests/test_code_boundary_conformance.py",
         "tests/test_field_lifecycle.py",
@@ -194,12 +222,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fc6ea2f2f0731e9905316f18ad08604615188c9e8aaeb9f636c306f06c424955"
+      "fingerprint": "sha256:864adc345de9f3bcb905646cd5407a9b7e6ab3c6a9fd42a9dfc029f499eecead"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Starter model and runner files for each capability, printed or written by `python -m flowguard template`.",
+      "summary": "Provides runnable starter models and runners for each capability, including full model-test teaching examples with consistent runtime identity.",
       "responsibilities": [
         "provide starter files for each capability"
       ],
@@ -225,7 +253,7 @@
         ".flowguard/verification/owners/template_public_release/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:66f40cd70ad35c245b775210f2c89346dcfb7b9c8c64d9896346b96abc79d171"
+      "fingerprint": "sha256:302584845fa4761719bacc36cb293e45a8f6ad72de403f47d3e21c5381672b40"
     },
     {
       "id": "existing-model",
@@ -594,7 +622,7 @@
     {
       "id": "model-test",
       "layer": "capabilities",
-      "summary": "Cross-checks model obligations, owning code contracts and tests row by row; records real runtime paths.",
+      "summary": "Cross-checks obligations, owning code and tests; audits simple source bindings and consumes exact current pytest results without launching tests; records real runtime paths.",
       "responsibilities": [
         "cross-check obligations, code contracts and tests",
         "record and review the runtime path real code took"
@@ -614,10 +642,12 @@
       "depends_on": [
         "engine-core",
         "model-mesh",
-        "shared-vocabulary"
+        "shared-vocabulary",
+        "test-mesh"
       ],
       "tests": [
         "tests/test_contract_exhaustion.py",
+        "tests/test_model_test_pytest_binding.py",
         "tests/test_obligation_family.py",
         "tests/test_primary_path_authority_runtime_matrix.py",
         "tests/test_product_language_path_reuse.py",
@@ -632,7 +662,7 @@
         ".flowguard/verification/owners/runtime_path_evidence/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:95a66b8bfda27e3c1ee717e6a37e2116e568860b524f8a3eeada01a2843ac81e"
+      "fingerprint": "sha256:eeeeece68a9bf5dd27ffc059f09afc24b8085685a981cc2ffe90819757b0589f"
     },
     {
       "id": "topology-hazard",
@@ -789,7 +819,9 @@
       "depends_on": [
         "engine-core"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_work_context.py"
+      ],
       "models": [
         ".flowguard/verification/owners/work_context/run_checks.py"
       ],
@@ -816,7 +848,9 @@
       "depends_on": [
         "engine-core"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_adoption_logging.py"
+      ],
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:9174da83a3f41f890f38e848bcb7c03e8e3584757c58f16619a99fc314d3ae1d"
@@ -840,7 +874,10 @@
         "writes .flowguard/cache/inventory.json"
       ],
       "depends_on": [],
-      "tests": [],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_discover.py"
+      ],
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:dcfde9c746d482afb0009c09ee99d5edcb7cad2c3199d5ca23d15a3de9730853"
@@ -848,7 +885,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "The map file itself: schema validation, load/save, component ownership and fingerprints that detect stale descriptions.",
+      "summary": "Validates, loads and saves the single map, fingerprints component source, and inventories supported executable model IDs and paths.",
       "responsibilities": [
         "validate, load and save the map",
         "compute component fingerprints that detect stale descriptions"
@@ -871,12 +908,14 @@
         "map-discover",
         "map-inventory"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_flowguard_map.py"
+      ],
       "models": [
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f7fcb7d7209da66ac84c3099be2c015bee917e8c710ea6a2e75d9f02337d43ff"
+      "fingerprint": "sha256:578be0cdd0153f6d7dd8539f521463af7fefcd5d96fb1bdcff20ea59e84079b1"
     },
     {
       "id": "map-discover",
@@ -908,7 +947,7 @@
     {
       "id": "map-analysis",
       "layer": "map",
-      "summary": "Read-only analyses over map plus code: check (map versus code), lint (architecture review), impact and views.",
+      "summary": "Checks map/code ownership and syntax, reviews architecture, and selects checks through the full conservative caller closure, including declared model/test bindings and git mapping changes.",
       "responsibilities": [
         "verify the map against the code",
         "review the architecture",
@@ -933,15 +972,20 @@
         "map-inventory",
         "map-proof"
       ],
-      "tests": [],
-      "models": [],
+      "tests": [
+        "tests/test_existing_model_preflight_map.py",
+        "tests/test_flowguard_map.py"
+      ],
+      "models": [
+        ".flowguard/models/change_impact.py"
+      ],
       "status": "confirmed",
-      "fingerprint": "sha256:e1b41a791a20d21ec941c2b30aafa05a8cfe7d935f42195df47a9908d3631255"
+      "fingerprint": "sha256:4555f50356e758551d24950f3c87eb2ffc6cde580b198b1191b7c875ba50a01d"
     },
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Runs executable models in isolated subprocesses: intended design passes, known-bad variants fail, traces replay on real code.",
+      "summary": "Uses one executable registry to run every declared contract model or runner in isolated processes; validates hook results and reuses PASS only for a known mapped input boundary.",
       "responsibilities": [
         "run models and their known-bad and conformance checks"
       ],
@@ -960,12 +1004,14 @@
         "map-file",
         "map-inventory"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_flowguard_map_proof.py"
+      ],
       "models": [
         ".flowguard/models/model_cache.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f043d5e3f34e98e5ae6b2e6fc53e9155adb7b2986b73e6231600a95bd004de83"
+      "fingerprint": "sha256:16eea04e78ef9cdda40e370750154c74efa7ee653d634fce49486f9b5c55ab59"
     },
     {
       "id": "engine-explore",
@@ -1101,7 +1147,11 @@
       "depends_on": [
         "engine-core"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_conformance_replay_duplicate_record_failure.py",
+        "tests/test_conformance_replay_repeated_scoring_failure.py",
+        "tests/test_conformance_replay_success.py"
+      ],
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:fa536aed44c6a072217728a886f3217972845492a3d05eae51e00d48d518964d"
@@ -1206,7 +1256,11 @@
       "depends_on": [
         "engine-core"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_executable_corpus.py",
+        "tests/test_problem_corpus.py",
+        "tests/test_real_model_corpus.py"
+      ],
       "models": [
         ".flowguard/verification/owners/problem_corpus_coverage/run_checks.py"
       ],

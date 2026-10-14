@@ -29,7 +29,7 @@ from model import run_rollout_review
 
 def main() -> int:
     results = run_rollout_review()
-    print("=== flowguard model/test/code alignment rollout ===")
+    print("=== flowguard model/test/code alignment declaration rules ===")
     failed = []
     for name, ok, codes in results:
         status = "PASS" if ok else "FAIL"
@@ -38,12 +38,13 @@ def main() -> int:
             failed.append(name)
     print(f"cases: {len(results)}")
     print(f"failed: {len(failed)}")
-    obligation_bindings_ok = model.native_test_obligation_bindings_are_executed()
+    obligation_bindings_ok = model.native_test_obligation_bindings_are_consistent()
     print(
-        "native obligation bindings: "
+        "native obligation declaration consistency: "
         f"{'PASS' if obligation_bindings_ok else 'FAIL'} "
         f"obligations={len(model.NATIVE_TEST_OBLIGATION_BINDINGS)}"
     )
+    print("native execution evidence: NOT PROVIDED (run outer pytest and bind its exact results)")
     return 0 if not failed and obligation_bindings_ok else 1
 
 from flowguard.map.runner import run_owner

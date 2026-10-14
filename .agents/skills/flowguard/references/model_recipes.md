@@ -11,6 +11,11 @@ def broken_variants(): ...    # REQUIRED in practice: {name: Explorer}; each mus
 def conformance(): ...        # STRONGLY RECOMMENDED: replay model traces against the real code; .ok must be True
 ```
 
+Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
+registered `run_checks.py`; component ids are for `read --component`. Unknown selectors fail.
+PASS reuse needs a closed mapped input boundary; unknown helper/config inputs rerun. Runners
+are uncached. Missing conformance means only the abstract boundary was checked.
+
 Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
 
 ## Five steps

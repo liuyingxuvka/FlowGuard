@@ -19,7 +19,7 @@ Commands: `python -m flowguard read | change | release | template` and `python -
 
 ## Every session
 
-1. `python -m flowguard read` - the whole map (a few thousand tokens). Read it before opening source files.
+1. `python -m flowguard read` - the whole map (a few thousand tokens). Read it before opening source files. Business data stays read-only; disposable caches may update.
 2. Before adding behavior: `python -m flowguard read --find <words>`; extend the existing owner. Create a
    new component only when nothing owns the responsibility.
 3. Open only the files of the components you touch: `python -m flowguard read --component <id>`.
@@ -61,7 +61,11 @@ If none clearly fits, use plain modeling (`references/model_recipes.md`).
 
 Retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions, multi-step
 flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), list it in
-the component's `models`, run `python -m flowguard map models <id>`.
+the component's `models`, run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
+Component ids select `read --component`; model ids select `map models`. Unknown model ids fail.
+`change` follows the complete caller closure; explicit `map impact --depth N` is truncated.
+Static Python/relative JS/TS imports are supported; declare lazy/alias edges in `depends_on`.
+Declared edges remain conservative, unverified inputs rather than verified imports.
 
 ## First map of an existing project
 

@@ -42,6 +42,7 @@ from .runtime_path import (
 )
 import hashlib
 import json
+from pathlib import Path
 
 
 def fingerprint_value(value: Any) -> str:
@@ -49,6 +50,127 @@ def fingerprint_value(value: Any) -> str:
 
     text = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def pytest_alignment_input_digest(project_root: Path, input_paths: Sequence[str]) -> str:
+    """Hash the explicit source/model/test inputs of one outer pytest run.
+
+    Call before and after pytest, and retain both values in run-local cache.
+    Paths are exact files, not selectors or glob expressions. Missing files are
+    included so deletion invalidates earlier evidence. No repository-wide scan
+    or receipt history is involved.
+    """
+
+    root = Path(project_root).resolve()
+    paths = tuple(sorted(set(str(path) for path in input_paths)))
+    if not paths:
+        raise ValueError("pytest execution evidence requires explicit input files")
+    inputs = []
+    for relative in paths:
+        path = (root / relative).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"pytest input escapes project root: {relative}")
+        if path.exists() and not path.is_file():
+            raise ValueError(f"pytest input is not a file: {relative}")
+        inputs.append((relative, hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None))
+    return fingerprint_value(inputs)
+
+
+def bind_pytest_execution(
+    plan: ModelTestAlignmentPlan,
+    *,
+    evidence_nodeids: Mapping[str, str],
+    junit_path: Path,
+    nodeid_manifest: Path,
+    run_metadata: Mapping[str, Any],
+    project_root: Path,
+) -> ModelTestAlignmentPlan:
+    """Bind exact results from a single outer pytest run to an existing plan.
+
+    ``evidence_nodeids`` maps existing evidence IDs to exact pytest node IDs.
+    Metadata has ``command``, ``exit_code``, ``input_paths``,
+    ``input_digest_before`` and ``input_digest_after``. It is a small disposable
+    run record, not a reusable receipt. The caller captures the input digests
+    around its own pytest invocation. This function never executes tests.
+
+    A nonzero run exit remains visible on every row, even if a particular node
+    passed. Missing bindings never preserve caller-provided passing statuses.
+    Review the returned plan with :func:`review_model_test_alignment`; execution
+    and source-audit gates are enabled, so source audit must also be supplied.
+    """
+
+    from .pytest_junit import pytest_junit_projection
+
+    if not plan.test_evidence:
+        raise ValueError("pytest execution binding requires planned test evidence")
+    unknown = set(evidence_nodeids) - {row.evidence_id for row in plan.test_evidence}
+    if unknown:
+        raise ValueError(f"unknown evidence IDs in pytest bindings: {sorted(unknown)}")
+    if not all(isinstance(nodeid, str) for nodeid in evidence_nodeids.values()):
+        raise ValueError("pytest bindings must contain exact string node IDs")
+    projection = pytest_junit_projection(
+        Path(junit_path), nodeid_manifest=Path(nodeid_manifest), require_exact_nodeids=True
+    )
+    statuses = projection["node_statuses"] if projection is not None else {}
+    issues = []
+    if projection is None:
+        issues.append("pytest exact-node result is missing or invalid")
+    command = run_metadata.get("command", "")
+    exit_code = run_metadata.get("exit_code")
+    if not isinstance(command, str) or not command.strip():
+        issues.append("pytest run command is missing")
+        command = ""
+    if type(exit_code) is not int or exit_code != 0:
+        issues.append(f"pytest run exit code is {exit_code!r}, expected 0")
+    try:
+        manifest_exit = json.loads(Path(nodeid_manifest).read_text(encoding="utf-8")).get("exit_status")
+        if type(manifest_exit) is not int or manifest_exit != exit_code:
+            issues.append("pytest recorder exit status does not match run metadata")
+    except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
+        issues.append("pytest recorder exit status is unavailable")
+    if projection is not None and any(projection.get(key, 0) for key in ("failed", "errors", "xpassed")):
+        issues.append("pytest run contains failed or error nodes")
+    before = run_metadata.get("input_digest_before")
+    after = run_metadata.get("input_digest_after")
+    paths = run_metadata.get("input_paths")
+    try:
+        if not isinstance(paths, (list, tuple)) or not all(isinstance(path, str) for path in paths):
+            raise ValueError("pytest input paths are missing or invalid")
+        current = pytest_alignment_input_digest(project_root, paths)
+        required_paths = {contract.path for contract in plan.code_contracts if contract.path}
+        required_paths.update(evidence.path for evidence in plan.test_evidence if evidence.path)
+        required_paths.update(nodeid.split("::", 1)[0] for nodeid in evidence_nodeids.values() if nodeid)
+        missing_paths = required_paths - set(paths)
+        if missing_paths:
+            issues.append(f"pytest input scope omits bound source/test files: {sorted(missing_paths)}")
+        absent_paths = [path for path in paths if not (Path(project_root) / path).is_file()]
+        if absent_paths:
+            issues.append(f"pytest input files are missing: {absent_paths}")
+    except (OSError, ValueError) as exc:
+        current = None
+        issues.append(str(exc))
+    if not isinstance(before, str) or before != after or not before:
+        issues.append("pytest inputs changed during execution or have no before/after digest")
+    if current is None or after != current:
+        issues.append("pytest inputs changed after execution or current digest is unavailable")
+    rows = []
+    for evidence in plan.test_evidence:
+        nodeid = evidence_nodeids.get(evidence.evidence_id, "")
+        reasons = list(issues)
+        if nodeid not in statuses:
+            reasons.append(f"pytest node was not collected: {nodeid or '<missing binding>'}")
+        if evidence.path and nodeid.split("::", 1)[0] != evidence.path:
+            reasons.append("pytest node file does not match the planned evidence path")
+        if evidence.test_name and "::" in evidence.test_name and evidence.test_name != nodeid:
+            reasons.append("pytest node ID does not match the planned exact test selector")
+        rows.append(replace(
+            evidence,
+            command=command,
+            result_status=statuses.get(nodeid, TEST_STATUS_NOT_RUN),
+            evidence_current=not reasons,
+            stale_reasons=tuple(reasons),
+        ))
+    return replace(plan, test_evidence=tuple(rows), require_source_audit=True, require_executed_evidence=True)
 
 
 TEST_STATUS_PASSED = "passed"
@@ -4411,6 +4533,8 @@ __all__ = [
     "TEST_STATUS_TIMEOUT",
     "audit_python_code_contracts",
     "audit_python_test_assertions",
+    "bind_pytest_execution",
+    "pytest_alignment_input_digest",
     "review_artifact_payload_validation",
     "review_code_boundary_conformance",
     "review_python_contract_source_audit",

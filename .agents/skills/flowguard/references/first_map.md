@@ -38,7 +38,7 @@ reading; a 200k-line project about 90k tokens, done in batches of components.
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and each responsibility under about 8 words, so that
      `python -m flowguard read` stays under about 8,000 characters.
-4. `python -m flowguard map deps --write` copies the real import graph into `depends_on`.
+4. `python -m flowguard map deps --write` merges parsed imports into `depends_on`, preserving valid declarations for lazy/alias paths. Unparsed declarations remain unverified.
 5. `python -m flowguard map check` and fix until it reports 0 errors (`draft` warnings are expected now).
 6. `python -m flowguard map confirm all`, then `python -m flowguard map check` must show 0 errors, 0 warnings.
 7. `python -m flowguard map lint` and write the top ERROR and WARN lines into your report.
