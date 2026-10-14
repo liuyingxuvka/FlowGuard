@@ -31,7 +31,7 @@ python -m flowguard map <scan|discover|digest|deps|check|lint|impact|models|conf
 ```
 
 `python -m flowguard map models` runs the executable models bound in
-`.flowguard/map.json` (it writes only `.flowguard/cache/`). The older review
+`.flowguard/map.json`; every call executes them (results are never cached). The older review
 helpers are Python APIs, not separate commands:
 
 - `review_scenarios()` for expected-vs-observed scenario review;

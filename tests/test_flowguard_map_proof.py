@@ -83,15 +83,12 @@ def test_unit_test_is_green_but_model_conformance_catches_double_charge(shop, ca
     assert "FAIL" in out and "does not conform" in out and "one_charge_per_order" in out
 
 
-def test_fixed_code_passes_and_second_run_is_cached(shop, capsys):
+def test_fixed_code_passes_and_every_run_executes(shop, capsys):
     write(shop, "shop/orders.py", FIXED)
-    code, out = models(shop, capsys)
-    assert code == 0 and "PASS" in out and "(cached)" not in out
-    code, out = models(shop, capsys)
-    assert code == 0 and "(cached)" in out
-    write(shop, "shop/orders.py", FIXED + "\n# touched\n")          # implementation bytes changed -> rerun
-    code, out = models(shop, capsys)
-    assert code == 0 and "(cached)" not in out
+    for _ in range(2):
+        code, out = models(shop, capsys)
+        assert code == 0 and "PASS" in out and "cached" not in out
+    assert not (shop / ".flowguard/cache/models.json").exists()
 
 
 def test_invariants_without_teeth_are_rejected(shop, capsys):
@@ -101,7 +98,7 @@ def test_invariants_without_teeth_are_rejected(shop, capsys):
     start = text.index("INVARIANTS = (")
     end = text.index("\n", start)
     path.write_text(text[:start] + "INVARIANTS = ()" + text[end:], encoding="utf-8")
-    code, out = models(shop, capsys, "--force")
+    code, out = models(shop, capsys)
     assert code == 1 and "known-bad variant 'charge_every_time' passed" in out
 
 
@@ -155,44 +152,12 @@ def test_mapped_helper_mutation_invalidates_pass_without_direct_anchor_edit(shop
     write(shop, "shop/orders.py", implementation)
     write(shop, "shop/helper.py", "def healthy():\n    return True\n")
     assert models(shop, capsys)[0] == 0
-    assert "(cached)" in models(shop, capsys)[1]
     write(shop, "shop/helper.py", "def healthy():\n    return False\n")
     code, output = models(shop, capsys)
-    assert code == 1 and "FAIL" in output and "(cached)" not in output
+    assert code == 1 and "FAIL" in output
     assert (shop / "shop/orders.py").read_text() == implementation
-    assert models(shop, capsys, "--force")[0] == 1
     write(shop, "shop/helper.py", "def healthy():\n    return True\n")
     assert models(shop, capsys)[0] == 0
-
-
-@pytest.mark.parametrize("unknown_input", ["unbound_helper", "config_reader", "no_components", "no_map"])
-def test_unknown_input_boundary_executes_instead_of_reusing_pass(shop, capsys, unknown_input):
-    write(shop, "shop/orders.py", FIXED)
-    if unknown_input == "unbound_helper":
-        write(shop, "shared/__init__.py", "")
-        write(shop, "shared/helper.py", "def healthy():\n    return True\n")
-        write(shop, "shop/orders.py", "from shared.helper import healthy\n" + FIXED)
-    elif unknown_input == "config_reader":
-        write(shop, "shop/orders.py", FIXED + "\ndef config():\n    return open('settings.json').read()\n")
-    elif unknown_input == "no_components":
-        path = shop / ".flowguard/models/order_placement.py"
-        path.write_text(path.read_text().replace('COMPONENTS = ["orders"]', 'COMPONENTS = []'))
-    else:
-        (shop / ".flowguard/map.json").unlink()
-    for _ in range(2):
-        code, output = models(shop, capsys)
-        assert code == 0 and "cache not reused:" in output and "(cached)" not in output
-
-
-def test_model_cache_key_separates_engine_and_python_identity(shop):
-    from flowguard.map.mapfile import read_model_contract
-    from flowguard.map.proof import _input_key
-    path = shop / ".flowguard/models/order_placement.py"
-    contract = read_model_contract(path)
-    first = _input_key(shop, path, contract, engine_digest="python-A:engine-A")
-    assert first == _input_key(shop, path, contract, engine_digest="python-A:engine-A")
-    assert first != _input_key(shop, path, contract, engine_digest="python-A:engine-B")
-    assert first != _input_key(shop, path, contract, engine_digest="python-B:engine-A")
 
 
 @pytest.mark.parametrize("selection", [("missing",), ("order_placement", "missing")])
@@ -253,7 +218,7 @@ def test_abstract_model_exposes_unverified_implementation(tmp_path):
     from flowguard.map.proof import run_models
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL)
     result, = run_models(tmp_path, [])
-    assert result.status == "pass" and not result.cached
+    assert result.status == "pass"
     assert any("abstract boundary only" in warning for warning in result.warnings)
 
 
@@ -274,20 +239,6 @@ def test_component_selector_reports_its_registered_model_ids(shop, capsys):
     assert code == 1 and "is a component id" in output and "registered model ids: order_placement" in output
 
 
-def test_corrupt_or_nonpass_cache_entry_is_reexecuted(shop, capsys):
-    write(shop, "shop/orders.py", FIXED)
-    assert models(shop, capsys)[0] == 0
-    path = shop / ".flowguard/cache/models.json"
-    cached = json.loads(path.read_text())
-    cached["models"]["order_placement.py"]["result"]["status"] = "fail"
-    path.write_text(json.dumps(cached))
-    code, output = models(shop, capsys)
-    assert code == 0 and "(cached)" not in output
-    cached["models"] = []
-    path.write_text(json.dumps(cached))
-    assert models(shop, capsys)[0] == 0
-
-
 def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkeypatch):
     from flowguard.map.proof import run_runner
     monkeypatch.setenv("PYTHONIOENCODING", "cp1252")          # the code page a Windows pipe gives a child
@@ -298,3 +249,18 @@ def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkey
     runner.write_text("print('失败 ✗')\nraise SystemExit(1)\n", encoding="utf-8")
     result = run_runner(tmp_path, runner)
     assert result.status == "fail" and "失败 ✗" in result.problems[0], result.problems
+
+
+def test_out_of_boundary_inputs_never_report_a_stale_pass(shop, capsys, monkeypatch):
+    write(shop, ".gitignore", "shop/local_settings.py\n")
+    write(shop, "shop/local_settings.py", "ENABLED = True\n")
+    write(shop, "shop/orders.py", "from os import environ\nfrom shop import local_settings\n" + FIXED.replace(
+        "        if order_id in self.orders:\n",
+        "        if order_id in self.orders or not local_settings.ENABLED or environ.get('SHOP_MODE') == 'off':\n"))
+    assert models(shop, capsys)[0] == 0
+    write(shop, "shop/local_settings.py", "ENABLED = False\n")
+    assert models(shop, capsys)[0] == 1
+    write(shop, "shop/local_settings.py", "ENABLED = True\n")
+    assert models(shop, capsys)[0] == 0
+    monkeypatch.setenv("SHOP_MODE", "off")
+    assert models(shop, capsys)[0] == 1

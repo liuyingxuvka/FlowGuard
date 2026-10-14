@@ -183,7 +183,7 @@ class _RealSelection:
         blocked = bool(impact.unmapped or impact.blocked)
         model_ids = tuple(sorted(impact.model_ids))
         if model_ids and not blocked:
-            results = run_models(self.root, list(model_ids), force=True)
+            results = run_models(self.root, list(model_ids))
             # Confirm the selected command identities are exactly what the runner executes.
             model_ids = tuple(sorted(result.model for result in results if result.status == "pass"))
         if kind == "unknown_source":

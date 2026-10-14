@@ -164,7 +164,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:af47f6d54d0e88eec3956c8acd246e76da7c1767e73f5344044b5ffcfad6923e"
+      "fingerprint": "sha256:c6c2778f29df1d2f5d07936907e2782513e0e4bdda4e712de349a63d90bee52c"
     },
     {
       "id": "public-api",
@@ -985,7 +985,7 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Uses one executable registry to run every declared contract model or runner in isolated processes with UTF-8 output; validates hook results and reuses PASS only for a known mapped input boundary.",
+      "summary": "Runs every declared contract model or runner from one registry in isolated processes with UTF-8 output on every call, and validates hook results; results are never cached.",
       "responsibilities": [
         "run models and their known-bad and conformance checks"
       ],
@@ -997,21 +997,16 @@
         "flowguard/map/proof.py:run_models"
       ],
       "state": [],
-      "side_effects": [
-        "writes .flowguard/cache/models.json"
-      ],
+      "side_effects": [],
       "depends_on": [
-        "map-file",
-        "map-inventory"
+        "map-file"
       ],
       "tests": [
         "tests/test_flowguard_map_proof.py"
       ],
-      "models": [
-        ".flowguard/models/model_cache.py"
-      ],
+      "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:30ce654eb71d6e7b0f32ac04a7d1e8296b2daae62cf05591630ba4e3596fdb37"
+      "fingerprint": "sha256:3f994f5aa8a8699eddfcd3302e54de50e6b51b0e782287bbbd12e5c4be81be10"
     },
     {
       "id": "engine-explore",

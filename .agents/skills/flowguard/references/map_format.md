@@ -54,4 +54,4 @@ Tests are files whose name starts with `test_`, ends with `_test.py`, contains `
 or that live in a `tests/`, `test/` or `__tests__/` directory. Tests are not owned by components;
 they are linked through `tests`.
 
-`.flowguard/cache/` holds parse and model-result caches. It is never committed and can be deleted at any time.
+`.flowguard/cache/` holds parse caches. It is never committed and can be deleted at any time.

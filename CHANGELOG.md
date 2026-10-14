@@ -7,6 +7,10 @@ Upgrade notes:
 - Components that own files with non-ASCII names (for example Chinese file names) become STALE
   once after upgrading, because those files were missing from the map before. Re-read and
   confirm them.
+- The model PASS cache and `map models --force` are removed: every selected model executes on
+  every call, because a cached PASS could hide a model that now fails. Scripts that pass
+  `--force` now stop with `unrecognized arguments`; drop the flag. `.flowguard/cache/models.json`
+  is no longer written and can be deleted.
 
 ## v0.70.1 - 2026-10-14 - Scoped impact, model registry, PASS cache, pytest result binding
 

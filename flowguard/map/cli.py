@@ -5,7 +5,7 @@ Daily commands (read-only unless stated):
   find      which component already owns a responsibility
   check     map <-> code verification (exit 1 on errors)
   impact    changed files -> components -> tests and models to run
-  models    run executable models (writes only .flowguard/cache/)
+  models    run executable models
   confirm   [writes map] accept a component's description as current
 Setup and review:
   scan      [writes map] create draft components for a project without a map
@@ -13,7 +13,7 @@ Setup and review:
   deps      show real component dependencies; --write copies them into depends_on
   discover  behaviour found in the code per component: entrypoints, side effects, state writers
   lint      architecture review
-  verify    release gate: strict check + lint errors + all models (forced)
+  verify    release gate: strict check + lint errors + all models
 """
 
 from __future__ import annotations
@@ -174,7 +174,7 @@ def cmd_confirm(root: Path, a) -> int:
 
 
 def cmd_models(root: Path, a) -> int:
-    results = run_models(root, a.ids, force=a.force, timeout=a.timeout)
+    results = run_models(root, a.ids, timeout=a.timeout)
     print(render_results(results))
     return 1 if any(r.status != "pass" for r in results) else 0
 
@@ -189,7 +189,7 @@ def cmd_verify(root: Path, a) -> int:
     for debt in debts:
         print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
     registry = model_registry(root, data)
-    results = run_models(root, [], force=True)
+    results = run_models(root, [])
     print(render_results(results))
     expected = {(entry.id, entry.path) for entry in registry.entries}
     executed = [(result.model, result.file) for result in results]
@@ -235,7 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--depth", type=_depth, default=None, help="explicitly truncate caller traversal to N levels (default: full closure)"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
-    s = sub.add_parser("models"); s.add_argument("ids", nargs="*"); s.add_argument("--force", action="store_true")
+    s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
     s.add_argument("--timeout", type=int, default=300, help="seconds per model")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
     for command in sub.choices.values():   # --root is accepted before or after the command

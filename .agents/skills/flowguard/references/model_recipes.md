@@ -13,8 +13,8 @@ def conformance(): ...        # STRONGLY RECOMMENDED: replay model traces agains
 
 Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
 registered `run_checks.py`; component ids are for `read --component`. Unknown selectors fail.
-PASS reuse needs a closed mapped input boundary; unknown helper/config inputs rerun. Runners
-are uncached. Missing conformance means only the abstract boundary was checked.
+Every selected model executes on every call (no result cache). Missing conformance means only
+the abstract boundary was checked.
 
 Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
 

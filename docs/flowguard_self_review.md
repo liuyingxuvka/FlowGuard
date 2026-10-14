@@ -7,7 +7,7 @@ CLI verbs are no longer supported.
 Current operation is `python -m flowguard read`, `python -m flowguard change`, and
 `python -m flowguard release`, plus the outer test suite. The current authority is
 [the self map](../.flowguard/map.json); its [registered models](../.flowguard/models/)
-protect the declared boundaries, including impact selection and cache freshness.
+protect the declared boundaries, including impact selection.
 
 The original example modeled the adoption workflow as follows.
 

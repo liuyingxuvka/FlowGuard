@@ -12,20 +12,15 @@ A model file is a plain Python module:
 A second kind, *runner models*, is any ``run_checks.py`` listed in a map
 component's ``models`` (for example ``.flowguard/verification/owners/<id>/run_checks.py``
 next to ``.flowguard/models/owners/<id>/model.py``).  A runner model passes when
-the script exits with 0; its id is its directory name.  Runner models are never
-cached because their inputs are not declared.
+the script exits with 0; its id is its directory name.
 
 Each model runs in its own Python subprocess (fresh imports, no shared state).
-Results are cached only when existing COMPONENTS and dependency ownership close
-the input boundary. Keys include mapped source bytes, direct anchors, the model,
-map and Python/engine identity. Unknown helper/config/dynamic inputs rerun.
-Only passes are reused; ``--force`` ignores the cache. The cache is never authority.
+Every requested model executes on every call: results are never cached, so a
+PASS is always a statement about the current bytes, environment and interpreter.
 """
 
 from __future__ import annotations
 
-import ast
-import hashlib
 import importlib.util
 import json
 import os
@@ -36,12 +31,8 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import CACHE_RELDIR, content_digest, read_source
-from .inventory import build_inventory, parse_python, resolve_import
-from .mapfile import (MapError, component_files, component_graph, ignore_patterns, load_map,
-                      model_registry, read_model_contract)
+from .mapfile import MapError, load_map, model_registry, read_model_contract
 
-CACHE_SCHEMA = "flowguard.map.model_cache.v2"
 DEFAULT_TIMEOUT = 300          # seconds per model
 
 
@@ -53,100 +44,10 @@ class ModelResult:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
-    cached: bool = False
 
 
 def model_files(root: Path) -> list[Path]:
     return [root / e.path for e in model_registry(root).entries if e.kind == "contract"]
-
-
-def _engine_digest() -> str:
-    """Calculated once per model run, never during map reads or impact analysis."""
-    package = Path(__file__).resolve().parents[1]
-    h = hashlib.sha256(sys.version.encode())
-    for source in sorted(package.rglob("*.py")):
-        h.update(source.relative_to(package).as_posix().encode() + content_digest(source).encode())
-    return h.hexdigest()
-
-
-def _cache_inputs(root: Path, path: Path, contract: dict, data: dict, inv) -> tuple[list[str], str]:
-    """Use existing ownership/dependency declarations; unknown inputs mean rerun.
-
-    This is deliberately a conservative boundary check, not a new dependency
-    resolver or input-manifest schema. Dynamic file/environment/import access
-    cannot be proven complete by the map and therefore disables PASS reuse.
-    """
-    components = contract.get("COMPONENTS", [])
-    if not data or not components:
-        return [], "map and nonempty COMPONENTS bindings are required"
-    by_id = {c["id"]: c for c in data["components"]}
-    graph = component_graph(data, inv)
-    pending, selected = list(components), set()
-    inputs = {path.relative_to(root).as_posix()}
-    while pending:
-        cid = pending.pop()
-        if cid in selected:
-            continue
-        if cid not in by_id:
-            return [], f"unknown component {cid!r}"
-        selected.add(cid)
-        comp = by_id[cid]
-        owned = component_files(comp, inv)
-        if not owned:
-            return [], f"component {cid!r} has no known source inputs"
-        inputs.update(owned)
-        pending.extend(set(comp.get("depends_on", [])) | graph.get(cid, set()))
-    inputs.update(anchor.split(":", 1)[0] for anchor in contract.get("IMPLEMENTED_BY", {}).values())
-    modules = {info.module: rel for rel, info in inv.py.items()}
-    # Imported local helpers must already belong to the mapped input boundary.
-    for rel in sorted(inputs):
-        source = root / rel
-        if not source.is_file():
-            return [], f"missing input {rel}"
-        if source.suffix != ".py":
-            return [], f"non-Python input boundary not verified: {rel}"
-        info = inv.py.get(rel) or parse_python(root, rel, "_flowguard_model")
-        if info.parse_error:
-            return [], f"unparseable input {rel}"
-        for imp in info.imports:
-            target = resolve_import(imp, modules)
-            top = imp.split(":", 1)[0].split(".", 1)[0]
-            if top in {"random", "time", "datetime", "subprocess", "socket", "urllib", "http", "secrets"}:
-                return [], f"external/runtime input import {imp!r} in {rel}"
-            if imp.rsplit(":", 1)[-1] in {"open", "getenv", "import_module", "__import__", "eval", "exec"}:
-                return [], f"dynamic input import {imp!r} in {rel}"
-            if target and target not in inputs and top != "flowguard":
-                return [], f"helper {target} is outside the mapped input boundary"
-            if not target and top not in sys.stdlib_module_names and top != "flowguard":
-                return [], f"unresolved import {imp!r} in {rel}"
-        tree = ast.parse(read_source(source))
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Attribute) and node.attr == "environ":
-                return [], f"environment input in {rel}"
-            if isinstance(node, ast.Call):
-                name = node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", "")
-                if name in {"open", "read_text", "read_bytes", "read", "load", "getenv", "import_module",
-                            "__import__", "exec", "eval", "getattr", "get_data", "get_resource_reader"}:
-                    return [], f"dynamic/helper/config input ({name}) in {rel}"
-    return sorted(inputs), ""
-
-
-def _input_key(root: Path, path: Path, contract: dict, *, engine_digest: str | None = None,
-               inputs: list[str] | None = None) -> str:
-    if inputs is None:
-        try:
-            data = load_map(root)
-        except MapError:
-            data = {}
-        inputs, _ = _cache_inputs(root, path, contract, data, build_inventory(root, ignore_patterns(data)))
-    h = hashlib.sha256((engine_digest if engine_digest is not None else _engine_digest()).encode())
-    for rel in inputs or [path.relative_to(root).as_posix()]:
-        target = root / rel
-        h.update(rel.encode() + (content_digest(target).encode() if target.is_file() else b"<missing>"))
-    # A dependency/ownership edit changes the meaning of the same source bytes.
-    mapping = root / ".flowguard/map.json"
-    h.update(content_digest(mapping).encode() if mapping.is_file() else b"<no-map>")
-    return h.hexdigest()
 
 
 def _load(root: Path, path: Path):
@@ -256,7 +157,7 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelR
     return result
 
 
-def run_models(root: Path, ids: list[str], *, force: bool = False, timeout: int = DEFAULT_TIMEOUT) -> list[ModelResult]:
+def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) -> list[ModelResult]:
     try:
         data = load_map(root)
     except MapError:
@@ -274,52 +175,12 @@ def run_models(root: Path, ids: list[str], *, force: bool = False, timeout: int 
         errors.append(ModelResult(model=mid, file="", status="error", problems=[message]))
     if errors:
         return errors
-    selected = [entry for entry in registry.entries if not ids or entry.id in ids]
-    inv = build_inventory(root, ignore_patterns(data)) if any(e.kind == "contract" for e in selected) else None
-    engine_digest = _engine_digest() if inv is not None else ""
-    cache_path = root / CACHE_RELDIR / "models.json"
-    try:
-        cache = json.loads(cache_path.read_text(encoding="utf-8"))
-        cache = cache["models"] if cache.get("schema") == CACHE_SCHEMA else {}
-        if not isinstance(cache, dict):
-            cache = {}
-    except (OSError, ValueError, KeyError):
-        cache = {}
     results = []
-    for entry in selected:
-        path = root / entry.path
-        if entry.kind == "runner":
-            results.append(run_runner(root, path, timeout))
+    for entry in registry.entries:
+        if ids and entry.id not in ids:
             continue
-        contract = read_model_contract(path)
-        inputs, reason = _cache_inputs(root, path, contract, data, inv)
-        key = _input_key(root, path, contract, inputs=inputs, engine_digest=engine_digest)
-        hit = cache.get(path.name)
-        cached_result = None
-        if not reason and isinstance(hit, dict) and hit.get("key") == key and not force:
-            try:
-                candidate = ModelResult(**hit["result"])
-                if candidate.model == entry.id and candidate.file == entry.path and candidate.status == "pass":
-                    cached_result = candidate
-            except (KeyError, TypeError):
-                pass                      # corrupt cache entries are never proof
-        if cached_result is not None:
-            result = cached_result
-            result.cached = True
-        else:
-            result = run_model(root, path, timeout)
-            if reason:
-                result.warnings.append(f"cache not reused: {reason}")
-            if result.status == "pass" and not reason:
-                cache[path.name] = {"key": key, "result": {k: v for k, v in result.__dict__.items() if k != "cached"}}
-            else:
-                cache.pop(path.name, None)
-        results.append(result)
-    try:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        cache_path.write_text(json.dumps({"schema": CACHE_SCHEMA, "models": cache}, indent=1), encoding="utf-8")
-    except OSError:
-        pass
+        path = root / entry.path
+        results.append(run_runner(root, path, timeout) if entry.kind == "runner" else run_model(root, path, timeout))
     return results
 
 
@@ -328,7 +189,7 @@ def render_results(results: list[ModelResult]) -> str:
         return "models: 0 declared, 0 executed; no model proof"
     lines = []
     for r in results:
-        lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s" + ("  (cached)" if r.cached else ""))
+        lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
     failed = sum(r.status != "pass" for r in results)
