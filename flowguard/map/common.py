@@ -70,6 +70,16 @@ def safe_stdio() -> None:
             pass
 
 
+def cache_dir(root: Path) -> Path:
+    """Disposable cache ignores itself, including in newly adopted repositories."""
+    directory = root / CACHE_RELDIR
+    directory.mkdir(parents=True, exist_ok=True)
+    ignore = directory / ".gitignore"
+    if not ignore.exists():
+        ignore.write_text("*\n", encoding="utf-8")
+    return directory
+
+
 def norm(path: str) -> str:
     path = path.replace("\\", "/")
     return path[2:] if path.startswith("./") else path
@@ -104,6 +114,19 @@ def is_test_file(path: str) -> bool:
     parts = path.split("/")[:-1]
     return (name.startswith("test_") or name.endswith("_test.py") or ".test." in name
             or ".spec." in name or "tests" in parts or "test" in parts or "__tests__" in parts)
+
+
+def is_collectable_test(path: str) -> bool:
+    """Runnable test files, excluding support modules and conftest.py."""
+    name = path.rsplit("/", 1)[-1]
+    return (name.endswith(".py") and (name.startswith("test_") or name.endswith("_test.py"))
+            or Path(path).suffix in JS_EXTS and (".test." in name or ".spec." in name))
+
+
+def is_product_file(path: str, patterns: list[str]) -> bool:
+    """An exact files declaration overrides the test-name heuristic."""
+    return matches_any(path, patterns) and (not is_test_file(path) or any(
+        norm(pattern) == path and not any(char in pattern for char in "*?[") for pattern in patterns))
 
 
 def tokens(text: str) -> set[str]:

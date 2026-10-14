@@ -13,29 +13,37 @@ from .mapfile import component_files, component_graph, is_stale, owner_index
 
 
 def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int) -> str:
+    budget = max(0, budget)
     graph = component_graph(data, inv)
     comps = data["components"]
     if component:
         comps = [c for c in comps if c["id"] == component or c["id"].startswith(component + ".")]
         if not comps:
-            return f"no component {component!r}; run 'show' to list components"
+            return f"no component {component!r}; run 'show' to list components"[:budget]
     head = f"# {data.get('project', '')}: {len(data['components'])} components"
     if data.get("layers"):
         head += ", layers (top > bottom) " + " > ".join(data["layers"])
-    lines = [head]
+    flows = [] if component else [
+        f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
+        for flow in data.get("flows", [])]
+    top = "\n".join([head, *flows])
+    blocks: list[tuple[str, str]] = []
     for c in comps:
         files = component_files(c, inv)
         flag = "STALE" if is_stale(root, c, inv) else c["status"]
-        lines.append(f"\n## {c['id']} [{c.get('layer') or '-'}] {len(files)} files/{sum(inv.loc.get(f, 0) for f in files)} loc [{flag}]")
+        tag = "" if flag == "confirmed" else f" [{flag}]"
+        lines = [f"\n## {c['id']} [{c.get('layer') or '-'}] {len(files)} files/{sum(inv.loc.get(f, 0) for f in files)} loc{tag}"]
         lines.append(f"  {c.get('summary') or '(no summary yet)'}")
         for key, label in (("responsibilities", "owns"), ("state", "state"), ("side_effects", "effects")):
-            if c.get(key):
+            if c.get(key) and (key != "responsibilities" or component or detail):
                 lines.append(f"  {label}: " + "; ".join(c[key]))
         if graph.get(c["id"]):
             lines.append("  uses: " + ", ".join(sorted(graph[c["id"]])))
-        declared_only = set(c.get("depends_on", [])) - graph.get(c["id"], set())
-        if declared_only:
-            lines.append("  declared, unverified: " + ", ".join(sorted(declared_only)))
+        declared_only = sorted(set(c.get("depends_on", [])) - graph.get(c["id"], set()))
+        if declared_only and (component or detail):
+            lines.append("  declared, unverified: " + ", ".join(declared_only))
+        elif declared_only and (component or detail):
+            lines.append(f"  declared, unverified: {len(declared_only)} components (read --component {c['id']})")
         if component or detail:
             for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests"), ("models", "models")):
                 if c.get(key):
@@ -43,22 +51,25 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             users = sorted(k for k, v in graph.items() if c["id"] in v)
             if users:
                 lines.append("  used by: " + ", ".join(users))
-    if not component:
-        for flow in data.get("flows", []):
-            lines.append(f"\n> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", [])))
-    text = "\n".join(lines)
-    if len(text) > budget:
-        prefix = text[:max(0, budget - 110)].rsplit("\n", 1)[0]
-        remaining = []
-        for index, comp in enumerate(comps):
-            next_heading = f"\n## {comps[index + 1]['id']} " if index + 1 < len(comps) else "\n> flow "
-            end = text.find(next_heading, text.find(f"\n## {comp['id']} ") + 1)
-            if end < 0:
-                end = len(text)
-            if end > len(prefix):
-                remaining.append(comp["id"])
-        text = prefix + f"\n... truncated at {budget} chars; {len(remaining)} component(s) not fully shown; use --component ID"
-    return text
+        blocks.append((c["id"], "\n".join(lines)))
+    text = top + "\n" + "\n".join(b for _, b in blocks)
+    if len(text) <= budget:
+        return text
+    reserve = min(160, budget)
+    shown = top if len(top) <= budget - reserve else top[:max(0, budget - reserve)].rsplit("\n", 1)[0]
+    hidden: list[str] = []
+    for cid, block in blocks:
+        if not hidden and len(shown) + 1 + len(block) <= budget - reserve:
+            shown += "\n" + block
+        else:
+            hidden.append(cid)
+    named = []
+    for cid in hidden:
+        if len(", ".join(named + [cid])) > reserve - 90:
+            break
+        named.append(cid)
+    names = ", ".join(named) + (f" +{len(hidden) - len(named)} more" if len(named) < len(hidden) else "")
+    return (shown + f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID")[:budget]
 
 
 def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) -> list[tuple[int, str, list[str]]]:
@@ -73,7 +84,7 @@ def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) ->
         score = 3 * len(query & text) + len(query & symbol_words)
         if score:
             scored.append((score, c["id"], [r for r in c.get("responsibilities", []) if tokens(r) & query]))
-    scored.sort(key=lambda x: (-x[0], x[1]))
+    scored.sort(key=lambda x: (-x[0], -sum(len(tokens(r) & query) for r in x[2]), x[1]))
     return scored[:limit]
 
 
@@ -97,14 +108,41 @@ def file_outline(root: Path, path: str) -> list[str]:
     except (OSError, SyntaxError) as exc:
         return [f"  (unparseable: {exc})"]
     lines = [f"  doc:{_doc(tree)[3:]}"] if _doc(tree) else []
-    for node in tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
+    def module_nodes(nodes):
+        for item in nodes:
+            yield item
+            if isinstance(item, ast.If):
+                yield from module_nodes(item.body + item.orelse)
+            elif isinstance(item, (ast.Try, ast.TryStar)):
+                yield from module_nodes(item.body + item.orelse + item.finalbody)
+                for handler in item.handlers:
+                    yield from module_nodes(handler.body)
+
+    def target_names(target):
+        if isinstance(target, ast.Name):
+            return [target.id] if not target.id.startswith("_") else []
+        if isinstance(target, (ast.Tuple, ast.List)):
+            return [name for item in target.elts for name in target_names(item)]
+        return []
+
+    assignments = []
+    for node in module_nodes(tree.body):
+        if isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            names = [name for target in targets for name in target_names(target)]
+            if names:
+                value = ast.unparse(node.value) if node.value is not None else "<annotation>"
+                assignments.append(f"{', '.join(names)} = {value[:32]}" + ("..." if len(value) > 32 else ""))
+        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
             lines.append(f"  def {_signature(node)}{_doc(node)}")
         elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             lines.append(f"  class {node.name}{_doc(node)}")
             lines += [f"    .{_signature(s)}" for s in node.body
                       if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))
                       and (not s.name.startswith("_") or s.name == "__init__")]
+    if assignments:
+        joined = "; ".join(assignments)
+        lines.insert(0, "  vars: " + joined[:110] + ("..." if len(joined) > 110 else ""))
     return lines
 
 

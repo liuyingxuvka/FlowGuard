@@ -20,9 +20,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from .common import CACHE_RELDIR, content_digest, is_test_file, read_source, sha256_bytes
+from .common import cache_dir, CACHE_RELDIR, content_digest, read_source, sha256_bytes
 
-CACHE_SCHEMA = "flowguard.map.discover_cache.v3"
+CACHE_SCHEMA = "flowguard.map.discover_cache.v5"
 # Facts are reused only by the exact analysis code that wrote them (upgrades never keep stale facts).
 PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
                          + sys.version.encode())[:16]   # ast results differ between Python versions
@@ -34,9 +34,12 @@ HANDLER_LEAVES = {"callback", "handler", "listener", "on", "subscribe", "task", 
 FS_WRITE = {"write_text", "write_bytes", "mkdir", "makedirs", "touch", "chmod", "symlink_to", "copy", "copy2",
             "copyfile", "copytree", "move", "rename"}
 FS_DELETE = {"unlink", "remove", "rmdir", "rmtree", "removedirs"}
-FS_RECEIVERS = ("os", "shutil", "path", "Path", "dir", "file", "target", "dest", "tmp", "root")
+FS_RECEIVERS = ("os", "shutil", "path", "Path", "dir", "file", "target", "dest", "tmp", "root", "parent")
 SUBPROCESS = {"subprocess.run", "subprocess.call", "subprocess.check_call", "subprocess.check_output",
-              "subprocess.Popen", "os.system", "os.popen", "os.execv", "os.execvp", "asyncio.create_subprocess_exec"}
+              "subprocess.Popen", "os.system", "os.popen", "os.execv", "os.execvp", "asyncio.create_subprocess_exec",
+              "os.fork", "os.forkpty", "os.spawnv", "os.spawnl", "os.posix_spawn"}
+NETWORK_LEAVES = {"get", "post", "put", "patch", "delete", "head", "options", "request", "send", "urlopen",
+                  "connect", "create_connection", "sendall", "sendmail", "send_message", "stream"}
 NETWORK_PREFIXES = ("requests.", "httpx.", "urllib.request.", "aiohttp.", "socket.", "http.client.", "smtplib.",
                     "boto3.", "urlopen")
 DB_LEAVES = {"execute", "executemany", "executescript", "commit", "rollback", "bulk_save_objects", "add_all"}
@@ -83,15 +86,21 @@ def _imported_root(name: str, imports: dict[str, str]) -> str:
     return bound.split(":", 1)[0].split(".", 1)[0] if bound else ""
 
 
-def _effect_kind(call: ast.Call, name: str, imports: dict[str, str] | None = None) -> str:
+def _effect_kind(call: ast.Call, name: str, imports: dict[str, str] | None = None, receiver_ctor: str = "") -> str:
     leaf = name.rsplit(".", 1)[-1]
     receiver = name.rsplit(".", 1)[0] if "." in name else ""
+    if receiver.startswith(("os.environ", "sys.path")) and name not in {"os.environ.setdefault", "os.environ.update", "os.environ.pop"}:
+        return ""
+    bound = (imports or {}).get(name.split(".", 1)[0], "")
+    canonical = bound.replace(":", ".") + name[len(name.split(".", 1)[0]):] if bound else name
+    if canonical in SUBPROCESS:
+        return "subprocess"
+    if receiver_ctor and leaf in NETWORK_LEAVES:
+        return "network"
     if name == "open" or leaf == "open" and receiver.endswith(("path", "Path", "io")):
         mode = _str_arg(call, 1, "mode")
         return "fs_write" if any(c in mode for c in "wax+") else ""
-    if name in SUBPROCESS or receiver == "subprocess":
-        return "subprocess"
-    if name.startswith(NETWORK_PREFIXES) and (imports is None or _imported_root(name, imports) in NETWORK_ROOTS):
+    if canonical.startswith(NETWORK_PREFIXES) and leaf in NETWORK_LEAVES and (imports is None or _imported_root(name, imports) in NETWORK_ROOTS):
         return "network"
     if name in EXIT_CALLS:
         return "exit"
@@ -141,7 +150,7 @@ class _FileVisitor(ast.NodeVisitor):
         symbol = self._symbol()
         owner_class = ".".join(self.scope[:-1]) if ".".join(self.scope[:-1]) in self.classes else ""
         self.functions[symbol] = {"line": node.lineno, "class": owner_class, "calls": set(), "effects": [],
-                                  "raises": set(), "dynamic": set(), "writes": set(), "locals": set()}
+                                  "raises": set(), "dynamic": set(), "writes": set(), "locals": set(), "local_imports": {}}
         for deco in node.decorator_list:
             self._decorator_entrypoint(deco, symbol, node)
         for stmt in node.body:
@@ -180,7 +189,8 @@ class _FileVisitor(ast.NodeVisitor):
     # ---- imports -----------------------------------------------------------
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
-            self.imports[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+            bindings = self._fn()["local_imports"] if self._fn() is not None else self.imports
+            bindings[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
         if node.level:
@@ -191,7 +201,8 @@ class _FileVisitor(ast.NodeVisitor):
             base = node.module or ""
         for alias in node.names:
             if alias.name != "*":
-                self.imports[alias.asname or alias.name] = f"{base}:{alias.name}"
+                bindings = self._fn()["local_imports"] if self._fn() is not None else self.imports
+                bindings[alias.asname or alias.name] = f"{base}:{alias.name}"
 
     # ---- facts -------------------------------------------------------------
     def visit_Call(self, node: ast.Call) -> None:
@@ -210,9 +221,14 @@ class _FileVisitor(ast.NodeVisitor):
                                      "symbol": _name(node.args[1]) or "<view>", "line": node.lineno, "via": name})
         if fn is not None and name:
             fn["calls"].add(name)
+            # Named function arguments are conservative may-call edges; unresolved values stay outside the graph.
+            fn["calls"].update(_name(arg) for arg in [*node.args, *(kw.value for kw in node.keywords)]
+                               if isinstance(arg, (ast.Name, ast.Attribute)))
             root_name = name.split(".", 1)[0]
-            imports = self.imports if root_name not in fn["locals"] else {}
-            kind = _effect_kind(node, name, imports)
+            imports = {**self.imports, **fn["local_imports"]} if root_name not in fn["locals"] else {}
+            ctor = self.instances.get(f"{self._symbol()}|{root_name}", "") or self.instances.get(f"|{root_name}", "")
+            ctor = ctor if _imported_root(ctor, {**self.imports, **fn["local_imports"]}) in NETWORK_ROOTS else ""
+            kind = _effect_kind(node, name, imports, ctor)
             if kind:
                 fn["effects"].append([kind, name, node.lineno])
             if name in DYNAMIC or leaf in {"import_module", "entry_points"}:
@@ -237,6 +253,10 @@ class _FileVisitor(ast.NodeVisitor):
             fn["writes"].add(attr)
         elif name == "os.environ":
             fn["effects"].append(["env_write", "os.environ[...]", getattr(target, "lineno", 0)])
+        elif isinstance(target, ast.Subscript) and name and name.split(".")[0] not in fn["locals"]:
+            bound = {**self.imports, **fn["local_imports"]}.get(name.split(".")[0], "")
+            if ":" in bound and "." not in name:
+                fn["writes"].add(f"<import>.{bound}")
 
     def visit_Assign(self, node: ast.Assign) -> None:
         fn = self._fn()
@@ -289,6 +309,12 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
     visitor = _FileVisitor(module, package)
     visitor.visit(tree)
     _mutating_method_writes(visitor)
+    # Constructor-only initialization is not a changing state lifecycle.
+    initialized_only = {attr for attr, writers in visitor.state.items() if all(w.endswith(".__init__") for w in writers)}
+    for attr in initialized_only:
+        del visitor.state[attr]
+    for fn in visitor.functions.values():
+        fn["writes"].difference_update(initialized_only)
     for call in visitor.main_calls:
         if call in visitor.functions:
             visitor.entrypoints.append({"kind": "main_call", "name": call, "symbol": call, "line": 0, "via": "__main__"})
@@ -296,11 +322,13 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
         "module": module,
         "imports": visitor.imports,
         "instances": visitor.instances,
+        "classes": visitor.classes,
         "entrypoints": visitor.entrypoints,
         "state": {k: sorted(v) for k, v in sorted(visitor.state.items())},
         "functions": {s: {"line": f["line"], "class": f["class"], "calls": sorted(f["calls"]),
                           "effects": f["effects"], "raises": sorted(x for x in f["raises"] if x),
-                          "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"])}
+                          "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"]),
+                          "local_imports": dict(sorted(f["local_imports"].items()))}
                       for s, f in visitor.functions.items()},
     }
 
@@ -312,6 +340,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
     funcs = file["functions"]
     cls = funcs.get(caller, {}).get("class", "")
     parts = call.split(".")
+    imports = {**file["imports"], **funcs.get(caller, {}).get("local_imports", {})}
     if parts[0] == "self" and cls and len(parts) == 2:
         return f"{path}#{cls}.{parts[1]}" if f"{cls}.{parts[1]}" in funcs else None
     if len(parts) == 1:
@@ -320,8 +349,8 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
         if f"{call}.__init__" in funcs:
             return f"{path}#{call}.__init__"
         if call in file.get("classes", ()):
-            return None
-        bound = file["imports"].get(call, "")
+            return f"{path}#{call}"
+        bound = imports.get(call, "")
         if ":" in bound:
             mod, sym = bound.split(":", 1)
             target = mod_to_path.get(mod)
@@ -329,7 +358,11 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
                 return f"{target}#{sym}"
             if target and f"{sym}.__init__" in index.get(target, {}):
                 return f"{target}#{sym}.__init__"
+            if target and sym in facts[target].get("classes", ()):
+                return f"{target}#{sym}"
         return None
+    if call in funcs:
+        return f"{path}#{call}"
     instances = file.get("instances", {})
     ctor = instances.get(f"{caller}|{parts[0]}") or instances.get(f"|{parts[0]}")
     if ctor and len(parts) == 2:
@@ -338,7 +371,13 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
         cls_symbol = cls_symbol.removesuffix(".__init__")
         if cls_path and f"{cls_symbol}.{parts[1]}" in index.get(cls_path, {}):
             return f"{cls_path}#{cls_symbol}.{parts[1]}"
-    bound = file["imports"].get(parts[0], "")
+    bound = imports.get(parts[0], "")
+    if ":" in bound and len(parts) == 2:
+        module, class_name = bound.split(":", 1)
+        target = mod_to_path.get(module)
+        method = f"{class_name}.{parts[1]}"
+        if target and class_name in facts[target].get("classes", ()) and method in index.get(target, {}):
+            return f"{target}#{method}"
     module = bound.replace(":", ".") if bound else ""
     if module:
         for cut in range(len(parts) - 1, 0, -1):
@@ -350,7 +389,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
 
 def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) -> dict:
     """py_files: path -> module.  Returns {"files": facts, "edges": ..., "reach": ...} (raw)."""
-    cache_path = root / CACHE_RELDIR / "discover.json"
+    cache_path = cache_dir(root) / "discover.json"
     try:
         old = json.loads(cache_path.read_text(encoding="utf-8"))
         old = old.get("files", {}) if old.get("schema") == CACHE_SCHEMA and old.get("parser") == PARSER_ID else {}
@@ -453,4 +492,62 @@ def discover_inventory(root: Path, inv) -> dict:
     from .inventory import module_name, python_roots
 
     roots = python_roots(list(inv.py))
-    return discover(root, {f: module_name(f, roots) for f in inv.py if not is_test_file(f)})
+    modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f)}
+    raw = discover(root, modules)
+    mod_to_path = {module: path for path, module in modules.items()}
+    for name, target, via in console_scripts(root):
+        module, sep, symbol = target.partition(":")
+        path = mod_to_path.get(module.strip())
+        symbol = symbol.strip().split("[", 1)[0].strip()
+        file = raw["files"].get(path or "", {})
+        if sep and symbol in file.get("functions", {}):
+            file["entrypoints"].append({"kind": "console_script", "name": name, "symbol": symbol,
+                                        "line": file["functions"][symbol]["line"], "via": via})
+    return raw
+
+
+def console_scripts(root: Path) -> list[tuple[str, str, str]]:
+    """Read literal packaging entrypoints without importing or executing packaging code."""
+    import configparser
+    import tomllib
+
+    found: set[tuple[str, str, str]] = set()
+    cfg = root / "setup.cfg"
+    if cfg.is_file():
+        parser = configparser.ConfigParser(interpolation=None)
+        try:
+            parser.read(cfg, encoding="utf-8")
+            text = parser.get("options.entry_points", "console_scripts", fallback="")
+        except (OSError, configparser.Error):
+            text = ""
+        for line in text.splitlines():
+            name, eq, target = line.partition("=")
+            if eq and name.strip():
+                found.add((name.strip(), target.strip(), "setup.cfg"))
+    pyproject = root / "pyproject.toml"
+    if pyproject.is_file():
+        try:
+            data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            data = {}
+        for table in (data.get("project", {}).get("scripts", {}),
+                      data.get("tool", {}).get("poetry", {}).get("scripts", {})):
+            if isinstance(table, dict):
+                for name, target in table.items():
+                    if isinstance(target, str):
+                        found.add((name, target, "pyproject.toml"))
+    setup = root / "setup.py"
+    if setup.is_file():
+        try:
+            tree = ast.parse(read_source(setup))
+        except (OSError, SyntaxError, ValueError):
+            tree = None
+        for node in ast.walk(tree) if tree else ():
+            if isinstance(node, ast.Dict):
+                for key, value in zip(node.keys, node.values):
+                    if isinstance(key, ast.Constant) and key.value == "console_scripts":
+                        for item in _literal_strings(value):
+                            name, eq, target = item.partition("=")
+                            if eq and name.strip():
+                                found.add((name.strip(), target.strip(), "setup.py"))
+    return sorted(found)

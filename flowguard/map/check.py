@@ -10,9 +10,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import Finding, glob_match, is_test_file, read_source
+from .common import Finding, glob_match, is_test_file, read_source, matches_any
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, is_stale, model_registry, owner_index, read_model_contract
+from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract
 
 
 def symbol_defined(inv: Inventory, path: str, symbol: str) -> bool:
@@ -49,7 +49,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             out.append(Finding("error", "file_unmapped", "", f"{f} has no owning component"))
 
     for path, info in sorted(inv.py.items()):
-        if path in inv.source and not is_test_file(path) and info.parse_error:
+        if path in inv.source and (path in owner or not is_test_file(path)) and info.parse_error:
             out.append(Finding("error", "source_parse_error", owner.get(path, ""),
                                f"cannot parse {path}: {info.parse_error}"))
     registry = model_registry(root, data)
@@ -89,12 +89,32 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         for comp_id in contract.get("COMPONENTS", []):
             if comp_id not in by_id:
                 out.append(Finding("error", "model_component_unknown", "", f"{rel}: COMPONENTS names unknown {comp_id!r}"))
+        required_owners = set(contract.get("COMPONENTS", []))
+        required_owners.update(owner.get(anchor.split(":", 1)[0])
+                              for anchor in contract.get("IMPLEMENTED_BY", {}).values())
+        for cid in sorted(required_owners - {None}):
+            if cid in by_id and rel not in by_id[cid].get("models", []):
+                out.append(Finding("error", "model_binding_missing", cid,
+                                   f"{rel}: add this model to models of its COMPONENTS/IMPLEMENTED_BY owner {cid}"))
+        for invariant, anchors in contract.get("TESTED_BY", {}).items():
+            for anchor in anchors:
+                problem = anchor_problem(root, inv, anchor)
+                if problem:
+                    out.append(Finding("error", "model_test_broken", "", f"{rel}: {invariant} -> {problem}"))
         for block, anchor in contract.get("IMPLEMENTED_BY", {}).items():
             problem = anchor_problem(root, inv, anchor)
             if problem:
                 out.append(Finding("error", "model_anchor_broken", "", f"{rel}: {block} -> {problem}"))
 
+    bound_tests = [pat for comp in data["components"] for pat in comp.get("tests", [])]
+    for test in inv.tests:
+        if test not in owner and (Path(test).name.startswith("test_") or Path(test).name.endswith("_test.py")
+                                   or ".test." in test or ".spec." in test) and not matches_any(test, bound_tests):
+            out.append(Finding("warn", "test_unbound", "", f"{test}: no component lists this test in tests"))
     graph = component_graph(data, inv)
+    evidence_graph = dependency_evidence(data, inv)
+    from .lint import apply_accepted_debts, layer_findings
+    out.extend(apply_accepted_debts(layer_findings(data, graph), data.get("accepted_debts", []))[0])
     stale_level = "error" if strict else "warn"
     for c in data["components"]:
         cid, files = c["id"], component_files(c, inv)
@@ -118,14 +138,18 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             out.append(Finding("error", "dep_unknown", cid, f"depends_on {d!r} is not a component"))
         for d in sorted(actual - declared):
             out.append(Finding("error", "dep_undeclared", cid, f"imports {d} but depends_on does not list it"))
-        unverified = sorted((declared - actual) & set(by_id))
+        unverified = sorted((declared - evidence_graph.get(cid, set())) & set(by_id))
         if unverified:
-            out.append(Finding("warn", "dep_unused", cid,
-                               f"declared but unverified by static imports: {', '.join(unverified)}"))
+            out.append(Finding("error", "dep_unused", cid,
+                               f"no import, module literal or accepted debt evidence for: {', '.join(unverified)}"))
         if c["status"] == "draft":
             out.append(Finding(stale_level, "draft", cid, "description not confirmed yet"))
         elif not c.get("summary") or not c.get("responsibilities"):
             out.append(Finding("error", "confirmed_but_empty", cid, "a confirmed component needs summary and responsibilities"))
         elif is_stale(root, c, inv):
             out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
+    from .discover import discover_inventory
+    from .lint import entrypoint_coverage_findings, model_coverage
+    covered, not_modeled = model_coverage(root, data, registry)
+    out.extend(entrypoint_coverage_findings(discover_inventory(root, inv), data, inv, covered, not_modeled=not_modeled))
     return out

@@ -16,7 +16,7 @@ import pytest
 
 from flowguard.map import cli
 
-MODEL_SOURCE = Path(__file__).resolve().parent / "fixtures" / "flowguard_map" / "order_placement.py"
+MODEL_SOURCE = Path(__file__).resolve().parents[1] / ".agents/skills/flowguard/assets/model_template.py"
 
 BUGGY = '''class OrderService:
     def __init__(self):
@@ -197,11 +197,10 @@ def test_registry_errors_block_check_and_model_execution(shop, capsys, invalid):
     assert code == 1 and expected in output
 
 
-_MINIMAL_MODEL = '''from types import SimpleNamespace
-MODEL_ID = "minimal"
-def build_explorer():
-    return SimpleNamespace(explore=lambda: SimpleNamespace(ok=True))
-'''
+_MINIMAL_MODEL = MODEL_SOURCE.read_text(encoding="utf-8").replace(
+    'MODEL_ID = "order_placement"', 'MODEL_ID = "minimal"').replace(
+    'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', 'IMPLEMENTED_BY = {}').replace(
+    "def conformance():", "def _unused_conformance():")
 
 
 @pytest.mark.parametrize("hook", ["def conformance():\n    return None\n",
@@ -215,9 +214,9 @@ def test_defined_proof_hooks_cannot_silently_do_nothing(tmp_path, hook):
 
 
 def test_abstract_model_exposes_unverified_implementation(tmp_path):
-    from flowguard.map.proof import run_models
+    from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL)
-    result, = run_models(tmp_path, [])
+    result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
     assert result.status == "pass"
     assert any("abstract boundary only" in warning for warning in result.warnings)
 
@@ -244,7 +243,11 @@ def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkey
     monkeypatch.setenv("PYTHONIOENCODING", "cp1252")          # the code page a Windows pipe gives a child
     runner = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
     runner.parent.mkdir(parents=True)
-    runner.write_text("print('运行检查 ✓')\n", encoding="utf-8")
+    runner.write_text("from flowguard.map.runner import run_owner\n"
+                      "from flowguard.explorer import Explorer\nfrom flowguard.workflow import Workflow\n"
+                      "def main():\n    print('运行检查 ✓')\n"
+                      "    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
+                      "raise SystemExit(run_owner(main))\n", encoding="utf-8")
     assert run_runner(tmp_path, runner).status == "pass"
     runner.write_text("print('失败 ✗')\nraise SystemExit(1)\n", encoding="utf-8")
     result = run_runner(tmp_path, runner)
@@ -264,3 +267,167 @@ def test_out_of_boundary_inputs_never_report_a_stale_pass(shop, capsys, monkeypa
     assert models(shop, capsys)[0] == 0
     monkeypatch.setenv("SHOP_MODE", "off")
     assert models(shop, capsys)[0] == 1
+
+
+MODEL = ".flowguard/models/order_placement.py"
+
+
+def _edit_model(root, old, new):
+    path = root / MODEL
+    text = path.read_text(encoding="utf-8")
+    assert old in text
+    path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+@pytest.mark.parametrize("case", ["fake_conformance", "removed_conformance"])
+def test_model_that_never_runs_its_implemented_by_code_fails(shop, capsys, case):
+    write(shop, "shop/orders.py", FIXED)
+    if case == "fake_conformance":
+        _edit_model(shop, "def conformance():\n", "def conformance():\n    from types import SimpleNamespace\n"
+              "    return SimpleNamespace(ok=True, format_text=lambda **k: '')\n\n\ndef _old():\n")
+    else:
+        _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
+    code, out = models(shop, capsys)
+    assert code == 1 and "never ran" in out
+
+
+def test_abstract_model_with_empty_implemented_by_still_passes_with_warning(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', "IMPLEMENTED_BY = {}")
+    _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
+    code, out = models(shop, capsys)
+    assert code == 0 and "abstract boundary only" in out
+
+
+def test_non_python_anchor_is_a_warning_not_a_failure(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, "web/cart.ts", "export function addItem(c, i) { return [...c, i]; }\n")
+    _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
+          'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Ui": "web/cart.ts:addItem"}')
+    code, out = models(shop, capsys)
+    assert code == 0 and "is not Python" in out
+
+
+_CRASH = ("return {\"charge_every_time\": _explorer(ChargeEveryTime())}",
+          "return {\"charge_every_time\": _explorer(Crashes())}")
+
+
+@pytest.mark.parametrize("case", ["crash", "invariant_crash", "other_invariant", "same_name_wrong_predicate", "budget", "design_without_invariants"])
+def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
+    write(shop, "shop/orders.py", FIXED)
+    if case == "crash":
+        _edit_model(shop, *_CRASH)
+        _edit_model(shop, "INVARIANTS = (", "class Crashes(PlaceOrder):\n    def apply(self, inp, state):\n"
+              "        raise RuntimeError('boom')\n\n\nINVARIANTS = (")
+        expected = "fails without violating"
+    elif case == "invariant_crash":
+        _edit_model(shop, 'return {"charge_every_time": _explorer(ChargeEveryTime())}',
+                    "def raising(state, trace):\n        raise RuntimeError('oracle crashed')\n"
+                    "    raising.__name__ = 'one_charge_per_order'\n"
+                    "    return {'charge_every_time': Explorer(workflow=Workflow((PlaceOrder(),)), "
+                    "initial_states=(State(),), external_inputs=INPUTS, invariants=(raising,), progress_steps=0)}")
+        expected = "fails without violating"
+    elif case in {"other_invariant", "same_name_wrong_predicate"}:
+        _edit_model(shop, "return {\"charge_every_time\": _explorer(ChargeEveryTime())}",
+              "from flowguard import Invariant, InvariantResult\n"
+              "    never = Invariant('never', 'always fails', lambda s, t: InvariantResult.fail('x'))\n"
+              "    return {'charge_every_time': Explorer(workflow=Workflow((PlaceOrder(),)), initial_states=(State(),), "
+              "external_inputs=INPUTS, invariants=(never,), max_sequence_length=3, progress_steps=0)}")
+        if case == "same_name_wrong_predicate":
+            _edit_model(shop, "Invariant('never',", "Invariant('one_charge_per_order',")
+        expected = "fails without violating"
+    elif case == "budget":
+        _edit_model(shop, "return {\"charge_every_time\": _explorer(ChargeEveryTime())}",
+              "return {'charge_every_time': Explorer(workflow=Workflow((PlaceOrder(),)), initial_states=(State(),), "
+              "external_inputs=INPUTS, invariants=INVARIANTS, max_sequence_length=3, progress_steps=0, max_transitions=1)}")
+        expected = "fails without violating"
+    else:
+        _edit_model(shop, "def build_explorer() -> Explorer:\n    return _explorer(PlaceOrder())",
+              "def build_explorer() -> Explorer:\n    return Explorer(workflow=Workflow((PlaceOrder(),)), "
+              "initial_states=(State(),), external_inputs=INPUTS, invariants=(), max_sequence_length=3, progress_steps=0)")
+        expected = "declares no invariants"
+    code, out = models(shop, capsys)
+    assert code == 1 and expected in out
+
+
+def test_plain_function_invariant_is_accepted(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    _edit_model(shop, "INVARIANTS = (at_most_once_by(",
+          "def one_charge_per_order(state, trace):\n    return len(set(state.charges)) == len(state.charges)\n\n\n"
+          "INVARIANTS = (one_charge_per_order,)\n_UNUSED = (at_most_once_by(")
+    code, out = models(shop, capsys)
+    assert code == 0, out
+
+
+@pytest.mark.parametrize("source", ["raise SystemExit(0)\n", "from flowguard.map.runner import run_owner\nraise SystemExit(run_owner(lambda: 0))\n", "from flowguard.map.runner import run_owner\nraise SystemExit(run_owner(lambda: []))\n"])
+def test_runner_that_runs_nothing_cannot_pass(tmp_path, source):
+    from flowguard.map.proof import run_runner
+    path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
+    write(tmp_path, path.relative_to(tmp_path).as_posix(), source)
+    result = run_runner(tmp_path, path)
+    assert result.status == "error"
+    assert "run_owner" in " ".join(result.problems)
+
+
+def test_non_explorer_proves_nothing(tmp_path):
+    from flowguard.map.proof import run_model
+    write(tmp_path, ".flowguard/models/fake.py", "from types import SimpleNamespace\nMODEL_ID='fake'\ndef build_explorer():\n    return SimpleNamespace(explore=lambda: SimpleNamespace(ok=True))\n")
+    result = run_model(tmp_path, tmp_path / ".flowguard/models/fake.py")
+    assert result.status == "error" and "Explorer" in " ".join(result.problems)
+
+
+def test_no_broken_variants_is_an_error(tmp_path):
+    from flowguard.map.proof import run_model
+    source = _MINIMAL_MODEL.replace("def broken_variants()", "def unused_variants()")
+    write(tmp_path, ".flowguard/models/minimal.py", source)
+    result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
+    assert result.status == "error" and "no broken_variants" in " ".join(result.problems)
+
+
+def test_tested_by_must_name_a_design_invariant(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    path = shop / MODEL
+    source = path.read_text(encoding="utf-8")
+    write(shop, MODEL, source + '\nTESTED_BY = {"no_such_invariant": ["tests/test_orders.py:test_place_once"]}\n')
+    code, out = models(shop, capsys)
+    assert code == 1 and "no_such_invariant" in out
+
+
+@pytest.mark.parametrize("location", ["hook", "adapter_reset", "adapter_step"])
+def test_conformance_import_error_reports_interpreter_environment(shop, capsys, location):
+    write(shop, "shop/orders.py", FIXED)
+    if location == "hook":
+        _edit_model(shop, "def conformance():\n", "def conformance():\n    import nonexistent_third_party_dependency\n")
+    elif location == "adapter_reset":
+        write(shop, "shop/orders.py", "import nonexistent_third_party_dependency\n" + FIXED)
+    else:
+        write(shop, "shop/orders.py", FIXED.replace("        if order_id in self.orders:",
+                                                  "        import nonexistent_third_party_dependency\n        if order_id in self.orders:"))
+    code, out = models(shop, capsys)
+    assert code == 1 and "ERROR" in out and "interpreter" in out and "environment" in out
+    assert "does not conform" not in out
+
+
+def test_runner_completion_is_distinct_from_component_import_coverage(tmp_path):
+    from flowguard.map.proof import run_runner
+    write(tmp_path, "app.py", "VALUE=1\n")
+    source = ("from flowguard.map.runner import run_owner\nfrom flowguard.explorer import Explorer\n"
+              "from flowguard.workflow import Workflow\n"
+              "def main():\n    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
+              "raise SystemExit(run_owner(main))\n")
+    path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
+    write(tmp_path, path.relative_to(tmp_path).as_posix(), source)
+    result = run_runner(tmp_path, path, own_files={"app.py"})
+    assert result.status == "pass" and any("abstract boundary only" in w for w in result.warnings)
+    write(tmp_path, path.relative_to(tmp_path).as_posix(), "import app\n" + source)
+    result = run_runner(tmp_path, path, own_files={"app.py"})
+    assert result.status == "pass" and not result.warnings
+
+
+def test_explorer_with_no_initial_states_proves_nothing(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    _edit_model(shop, "def build_explorer() -> Explorer:\n    return _explorer(PlaceOrder())",
+                "def build_explorer() -> Explorer:\n    return Explorer(workflow=Workflow((PlaceOrder(),)), "
+                "initial_states=(), external_inputs=INPUTS, invariants=INVARIANTS, progress_steps=0)")
+    code, out = models(shop, capsys)
+    assert code == 1 and "explored no input transitions" in out

@@ -267,8 +267,10 @@ def test_impact_declared_edges_bridge_unsupported_imports(impact_project, surfac
     imp = impact_of(root, data, ["shop/orders.py"])
     expected = "api" if surface == "lazy" else "web"
     assert expected in imp.dependents
-    assert any(f"{expected} -> orders: declared but unverified" in message for message in imp.uncertainty)
-    assert any("unresolved" in message for message in imp.uncertainty)
+    if surface == "lazy":
+        assert not any("declared but unverified" in message and message.startswith("api") for message in imp.uncertainty)
+    else:
+        assert any(f"{expected} -> orders: declared but unverified" in message for message in imp.uncertainty)
 
 
 @pytest.mark.parametrize("change", ["delete", "rename", "contract", "nested", "helper", "runner", "test", "mapping"])
@@ -295,10 +297,17 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
                     "helper": ".flowguard/models/owners/orders/helper.py", "runner": ".flowguard/verification/owners/orders/run_checks.py",
                     "test": "tests/test_orders.py"}[change]]
     imp = impact_of(root, data, changed, base="HEAD")
-    assert "tests/test_orders.py" in imp.tests and "tests/test_api.py" in imp.tests
+    if change in {"delete", "rename", "mapping"}:
+        assert {"tests/test_orders.py", "tests/test_api.py"} <= set(imp.tests)
+        assert "orders" in imp.model_ids
+    else:
+        assert imp.direct == [] and imp.dependents == []
+        assert imp.tests == (["tests/test_orders.py"] if change == "test" else [])
+        expected_models = {"contract": ["storage-proof"], "nested": ["orders"], "helper": ["orders"],
+                           "runner": ["orders"], "test": []}
+        assert imp.model_ids == expected_models[change]
     assert "tests/test_web.py" not in imp.tests
-    assert ".flowguard/verification/owners/orders/run_checks.py" in imp.models
-    assert "orders" in imp.model_ids and " models model" not in render_impact(imp)
+    assert " models model" not in render_impact(imp)
     if change == "mapping":
         assert "new-storage-proof" in imp.model_ids and "storage-proof" not in imp.model_ids
     elif change not in {"nested", "helper", "runner", "test"}:
@@ -310,8 +319,9 @@ def test_impact_shared_test_binding_and_unknown_helper(impact_project):
     root, data = impact_project
     data["components"][2]["tests"].append("tests/test_orders.py")
     imp = impact_of(root, data, ["tests/test_orders.py"])
-    assert imp.direct == ["orders", "storage"]
-    assert set(imp.model_ids) == {"orders", "storage-proof"}
+    assert imp.direct == [] and imp.dependents == []
+    assert imp.tests == ["tests/test_orders.py"]
+    assert imp.model_ids == []
     unknown = impact_of(root, data, [".flowguard/models/owners/unbound/helper.py"])
     assert unknown.blocked and not unknown.models and not unknown.model_ids
 
@@ -464,3 +474,154 @@ def test_parse_cache_key_includes_the_python_version(monkeypatch):
         monkeypatch.setitem(sys.modules, spec.name, probe)
         spec.loader.exec_module(probe)
         assert probe.PARSER_ID != module.PARSER_ID, module.__name__
+
+
+def test_explicit_test_named_product_file_is_owned_and_not_run_as_test(impact_project):
+    root, data = impact_project
+    write(root, "shop/test_inventory.py", "VALUE = 1\n")
+    data["components"][2]["files"].append("shop/test_inventory.py")
+    imp = impact_of(root, data, ["shop/test_inventory.py"])
+    assert imp.direct == ["storage"]
+    assert "shop/test_inventory.py" not in imp.tests
+    assert "storage-proof" in imp.model_ids
+
+
+def test_import_changed_code_selects_test_outside_component_binding(impact_project):
+    root, data = impact_project
+    write(root, "tests/test_cross.py", "from shop.storage import save\n\ndef test_cross():\n    assert save(1) == 1\n")
+    data["components"][3]["tests"].append("tests/test_cross.py")
+    assert "tests/test_cross.py" in impact_of(root, data, ["shop/storage.py"]).tests
+
+
+def test_test_helper_selects_importing_tests_without_running_helper(impact_project):
+    root, data = impact_project
+    write(root, "tests/_helper.py", "VALUE = 1\n")
+    write(root, "tests/test_helper_user.py", "from tests._helper import VALUE\n\ndef test_helper():\n    assert VALUE == 1\n")
+    write(root, "tests/__init__.py", "")
+    imp = impact_of(root, data, ["tests/_helper.py"])
+    assert imp.tests == ["tests/test_helper_user.py"]
+    assert imp.direct == [] and imp.dependents == []
+
+
+def test_conftest_change_selects_all_tests_below_its_directory(impact_project):
+    root, data = impact_project
+    write(root, "tests/conftest.py", "VALUE = 1\n")
+    imp = impact_of(root, data, ["tests/conftest.py"])
+    assert set(imp.tests) == {"tests/test_orders.py", "tests/test_storage.py", "tests/test_api.py", "tests/test_web.py"}
+    assert "tests/conftest.py" not in imp.tests
+
+
+def test_model_binding_implemented_by_and_tested_by_select_bidirectionally(impact_project):
+    root, data = impact_project
+    path = ".flowguard/models/persistence.py"
+    write(root, path, "MODEL_ID = 'storage-proof'\nCOMPONENTS = ['storage']\n"
+          "IMPLEMENTED_BY = {'save': 'shop/api.py:handle'}\n"
+          "TESTED_BY = {'saved_once': ['tests/test_storage.py:test_y']}\n"
+          "def build_explorer():\n    pass\n")
+    assert "storage-proof" in impact_of(root, data, ["shop/api.py"]).model_ids
+    test_imp = impact_of(root, data, ["tests/test_storage.py"])
+    assert test_imp.model_ids == ["storage-proof"] and test_imp.tests == ["tests/test_storage.py"]
+    model_imp = impact_of(root, data, [path])
+    assert model_imp.model_ids == ["storage-proof"] and model_imp.tests == ["tests/test_storage.py"]
+    assert not model_imp.direct and not model_imp.dependents
+
+
+def test_lazy_facade_selection_preserves_ancestor_initialization_without_hub(tmp_path):
+    root = tmp_path
+    write(root, "pkg/__init__.py", "import importlib\n_TABLE = {'pkg.a': ('A',), 'pkg.b': ('B',)}\n"
+          "def __getattr__(name):\n    return importlib.import_module('pkg.a')\n")
+    write(root, "pkg/a.py", "A = 1\n")
+    write(root, "pkg/b.py", "B = 2\n")
+    write(root, "consumer.py", "from pkg import A\n")
+    write(root, "tests/test_consumer.py", "import consumer\n\ndef test_value():\n    assert consumer.A == 1\n")
+    data = {"components": [
+        {"id": "facade", "files": ["pkg/__init__.py"], "depends_on": ["a", "b"], "tests": []},
+        {"id": "a", "files": ["pkg/a.py"], "tests": []},
+        {"id": "b", "files": ["pkg/b.py"], "tests": []},
+        {"id": "consumer", "files": ["consumer.py"], "depends_on": ["a"], "tests": ["tests/test_consumer.py"]},
+    ]}
+    assert impact_of(root, data, ["pkg/b.py"]).tests == []
+    assert impact_of(root, data, ["pkg/a.py"]).tests == ["tests/test_consumer.py"]
+    assert impact_of(root, data, ["pkg/__init__.py"]).tests == ["tests/test_consumer.py"]
+    inv = build_inventory(root, DEFAULT_IGNORE)
+    assert "pkg/a.py" in inv.file_deps["consumer.py"] and "pkg/__init__.py" not in inv.file_deps["consumer.py"]
+
+
+@pytest.mark.parametrize("expression", ["pkg.B", "getattr(pkg, 'B')", "hasattr(pkg, name)", "pkg.__all__"])
+def test_lazy_facade_module_attribute_and_reflection_reach_exports(tmp_path, expression):
+    write(tmp_path, "pkg/__init__.py", "_TABLE = {'pkg.a': ('A',), 'pkg.b': ('B',)}\ndef __getattr__(name):\n    pass\n")
+    write(tmp_path, "pkg/a.py", "A = 1\n")
+    write(tmp_path, "pkg/b.py", "B = 2\n")
+    write(tmp_path, "tests/test_reflect.py", f"import pkg\nname = 'B'\nvalue = {expression}\n")
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    assert "pkg/b.py" in inv.file_deps["tests/test_reflect.py"]
+
+
+def test_non_source_reference_selects_test_and_unreferenced_doc_reports_no_checks(impact_project):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    write(root, "tests/test_config.py", "CONFIG = 'pyproject.toml'\n\ndef test_config():\n    assert CONFIG\n")
+    write(root, "pyproject.toml", "version = '1.0'\n")
+    assert impact_of(root, data, ["pyproject.toml"]).tests == ["tests/test_config.py"]
+    write(root, "docs/notes.md", "notes\n")
+    imp = impact_of(root, data, ["docs/notes.md"])
+    assert "NO CHECKS for: docs/notes.md" in render_impact(imp)
+
+
+def test_confirm_alone_is_not_reported_as_a_description_change(impact_project):
+    root, data = impact_project
+    data["components"][1].update(status="confirmed", fingerprint="sha256:updated")
+    imp = impact_of(root, data, [".flowguard/map.json"], base="HEAD")
+    assert not imp.map_review and not imp.tests and not imp.models
+
+
+def test_confirmed_changed_source_needs_no_repeated_review(impact_project):
+    from flowguard.map.mapfile import component_files, fingerprint
+    root, data = impact_project
+    write(root, "shop/storage.py", "def save(x):\n    return x + 1\n")
+    inv = build_inventory(root, DEFAULT_IGNORE)
+    data["components"][2].update(status="confirmed", fingerprint=fingerprint(root, component_files(data["components"][2], inv)))
+    assert not impact_of(root, data, ["shop/storage.py"]).needs_review
+
+
+def test_test_commands_route_javascript_without_pytest(impact_project):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    write(root, "web/cart.test.js", "test('x', () => {});\n")
+    imp = impact_of(root, data, ["web/cart.test.js"])
+    text = render_impact(imp)
+    assert "NO TEST COMMAND for: web/cart.test.js" in text
+    assert not any(line.startswith("run:") and ".js" in line for line in text.splitlines())
+    data["test_commands"] = {"**/*.test.js": "npx jest"}
+    assert "run: npx jest web/cart.test.js" in render_impact(impact_of(root, data, ["web/cart.test.js"]))
+
+
+def test_npm_static_import_is_not_a_dynamic_surface(impact_project):
+    root, data = impact_project
+    write(root, "web/app.js", "import React from 'react';\n")
+    assert not any("dynamic" in message for message in impact_of(root, data, ["web/app.js"]).uncertainty)
+
+
+def test_ignore_and_generated_cache_files_never_become_unmapped_changes(impact_project):
+    from flowguard.map.impact import changed_files
+    root, data = impact_project
+    data["ignore"] = ["docs/**"]
+    write(root, "docs/snippet.py", "VALUE = 1\n")
+    write(root, "tests/__pycache__/helper.pyc", "binary\n")
+    assert "tests/__pycache__/helper.pyc" not in changed_files(root, "HEAD")
+    imp = impact_of(root, data, ["docs/snippet.py", "tests/__pycache__/helper.pyc"])
+    assert not imp.unmapped and not imp.tests
+
+
+def test_impact_lists_test_paths_only_once_in_small_command(impact_project):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    text = render_impact(impact_of(root, data, ["shop/storage.py"]))
+    assert text.count("tests/test_storage.py") == 1
+
+
+def test_impact_cli_exits_nonzero_for_unmapped_source(impact_project, capsys):
+    root, data = impact_project
+    write(root, "shop/unowned.py", "VALUE = 1\n")
+    code, text = run(root, "impact", "shop/unowned.py", capsys=capsys)
+    assert code == 1 and "UNMAPPED" in text

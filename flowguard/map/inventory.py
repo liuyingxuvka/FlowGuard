@@ -9,6 +9,7 @@ never authority: deleting .flowguard/cache/ is always safe.
 from __future__ import annotations
 
 import ast
+import copy
 import json
 import os
 import re
@@ -19,9 +20,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
+from .common import cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
 
-CACHE_SCHEMA = "flowguard.map.inventory_cache.v2"
+CACHE_SCHEMA = "flowguard.map.inventory_cache.v4"
 # A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
 PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
                          + sys.version.encode())[:16]   # ast results differ between Python versions
@@ -38,6 +39,10 @@ class PyInfo:
     loc: int = 0                                     # non-blank, non-comment lines
     parse_error: str = ""
     bodies: list = field(default_factory=list)       # [symbol, body_hash, node_count]
+    lazy_exports: dict[str, str] = field(default_factory=dict)
+    string_literals: set[str] = field(default_factory=set)
+    dynamic_imports: bool = False
+    import_lines: dict[str, int] = field(default_factory=dict)
 
 
 @dataclass
@@ -49,6 +54,15 @@ class Inventory:
     py: dict[str, PyInfo]             # path -> parse result
     file_deps: dict[str, set[str]]    # path -> repo paths it imports at runtime
     loc: dict[str, int]
+    explicit_sources: set[str] = field(default_factory=set)
+    dynamic_files: set[str] = field(default_factory=set)
+
+    def set_explicit_sources(self, patterns: list[str]) -> None:
+        self.explicit_sources = {norm(p) for p in patterns if not any(char in p for char in "*?[")}
+        self.tests = [f for f in self.source if self.is_test(f)]
+
+    def is_test(self, path: str) -> bool:
+        return path not in self.explicit_sources and is_test_file(path)
 
 
 def list_files(root: Path) -> list[str]:
@@ -86,7 +100,7 @@ def module_name(path: str, roots: list[str]) -> str:
     return path[:-3].replace("/", ".")
 
 
-def parse_python(root: Path, path: str, module: str) -> PyInfo:
+def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = True) -> PyInfo:
     info = PyInfo(module=module)
     try:
         text = read_source(root / path)
@@ -102,16 +116,42 @@ def parse_python(root: Path, path: str, module: str) -> PyInfo:
     package = module if path.endswith("__init__.py") else module.rpartition(".")[0]
 
     def remember_body(symbol: str, fn: ast.AST) -> None:
+        if not collect_bodies:
+            return
         body = list(fn.body)
         if body and isinstance(body[0], ast.Expr) and isinstance(getattr(body[0], "value", None), ast.Constant) \
                 and isinstance(body[0].value.value, str):
             body = body[1:]                                   # a docstring is not behavior
         size = sum(1 for stmt in body for _ in ast.walk(stmt))
         if size >= MIN_DUP_NODES:
-            dump = "\n".join(ast.dump(stmt, annotate_fields=False) for stmt in body)
+            # Rename only lexical locals. Attributes, constants and global callees
+            # retain their names so different external operations never collapse.
+            local_names = [arg.arg for arg in (*fn.args.posonlyargs, *fn.args.args, *fn.args.kwonlyargs)]
+            local_names += [a.arg for a in (fn.args.vararg, fn.args.kwarg) if a]
+            local_names += [n.id for stmt in body for n in ast.walk(stmt)
+                            if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)]
+            globals_ = {name for stmt in body for n in ast.walk(stmt)
+                        if isinstance(n, (ast.Global, ast.Nonlocal)) for name in n.names}
+            replacements = {name: f"_local{i}" for i, name in enumerate(dict.fromkeys(local_names))
+                            if name not in globals_}
+            class LocalNames(ast.NodeTransformer):
+                def visit_Name(self, node):
+                    return ast.copy_location(ast.Name(replacements.get(node.id, node.id), node.ctx), node)
+            normalized = [LocalNames().visit(copy.deepcopy(stmt)) for stmt in body]
+            dump = "\n".join(ast.dump(stmt, annotate_fields=False) for stmt in normalized)
             info.bodies.append([symbol, sha256_bytes(dump.encode())[:16], size])
 
-    for node in tree.body:
+    module_nodes = list(tree.body)
+    cursor = 0
+    while cursor < len(module_nodes):
+        node = module_nodes[cursor]
+        cursor += 1
+        if isinstance(node, (ast.If, ast.Try, ast.With)):
+            module_nodes.extend(node.body)
+            module_nodes.extend(getattr(node, "orelse", []))
+            module_nodes.extend(getattr(node, "finalbody", []))
+            for handler in getattr(node, "handlers", []):
+                module_nodes.extend(handler.body)
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             info.symbols.add(node.name)
             remember_body(node.name, node)
@@ -126,6 +166,21 @@ def parse_python(root: Path, path: str, module: str) -> PyInfo:
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             info.symbols.add(node.target.id)
 
+    if any(isinstance(n, ast.FunctionDef) and n.name == "__getattr__" for n in tree.body):
+        for node in tree.body:
+            value = node.value if isinstance(node, (ast.Assign, ast.AnnAssign)) else None
+            if not isinstance(value, ast.Dict):
+                continue
+            for key, val in zip(value.keys, value.values):
+                if not isinstance(key, ast.Constant) or not isinstance(key.value, str):
+                    continue
+                if isinstance(val, (ast.Tuple, ast.List)):
+                    for name in val.elts:
+                        if isinstance(name, ast.Constant) and isinstance(name.value, str):
+                            info.lazy_exports[name.value] = key.value
+                elif isinstance(val, ast.Constant) and isinstance(val.value, str):
+                    info.lazy_exports[key.value] = val.value
+    module_aliases: dict[str, str] = {}
     stack: list[ast.AST] = [tree]          # one traversal; "if TYPE_CHECKING:" imports are not runtime deps
     while stack:
         node = stack.pop()
@@ -136,6 +191,9 @@ def parse_python(root: Path, path: str, module: str) -> PyInfo:
                 continue
         if isinstance(node, ast.Import):
             info.imports.update(alias.name for alias in node.names)
+            for alias in node.names:
+                module_aliases[alias.asname or alias.name.split(".")[0]] = alias.name if alias.asname else alias.name.split(".")[0]
+                info.import_lines[alias.name] = node.lineno
         elif isinstance(node, ast.ImportFrom):
             if node.level:
                 parts = package.split(".") if package else []
@@ -146,15 +204,30 @@ def parse_python(root: Path, path: str, module: str) -> PyInfo:
                 target = node.module or ""
             if target:
                 info.imports.update(f"{target}:{alias.name}" for alias in node.names)
+                for alias in node.names:
+                    info.import_lines[f"{target}:{alias.name}"] = node.lineno
         else:
             stack.extend(ast.iter_child_nodes(node))
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            info.string_literals.add(node.value)
+        if isinstance(node, ast.Call) and (getattr(node.func, "id", "") or getattr(node.func, "attr", "")) in {"__import__", "import_module"}:
+            info.dynamic_imports = True
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in module_aliases:
+            info.imports.add(f"{module_aliases[node.value.id]}:{node.attr}")
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"getattr", "hasattr"} \
+                and node.args and isinstance(node.args[0], ast.Name) and node.args[0].id in module_aliases:
+            info.imports.add(f"{module_aliases[node.args[0].id]}:*")
     return info
 
 
-def resolve_import(imp: str, mod_to_path: dict[str, str]) -> str | None:
+def resolve_import(imp: str, mod_to_path: dict[str, str], lazy: dict[str, dict[str, str]] | None = None) -> str | None:
     """'a.b' -> module a.b or its nearest package; 'a:b' -> submodule a.b if it exists, else a."""
     if ":" in imp:
         base, name = imp.split(":", 1)
+        owner = (lazy or {}).get(base, {}).get(name)
+        if owner in mod_to_path:
+            return mod_to_path[owner]
         return mod_to_path.get(f"{base}.{name}") or mod_to_path.get(base)
     parts = imp.split(".")
     while parts:
@@ -196,7 +269,7 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
     tests = [f for f in source if is_test_file(f)]
     py_files = [f for f in source if f.endswith(".py")]
     roots = python_roots(py_files)
-    cache_path = root / CACHE_RELDIR / "inventory.json"
+    cache_path = cache_dir(root) / "inventory.json"
     old, new = _read_cache(cache_path), {}
     py: dict[str, PyInfo] = {}
     mod_to_path: dict[str, str] = {}
@@ -210,12 +283,15 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
             key = None
         hit = old.get(f)
         if key is not None and hit and hit.get("key") == key:
-            info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"])
+            info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"],
+                          hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"])
         else:
             info = parse_python(root, f, module)
         if key is not None:
             new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
-                      "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies}
+                      "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies,
+                      "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
+                      "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines}
         py[f] = info
         mod_to_path[module] = f
     if new != old or not cache_path.is_file():
@@ -226,12 +302,18 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
             pass                                  # read-only checkout: run without cache
     deps: dict[str, set[str]] = defaultdict(set)
     loc: dict[str, int] = {}
+    lazy = {info.module: info.lazy_exports for info in py.values() if info.lazy_exports}
     for f, info in py.items():
         loc[f] = info.loc
         for imp in info.imports:
-            target = resolve_import(imp, mod_to_path)
+            target = resolve_import(imp, mod_to_path, lazy)
             if target and target != f:
                 deps[f].add(target)
+            if ":" in imp:
+                base, name = imp.split(":", 1)
+                if name in {"*", "__all__"}:
+                    deps[f].update(mod_to_path[module] for module in set(lazy.get(base, {}).values())
+                                   if module in mod_to_path and mod_to_path[module] != f)
     for f in source:
         if f in py:
             continue
@@ -241,4 +323,11 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
             loc[f] = 0
         if Path(f).suffix in JS_EXTS:
             deps[f] |= js_imports(root, f, files_set)
-    return Inventory(root, files, source, tests, py, dict(deps), loc)
+    dynamic_files = {f for f, info in py.items() if info.dynamic_imports and not info.lazy_exports}
+    for f in source:
+        if Path(f).suffix in JS_EXTS:
+            text = read_source(root / f)
+            # Static npm imports are external dependencies, not dynamic imports.
+            if re.search(r"\bimport\s*\(\s*(?!['\"])", text):
+                dynamic_files.add(f)
+    return Inventory(root, files, source, tests, py, dict(deps), loc, dynamic_files=dynamic_files)

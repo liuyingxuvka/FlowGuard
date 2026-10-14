@@ -20,7 +20,7 @@ from pathlib import Path
 from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any, read_source
 from .inventory import Inventory
 
-TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "components", "flows", "accepted_debts"}
+TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -42,6 +42,10 @@ def validate_map(data: object) -> list[str]:
     if data.get("schema") != SCHEMA:
         errors.append(f"schema must be {SCHEMA!r}")
     errors += [f"unknown top-level key {k!r}" for k in sorted(set(data) - TOP_KEYS)]
+    test_commands = data.get("test_commands", {})
+    if not isinstance(test_commands, dict) or not all(isinstance(p, str) and isinstance(cmd, str) and cmd.strip()
+                                                      for p, cmd in test_commands.items()):
+        errors.append("test_commands must map test file patterns to nonempty command strings")
     comps = data.get("components")
     if not isinstance(comps, list):
         return errors + ["components must be a list"]
@@ -108,7 +112,8 @@ def ignore_patterns(data: dict | None) -> list[str]:
 def component_files(comp: dict, inv: Inventory) -> list[str]:
     """Non-test source files matched by the component's 'files' globs."""
     pats = comp.get("files", [])
-    return [f for f in inv.source if not is_test_file(f) and matches_any(f, pats)]
+    exact = {p for p in pats if not any(char in p for char in "*?[")}
+    return [f for f in inv.source if matches_any(f, pats) and (f in exact or not is_test_file(f))]
 
 
 def owner_index(data: dict, inv: Inventory) -> tuple[dict[str, str], dict[str, list[str]]]:
@@ -151,11 +156,50 @@ def read_model_contract(path: Path) -> dict:
     found: dict = {"functions": []}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
-                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY"}:
+                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
             found["functions"].append(node.name)
+    for key in ("IMPLEMENTED_BY", "NOT_MODELED"):
+        value = found.get(key, {})
+        if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
+                                                 for k, v in value.items()):
+            raise ValueError(f"{key} must map anchors/names to nonempty strings")
+    tested_by = found.get("TESTED_BY", {})
+    if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
+            and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):
+        raise ValueError("TESTED_BY must map invariant names to lists of test anchors")
     return found
+
+
+def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
+    """Actual imports plus named module literals and explicitly justified debts.
+
+    Literal evidence validates declarations; it is not itself a caller edge.
+    """
+    graph = component_graph(data, inv)
+    owner, _ = owner_index(data, inv)
+    modules = {info.module: owner[path] for path, info in inv.py.items() if path in owner}
+    for path, info in inv.py.items():
+        cid = owner.get(path)
+        if cid is None:
+            continue
+        for literal in getattr(info, "string_literals", set()):
+            module = literal
+            while module:
+                target = modules.get(module)
+                if target is not None:
+                    if target != cid:
+                        graph[cid].add(target)
+                    break
+                module = module.rpartition(".")[0]
+    for debt in data.get("accepted_debts", []):
+        if debt.get("code") == "dep_unused" and debt.get("component") in graph and debt.get("reason"):
+            cid = debt["component"]
+            for target in graph:
+                if debt.get("contains") == target:
+                    graph[cid].add(target)
+    return graph
 
 
 @dataclass(frozen=True)
@@ -194,6 +238,17 @@ def model_registry(root: Path, data: dict | None = None) -> ModelRegistry:
     base = root / ".flowguard/models"
     paths = {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")}
     registry = ModelRegistry()
+    runners = {p.relative_to(root).as_posix()
+               for p in (root / ".flowguard/verification/owners").glob("*/run_checks.py")}
+    for rel in sorted(runners - referenced):
+        registry.issues.append(RegistryIssue("model_unbound", rel,
+                              "unregistered runner: add it to its owning component's models or remove it"))
+    for directory in sorted((root / ".flowguard/models/owners").glob("*")):
+        if directory.is_dir() and any(directory.glob("*.py")):
+            runner = f".flowguard/verification/owners/{directory.name}/run_checks.py"
+            if runner not in referenced:
+                registry.issues.append(RegistryIssue("model_unbound", directory.relative_to(root).as_posix(),
+                                      "unregistered owner model: add its runner to the owning component's models or remove it"))
     for rel in sorted(paths | referenced):
         if Path(rel).is_absolute() or ".." in Path(rel).parts:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,

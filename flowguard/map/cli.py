@@ -29,7 +29,7 @@ from .common import MAP_RELPATH, print_findings, safe_stdio
 from .impact import changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
-from .mapfile import MapError, component_files, component_graph, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
+from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import render_results, run_models
 from .scan import new_map
 from .views import find_owners, render_digest, render_show
@@ -37,7 +37,10 @@ from .views import find_owners, render_digest, render_show
 
 def _context(root: Path):
     data = load_map(root)
-    return data, build_inventory(root, ignore_patterns(data))
+    inv = build_inventory(root, ignore_patterns(data))
+    if hasattr(inv, "set_explicit_sources"):
+        inv.set_explicit_sources([pattern for comp in data["components"] for pattern in comp.get("files", [])])
+    return data, inv
 
 
 def cmd_scan(root: Path, a) -> int:
@@ -50,8 +53,12 @@ def cmd_scan(root: Path, a) -> int:
             print(f"  unmapped: {f}")
         return 0
     inv = build_inventory(root, ignore_patterns(None))
-    data = new_map(root, inv)
+    data = new_map(root, inv, max_components=a.max_components)
     save_map(root, data)
+    ignore = root / ".gitignore"
+    text = ignore.read_text(encoding="utf-8-sig") if ignore.is_file() else ""
+    if ".flowguard/cache/" not in text.splitlines():
+        ignore.write_text(text.rstrip("\n") + ("\n" if text else "") + ".flowguard/cache/\n", encoding="utf-8")
     print(f"created {MAP_RELPATH}: {len(data['components'])} draft components from "
           f"{len(inv.source) - len(inv.tests)} source files and {len(inv.tests)} test files")
     print("next: digest all -> merge/describe components -> deps --write -> check -> confirm")
@@ -132,9 +139,30 @@ def cmd_impact(root: Path, a) -> int:
     return 1 if imp.blocked or imp.unmapped else 0
 
 
+
+def cmd_change(root: Path, a) -> int:
+    """Check and select in one context; show architecture only for changed owners."""
+    from .lint import scoped_architecture_findings
+
+    data, inv = _context(root)
+    changes = a.files or changed_files(root, a.base)
+    counts = print_findings(run_check(root, data, inv), "check", as_json=False, limit=80)
+    imp = compute_impact(root, data, inv, changes, base=a.base)
+    print()
+    print(render_impact(imp))
+    architecture = scoped_architecture_findings(root, data, inv, imp.direct)
+    for finding in architecture:
+        print(f"ARCH {finding.level.upper()} {finding.code} {finding.component}: {finding.message}")
+    affected = set(imp.direct)
+    for debt in data.get("accepted_debts", []):
+        if debt.get("component") in affected:
+            print(f"DEBT {debt['component']} {debt['code']}: {debt['reason']}")
+    return int(bool(counts["error"] or imp.blocked or imp.unmapped or any(f.level == "error" for f in architecture)))
+
+
 def cmd_deps(root: Path, a) -> int:
     data, inv = _context(root)
-    graph = component_graph(data, inv)
+    graph = dependency_evidence(data, inv)
     changed = 0
     for c in data["components"]:
         actual = sorted(graph.get(c["id"], ()))
@@ -143,12 +171,15 @@ def cmd_deps(root: Path, a) -> int:
         if declared_only:
             print("  declared, unverified: " + ", ".join(declared_only))
         # Static import extraction cannot disprove lazy/alias dependencies.
-        retained = sorted(set(actual) | (set(c.get("depends_on", [])) & {r["id"] for r in data["components"]}))
+        retained = actual
+        removed = sorted(set(c.get("depends_on", [])) - set(retained))
+        if a.write and removed:
+            print("  removed without evidence: " + ", ".join(removed))
         if a.write and c.get("depends_on") != retained:
             c["depends_on"], changed = retained, changed + 1
     if a.write:
         save_map(root, data)
-        print(f"updated depends_on of {changed} component(s); preserved valid declarations not verified by static imports")
+        print(f"updated depends_on of {changed} component(s); kept only dependencies supported by imports, module literals or accepted debts")
     return 0
 
 
@@ -182,8 +213,12 @@ def cmd_models(root: Path, a) -> int:
 def cmd_verify(root: Path, a) -> int:
     data, inv = _context(root)
     check = print_findings(run_check(root, data, inv, strict=True), "check --strict", as_json=False, limit=a.limit)
-    lint = print_findings([f for f in run_lint(root, data, inv) if f.level == "error"], "lint (errors only)",
-                          as_json=False, limit=a.limit)
+    findings = run_lint(root, data, inv)
+    lint = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
+    print(f"lint: {lint['error']} error(s) gating; {lint['warn']} warning(s), {lint['info']} info not gating (run python -m flowguard map lint)")
+    if lint["error"]:
+        print_findings([finding for finding in findings if finding.level == "error"],
+                       "lint errors", as_json=False, limit=a.limit)
     debts = data.get("accepted_debts", [])
     print(f"accepted debts: {len(debts)}")
     for debt in debts:
@@ -200,7 +235,7 @@ def cmd_verify(root: Path, a) -> int:
         print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
     print(f"verify: {'PASS' if not failed else 'FAIL'}"
-          f" (also run the full test suite: {data.get('test_command') or 'python -m pytest -q'})")
+          f" (map, lint and models only; tests not run; run {data.get('test_command') or 'python -m pytest -q'} separately)")
     return 1 if failed else 0
 
 
@@ -217,9 +252,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--root", default=".", help="project root (default: current directory)")
     sub = p.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("scan"); s.add_argument("--limit", type=int, default=50)
+    s.add_argument("--max-components", type=int, default=40)
     s = sub.add_parser("discover"); s.add_argument("--component"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("show"); s.add_argument("--component"); s.add_argument("--detail", action="store_true")
-    s.add_argument("--budget", type=int, default=12000, help="max characters printed")
+    s.add_argument("--budget", type=int, default=8000, help="max characters printed")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s.add_argument("--max-lines", type=int, default=60, help="max outline lines per file")
