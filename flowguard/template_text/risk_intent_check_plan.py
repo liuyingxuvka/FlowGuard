@@ -176,7 +176,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE = """# FlowGuard Risk Intent CheckPlan Notes

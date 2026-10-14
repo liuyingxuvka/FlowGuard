@@ -49,7 +49,7 @@ def _symbol_matches_call(symbol: str, call_name: str) -> bool:
 
 
 def _import_bindings(tree: ast.AST, node: ast.AST) -> dict[str, str]:
-    """Resolve only explicit module/function imports, never receiver types."""
+    """Resolve imports and a single straight-line imported-class assignment."""
 
     bindings: dict[str, str] = {}
     statements = list(getattr(tree, "body", ())) + list(getattr(node, "body", ()))
@@ -65,31 +65,86 @@ def _import_bindings(tree: ast.AST, node: ast.AST) -> dict[str, str]:
                     bindings[alias.asname or alias.name] = (
                         f"{statement.module}.{alias.name}" if statement.module and not statement.level else ""
                     )
+    # A function or class defined in the test module shadows the contract.
+    for statement in getattr(tree, "body", ()):
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            bindings[statement.name] = ""
     # Dynamic fixture arguments and local rebindings are not import evidence.
     for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs):
         bindings[arg.arg] = ""
+    imported = dict(bindings)
     for child in ast.walk(node):
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and child is not node:
+            bindings[child.name] = ""
         if isinstance(child, (ast.Assign, ast.AnnAssign, ast.AugAssign)):
             targets = child.targets if isinstance(child, ast.Assign) else (child.target,)
             for target in targets:
                 for name in _target_names(target):
                     bindings[name] = ""
+    # ``obj = ImportedClass(...)`` once, then ``obj.method()``: the receiver
+    # type is the imported class.  Any second assignment keeps it unknown.
+    assigned: dict[str, int] = {}
+    for child in ast.walk(node):
+        if isinstance(child, ast.Assign):
+            for target in child.targets:
+                for name in _target_names(target):
+                    assigned[name] = assigned.get(name, 0) + 1
+    for child in node.body:
+        if (isinstance(child, ast.Assign) and len(child.targets) == 1 and isinstance(child.targets[0], ast.Name)
+                and assigned.get(child.targets[0].id) == 1 and isinstance(child.value, ast.Call)
+                and isinstance(child.value.func, ast.Name) and imported.get(child.value.func.id)):
+            bindings[child.targets[0].id] = imported[child.value.func.id]
     return bindings
 
 
+def _contract_qualified_names(contract: CodeContract) -> set[str]:
+    """Accept the declared package path and the conventional ``src/`` root."""
+
+    module = contract.path.removesuffix(".py").replace("\\", "/").removesuffix("/__init__")
+    parts = [part for part in module.split("/") if part]
+    names = {".".join(parts + [contract.symbol])}
+    if parts and parts[0] == "src":
+        names.add(".".join(parts[1:] + [contract.symbol]))
+    return names
+
+
 def _call_matches_contract(contract: CodeContract, call: ast.Call, bindings: Mapping[str, str]) -> bool:
-    name = _call_name(call.func)
+    func = call.func
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Call) and isinstance(func.value.func, ast.Name):
+        name = f"{func.value.func.id}.{func.attr}"   # ImportedClass().method()
+    else:
+        name = _call_name(func)
     head, _, tail = name.partition(".")
     if head in bindings:
         resolved = bindings[head]
         if not resolved:
             return False
         name = f"{resolved}.{tail}" if tail else resolved
-        module = contract.path.removesuffix(".py").replace("/", ".").replace("\\", ".")
-        module = module.removesuffix(".__init__")
-        qualified = f"{module}.{contract.symbol}"
-        return name == qualified or name == contract.symbol
+        return name in _contract_qualified_names(contract) or name == contract.symbol
     return _symbol_matches_call(contract.symbol, name)
+
+
+_PURE_WRAPPERS = frozenset({
+    "len", "isinstance", "sorted", "list", "dict", "set", "tuple", "str", "int", "float",
+    "bool", "repr", "any", "all", "sum", "min", "max", "getattr", "type", "frozenset",
+})
+_RAISES_NAMES = frozenset({"raises", "assertRaises", "assertRaisesRegex"})
+
+
+def _mocked_symbols(node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[str]:
+    """Final names patched by ``mock.patch``/``monkeypatch.setattr`` in this test."""
+
+    names: set[str] = set()
+    calls = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+    calls += [item for item in node.decorator_list if isinstance(item, ast.Call)]
+    for call in calls:
+        final = _final_name(_call_name(call.func))
+        if final not in {"patch", "object", "setattr", "setitem"}:
+            continue
+        for argument in call.args[:2]:
+            if isinstance(argument, ast.Constant) and isinstance(argument.value, str):
+                names.add(argument.value.rsplit(".", 1)[-1])
+    return names
 
 
 def _value_contracts(
@@ -101,7 +156,17 @@ def _value_contracts(
     """Recognize direct results and simple local values, not arbitrary flow."""
 
     if isinstance(expression, ast.Call):
-        return {contract.code_contract_id for contract in contracts if _call_matches_contract(contract, expression, bindings)}
+        direct = {contract.code_contract_id for contract in contracts if _call_matches_contract(contract, expression, bindings)}
+        if direct or not (isinstance(expression.func, ast.Name) and expression.func.id in _PURE_WRAPPERS):
+            return direct
+        result: set[str] = set()
+        for argument in expression.args:
+            result.update(_value_contracts(argument, contracts, bindings, values))
+        return result
+    if isinstance(expression, ast.Compare):
+        operands = [expression.left, *expression.comparators]
+        if len({ast.dump(operand) for operand in operands}) == 1:
+            return set()   # ``x == x`` holds for any x
     if isinstance(expression, ast.Name):
         return set(values.get(expression.id, ()))
     if isinstance(expression, (ast.Compare, ast.BoolOp, ast.BinOp, ast.UnaryOp, ast.Attribute, ast.Subscript, ast.Tuple, ast.List, ast.Dict)):
@@ -181,6 +246,12 @@ def _parse_python_source(path: str, source_text: str) -> ast.AST | str:
     return tree
 
 
+_MUTATING_METHODS = frozenset({
+    "append", "extend", "insert", "add", "update", "setdefault", "pop", "popitem",
+    "remove", "discard", "clear",
+})
+
+
 def _extract_code_evidence_from_function(
     contract: CodeContract,
     node: ast.FunctionDef | ast.AsyncFunctionDef,
@@ -198,6 +269,9 @@ def _extract_code_evidence_from_function(
     for child in ast.walk(node):
         if isinstance(child, ast.Call):
             name = _call_name(child.func)
+            if isinstance(child.func, ast.Attribute) and child.func.attr in _MUTATING_METHODS:
+                # orders.append(x), self.orders.add(x), db.orders.insert(x) write ``orders``
+                state_writes.extend(_target_names(child.func.value))
             if name:
                 calls.append(name)
                 final = _final_name(name)
@@ -217,6 +291,8 @@ def _extract_code_evidence_from_function(
             targets = list(child.targets) if isinstance(child, ast.Assign) else [child.target]
             for target in targets:
                 state_writes.extend(_target_names(target))
+                if isinstance(target, ast.Subscript):   # orders[key] = value writes ``orders``
+                    state_writes.extend(_target_names(target.value))
         elif isinstance(child, ast.Name) and isinstance(child.ctx, ast.Load):
             state_reads.append(child.id)
         elif isinstance(child, ast.Attribute) and isinstance(child.ctx, ast.Load):
@@ -293,10 +369,11 @@ def audit_python_code_contracts(
 
 
 def _find_test_function(tree: ast.AST, test_name: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
-    for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == test_name:
-            return node
-    return None
+    """``test_name`` may be ``func``, ``Class::func`` or a full pytest node ID."""
+
+    parts = [part.split("[", 1)[0] for part in test_name.split("::") if part and not part.endswith(".py")]
+    candidates = _function_candidates(tree, ".".join(parts[-2:])) if parts else ()
+    return candidates[0] if candidates else None
 
 
 def _assertion_count(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
@@ -306,7 +383,7 @@ def _assertion_count(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
             count += 1
         elif isinstance(child, ast.Call):
             final = _final_name(_call_name(child.func))
-            if final.startswith("assert") or final in {
+            if final.startswith("assert") or final in _RAISES_NAMES or final in {
                 "assertEqual",
                 "assertNotEqual",
                 "assertTrue",
@@ -317,6 +394,117 @@ def _assertion_count(node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
             }:
                 count += 1
     return count
+
+
+_BROAD_EXCEPTIONS = frozenset({"Exception", "BaseException", "AssertionError"})
+
+
+def _never_runs(statement: ast.stmt) -> bool:
+    """``if False:`` / ``while 0:`` bodies never execute."""
+
+    return isinstance(statement, (ast.If, ast.While)) and isinstance(statement.test, ast.Constant) and not statement.test.value
+
+
+def _swallows_assertions(statement: ast.stmt) -> bool:
+    """A try body whose handler catches AssertionError (bare, Exception, BaseException)."""
+
+    if not isinstance(statement, ast.Try):
+        return False
+    for handler in statement.handlers:
+        if handler.type is None:
+            return True
+        names = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+        if any(_final_name(_call_name(name)) in _BROAD_EXCEPTIONS for name in names):
+            return True
+    return False
+
+
+def _immutable_locals(node: ast.AST) -> frozenset[str]:
+    """Names assigned a constant (``x = "a"``); a call cannot mutate them."""
+
+    names = set()
+    for child in ast.walk(node):
+        if isinstance(child, ast.Assign) and (
+            isinstance(child.value, (ast.Constant, ast.JoinedStr))
+            or (isinstance(child.value, ast.Tuple) and all(isinstance(e, ast.Constant) for e in child.value.elts))
+        ):
+            names.update(t.id for t in child.targets if isinstance(t, ast.Name))
+    return frozenset(names)
+
+
+def _scan_statements(
+    statements: Sequence[ast.stmt],
+    contracts: Sequence[CodeContract],
+    bindings: Mapping[str, str],
+    values: dict[str, set[str]],
+    asserted: set[str],
+    immutable: frozenset[str] = frozenset(),
+) -> None:
+    """Straight-line value tracking; nested blocks see a copy of the locals."""
+
+    for statement in statements:
+        if isinstance(statement, (ast.Assign, ast.AnnAssign)):
+            dependent = _value_contracts(statement.value, contracts, bindings, values) if statement.value else set()
+            targets = statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
+            for target in targets:
+                if isinstance(target, ast.Name):
+                    values[target.id] = dependent
+        elif isinstance(statement, ast.AugAssign):
+            if isinstance(statement.target, ast.Name):
+                values.pop(statement.target.id, None)
+        elif isinstance(statement, ast.Assert):
+            asserted.update(_value_contracts(statement.test, contracts, bindings, values))
+        elif isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
+            call = statement.value
+            assertion_name = _final_name(_call_name(call.func))
+            if assertion_name in _RAISES_NAMES and len(call.args) >= 2:
+                # pytest.raises(E, contract, ...) / assertRaises(E, contract, ...)
+                fake = ast.Call(func=call.args[1], args=[], keywords=[])
+                asserted.update(c.code_contract_id for c in contracts if _call_matches_contract(c, fake, bindings))
+                continue
+            argument_count = {
+                "assertTrue": 1, "assertFalse": 1, "assertIsNone": 1, "assertIsNotNone": 1,
+                "assertEqual": 2, "assertNotEqual": 2, "assertIn": 2, "assertNotIn": 2,
+                "assertIs": 2, "assertIsNot": 2, "assertGreater": 2, "assertLess": 2,
+                "assertGreaterEqual": 2, "assertLessEqual": 2,
+            }.get(assertion_name, 0)
+            arguments = call.args[:argument_count]
+            if argument_count == 2 and len(arguments) == 2 and ast.dump(arguments[0]) == ast.dump(arguments[1]):
+                continue  # assertEqual(x, x) does not check the contract boundary
+            for argument in arguments:
+                asserted.update(_value_contracts(argument, contracts, bindings, values))
+            direct = _value_contracts(call, contracts, bindings, values)
+            for argument in call.args:   # contract(orders, ...) may mutate ``orders``
+                if direct and isinstance(argument, ast.Name) and argument.id not in immutable:
+                    values[argument.id] = set(direct)
+        elif isinstance(statement, (ast.With, ast.AsyncWith)):
+            raises = any(
+                isinstance(item.context_expr, ast.Call)
+                and _final_name(_call_name(item.context_expr.func)) in _RAISES_NAMES
+                for item in statement.items
+            )
+            inner: set[str] = set()
+            _scan_statements(statement.body, contracts, bindings, dict(values), inner, immutable)
+            asserted.update(inner)
+            if raises:
+                for child in statement.body:
+                    for call in (c for c in ast.walk(child) if isinstance(c, ast.Call)):
+                        asserted.update(c.code_contract_id for c in contracts if _call_matches_contract(c, call, bindings))
+                for item in statement.items:
+                    if isinstance(item.optional_vars, ast.Name):
+                        values[item.optional_vars.id] = set(asserted)
+            else:
+                values.clear()
+        elif isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.Match)):
+            for block in ("body", "orelse", "finalbody"):
+                target = asserted
+                if block == "body" and (_never_runs(statement) or _swallows_assertions(statement)):
+                    target = set()   # dead branch, or an AssertionError caught by a broad except
+                _scan_statements(getattr(statement, block, ()) or (), contracts, bindings, dict(values), target, immutable)
+            for handler in getattr(statement, "handlers", ()) or ():
+                _scan_statements(handler.body, contracts, bindings, dict(values), asserted, immutable)
+            # A local may have changed on a path we have not analysed.
+            values.clear()
 
 
 def _extract_test_evidence_from_function(
@@ -333,41 +521,22 @@ def _extract_test_evidence_from_function(
         if code_contract_id in code_contracts_by_id
     )
     called_contracts: list[str] = []
+    call_nodes = [child for child in ast.walk(node) if isinstance(child, ast.Call)]
+    # pytest.raises(E, contract, ...) / assertRaises(E, contract, ...) call the contract.
+    call_nodes += [
+        ast.Call(func=child.args[1], args=[], keywords=[])
+        for child in list(call_nodes)
+        if _final_name(_call_name(child.func)) in _RAISES_NAMES and len(child.args) >= 2
+    ]
     for contract in contracts:
-        if any(_call_matches_contract(contract, child, bindings) for child in ast.walk(node) if isinstance(child, ast.Call)):
+        if any(_call_matches_contract(contract, child, bindings) for child in call_nodes):
             called_contracts.append(contract.code_contract_id)
-    values: dict[str, set[str]] = {}
+    mocked = _mocked_symbols(node)
+    if mocked:
+        contracts = tuple(contract for contract in contracts if _final_name(contract.symbol) not in mocked)
+        called_contracts = [cid for cid in called_contracts if cid in {c.code_contract_id for c in contracts}]
     asserted_contracts: set[str] = set()
-    # Straight-line statements only. Branches, dynamic fixtures and helper
-    # wrappers need human review instead of speculative dataflow inference.
-    for statement in node.body:
-        if isinstance(statement, (ast.Assign, ast.AnnAssign)):
-            value = statement.value
-            dependent = _value_contracts(value, contracts, bindings, values) if value else set()
-            targets = statement.targets if isinstance(statement, ast.Assign) else (statement.target,)
-            for target in targets:
-                if isinstance(target, ast.Name):
-                    values[target.id] = dependent
-        elif isinstance(statement, ast.AugAssign):
-            if isinstance(statement.target, ast.Name):
-                values.pop(statement.target.id, None)
-        elif isinstance(statement, ast.Assert):
-            asserted_contracts.update(_value_contracts(statement.test, contracts, bindings, values))
-        elif isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call):
-            call = statement.value
-            assertion_name = _final_name(_call_name(call.func))
-            argument_count = {
-                "assertTrue": 1, "assertFalse": 1, "assertIsNone": 1, "assertIsNotNone": 1,
-                "assertEqual": 2, "assertNotEqual": 2, "assertIn": 2, "assertNotIn": 2,
-                "assertIs": 2, "assertIsNot": 2, "assertGreater": 2, "assertLess": 2,
-                "assertGreaterEqual": 2, "assertLessEqual": 2,
-            }.get(assertion_name, 0)
-            if argument_count:
-                for argument in call.args[:argument_count]:
-                    asserted_contracts.update(_value_contracts(argument, contracts, bindings, values))
-        elif isinstance(statement, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.With, ast.AsyncWith, ast.Try, ast.Match)):
-            # A local may have changed on a path we have not analysed.
-            values.clear()
+    _scan_statements(node.body, contracts, bindings, {}, asserted_contracts, _immutable_locals(node))
     assert_count = _assertion_count(node)
     unresolved_same_name = any(
         _final_name(call) == _final_name(contract.symbol)

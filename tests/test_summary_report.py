@@ -165,7 +165,7 @@ class SummaryReportTests(unittest.TestCase):
         self.assertEqual("scoped_until_resolved", conformance.claim_effect)
         self.assertIn("missing_conformance_proof", conformance.proof_gap_codes)
 
-        self.assertEqual("model_maturation_loop", model_gap.owner_route)
+        self.assertEqual("model_miss_review", model_gap.owner_route)
         self.assertEqual("extend_model_coverage", model_gap.action_kind)
         self.assertIn("scenario_or_invariant", model_gap.required_input_kinds)
         self.assertIn("owner_route", model_gap.to_dict())

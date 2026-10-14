@@ -143,7 +143,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE = """# FlowGuard Risk Template Library Notes

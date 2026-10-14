@@ -183,7 +183,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 FIELD_LIFECYCLE_NOTES_TEMPLATE = """# FlowGuard FieldLifecycleMesh Notes

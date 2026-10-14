@@ -11,10 +11,6 @@ for _flowguard_path in (_FLOWGUARD_PROJECT_ROOT, _FLOWGUARD_MODEL_ROOT):
     if str(_flowguard_path) not in sys.path:
         sys.path.insert(0, str(_flowguard_path))
 
-from pathlib import Path
-import sys
-
-
 import model
 
 from flowguard.map.runner import run_owner

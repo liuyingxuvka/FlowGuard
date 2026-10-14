@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__version__ = "0.70.1"
+__version__ = "0.70.2"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {
@@ -1082,6 +1082,7 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "review_model_test_alignment",
         "bind_pytest_execution",
         "pytest_alignment_input_digest",
+        "worktree_input_paths",
         "review_python_contract_source_audit",
     ),
     "flowguard.obligation_family": (
@@ -1574,33 +1575,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "RuntimePathRecorder",
         "RuntimePathRun",
         "review_runtime_path_alignment",
-    ),
-    "flowguard.runtime_test_evidence": (
-        "RUNTIME_TEST_COUNT_FIELDS",
-        "RUNTIME_TEST_EVIDENCE_SCHEMA",
-        "RUNTIME_TEST_EXECUTION_EXECUTED",
-        "RUNTIME_TEST_EXECUTION_NOT_RUN",
-        "RUNTIME_TEST_EXECUTION_REUSED",
-        "RUNTIME_TEST_EXECUTION_STATES",
-        "RUNTIME_TEST_FINDING_SEVERITIES",
-        "RUNTIME_TEST_OUTCOMES",
-        "RUNTIME_TEST_OUTCOME_FAILED",
-        "RUNTIME_TEST_OUTCOME_NOT_RUN",
-        "RUNTIME_TEST_OUTCOME_PASSED",
-        "RUNTIME_TEST_OUTCOME_SKIPPED",
-        "RUNTIME_TEST_OUTCOME_XFAILED",
-        "RUNTIME_TEST_OUTCOME_XPASSED",
-        "RuntimeTestEvidenceError",
-        "RuntimeTestEvidenceReport",
-        "RuntimeTestFinding",
-        "RuntimeTestLeafEvidence",
-        "RuntimeTestResult",
-        "classify_pytest_result",
-        "load_runtime_test_evidence",
-        "parse_pytest_collection_output",
-        "reconcile_pytest_execution",
-        "serialize_runtime_test_evidence",
-        "write_runtime_test_evidence",
     ),
     "flowguard.scenario": (
         "OracleCheckResult",
@@ -2165,6 +2139,10 @@ def __getattr__(name: str) -> Any:
         except ModuleNotFoundError as exc:
             if exc.name != f"{__name__}.{name}":
                 raise
+            retired = {"ModelAuthoritySnapshot", "ModelRevisionSet", "ModelAuthority", "ModelAuthorityStore",
+                       "model_authority_snapshot", "RuntimeGateway", "SkillGuard"}
+            if name in retired:
+                raise ImportError(f"{name} retired in 0.70.0; see references/upgrade_from_0_69.md") from None
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = module
         return module

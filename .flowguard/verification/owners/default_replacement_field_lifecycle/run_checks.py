@@ -216,16 +216,16 @@ def product_language_authority_field_contract() -> tuple[bool, dict[str, object]
         FieldLifecycleRow(
             field_id,
             role=FIELD_ROLE_PROMPT_CONFIG,
-            reader_ids=("skillguard_v2_compiler", "flowguard_skill_installer"),
-            writer_ids=("skillguard_contract_source",),
+            reader_ids=("flowguard_skill_package", "flowguard_skill_installer"),
+            writer_ids=("flowguard_skill_source",),
             projection=FieldProjection(
                 f"projection:{field_id}",
                 field_id,
                 model_obligation_id=f"obligation:{field_id}",
-                code_contract_id="contract:skillguard-v2-contract-source",
-                external_outputs=("compiled-contract.json", "check-manifest.json", "installed-skill-copy"),
+                code_contract_id="contract:flowguard-skill-source",
+                external_outputs=("SKILL.md", "references/model_recipes.md", "installed-skill-copy"),
                 state_writes=(field_id,),
-                rationale="Canonical V2 source projects deterministically to generated and installed skill records.",
+                rationale="Canonical skill source is copied to the installed skill.",
             ),
         )
         for field_id in prompt_config_fields
@@ -317,9 +317,6 @@ def main() -> int:
             **authority_fields,
         },
     }
-    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     if ok:
         print("default replacement field lifecycle model checks passed")
     return 0 if ok else 1

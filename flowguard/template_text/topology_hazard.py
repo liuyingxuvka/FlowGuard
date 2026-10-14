@@ -90,11 +90,12 @@ import model
 def main() -> int:
     report = model.build_review()
     print(report.format_text())
-    return 0 if not report.ok and report.unresolved_hazard_ids else 1
+    return 0 if report.ok else 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 TOPOLOGY_HAZARD_NOTES_TEMPLATE = """# FlowGuard Model Topology Hazard Review Notes
@@ -111,7 +112,6 @@ evidence ids when those affect confidence.
 
 Use this route before broad done/release/publish confidence when model shape and
 usage intent suggest hidden future-use risk. Unanchored AI concerns remain
-observations. Anchored unresolved hazards route to Model Maturation, Model-Test
-Alignment, DevelopmentProcessFlow, Architecture Reduction, or Risk Evidence
-Ledger.
+observations. Anchored unresolved hazards route to Model Miss Review, Model-Test
+Alignment, DevelopmentProcessFlow, or Architecture Reduction.
 """

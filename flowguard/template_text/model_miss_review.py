@@ -1099,7 +1099,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 MODEL_MISS_REVIEW_NOTES_TEMPLATE = """# FlowGuard Model-Miss Review Notes
@@ -1228,6 +1229,9 @@ class MissRepairReport:
     ok: bool
     findings: tuple[str, ...]
 
+    def format_text(self, **kwargs) -> str:
+        return f"{self.scenario_name}: {'PASS' if self.ok else 'FAIL'}; findings={', '.join(self.findings)}"
+
 
 def review_compact_model_miss(plan: MissRepairPlan) -> MissRepairReport:
     findings: list[str] = []
@@ -1352,7 +1356,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 MODEL_MISS_REVIEW_NOTES_TEMPLATE = """# FlowGuard Model-Miss Review Notes

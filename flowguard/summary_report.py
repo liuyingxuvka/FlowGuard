@@ -382,9 +382,9 @@ def _ledger_owner_route(section: FlowGuardSection, category: str) -> str:
     if "conformance" in text:
         return "development_process_flow"
     if "state_closure" in text or "topology_hazard" in text:
-        return "model_maturation_loop"
+        return "model_miss_review"
     if any(token in text for token in ("model", "scenario", "contract", "progress")):
-        return "model_maturation_loop"
+        return "model_miss_review"
     return "development_process_flow"
 
 

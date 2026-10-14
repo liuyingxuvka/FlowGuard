@@ -250,9 +250,6 @@ def main() -> int:
         "check_count": len(checks),
         "passed_expectations": sum(1 for check in checks if check),
     }
-    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return 0 if ok else 1
 
 from flowguard.map.runner import run_owner

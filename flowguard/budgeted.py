@@ -225,7 +225,7 @@ class BudgetedGraphConfig:
         state_id: StateIdFn | None = None,
         encode_state: StateEncoder | None = None,
         decode_state: StateDecoder | None = None,
-        run_root: str | Path = ".flowguard/budgeted-model-groups",
+        run_root: str | Path = ".flowguard/cache/budgeted-model-groups",
         budget_per_shard: int = 10_000,
         max_shards_per_run: int = 1,
         invariants: Sequence[Any] = (),

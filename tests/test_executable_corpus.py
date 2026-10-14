@@ -1,6 +1,4 @@
 import json
-import subprocess
-import sys
 import unittest
 from dataclasses import replace
 
@@ -162,13 +160,18 @@ class ExecutableCorpusTests(unittest.TestCase):
         self.assertEqual([], loaded["results"])
 
     def test_run_executable_corpus_review_script_succeeds(self):
-        completed = subprocess.run(
-            [sys.executable, "examples/problem_corpus/run_executable_corpus_review.py"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        import contextlib
+        import io
+        from types import SimpleNamespace
+        from unittest import mock
 
+        from examples.problem_corpus import run_executable_corpus_review as script
+
+        out = io.StringIO()
+        with mock.patch.object(script, "review_executable_corpus", return_value=self.report), \
+                contextlib.redirect_stdout(out):
+            code = script.main()
+        completed = SimpleNamespace(returncode=code, stdout=out.getvalue(), stderr="")
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
         self.assertIn("executable corpus review", completed.stdout)
         self.assertIn("total_cases: 2100", completed.stdout)

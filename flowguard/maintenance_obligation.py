@@ -230,10 +230,10 @@ def _owner_route_for_section(section_name: str, category: str) -> str:
     if "conformance" in text:
         return "development_process_flow"
     if "state_closure" in text or "topology_hazard" in text:
-        return "model_maturation_loop"
+        return "model_miss_review"
     if "model" in text or "scenario" in text or "contract" in text or "progress" in text:
-        return "model_maturation_loop"
-    return "development_process_flow" if section in {"not_run", "skipped_with_reason"} else "model_maturation_loop"
+        return "model_miss_review"
+    return "development_process_flow" if section in {"not_run", "skipped_with_reason"} else "model_miss_review"
 
 
 def obligation_from_finding_ledger_entry(entry: Any) -> MaintenanceObligation | None:
@@ -277,14 +277,14 @@ def obligation_from_maturation_finding(finding: Any) -> MaintenanceObligation:
     model_id = str(getattr(finding, "model_id", "") or "")
     risk_id = str(getattr(finding, "risk_id", "") or "")
     code = str(getattr(finding, "code", "") or "model_maturation")
-    action = str(getattr(finding, "action", "") or "model_maturation_loop")
+    action = str(getattr(finding, "action", "") or "model_miss_review")
     severity = str(getattr(finding, "severity", "") or "blocker")
     status = OBLIGATION_STATUS_SCOPED if severity == "warning" else OBLIGATION_STATUS_OPEN
     return MaintenanceObligation(
         obligation_id=f"model-maturation:{_slug(signal_id or code)}",
-        owner_route="model_maturation_loop",
+        owner_route="model_miss_review",
         reason_code=code,
-        source_route="model_maturation_loop",
+        source_route="model_miss_review",
         status=status,
         strength=OBLIGATION_STRENGTH_REQUIRED if severity == "blocker" else OBLIGATION_STRENGTH_SUGGESTED,
         model_ids=(model_id,) if model_id else (),

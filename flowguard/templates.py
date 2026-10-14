@@ -150,6 +150,17 @@ def project_template_files() -> tuple[TemplateFile, ...]:
 
 def adoption_template_files() -> tuple[TemplateFile, ...]:
     return (
+        TemplateFile("docs/flowguard_agents_rules.md", """# FlowGuard rules for the project agent
+
+Copy these six rules into the project's AGENTS.md or CLAUDE.md:
+
+1. Start each session with `python -m flowguard read` before opening source.
+2. Before adding behavior, use `python -m flowguard read --find WORDS`; extend its existing owner.
+3. Open only the affected component's files (`python -m flowguard read --component ID`).
+4. After editing, run `python -m flowguard change`, fix errors, and run its selected tests and models.
+5. Re-read each REVIEW component, update its description, then `python -m flowguard map confirm ID`.
+6. Before release, run the full test suite and `python -m flowguard release`; report failures and unrun checks honestly.
+"""),
         TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
         TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
     )

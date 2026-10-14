@@ -64,9 +64,9 @@ TOPOLOGY_COMPAT_SCOPED_OUT = "scoped_out_with_reason"
 TOPOLOGY_DISPOSITION_OBSERVATION = "observation_only"
 TOPOLOGY_DISPOSITION_MODEL_PATCH = "model_patch_required"
 TOPOLOGY_DISPOSITION_TEST_REQUIRED = "test_required"
-TOPOLOGY_DISPOSITION_LEDGER_REQUIRED = "risk_ledger_required"
+TOPOLOGY_DISPOSITION_LEDGER_REQUIRED = "evidence_required"
 TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION = "compatibility_decision_required"
-TOPOLOGY_DISPOSITION_MODEL_MATURATION = "model_maturation_required"
+TOPOLOGY_DISPOSITION_MODEL_MATURATION = "model_update_required"
 TOPOLOGY_DISPOSITION_DEVELOPMENT_PROCESS = "development_process_required"
 TOPOLOGY_DISPOSITION_SCOPED_OUT = "scoped_out"
 TOPOLOGY_DISPOSITION_BLOCKED = "blocked"
@@ -84,9 +84,9 @@ TOPOLOGY_DECISION_PASS = "topology_hazard_pass"
 TOPOLOGY_DECISION_SCOPED = "topology_hazard_scoped_confidence"
 TOPOLOGY_DECISION_BLOCKED = "topology_hazard_blocked"
 
-TOPOLOGY_ROUTE_MODEL_MATURATION = "model_maturation_loop"
+TOPOLOGY_ROUTE_MODEL_MATURATION = "model_miss_review"
 TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT = "model_test_alignment"
-TOPOLOGY_ROUTE_RISK_LEDGER = "risk_evidence_ledger"
+TOPOLOGY_ROUTE_RISK_LEDGER = "development_process_flow"
 TOPOLOGY_ROUTE_DEVELOPMENT_PROCESS = "development_process_flow"
 TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION = "architecture_reduction"
 
@@ -840,6 +840,8 @@ def _infer_landmarks(
     landmarks: list[TopologyLandmark] = []
     write_owners: dict[str, list[str]] = {}
     for edge in edges:
+        if edge.edge_kind == TOPOLOGY_EDGE_SIDE_EFFECT:
+            continue  # the effect edge repeats its own workflow edge's writes
         for write in edge.writes:
             write_owners.setdefault(write, []).append(edge.edge_id)
     for write, owner_ids in sorted(write_owners.items()):

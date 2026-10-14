@@ -3840,7 +3840,7 @@ def default_behavior_commitment_axes(
         ),
         ContractAxis("replacement_state", model_id=model_id, values=BCL_REPLACEMENT_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis("model_sync_state", model_id=model_id, values=BCL_MODEL_SYNC_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
-        ContractAxis("test_mesh_state", model_id=model_id, values=BCL_TEST_MESH_STATES, source_route="test_mesh_maintenance"),
+        ContractAxis("test_mesh_state", model_id=model_id, values=BCL_TEST_MESH_STATES, source_route="test_mesh"),
         ContractAxis("miss_origin_state", model_id=model_id, values=BCL_MISS_ORIGIN_STATES, source_route="model_miss_review"),
         ContractAxis(
             "exact_intent_identity_state",
@@ -3876,7 +3876,7 @@ def default_behavior_commitment_interaction_groups(
 ) -> tuple[ContractInteractionGroup, ...]:
     """Return default finite interaction groups for ledger coverage."""
 
-    routes = ("model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger")
+    routes = ("model_test_alignment", "test_mesh", "development_process_flow")
     return (
         ContractInteractionGroup(
             "plane_kind_actor",
@@ -3902,7 +3902,7 @@ def default_behavior_commitment_interaction_groups(
                 "source_authority_participation",
                 "source_mapping_state",
             ),
-            required_routes=routes + ("implementation_blueprint", "test_mesh_maintenance"),
+            required_routes=routes + ("model_test_alignment", "test_mesh"),
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -4078,7 +4078,7 @@ def behavior_commitment_contract_exhaustion_plan(
             ),
         ),
         claim_scope=claim_scope,
-        required_route_ids=("model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger", PRIMARY_PATH_ROUTE_ID),
+        required_route_ids=("model_test_alignment", "test_mesh", "development_process_flow", PRIMARY_PATH_ROUTE_ID),
         require_model_coverage_receipt=True,
         require_coverage_universe=True,
         metadata={

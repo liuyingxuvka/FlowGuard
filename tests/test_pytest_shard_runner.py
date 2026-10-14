@@ -4,7 +4,7 @@ import argparse
 import json
 from pathlib import Path
 
-import scripts.run_flowguard_pytest_shards as shard_runner
+import flowguard.pytest_shards_cli as shard_runner
 from flowguard.symlink_capability import (
     CAPABILITY_PATH_ESCAPE_POSIX,
     CAPABILITY_PATH_ESCAPE_WINDOWS,

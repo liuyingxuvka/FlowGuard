@@ -1,21 +1,8 @@
 from pathlib import Path
 import sys
 
-from pathlib import Path
-import sys
-
-_FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
-_FLOWGUARD_MODEL_ROOT = _FLOWGUARD_PROJECT_ROOT / ".flowguard" / "models" / "owners" / "architecture_reduction"
-for _flowguard_path in (_FLOWGUARD_PROJECT_ROOT, _FLOWGUARD_MODEL_ROOT):
-    if str(_flowguard_path) not in sys.path:
-        sys.path.insert(0, str(_flowguard_path))
-from pathlib import Path
-import sys
-
-PROJECT_ROOT = Path(__file__).resolve().parents[4]
-MODEL_ROOT = PROJECT_ROOT / ".flowguard" / "models" / "owners" / "architecture_reduction"
-sys.path.insert(0, str(MODEL_ROOT))
-sys.path.insert(0, str(PROJECT_ROOT))
+ROOT = Path(__file__).resolve().parents[4]
+sys.path[:0] = [str(ROOT), str(ROOT / ".flowguard/models/owners/architecture_reduction")]
 
 from model import run_review  # noqa: E402
 

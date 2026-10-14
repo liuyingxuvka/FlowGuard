@@ -1,5 +1,6 @@
 """Run-local execution binding; pytest itself stays in the outer invocation."""
 
+import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -31,7 +32,6 @@ def run_inputs(tmp_path, outcome="passed", exit_code=0):
     junit = tmp_path / "junit.xml"
     junit.write_text(f'<testsuite><testcase classname="wrong.display" name="test_pay">{child}</testcase></testsuite>')
     manifest = tmp_path / "nodeids.json"
-    manifest.write_text(json.dumps({"nodeids": [nodeid], "exit_status": exit_code}))
     digest = pytest_alignment_input_digest(tmp_path, ("owner.py", "tests/test_owner.py"))
     metadata = {
         "command": "python -m pytest tests/test_owner.py -p flowguard.pytest_nodeid_recorder --junitxml=junit.xml",
@@ -40,6 +40,10 @@ def run_inputs(tmp_path, outcome="passed", exit_code=0):
         "input_digest_before": digest,
         "input_digest_after": digest,
     }
+    manifest.write_text(json.dumps({**metadata, "schema_version": "flowguard.pytest_nodeids.v2",
+        "run_id": "run-1", "project_root": str(tmp_path.resolve()),
+        "junit_digest": hashlib.sha256(junit.read_bytes()).hexdigest(),
+        "nodeids": [nodeid], "exit_status": exit_code, "statuses": {nodeid: outcome}}))
     plan = ModelTestAlignmentPlan("owner", test_evidence=(TestEvidence("pay", result_status="passed"),))
     return plan, dict(evidence_nodeids={"pay": nodeid}, junit_path=junit,
                      nodeid_manifest=manifest, run_metadata=metadata, project_root=tmp_path)
@@ -85,7 +89,10 @@ def test_changed_inputs_cannot_keep_current_execution_pass(tmp_path, when):
     plan, kwargs = run_inputs(tmp_path)
     (tmp_path / "owner.py").write_text("def pay():\n    return 'wrong'\n")
     if when == "during":
-        kwargs["run_metadata"]["input_digest_after"] = pytest_alignment_input_digest(tmp_path, ("owner.py", "tests/test_owner.py"))
+        data = json.loads(kwargs["nodeid_manifest"].read_text())
+        data["input_digest_after"] = pytest_alignment_input_digest(tmp_path, ("owner.py", "tests/test_owner.py"))
+        kwargs["nodeid_manifest"].write_text(json.dumps(data))
+        kwargs["run_metadata"]["input_digest_after"] = data["input_digest_after"]
     row = bind_pytest_execution(plan, **kwargs).test_evidence[0]
     assert row.result_status == "passed" and not row.has_current_pass()
     assert any(f"changed {when}" in reason for reason in row.stale_reasons)
@@ -112,7 +119,7 @@ def test_recorder_exit_mismatch_cannot_be_overridden_by_run_metadata(tmp_path):
     kwargs["run_metadata"]["exit_code"] = 0
     row = bind_pytest_execution(plan, **kwargs).test_evidence[0]
     assert not row.has_current_pass()
-    assert "pytest recorder exit status does not match run metadata" in row.stale_reasons
+    assert "pytest caller metadata disagrees with recorder: exit_code" in row.stale_reasons
 
 
 def test_unrelated_input_scope_cannot_inherit_a_bound_node_pass(tmp_path):
@@ -123,7 +130,7 @@ def test_unrelated_input_scope_cannot_inherit_a_bound_node_pass(tmp_path):
     kwargs["run_metadata"]["input_digest_after"] = digest
     row = bind_pytest_execution(plan, **kwargs).test_evidence[0]
     assert not row.has_current_pass()
-    assert any("input scope omits" in reason for reason in row.stale_reasons)
+    assert "pytest caller metadata disagrees with recorder: input_paths" in row.stale_reasons
 
 
 def test_node_file_must_match_planned_evidence_file(tmp_path):

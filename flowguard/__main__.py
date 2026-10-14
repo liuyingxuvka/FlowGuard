@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
 from . import __version__
 from .map.cli import main as map_main
@@ -55,7 +56,17 @@ def _template(ns: argparse.Namespace) -> int:
         for name in factories:
             print(name)
         return 0
-    factory = factories.get(ns.name)
+    aliases = {
+        "existing-model": "existing-model-preflight", "behavior-commitment": "behavior-commitment-ledger",
+        "code-structure": "code-structure-recommendation", "development-process": "development-process-flow",
+        "model-miss": "model-miss-review",
+        "model-test": "model-test-alignment",
+        "structure-mesh": "structure-mesh", "ui-flow": "ui-flow-structure",
+    }
+    if ns.name == "architecture-reduction":
+        print("architecture-reduction uses the runnable snippet in references/domains/architecture-reduction/protocol.md")
+        return 2
+    factory = factories.get(aliases.get(ns.name, ns.name))
     if factory is None:
         print(f"unknown template {ns.name!r}; run 'python -m flowguard template --list'", file=sys.stderr)
         return 2
@@ -92,19 +103,35 @@ def main(argv: list[str] | None = None) -> int:
     if verb not in {"read", "change", "release", "template"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
+    if any(flag in rest for flag in ("--request", "--contract", "--owner-current")):
+        print("This 0.69 workflow interface retired in 0.70.0; see references/upgrade_from_0_69.md", file=sys.stderr)
+        return 2
     ns = _verb_parser(verb).parse_args(rest)
     if verb == "template":
         return _template(ns)
     root = ["--root", ns.root]
     if verb == "read":
+        project = Path(ns.root)
+        legacy = (project / ".flowguard/project.toml").is_file()
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            path = project / name
+            if path.is_file():
+                text = path.read_text(encoding="utf-8-sig", errors="replace")
+                legacy |= any(marker in text for marker in ("ModelAuthoritySnapshot", "flowguard model-authority", "flowguard self-review", "ModelRevisionSet", "observed_implementation"))
+        if legacy:
+            print("FlowGuard 0.69 project detected; upgrade instructions: references/upgrade_from_0_69.md", file=sys.stderr)
+            return 2
         if ns.find:
             return map_main([*root, "find", *ns.find])
         return map_main([*root, "show", *(["--component", ns.component] if ns.component else [])])
     if verb == "change":
-        checked = map_main([*root, "check"])
-        print()
-        impacted = map_main([*root, "impact", "--base", ns.base, *ns.files])
-        return checked or impacted
+        from .map.cli import cmd_change
+        from .map.mapfile import MapError
+        try:
+            return cmd_change(Path(ns.root).resolve(), ns)
+        except (MapError, RuntimeError) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
     return map_main([*root, "verify"])
 
 

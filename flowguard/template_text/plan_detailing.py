@@ -299,7 +299,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 PLAN_DETAILING_NOTES_TEMPLATE = """# FlowGuard Plan Detailing Notes

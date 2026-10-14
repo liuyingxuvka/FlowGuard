@@ -24,12 +24,14 @@ from flowguard.conformance import projected_output_matches, projected_state_matc
 from flowguard.explorer import Explorer
 
 MODEL_ID = "component_pointer"
-COMPONENTS = ["map-file", "map-analysis"]
+COMPONENTS = ["map-file", "map-analysis", "cli"]
 IMPLEMENTED_BY = {
     "Confirm": "flowguard/map/cli.py:cmd_confirm",
     "Check": "flowguard/map/check.py:run_check",
     "Fingerprint": "flowguard/map/mapfile.py:fingerprint",
 }
+NOT_MODELED = {'flowguard/adoption.py:append_jsonl': 'Optional append-only usage journal; file integration is covered by tests/test_adoption_logging.py, no finite business state proof claimed.', 'flowguard/__main__.py:main': 'CLI dispatcher; command and encoding integration are covered by CLI tests, not a modeled business transition.', 'flowguard/map/cli.py:main': 'Map command dispatcher; integration tests cover argument dispatch and statuses.', 'flowguard/map/lint.py:run_lint': 'Reads source and refreshes disposable discovery cache; architecture findings are tested directly.', 'flowguard/map/discover.py:discover': 'Static AST discovery writes disposable cache only; discovery tests cover behavior.', 'flowguard/map/inventory.py:build_inventory': 'Static source inventory writes disposable cache; encoding/cache and impact regressions cover it.', 'flowguard/map/proof.py:run_models': 'Subprocess proof integration is tested directly; model execution is not claimed as a finite cache model.', 'flowguard/templates.py:write_template_files': 'Explicit template file writer; generated template and overwrite tests cover the filesystem integration.'}
+
 
 MAX_EDITS = 2
 

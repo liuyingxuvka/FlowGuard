@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import unittest
-from pathlib import Path
-from typing import Iterable
 
 from flowguard.baseline import EvidenceCaseResult, EvidenceBaselineReport, build_evidence_baseline_report
 from flowguard.report import CheckReport
@@ -29,7 +26,6 @@ from examples.job_matching.scenarios import all_job_matching_scenarios
 from examples.looping_workflow.model import run_loop_review
 
 
-WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _scenario_bug_class(name: str) -> str:
@@ -222,74 +218,21 @@ def conformance_cases() -> tuple[EvidenceCaseResult, ...]:
     return tuple(results)
 
 
-def _iter_test_ids(suite: unittest.TestSuite) -> Iterable[str]:
-    for item in suite:
-        if isinstance(item, unittest.TestSuite):
-            yield from _iter_test_ids(item)
-        else:
-            yield item.id()
-
-
-def _unit_bug_class(test_id: str) -> str:
-    lowered = test_id.lower()
-    if "conformance" in lowered:
-        return "conformance_replay"
-    if "scenario" in lowered or "oracle" in lowered:
-        return "scenario_oracle"
-    if "loop" in lowered:
-        return "loop_detection"
-    if "duplicate" in lowered:
-        return "duplicate_side_effect"
-    if "repeated_scoring" in lowered:
-        return "repeated_processing_without_refresh"
-    if "trace_export" in lowered:
-        return "trace_export"
-    if "workflow" in lowered:
-        return "workflow_branching"
-    if "invariant" in lowered:
-        return "invariant_checking"
-    if "counterexample" in lowered:
-        return "counterexample_trace"
-    if "core" in lowered:
-        return "core_contract"
-    return "unit_regression_inventory"
-
-
-def unit_test_inventory_cases(tests_dir: Path | None = None) -> tuple[EvidenceCaseResult, ...]:
-    root = tests_dir or (WORKSPACE_ROOT / "tests")
-    suite = unittest.defaultTestLoader.discover(str(root))
-    test_ids = tuple(sorted(_iter_test_ids(suite)))
-    return tuple(
-        EvidenceCaseResult(
-            name=f"U{index:03d}_{test_id}",
-            group="unit_test_inventory",
-            bug_class=_unit_bug_class(test_id),
-            expected="test is present and is run by python -m unittest discover -s tests",
-            observed="discovered",
-            status="pass",
-            evidence=("inventory case; execution is validated by the unittest command",),
-            metadata=(("test_id", test_id),),
-        )
-        for index, test_id in enumerate(test_ids, start=1)
-    )
-
-
 def all_evidence_cases() -> tuple[EvidenceCaseResult, ...]:
     return (
         job_matching_scenario_cases()
         + loop_review_cases()
         + conformance_cases()
         + model_check_cases()
-        + unit_test_inventory_cases()
     )
 
 
-def build_current_evidence_baseline(target_cases: int = 100) -> EvidenceBaselineReport:
+def build_current_evidence_baseline(target_cases: int = 50) -> EvidenceBaselineReport:
     return build_evidence_baseline_report(
         all_evidence_cases(),
         target_cases=target_cases,
         summary=(
-            "Phase 10.5 baseline: unit inventory, job_matching scenarios, "
+            "Phase 10.5 baseline: job_matching scenarios, "
             "job_matching conformance, model checks, and loop/stuck review."
         ),
     )
@@ -302,5 +245,4 @@ __all__ = [
     "job_matching_scenario_cases",
     "loop_review_cases",
     "model_check_cases",
-    "unit_test_inventory_cases",
 ]

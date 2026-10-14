@@ -1548,10 +1548,16 @@ def review_existing_model_preflight(
                 )
             )
         if preflight.behavior_lookup_required and not preflight.primary_commitment_hits:
+            unmatched_but_owned = (
+                not preflight.candidate_commitment_hits
+                and not preflight.related_commitment_hits
+                and bool(preflight.relevant_models)
+            )
             findings.append(
                 ExistingModelPreflightFinding(
                     "behavior_lookup_primary_owner_missing",
                     "performed lookup resolved no exact primary behavior commitment owner",
+                    severity="warning" if unmatched_but_owned else "blocker",
                 )
             )
         if preflight.plane_ambiguity:

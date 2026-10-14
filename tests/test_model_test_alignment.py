@@ -2108,5 +2108,19 @@ def test_submit_order():
         self.assertEqual("not_run", report.to_dict()["executed_evidence_status"])
 
 
+def test_model_test_duplicate_code_contract_owner():
+    from flowguard import CodeContract, ModelObligation, ModelTestAlignmentPlan, review_model_test_alignment
+
+    ob = ModelObligation("reject_duplicate_order", required_test_kinds=("happy_path",))
+    a = CodeContract("orders.place", path="shop/orders.py", symbol="place_order",
+                     implements_obligations=("reject_duplicate_order",))
+    b = CodeContract("orders.place_v2", path="shop/orders_v2.py", symbol="place_order",
+                     implements_obligations=("reject_duplicate_order",))
+    two = review_model_test_alignment(ModelTestAlignmentPlan("orders", obligations=(ob,), code_contracts=(a, b)))
+    assert "duplicate_code_contract_owner" in {f.code for f in two.findings}
+    one = review_model_test_alignment(ModelTestAlignmentPlan("orders", obligations=(ob,), code_contracts=(a,)))
+    assert "duplicate_code_contract_owner" not in {f.code for f in one.findings}
+
+
 if __name__ == "__main__":
     unittest.main()

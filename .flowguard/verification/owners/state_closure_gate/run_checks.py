@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -152,17 +151,4 @@ def main() -> int:
 
 from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    # Native evidence is temporary work output.  Isolate this invocation so
-    # native_main does not scan the entire historical evidence tree on every
-    # direct owner check.
-    os.environ.setdefault(
-        "FLOWGUARD_OUTPUT_DIR",
-        str(
-            _FLOWGUARD_PROJECT_ROOT
-            / "work"
-            / "flowguard"
-            / "native-owner-tests"
-            / f"state-closure-gate-{os.getpid()}"
-        ),
-    )
     raise SystemExit(run_owner(main))

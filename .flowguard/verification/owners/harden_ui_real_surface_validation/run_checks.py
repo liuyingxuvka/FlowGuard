@@ -93,9 +93,6 @@ def main() -> int:
     )
     ok = all(bool(case["ok"]) for case in cases)
     payload = {"ok": ok, "cases": cases}
-    output_dir = Path(os.environ.get("FLOWGUARD_OUTPUT_DIR", Path(__file__).parent))
-    output_dir.mkdir(parents=True, exist_ok=True)
-    output_dir.joinpath("result.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     print("=== flowguard UI real-surface validation hardening self-model ===")
     print("status:", "OK" if ok else "FAILED")

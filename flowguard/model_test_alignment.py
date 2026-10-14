@@ -52,46 +52,47 @@ def fingerprint_value(value: Any) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def pytest_alignment_input_digest(project_root: Path, input_paths: Sequence[str]) -> str:
-    """Hash the explicit source/model/test inputs of one outer pytest run.
+from .pytest_junit import pytest_alignment_input_digest, worktree_input_paths  # one owner: test-mesh
 
-    Call before and after pytest, and retain both values in run-local cache.
-    Paths are exact files, not selectors or glob expressions. Missing files are
-    included so deletion invalidates earlier evidence. No repository-wide scan
-    or receipt history is involved.
+
+def _nodeid_names_test(nodeid: str, test_name: str) -> bool:
+    """True when ``nodeid`` is the test that ``test_name`` names.
+
+    ``test_name`` may be ``func``, ``Class::func`` or a full node ID; a
+    parametrized node ``func[case]`` names ``func``.
     """
 
-    root = Path(project_root).resolve()
-    paths = tuple(sorted(set(str(path) for path in input_paths)))
-    if not paths:
-        raise ValueError("pytest execution evidence requires explicit input files")
-    inputs = []
-    for relative in paths:
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root):
-            raise ValueError(f"pytest input escapes project root: {relative}")
-        if path.exists() and not path.is_file():
-            raise ValueError(f"pytest input is not a file: {relative}")
-        inputs.append((relative, hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None))
-    return fingerprint_value(inputs)
+    selector, _, case = nodeid.partition("[")
+    wanted_selector, wants_case, wanted_case = test_name.partition("[")
+    parts = selector.split("::")
+    wanted = wanted_selector.split("::")
+    if wanted[0].endswith(".py"):
+        if wanted[0] != parts[0]:
+            return False
+        wanted = wanted[1:]
+    actual = parts[1:]
+    if not wanted or len(actual) < len(wanted):
+        return False
+    return actual[-len(wanted):] == wanted and (not wants_case or case == wanted_case)
 
 
 def bind_pytest_execution(
     plan: ModelTestAlignmentPlan,
     *,
     evidence_nodeids: Mapping[str, str],
-    junit_path: Path,
     nodeid_manifest: Path,
-    run_metadata: Mapping[str, Any],
     project_root: Path,
+    junit_path: Path | None = None,
+    run_metadata: Mapping[str, Any] | None = None,
 ) -> ModelTestAlignmentPlan:
     """Bind exact results from a single outer pytest run to an existing plan.
 
     ``evidence_nodeids`` maps existing evidence IDs to exact pytest node IDs.
-    Metadata has ``command``, ``exit_code``, ``input_paths``,
-    ``input_digest_before`` and ``input_digest_after``. It is a small disposable
-    run record, not a reusable receipt. The caller captures the input digests
-    around its own pytest invocation. This function never executes tests.
+    The recorder is authoritative for statuses, command, exit code and the
+    before/after input digests. Optional caller metadata must agree with that
+    same record; it cannot override its input scope or results. An optional
+    JUnit file must match the output digest captured by the recorder.
+    This function never executes tests.
 
     A nonzero run exit remains visible on every row, even if a particular node
     passed. Missing bindings never preserve caller-provided passing statuses.
@@ -108,31 +109,64 @@ def bind_pytest_execution(
         raise ValueError(f"unknown evidence IDs in pytest bindings: {sorted(unknown)}")
     if not all(isinstance(nodeid, str) for nodeid in evidence_nodeids.values()):
         raise ValueError("pytest bindings must contain exact string node IDs")
-    projection = pytest_junit_projection(
-        Path(junit_path), nodeid_manifest=Path(nodeid_manifest), require_exact_nodeids=True
-    )
-    statuses = projection["node_statuses"] if projection is not None else {}
     issues = []
-    if projection is None:
-        issues.append("pytest exact-node result is missing or invalid")
-    command = run_metadata.get("command", "")
-    exit_code = run_metadata.get("exit_code")
+    try:
+        manifest = json.loads(Path(nodeid_manifest).read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        manifest = {}
+    if not isinstance(manifest, dict):
+        manifest = {}
+    recorded = manifest.get("statuses")
+    allowed_statuses = {"passed", "failed", "skipped", "error", "xfailed", "xpassed"}
+    statuses = dict(recorded) if isinstance(recorded, dict) and all(
+        isinstance(key, str) and isinstance(value, str) and value in allowed_statuses
+        for key, value in recorded.items()
+    ) else {}
+    nodes = manifest.get("nodeids")
+    valid_nodes = (isinstance(nodes, list) and all(isinstance(node, str) and node for node in nodes)
+                   and len(nodes) == len(set(nodes)) and set(nodes) == set(statuses))
+    if not valid_nodes or not isinstance(recorded, dict) or statuses != recorded:
+        issues.append("pytest recorder statuses are missing or invalid; rerun pytest with -p flowguard.pytest_nodeid_recorder")
+    if manifest.get("schema_version") != "flowguard.pytest_nodeids.v2" or not manifest.get("run_id"):
+        issues.append("pytest recorder same-run identity is unavailable")
+    if manifest.get("project_root") != str(Path(project_root).resolve()):
+        issues.append("pytest recorder project root does not match this project")
+    if junit_path is not None:
+        try:
+            actual_output_digest = hashlib.sha256(Path(junit_path).read_bytes()).hexdigest()
+        except OSError:
+            actual_output_digest = None
+        if not manifest.get("junit_digest") or manifest["junit_digest"] != actual_output_digest:
+            issues.append("JUnit output is not the file captured by this pytest run")
+        projection = pytest_junit_projection(
+            Path(junit_path), nodeid_manifest=Path(nodeid_manifest), require_exact_nodeids=True
+        )
+        if projection is None:
+            issues.append("pytest exact-node result is missing or invalid")
+        elif projection["node_statuses"] != statuses:
+            issues.append("JUnit report and recorder disagree; they come from different pytest runs")
+    if run_metadata is not None:
+        for field in ("run_id", "command", "exit_code", "input_paths", "input_digest_before", "input_digest_after"):
+            if field in run_metadata and run_metadata[field] != manifest.get(field):
+                issues.append(f"pytest caller metadata disagrees with recorder: {field}")
+    command = manifest.get("command", "")
+    exit_code = manifest.get("exit_code")
     if not isinstance(command, str) or not command.strip():
         issues.append("pytest run command is missing")
         command = ""
     if type(exit_code) is not int or exit_code != 0:
         issues.append(f"pytest run exit code is {exit_code!r}, expected 0")
     try:
-        manifest_exit = json.loads(Path(nodeid_manifest).read_text(encoding="utf-8")).get("exit_status")
+        manifest_exit = manifest.get("exit_status")
         if type(manifest_exit) is not int or manifest_exit != exit_code:
             issues.append("pytest recorder exit status does not match run metadata")
     except (OSError, UnicodeError, json.JSONDecodeError, AttributeError):
         issues.append("pytest recorder exit status is unavailable")
-    if projection is not None and any(projection.get(key, 0) for key in ("failed", "errors", "xpassed")):
+    if any(status in {"failed", "error", "xpassed"} for status in statuses.values()):
         issues.append("pytest run contains failed or error nodes")
-    before = run_metadata.get("input_digest_before")
-    after = run_metadata.get("input_digest_after")
-    paths = run_metadata.get("input_paths")
+    before = manifest.get("input_digest_before")
+    after = manifest.get("input_digest_after")
+    paths = manifest.get("input_paths")
     try:
         if not isinstance(paths, (list, tuple)) or not all(isinstance(path, str) for path in paths):
             raise ValueError("pytest input paths are missing or invalid")
@@ -146,6 +180,12 @@ def bind_pytest_execution(
         absent_paths = [path for path in paths if not (Path(project_root) / path).is_file()]
         if absent_paths:
             issues.append(f"pytest input files are missing: {absent_paths}")
+        try:
+            added = sorted(set(worktree_input_paths(project_root)) - set(paths))
+        except ValueError:
+            added = []   # not a git worktree: only the explicit scope above applies
+        if added:
+            issues.append(f"files were added after the pytest run or are outside its input scope: {added[:10]}")
     except (OSError, ValueError) as exc:
         current = None
         issues.append(str(exc))
@@ -161,8 +201,8 @@ def bind_pytest_execution(
             reasons.append(f"pytest node was not collected: {nodeid or '<missing binding>'}")
         if evidence.path and nodeid.split("::", 1)[0] != evidence.path:
             reasons.append("pytest node file does not match the planned evidence path")
-        if evidence.test_name and "::" in evidence.test_name and evidence.test_name != nodeid:
-            reasons.append("pytest node ID does not match the planned exact test selector")
+        if evidence.test_name and not _nodeid_names_test(nodeid, evidence.test_name):
+            reasons.append("pytest node ID does not name the planned test function")
         rows.append(replace(
             evidence,
             command=command,
@@ -1836,20 +1876,6 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("model_miss_closure_evidence_internal_path_only", "test_checks_internal_path_only"),
         ("missing_same_class_test_evidence", "missing_same_class_test_evidence"),
         ("missing_observed_regression_test_evidence", "missing_observed_regression_test_evidence"),
-        ("verified_receipt_missing", "test_reuse_receipt_required"),
-        ("receipt_verification_missing", "test_reuse_receipt_required"),
-        ("verified_receipt_subject_mismatch", "test_reuse_receipt_required"),
-        ("verified_receipt_producer_mismatch", "test_reuse_receipt_required"),
-        ("verified_receipt_claim_scope_mismatch", "test_reuse_receipt_required"),
-        ("verified_receipt_obligation_scope_mismatch", "test_reuse_receipt_required"),
-        ("verified_receipt_inventory_malformed", "test_reuse_receipt_required"),
-        ("verified_receipt_inventory_mismatch", "test_reuse_receipt_required"),
-        ("receipt_verification_identity_mismatch", "test_reuse_receipt_required"),
-        ("receipt_verification_fingerprint_mismatch", "test_reuse_receipt_required"),
-        ("receipt_verification_context_missing", "test_reuse_receipt_required"),
-        ("receipt_verification_projection_missing", "test_reuse_receipt_required"),
-        ("receipt_verification_projection_mismatch", "test_reuse_receipt_required"),
-        ("verified_receipt_not_current_pass", "test_reuse_receipt_required"),
         ("missing_test_evidence", "missing_test_evidence"),
         ("missing_code_contract_test_evidence", "missing_code_contract_test_evidence"),
         ("missing_required_test_kind", "missing_required_test_kind"),
@@ -4535,6 +4561,7 @@ __all__ = [
     "audit_python_test_assertions",
     "bind_pytest_execution",
     "pytest_alignment_input_digest",
+    "worktree_input_paths",
     "review_artifact_payload_validation",
     "review_code_boundary_conformance",
     "review_python_contract_source_audit",

@@ -109,7 +109,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE = """# FlowGuard workflow step contracts

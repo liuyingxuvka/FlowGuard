@@ -1898,6 +1898,26 @@ def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[Hie
     return findings
 
 
+def _strict_child_identity_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
+    """Strict (full/release) parents: each child must name this parent and its claim scope."""
+
+    if not partition_map.is_strict():
+        return []
+    findings: list[HierarchyMeshFinding] = []
+    for child in partition_map.child_models:
+        if child.parent_model_id and child.parent_model_id != partition_map.parent_model_id:
+            findings.append(HierarchyMeshFinding(
+                "model_child_parent_mismatch", "strict ModelMesh child names a different parent model",
+                model_id=child.model_id,
+                metadata={"expected": partition_map.parent_model_id, "actual": child.parent_model_id}))
+        if child.claim_scope and child.claim_scope != partition_map.claim_scope:
+            findings.append(HierarchyMeshFinding(
+                "model_child_scope_mismatch", "strict ModelMesh child claim scope differs from its parent",
+                model_id=child.model_id,
+                metadata={"expected": partition_map.claim_scope, "actual": child.claim_scope}))
+    return findings
+
+
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -1915,6 +1935,7 @@ def review_hierarchical_mesh(
 
     findings.extend(_target_split_derivation_findings(partition_map))
     findings.extend(_child_reattachment_findings(partition_map))
+    findings.extend(_strict_child_identity_findings(partition_map))
     boundary_change_findings, boundary_change_decisions = _boundary_change_findings(partition_map)
     if boundary_change_decisions:
         activation_reasons.append("boundary_change")

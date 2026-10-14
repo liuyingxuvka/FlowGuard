@@ -114,3 +114,18 @@ def test_performed_commitment_lookup_selects_owner_by_model_path(tmp_path):
     assert [h.model_id for h in pre.relevant_models] == ["router", "store"]
     report = review_existing_model_preflight(pre)
     assert report.ok, report.format_text()
+
+
+def test_ledger_present_but_unrelated_task_only_warns(tmp_path):
+    from flowguard.templates import behavior_commitment_ledger_template_files, write_template_files
+
+    root = _project(tmp_path)
+    write_template_files(root, behavior_commitment_ledger_template_files())
+    assert (root / ".flowguard/behavior/inventory/ledger.json").is_file()
+    pre = existing_model_preflight_from_project(root, "rename internal store helper", changed_paths=("app/store.py",),
+                                                mode="full", downstream_routes=("development_process_flow",))
+    assert pre.behavior_lookup_required and not pre.primary_commitment_hits
+    report = review_existing_model_preflight(pre)
+    assert report.ok, report.format_text()
+    warning = next(f for f in report.findings if f.code == "behavior_lookup_primary_owner_missing")
+    assert warning.severity == "warning"

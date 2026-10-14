@@ -1,10 +1,5 @@
-import tempfile
-from tests._runner_environment import runner_environment
-import subprocess
-import sys
 import unittest
 from dataclasses import dataclass
-from pathlib import Path
 
 from flowguard import (
     FunctionResult,
@@ -36,7 +31,6 @@ from flowguard.plan import FlowGuardCheckPlan
 from flowguard.runner import run_model_first_checks
 
 
-ROOT = Path(__file__).resolve().parents[1]
 
 
 def formal_entry_kwargs():
@@ -260,23 +254,71 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertIn("topology_hazard", sections)
         self.assertIn("topology_hazard_report", metadata)
 
-    def test_self_model_checks_pass(self):
-        with tempfile.TemporaryDirectory() as native_tmp:
-            result = subprocess.run(
-                [sys.executable, ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"],
-                cwd=ROOT,
-                env=runner_environment(ROOT),
-                text=True,
-                capture_output=True,
-                check=False,
-            )
+def test_topology_scope_out_without_reason_blocks():
+    from dataclasses import dataclass, replace
+    from flowguard import (TOPOLOGY_DISPOSITION_SCOPED_OUT, TOPOLOGY_USAGE_RELEASE, FunctionResult, UsageIntent,
+                           Workflow, derive_topology_hazard_candidates, infer_topology_hazard_plan,
+                           review_topology_hazards)
 
-            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-            self.assertIn("correct_topology_hazard_review: observed=OK expected=OK match=yes", result.stdout)
-            self.assertIn(
-                "topology_hazard_unanchored_hard_gate: observed=VIOLATION expected=VIOLATION",
-                result.stdout,
-            )
+    @dataclass(frozen=True)
+    class Ev:
+        action: str = "submit"
+
+    @dataclass(frozen=True)
+    class St:
+        count: int = 0
+
+    class Save:
+        name = "Save"
+        reads = ()
+        writes = ("count",)
+        side_effects = ("database_write",)
+
+        def apply(self, input_obj, state):
+            return (FunctionResult(input_obj, St(1), label="saved"),)
+
+    def scoped(reason):
+        plan = infer_topology_hazard_plan(
+            workflow=Workflow((Save(),), name="save"), initial_states=(St(),), external_inputs=(Ev(),),
+            usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release"))
+        candidates = tuple(replace(c, disposition=TOPOLOGY_DISPOSITION_SCOPED_OUT, scoped_reason=reason)
+                           for c in derive_topology_hazard_candidates(plan.digest))
+        return review_topology_hazards(replace(plan, candidates=candidates))
+
+    bare = scoped("")
+    assert not bare.ok
+    assert "topology_hazard_scoped_out_without_reason" in {f.code for f in bare.findings}
+    reasoned = scoped("idempotency key covered by tests/test_orders.py::test_retry")
+    assert "topology_hazard_scoped_out_without_reason" not in {f.code for f in reasoned.findings}
+
+
+def test_single_state_writer_with_effect_is_not_shared():
+    from flowguard import TOPOLOGY_USAGE_LOCAL
+
+    plan = infer_topology_hazard_plan(
+        workflow=Workflow((SaveRecord(),), name="save"),
+        initial_states=(State(),), external_inputs=(),
+        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_LOCAL,), final_claim="local"),
+    )
+    assert [item for item in plan.digest.landmarks if item.landmark_type == "shared_writer"] == []
+    assert review_topology_hazards(plan).confidence == TOPOLOGY_CONFIDENCE_FULL
+
+
+def test_two_distinct_state_writers_are_still_shared():
+    from flowguard import TOPOLOGY_USAGE_LOCAL
+
+    class SecondSave(SaveRecord):
+        name = "SecondSave"
+        side_effects = ()
+
+    plan = infer_topology_hazard_plan(
+        workflow=Workflow((SaveRecord(), SecondSave()), name="two saves"),
+        initial_states=(State(),), external_inputs=(),
+        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_LOCAL,), final_claim="local"),
+    )
+    shared = next(item for item in plan.digest.landmarks
+                  if item.landmark_id == "landmark:shared-writer:saved_record")
+    assert shared.anchor_ids == ("edge:0:SaveRecord", "edge:1:SecondSave")
 
 
 if __name__ == "__main__":

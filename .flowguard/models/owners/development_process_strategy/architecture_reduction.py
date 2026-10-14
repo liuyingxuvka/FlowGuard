@@ -79,12 +79,12 @@ def development_process_strategy_reduction_plan() -> ArchitectureReductionPlan:
         rationale="This is an OpenSpec-authorized breaking API contraction, not a behavior-equivalent internal merge. Structure/API parity and negative legacy tests prove the sole current surface.",
         affected_public_entrypoints=RETIRED_PUBLIC_NAMES,
         evidence_refs=(
-            "openspec/changes/simplify-development-process-optimization/specs/flowguard-api-registry/spec.md",
-            "tests/test_api_surface.py",
+            "docs/development_process_flow.md",
+            "tests/test_development_process_flow.py",
         ),
         lifecycle_disposition=CANDIDATE_DISPOSITION_COMPLETED,
         completion_evidence_refs=(
-            "tests/test_api_surface.py",
+            "tests/test_development_process_flow.py",
             "tests/test_process_optimization_zero_residuals.py",
         ),
         business_intent_id="intent:development-process-strategy-selection",
@@ -104,7 +104,7 @@ def development_process_strategy_reduction_plan() -> ArchitectureReductionPlan:
         public_entrypoints=RETIRED_PUBLIC_NAMES,
         runtime_authority=False,
         candidate_ids=(public.candidate_id,),
-        evidence_refs=("tests/test_api_surface.py",),
+        evidence_refs=("tests/test_development_process_flow.py",),
     )
     candidate_ids = (internal.candidate_id, public.candidate_id)
     return ArchitectureReductionPlan(
@@ -129,7 +129,7 @@ def development_process_strategy_reduction_plan() -> ArchitectureReductionPlan:
             validation_boundaries=(
                 ".flowguard/verification/owners/development_process_strategy/run_checks.py",
                 "tests/test_development_process_strategy.py",
-                "tests/test_api_surface.py",
+                "tests/test_development_process_flow.py",
                 "tests/test_process_optimization_zero_residuals.py",
             ),
             rationale="Preserve the conditional DPF behavior commitment while deleting duplicated machinery and retiring the old public vocabulary under explicit change authority.",
@@ -152,7 +152,7 @@ def development_process_strategy_reduction_plan() -> ArchitectureReductionPlan:
         compatibility_surfaces=(retired_surface,),
         rationale="Contract the implementation and public surface without adding a route, skill, compatibility reader, or alternate success path.",
         inventory_revision="process-optimization-reduction:v1",
-        inventory_source_ref=".flowguard/development_process_strategy/code_structure.json",
+        inventory_source_ref="flowguard/map inventory (python -m flowguard map digest)",
         inventory_current=True,
         expected_candidate_ids=candidate_ids,
         require_complete_inventory=True,

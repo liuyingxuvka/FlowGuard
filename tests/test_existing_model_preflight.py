@@ -727,5 +727,18 @@ class ExistingModelPreflightTests(unittest.TestCase):
             self.assertIn("No validated current model authority", preflight.no_model_found_reason)
 
 
+def test_existing_model_new_boundary_without_rationale():
+    from dataclasses import replace
+    from flowguard import REUSE_DECISION_NEW_BOUNDARY, ExistingModelPreflight, review_existing_model_preflight
+
+    base = ExistingModelPreflight(
+        "pre", "add scheduler", mode="light", model_search_performed=True,
+        search_paths=(".flowguard/map.json",), reuse_decision=REUSE_DECISION_NEW_BOUNDARY,
+        proposed_new_boundaries=("scheduler",), downstream_routes=("development_process_flow",))
+    assert "new_boundary_without_rationale" in {f.code for f in review_existing_model_preflight(base).findings}
+    explained = replace(base, rationale="the router cannot own time-based retries; scheduler owns only timers")
+    assert "new_boundary_without_rationale" not in {f.code for f in review_existing_model_preflight(explained).findings}
+
+
 if __name__ == "__main__":
     unittest.main()

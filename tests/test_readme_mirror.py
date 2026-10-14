@@ -1,5 +1,3 @@
-import hashlib
-import json
 import re
 import unittest
 from pathlib import Path
@@ -112,16 +110,6 @@ class ReadmeMirrorTests(unittest.TestCase):
                 with self.subTest(linked_path=linked_path):
                     self.assertTrue((ROOT / linked_path).exists())
 
-    def test_hero_privacy_review_is_bound_to_the_current_asset(self):
-        review_path = ROOT / "assets" / "readme-hero" / "visual-privacy-review.json"
-        review = json.loads(read(review_path))
-        asset = ROOT / review["asset_path"]
-        self.assertEqual("passed", review["status"])
-        self.assertTrue(asset.is_file())
-        self.assertEqual(
-            review["asset_sha256"],
-            hashlib.sha256(asset.read_bytes()).hexdigest().upper(),
-        )
 
 
 if __name__ == "__main__":

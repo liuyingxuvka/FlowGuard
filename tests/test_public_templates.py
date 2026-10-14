@@ -122,7 +122,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("Use before editing:", text)
         self.assertIn("Run:", text)
 
-    def run_written_template(self, files, run_dir_parts):
+    def run_written_template(self, files, run_dir_parts, expected_returncode=0):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_template_files(root, files)
@@ -134,7 +134,7 @@ class PublicTemplateTests(unittest.TestCase):
                 capture_output=True,
                 check=False,
             )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
         return result.stdout
 
     def run_cli(self, argv):
@@ -635,10 +635,32 @@ class PublicTemplateTests(unittest.TestCase):
         output = self.run_written_template(
             topology_hazard_template_files(),
             (".flowguard", "verification", "owners", "model_topology_hazard_review"),
+            expected_returncode=1,
         )
         self.assertIn("flowguard topology hazard review", output)
         self.assertIn("topology_hazard_blocked", output)
         self.assertIn("unresolved_hazard_ids", output)
+
+    def test_topology_hazard_template_good_review_exits_zero(self):
+        from dataclasses import replace
+
+        files = topology_hazard_template_files()
+        good_review = """
+def build_review():
+    from flowguard import TOPOLOGY_USAGE_LOCAL
+    plan = infer_topology_hazard_plan(
+        workflow=Workflow((SaveRecord(),), name="save-record"),
+        initial_states=(State(),), external_inputs=(),
+        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_LOCAL,), final_claim="local"),
+    )
+    return review_topology_hazards(plan)
+"""
+        files = tuple(replace(file, content=file.content + good_review)
+                      if file.path.endswith("model.py") else file for file in files)
+        output = self.run_written_template(
+            files, (".flowguard", "verification", "owners", "model_topology_hazard_review"),
+        )
+        self.assertIn("topology_hazard_pass", output)
 
     def test_development_process_flow_template_executes(self):
         output = self.run_written_template(
@@ -659,7 +681,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("run AutoSplit, ModelMesh, or TestMesh as its own", combined)
         self.assertIn("UI observed inventory, functional capability coverage", combined)
         self.assertIn("Do not copy\nAutoSplit metrics onto `ProcessEvidence`", combined)
-        self.assertIn("producer_route=\"test_mesh_maintenance\"", combined)
+        self.assertIn("producer_route=\"test_mesh\"", combined)
         self.assertIn("strategy_selection", combined)
         self.assertIn("safe_parallel", combined)
         self.assertIn("Ordinary single-route work needs no optimization records", combined)

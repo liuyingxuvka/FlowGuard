@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-import os
 import sys
 
 _FLOWGUARD_PROJECT_ROOT = Path(__file__).resolve().parents[4]
@@ -154,18 +153,4 @@ def main() -> int:
 
 from flowguard.map.runner import run_owner
 if __name__ == "__main__":
-    # Native evidence must never scan the repository root.  A root-level
-    # default re-ingests historical model/receipt JSON and turns this finite
-    # owner into an apparently non-terminating run.  Keep an invocation-local
-    # controlled workspace unless the caller deliberately supplies one.
-    os.environ.setdefault(
-        "FLOWGUARD_OUTPUT_DIR",
-        str(
-            _FLOWGUARD_PROJECT_ROOT
-            / "work"
-            / "flowguard"
-            / "native-owner-tests"
-            / f"model-topology-hazard-review-{os.getpid()}"
-        ),
-    )
     raise SystemExit(run_owner(main))

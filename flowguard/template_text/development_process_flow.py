@@ -83,7 +83,7 @@ class MaturationVerdict:
 
 
 def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
-    result_path = f"tmp/{artifact_id.replace(':', '_')}.json"
+    result_path = f".flowguard/cache/demo-proof/{artifact_id.replace(':', '_')}.json"
     result_bytes = json.dumps(
         {
             "artifact_id": artifact_id,
@@ -100,8 +100,8 @@ def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
     result_fingerprint = "sha256:" + hashlib.sha256(result_bytes).hexdigest()
     return ProofArtifactRef(
         artifact_id,
-        producer_route="test_mesh_maintenance",
-        command="python -m unittest tests.test_checkout",
+        producer_route="test_mesh",
+        command="python -m pytest tests/test_checkout.py",
         result_status=PROCESS_EVIDENCE_PASSED,
         exit_code=0,
         result_path=result_path,
@@ -169,14 +169,14 @@ def routine_plan() -> DevelopmentProcessPlan:
             ProcessEvidence(
                 "unit-pass",
                 evidence_kind="unit",
-                producer_route="test_mesh_maintenance",
+                producer_route="test_mesh",
                 status=PROCESS_EVIDENCE_PASSED,
                 covers_artifacts=("code.checkout",),
                 verifier_artifacts=("tests.checkout",),
                 covered_versions={"code.checkout": "2", "tests.checkout": "1"},
                 validation_requirement_ids=("unit-current",),
                 produced_by_action_id="run-unit",
-                command="python -m unittest tests.test_checkout",
+                command="python -m pytest tests/test_checkout.py",
                 proof_artifact=proof_artifact("artifact:unit-pass", "unit-current"),
             ),
         ),
@@ -186,7 +186,7 @@ def routine_plan() -> DevelopmentProcessPlan:
                 required_artifact_ids=("code.checkout",),
                 required_evidence_kinds=("unit",),
                 v_model_pair=True,
-                command="python -m unittest tests.test_checkout",
+                command="python -m pytest tests/test_checkout.py",
             ),
         ),
     )
@@ -211,14 +211,14 @@ def broken_plan() -> DevelopmentProcessPlan:
             ProcessEvidence(
                 "unit-pass",
                 evidence_kind="unit",
-                producer_route="test_mesh_maintenance",
+                producer_route="test_mesh",
                 status=PROCESS_EVIDENCE_PASSED,
                 covers_artifacts=("code.checkout",),
                 verifier_artifacts=("tests.checkout",),
                 covered_versions={"code.checkout": "1", "tests.checkout": "1"},
                 validation_requirement_ids=("unit-current",),
                 produced_by_action_id="run-unit",
-                command="python -m unittest tests.test_checkout",
+                command="python -m pytest tests/test_checkout.py",
             ),
         ),
         validation_requirements=(
@@ -228,7 +228,7 @@ def broken_plan() -> DevelopmentProcessPlan:
                 required_evidence_kinds=("unit",),
                 evidence_ids=("unit-pass",),
                 v_model_pair=True,
-                command="python -m unittest tests.test_checkout",
+                command="python -m pytest tests/test_checkout.py",
             ),
         ),
         freshness_rules=(
@@ -268,7 +268,8 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    from flowguard.map.runner import run_owner
+    raise SystemExit(run_owner(main))
 '''
 
 DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE = """# FlowGuard DevelopmentProcessFlow Notes

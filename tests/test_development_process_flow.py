@@ -538,7 +538,7 @@ class DevelopmentProcessFlowTests(unittest.TestCase):
 
         current = DistributionEvidence(
             "distribution:flowguard-suite",
-            owner_route="skillguard",
+            owner_route="skill-package",
             suite_identity="manifest:flowguard-suite:v2",
             source_projection_fingerprint="sha256:projection",
             installed_projection_fingerprint="sha256:projection",

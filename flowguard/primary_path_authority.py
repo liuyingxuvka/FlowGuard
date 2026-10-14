@@ -1236,7 +1236,7 @@ def default_primary_path_authority_interaction_groups(
 ) -> tuple[ContractInteractionGroup, ...]:
     """Return default Cartesian groups for no-fallback coverage."""
 
-    routes = ("primary_path_authority", "model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger")
+    routes = ("primary_path_authority", "model_test_alignment", "test_mesh", "development_process_flow")
     return (
         ContractInteractionGroup(
             "core_no_fallback",
@@ -1371,7 +1371,7 @@ def primary_path_authority_contract_exhaustion_plan(
             ),
         ),
         claim_scope=claim_scope,
-        required_route_ids=("model_test_alignment", "test_mesh_maintenance", "risk_evidence_ledger"),
+        required_route_ids=("model_test_alignment", "test_mesh", "development_process_flow"),
         require_model_coverage_receipt=True,
         require_coverage_universe=True,
         metadata={

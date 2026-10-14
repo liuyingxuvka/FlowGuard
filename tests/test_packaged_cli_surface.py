@@ -33,7 +33,8 @@ def test_wheel_configuration_includes_every_console_example_package() -> None:
     include = tuple(
         metadata["tool"]["setuptools"]["packages"]["find"]["include"]
     )
-    assert "examples*" in include
+    assert "examples*" not in include
+    assert not _console_example_packages()
 
     discovered = set(find_packages(where=str(ROOT), include=include))
     assert _console_example_packages() <= discovered

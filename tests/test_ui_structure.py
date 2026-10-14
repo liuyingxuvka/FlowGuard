@@ -5261,5 +5261,26 @@ class UIProductConsistencyTests(unittest.TestCase):
         self.assertTrue(next(case for case in cases if case.mutation_kind == "valid_presentation_exception").expected_ok)
 
 
+def test_ui_dead_button_gives_unmodeled_control_event():
+    from flowguard import UIControl, UIInteractionModel, UIStateNode, UITransition, review_ui_interaction_model
+
+    def model(*transitions):
+        return UIInteractionModel(
+            "export-flow",
+            initial_state_id="empty",
+            states=(
+                UIStateNode("empty", visible_controls=("export",), enabled_controls=("export",)),
+                UIStateNode("done", terminal=True),
+            ),
+            controls=(UIControl("export", label="Export"),),
+            transitions=transitions,
+        )
+
+    dead = review_ui_interaction_model(model())
+    assert "unmodeled_control_event" in {f.code for f in dead.findings}
+    wired = review_ui_interaction_model(model(UITransition("click_export", "export", "empty", "done")))
+    assert "unmodeled_control_event" not in {f.code for f in wired.findings}
+
+
 if __name__ == "__main__":
     unittest.main()

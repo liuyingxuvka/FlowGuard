@@ -1,23 +1,16 @@
-import subprocess
-import sys
 import unittest
 
-from examples.problem_corpus.coverage_audit import review_benchmark_coverage
-from examples.problem_corpus.conformance_seeds import review_conformance_seeds
-from examples.problem_corpus.family_scenarios import (
-    PRIORITY_SCENARIO_FAMILIES,
-    review_priority_family_scenarios,
-)
+from examples.problem_corpus.family_scenarios import PRIORITY_SCENARIO_FAMILIES
 from examples.problem_corpus.hardening import review_benchmark_hardening
 
 
 class BenchmarkHardeningTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.coverage = review_benchmark_coverage()
-        cls.family_scenarios = review_priority_family_scenarios()
-        cls.conformance = review_conformance_seeds()
         cls.hardening = review_benchmark_hardening()
+        cls.coverage = cls.hardening.coverage_audit
+        cls.family_scenarios = cls.hardening.family_scenario_report
+        cls.conformance = cls.hardening.conformance_seed_report
 
     def test_variant_depth_target_is_met(self):
         self.assertTrue(self.coverage.ok, self.coverage.format_text())
@@ -61,16 +54,16 @@ class BenchmarkHardeningTests(unittest.TestCase):
         self.assertTrue(data["conformance_seed_report"]["ok"])
 
     def test_hardening_runner_succeeds(self):
-        completed = subprocess.run(
-            [sys.executable, "examples/problem_corpus/run_benchmark_hardening.py"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertIn("variant_min_cases: 13", completed.stdout)
-        self.assertIn("production_conformance_family_count: 26", completed.stdout)
-        self.assertIn("benchmark_conformance_family_count: 25", completed.stdout)
+        import contextlib, io
+        from unittest import mock
+        from examples.problem_corpus import run_benchmark_hardening as script
+        out = io.StringIO()
+        with mock.patch.object(script, "review_benchmark_hardening", return_value=self.hardening), contextlib.redirect_stdout(out):
+            code = script.main()
+        self.assertEqual(0, code, out.getvalue())
+        self.assertIn("variant_min_cases: 13", out.getvalue())
+        self.assertIn("production_conformance_family_count: 26", out.getvalue())
+        self.assertIn("benchmark_conformance_family_count: 25", out.getvalue())
 
 
 if __name__ == "__main__":

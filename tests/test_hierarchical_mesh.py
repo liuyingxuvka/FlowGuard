@@ -195,6 +195,34 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
 
+    def test_strict_mesh_blocks_child_with_other_parent_or_scope(self):
+        def partition(strict, **child_kwargs):
+            return HierarchyPartitionMap(
+                parent_model_id="checkout",
+                coverage_items=(
+                    HierarchyCoverageItem("payment", owner_model_id="payment"),
+                    HierarchyCoverageItem("inventory", owner_model_id="inventory"),
+                    HierarchyCoverageItem("order_status", ownership="parent"),
+                ),
+                child_models=(child("payment"), child("inventory", **child_kwargs)),
+                target_split_derivation=target(
+                    "checkout", ("payment", "inventory"), ("payment", "inventory", "order_status"),
+                ),
+                claim_scope="release",
+                strict=strict,
+            )
+
+        bad = {"parent_model_id": "billing_root", "claim_scope": "routine"}
+        report = review_hierarchical_mesh(partition(True, **bad))
+        self.assertFalse(report.ok)
+        self.assertEqual(
+            ["model_child_parent_mismatch", "model_child_scope_mismatch"],
+            sorted({f.code for f in report.findings}),
+        )
+        self.assertTrue(review_hierarchical_mesh(partition(False, **bad)).ok)
+        good = {"parent_model_id": "checkout", "claim_scope": "release"}
+        self.assertTrue(review_hierarchical_mesh(partition(True, **good)).ok)
+
     def test_model_coverage_receipts_can_close_parent_child_consumption(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",
@@ -1196,6 +1224,32 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("split_review_required", summary.propagation)
         self.assertEqual("split_review_required", report.decision)
         self.assertIn("boundary_change_split_review_required", [finding.code for finding in report.findings])
+
+
+def test_model_mesh_renamed_output_gives_child_reattachment_missing_output():
+    from flowguard import (ChildModelEvidence, ChildReattachmentContract, HierarchyCoverageItem,
+                           HierarchyPartitionMap, ModelTargetSplitDerivation, review_hierarchical_mesh)
+
+    def partition(outputs):
+        return HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(ChildModelEvidence(
+                "payment", evidence_tier="abstract_green", functional_areas=("payment",),
+                evidence_id="payment:v1", inputs_accepted=("parent_input",), outputs_emitted=outputs),),
+            target_split_derivation=ModelTargetSplitDerivation(
+                "checkout", target_child_model_ids=("payment",), covered_partition_item_ids=("payment",),
+                rationale="derived from parent model blocks"),
+            reattachment_contracts=(ChildReattachmentContract(
+                "payment", consumed_evidence_id="payment:v1", expected_inputs=("parent_input",),
+                expected_outputs=("payment:settled",), rationale="parent consumes the settled event"),),
+        )
+
+    renamed = review_hierarchical_mesh(partition(("payment:captured",)))
+    assert not renamed.ok
+    assert "child_reattachment_missing_output" in {f.code for f in renamed.findings}
+    same = review_hierarchical_mesh(partition(("payment:settled",)))
+    assert "child_reattachment_missing_output" not in {f.code for f in same.findings}
 
 
 if __name__ == "__main__":
