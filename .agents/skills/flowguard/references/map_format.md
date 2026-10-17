@@ -55,3 +55,8 @@ or that live in a `tests/`, `test/` or `__tests__/` directory. Tests are not own
 they are linked through `tests`.
 
 `.flowguard/cache/` holds parse caches. It is never committed and can be deleted at any time.
+
+Exact non-ignored schema/config/resource paths in `files` join the owner fingerprint
+and normal change selection. Non-code globs do not broaden the default code inventory.
+A changed resource makes the owner stale; deletion/rename leaves a dead path until
+the map and its code/model/test bindings are updated. Ignore rules still apply.

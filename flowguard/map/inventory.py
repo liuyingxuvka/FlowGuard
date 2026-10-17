@@ -49,7 +49,7 @@ class PyInfo:
 class Inventory:
     root: Path
     files: list[str]                  # every non-ignored file
-    source: list[str]                 # files with a source extension (includes tests)
+    source: list[str]                 # code plus explicitly registered exact files (includes tests)
     tests: list[str]                  # source files that look like tests
     py: dict[str, PyInfo]             # path -> parse result
     file_deps: dict[str, set[str]]    # path -> repo paths it imports at runtime
@@ -59,6 +59,10 @@ class Inventory:
 
     def set_explicit_sources(self, patterns: list[str]) -> None:
         self.explicit_sources = {norm(p) for p in patterns if not any(char in p for char in "*?[")}
+        # Exact schema/config/resource paths share the normal owner and freshness
+        # boundary. Globs never broaden the default code inventory. Ignored files
+        # are absent from files, so an explicit path cannot bypass ignore rules.
+        self.source = [f for f in self.files if Path(f).suffix in SOURCE_EXTS or f in self.explicit_sources]
         self.tests = [f for f in self.source if self.is_test(f)]
 
     def is_test(self, path: str) -> bool:

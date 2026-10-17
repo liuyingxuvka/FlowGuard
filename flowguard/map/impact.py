@@ -282,7 +282,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     owned_affected = {f for cid in affected if cid in by_id for f in component_files(by_id[cid], inv)}
     uncertainty.extend(f"{f}: dynamic imports may be unresolved; declare known component dependencies"
                        for f in sorted(inv.dynamic_files & owned_affected))
-    no_checks = [f for f in changed if f not in inv.source and f != ".flowguard/map.json"
+    no_checks = [f for f in changed if f not in inv.source and f not in matched and f != ".flowguard/map.json"
                  and not f.startswith(".flowguard/") and not any(
                      f in read_source(root / t) or Path(f).name in read_source(root / t)
                      for t in tests if (root / t).is_file())]

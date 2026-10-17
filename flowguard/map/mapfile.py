@@ -17,7 +17,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, content_digest, is_test_file, matches_any, read_source
+from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, is_test_file, matches_any, read_source
 from .inventory import Inventory
 
 TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts"}
@@ -110,14 +110,18 @@ def ignore_patterns(data: dict | None) -> list[str]:
 
 
 def component_files(comp: dict, inv: Inventory) -> list[str]:
-    """Non-test source files matched by the component's 'files' globs."""
+    """Code matched by globs, plus exact registered non-ignored resource files."""
     pats = comp.get("files", [])
     exact = {p for p in pats if not any(char in p for char in "*?[")}
-    return [f for f in inv.source if matches_any(f, pats) and (f in exact or not is_test_file(f))]
+    candidates = sorted(set(inv.source) | (exact & set(inv.files)))
+    return [f for f in candidates if matches_any(f, pats)
+            and (Path(f).suffix in SOURCE_EXTS or f in exact)
+            and (f in exact or not is_test_file(f))]
 
 
 def owner_index(data: dict, inv: Inventory) -> tuple[dict[str, str], dict[str, list[str]]]:
     """(file -> first owning component id, file -> all owning ids)."""
+    inv.set_explicit_sources([p for comp in data["components"] for p in comp.get("files", [])])
     owners: dict[str, list[str]] = defaultdict(list)
     for comp in data["components"]:
         for f in component_files(comp, inv):

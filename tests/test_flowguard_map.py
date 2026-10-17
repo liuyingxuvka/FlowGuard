@@ -638,3 +638,39 @@ def test_large_selected_scope_does_not_expand_to_the_full_suite(selected_count):
     assert command == "run: python -m pytest -q " + " ".join(paths)
     assert "test_135.py" not in command
     assert f"{selected_count} of 136" in text
+
+
+def test_exact_schema_binding_tracks_content_and_deletion_without_broad_json_scan(impact_project):
+    from flowguard.map.check import run_check
+    from flowguard.map.mapfile import component_files, fingerprint, is_stale
+    root, data = impact_project
+    path = "schemas/request.json"
+    write(root, path, '{"required": ["order_id"]}\n')
+    write(root, "schemas/unregistered.json", '{}\n')
+    write(root, ".flowguard/ignored.json", '{}\n')
+    owner = data["components"][2]
+    owner["files"] += [path, ".flowguard/ignored.json"]
+    inv = build_inventory(root, DEFAULT_IGNORE)
+    assert path not in inv.source  # Default inventory still scans code only.
+    assert path in component_files(owner, inv)
+    assert not any(f.code == "pattern_dead" and path in f.message
+                   for f in run_check(root, data, inv))
+    assert path in inv.source
+    assert component_files({"files": ["schemas/*.json"]}, inv) == []
+    assert "schemas/unregistered.json" not in inv.source
+    assert ".flowguard/ignored.json" not in inv.source
+    owner.update(status="confirmed", fingerprint=fingerprint(root, component_files(owner, inv)))
+    assert not is_stale(root, owner, inv)
+    write(root, path, '{"required": ["order_id", "mode"]}\n')
+    assert is_stale(root, owner, inv)
+    changed = impact_of(root, data, [path])
+    assert changed.direct == ["storage"] and "storage" in changed.needs_review
+    assert "tests/test_storage.py" in changed.tests and "storage-proof" in changed.model_ids
+    assert path not in changed.no_checks
+    (root / path).unlink()
+    inv = build_inventory(root, DEFAULT_IGNORE)
+    inv.set_explicit_sources([p for c in data["components"] for p in c["files"]])
+    assert is_stale(root, owner, inv)
+    assert any(f.code == "pattern_dead" and path in f.message for f in run_check(root, data, inv))
+    deleted = impact_of(root, data, [path])
+    assert deleted.direct == ["storage"] and path not in deleted.no_checks
