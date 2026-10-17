@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.70.3 - 2026-10-17 - Focused native checks and simpler maintenance
+
+- Keep the living code/model/test map, current pointers, executable models, known-bad
+  behavior checks and runtime conformance. Exact registered schema/config/resource
+  paths now share their owner's fingerprint and affected-check selection; ignored
+  files and unregistered non-code globs do not broaden the inventory.
+- Always print the actual selected test paths, including selections larger than 30.
+  Focused default templates use native APIs; explicit full teaching variants remain.
+  Planned target evidence stays `not_run` until a real test executes.
+- Make companion capability routes conditional on the actual risk. Public-boundary
+  parity, unique owners, retirement obligations, freshness and per-obligation test
+  bindings remain; ordinary owner lookup does not require maturation/admission chains.
+- Remove the retired canonical-receipt requirement, unreachable native promotion,
+  unused author review layers, unconsumed wire projections and historic self-review
+  examples. Preserve native hashes, result integrity and live code/model/test bindings.
+- Run one complete Ubuntu Python 3.11 CI lane, with core path and packaging smoke on
+  Ubuntu Python 3.13 and Windows Python 3.12. Publish the current stable version and
+  all three assets only after the entire CI workflow succeeds for that exact source.
+
 ## v0.70.2 - 2026-10-14 - Honest checks, precise selection and portable operation
 
 - Models always execute. Remove the PASS cache and its self-model; move the impact self-model's
