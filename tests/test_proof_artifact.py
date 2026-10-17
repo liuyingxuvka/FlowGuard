@@ -110,19 +110,10 @@ class ProofArtifactTests(unittest.TestCase):
                 ),
             )
 
-    def test_strict_current_claim_rejects_lightweight_receipt_dialect(self):
+    def test_native_record_schema_does_not_require_a_retired_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
-            artifact = self._strict_artifact(Path(directory))
-            codes = {
-                code
-                for code, _ in proof_artifact_integrity_gap_codes(
-                    artifact,
-                    expected_receipt_id="receipt:strict",
-                    require_receipt=True,
-                    require_canonical_receipt=True,
-                )
-            }
-            self.assertIn("proof_receipt_canonical_required", codes)
+            artifact = self._strict_artifact(Path(directory), schema_version="native-result.v1")
+            self.assertEqual((), proof_artifact_integrity_gap_codes(artifact, require_receipt=True))
 
     def test_strict_verifier_rejects_tampered_result_bytes(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,4 +1,5 @@
 import tempfile
+import json
 import unittest
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from flowguard import (
     reconcile_contract_exhaustion_execution,
     review_contract_exhaustion,
     serialize_contract_runtime_evidence,
+    sha256_fingerprint,
     write_contract_runtime_evidence,
 )
 
@@ -274,6 +276,47 @@ class ContractRuntimeEvidenceTests(unittest.TestCase):
             {finding.code for finding in evidence.findings},
         )
         self.assertFalse(evidence.ok)
+
+    def test_strict_reconciliation_accepts_current_native_result_files(self):
+        report = self._report()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = {}
+            source, model, toolchain, environment = ("sha256:" + c * 64 for c in "1234")
+            for index, case in enumerate(report.generated_cases):
+                result_path = root / f"result-{index}.json"
+                result_path.write_text(json.dumps({"case_id": case.case_id, "status": "passed"}))
+                result_hash = sha256_fingerprint(result_path.read_bytes())
+                record_path = root / f"record-{index}.json"
+                record = dict(schema_version="native-result.v1", receipt_id=f"native:{index}",
+                              producer_id="owner:native", command="native-contract-check",
+                              source_fingerprint=source, model_fingerprint=model,
+                              toolchain_fingerprint=toolchain, environment_fingerprint=environment,
+                              result_fingerprint=result_hash, result_status="passed", exit_code=0,
+                              terminal_state="passed", cleanup_state="confirmed", cleanup_verified=True)
+                record_path.write_text(json.dumps(record, sort_keys=True, separators=(",", ":")))
+                rows[case.case_id] = ContractRuntimeResult(
+                    "passed", observed_status=CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
+                    result_path=str(result_path), result_fingerprint=result_hash,
+                    producer_receipt_id=record["receipt_id"], producer_receipt_path=str(record_path),
+                    producer_receipt_fingerprint=sha256_fingerprint(record_path.read_bytes()),
+                    source_fingerprint=source, model_fingerprint=model,
+                    toolchain_fingerprint=toolchain, environment_fingerprint=environment,
+                    terminal_state="passed", cleanup_state="confirmed", cleanup_verified=True)
+            evidence = reconcile_contract_exhaustion_execution(
+                report, execution_id="native-files", result_rows=rows,
+                execution_owner_id="owner:native", command=("native-contract-check",),
+                environment_fingerprint=environment, toolchain_fingerprint=toolchain,
+                require_verifiable_material=True)
+            self.assertTrue(evidence.ok, evidence.format_text())
+            result_path.write_text("tampered")
+            stale = reconcile_contract_exhaustion_execution(
+                report, execution_id="native-files-changed", result_rows=rows,
+                execution_owner_id="owner:native", command=("native-contract-check",),
+                environment_fingerprint=environment, toolchain_fingerprint=toolchain,
+                require_verifiable_material=True)
+            self.assertFalse(stale.ok)
+            self.assertIn("proof_result_hash_mismatch", {f.code for f in stale.findings})
 
     def test_strict_reconciliation_rejects_shape_only_pass_rows(self):
         report = self._report()

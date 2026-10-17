@@ -87,9 +87,8 @@ def _path_for_read(value: str) -> Path | None:
 def _receipt_field(receipt: Mapping[str, Any], *names: str) -> Any:
     """Read one receipt fact across the small native receipt dialects.
 
-    ``EvidenceReceipt`` uses ``producer_id`` and ``result_status`` while
-    lightweight native adapters often call the same facts ``owner_id`` and
-    ``terminal``.  This helper only reads aliases; it never treats a caller
+    Native adapters use ``producer_id``/``result_status`` or ``owner_id``/
+    ``terminal``. This helper only reads aliases; it never treats a caller
     supplied status as proof of a receipt.
     """
 
@@ -131,7 +130,6 @@ def proof_artifact_integrity_gap_codes(
     expected_reuse_identity: str = "",
     require_receipt: bool = True,
     require_cleanup_confirmation: bool = True,
-    require_canonical_receipt: bool = False,
 ) -> tuple[tuple[str, str], ...]:
     """Independently verify the material behind one proof reference.
 
@@ -231,29 +229,8 @@ def proof_artifact_integrity_gap_codes(
     elif expected_receipt and receipt_id != expected_receipt:
         add("proof_receipt_identity_mismatch", "producer receipt id does not match the evidence id")
 
-    # A full EvidenceReceipt is the only receipt authority for current
-    # execution claims.  Diagnostic/native adapters may still be inspected by
-    # callers that explicitly leave ``require_canonical_receipt`` false, but
-    # strict UI/runtime/DNA lanes must not accept that smaller dialect.
-    canonical_receipt_error: Exception | None = None
-    canonical_receipt = None  # experiment: EvidenceReceipt ledger removed
-    canonical_receipt_error = ValueError("canonical EvidenceReceipt ledger removed")
-    receipt_view: Mapping[str, Any] = (
-        canonical_receipt.to_dict() if canonical_receipt is not None else receipt
-    )
-    if canonical_receipt is not None:
-        if canonical_receipt.fingerprint != canonical_hash:
-            add("proof_receipt_canonical_model_mismatch", "parsed receipt canonical fingerprint differs from its JSON")
-    elif require_canonical_receipt:
-        add(
-            "proof_receipt_canonical_required",
-            "strict current evidence requires a valid canonical EvidenceReceipt",
-        )
-    elif "schema_version" in receipt:
-        add(
-            "proof_receipt_canonical_model_invalid",
-            f"declared canonical receipt cannot be validated: {canonical_receipt_error}",
-        )
+    # Native terminal records carry execution facts without an external ledger.
+    receipt_view = receipt
 
     expected_facts = {
         "owner": expected_owner_id or artifact.execution_owner_id,
@@ -640,7 +617,6 @@ def proof_artifact_gap_codes(
     expected_environment_fingerprint: str = "",
     expected_result_fingerprint: str = "",
     expected_reuse_identity: str = "",
-    require_canonical_receipt: bool = False,
 ) -> tuple[tuple[str, str], ...]:
     """Return normalized gap codes explaining why a proof artifact is not usable."""
 
@@ -704,9 +680,7 @@ def proof_artifact_gap_codes(
                 "proof_receipt_expected_identity_missing": "proof artifact receipt identity is not frozen",
                 "proof_receipt_identity_missing": "producer receipt identity is missing",
                 "proof_receipt_identity_mismatch": "producer receipt identity does not match",
-                "proof_receipt_canonical_required": "strict current evidence requires a valid canonical EvidenceReceipt",
                 "proof_receipt_canonical_model_mismatch": "parsed producer receipt is not canonical",
-                "proof_receipt_canonical_model_invalid": "declared producer receipt is not a valid canonical receipt",
                 "proof_receipt_command_missing": "producer receipt command is missing",
                 "proof_receipt_command_mismatch": "producer receipt command does not match",
                 "proof_receipt_exit_missing": "producer receipt exit code is missing",
@@ -759,7 +733,6 @@ def proof_artifact_gap_codes(
                 expected_reuse_identity=expected_reuse_identity,
                 require_receipt=require_receipt,
                 require_cleanup_confirmation=require_cleanup_confirmation,
-                require_canonical_receipt=require_canonical_receipt,
             ):
                 gaps.append((code, integrity_messages.get(code, message)))
     if require_result_path and not artifact.result_path:

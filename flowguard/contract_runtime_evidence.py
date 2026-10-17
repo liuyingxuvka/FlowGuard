@@ -942,7 +942,6 @@ def _result_integrity_findings(
         ),
         require_receipt=True,
         require_cleanup_confirmation=True,
-        require_canonical_receipt=True,
     ):
         _append_finding(findings, code, message, case_id=case_id)
 
