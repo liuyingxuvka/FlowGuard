@@ -309,7 +309,7 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
     assert "tests/test_web.py" not in imp.tests
     assert " models model" not in render_impact(imp)
     if change == "mapping":
-        assert "new-storage-proof" in imp.model_ids and "storage-proof" not in imp.model_ids
+        assert {"new-storage-proof", "storage-proof"} <= set(imp.model_ids)
     elif change not in {"nested", "helper", "runner", "test"}:
         assert "storage-proof" in imp.model_ids
     assert not imp.blocked
@@ -591,9 +591,103 @@ def test_test_commands_route_javascript_without_pytest(impact_project):
     imp = impact_of(root, data, ["web/cart.test.js"])
     text = render_impact(imp)
     assert "NO TEST COMMAND for: web/cart.test.js" in text
+    assert imp.blocked
     assert not any(line.startswith("run:") and ".js" in line for line in text.splitlines())
     data["test_commands"] = {"**/*.test.js": "npx jest"}
     assert "run: npx jest web/cart.test.js" in render_impact(impact_of(root, data, ["web/cart.test.js"]))
+
+
+@pytest.mark.parametrize("retire", [False, True])
+def test_deleted_owner_keeps_surviving_test_and_contract_only(impact_project, retire):
+    import sys
+
+    root, data = impact_project
+    write(root, "tests/test_storage.py", "from shop.storage import save\nassert save(1) == 1\n")
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "native test")
+    (root / "shop/storage.py").unlink()
+    data["components"] = [c for c in data["components"] if c["id"] != "storage"]
+    if retire:
+        (root / "tests/test_storage.py").unlink()
+        (root / ".flowguard/models/persistence.py").unlink()
+    save(root, data)
+    imp = impact_of(root, data, ["shop/storage.py", ".flowguard/map.json"], base="HEAD")
+    assert "storage" in imp.direct
+    assert ("tests/test_storage.py" in imp.tests) is not retire
+    assert ("storage-proof" in imp.model_ids) is not retire
+    assert not imp.blocked
+    if not retire:
+        assert "shop/storage.py" not in imp.no_checks
+        result = subprocess.run([sys.executable, "-c", "exec(open('tests/test_storage.py').read())"],
+                                cwd=root, capture_output=True, text=True)
+        assert result.returncode != 0 and "ModuleNotFoundError" in result.stderr
+
+
+def test_deleted_owner_without_surviving_checks_is_visible(impact_project):
+    root, data = impact_project
+    owner = data["components"][2]
+    owner["tests"] = owner["models"] = []
+    save(root, data)
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "unverified owner")
+    (root / "shop/storage.py").unlink()
+    data["components"].remove(owner)
+    save(root, data)
+    imp = impact_of(root, data, ["shop/storage.py", ".flowguard/map.json"], base="HEAD")
+    assert "shop/storage.py" in imp.no_checks
+
+
+@pytest.mark.parametrize("registered", [False, True])
+def test_old_runner_requires_current_registration(impact_project, registered):
+    root, data = impact_project
+    owner = data["components"][1]
+    path = owner["models"][0]
+    data["components"].remove(owner)
+    if registered:
+        data["components"][0]["models"] = [path]
+    save(root, data)
+    imp = impact_of(root, data, [".flowguard/map.json"], base="HEAD")
+    assert (path in imp.models) is registered
+    assert any(path in item for item in imp.blocked) is not registered
+
+
+@pytest.mark.parametrize("mode", ["historical", "override", "ambiguous", "missing", "retired"])
+def test_surviving_javascript_command_is_resolved_or_blocked(impact_project, capsys, mode):
+    from flowguard.__main__ import main
+    from flowguard.map.impact import render_impact
+
+    root, data = impact_project
+    path = "web/cart.test.cjs"
+    write(root, path, "require('./client.js');\n")
+    data["components"][3]["tests"] = [path]
+    data["test_commands"] = {} if mode == "missing" else {"**/*.test.cjs": "node --test"}
+    save(root, data)
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "JS check")
+    data["components"].pop()
+    data["test_commands"] = {}
+    if mode == "override":
+        data["test_commands"] = {path: "node --test --test-reporter=tap"}
+    elif mode == "ambiguous":
+        data["test_commands"] = {path: "node --test", "**/*.test.cjs": "npx jest"}
+    elif mode == "retired":
+        (root / path).unlink()
+    save(root, data)
+    changed = [".flowguard/map.json"]
+    imp = impact_of(root, data, changed, base="HEAD")
+    blocked = mode in {"missing", "ambiguous"}
+    assert bool(imp.blocked) is blocked
+    if mode == "retired":
+        assert path not in imp.tests
+    elif not blocked:
+        command = "node --test --test-reporter=tap" if mode == "override" else "node --test"
+        assert imp.test_commands[path] == command
+        assert f"run: {command} {path}" in render_impact(imp)
+    else:
+        assert "NO TEST COMMAND for: " + path in render_impact(imp)
+        assert run(root, "impact", *changed, capsys=capsys)[0] == 1
+        assert main(["change", "--root", str(root), *changed]) == 1
+        capsys.readouterr()
 
 
 def test_npm_static_import_is_not_a_dynamic_surface(impact_project):

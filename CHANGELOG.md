@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.70.4 - 2026-10-17 - Preserve surviving verification after ownership changes
+
+- Keep affected historical tests and executable models that still exist when an owner
+  or its bindings change; do not revive deliberately deleted checks. Surviving runners
+  without current registration are blocked until their ownership is resolved.
+- Resolve selected test commands from current declarations, then unambiguous historical
+  mappings. Missing or ambiguous commands block impact/change instead of exiting successfully.
+- Keep unsupported deletion scopes visible as `NO CHECKS`, while registered resources
+  and surviving verification remain precisely scoped.
+
 ## v0.70.3 - 2026-10-17 - Focused native checks and simpler maintenance
 
 - Keep the living code/model/test map, current pointers, executable models, known-bad

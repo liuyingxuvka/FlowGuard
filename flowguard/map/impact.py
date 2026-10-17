@@ -189,12 +189,14 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 contract_tests[entry.path].add(anchor.split(":", 1)[0])
     direct, blocked, map_review = set(), [], []
     selected_model_paths, matched = set(), set()
+    matched_owners: dict[str, set[str]] = defaultdict(set)
     tests = {f for f in changed if f in inv.tests and is_collectable_test(f)}
     for f in changed:
         for comp in list(by_id.values()) + list(old_by_id.values()):
             if is_product_file(f, comp.get("files", [])):
                 direct.add(comp["id"])
                 matched.add(f)
+                matched_owners[f].add(comp["id"])
         selected_model_paths.update(contract_inputs.get(f, ()))
         bound_models = _owner_model_paths(f, model_bindings)
         old_bound_models = _owner_model_paths(f, old_models)
@@ -255,13 +257,18 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 traversed.add(caller)
                 queue.append((caller, distance + 1))
     tests.update(_tests_reaching(inv, changed))
+    owner_tests: dict[str, set[str]] = defaultdict(set)
+    owner_models: dict[str, set[str]] = defaultdict(set)
     for cid in affected:
-        comp = by_id.get(cid)
-        if comp is None:
-            continue
-        for pat in comp.get("tests", []):
-            tests.update(f for f in inv.tests if glob_match(f, pat))
-        selected_model_paths.update(comp.get("models", []))
+        for comp in (by_id.get(cid), old_by_id.get(cid)):
+            if comp is None:
+                continue
+            owner_tests[cid].update(f for f in inv.tests
+                                    if any(glob_match(f, pat) for pat in comp.get("tests", [])))
+            owner_models[cid].update(path for path in comp.get("models", [])
+                                     if comp is by_id.get(cid) or (root / path).is_file())
+        tests.update(owner_tests[cid])
+        selected_model_paths.update(owner_models[cid])
     for model in selected_model_paths:
         if model in changed:
             tests.update(contract_tests.get(model, ()))
@@ -282,7 +289,23 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     owned_affected = {f for cid in affected if cid in by_id for f in component_files(by_id[cid], inv)}
     uncertainty.extend(f"{f}: dynamic imports may be unresolved; declare known component dependencies"
                        for f in sorted(inv.dynamic_files & owned_affected))
-    no_checks = [f for f in changed if f not in inv.source and f not in matched and f != ".flowguard/map.json"
+    tests = {t for t in tests if is_collectable_test(t) and inv.is_test(t)}
+    test_commands = {}
+    for test in sorted(tests):
+        commands = {cmd for pat, cmd in data.get("test_commands", {}).items() if glob_match(test, pat)}
+        if not commands:
+            commands = {cmd for pat, cmd in (previous or {}).get("test_commands", {}).items()
+                        if glob_match(test, pat)}
+        if len(commands) == 1:
+            test_commands[test] = next(iter(commands))
+        elif commands:
+            test_commands[test] = ""       # neither display nor run an arbitrary ambiguous command
+            blocked.append(f"{test}: ambiguous test commands: {', '.join(sorted(commands))}")
+        elif not test.endswith(".py"):
+            blocked.append(f"{test}: no executable test command; declare test_commands or retire the test")
+    covered = {f for f, cids in matched_owners.items()
+               if any(owner_tests[cid] & tests or owner_models[cid] & set(models) for cid in cids)}
+    no_checks = [f for f in changed if f not in inv.source and f not in covered and f != ".flowguard/map.json"
                  and not f.startswith(".flowguard/") and not any(
                      f in read_source(root / t) or Path(f).name in read_source(root / t)
                      for t in tests if (root / t).is_file())]
@@ -291,13 +314,13 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         unmapped=[f for f in changed if f not in matched and not inv.is_test(f)
                   and (f in inv.source or Path(f).suffix in SOURCE_EXTS)
                   and not matches_any(f, ignore_patterns(data))],
-        tests=sorted(t for t in tests if is_collectable_test(t) and inv.is_test(t)), models=models,
+        tests=sorted(tests), models=models,
         needs_review=[cid for cid in sorted(direct) if cid in by_id and is_stale(root, by_id[cid], inv)],
         test_command=data.get("test_command") or DEFAULT_TEST_COMMAND,
         total_tests=sum(is_collectable_test(t) for t in inv.tests),
         map_changed=".flowguard/map.json" in changed, depth=depth,
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
-        model_ids=[registered[m].id for m in models], test_commands=data.get("test_commands", {}), no_checks=no_checks,
+        model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
     )
 
 

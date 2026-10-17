@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "flowguard"
-version = "0.70.3"
+version = "0.70.4"
 description = "A living, code-anchored map of your software, executable models of its risky flows, and focused capability reviews for AI-assisted development."
 requires-python = ">=3.11"
 dependencies = []
