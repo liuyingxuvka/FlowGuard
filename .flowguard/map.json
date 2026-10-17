@@ -1025,7 +1025,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:44580bfd9ad2c4062cc83e5230811e2f93174e082a003929ec9aff1248b78efa"
+      "fingerprint": "sha256:fde6afe8f23b67671c8c4ea078078cb6a37af077c3e73233c630338c35382ddb"
     },
     {
       "id": "map-proof",

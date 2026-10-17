@@ -332,13 +332,9 @@ def render_impact(imp: Impact) -> str:
         # The executable command contains the list once; avoid repeating it above.
         lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): " + ("see run below" if imp.tests else "-"))
     for command, tests in groups.items():
-        # An all-test command is safe only for the default Python suite with no
-        # foreign-language tests or custom test-command group.
-        if broad and command == DEFAULT_TEST_COMMAND and len(tests) == len(imp.tests):
-            lines.append(f"run: {command}  # run the full Python test suite")
-        else:
-            import shlex
-            lines.append(f"run: {command} " + " ".join(shlex.quote(t) for t in tests))
+        # Keep the executable command scoped even when its display is long.
+        import shlex
+        lines.append(f"run: {command} " + " ".join(shlex.quote(t) for t in tests))
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
     if imp.models:
         lines.append("run: python -m flowguard.map models " + " ".join(imp.model_ids))
