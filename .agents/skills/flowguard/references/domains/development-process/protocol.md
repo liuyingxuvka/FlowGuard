@@ -1,4 +1,7 @@
 # Development Process Flow
+
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 This stops "done" or "release" claims that rest on old test results. Each artifact
 (code, test, model, requirement) has a current version; each evidence row records the
 versions it ran on. The review catches a test that passed on code@1 while code is now
@@ -58,11 +61,7 @@ reported as current. It also computes a small re-run set. Map fingerprints make 
    name a `ProcessEvidence` with `evidence_kind="full_validation"` that passed and is current.
 5. Re-run list: `derive_revalidation_plan(plan)` returns `RevalidationRecommendation` rows (`requirement_id`,
    `command`, `freshness_gap_codes`) for declared requirements lacking current passing evidence.
-6. Optional, before coding: `review_implementation_admission(ImplementationAdmissionPlan(
-   "adm", maturation_evidence=verdict, implementation_requested=True))`. Build `verdict` like the
-   template's `MaturationVerdict`; ready only if `verdict.supports_full_confidence()`. Blocks with
-   `missing_model_maturation_evidence` (no verdict) or `stale_model_maturation_evidence`.
-7. Add broken variants (below). Make `run_checks.py` return 0 only if the good plan passes and
+6. Add relevant business regressions (below). Make `run_checks.py` return 0 only if the good plan passes and
    each broken plan fails. List its path in the owning component's `models`, then run
    `python -m flowguard map models development_process_flow` (runner id = folder name).
 
@@ -106,7 +105,7 @@ with `AgentWorkflowStep` rows, then `review_agent_workflow_rehearsal(plan)` (`.o
 | `full_validation_parent_not_unique` | Release claim without exactly one full-validation id. |
 | `full_validation_parent_not_current` | That id is missing, not `full_validation`, or stale/failed. |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Run before edit: `run-unit` then `edit-code`, claim uses `unit-pass` (stale, claim blocked).
 - Peer write: after the run, `ProcessAction("sync", writes_artifacts=("checkout",), actor="peer")`.
@@ -122,7 +121,8 @@ with `AgentWorkflowStep` rows, then `review_agent_workflow_rehearsal(plan)` (`.o
 
 ## Limits
 
-- Test evidence producers route to `test_mesh`; progress alone never completes a test claim.
+- A direct pytest/native result is sufficient for an ordinary run; use TestMesh only
+  for real shard/parent aggregation. Progress alone never completes a test claim.
 
 - It checks the rows you declare. It does not run tests or watch files; an undeclared write is invisible.
 - Versions are only as good as you make them. A draft map component's fingerprint is empty until `map confirm ID`.

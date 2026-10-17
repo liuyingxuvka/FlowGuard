@@ -1,4 +1,6 @@
 # Existing Model Preflight
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Before you change behavior, find out which component or model already owns it.
 This capability catches the "parallel second owner" bug: an agent adds a new
 scheduler, store, handler or model for something an existing component already
@@ -12,9 +14,7 @@ files changed since the last `confirm` (or that are still draft).
 - The change touches state, side effects, or behavior-bearing fields (config keys, schema keys, prompt fields).
 - The same action is reachable from several surfaces (UI, API, CLI, alias, wrapper) and you change one of them.
 - You need to pick the right next capability for the real work.
-
 ## Do not use when
-
 - The change is a typo, formatting, or a pure read-only explanation. Skip it and say why.
 - The project has no map yet. Write the map first (`python -m flowguard map scan`, describe, then `confirm`).
 - You already know the owner and need to prove behavior. Use plain modeling (`references/model_recipes.md`), model-test, or model-miss.
@@ -37,7 +37,7 @@ files changed since the last `confirm` (or that are still draft).
    from flowguard import existing_model_preflight_from_project, review_existing_model_preflight
    pre = existing_model_preflight_from_project(
        ".", "add cancel order", changed_paths=("app/orders.py",),
-       mode="full", downstream_routes=("development_process_flow",))
+       mode="full")
    report = review_existing_model_preflight(pre)
    print(report.format_text())
    ```
@@ -49,7 +49,7 @@ files changed since the last `confirm` (or that are still draft).
    `mode="light"` never reads model bodies. `mode="full"` (the default) also takes
    entrypoints and, without running the file, reads class names, `*State` fields and
    top-level `state_owned`, `side_effects_owned`, `fields_owned` lists from the first
-   file in `models`. Full mode needs `downstream_routes` (else `missing_downstream_route`).
+   file in `models`. `downstream_routes` is optional; owner lookup alone can finish.
    `inventory_scope=PREFLIGHT_INVENTORY_BROAD` (from `flowguard.existing_model_preflight`)
    selects every component; use it only for a whole-project review.
 2. Read the result. `relevant_models` (`ModelContextHit`) are the selected components:
@@ -73,7 +73,7 @@ files changed since the last `confirm` (or that are still draft).
    (any surface field makes these three required), and `typed_external_difference_ids`.
 5. Run `review_existing_model_preflight(...)`. `report.ok` must be true. `report.decision`
    says why it stopped (for example `duplicate_boundary_risk_blocked`).
-6. For a reusable check, start from the template:
+6. Only for a new reusable check, start from the template:
    `python -m flowguard template existing-model-preflight --write .`
    It writes `.flowguard/models/owners/existing_model_preflight/model.py` (one correct
    and one broken preflight), the runner
@@ -104,7 +104,7 @@ an unrelated ledger only warns when the map already resolves the task owner.
 | `model_growth_unbound` | A changed file (present or deleted) belongs to no component in the map. |
 | `adoption_candidate_not_current` | There is no map; found model files are candidates only. |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - A second scheduler that writes the same `pending_tasks` state as the existing router, with
   an unresolved `DuplicateBoundaryRisk` (must give `duplicate_boundary_risk_unresolved`).
@@ -116,8 +116,8 @@ an unrelated ledger only warns when the map already resolves the task owner.
 ## Done when
 
 - [ ] `review_existing_model_preflight` returns `ok` for your real plan, and the report names the owner and the reuse decision.
-- [ ] Each known-bad variant fails with the expected code.
-- [ ] The runner is listed in the owner's `models`, and `python -m flowguard map models existing_model_preflight` exits 0.
+- [ ] Relevant business regressions remain covered by the existing owner tests.
+- [ ] If a new runner was needed, register it in the owner's `models` and run it.
 - [ ] The owner's `tests` in the map list the tests for the changed behavior.
 - [ ] `python -m flowguard change` is clean: no unmapped files, no stale owner.
 - [ ] Your report says what ran (preflight mode, models, tests), what was skipped and why, and the next capability.

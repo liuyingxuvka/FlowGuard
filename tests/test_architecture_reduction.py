@@ -440,7 +440,7 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertEqual("missing_observable_contract", report.decision)
         self.assertIn("missing_observable_contract", codes)
 
-    def test_public_entrypoint_candidate_requires_structure_mesh(self):
+    def test_public_entrypoint_candidate_does_not_require_a_companion_route(self):
         plan = ArchitectureReductionPlan(
             "router-public-reduction",
             observable_contract=contract(),
@@ -452,18 +452,16 @@ class ArchitectureReductionTests(unittest.TestCase):
                     source_model_element="RouteCommand",
                     target_action=TARGET_ACTION_MERGE,
                     affected_public_entrypoints=("router.cli",),
-                    required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
+                    required_next_route="",
                 ),
             ),
-            companion_route_triggers=(trigger(),),
-            rationale="public entrypoint candidate must route through StructureMesh",
+            rationale="public entrypoint parity is reviewed without a route chain",
         )
 
         report = review_architecture_reduction(plan)
 
-        self.assertFalse(report.ok)
-        self.assertEqual("structure_mesh_required", report.decision)
-        self.assertIn("public_entrypoint_requires_structure_mesh", [finding.code for finding in report.findings])
+        self.assertTrue(report.ok, report.format_text())
+        self.assertNotIn("", report.required_next_routes)
 
     def test_keep_public_facade_candidate_is_ready_with_structure_mesh_route(self):
         plan = ArchitectureReductionPlan(
@@ -768,7 +766,7 @@ class ArchitectureReductionTests(unittest.TestCase):
             [finding.code for finding in report.findings],
         )
 
-    def test_public_boundary_adapter_surface_requires_structure_mesh(self):
+    def test_public_boundary_adapter_keeps_contract_without_mandatory_route(self):
         plan = ArchitectureReductionPlan(
             "router-boundary-adapter-reduction",
             observable_contract=contract(),
@@ -787,13 +785,8 @@ class ArchitectureReductionTests(unittest.TestCase):
 
         report = review_architecture_reduction(plan)
 
-        self.assertFalse(report.ok)
-        self.assertEqual("structure_mesh_required", report.decision)
-        self.assertEqual((), report.ready_candidate_ids)
-        self.assertIn(
-            "compatibility_surface_public_entrypoint_requires_structure_mesh",
-            [finding.code for finding in report.findings],
-        )
+        self.assertTrue(report.ok, report.format_text())
+        self.assertIn("collapse-normalizer-adapter", report.ready_candidate_ids)
 
     def test_negative_legacy_test_removal_requires_replacement_evidence(self):
         plan = ArchitectureReductionPlan(

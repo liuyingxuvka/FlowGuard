@@ -1,5 +1,8 @@
 # Model Mesh
 
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
+
 Use this when one flow is described by several models (a parent and its children).
 The review catches gaps between the models, not bugs inside one model. Examples: two
 child models both write `payment.status`; a parent item that no child owns; the payment
@@ -71,8 +74,7 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
    `check_portable_model(model)`; parent/child with `check_refinement(parent, child,
    RefinementBinding(...))`; several models with `check_composition(models)`, or a joint
    system with `check_system_composition(system, request, models)`. `report.ok` means `status == "pass"`.
-5. Replace the template's `REQUIRED_NEGATIVE_CASES` codes with real codes from the table below,
-   and build one broken variant per case. `run_checks.py` must return 0 only when the good mesh
+5. Retain the relevant real partition/reattachment regression from the table below. `run_checks.py` must return 0 only when the good mesh
    passes and every broken variant fails.
 6. Run `python .flowguard/verification/owners/<id>/run_checks.py`. List that path in the parent
    component's `models` in `.flowguard/map.json`, then run `python -m flowguard map models <id>`.
@@ -100,7 +102,7 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement_state_unmapped`,
 `refinement_transition_unmapped`, `refinement_child_stale`, `composition_guarantee_conflict`.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Renamed output: payment emits `payment:captured`, parent contract expects `payment:settled`
   (gives `child_reattachment_missing_output`, `unconsumed_child_output`, `unreachable_normal_exit`).

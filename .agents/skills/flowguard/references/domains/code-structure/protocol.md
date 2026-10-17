@@ -1,5 +1,6 @@
 # Code Structure Recommendation
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Use this before you write code for a new feature. You start from a functional
 model of the feature and decide which module owns each function block, state
 item, field, side effect, config key and public entrypoint. The review catches
@@ -101,7 +102,7 @@ the code exists, each recommended module becomes one component in
 After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `duplicate_owner`
 (lint) show where the code drifted from one owner per responsibility.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Monolith: one module `checkout` with no rationale, empty `function_block_map`.
 - Double writer: `side_effect_owner_map=(("write_order","orchestrator"),("write_order","effects"))`.

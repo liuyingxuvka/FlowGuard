@@ -34,11 +34,12 @@ Commands: `python -m flowguard read | change | release | template` and `python -
 4. For each REVIEW component: read the change, update `summary`/`responsibilities`/`state`/
    `side_effects` if behavior changed, then `python -m flowguard map confirm <id>`.
 
-## Capabilities: pick at most one per task
+## Capabilities: pick one primary per task
 
-Read only the protocol of the capability you pick: `references/domains/<name>/protocol.md`.
+Read the primary capability protocol: `references/domains/<name>/protocol.md`.
 Starter files: `python -m flowguard template --list`, then `python -m flowguard template <name> --write .`.
-If none clearly fits, use plain modeling (`references/model_recipes.md`).
+Add another native check only for an independent observed risk, reusing the same facts;
+do not chain full protocols by default. If none fits, use plain modeling (`references/model_recipes.md`).
 
 | capability | use when |
 | --- | --- |

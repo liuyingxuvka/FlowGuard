@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from flowguard import (
@@ -46,40 +45,18 @@ from flowguard import (
     PROCESS_SCOPE_RELEASE,
     DevelopmentProcessPlan,
     FreshnessRule,
-    ImplementationAdmissionPlan,
     ProofArtifactRef,
     ProcessAction,
     ProcessArtifact,
     ProcessEvidence,
     ValidationRequirement,
     review_development_process_flow,
-    review_implementation_admission,
 )
 
 
 def fingerprint_value(value) -> str:
     text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
-
-
-@dataclass(frozen=True)
-class MaturationVerdict:
-    """The model is ready for this task: current, closed, no open gaps."""
-
-    model_id: str
-    task_id: str
-    current: bool
-    candidate_model_fingerprint: str
-    coverage_universe_fingerprint: str
-    input_fingerprint: str
-    evidence_fingerprint: str
-    open_gap_fingerprints: tuple[str, ...] = ()
-
-    def supports_full_confidence(self) -> bool:
-        return self.current and not self.open_gap_fingerprints
-
-    def to_dict(self) -> dict:
-        return asdict(self)
 
 
 def proof_artifact(artifact_id: str, *covered: str) -> ProofArtifactRef:
@@ -131,27 +108,6 @@ def artifacts(code_version: str = "2", test_version: str = "1", requirement_vers
             upstream_artifact_ids=("requirements.checkout", "model.checkout"),
         ),
         ProcessArtifact("tests.checkout", PROCESS_ARTIFACT_TEST, test_version),
-    )
-
-
-def implementation_admission():
-    model_id = "checkout-functional-model"
-    maturation = MaturationVerdict(
-        model_id=model_id,
-        task_id="task:checkout",
-        current=True,
-        candidate_model_fingerprint=fingerprint_value({"model_id": model_id, "candidate": "template-current"}),
-        coverage_universe_fingerprint="sha256:coverage",
-        input_fingerprint="sha256:intake",
-        evidence_fingerprint="sha256:evidence",
-    )
-    return review_implementation_admission(
-        ImplementationAdmissionPlan(
-            "admission:checkout",
-            maturation_evidence=maturation,
-            implementation_requested=True,
-            requested_path_ids=("checkout/orchestrator.py",),
-        )
     )
 
 
@@ -246,7 +202,6 @@ def run_checks():
     return (
         review_development_process_flow(routine_plan()),
         review_development_process_flow(broken_plan()),
-        implementation_admission(),
     )
 '''
 
@@ -258,13 +213,12 @@ from model import run_checks
 
 
 def main() -> int:
-    routine, broken, admission = run_checks()
+    routine, broken = run_checks()
     print(routine.format_text())
     print()
     print(broken.format_text(max_findings=6))
     print()
-    print(admission.to_dict())
-    return 0 if routine.ok and not broken.ok and admission.implementation_ready() else 1
+    return 0 if routine.ok and not broken.ok else 1
 
 
 if __name__ == "__main__":
@@ -314,10 +268,6 @@ Use this scaffold to model a development lifecycle as a stateful process.
   universal order;
 - stable Finding Ledger references, relation-backed root-cause repair groups,
   visible hard blockers, and current affected-obligation revalidation.
-- a separate implementation-admission result: `ready` only after exact
-  closed-for-task maturation, direct user choice as `not_requested` with
-  `direct`, and `no_code_requested` for read-only work; otherwise blocked or
-  stale. Direct choice never rewrites maturation or closes evidence gaps.
 
 For field-bearing work, add `PROCESS_ARTIFACT_FIELD_LIFECYCLE`,
 `PROCESS_ARTIFACT_FIELD_PROJECTION`, `PROCESS_ARTIFACT_REPLACEMENT_DISPOSITION`,

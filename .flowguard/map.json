@@ -260,7 +260,7 @@
         ".flowguard/verification/owners/template_public_release/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c521d202a127a30288fa38f898d3031383098eeb58839faeeeca92c1f4ec1603"
+      "fingerprint": "sha256:ec2d2606e5a828f8a59e7e5eb1191b2a6478731896422e4f0c24ae6e6fcfef2a"
     },
     {
       "id": "existing-model",
@@ -297,7 +297,7 @@
         ".flowguard/verification/owners/existing_model_preflight/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:810b595e88f3c1447025a2d77e7c43b6ab632abe7faa7936ddc1be14ade2d318"
+      "fingerprint": "sha256:33e73a16d3d0196c511ca6a55b509acaebf31f90387edcada6413a4049bddd84"
     },
     {
       "id": "behavior-commitment",
@@ -382,7 +382,7 @@
         ".flowguard/verification/owners/architecture_reduction/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2dfd505b814078a70d203da8818076f68a1cd37e2c3ccd6109387df238ba051e"
+      "fingerprint": "sha256:4d38274fc1fca768953af4047e72accaf2f1be962586946a4832263f1b021641"
     },
     {
       "id": "code-structure",

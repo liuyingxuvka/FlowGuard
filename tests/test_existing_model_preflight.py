@@ -65,8 +65,8 @@ class ExistingModelPreflightTests(unittest.TestCase):
                 public_entrypoint_owners=(("router.dispatch", hit.model_id),),
             ),
             reuse_decision=REUSE_DECISION_REUSE_EXISTING,
-            downstream_routes=("model_test_alignment",),
-            rationale="reuse current owner",
+            downstream_routes=(),
+            rationale="reuse current owner without a mandatory downstream route",
         )
         return review_existing_model_preflight(preflight)
 

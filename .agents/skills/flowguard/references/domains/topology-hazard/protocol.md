@@ -1,4 +1,6 @@
 # Topology Hazard Review
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 
 Use this after a model is green and someone wants to call the work done, released or
 production-ready. The bug class is "green locally, broken in real use", found from the
@@ -42,7 +44,7 @@ no anchor stays an observation and never blocks.
 1. Scaffold if useful: `python -m flowguard template topology-hazard --write .` writes
    `.flowguard/models/owners/model_topology_hazard_review/model.py`, its
    `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py` and a notes file.
-   Its runner exits 0 when the demo review is blocked; replace that with per-case asserts (step 6).
+   Its blocked demo exits 1; a passing real review exits 0. Keep per-case asserts (step 6).
 2. Build the usage intent: `UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release",
    compatibility_policy=TOPOLOGY_COMPAT_UNKNOWN, persistent_history_possible=...)`.
    `infer_usage_intent(goal=, final_claim=, project_kind=)` guesses one from text; check it.
@@ -99,7 +101,7 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
 
 Decision values: `topology_hazard_pass`, `topology_hazard_scoped_confidence`, `topology_hazard_blocked`.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - A SaveRecord block with `side_effects=("database_write",)`, repeatable input, release
   claim, no idempotency evidence: must give a blocker on `hazard:repeatable-side-effect:*`.

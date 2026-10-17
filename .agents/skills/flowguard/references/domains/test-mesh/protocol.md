@@ -1,18 +1,16 @@
 # Test Mesh
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Test Mesh catches false green from large or slow test runs: two shards own the
 same test or none does; a background job's progress log or live PID is reported
 as a pass; counts do not add up (planned 500, executed 480, none marked not run);
 skips hide inside a green summary; an old pass is reused after the code changed;
 a routine run silently stands in for the release run.
-
 ## Use when
-
 - The test suite is too large or slow to run whole on every change and must be split.
 - Tests run in the background, in parallel shards, or with timeouts.
 - A parent gate (CI job, release check) trusts child suites, or reuses an earlier pass.
 - Some suites are release-only and may be deferred during routine work.
-
 ## Do not use when
 
 - The test set is small and runs in one command. Just run it.
@@ -28,15 +26,16 @@ a routine run silently stands in for the release run.
 
 ## Steps
 
-1. Run `python -m flowguard change` and the tests and models it lists. Map any
-   unmapped files first; do not guess the test set.
-2. If the selected set is too slow, use the packaged shard runner:
-   `python -m flowguard.pytest_shards_cli --root . --shards 4 --parallel-shards 4 --json`
-   (also `--collect-timeout`, `--shard-timeout`, `--run-timeout`, `--resume-output`).
-   It hashes each collected node id to one shard, runs exact node ids per shard,
-   records exact executions in `.flowguard/cache/pytest-shards` and checks a disjoint, exact union.
-3. `python -m flowguard template test-mesh --write .` writes `.flowguard/models/owners/test_mesh/model.py`,
-   the runner `.flowguard/verification/owners/test_mesh/run_checks.py`, and notes.
+1. Run `python -m flowguard change` to choose the affected tests before execution.
+   For a small selected set, run the exact printed commands once and stop here.
+2. If the selected validation genuinely needs sharding, choose the packaged runner
+   instead of first doing the same work directly:
+   `python -m flowguard.pytest_shards_cli --root . --shards 4 --parallel-shards 4 --json`.
+   It collects the whole suite and runs exact node ids in disjoint shards. It cannot
+   select only `change` files; use direct pytest for those.
+3. No hand-filled TestMesh model is needed for that runner's ordinary results. Only
+   when a real parent trusts independent child suites/state/effect owners, scaffold
+   `python -m flowguard template test-mesh --write .` and use the advanced API below.
 4. In `model.py`: `from flowguard import TestMeshPlan, TestPartitionItem,
    TestSuiteEvidence, TestTargetSplitDerivation, TestResultReuseTicket, review_test_mesh,
    EVIDENCE_ABSTRACT_GREEN`.
@@ -96,7 +95,7 @@ print(report.ok, report.decision); print(report.format_text())
 | `missing_test_reuse_ticket` / `test_reuse_verifier_fingerprint_mismatch` | Reuse without a ticket, or a fingerprint changed since the earlier pass. |
 | `release_suite_not_current` | Release scope with a release-only suite not run (a routine run only warns: `release_suite_deferred`). |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Progress only: `background=True, progress_only=True`, no exit file: `suite_progress_only`
   and `background_incomplete`.
@@ -123,7 +122,8 @@ print(report.ok, report.decision); print(report.format_text())
 - Known gap: the shard runner's `--resume-output` reuses a prior passing shard
   when the node-id inventory and shard request match. It does not compare source
   file hashes, so a code edit that keeps the same node ids reuses a stale pass.
-  Do not resume after source edits; never resume for release.
+  Do not resume after changes to source, tests, model, command, config, dependencies,
+  environment or interpreter; never resume for release.
 - The shard runner always collects the whole suite; it cannot run only the files `change`
   selected. Run those directly with pytest.
 - A green mesh shows the split is honest. It does not show the tests check the

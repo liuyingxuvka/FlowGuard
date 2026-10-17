@@ -33,10 +33,10 @@ class ArchitectureReductionCase:
     candidates_classified: bool = True
     proof_status_visible: bool = True
     risky_candidates_kept_visible: bool = True
-    public_entrypoint_structuremesh_gate: bool = True
+    public_contract_parity_verified: bool = True
     target_structure_handoff: bool = True
     completed_candidates_not_requeued: bool = True
-    companion_route_triggers: bool = True
+    requested_companion_routes_valid: bool = True
     no_direct_code_rewrite: bool = True
     validation_gates_visible: bool = True
     reduction_mode: str = "contract"
@@ -116,10 +116,10 @@ class ArchitectureReductionPolicy:
     candidates_classified: bool = False
     proof_status_visible: bool = False
     risky_candidates_kept_visible: bool = False
-    public_entrypoint_structuremesh_gate: bool = False
+    public_contract_parity_verified: bool = False
     target_structure_handoff: bool = False
     completed_candidates_not_requeued: bool = False
-    companion_route_triggers: bool = False
+    requested_companion_routes_valid: bool = False
     no_direct_code_rewrite: bool = False
     validation_gates_visible: bool = False
     reduction_mode: str = "contract"
@@ -229,16 +229,16 @@ BROKEN_RISKY_CANDIDATES_HIDDEN = ArchitectureReductionCase(
 )
 BROKEN_PUBLIC_ENTRYPOINT_BYPASS = ArchitectureReductionCase(
     "broken_public_entrypoint_bypass",
-    public_entrypoint_structuremesh_gate=False,
+    public_contract_parity_verified=False,
 )
 BROKEN_NO_TARGET_HANDOFF = ArchitectureReductionCase("broken_no_target_handoff", target_structure_handoff=False)
 BROKEN_COMPLETED_CANDIDATE_REQUEUED = ArchitectureReductionCase(
     "broken_completed_candidate_requeued",
     completed_candidates_not_requeued=False,
 )
-BROKEN_NO_COMPANION_TRIGGERS = ArchitectureReductionCase(
+BROKEN_INVALID_REQUESTED_ROUTE = ArchitectureReductionCase(
     "broken_no_companion_triggers",
-    companion_route_triggers=False,
+    requested_companion_routes_valid=False,
 )
 BROKEN_DIRECT_REWRITE = ArchitectureReductionCase("broken_direct_rewrite", no_direct_code_rewrite=False)
 BROKEN_NO_VALIDATION_GATES = ArchitectureReductionCase("broken_no_validation_gates", validation_gates_visible=False)
@@ -527,10 +527,10 @@ class EvaluateArchitectureReductionPlan:
         "candidates_classified",
         "proof_status_visible",
         "risky_candidates_kept_visible",
-        "public_entrypoint_structuremesh_gate",
+        "public_contract_parity_verified",
         "target_structure_handoff",
         "completed_candidates_not_requeued",
-        "companion_route_triggers",
+        "requested_companion_routes_valid",
         "no_direct_code_rewrite",
         "validation_gates_visible",
         "reduction_mode",
@@ -614,10 +614,10 @@ class EvaluateArchitectureReductionPlan:
             candidates_classified=input_obj.candidates_classified,
             proof_status_visible=input_obj.proof_status_visible,
             risky_candidates_kept_visible=input_obj.risky_candidates_kept_visible,
-            public_entrypoint_structuremesh_gate=input_obj.public_entrypoint_structuremesh_gate,
+            public_contract_parity_verified=input_obj.public_contract_parity_verified,
             target_structure_handoff=input_obj.target_structure_handoff,
             completed_candidates_not_requeued=input_obj.completed_candidates_not_requeued,
-            companion_route_triggers=input_obj.companion_route_triggers,
+            requested_companion_routes_valid=input_obj.requested_companion_routes_valid,
             no_direct_code_rewrite=input_obj.no_direct_code_rewrite,
             validation_gates_visible=input_obj.validation_gates_visible,
             reduction_mode=input_obj.reduction_mode,
@@ -843,13 +843,13 @@ def risky_candidates_are_not_deleted_silently(state: ArchitectureReductionPolicy
     return _pass()
 
 
-def public_entrypoints_use_structuremesh_gate(state: ArchitectureReductionPolicy, _trace: object) -> InvariantResult:
+def public_entrypoints_preserve_observable_contract(state: ArchitectureReductionPolicy, _trace: object) -> InvariantResult:
     if _empty(state):
         return _pass()
-    if not state.public_entrypoint_structuremesh_gate:
+    if not state.public_contract_parity_verified:
         return _fail(
-            "public_entrypoints_use_structuremesh_gate",
-            "public entrypoint contractions must go through StructureMesh or equivalent parity gate",
+            "public_entrypoints_preserve_observable_contract",
+            "public entrypoint contractions preserve their observable contract and parity evidence",
         )
     return _pass()
 
@@ -873,11 +873,11 @@ def completed_candidates_leave_active_queue(state: ArchitectureReductionPolicy, 
     return _pass()
 
 
-def companion_route_triggers_exist(state: ArchitectureReductionPolicy, _trace: object) -> InvariantResult:
+def requested_companion_routes_are_valid(state: ArchitectureReductionPolicy, _trace: object) -> InvariantResult:
     if _empty(state):
         return _pass()
-    if not state.companion_route_triggers:
-        return _fail("companion_route_triggers_exist", "related skills need complexity-growth triggers")
+    if not state.requested_companion_routes_valid:
+        return _fail("requested_companion_routes_are_valid", "a requested companion route must be recognized and justified")
     return _pass()
 
 
@@ -893,7 +893,7 @@ def validation_gates_remain_visible(state: ArchitectureReductionPolicy, _trace: 
     if _empty(state):
         return _pass()
     if not state.validation_gates_visible:
-        return _fail("validation_gates_remain_visible", "tests, conformance, and StructureMesh gates must remain visible")
+        return _fail("validation_gates_remain_visible", "required tests and observable contract parity checks must remain visible")
     return _pass()
 
 
@@ -1364,9 +1364,9 @@ INVARIANTS = (
         risky_candidates_are_not_deleted_silently,
     ),
     Invariant(
-        "public_entrypoints_use_structuremesh_gate",
-        "Public entrypoint changes require StructureMesh or equivalent parity evidence.",
-        public_entrypoints_use_structuremesh_gate,
+        "public_entrypoints_preserve_observable_contract",
+        "Public entrypoint changes retain observable behavior and parity evidence.",
+        public_entrypoints_preserve_observable_contract,
     ),
     Invariant(
         "target_structure_handoff_exists",
@@ -1379,9 +1379,9 @@ INVARIANTS = (
         completed_candidates_leave_active_queue,
     ),
     Invariant(
-        "companion_route_triggers_exist",
-        "Related FlowGuard skills know when to invoke architecture reduction.",
-        companion_route_triggers_exist,
+        "requested_companion_routes_are_valid",
+        "Optional requested routes are recognized and justified.",
+        requested_companion_routes_are_valid,
     ),
     Invariant(
         "architecture_reduction_does_not_rewrite_code",
@@ -1642,9 +1642,9 @@ SCENARIOS = (
     ),
     scenario(
         "public_entrypoint_bypass_fails",
-        "Public entrypoints need StructureMesh parity gates.",
+        "Public entrypoints need observable parity evidence.",
         BROKEN_PUBLIC_ENTRYPOINT_BYPASS,
-        _expect_violation("public entrypoint bypass fails", ("public_entrypoints_use_structuremesh_gate",)),
+        _expect_violation("public entrypoint bypass fails", ("public_entrypoints_preserve_observable_contract",)),
     ),
     scenario(
         "missing_target_handoff_fails",
@@ -1659,10 +1659,10 @@ SCENARIOS = (
         _expect_violation("completed candidate requeue fails", ("completed_candidates_leave_active_queue",)),
     ),
     scenario(
-        "missing_companion_triggers_fails",
-        "Related skills need architecture reduction triggers.",
-        BROKEN_NO_COMPANION_TRIGGERS,
-        _expect_violation("missing companion triggers fails", ("companion_route_triggers_exist",)),
+        "invalid_requested_route_fails",
+        "An explicitly requested route must be valid.",
+        BROKEN_INVALID_REQUESTED_ROUTE,
+        _expect_violation("invalid requested route fails", ("requested_companion_routes_are_valid",)),
     ),
     scenario(
         "direct_rewrite_fails",

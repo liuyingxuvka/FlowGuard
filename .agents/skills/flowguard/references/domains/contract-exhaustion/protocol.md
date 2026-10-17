@@ -1,5 +1,6 @@
 # Contract Exhaustion
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Catches bad inputs and value combinations that nobody wrote a reaction for.
 You declare a finite boundary (a field, an input enum, a state, a payload) and
 the review expands it into every canonical bad case: missing field, empty value,
@@ -53,10 +54,9 @@ rejected before any write happens.
    `state_closure_cases_to_contract_cases`, `scenario_matrix_to_contract_cases`,
    `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
    `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
-4. Replace the template's `negative_case_matrix()` with real broken plans (see below).
-   The template rows only check that ids are unique and labeled; they prove nothing.
+4. Keep actual broken plans relevant to the finite boundary (see examples below).
 5. In `run_checks()`, return the good report and the bad reports, and update `main()`
-   in `run_checks.py` to match (the template returns three values). The runner must
+   in `run_checks.py` to match (the template returns two reports). The runner must
    exit 0 only when the good plan is `ok` and every bad plan is not `ok`:
 
 ```python
@@ -98,7 +98,7 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 
 `report.findings` holds the codes; `report.ok` is the pass/fail bit.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Empty plan: `ContractExhaustionPlan("x")` must block with `contract_boundary_missing`.
 - Product too big: same axes with `cartesian_case_limit` below the real product size

@@ -1,12 +1,12 @@
 # UI Flow
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Catches UI flows that look done but are not. A visible, enabled button with no
 event, a state the user cannot leave, a failure screen with no recovery, an
 internal field shown to users, a details panel that is open by default or
 cannot be closed, a journey that never reaches success. The UI is a state
 machine: UI event x UI state -> output and next state. Example: "Export" is
 enabled in the empty state but no transition handles it -> `unmodeled_control_event`.
-
 ## Use when
 
 - You add or change screens, dialogs, panels, controls or user journeys.
@@ -32,11 +32,11 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 
 ## Steps
 
-1. Scaffold the full template: `python -m flowguard template ui-flow-structure-full --write .`
+1. If a new boundary needs a scaffold: `python -m flowguard template ui-flow-structure --write .`
    It writes `.flowguard/models/owners/ui_flow_structure/model.py`, the runner
    `.flowguard/verification/owners/ui_flow_structure/run_checks.py` and notes.
-   It runs the real reviewers on good and broken fixtures. Avoid the compact
-   `ui-flow-structure`: it re-implements toy checks ("fewer than 3 states").
+   It runs the real interaction reviewer on a reversible interaction and a broken
+   target. `ui-flow-structure-full` retains complete-journey teaching material.
 2. Replace the fixtures with your UI. Core records (`from flowguard import ...`):
    - `UIInteractionModel(model_id, initial_state_id, states=, controls=, transitions=, displays=, validation_boundaries=, rationale=)`
    - `UIStateNode(state_id, visible_controls=, enabled_controls=, disabled_controls=, hidden_controls=, recovery_controls=, terminal=, failure=, visible_displays=, hidden_displays=)`
@@ -104,7 +104,7 @@ proof = UIRuntimeProof(
 
 Also: `ui_missing_proof_artifact`, `ui_proof_artifact_not_passing`, `ui_proof_artifact_nonzero_exit`, `ui_proof_result_path_missing`.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Dead button: `export` enabled in `empty`, no `UITransition` -> `unmodeled_control_event`.
 - Leak: an `internal` item (e.g. `debug_run_id`) mapped to a display -> `internal_content_mapped_to_ui`.

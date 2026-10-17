@@ -159,7 +159,6 @@ class State:
     selected_inventory_required: tuple[str, ...] = ()
     selected_inventory_bounded: tuple[str, ...] = ()
     over_materialized: tuple[str, ...] = ()
-    maturation_handoff_emitted: tuple[str, ...] = ()
     implementation_readiness_inferred: tuple[str, ...] = ()
     affected_reader_required: tuple[str, ...] = ()
     affected_reader_verified: tuple[str, ...] = ()
@@ -303,7 +302,6 @@ class SearchExistingModels:
         "lookup_complete",
         "selected_inventory_bounded",
         "over_materialized",
-        "maturation_handoff_emitted",
         "affected_reader_verified",
         "whole_qualification_explicit",
     )
@@ -488,9 +486,6 @@ class SearchExistingModels:
             grounded_state = replace(
                 grounded_state,
                 full_grounded=_add_once(grounded_state.full_grounded, input_obj.task_id),
-                maturation_handoff_emitted=_add_once(
-                    grounded_state.maturation_handoff_emitted, input_obj.task_id
-                ),
             )
             label = "full_existing_model_preflight"
         else:
@@ -517,8 +512,8 @@ class SearchExistingModels:
         )
 
 
-class SelectDownstreamRoute:
-    name = "SelectDownstreamRoute"
+class FinishPreflight:
+    name = "FinishPreflight"
     reads = ("light_grounded", "full_grounded", "skipped")
     writes = ("route_selected",)
     accepted_input_type = (GroundedNeed, SkippedNeed)
@@ -529,7 +524,7 @@ class SelectDownstreamRoute:
         yield FunctionResult(
             RouteSelected(input_obj.task_id, input_obj.downstream_route),
             replace(state, route_selected=_add_once(state.route_selected, input_obj.task_id)),
-            label="downstream_route_selected",
+            label="owner_resolved_optional_route",
         )
 
 
@@ -828,21 +823,6 @@ def selected_inventory_materializes_only_selected_models(
     return InvariantResult.pass_()
 
 
-def full_preflight_emits_maturation_handoff(state: State, trace) -> InvariantResult:
-    del trace
-    bad = tuple(
-        sorted(
-            (set(state.route_selected) & set(state.full_required))
-            - set(state.maturation_handoff_emitted)
-        )
-    )
-    if bad:
-        return InvariantResult.fail(
-            f"full preflight selected a route without a model-maturation coverage handoff: {bad!r}"
-        )
-    return InvariantResult.pass_()
-
-
 def preflight_does_not_claim_implementation_readiness(
     state: State, trace
 ) -> InvariantResult:
@@ -929,11 +909,6 @@ INVARIANTS = (
         "selected_inventory_materializes_only_selected_models",
         "Ordinary preflight selects owners before materializing model bodies; broad inventory is explicit.",
         selected_inventory_materializes_only_selected_models,
-    ),
-    Invariant(
-        "full_preflight_emits_maturation_handoff",
-        "A full preflight contributes owner and surface coverage to ModelMaturation before implementation admission.",
-        full_preflight_emits_maturation_handoff,
     ),
     Invariant(
         "preflight_does_not_claim_implementation_readiness",
@@ -1091,7 +1066,7 @@ def build_workflow(*, search_block=None) -> Workflow:
         (
             ClassifyNeed(),
             search_block or SearchExistingModels(),
-            SelectDownstreamRoute(),
+            FinishPreflight(),
         ),
         name="existing_model_preflight",
     )

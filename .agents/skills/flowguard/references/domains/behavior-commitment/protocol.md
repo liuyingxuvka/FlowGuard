@@ -1,12 +1,12 @@
 # Behavior Commitment and Primary Path
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 This capability catches two related bugs. First, an external promise (an API call, a CLI
 command, a UI button, a documented workflow) that nobody owns: it has no source, no single
 owner model, no tests, or it exists twice under two names. Second, a silent fallback: path A
 fails and the code quietly runs path B, an old field, or a backup cache, and still reports
 success. Example: order API A throws, the handler calls legacy API B and returns "ok";
 the real bug in A stays hidden.
-
 ## Use when
 
 - You add, change, rename, or remove a visible behavior (API, CLI, UI action, workflow step).
@@ -99,7 +99,7 @@ print(report.format_text())
 | `commitment_primary_path_blocked` | A path-sensitive commitment points at a blocked path review. |
 | `source_surface_content_fingerprint_stale` | The source file changed since the ledger was updated. |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - A-fails-B-succeeds: a `FallbackPathCandidate` with `candidate_trigger="primary_failure"`,
   `invokes_on_primary_failure=True`, `returns_success_after_primary_failure=True`.

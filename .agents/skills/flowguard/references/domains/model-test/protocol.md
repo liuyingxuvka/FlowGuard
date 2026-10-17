@@ -1,4 +1,6 @@
 # Model-Test Alignment
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Use this to cross-check three lists row by row: what the model says must happen
 (obligations), which code function owns each obligation (code contracts), and which tests
 prove it (test evidence). It catches gaps between them. Examples: the model says "reject a
@@ -6,22 +8,17 @@ duplicate order" but no function claims it; the function claims it but no `failu
 test exists; a test is green but only asserts on an internal helper; the function writes
 `orders` but the contract does not declare that write; two functions both claim to own the
 same rule; a test covers an obligation id that no longer exists.
-
 ## Use when
-
 - You add or change an obligation and must name the one function that owns it and the tests that prove it.
 - A field, input, output, state write, side effect or error path changed, and you must check code and tests still match.
 - You claim "every rule in the model is implemented and tested" for a component.
 - A facade or adapter forwards to the real owner and must not succeed on its own.
 - Tests should record which modeled steps the real code hit, in order (runtime path evidence).
-
 ## Do not use when
-
 - You need to know whether the model itself is right (reachable bad states, invariants). Run the component's model (`python -m flowguard map models <MODEL_ID>`).
 - You need every input x state case of one rule. Use contract-exhaustion.
 - The test suite is large, slow or layered and must be split or partitioned. Use test-mesh.
 - A field is added, renamed or removed across many places. Use field-lifecycle first; feed its rows here.
-
 ## Inputs
 
 - `python -m flowguard read --component ID`: `entrypoints` (each `path/to/file.py:Symbol`),
@@ -35,11 +32,12 @@ same rule; a test covers an obligation id that no longer exists.
 
 ## Steps
 
-1. `python -m flowguard template model-test-alignment --write .` writes
+1. For a new reusable boundary, `python -m flowguard template model-test-alignment --write .` writes
    `.flowguard/models/owners/model_test_alignment/model.py`,
    `.flowguard/verification/owners/model_test_alignment/run_checks.py` and
    `docs/model_test_alignment.md`. Rename `model_test_alignment` to your component id.
-   The template's plan is a small local stand-in; replace it with the real API below.
+   The template uses the native API with explicit `not_run` target evidence.
+   A scaffold run checks design readiness, not target test execution.
    `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.
 2. In `model.py`, build the rows with the real API:
    ```python
@@ -103,7 +101,7 @@ same rule; a test covers an obligation id that no longer exists.
 `executed_evidence_required` appears when `require_executed_evidence=True` and a test was not run.
 Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_mismatch`, `runtime_node_missing_observation`.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - No `failure_path` test for the duplicate-order rule (`missing_required_test_kind`).
 - The contract drops `state_writes=("orders",)` (`code_contract_missing_behavior`).
@@ -125,6 +123,8 @@ Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_
 - The AST audit checks simple imports/aliases and direct call-result assertions. Unknown receivers,
   constants-only assertions and complex dataflow cannot close an execution claim. State writes are
   still approximate: a local assignment can resemble a write; review the business meaning yourself.
+- A simple map anchor rename needs the existing model/tests, not a new alignment runner.
 - It is not conformance replay. A contract model's `conformance()` (run by `map models`) replays model
-  traces on the real code; this review only checks that obligations, code and tests are bound. Use both.
+  traces on the real code; this review checks bindings. Add conformance when order,
+  state, side effects or another externally visible contract requires replay.
 - Obligations are not derived from your model's explorer; you write them by hand, so a rule you forget is not checked.

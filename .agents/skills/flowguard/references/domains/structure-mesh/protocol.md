@@ -1,12 +1,12 @@
 # Structure Mesh
-
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Use this when you split an existing large file or module into smaller modules. The review
 catches splits that lose something. Examples: a function that no child module owns, two
 children that both write the same cache, an old `python -m tool` command or import path that
 no longer works, a new import cycle between children, a changed default, or tests that were
 green before the move but were not re-run after it. Each child module becomes one component
 in `.flowguard/map.json` after the split.
-
 ## Use when
 
 - A large script, module or package is split into two or more child modules.
@@ -103,7 +103,7 @@ in `.flowguard/map.json` after the split.
 | `insufficient_evidence_tier` | Parity tier is below `required_evidence_tier`. |
 | `release_parity_not_current` | Release scope: a release-required item has stale parity. |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Double writer: `cli` and `renderer` both have `owns_state=("render_cache",)`.
 - Removed command: `PublicEntrypointEvidence("python -m reporter", compatibility_preserved=False)`.

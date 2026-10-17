@@ -234,6 +234,13 @@ before parent confidence is claimed. A partition map by itself is not enough.
 TestMesh does not run your tests. Project adapters should run pytest, unittest,
 Playwright, simulation runners, payload-fixture checks, or shell commands, then
 feed structured evidence into the TestMesh model.
+
+For small affected selections, run the exact `flowguard change` pytest command
+once. Choose sharding before execution only when it is needed; the packaged
+runner collects the whole suite. No hand-filled TestMesh plan is needed for its
+ordinary result. `--resume-output` does not verify source hashes: do not resume
+after any source, test, model, command, config, dependency, environment or
+interpreter change, and never resume for release.
 """
 
 __all__ = [

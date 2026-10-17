@@ -301,3 +301,10 @@ python -m flowguard template test-mesh
 Run the generated check script. After later code or test changes,
 `python -m flowguard change` lists which models and tests to rerun, and
 `python -m flowguard map check` reports stale map fingerprints.
+
+For small affected selections, run the exact `flowguard change` pytest command
+once. Choose sharding before execution only when it is needed; the packaged
+runner collects the whole suite. No hand-filled TestMesh plan is needed for its
+ordinary result. `--resume-output` does not verify source hashes: do not resume
+after any source, test, model, command, config, dependency, environment or
+interpreter change, and never resume for release.

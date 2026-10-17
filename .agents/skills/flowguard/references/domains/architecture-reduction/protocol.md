@@ -1,4 +1,6 @@
 # Architecture Reduction
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 
 Decide whether duplicate handlers, adapters, branches or modules can be merged
 or removed without changing behavior. The bug class is "cleanup that silently
@@ -40,7 +42,7 @@ the same. It never deletes code on a guess.
    - `never_imported`: `target_action="remove"` with `proof_status="blocked_by_missing_evidence"` until you have searched for
      dynamic imports, plugin registration, console scripts and string references.
    - `entrypoint_unlisted`: first add it to the component's `entrypoints`. If it is a second path to the same behavior,
-     record a `CompatibilitySurfaceClassification` with `public_entrypoints` set (linked candidates then need `structure_mesh`).
+     record a `CompatibilitySurfaceClassification` with `public_entrypoints` set; preserve its observable contract.
    - `large_file` / `large_component`: not a candidate. Add `ArchitectureReductionTrigger("structure_mesh", reason)` instead.
    Start every candidate at `proof_status="risky_keep"`. Raise it to `safe_by_equivalence` only when step 3 holds.
    Fill `affected_public_entrypoints`, `affected_state`, `affected_side_effects` from the map fields of the removed side.
@@ -54,7 +56,7 @@ the same. It never deletes code on a guess.
    (`action` retain/merge/delegate/remove/explicit_on_demand/unresolved, `caller_ids`, `caller_inventory_complete`,
    `safety_inventory_complete`, `safety_responsibility_ids`, `safety_owner_bindings`). Every step that is not `unresolved`
    needs `cost_evidence` (`ArchitectureReductionStepCost`) or blocks (`step_cost_evidence_missing`); cost never replaces proof.
-5. Write a runner model and run it. Set `inventory_current=False` if `map check` shows a touched component stale.
+5. Reuse the owner model; write a new runner only for a reusable reduction boundary. Set `inventory_current=False` if `map check` shows a touched component stale.
    ```python
    # .flowguard/verification/owners/<reduction_id>/run_checks.py
    from dataclasses import replace
@@ -68,12 +70,12 @@ the same. It never deletes code on a guess.
        validation_boundaries=("validate_order",), rationale="create order")
    cand = ArchitectureReductionCandidate(candidate_id="merge-validate", candidate_type="merge_handlers",
        code_node_id="app/orders.py:validate_v2", source_model_element="Validate", target_action="merge",
-       proof_status="safe_by_equivalence", required_next_route="development_process_flow",
+       proof_status="safe_by_equivalence", required_next_route="",
        rationale="map lint duplicate_code", evidence_refs=("tests/test_orders.py",), inventory_revision=REV)
    def plan(*cands): return ArchitectureReductionPlan(reduction_id="orders-cleanup", observable_contract=contract,
        candidates=cands, rationale="lint cleanup", inventory_revision=REV, inventory_source_ref=".flowguard/map.json",
        inventory_current=True, expected_candidate_ids=("merge-validate",), require_complete_inventory=True,
-       companion_route_triggers=(ArchitectureReductionTrigger("development_process_flow", "implement merge"),))
+       companion_route_triggers=())
    def main():
        good = review_architecture_reduction(plan(cand)); print(good.format_text())
        bad = review_architecture_reduction(plan(replace(cand, target_action="remove", affected_state=("orders.status",))))
@@ -83,7 +85,7 @@ the same. It never deletes code on a guess.
 6. List the runner path in the owning component's `models` in `.flowguard/map.json`, then run
    `python -m flowguard map models <reduction_id>` (exit 0 = pass).
 7. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
-   still list a candidate that has a blocker, so never use them alone. Follow `required_next_route` for each action.
+   still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.
 8. After the code change: rerun `map lint` (the finding should be gone), update the map descriptions,
    `python -m flowguard map confirm <ids>`, then `python -m flowguard change`.
 
@@ -93,7 +95,6 @@ the same. It never deletes code on a guess.
 |---|---|
 | `removes_observable_state` | A remove deletes a state field the contract calls observable. |
 | `observable_side_effect_without_equivalence` | A remove/collapse touches an observable side effect without `safe_by_equivalence`. |
-| `public_entrypoint_requires_structure_mesh` | Candidate touches a public entrypoint but `required_next_route` is not `structure_mesh`. |
 | `compatibility_surface_current_contract_blocks_contraction` | Removing or collapsing a surface that is still a current contract. |
 | `compatibility_surface_negative_legacy_test_requires_evidence` | Removing a negative legacy test with no replacement evidence. |
 | `compatibility_surface_archive_has_runtime_authority` | A surface marked archive-only still runs at runtime. |
@@ -106,10 +107,9 @@ the same. It never deletes code on a guess.
 
 `risky_candidate_kept` and `property_only_reduction` are warnings: the candidate is kept, not ready.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Remove a duplicate handler that is the only writer of an observable state field: expect `removes_observable_state`.
-- Collapse an adapter with `affected_public_entrypoints` set and route `development_process_flow`: expect `public_entrypoint_requires_structure_mesh`.
 - Delete a `never_imported` module that is loaded by a plugin registry, marked `blocked_by_missing_evidence`: expect `blocked_by_missing_evidence`.
 - Drop a lint finding from the candidate list while it is in `expected_candidate_ids`: expect `expected_reduction_candidate_missing`.
 

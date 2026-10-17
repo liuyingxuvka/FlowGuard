@@ -1,5 +1,8 @@
 # Model-Miss Review
 
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
+
 Use this after a model was green but a test, runtime run, log or manual check
 still failed. The bug class is the "green model, broken product" escape: the
 model had no input for the case (a timeout, an empty list, a second click), its
@@ -75,14 +78,10 @@ assert report.ok, [f.code for f in report.findings]
 9. Optional: `diagnose_false_negative_backpropagation(report, conflict_atoms=, conflict_oracle=,
    positive_atoms=, positive_oracle=, repair_candidate=)` finds a deletion-minimal conflict over
    `DiagnosticAtom`s and blocks a `RepairCandidate` whose `rejects_original_miss` is False.
-10. Optional review scaffold: `python -m flowguard template model-miss-review-full --write .`
-    writes `.flowguard/models/owners/model_miss_review/model.py` and its
-    `.flowguard/verification/owners/model_miss_review/run_checks.py`. Its 11 broken scenarios
-    each expect one named violation. The default `model-miss-review` (compact) template is
-    weak: each broken plan fails on many unrelated findings and the runner only checks
-    `not report.ok`. If you use it, build each bad plan from `correct_plan()` with
-    `dataclasses.replace` flipping one field, and assert that plan's expected finding code.
-    List the runner in the component's `models`.
+10. Optional native scaffold: `python -m flowguard template model-miss-review --write .`.
+    It illustrates one non-UI repair and a point-fix failure with the real reviewer.
+    The explicit `model-miss-review-full` preserves deeper holdout/legacy/mesh teaching
+    examples. Use the UI native reviewer for UI-specific misses; do not chain full routes.
 
 ## What blocks
 
@@ -101,7 +100,7 @@ assert report.ok, [f.code for f in report.findings]
 | `ui_model_miss_missing_backpropagation` | UI miss with no root-cause backpropagation text. |
 | `repair_does_not_reject_original_miss` | Diagnosis: `RepairCandidate.rejects_original_miss` is False. |
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - The escaped case itself: the old model with the missing input or weak invariant, as a broken
   variant that must now fail (for example, Submit with no Timeout branch reaches `logged_in`).

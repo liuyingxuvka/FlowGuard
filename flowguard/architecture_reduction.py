@@ -1781,7 +1781,6 @@ def _candidate_incomplete(candidate: ArchitectureReductionCandidate) -> tuple[st
         "source_model_element",
         "target_action",
         "proof_status",
-        "required_next_route",
         "rationale",
     ):
         if not getattr(candidate, field_name):
@@ -2803,14 +2802,6 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
             )
         )
 
-    if not plan.companion_route_triggers:
-        findings.append(
-            ArchitectureReductionFinding(
-                "missing_companion_route_triggers",
-                "no companion FlowGuard route triggers are recorded",
-                severity="warning",
-            )
-        )
     for trigger in plan.companion_route_triggers:
         if trigger.route_id not in ARCHITECTURE_REDUCTION_COMPANION_ROUTES:
             findings.append(
@@ -2966,7 +2957,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     candidate_id=candidate.candidate_id,
                 )
             )
-        if candidate.required_next_route not in ARCHITECTURE_REDUCTION_COMPANION_ROUTES:
+        if candidate.required_next_route and candidate.required_next_route not in ARCHITECTURE_REDUCTION_COMPANION_ROUTES:
             findings.append(
                 ArchitectureReductionFinding(
                     "missing_required_next_route",
@@ -2975,7 +2966,7 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     item_id=candidate.required_next_route,
                 )
             )
-        elif candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE:
+        elif candidate.required_next_route and candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE:
             required_routes.add(candidate.required_next_route)
 
         canonical_relation_handoff = candidate.canonical_relation_handoff
@@ -3078,20 +3069,6 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     )
                 )
 
-        if (
-            candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
-            and candidate.touches_public_entrypoint()
-            and candidate.required_next_route != ROUTE_STRUCTURE_MESH
-        ):
-            findings.append(
-                ArchitectureReductionFinding(
-                    "public_entrypoint_requires_structure_mesh",
-                    "candidate affects public entrypoints and must route through StructureMesh",
-                    candidate_id=candidate.candidate_id,
-                    metadata={"affected_public_entrypoints": candidate.affected_public_entrypoints},
-                )
-            )
-
         for surface in linked_surfaces:
             if candidate.lifecycle_disposition != CANDIDATE_DISPOSITION_ACTIVE:
                 continue
@@ -3126,17 +3103,6 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
                     ArchitectureReductionFinding(
                         "compatibility_surface_current_contract_blocks_contraction",
                         "candidate removes or collapses a surface classified as a current contract",
-                        candidate_id=candidate.candidate_id,
-                        item_id=surface.surface_id,
-                        metadata=surface.to_dict(),
-                    )
-                )
-            if surface.public_entrypoints and candidate.required_next_route != ROUTE_STRUCTURE_MESH:
-                compatibility_blocked_candidate_ids.add(candidate.candidate_id)
-                findings.append(
-                    ArchitectureReductionFinding(
-                        "compatibility_surface_public_entrypoint_requires_structure_mesh",
-                        "linked compatibility surface affects public entrypoints and must route through StructureMesh",
                         candidate_id=candidate.candidate_id,
                         item_id=surface.surface_id,
                         metadata=surface.to_dict(),

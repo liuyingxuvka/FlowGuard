@@ -1824,15 +1824,6 @@ def review_existing_model_preflight(
             )
         )
 
-    if preflight.mode == PREFLIGHT_MODE_FULL:
-        if not preflight.downstream_routes:
-            findings.append(
-                ExistingModelPreflightFinding(
-                    "missing_downstream_route",
-                    "full preflight does not name the downstream FlowGuard route",
-                )
-            )
-
     if inventory_required:
         if not preflight.affected_business_intent_id:
             findings.append(

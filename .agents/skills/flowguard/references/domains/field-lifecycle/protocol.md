@@ -1,4 +1,6 @@
 # Field Lifecycle
+Reuse the current owner model and tests. Create a persistent scaffold only for a new
+reusable boundary; apply the regression examples relevant to this change.
 Catches half-done field changes: a renamed field that a reader still uses, a
 routing or permission flag whose new behavior no obligation or test covers, an
 old field that survives because nobody chose to delete, block or migrate it.
@@ -6,9 +8,7 @@ You write one row per field (owner, readers, writers, role, lifecycle, impact).
 The review blocks when a discovered field has no row, a behavior-bearing field
 has no model/code projection, or an old field has no closing disposition.
 Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
-
 ## Use when
-
 - A change adds, removes, renames, migrates or re-defaults a payload, schema,
   config, prompt, persisted or UI field (including aliases and fallbacks).
 - A bug came from a missing, stale or wrongly read field.
@@ -99,7 +99,7 @@ ok = correct.ok and not broken.ok and field_lifecycle_to_model_obligations(corre
 Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 `field_lifecycle_scoped` with `ok` = `allow_scoped_confidence` (default `True`): check `report.decision`.
 
-## Known-bad cases to include
+## Risk-specific regression examples
 
 - Rename left open: `old_mode` with `lifecycle="replaced"`, `replacement_field_id`, no disposition -> `old_field_disposition_open`.
 - Dropped row: a field in `discovered_field_ids` with no row -> `field_lifecycle_missing_field_row`.
