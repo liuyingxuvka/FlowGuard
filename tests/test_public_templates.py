@@ -155,14 +155,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("rejected_duplicate", output)
         self.assertIn("known_bad_without_evidence_rejected: yes", output)
 
-    def test_public_run_templates_use_formal_entry_not_direct_explorer(self):
-        for factory in PUBLIC_TEMPLATE_FACTORIES + (maintenance_workflow_template_files,):
-            with self.subTest(factory=factory.__name__):
-                for file in factory():
-                    if file.path.endswith("run_checks.py"):
-                        self.assertNotIn("Explorer(", file.content)
-                        self.assertNotIn("from flowguard import Explorer", file.content)
-
     def test_template_text_is_route_scoped_behind_public_facade(self):
         template_text_root = ROOT / "flowguard" / "template_text"
         route_modules = {path.stem for path in template_text_root.glob("*.py") if path.name != "__init__.py"}

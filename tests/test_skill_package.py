@@ -57,8 +57,6 @@ class SkillPackageTests(unittest.TestCase):
         problems = []
         for path in docs:
             rel = path.relative_to(ROOT).as_posix()
-            if rel == "docs/flowguard_self_review.md":      # historical record, labelled as such
-                continue
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 for verb, arg in re.findall(r"python -m flowguard ([\w-]+)(?: ([a-z][\w-]*))?", line):
                     if verb not in verbs or (verb == "map" and arg and arg not in map_cmds) \

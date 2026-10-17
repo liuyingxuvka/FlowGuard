@@ -146,26 +146,16 @@ The correct implementation passes. The duplicate-record implementation fails wit
 
 ## FlowGuard Self-Review Example
 
-FlowGuard also has a conformance replay for its own adoption workflow:
-
-- `CorrectFlowguardOrchestrator`: production-like mock orchestrator for Skill
-  adoption flow;
-- `BrokenNoConformanceOrchestrator`: omits conformance replay for
-  production-facing work;
-- `BrokenToolchainSubstituteOrchestrator`: hides a missing formal package behind
-  an ad-hoc substitute;
-- `FlowguardSelfReviewReplayAdapter`: maps self-review trace steps to the
-  orchestrator methods and projects state/output back to the abstract model.
-
-Run it with:
+Run the maintained job-matching replay example:
 
 ```powershell
-python examples/flowguard_self_review/run_conformance.py
+python examples/job_matching/run_conformance.py
 ```
 
-This is not user-facing product behavior. It is a regression guard that checks
-whether the model-first adoption protocol still matches the orchestrator logic
-that future agents are expected to follow.
+The success, duplicate-record failure and repeated-scoring failure tests retain
+real adapter/state/output checks. The generated project model also demonstrates
+an intended success and a duplicate/known-bad case; the current map runner binds
+that model to the changed code and tests.
 
 ## Limits
 

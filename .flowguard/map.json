@@ -36,7 +36,6 @@
         "engine-core",
         "engine-explore",
         "engine-properties",
-        "engine-runner",
         "engine-scenarios",
         "model-mesh",
         "portable-models",
@@ -54,9 +53,6 @@
         "tests/test_executable_corpus.py",
         "tests/test_flowguard_agent_workflow_rehearsal.py",
         "tests/test_flowguard_product_boundary.py",
-        "tests/test_flowguard_runner_self_review.py",
-        "tests/test_flowguard_self_review.py",
-        "tests/test_flowguard_self_review_conformance.py",
         "tests/test_flowguard_skill_collaboration.py",
         "tests/test_flowguard_skill_trigger.py",
         "tests/test_job_matching_example.py",
@@ -74,7 +70,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9137480d4d6f5489bc73172ca16b7bb8d7a478c817ce37516c3bbc2166f6167e"
+      "fingerprint": "sha256:88f2feb6a074e872a54d1eb206dd4032283e30425fb62e26f4d51d9f637cd0c6"
     },
     {
       "id": "tooling",
