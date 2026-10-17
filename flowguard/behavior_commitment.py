@@ -4036,13 +4036,7 @@ def behavior_commitment_contract_exhaustion_plan(
     claim_scope: str = BCL_SCOPE_FULL,
     max_combinations: int = 10000,
 ) -> ContractExhaustionPlan:
-    """Build the canonical ContractExhaustionMesh plan for the ledger.
-
-    Broad partitioned coverage is bound to an accepted model-authority state
-    when one is supplied.  Without that state the returned plan remains
-    intentionally unbound and the ContractExhaustion hard gate reports the
-    missing authority denominator instead of inventing one.
-    """
+    """Build the canonical finite ContractExhaustionMesh plan for this route."""
 
     plan = ContractExhaustionPlan(
         plan_id,

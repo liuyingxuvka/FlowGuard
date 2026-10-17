@@ -351,7 +351,7 @@
         ".flowguard/verification/owners/primary_path_authority/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:690f56ac4fb3008965f447e329b40257a04805c2553a85b8c1a8a537763bab39"
+      "fingerprint": "sha256:8ea5914ce544e1ae9e5b41f0252646772b5585a885e7b42aa3d0a915dd0454e1"
     },
     {
       "id": "architecture-reduction",
@@ -575,7 +575,7 @@
         ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:6cbc0c0e07fc8d578bac362f187f91c3a56a6eccdf69f09762356cb0e05c1091"
+      "fingerprint": "sha256:ca1c0286eab914568faefe899d38fb06c271364fb41ef1599ba3988b42e60bc3"
     },
     {
       "id": "portable-models",

@@ -1255,57 +1255,6 @@ def main() -> int:
     for finding in binding_findings:
         print(f"binding finding: {finding}")
 
-    # Keep the human-readable transcript above, but also emit one compact
-    # machine envelope containing the exact already-computed scenario and
-    # binding assertions.  native_main consumes this line without treating
-    # arbitrary display text as a leaf.
-    native_cases = [
-        {
-            "name": "ordinary_path_no_template_operation",
-            "ok": reviews[0].ok,
-            "observed_status": "ok" if reviews[0].ok else "violation",
-            "case_kind": "good",
-            "projection_priority": 60,
-            "projection_source": "structured",
-        },
-        {
-            "name": "explicit_template_reuse_lifecycle",
-            "ok": reviews[1].ok,
-            "observed_status": "ok" if reviews[1].ok else "violation",
-            "case_kind": "good",
-            "projection_priority": 60,
-            "projection_source": "structured",
-        },
-        {
-            "name": "correct_template_release",
-            "ok": reviews[2].ok,
-            "observed_status": "ok" if reviews[2].ok else "violation",
-            "case_kind": "good",
-            "projection_priority": 60,
-            "projection_source": "structured",
-        },
-        {
-            "name": "current_code_test_bindings",
-            "ok": not binding_findings,
-            "observed_status": "ok" if not binding_findings else "violation",
-            "case_kind": "good",
-            "projection_priority": 60,
-            "projection_source": "structured",
-        },
-    ]
-    native_cases.extend(
-        {
-            "name": result.scenario_name,
-            "ok": result.ok,
-            "observed_status": "violation" if result.ok else "ok",
-            "case_kind": "bad",
-            "projection_priority": 60,
-            "projection_source": "structured",
-        }
-        for result in broken_report.results
-    )
-    print(json.dumps({"native_cases": native_cases}, sort_keys=True))
-
     return 0 if all(result.ok for result in reviews) and broken_report.ok and not binding_findings else 1
 
 

@@ -13,10 +13,6 @@ for _flowguard_path in (_FLOWGUARD_PROJECT_ROOT, _FLOWGUARD_MODEL_ROOT):
 
 import model
 
-# Import the producer into this module's namespace so native_main can wrap the
-# one authoritative rollout call.  Calling ``model.run_rollout_review`` would
-# leave the typed tuple outside the explicit capture allow-list and force the
-# bridge to fall back to display text, losing the model's violation status.
 from model import run_rollout_review
 
 

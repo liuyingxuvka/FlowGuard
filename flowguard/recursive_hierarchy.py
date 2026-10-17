@@ -1598,8 +1598,6 @@ def review_recursive_hierarchy(
         )
     # Native case receipts are retired; executed proof comes from running the
     # models and tests that impact selects, not from stored case rows.
-    native_execution_requested = False
-    native_verifications: Mapping[str, Any] = {}
     if strict and not plan.model_authority_head_fingerprint:
         findings.append(
             _finding(
@@ -1735,13 +1733,11 @@ def review_recursive_hierarchy(
     # trusted from a caller-provided receipt.
     descendants: dict[str, tuple[str, ...]] = {}
     verified_receipt_ids: list[str] = []
-    execution_verified_receipt_ids: list[str] = []
     # Model ids, rather than receipt ids, are tracked here so a parent can
     # require the exact direct child node to have completed its own recursive
     # closure before the parent is promoted to ``verified``.  A passing receipt
     # on its own is not enough when that child has an unverified descendant.
     verified_model_ids: set[str] = set()
-    execution_verified_model_ids: set[str] = set()
     consumed_receipt_ids: set[str] = set()
     leaf_ids: list[str] = []
     postorder_active: set[str] = set()
@@ -1930,30 +1926,6 @@ def review_recursive_hierarchy(
         receipt = _receipt_for_node(node, receipts_by_id)
         expected_receipt_id = node.subtree_receipt_id or f"subtree:{node.model_id}"
         findings.extend(_leaf_product_findings(plan, node, receipt))
-        native_owner_verification = native_verifications.get(node.owner_id)
-        native_owner_ok = True
-        if native_execution_requested:
-            native_owner_ok = bool(
-                native_owner_verification is not None
-                and native_owner_verification.ok
-            )
-            if not native_owner_ok:
-                findings.append(
-                    _finding(
-                        "native_case_execution_blocked",
-                        "recursive subtree receipt cannot be promoted without exact current native case results",
-                        model_id=node.model_id,
-                        receipt_id=expected_receipt_id,
-                        metadata={
-                            "owner_id": node.owner_id,
-                            "verification": (
-                                native_owner_verification.to_dict()
-                                if native_owner_verification is not None
-                                else {"status": "blocked", "findings": ["native_owner_missing"]}
-                            ),
-                        },
-                    )
-                )
         if receipt is None:
             findings.append(_finding("subtree_receipt_missing", "strict hierarchy node has no terminal subtree receipt", model_id=node.model_id, receipt_id=expected_receipt_id))
             postorder_active.remove(model_id)
@@ -2100,30 +2072,6 @@ def review_recursive_hierarchy(
         ) and not unverified_children and not node_has_blocking_findings:
             verified_receipt_ids.append(receipt.receipt_id)
             verified_model_ids.add(node.model_id)
-            if native_execution_requested and native_owner_ok:
-                # Native promotion is post-order as well: an aggregate owner
-                # must consume only children that were themselves promoted by
-                # the same native execution review.
-                unverified_native_children = tuple(
-                    child_id
-                    for child_id in node.direct_child_ids
-                    if child_id not in execution_verified_model_ids
-                )
-                if unverified_native_children:
-                    findings.append(
-                        _finding(
-                            "native_child_execution_not_verified",
-                            "native aggregate receipt cannot be promoted until every direct child has exact native evidence",
-                            model_id=node.model_id,
-                            receipt_id=receipt.receipt_id,
-                            metadata={
-                                "child_model_ids": list(unverified_native_children)
-                            },
-                        )
-                    )
-                else:
-                    execution_verified_receipt_ids.append(receipt.receipt_id)
-                    execution_verified_model_ids.add(node.model_id)
         postorder_active.remove(model_id)
         postorder_seen.add(model_id)
         return descendant_ids
@@ -2147,10 +2095,6 @@ def review_recursive_hierarchy(
         max_depth=max(depths.values(), default=0),
         leaf_model_ids=tuple(sorted(set(leaf_ids))),
         verified_receipt_ids=tuple(sorted(set(verified_receipt_ids))),
-        execution_verified_receipt_ids=tuple(
-            sorted(set(execution_verified_receipt_ids))
-        ),
-        native_case_verifications=native_verifications,
         findings=tuple(findings),
         terminal_receipt=terminal_receipt,
     )

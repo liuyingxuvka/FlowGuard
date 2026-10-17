@@ -1333,12 +1333,7 @@ def primary_path_authority_contract_exhaustion_plan(
     claim_scope: str = PPA_CLAIM_SCOPE_FULL,
     max_combinations: int = 10000,
 ) -> ContractExhaustionPlan:
-    """Build the canonical ContractExhaustionMesh plan for this route.
-
-    A broad partitioned matrix is only authority-backed when the caller passes
-    the current accepted model-authority state (or an already-derived context).
-    An unbound plan remains fail-closed at review time.
-    """
+    """Build the canonical finite ContractExhaustionMesh plan for this route."""
 
     plan = ContractExhaustionPlan(
         plan_id,
