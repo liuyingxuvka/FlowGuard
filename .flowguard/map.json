@@ -260,7 +260,7 @@
         ".flowguard/verification/owners/template_public_release/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f0e8c52270069d950ed3b4e54397d118b6e9781bd9077fe1eec76eb89077c86f"
+      "fingerprint": "sha256:c521d202a127a30288fa38f898d3031383098eeb58839faeeeca92c1f4ec1603"
     },
     {
       "id": "existing-model",

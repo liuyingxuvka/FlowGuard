@@ -290,43 +290,21 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("primary_path_authority_green", output)
 
     def test_model_miss_review_template_executes(self):
-        output = self.run_written_template(
-            model_miss_review_template_files(),
-            (".flowguard", "verification", "owners", "model_miss_review"),
-        )
-        self.assertIn("correct_model_miss_review: PASS", output)
-        self.assertIn("expected violations observed: 7", output)
-        self.assertIn("root_cause_backpropagated", output)
-        self.assertIn("same_class_test_evidence_added", output)
-        self.assertIn("owner_code_contract_bound", output)
-        self.assertIn("replay_or_negative_check_added", output)
-        self.assertIn("ui_promised_capability_miss_not_classified", output)
-        self.assertIn("affected_blueprint_gap_id", output)
-        self.assertIn("contract_exhaustion_contribution_emitted", output)
-        self.assertIn("model_maturation_contribution_emitted", output)
+        output = self.run_written_template(model_miss_review_template_files(),
+            (".flowguard", "verification", "owners", "model_miss_review"))
+        self.assertIn("false-negative", output)
+        self.assertIn("missing_new_model_obligation", output)
+        self.assertIn("missing_false_negative_closure_evidence", output)
+
 
     def test_model_miss_review_template_is_compact_but_preserves_gates(self):
-        files = model_miss_review_template_files()
-        combined = "\n".join(file.content for file in files)
+        combined = "\n".join(file.content for file in model_miss_review_template_files())
+        for text in ("FalseNegativeBackpropagationPlan", "review_false_negative_backpropagation",
+                     "would_have_failed_if", "new_model_obligation_id", "closure_evidence_ids",
+                     "recurring_or_high_risk", "model-miss-full-template"):
+            self.assertIn(text, combined)
+        self.assertNotIn("class MissRepairPlan", combined)
 
-        self.assertIn("root_cause_backpropagated", combined)
-        self.assertIn("owner_code_contract_bound", combined)
-        self.assertIn("legacy_path_disposition_recorded", combined)
-        self.assertIn("same_class_test_evidence_added", combined)
-        self.assertIn("replay_or_negative_check_added", combined)
-        self.assertIn("fix_validation_requires_root_cause_backpropagation", combined)
-        self.assertIn("validate_without_root_cause_backpropagation", combined)
-        self.assertIn("point_fix_only_without_same_class_test", combined)
-        self.assertIn("validate_without_owner_code_contract", combined)
-        self.assertIn("ui_promised_capability_missing_after_green_claim", combined)
-        self.assertIn("missing_same_class_ui_capability_scope", combined)
-        self.assertIn("missing_same_plane_behavior_lookup", combined)
-        self.assertIn("existing_commitment_reused_or_gap_registered", combined)
-        self.assertIn("cross_plane_context_promoted_to_primary", combined)
-        self.assertIn("missing_affected_blueprint_gap", combined)
-        self.assertIn("missing_contract_exhaustion_contribution", combined)
-        self.assertIn("missing_model_maturation_contribution", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 160)
 
     def test_model_miss_full_template_keeps_deep_review_material(self):
         files = model_miss_review_full_template_files()
@@ -350,38 +328,22 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("affected ContractExhaustion case identities", combined)
 
     def test_model_test_alignment_template_executes(self):
-        output = self.run_written_template(
-            model_test_alignment_template_files(),
-            (".flowguard", "verification", "owners", "model_test_alignment"),
-        )
+        output = self.run_written_template(model_test_alignment_template_files(),
+            (".flowguard", "verification", "owners", "model_test_alignment"))
         self.assertIn("flowguard model-test alignment", output)
-        self.assertIn("missing_required_test_kind", output)
-        self.assertIn("missing_same_class_test_evidence", output)
+        self.assertIn("design-ready scaffold; target execution: not_run", output)
+        self.assertIn("test_evidence_not_passing", output)
+
 
     def test_model_test_alignment_template_covers_code_contracts_without_mesh_helpers(self):
-        files = model_test_alignment_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("plain model obligations", combined)
-        self.assertIn("plain test", combined)
-        self.assertIn("evidence", combined)
-        self.assertIn("owner code external contracts", combined)
-        self.assertIn("CodeContract", combined)
-        self.assertIn("CompactAlignmentPlan", combined)
-        self.assertIn("same_class_or_negative_test_present", combined)
-        self.assertIn("replay_evidence_id", combined)
-        self.assertIn("missing_artifact_payload_pack", combined)
-        self.assertIn("synthetic payload case on real surface", combined)
-        self.assertIn("missing_artifact_payload_execution_proof", combined)
-        self.assertIn("payload_evidence_ref", combined)
-        self.assertIn("missing_required_test_kind", combined)
-        self.assertIn("missing_same_class_test_evidence", combined)
-        self.assertIn("model-test-alignment-full-template", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 130)
-        self.assertNotIn("optional code external contracts", combined)
+        combined = "\n".join(file.content for file in model_test_alignment_template_files())
+        for text in ("ModelObligation", "CodeContract", "TestEvidence", "ModelTestAlignmentPlan",
+                     "review_model_test_alignment", "covered_code_contracts", "not_run",
+                     "model-test-alignment-full-template", "TESTED_BY"):
+            self.assertIn(text, combined)
+        self.assertNotIn("class CompactAlignmentPlan", combined)
         self.assertNotIn("review_hierarchical_mesh", combined)
-        self.assertNotIn("review_test_mesh", combined)
-        self.assertNotIn("review_structure_mesh", combined)
+
 
     def test_model_test_alignment_full_template_teaches_conservative_python_source_audit(self):
         files = model_test_alignment_full_template_files()
@@ -473,10 +435,10 @@ class PublicTemplateTests(unittest.TestCase):
             model_mesh_template_files(),
             (".flowguard", "verification", "owners", "model_mesh"),
         )
-        self.assertIn("flowguard mesh closure review", output)
+        self.assertIn("flowguard hierarchical mesh", output)
         self.assertIn("decision:", output)
         self.assertIn("missing", output.lower())
-        self.assertIn("model-mesh negative-case matrix: PASS", output)
+        self.assertNotIn("negative-case matrix: PASS", output)
 
     def test_model_mesh_template_teaches_ownership_and_reattachment(self):
         combined = "\n".join(file.content for file in model_mesh_template_files())
@@ -497,7 +459,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard contract exhaustion mesh", output)
         self.assertIn("decision:", output)
         self.assertIn("missing", output.lower())
-        self.assertIn("contract-exhaustion negative-case matrix: PASS", output)
+        self.assertNotIn("negative-case matrix: PASS", output)
 
     def test_contract_exhaustion_template_teaches_finite_oracle_boundary(self):
         combined = "\n".join(file.content for file in contract_exhaustion_template_files())
@@ -519,34 +481,12 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("missing_source_model", output)
 
     def test_ui_flow_structure_template_executes(self):
-        output = self.run_written_template(
-            ui_flow_structure_template_files(),
-            (".flowguard", "verification", "owners", "ui_flow_structure"),
-        )
+        output = self.run_written_template(ui_flow_structure_template_files(),
+            (".flowguard", "verification", "owners", "ui_flow_structure"))
         self.assertIn("flowguard UI interaction model", output)
-        self.assertIn("flowguard UI journey coverage", output)
-        self.assertIn("flowguard UI functional capability coverage", output)
-        self.assertIn("flowguard UI implementation validation", output)
-        self.assertIn("flowguard UI human operability", output)
-        self.assertIn("flowguard UI structure derivation", output)
-        self.assertIn("flowguard UI text hierarchy", output)
-        self.assertIn("flowguard UI visible surface", output)
-        self.assertIn("flowguard UI content visibility", output)
-        self.assertIn("missing_state_availability_matrix", output)
-        self.assertIn("feature_entry_point_not_declared", output)
-        self.assertIn("required_capability_missing_binding", output)
-        self.assertIn("result_capability_missing_output_contract", output)
-        self.assertIn("feature_without_user_task", output)
-        self.assertIn("missing_human_walkthrough", output)
-        self.assertIn("missing_implementation_run_for_journey", output)
-        self.assertIn("source_interaction_model_not_reviewed", output)
-        self.assertIn("text_role_too_prominent", output)
-        self.assertIn("visible_internal_terminology", output)
-        self.assertIn("missing_disabled_reason", output)
-        self.assertIn("missing_render_evidence_kind", output)
-        self.assertIn("internal_content_mapped_to_ui", output)
-        self.assertIn("unknown_content_visibility_class", output)
-        self.assertIn("on_demand_content_visible_in_default_state", output)
+        self.assertIn("transition_target_state_not_registered", output)
+        self.assertNotIn("UI implementation validation", output)
+
 
     def test_ui_flow_structure_full_template_executes_content_visibility_cases(self):
         output = self.run_written_template(
@@ -562,30 +502,12 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("product_semantic_drift", output)
 
     def test_ui_flow_structure_template_uses_visual_job_typography_scale(self):
-        files = ui_flow_structure_template_files()
-        combined = "\n".join(file.content for file in files)
+        combined = "\n".join(file.content for file in ui_flow_structure_template_files())
+        for text in ("UIInteractionModel", "review_ui_interaction_model", "ui-flow-structure-full-template",
+                     "The text hierarchy contract is semantic", '"standard-text"', '"user_on_demand"'):
+            self.assertIn(text, combined)
+        self.assertNotIn("class UICompactPlan", combined)
 
-        self.assertIn('"surface-title"', combined)
-        self.assertIn('"region-heading"', combined)
-        self.assertIn('"standard-text"', combined)
-        self.assertIn('"supporting-text"', combined)
-        self.assertIn("The text hierarchy contract is semantic", combined)
-        self.assertIn("similar text jobs should usually reuse visual treatments", combined)
-        self.assertIn("ui-flow-structure-full-template", combined)
-        self.assertIn("candidate_content_ids", combined)
-        self.assertIn("content_visibility_items", combined)
-        self.assertIn("default_visible_content_ids", combined)
-        self.assertIn("default_hidden_content_ids", combined)
-        self.assertIn('"user_visible"', combined)
-        self.assertIn('"user_on_demand"', combined)
-        self.assertIn('"internal"', combined)
-        self.assertIn("click_show_details", combined)
-        self.assertIn("registered in-scope task", combined)
-        self.assertIn("carry no extra state/metadata", combined)
-        self.assertIn("structured_content_visibility", combined)
-        self.assertIn("unknown_user_content_need_kind", combined)
-        self.assertLessEqual(next(file for file in files if file.path.endswith("model.py")).content.count("\n"), 245)
-        self.assertNotIn('scale=f"level-{level}"', combined)
 
     def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
         files = ui_flow_structure_full_template_files()

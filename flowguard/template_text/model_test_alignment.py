@@ -881,176 +881,76 @@ MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE = MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE
 MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
 
 Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
-Purpose: compact alignment of one model obligation, one owner code contract,
-one required test, one replay/negative item, and one payload case.
-Guards against: claiming model coverage when the owner code contract, plain
-test evidence, same-class or negative check, replay evidence, or fake
-file/work-package payload evidence is missing.
-Use before editing: field, state, input/output, side-effect, or runtime-shape
-changes whose model obligations need direct code/test binding.
+Purpose: bind one obligation to its owner code and planned test.
+Guards against: missing owner or test bindings; planned evidence promoted to a pass.
+Use before editing: update this declaration when the modeled boundary changes.
 Run: python .flowguard/verification/owners/model_test_alignment/run_checks.py
 Modeled block shape: Input x State -> Set(Output x State).
 """
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-
-PASSING_STATUSES = {"passed"}
+from dataclasses import replace
+from flowguard import (CodeContract, ModelObligation, ModelTestAlignmentPlan,
+                       TestEvidence, review_model_test_alignment)
 
 
-@dataclass(frozen=True)
-class CompactAlignmentPlan:
-    plan_id: str
-    model_obligation_id: str
-    owner_code_contract_id: str
-    test_evidence_id: str
-    test_status: str
-    test_covers_model_obligation: bool
-    test_covers_owner_code_contract: bool
-    same_class_or_negative_test_present: bool
-    replay_evidence_id: str
-    replay_status: str
-    payload_contract_id: str
-    payload_case_id: str
-    payload_status: str
-    payload_evidence_ref: str
-
-
-@dataclass(frozen=True)
-class CompactAlignmentReport:
-    plan_id: str
-    ok: bool
-    findings: tuple[str, ...]
-
-    def format_text(self) -> str:
-        lines = [f"flowguard model-test alignment: {self.plan_id}", f"status: {'PASS' if self.ok else 'FAIL'}"]
-        lines.extend(f"- {finding}" for finding in self.findings)
-        return "\\n".join(lines)
-
-
-def review_compact_alignment(plan: CompactAlignmentPlan) -> CompactAlignmentReport:
-    findings: list[str] = []
-    if not plan.model_obligation_id:
-        findings.append("missing_model_obligation")
-    if not plan.owner_code_contract_id:
-        findings.append("missing_owner_code_contract")
-    if not plan.test_evidence_id:
-        findings.append("missing_required_test_kind")
-    if plan.test_status not in PASSING_STATUSES:
-        findings.append("test_evidence_not_passing")
-    if not plan.test_covers_model_obligation:
-        findings.append("test_missing_model_obligation")
-    if not plan.test_covers_owner_code_contract:
-        findings.append("test_missing_owner_code_contract")
-    if not plan.same_class_or_negative_test_present:
-        findings.append("missing_same_class_test_evidence")
-    if not plan.replay_evidence_id or plan.replay_status not in PASSING_STATUSES:
-        findings.append("missing_replay_evidence")
-    if not plan.payload_contract_id or not plan.payload_case_id:
-        findings.append("missing_artifact_payload_pack")
-    if plan.payload_status not in PASSING_STATUSES:
-        findings.append("artifact_payload_evidence_not_passing")
-    if not plan.payload_evidence_ref:
-        findings.append("missing_artifact_payload_execution_proof")
-    return CompactAlignmentReport(plan.plan_id, not findings, tuple(findings))
-
-
-def aligned_plan() -> CompactAlignmentPlan:
-    return CompactAlignmentPlan(
-        plan_id="aligned",
-        model_obligation_id="model:missing-field-rejected",
-        owner_code_contract_id="contract:parse_request",
-        test_evidence_id="test:test_missing_field_is_rejected",
-        test_status="passed",
-        test_covers_model_obligation=True,
-        test_covers_owner_code_contract=True,
-        same_class_or_negative_test_present=True,
-        replay_evidence_id="replay:runtime-shape-missing-field",
-        replay_status="passed",
-        payload_contract_id="payload:request-json",
-        payload_case_id="case:missing-field-json",
-        payload_status="passed",
-        payload_evidence_ref="test://parser/real-request-json-missing-field",
-    )
-
-
-def broken_plan() -> CompactAlignmentPlan:
-    return CompactAlignmentPlan(
-        plan_id="broken",
-        model_obligation_id="model:missing-field-rejected",
-        owner_code_contract_id="contract:parse_request",
-        test_evidence_id="",
-        test_status="not_run",
-        test_covers_model_obligation=False,
-        test_covers_owner_code_contract=False,
-        same_class_or_negative_test_present=False,
-        replay_evidence_id="",
-        replay_status="not_run",
-        payload_contract_id="",
-        payload_case_id="",
-        payload_status="not_run",
-        payload_evidence_ref="",
+def alignment_plan() -> ModelTestAlignmentPlan:
+    # Teaching identities only. Replace them with the real owner and test.
+    # A scaffold cannot claim that an unwritten target test has passed.
+    return ModelTestAlignmentPlan(
+        "request-boundary",
+        obligations=(ModelObligation("reject-missing-field", required_test_kinds=("failure_path",)),),
+        code_contracts=(CodeContract("parse-request", path="app/request.py", symbol="parse_request",
+                                    implements_obligations=("reject-missing-field",)),),
+        test_evidence=(TestEvidence("test-missing-field", path="tests/test_request.py",
+                                   test_name="test_missing_field_is_rejected",
+                                   command="python -m pytest -q tests/test_request.py",
+                                   test_kind="failure_path", result_status="not_run",
+                                   covered_obligations=("reject-missing-field",),
+                                   covered_code_contracts=("parse-request",)),),
     )
 
 
 def run_checks():
-    return review_compact_alignment(aligned_plan()), review_compact_alignment(broken_plan())
+    planned = alignment_plan()
+    design = review_model_test_alignment(planned)
+    missing_owner = review_model_test_alignment(replace(planned, code_contracts=()))
+    return design, missing_owner
 '''
 
-MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE = '''"""Run the compact Model-Test Alignment template checks."""
-
-from __future__ import annotations
+MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE = '''"""Run the native FlowGuard teaching scaffold; no target execution is claimed."""
 
 from model import run_checks
 
 
 def main() -> int:
-    aligned, broken = run_checks()
-    print(aligned.format_text())
-    print()
-    print(broken.format_text())
-    print()
-    print("plain model obligations -> owner code external contracts -> plain test evidence -> replay evidence -> synthetic payload case on real surface")
-    print("escalate to model-test-alignment-full-template for code-boundary conformance, source audit, ArtifactPayloadContract, state closure evidence, TransitionCoverageMatrix, or ModelMesh closure projection")
-    return 0 if aligned.ok and not broken.ok else 1
-
+    design, missing_owner = run_checks()
+    print(design.format_text())
+    print(missing_owner.format_text())
+    print("design-ready scaffold; target execution: not_run")
+    return 0 if (design.pre_code_status == "ready"
+                 and design.executed_evidence_status == "not_run"
+                 and missing_owner.pre_code_status != "ready") else 1
 
 if __name__ == "__main__":
     from flowguard.map.runner import run_owner
     raise SystemExit(run_owner(main))
 '''
 
-MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = """# FlowGuard Model-Test Alignment Notes
+MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE = '''# FlowGuard Model-Test Alignment Notes
 
-This compact default compares one model obligation with its owner code external
-contract (`CodeContract` in the full API), passing test evidence, same-class or
-negative evidence, replay evidence, and a synthetic payload case that exercises
-the real payload surface. It is the right first scaffold when the goal is to
-prove a field, state, input/output, side-effect, or payload obligation is
-actually guarded by runtime code and tests.
+Use the native ModelObligation, CodeContract and TestEvidence API to bind plain
+model obligations, owner code external contracts, and plain test evidence.
+The scaffold is design-ready with not_run evidence. Running its reviewer is
+not execution of the target test; record an actual current result before claiming
+coverage. A model-level TESTED_BY anchor never replaces a test for each required
+obligation. Reuse the existing model and runner for a simple anchor rename.
 
-For behavior-bearing work, the obligation, owner contract, delegate/facade
-contracts, runtime evidence, transition rows, family evidence, and tests must
-agree on one `business_intent_id`, one `behavior_commitment_id`, and one
-singular `primary_path_id`. Canonical relation ids alone do not count as materialized
-coverage.
+Choose additional native checks only for a real risk: same-class/negative cases
+for a repaired model miss; replay for execution order; payload evidence for files;
+source audit and conformance for externally visible input/output/state/effects.
+The model-test-alignment-full-template retains those teaching examples. Samples
+are not current proof of a consumer project. No TestMesh/StructureMesh chain is
+required for this one-owner boundary.
+'''
 
-Escalate to `model-test-alignment-full-template` when the claim needs
-code-boundary conformance rows, artifact payload contracts, conservative Python source audit,
-state-closure evidence for unknown/old-schema cases, reused test-result
-tickets, transition coverage matrices, ModelMesh closure projection with
-`model_mesh_closure_to_transition_coverage(...)`, FieldLifecycleMesh
-projections, ContractExhaustionMesh generated combination obligations, or large
-TestMesh/StructureMesh handoffs.
-"""
-
-__all__ = [
-    'MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE',
-    'MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE',
-    'MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE',
-    'MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE',
-    'MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE',
-    'MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE',
-]
+__all__ = ['MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE', 'MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE', 'MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE', 'MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE', 'MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE', 'MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE']
