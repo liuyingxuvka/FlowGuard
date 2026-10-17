@@ -77,8 +77,9 @@ bounds draft grouping; `python -m flowguard map discover` separately shows route
 
 ## Architecture review and release
 
-`python -m flowguard map lint` (`references/architecture_review.md`). Release: `python -m flowguard
-release` plus the full test suite; both must pass.
+`python -m flowguard map lint` (`references/architecture_review.md`). Routine checkpoints use the
+affected tests/models from `change`. At final release freeze the source: run `python -m flowguard
+release` and the full suite once on that revision; same-SHA CI can provide this evidence.
 
 ## Honesty rules
 

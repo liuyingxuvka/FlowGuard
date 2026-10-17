@@ -2,86 +2,186 @@ name: Publish FlowGuard release
 
 on:
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Full 40-character source commit SHA on main
+        required: true
+        type: string
   push:
     branches: [main]
-    paths: [.github/workflows/publish-release.yml]
+    paths:
+      - pyproject.toml
+      - VERSION
+      - CHANGELOG.md
+      - .github/workflows/publish-release.yml
 
 permissions:
   contents: write
   actions: read
 
 concurrency:
-  group: flowguard-release-v0.70.2
+  group: publish-release
   cancel-in-progress: false
 
 jobs:
   publish:
-    if: github.event_name == 'workflow_dispatch' || github.event.head_commit.message == 'Publish FlowGuard v0.70.2 [release]'
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.head_commit.message, 'Release FlowGuard v')
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
-      RELEASE_TAG: v0.70.2
-      RELEASE_COMMIT: 7960abc082d76f43c3920281e142f04dc4bef917
+      SOURCE_SHA: ${{ inputs.source_sha || github.sha }}
+      EVENT_NAME: ${{ github.event_name }}
       GH_TOKEN: ${{ github.token }}
     steps:
-      - name: Check out the tested release commit
+      - name: Check out the selected source
         uses: actions/checkout@v5
         with:
-          ref: 7960abc082d76f43c3920281e142f04dc4bef917
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: "3.11"
 
-      - name: Require successful CI for this exact source commit
-        run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$RELEASE_COMMIT&per_page=20" > "$RUNNER_TEMP/release-ci.json"
-          python - <<'PY'
-          import json, os, pathlib, tomllib
-          version = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version']
-          assert 'v' + version == os.environ['RELEASE_TAG']
-          runs = json.loads((pathlib.Path(os.environ['RUNNER_TEMP']) / 'release-ci.json').read_text())['workflow_runs']
-          assert any(r['path'] == '.github/workflows/ci.yml' and r['head_sha'] == os.environ['RELEASE_COMMIT']
-                     and r['status'] == 'completed' and r['conclusion'] == 'success' for r in runs), 'The exact release source needs successful CI'
-          PY
-          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" > /dev/null 2>&1; then
-            git fetch origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-            test "$(git rev-parse "$RELEASE_TAG^{commit}")" = "$RELEASE_COMMIT"
-          fi
-
-      - name: Build wheel and source distribution
-        run: |
-          python -m pip install build
-          python -m build --outdir dist
-
-      - name: Prepare skill package and release notes
+      - name: Check source identity and publish its stable release
+        shell: bash
         run: |
           python - <<'PY'
+          import ast
+          from email.parser import Parser
+          import json
+          import os
           from pathlib import Path
-          from zipfile import ZipFile, ZIP_DEFLATED
-          wheel = next(Path('dist').glob('*.whl'))
-          with ZipFile(wheel) as package:
-              assert all(p.startswith(('flowguard/', 'flowguard-0.70.2.dist-info/')) for p in package.namelist())
-          skill = Path('.agents/skills/flowguard')
-          with ZipFile('dist/flowguard-skill-0.70.2.zip', 'w', ZIP_DEFLATED) as package:
-              for path in sorted(skill.rglob('*')):
-                  if path.is_file() and '__pycache__' not in path.parts:
-                      package.write(path, 'flowguard/' + path.relative_to(skill).as_posix())
-          changes = Path('CHANGELOG.md').read_text(encoding='utf-8')
-          start = changes.index('## v0.70.2')
-          end = changes.find('\n## ', start + 1)
-          notes = changes[start:end if end != -1 else None].strip()
-          notes += '\n\nValidation: 1490 tests and 340 subtests passed; 32 executable self-models passed. Ubuntu Python 3.11/3.13 and Windows Python 3.12 CI passed for commit `7960abc`.\n'
-          notes += '\n[Repair and validation report](https://github.com/liuyingxuvka/FlowGuard/blob/v0.70.2/docs/flowguard_0_70_2_fix_report.md)\n'
-          notes += '\nInstall the engine with `python -m pip install flowguard-0.70.2-py3-none-any.whl`. Unzip the skill package into the agent skills directory.\n'
-          Path('release-notes.md').write_text(notes, encoding='utf-8')
-          PY
+          import re
+          import subprocess
+          import sys
+          import tempfile
+          import time
+          import tomllib
 
-      - name: Publish the stable release and assets
-        run: |
-          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --clobber
-            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --title "FlowGuard $RELEASE_TAG" --notes-file release-notes.md --draft=false --prerelease=false --latest
-          else
-            gh release create "$RELEASE_TAG" dist/* --repo "$GITHUB_REPOSITORY" --target "$RELEASE_COMMIT" --title "FlowGuard $RELEASE_TAG" --notes-file release-notes.md --latest
-          fi
+          repository = os.environ["GITHUB_REPOSITORY"]
+          source_sha = os.environ["SOURCE_SHA"]
+          assert re.fullmatch(r"[0-9a-fA-F]{40}", source_sha), "source_sha must be a full 40-character commit SHA"
+          source_sha = source_sha.lower()
+
+          def output(*args):
+              return subprocess.check_output(args, text=True).strip()
+
+          def api(path, *, missing_ok=False):
+              result = subprocess.run(["gh", "api", f"repos/{repository}/{path}"], capture_output=True, text=True)
+              if result.returncode:
+                  if missing_ok and "HTTP 404" in result.stderr:
+                      return None
+                  raise RuntimeError(result.stderr.strip() or f"GitHub API failed: {path}")
+              return json.loads(result.stdout)
+
+          def tag_commit(tag):
+              reference = api(f"git/ref/tags/{tag}", missing_ok=True)
+              if reference is None:
+                  return None
+              obj = reference["object"]
+              for _ in range(8):
+                  if obj["type"] == "commit":
+                      return obj["sha"].lower()
+                  assert obj["type"] == "tag", "release tag must resolve to a commit"
+                  obj = api(f"git/tags/{obj['sha']}")["object"]
+              raise RuntimeError("release tag has excessive annotation nesting")
+
+          assert output("git", "rev-parse", "HEAD") == source_sha, "checkout does not match source_sha"
+          project = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))["project"]
+          assert project["name"] == "flowguard", "source project identity mismatch"
+          version = project["version"]
+          assert re.fullmatch(r"\d+\.\d+\.\d+", version), "publish only a stable three-part version"
+          tag = f"v{version}"
+          if Path("VERSION").exists():
+              assert Path("VERSION").read_text(encoding="utf-8").strip() == version, "VERSION differs from pyproject"
+          identity = ast.parse(Path("flowguard/__init__.py").read_text(encoding="utf-8"))
+          versions = [ast.literal_eval(node.value) for node in identity.body if isinstance(node, ast.Assign)
+                      and any(isinstance(target, ast.Name) and target.id == "__version__" for target in node.targets)]
+          assert versions == [version], "source version declaration differs from pyproject"
+          if os.environ["EVENT_NAME"] == "push":
+              assert output("git", "show", "-s", "--format=%s", "HEAD") == f"Release FlowGuard {tag}", "push release subject must match the current version exactly"
+          changes = Path("CHANGELOG.md").read_text(encoding="utf-8")
+          headings = list(re.finditer(r"(?m)^##[ \t]+([^\n]+)", changes))
+          version_heading = re.compile(rf"(?:v?{re.escape(version)}|\[{re.escape(version)}\])(?:$|[ \t-])")
+          selected = [index for index, heading in enumerate(headings) if version_heading.match(heading.group(1).strip())]
+          assert len(selected) == 1, "CHANGELOG must contain one section for the current version"
+          index = selected[0]
+          notes = changes[headings[index].start():headings[index + 1].start() if index + 1 < len(headings) else None].strip()
+          ci_url = None
+          deadline = time.monotonic() + 1200
+          while time.monotonic() < deadline:
+              runs = api(f"actions/workflows/ci.yml/runs?head_sha={source_sha}&per_page=30")["workflow_runs"]
+              candidates = [run for run in runs if run["head_sha"].lower() == source_sha and run["head_branch"] == "main"
+                            and run["event"] in {"push", "workflow_dispatch"} and run["path"].split("@")[0] == ".github/workflows/ci.yml"]
+              if candidates:
+                  current = max(candidates, key=lambda run: (run["run_number"], run.get("run_attempt", 1)))
+                  if current["status"] == "completed":
+                      assert current["conclusion"] == "success", f"exact-source CI did not succeed: {current['html_url']}"
+                      ci_url = current["html_url"]
+                      break
+              print(f"Waiting for complete ci.yml success at {source_sha}", flush=True)
+              time.sleep(15)
+          else:
+              raise RuntimeError("exact-source ci.yml did not complete successfully within 20 minutes")
+
+          # Recheck main and dereference annotated tags; target_commitish alone is insufficient.
+          assert api("git/ref/heads/main")["object"]["sha"].lower() == source_sha, "main advanced; publish its final frozen source instead"
+          existing_tag = tag_commit(tag)
+          assert existing_tag in (None, source_sha), "existing tag points to a different commit"
+          expected_assets = [f"flowguard-{version}-py3-none-any.whl", f"flowguard-{version}.tar.gz", f"flowguard-skill-{version}.zip"]
+          existing = api(f"releases/tags/{tag}", missing_ok=True)
+          if existing is not None:
+              assert existing_tag == source_sha and existing["tag_name"] == tag, "existing release tag identity mismatch"
+              assert not existing["draft"] and not existing["prerelease"], "existing release is not stable; do not overwrite it automatically"
+              assets = {asset["name"]: asset for asset in existing["assets"]}
+              assert all(name in assets and assets[name]["size"] > 0 for name in expected_assets), "existing release lacks expected assets; do not clobber or silently repair it"
+              print(f"Existing stable release is unchanged: {existing['html_url']}")
+              raise SystemExit(0)
+
+          with tempfile.TemporaryDirectory(prefix="flowguard-release-", dir=os.environ["RUNNER_TEMP"]) as temporary:
+              work = Path(temporary)
+              assets = []
+              from zipfile import ZIP_DEFLATED, ZipFile
+              import tarfile
+              distributions = work / "dist"
+              subprocess.run([sys.executable, "-m", "pip", "install", "build"], check=True)
+              subprocess.run([sys.executable, "-m", "build", "--outdir", str(distributions)], check=True)
+              wheel = distributions / f"flowguard-{version}-py3-none-any.whl"
+              sdist = distributions / f"flowguard-{version}.tar.gz"
+              skill_zip = distributions / f"flowguard-skill-{version}.zip"
+              assert wheel.is_file() and sdist.is_file(), "wheel and source distribution are missing"
+              with ZipFile(wheel) as package:
+                  assert all(name.startswith(("flowguard/", f"flowguard-{version}.dist-info/")) for name in package.namelist()), "wheel contains files outside the engine package"
+                  metadata = Parser().parsestr(package.read(f"flowguard-{version}.dist-info/METADATA").decode("utf-8"))
+                  assert metadata["Version"] == version, "wheel version differs from source"
+              with tarfile.open(sdist) as package:
+                  metadata_file = package.extractfile(f"flowguard-{version}/PKG-INFO")
+                  assert metadata_file is not None and Parser().parsestr(metadata_file.read().decode("utf-8"))["Version"] == version, "sdist version differs from source"
+              skill = Path(".agents/skills/flowguard")
+              assert (skill / "SKILL.md").is_file(), "current skill source is missing"
+              with ZipFile(skill_zip, "w", ZIP_DEFLATED) as package:
+                  for path in sorted(skill.rglob("*")):
+                      assert not path.is_symlink(), f"skill package contains a symlink: {path}"
+                      if path.is_file() and "__pycache__" not in path.parts:
+                          package.write(path, "flowguard/" + path.relative_to(skill).as_posix())
+              assets = [wheel, sdist, skill_zip]
+              notes += f"\n\nSource commit: `{source_sha}`.\n"
+              if ci_url:
+                  notes += f"\n[Successful CI for this source]({ci_url}).\n"
+              notes_path = work / "release-notes.md"
+              notes_path.write_text(notes, encoding="utf-8")
+              # This is the sole publication action. gh creates a missing tag at --target.
+              command = ["gh", "release", "create", tag, *map(str, assets), "--repo", repository,
+                         "--target", source_sha, "--title", f"FlowGuard {tag}", "--notes-file", str(notes_path),
+                         "--draft=false", "--prerelease=false", "--latest"]
+              if existing_tag is not None:
+                  command.append("--verify-tag")
+              subprocess.run(command, check=True)
+          assert tag_commit(tag) == source_sha, "published tag does not resolve to the selected source"
+          published = api(f"releases/tags/{tag}")
+          assert published["tag_name"] == tag and not published["draft"] and not published["prerelease"], "published release is not stable"
+          assert set(expected_assets) <= {asset["name"] for asset in published["assets"]}, "published release assets are incomplete"
+          print(published["html_url"])
+          PY

@@ -917,7 +917,7 @@ class DistributionEvidence:
     """Projection-parity evidence published by the distribution owner.
 
     DevelopmentProcessFlow consumes this identity. It deliberately does not
-    enumerate suite members or reproduce installation/SkillGuard semantics.
+    enumerate suite members or reproduce the distribution owner's installation checks.
     """
 
     evidence_id: str

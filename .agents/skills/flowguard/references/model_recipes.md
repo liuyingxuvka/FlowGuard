@@ -71,7 +71,8 @@ Packs bundle invariants and scenarios: `RetryPack`, `DeduplicationPack`, `CacheP
 
 ## Conformance (model <-> code)
 
-Write an adapter with `reset(initial_state)`, `apply_step(step) -> ReplayObservation`,
+When the changed contract depends on order, repeated inputs, state or side effects,
+write an adapter with `reset(initial_state)`, `apply_step(step) -> ReplayObservation`,
 `observe_state()`, `observe_output()`. It calls the real code for `step.function_input` and
 projects the real state into the model's `State`. Replay only the traces that cover every
 modeled transition:
@@ -90,8 +91,10 @@ def conformance():
     return last
 ```
 
-A model is done when: intended design passes, every broken variant fails, conformance passes,
-and `python -m flowguard map check` reports no `model_*` errors.
+A model is done when the intended design passes, its relevant business broken variants
+fail, required conformance passes, and `python -m flowguard map check` reports no
+`model_*` errors. A pure anchor rename reuses the existing model/tests and does not
+need a new adapter. Report model-level confidence when no runtime replay was needed.
 
 ## Model runners (capability models)
 

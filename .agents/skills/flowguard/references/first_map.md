@@ -50,6 +50,8 @@ project and read components in batches. Default `read` targets 8,000 characters.
    `accepted_debts` with a reason (`architecture_review.md`).
 8. `python -m flowguard template adoption --write .` generates `docs/flowguard_agents_rules.md`.
    Copy its six rules into the project's AGENTS.md or CLAUDE.md; the template never edits either.
+   Routine changes run selected tests/models; final frozen-source release runs the full
+   suite and all registered models once, locally or in CI for that exact source SHA.
    Commit the map and those project rules: `git add .flowguard/map.json` (plus `.flowguard/models/` if you wrote
    models), then commit. `.flowguard/cache/` ignores itself in git via its own `.gitignore`.
 9. Optional: write models for the 1-3 riskiest flows (`model_recipes.md`); entrypoints whose

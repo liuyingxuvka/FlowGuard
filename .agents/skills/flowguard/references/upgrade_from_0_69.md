@@ -14,8 +14,12 @@ results into current proof.
    Fix `map check` errors and review unverified dependencies; confirm the map.
 6. Keep existing models whose declared boundary still matters. Register top-level
    contract models or the real `run_checks.py` paths; do not register nested model.py.
-7. Run `python -m flowguard change`, its selected checks, the full project suite,
-   and `python -m flowguard release` before claiming the upgrade complete.
+7. During migration run `python -m flowguard change` and its selected checks. At the
+   final frozen revision run the full project suite and `python -m flowguard release`
+   once, or use successful CI for that exact source SHA, before claiming completion.
+8. Do not retain SkillGuard compile/owner-receipt/selfproof or authority-closure gates.
+   Move any necessary business assertion to the existing native test/model runner;
+   remove unconsumed projection envelopes. Code/model/test bindings remain native.
 
 Daily commands are read, change and release. Old self-review, self-conformance,
 model-impact freshness and authority snapshot APIs are retired in 0.70.0.
