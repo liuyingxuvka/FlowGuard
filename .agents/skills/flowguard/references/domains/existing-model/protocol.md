@@ -80,8 +80,8 @@ files changed since the last `confirm` (or that are still draft).
    `.flowguard/verification/owners/existing_model_preflight/run_checks.py`
    (exit 0 only if the correct case passes and the broken case fails), and a notes file
    in `docs/`. Replace the router example with your real owner and plan.
-7. List the runner path in the owning component's `models` in `.flowguard/map.json`, then
-   run `python -m flowguard map models existing_model_preflight` (a runner's id is its folder name).
+7. Only if step 6 created or changed a persistent runner, register its path in the owner's
+   `models` and run `python -m flowguard map models existing_model_preflight` (id = folder name).
 8. Fix every unmapped file: add it to one component's `files`, then `python -m flowguard map confirm <id>`.
 
 ## What blocks

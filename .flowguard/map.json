@@ -177,7 +177,7 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Loads public names from their owner on first use.",
+      "summary": "Declares engine identity and loads public names from their owner on first use.",
       "responsibilities": [
         "expose public names without importing their modules early"
       ],
@@ -223,7 +223,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:09f911beffee5ce0acb5675e853073ea25f80e9b4659667522b99f8352833a0d"
+      "fingerprint": "sha256:28efd78eedd3ebf3871f20ef46dbc7f32849b3da71ced08747ee30f5cc29551c"
     },
     {
       "id": "templates",

@@ -37,10 +37,10 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 
 ## Steps
 
-1. `python -m flowguard template model-mesh --write .` writes
-   `.flowguard/models/owners/model_mesh/model.py`, `.flowguard/verification/owners/model_mesh/run_checks.py`
-   and a notes file. To rename `model_mesh`, rename both folders and the `_MODEL_DIR` path in `run_checks.py`.
-2. In `model.py`, describe each child and the parent (API from `flowguard`):
+1. Reuse or update the owner's native mesh/review. Only for a missing reusable composition boundary,
+   `python -m flowguard template model-mesh --write .` writes its model, runner and notes.
+   To rename `model_mesh`, rename both owner folders and `_MODEL_DIR` in `run_checks.py`.
+2. In the selected owner plan (`model.py` only if persisted), describe children and parent (API from `flowguard`):
    ```python
    from flowguard import (ChildModelEvidence, ChildReattachmentContract, HierarchyCoverageItem,
        HierarchyPartitionMap, ModelTargetSplitDerivation, MeshClosureModel, MeshClosureTransition,
@@ -74,11 +74,11 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
    `check_portable_model(model)`; parent/child with `check_refinement(parent, child,
    RefinementBinding(...))`; several models with `check_composition(models)`, or a joint
    system with `check_system_composition(system, request, models)`. `report.ok` means `status == "pass"`.
-5. Retain the relevant real partition/reattachment regression from the table below. `run_checks.py` must return 0 only when the good mesh
-   passes and every broken variant fails.
-6. Run `python .flowguard/verification/owners/<id>/run_checks.py`. List that path in the parent
-   component's `models` in `.flowguard/map.json`, then run `python -m flowguard map models <id>`.
-7. After a child edit: `python -m flowguard change` (or `map impact --depth 2`) lists dependents.
+5. Keep relevant partition/reattachment regressions. A persistent runner, if needed, returns 0 only
+   when the good mesh passes and relevant broken variants fail.
+6. If a persistent runner was created or changed, register it in the parent's `models`; execute
+   the selected registered runner once via `python -m flowguard map models <id>`, without a second direct run.
+7. After a child edit, `python -m flowguard change` selects the full caller closure. `map impact --depth 2` is only a truncated diagnostic, not complete coverage.
    Re-confirm the stale child (`map confirm ID`), copy its new fingerprint into the child's
    `evidence_id` and the parent's `consumed_evidence_id`, and re-run the parent mesh.
 
@@ -112,8 +112,8 @@ Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement
 
 ## Done when
 
-- [ ] `run_checks.py` exits 0: the good mesh passes and every broken variant fails.
-- [ ] The runner is in the parent component's `models`; `python -m flowguard map models <id>` passes.
+- [ ] The selected direct native mesh review or existing-owner check passes; relevant broken cases fail.
+- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
 - [ ] Each child component lists its real tests in `tests`; no child is `stale` in `map check`.
 - [ ] `python -m flowguard change` is clean, and the parent and affected siblings were re-run.
 - [ ] Your report names what ran, what was skipped, and which children were not re-checked.

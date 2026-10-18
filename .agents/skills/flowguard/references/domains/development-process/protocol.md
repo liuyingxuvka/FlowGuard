@@ -31,9 +31,10 @@ reported as current. It also computes a small re-run set. Map fingerprints make 
 
 ## Steps
 
-1. `python -m flowguard template development-process-flow --write .` writes `model.py` under
-   `.flowguard/models/owners/development_process_flow/`, `.flowguard/verification/owners/development_process_flow/run_checks.py`, and two notes in `docs/`.
-2. Build the plan in `model.py`. One `ProcessArtifact` per component or file group;
+1. For an ordinary change, use its actual current test/native results and stop after affected validation.
+   For real multi-stage dependencies reuse the owner; only a missing reusable boundary needs the model/runner/notes
+   from `python -m flowguard template development-process-flow --write .`.
+2. If the process-review branch is needed, update its existing plan (`model.py` only if persisted). One `ProcessArtifact` per component or file group;
    `current_version` = its map fingerprint (or a file hash). Set `owner` to make writes
    by any other `actor` a blocker.
    ```python
@@ -61,13 +62,12 @@ reported as current. It also computes a small re-run set. Map fingerprints make 
    name a `ProcessEvidence` with `evidence_kind="full_validation"` that passed and is current.
 5. Re-run list: `derive_revalidation_plan(plan)` returns `RevalidationRecommendation` rows (`requirement_id`,
    `command`, `freshness_gap_codes`) for declared requirements lacking current passing evidence.
-6. Add relevant business regressions (below). Make `run_checks.py` return 0 only if the good plan passes and
-   each broken plan fails. List its path in the owning component's `models`, then run
-   `python -m flowguard map models development_process_flow` (runner id = folder name).
+6. Keep relevant business regressions. Any new/changed persistent runner must pass the good plan and reject relevant bad plans;
+   register it in the owner's `models` and execute it once via `python -m flowguard map models <id>` (id = folder name).
 
 ### Plan detailing
 
-`python -m flowguard template plan-detailing --write .` gives a starter. Build a
+Only for a plan-detailing need without a reusable owner, `python -m flowguard template plan-detailing --write .` gives a starter. Build a
 `PlanDetail` (`goal`, `sources`, `artifacts`, `steps`, `validations`, `evidence`,
 `side_effects`, `failure_branches`, `final_claim`) and call `review_plan_detail(plan)`
 (`.ok`). `plan_detail_to_development_process(plan)` turns it into a `DevelopmentProcessPlan`.
@@ -114,9 +114,9 @@ with `AgentWorkflowStep` rows, then `review_agent_workflow_rehearsal(plan)` (`.o
 
 ## Done when
 
-- [ ] `run_checks.py` exits 0: good plan passes, every broken variant fails.
-- [ ] Runner listed in the owning component's `models`; `python -m flowguard map models <id>` passes.
-- [ ] `python -m flowguard change` is clean; for release, `python -m flowguard release` too.
+- [ ] Ordinary branch: report the affected commands' actual current results; no process scaffold is required.
+- [ ] Process-review branch: the native review passes and relevant bad plans fail; any persistent runner is registered.
+- [ ] `python -m flowguard change` is clean; for release only, use one complete frozen-source gate, locally or in CI.
 - [ ] Your report lists what ran, what was skipped, and the re-run set.
 
 ## Limits

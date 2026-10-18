@@ -37,7 +37,7 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
    `.flowguard/verification/owners/ui_flow_structure/run_checks.py` and notes.
    It runs the real interaction reviewer on a reversible interaction and a broken
    target. `ui-flow-structure-full` retains complete-journey teaching material.
-2. Replace the fixtures with your UI. Core records (`from flowguard import ...`):
+2. Reuse/update the owner's UI model; replace template fixtures only if step 1 needed a scaffold. Core records (`from flowguard import ...`):
    - `UIInteractionModel(model_id, initial_state_id, states=, controls=, transitions=, displays=, validation_boundaries=, rationale=)`
    - `UIStateNode(state_id, visible_controls=, enabled_controls=, disabled_controls=, hidden_controls=, recovery_controls=, terminal=, failure=, visible_displays=, hidden_displays=)`
    - `UIControl(control_id, label=, control_type=, level=, destructive=, function_key=)`
@@ -77,11 +77,11 @@ proof = UIRuntimeProof(
 )
 ```
 
-5. Keep the runner rule (exit 0 only if good reports pass and broken ones fail).
-6. List `".flowguard/verification/owners/ui_flow_structure/run_checks.py"` in the
-   owning component's `models` in `.flowguard/map.json`. Run it:
-   `python -m flowguard map models ui_flow_structure` (exit 0 = pass).
-7. Run `python -m flowguard change` and run the tests and models it lists.
+5. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
+   returns 0 only if good reports pass and relevant broken reports fail.
+6. If a persistent runner was created or changed, register it in the owner's `models`; run the
+   selected registered owner once via `python -m flowguard map models <id>` (exit 0 = pass).
+7. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
 
@@ -114,8 +114,8 @@ Also: `ui_missing_proof_artifact`, `ui_proof_artifact_not_passing`, `ui_proof_ar
 
 ## Done when
 
-- [ ] `python -m flowguard map models ui_flow_structure` passes.
-- [ ] Each broken fixture fails with its expected code (assert the code, not only `not ok`).
+- [ ] The selected native UI reviews/existing-owner checks pass; any persistent runner is registered and run once.
+- [ ] Relevant broken fixtures fail with their expected code (assert the code, not only `not ok`).
 - [ ] Real UI tests (click-through or component tests) are in the component's `tests`.
 - [ ] Runnable claims use `require_runtime_proof=True`; `python -m flowguard change` is clean.
 - [ ] Report which reviews ran, which evidence classes were omitted (scoped claim), and what was skipped.

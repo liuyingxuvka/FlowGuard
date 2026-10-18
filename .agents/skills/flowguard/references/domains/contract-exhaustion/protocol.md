@@ -38,11 +38,11 @@ rejected before any write happens.
 
 ## Steps
 
-1. Scaffold: `python -m flowguard template contract-exhaustion --write .`
-   It writes `.flowguard/models/owners/contract_exhaustion/model.py`,
-   `.flowguard/verification/owners/contract_exhaustion/run_checks.py` and a notes file.
+1. Reuse or update the owner's finite native boundary/review. Only if a reusable boundary is missing,
+   scaffold with `python -m flowguard template contract-exhaustion --write .`.
+   It writes owner `model.py`, `.flowguard/verification/owners/contract_exhaustion/run_checks.py` and notes.
    For a second model, rename both directories and fix `_MODEL_DIR` in `run_checks.py`.
-2. In `model.py`, declare the boundary with the real API:
+2. Declare the boundary in the selected owner plan (`model.py` only if persisted), using the real API:
    `from flowguard import ContractDimension, ContractAxis, ContractInteractionGroup, ContractOracle, ContractExhaustionPlan, review_contract_exhaustion`.
    - `ContractDimension(dimension_id, dimension_type, values=..., mutation_types=..., finite=True)`
      for single-field bad cases. Types include `field`, `input`, `state`, `payload`.
@@ -55,7 +55,7 @@ rejected before any write happens.
    `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
    `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
-5. In `run_checks()`, return the good report and the bad reports, and update `main()`
+5. If persisting a runner, return the good and bad reports from `run_checks()` and update `main()`
    in `run_checks.py` to match (the template returns two reports). The runner must
    exit 0 only when the good plan is `ok` and every bad plan is not `ok`:
 
@@ -70,14 +70,14 @@ good, bad = run_checks()
 raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 ```
 
-6. List the runner in the owning component's `models` in `.flowguard/map.json`:
+6. If a persistent runner was created or changed, list it in the owner's `models` in `.flowguard/map.json`:
    `".flowguard/verification/owners/contract_exhaustion/run_checks.py"`.
    Run it: `python -m flowguard map models contract_exhaustion` (exit 0 = pass).
 7. Hand case ids to tests. `contract_exhaustion_to_test_mesh_cell_ids(report)` gives
    product ids (`cartesian:<model>:<group>:<n>`); it is empty for single-field cases.
    `contract_exhaustion_to_model_obligations(report)` covers every case
    (`contract_exhaustion:contract:<dimension>:<mutation>`). One test per required case.
-8. Run `python -m flowguard change` and run the tests and models it lists.
+8. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
 
@@ -111,10 +111,10 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 
 ## Done when
 
-- [ ] `python -m flowguard map models <id>` passes (good plan `ok`).
-- [ ] Every broken plan fails with the expected code (assert the code, not only `not ok`).
+- [ ] The selected direct native review or existing-owner check passes (good plan `ok`).
+- [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Each required case id has a test, and those tests are in the component's `tests`.
-- [ ] The runner is listed in the component's `models` in `.flowguard/map.json`.
+- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
 - [ ] `python -m flowguard change` is clean.
 - [ ] Report which models and tests ran, the claim scope used, and what was skipped.
 

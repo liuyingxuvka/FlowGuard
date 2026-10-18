@@ -41,9 +41,9 @@ no anchor stays an observation and never blocks.
 
 ## Steps
 
-1. Scaffold if useful: `python -m flowguard template topology-hazard --write .` writes
-   `.flowguard/models/owners/model_topology_hazard_review/model.py`, its
-   `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py` and a notes file.
+1. Reuse the owner's native hazard review/model; only a missing reusable boundary needs
+   `python -m flowguard template topology-hazard --write .`, which writes
+   owner `model.py`, `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py` and notes.
    Its blocked demo exits 1; a passing real review exits 0. Keep per-case asserts (step 6).
 2. Build the usage intent: `UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release",
    compatibility_policy=TOPOLOGY_COMPAT_UNKNOWN, persistent_history_possible=...)`.
@@ -72,12 +72,12 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
    Pass every candidate: a non-empty `candidates` turns off automatic candidates.
    Each candidate's `required_routes` names the follow-up (for example `model_miss_review`,
    `model_test_alignment`, `architecture_reduction`, `development_process_flow`).
-6. In `run_checks.py` build the intended plan and the broken plans below; assert the intended
+6. Review the intended plan and relevant broken cases directly or in the existing owner; assert the intended
    one gives `report.ok` and `report.confidence == "full"` (or `"scoped"` with the reasons
-   listed), and that each broken plan gives its expected finding code. Return 0 only then.
-7. List the runner in the owning component's `models` in `.flowguard/map.json`
-   (`.flowguard/verification/owners/model_topology_hazard_review/run_checks.py`) and run
-   `python -m flowguard map models model_topology_hazard_review`, then `python -m flowguard change`.
+   listed), and that relevant broken plans give their expected codes. A persistent runner returns 0 only then.
+7. If a persistent runner was created or changed, register it in the owner's `models`; run the
+   selected registered owner once with `python -m flowguard map models <id>`. Direct review needs no runner.
+   Then use `python -m flowguard change` and execute affected checks not already current.
 8. Shortcut: `run_model_first_checks` already adds a `topology_hazard` section from
    `FlowGuardCheckPlan(..., usage_intent=...)`. That auto section sees no business paths;
    pass `topology_hazard_plan=plan` to include them.
@@ -113,8 +113,8 @@ Decision values: `topology_hazard_pass`, `topology_hazard_scoped_confidence`, `t
 
 ## Done when
 
-- [ ] `python -m flowguard map models model_topology_hazard_review` exits 0: intended plan
-      passes, every broken plan gives its expected code.
+- [ ] The selected direct native review or existing-owner model passes; relevant broken plans give
+      their expected codes. Any new/changed persistent runner is registered and run once through `map models`.
 - [ ] Every remaining hazard is handled with a named test, or scoped with a written reason.
 - [ ] Scoped confidence is reported as scoped, never as a clean pass.
 - [ ] The tests named in `evidence_ids` pass and are listed in the component's `tests`.

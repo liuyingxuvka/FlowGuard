@@ -7,8 +7,8 @@ Use this after a model was green but a test, runtime run, log or manual check
 still failed. The bug class is the "green model, broken product" escape: the
 model had no input for the case (a timeout, an empty list, a second click), its
 invariant was too weak to notice the bad state, or the model and the code
-disagree. Not a point patch: make the owning model fail on the escaped case and
-its same-class siblings, keep the intended design passing, add a regression test.
+disagree. Make the owning model reject the escaped case, keep the intended design
+passing, and protect the observed behavior with a real regression; add siblings only when required below.
 
 ## Use when
 
@@ -47,14 +47,14 @@ its same-class siblings, keep the intended design passing, add a regression test
    is not in `UI_MODEL_MISS_TYPES`; `review_ui_model_misses` rejects it with
    `ui_model_miss_unknown_type`. Put a weak-invariant miss in a `FalseNegativeCase`.
 4. Write `would_have_failed_if`: the model change that would have caught it (new input, finer state, stronger invariant).
-5. Add the miss to the owning model as a known-bad variant. In a contract model
-   (`.flowguard/models/<id>.py`) add an entry to `broken_variants()`; every variant must fail.
-   Also add at least one same-class variant (the sibling case: other timeout, other empty input).
-   Then fix the model so `build_explorer()` (the intended design) still passes.
+5. Update the owning model's existing obligation/known-bad case to reject the miss; for a contract
+   model, use `broken_variants()`. Add necessary independent siblings for recurring/high-risk misses,
+   native-required UI scope, or an observed independent same-class path; ordinary misses need no extra sibling.
+   Keep `build_explorer()` passing; reuse existing cases instead of mechanically creating another model.
 6. Rerun `python -m flowguard map models <id>` (runner id = its directory name). Exit 0: intended
    design passes, every broken variant fails. Then run `python -m flowguard change`.
-7. Add a regression test for the observed failure and one for the same-class case. List the test
-   file in the component's `tests` in `map.json`.
+7. Keep one real behavior regression for the observed failure, updating an existing test if it can
+   assert the same promise. Add sibling coverage only under step 5's conditions; list files in the owner's `tests`.
 8. Record the backpropagation and review it:
 
 ```python
@@ -104,8 +104,8 @@ assert report.ok, [f.code for f in report.findings]
 
 - The escaped case itself: the old model with the missing input or weak invariant, as a broken
   variant that must now fail (for example, Submit with no Timeout branch reaches `logged_in`).
-- One same-class sibling: the same gap through another input or path (slow network retry,
-  second submit while pending).
+- When step 5 requires it, an independent same-class sibling: another input or path
+  (slow network retry, second submit while pending).
 - A point fix: only the regression test is recorded, with no `new_model_obligation_id`,
   `new_plan_item_ids` or `repair_evidence_ids`. The review must block with `missing_new_model_obligation`.
 - A UI miss filed as `invariant_too_weak`: `review_ui_model_misses` must return
@@ -114,8 +114,8 @@ assert report.ok, [f.code for f in report.findings]
 ## Done when
 
 - [ ] `python -m flowguard map models <id>` exits 0: intended design passes, every broken variant fails.
-- [ ] The escaped case and at least one same-class case are broken variants in the owner model.
-- [ ] The regression tests pass and are listed in the component's `tests` in `map.json`.
+- [ ] The owner's model rejects the escaped case; required independent siblings from step 5 are covered.
+- [ ] The observed-failure regression and any required siblings pass and are in the owner's `tests`.
 - [ ] `review_false_negative_backpropagation` (or `review_ui_model_misses`) has no blocker.
 - [ ] `python -m flowguard change` is clean; you report what ran, what was skipped, and why.
 

@@ -108,11 +108,11 @@ print(report.ok, report.decision); print(report.format_text())
 
 ## Done when
 
-- [ ] `python -m flowguard map models test_mesh` exits 0 (good plan ok, broken plans fail).
-- [ ] Each broken variant fails for the expected finding code.
+- [ ] Direct pytest/shard branch: report only that command's actual terminal results; no TestMesh model or second run.
+- [ ] Real parent/child branch only: registered `map models test_mesh` passes; relevant broken plans fail with expected codes.
 - [ ] Every selected test file is listed in some component's `tests` in map.json.
 - [ ] `python -m flowguard change` shows no unmapped files and the listed tests pass.
-- [ ] For release, `python -m flowguard release` passes and the full suite ran (not resumed).
+- [ ] For a release claim, the final frozen source has one complete ordinary gate, locally or in exact-source CI.
 - [ ] Report planned/executed/failed/not-run counts, what ran, what was deferred or skipped, and why.
 
 ## Limits

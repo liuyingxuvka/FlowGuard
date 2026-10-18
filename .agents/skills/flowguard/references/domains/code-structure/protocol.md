@@ -36,13 +36,13 @@ the code exists, each recommended module becomes one component in
 
 ## Steps
 
-1. Write the starter files:
-   `python -m flowguard template code-structure-recommendation --write .`
+1. Reuse or update the current owner's native recommendation/review. Only for a missing
+   reusable boundary, run `python -m flowguard template code-structure-recommendation --write .`
    This writes `.flowguard/models/owners/code_structure_recommendation/model.py`,
    `.flowguard/verification/owners/code_structure_recommendation/run_checks.py` and a notes file.
    To use a feature name, rename both `code_structure_recommendation` directories and the
    `_MODEL_DIR` path inside `run_checks.py`.
-2. In `model.py`, edit `recommendation()`. API:
+2. Update the selected owner recommendation (`recommendation()` in a persisted `model.py`). API:
    ```python
    from flowguard import (CodeStructureRecommendation, TargetModuleRecommendation,
                           review_code_structure_recommendation)
@@ -71,12 +71,12 @@ the code exists, each recommended module becomes one component in
    in sorted(set(universe))]})` (from `flowguard.portable_model`; inner pairs must be lists, tuples
    raise an error) and `reverse_implementation_obligation_ids`
    (`implementation_coverage_obligation_id(kind, id)` for each element).
-4. Edit `broken_recommendation()` and add more broken variants (see below). Make `run_checks.py`
-   return 0 only when the good plan passes and every broken variant fails.
-5. Run it: `python .flowguard/verification/owners/code_structure_recommendation/run_checks.py`.
-6. List the runner in the parent component's `models` in `map.json`
-   (`".flowguard/verification/owners/<id>/run_checks.py"`), then run
-   `python -m flowguard map models <id>` (exit 0 = pass).
+4. Keep the relevant broken recommendations (see below). A persistent `run_checks.py`, if needed,
+   returns 0 only when the good plan passes and those broken variants fail.
+5. If a persistent runner was created or changed, register it in the parent's `models` in `map.json`
+   (`".flowguard/verification/owners/<id>/run_checks.py"`). Direct native review needs no new runner.
+6. Execute a selected registered runner once with `python -m flowguard map models <id>`;
+   do not also require a direct runner invocation for the same current checks.
 7. Write the code. Then turn each target module into a map component: `files` = `path`,
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,
    `state` and `side_effects` = owned items, `tests` = the real tests for its
@@ -111,8 +111,8 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
 
 ## Done when
 
-- [ ] `run_checks.py` exits 0: the good plan passes and every broken variant fails.
-- [ ] The runner is listed in the owning component's `models`; `python -m flowguard map models <id>` passes.
+- [ ] The selected direct native review or existing-owner model passes; relevant broken cases fail.
+- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
 - [ ] After coding, each module is one component with its tests listed; `map check` has no errors.
 - [ ] `python -m flowguard change` is clean for the changed files.
 - [ ] Your report names what ran, what was skipped and why.

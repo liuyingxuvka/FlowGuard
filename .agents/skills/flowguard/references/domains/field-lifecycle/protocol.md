@@ -34,10 +34,10 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
 
 ## Steps
 
-1. Scaffold: `python -m flowguard template field-lifecycle --write .`
-   It writes `.flowguard/models/owners/field_lifecycle/model.py`, a runner
-   `.flowguard/verification/owners/field_lifecycle/run_checks.py` and notes.
-2. In `model.py`: `from flowguard import FieldLifecyclePlan, FieldLifecycleRow, FieldLifecycleGroup, FieldProjection, review_field_lifecycle`.
+1. Reuse or update the owner's current field lifecycle/review. Only for a missing reusable boundary,
+   scaffold with `python -m flowguard template field-lifecycle --write .`.
+   It writes owner `model.py`, `.flowguard/verification/owners/field_lifecycle/run_checks.py` and notes.
+2. In the selected plan (`model.py` only if persisted): `from flowguard import FieldLifecyclePlan, FieldLifecycleRow, FieldLifecycleGroup, FieldProjection, review_field_lifecycle`.
 3. One `FieldLifecycleRow(field_id, role=, lifecycle=, behavior_impacts=, reader_ids=, writer_ids=, owner_id=)` per field.
    - `role`: `state`, `routing`, `permission`, `feature_flag`, `schema_version`,
      `persisted`, `presentation`, `metadata`, `prompt_config`.
@@ -65,8 +65,8 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    `content_fingerprint`.
 7. Runtime-gateway evidence routes to `model_test_alignment`; closure routes to `development_process_flow`.
    Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
-8. Edit `complete_field_lifecycle()` and `broken_field_lifecycle()` in `model.py`.
-   The runner exits 0 only if the good plan passes, the broken one fails and
+8. Review the current field plan and relevant broken cases. If persisting a runner, update its
+   good/bad plans; it exits 0 only if the good plan passes, the broken one fails and
    obligations and code contracts were projected (shortened):
 
 ```python
@@ -75,9 +75,9 @@ broken = review_field_lifecycle(broken_field_lifecycle())
 ok = correct.ok and not broken.ok and field_lifecycle_to_model_obligations(correct)
 ```
 
-9. List `.flowguard/verification/owners/field_lifecycle/run_checks.py` in the component's
-   `models` in `.flowguard/map.json`; run `python -m flowguard map models field_lifecycle`.
-10. Run `python -m flowguard change` and run the tests and models it lists.
+9. If a persistent runner was created or changed, register it in the component's `models`;
+   run the selected registered owner once with `python -m flowguard map models <id>`.
+10. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
 
@@ -110,11 +110,11 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 
 ## Done when
 
-- [ ] `python -m flowguard map models <id>` passes (good plan `field_lifecycle_full`).
-- [ ] Each broken plan fails with the expected code (assert the code, not only `not ok`).
+- [ ] The selected native review/check passes within its declared scope; partial gaps stay visible.
+- [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Every projected obligation has a real test, listed in the component's `tests`.
 - [ ] No source file still reads a removed or renamed field (grep the old name).
-- [ ] The runner is in the component's `models`; `python -m flowguard change` is clean.
+- [ ] Any persistent runner is registered and executed once; `python -m flowguard change` is clean.
 - [ ] Report which models and tests ran, the claim scope, and what was skipped.
 
 ## Limits

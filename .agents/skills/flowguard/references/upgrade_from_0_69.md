@@ -10,8 +10,9 @@ results into current proof.
    rules from `python -m flowguard template adoption --write .`.
 4. Run `python -m flowguard map scan`, inspect `map discover` and `map digest all`,
    then describe components, owners, entrypoints, state, effects, tests and models.
-5. `python -m flowguard map deps --write` preserves explicit conservative edges.
-   Fix `map check` errors and review unverified dependencies; confirm the map.
+5. `python -m flowguard map deps --write` keeps edges supported by actual imports, literal module
+   references or explicitly justified accepted debts; unsupported declarations are removed. Follow
+   `first_map.md`, fix `map check` errors, review dependencies and confirm the map.
 6. Keep existing models whose declared boundary still matters. Register top-level
    contract models or the real `run_checks.py` paths; do not register nested model.py.
 7. During migration run `python -m flowguard change` and its selected checks. At the

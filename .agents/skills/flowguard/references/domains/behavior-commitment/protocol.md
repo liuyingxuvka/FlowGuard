@@ -49,8 +49,9 @@ the real bug in A stays hidden.
    - set `change_mode`: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
      `remove_or_replace_behavior`, `coverage_gap_backfill` or `model_miss_check`.
    - an alias, wrapper or second UI for the same promise maps to the same commitment.
-4. For each path-sensitive promise, run `python -m flowguard template primary-path-authority --write .`
-   and fill `PrimaryPathAuthorityPlan`: one `PrimaryPathContract` per intent
+4. For each changed path-sensitive promise, reuse its existing primary-path owner and plan.
+   Only for a missing reusable boundary, run `python -m flowguard template primary-path-authority --write .`;
+   fill/update `PrimaryPathAuthorityPlan`: one `PrimaryPathContract` per intent
    (`business_path_id`, `business_intent_id`, `primary_entrypoint_id`, `owner_model_id`,
    `owner_code_contract_id`, `expected_terminal`, `failure_policy`) and one
    `FallbackPathCandidate` per other path (`candidate_path_id`, `fallback_for_path_id`,
@@ -77,10 +78,9 @@ print(report.format_text())
    returns an updated ledger (it raises if a source is missing); save it with `write_behavior_commitment_ledger(path, ledger)`.
 7. The ledger runner calls the review without `project_root`. Add it after you replace the
    starter `source_ref` values (`README.md#usage`, `api/run-primary-workflow`) with real ones.
-   The primary-path runner already asserts the first two broken variants below; add the rest.
-8. List the runners in the owning component's `models` in `.flowguard/map.json`, e.g.
-   `.flowguard/verification/owners/primary_path_authority/run_checks.py`. Run one with
-   `python -m flowguard map models primary_path_authority` (exit 0 = pass).
+   Keep relevant failure assertions; add other variants only for this change's risks, reusing existing owner tests.
+8. If a persistent runner was created or changed, register it in the owner's `models`, then run
+   `python -m flowguard map models primary_path_authority` once (exit 0 = pass).
 
 ## What blocks
 
@@ -115,8 +115,8 @@ print(report.format_text())
 ## Done when
 
 - [ ] The good plan and the good ledger review with `ok=True` and no findings.
-- [ ] Every broken variant fails with its expected code.
-- [ ] Each changed promise has one commitment, one owner model and tests, listed with the runners in `.flowguard/map.json`.
+- [ ] Each relevant broken variant fails with its expected code; unrelated variants are not new obligations.
+- [ ] Each changed promise has one commitment, one owner model and tests; any persistent runner is registered.
 - [ ] `python -m flowguard change` is clean, and the listed tests and models ran.
 - [ ] You report what ran, what was skipped, and why.
 

@@ -32,10 +32,10 @@ in `.flowguard/map.json` after the split.
 
 ## Steps
 
-1. Write the starter files: `python -m flowguard template structure-mesh --write .`
-   It writes `.flowguard/models/owners/structure_mesh/model.py`, a runner in
-   `.flowguard/verification/owners/structure_mesh/run_checks.py` and a notes file.
-2. In `model.py`, build the target structure as a `CodeStructureRecommendation` with
+1. Reuse or update the owner's native split/review. Only if its reusable boundary is missing,
+   write starter files with `python -m flowguard template structure-mesh --write .`.
+   It writes owner `model.py`, `.flowguard/verification/owners/structure_mesh/run_checks.py` and notes.
+2. In the selected owner plan (`model.py` only if persisted), build a `CodeStructureRecommendation` with
    `parent_module_id` equal to the plan's parent, one `TargetModuleRecommendation` per child,
    owner maps and `facade_module_id` (see the code-structure protocol).
 3. Build the plan and review it:
@@ -76,11 +76,11 @@ in `.flowguard/map.json` after the split.
    `conformance_green` < `mesh_green`, all exported as `EVIDENCE_*`). In routine scope (with the
    default `release_deferred_allowed=True`) a module or entrypoint with `release_required=True`
    and stale parity is only a warning, listed in `report.release_obligations`.
-6. Add broken plans (see below). `run_checks.py` must return 0 only when the good plan passes
-   and every broken plan fails. Run it with `python <that run_checks.py>`.
-7. List the runner in the parent component's `models` in `map.json`
-   (`".flowguard/verification/owners/structure_mesh/run_checks.py"`), then run
-   `python -m flowguard map models structure_mesh` (exit 0 = pass).
+6. Keep relevant broken plans (see below). A persistent runner, if needed, returns 0 only when
+   the good plan passes and those broken plans fail; direct native review needs no new runner.
+7. Register any new/changed persistent runner in the parent's `models`; run the selected registered
+   owner once with `python -m flowguard map models <id>` (exit 0 = pass),
+   without also requiring a direct invocation of the same current checks.
 8. After the split, each child is a map component: `files` = its path, `entrypoints` = its
    public symbols, `state` and `side_effects` = what it owns, `tests` = its parity tests.
    Run `map deps --write`, `map check`, `map lint`, then `map confirm ID`.
@@ -113,8 +113,8 @@ in `.flowguard/map.json` after the split.
 
 ## Done when
 
-- [ ] `run_checks.py` exits 0: the good plan passes and every broken plan fails.
-- [ ] The runner is listed in `models`; `python -m flowguard map models structure_mesh` passes.
+- [ ] The selected direct native split review or existing-owner check passes; relevant broken cases fail.
+- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
 - [ ] Each child is a map component with its tests listed; `map check` has no errors and
       `map lint` shows no `dependency_cycle` between children.
 - [ ] `python -m flowguard change` is clean and its selected tests pass after the last edit.

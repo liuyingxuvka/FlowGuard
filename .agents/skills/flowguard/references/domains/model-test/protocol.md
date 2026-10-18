@@ -39,7 +39,7 @@ same rule; a test covers an obligation id that no longer exists.
    The template uses the native API with explicit `not_run` target evidence.
    A scaffold run checks design readiness, not target test execution.
    `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.
-2. In `model.py`, build the rows with the real API:
+2. Reuse/update the owner's native alignment plan (`model.py` only if persisted), using the real API:
    ```python
    from flowguard import (ModelObligation, CodeContract, TestEvidence, ModelTestAlignmentPlan,
        review_model_test_alignment, audit_python_code_contracts, audit_python_test_assertions,
@@ -61,7 +61,7 @@ same rule; a test covers an obligation id that no longer exists.
        require_source_audit=True, require_executed_evidence=True))
    # report.ok, report.decision, report.findings[i].code, report.binding_rows
    ```
-3. Run pytest once outside the runner with `FLOWGUARD_PYTEST_NODEIDS=.flowguard/cache/pytest-run.json`,
+3. For an executed-alignment claim, run pytest once outside the runner with `FLOWGUARD_PYTEST_NODEIDS=.flowguard/cache/pytest-run.json`,
    `-p flowguard.pytest_nodeid_recorder --junitxml=.flowguard/cache/pytest.xml` in a git project.
    A separate `bind_run.py` audits sources and calls `bind_pytest_execution(plan,
    evidence_nodeids={evidence_id: exact_nodeid}, nodeid_manifest=..., project_root=root)`.
@@ -76,10 +76,10 @@ same rule; a test covers an obligation id that no longer exists.
    Template: `runtime-path-evidence`.
 6. Optional families (one rule over many members, e.g. every export format): `ObligationFamily`,
    `ObligationFamilyEvidence`, passed as `obligation_families` / `family_evidence`.
-7. In `run_checks.py`, return 0 only when the good plan is `ok` and every broken variant is not.
-   Run `python .flowguard/verification/owners/<id>/run_checks.py`.
-8. Add that `run_checks.py` path to the component's `models` in `.flowguard/map.json`, then run
-   `python -m flowguard map models <MODEL_ID>` and `python -m flowguard change`.
+7. If persisting a runner, return 0 only when the good plan is `ok` and relevant broken variants are not;
+   direct native alignment review or an existing-owner test update requires no new scaffold.
+8. Register any new/changed persistent runner in the owner's `models`; execute the selected registered
+   runner once via `python -m flowguard map models <MODEL_ID>`, without a second direct run; then use `change`.
 
 ## What blocks
 
@@ -111,9 +111,9 @@ Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_
 ## Done when
 
 - [ ] Every code contract comes from a map entrypoint that `python -m flowguard map check` accepts.
-- [ ] `run_checks.py` exits 0: the good plan is green and every broken variant is blocked.
+- [ ] The selected direct native review or existing-owner check passes; relevant broken cases are blocked.
 - [ ] Test statuses come from a pytest run in this session; skipped or not-run tests are reported as such.
-- [ ] The tests are in the component's `tests`; the runner is in its `models`; `map models <MODEL_ID>` passes.
+- [ ] Tests are mapped; any new/changed persistent runner is registered with one current `map models` result.
 - [ ] `python -m flowguard change` is clean. Your report lists what ran, what was skipped, and which obligations had no test.
 
 ## Limits

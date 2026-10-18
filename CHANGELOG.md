@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.70.5 - 2026-10-18 - Reuse native owners and execute selected checks once
+
+- Align all 14 capability protocols with their actual direct-review, existing-owner
+  and new reusable-boundary branches. Scaffold and runner registration are conditional;
+  registered runners have one formal model execution for the current inputs.
+- Keep ordinary pytest results sufficient for small changes, require same-class model-miss
+  cases only for the applicable recurring/high-risk, UI or independent-path scope, and
+  retain real business failure assertions and current-source evidence requirements.
+- Use the complete caller closure for ordinary change selection; label depth-limited
+  diagnostics as truncated. Correct architecture-cycle severity and dependency-write guidance.
+
 ## v0.70.4 - 2026-10-17 - Preserve surviving verification after ownership changes
 
 - Keep affected historical tests and executable models that still exist when an owner

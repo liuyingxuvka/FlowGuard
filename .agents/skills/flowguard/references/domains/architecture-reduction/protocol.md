@@ -44,7 +44,7 @@ the same. It never deletes code on a guess.
    - `entrypoint_unlisted`: first add it to the component's `entrypoints`. If it is a second path to the same behavior,
      record a `CompatibilitySurfaceClassification` with `public_entrypoints` set; preserve its observable contract.
    - `large_file` / `large_component`: not a candidate. Add `ArchitectureReductionTrigger("structure_mesh", reason)` instead.
-   Start every candidate at `proof_status="risky_keep"`. Raise it to `safe_by_equivalence` only when step 3 holds.
+   With no actionable candidate, report that result and stop. Start each candidate at `proof_status="risky_keep"`; raise it to `safe_by_equivalence` only when step 3 holds.
    Fill `affected_public_entrypoints`, `affected_state`, `affected_side_effects` from the map fields of the removed side.
 2. Build the observable contract from the owning component: `public_entrypoints` = entrypoints,
    `observable_state` = state, `observable_side_effects` = side_effects, plus `observable_outputs`,
@@ -82,8 +82,8 @@ the same. It never deletes code on a guess.
        return good.ok and not bad.ok
    if __name__ == "__main__": raise SystemExit(run_owner(main))
    ```
-6. List the runner path in the owning component's `models` in `.flowguard/map.json`, then run
-   `python -m flowguard map models <reduction_id>` (exit 0 = pass).
+6. For a persistent runner created or changed in step 5, register it in the owner's `models`
+   and run `python -m flowguard map models <reduction_id>` once; otherwise use the direct native review result.
 7. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
    still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.
 8. After the code change: rerun `map lint` (the finding should be gone), update the map descriptions,
@@ -116,10 +116,10 @@ the same. It never deletes code on a guess.
 ## Done when
 
 - [ ] Every acted-on lint finding is a candidate or has a reason in `scoped_candidate_reasons`.
-- [ ] The runner passes; each broken variant makes `review_architecture_reduction` return `ok=False`.
-- [ ] The runner is listed in the component's `models`, and the component's `tests` list the equivalence tests.
+- [ ] The selected direct review or existing-owner check passes; relevant broken cases return `ok=False`.
+- [ ] Any persistent runner is registered; the component's `tests` list the equivalence tests.
 - [ ] Those tests pass before and after the change.
-- [ ] `python -m flowguard change` is clean, and `map lint` no longer shows the finding.
+- [ ] `python -m flowguard change` is clean; resolved findings disappear, while kept/blocked candidates stay visible.
 - [ ] The report says which candidates ran, which stayed `risky_keep` or blocked, and what was skipped.
 
 ## Limits
