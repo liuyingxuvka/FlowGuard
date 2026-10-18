@@ -223,7 +223,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:28efd78eedd3ebf3871f20ef46dbc7f32849b3da71ced08747ee30f5cc29551c"
+      "fingerprint": "sha256:c91d30d8e2ea473ff033d66c48c3bf9c88e2b3ede13a3b69980ccff9611a5ff6"
     },
     {
       "id": "templates",
@@ -500,8 +500,9 @@
     {
       "id": "field-lifecycle",
       "layer": "capabilities",
-      "summary": "Checks field readers, writers, defaults and replacements.",
+      "summary": "Checks field vocabulary, readers, writers, defaults and replacements.",
       "responsibilities": [
+        "reject unknown role, lifecycle and behavior-impact values with typed blockers",
         "account for field owners, readers, writers and replacements"
       ],
       "files": [
@@ -524,7 +525,7 @@
         ".flowguard/verification/owners/default_replacement_field_lifecycle/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:955daa58c0afd03001e478c3459fd5362c0fc2ec33c12649afad9420adaaee26"
+      "fingerprint": "sha256:cd5c3305977c200dc9079eb2c80c701751efa2423f5e8b5d9a14028dcf7edbc5"
     },
     {
       "id": "model-mesh",
@@ -749,10 +750,11 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Collects exact test IDs and reviews shard execution.",
+      "summary": "Collects exact test IDs and reviews current, bounded shard execution.",
       "responsibilities": [
         "shard tests by exact node id",
-        "audit test runs and result reuse"
+        "reuse only exact terminal passes with matching current inputs and execution identity",
+        "retain typed capability blockers and bounded process cleanup results"
       ],
       "files": [
         "flowguard/pytest_adapter.py",
@@ -779,6 +781,7 @@
       ],
       "depends_on": [
         "engine-core",
+        "map-proof",
         "portable-models",
         "public-api",
         "shared-vocabulary"
@@ -795,7 +798,7 @@
         ".flowguard/verification/owners/test_evidence_mesh/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:de04e8de45540f41589e5421f3caae8500c11774a68f284993195feb3a72fb50"
+      "fingerprint": "sha256:16109cfe04a9c3c2bf214dfbc700a77e2acd08b6ad518ac94b9c442bff4539e6"
     },
     {
       "id": "ui-flow",
@@ -1026,16 +1029,18 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Runs real model checks and declared implementation anchors.",
+      "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks"
+        "run models and their known-bad and conformance checks",
+        "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
       "files": [
         "flowguard/map/proof.py",
         "flowguard/map/runner.py"
       ],
       "entrypoints": [
-        "flowguard/map/proof.py:run_models"
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
       ],
       "state": [],
       "side_effects": [
@@ -1052,7 +1057,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:69bba902e67dd211742fe7cd627db7e62d5a58166b89153550deb8a9a5cb03e5"
+      "fingerprint": "sha256:44b170423c3941ce6225813510245e47dd3d546bb02045c9b4e0ba2459d104ee"
     },
     {
       "id": "engine-explore",

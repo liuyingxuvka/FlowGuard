@@ -390,11 +390,14 @@ class FieldLifecycleRow:
         object.__setattr__(self, "owner_id", str(self.owner_id))
         object.__setattr__(self, "locations", _as_tuple(self.locations))
         object.__setattr__(self, "group_id", str(self.group_id))
-        role = str(self.role or FIELD_ROLE_METADATA)
+        role = str(self.role)
         object.__setattr__(self, "role", role)
-        lifecycle = str(self.lifecycle or FIELD_LIFECYCLE_ACTIVE)
+        lifecycle = str(self.lifecycle)
         object.__setattr__(self, "lifecycle", lifecycle)
-        object.__setattr__(self, "behavior_impacts", _as_tuple(self.behavior_impacts))
+        impacts = self.behavior_impacts
+        if isinstance(impacts, str):
+            impacts = (impacts,)
+        object.__setattr__(self, "behavior_impacts", tuple(str(impact) for impact in (impacts or ())))
         object.__setattr__(self, "reader_ids", _as_tuple(self.reader_ids))
         object.__setattr__(self, "writer_ids", _as_tuple(self.writer_ids))
         object.__setattr__(self, "default_semantics", str(self.default_semantics))
@@ -721,6 +724,25 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
 
     projections: list[FieldProjection] = []
     for row in plan.fields:
+        vocabulary_checks = (
+            ("role", (row.role,), FIELD_ROLES),
+            ("lifecycle", (row.lifecycle,), FIELD_LIFECYCLES),
+            ("behavior_impact", row.behavior_impacts, FIELD_IMPACTS),
+        )
+        for name, values, allowed in vocabulary_checks:
+            invalid = [value for value in values if value not in allowed]
+            if invalid:
+                findings.append(
+                    FieldLifecycleFinding(
+                        f"field_{name}_invalid",
+                        f"field has an unrecognized {name}",
+                        FIELD_FINDING_BLOCKER,
+                        field_id=row.field_id,
+                        owner_route=FIELD_ROUTE_MODEL_FIRST,
+                        action=f"choose {name} values from the exported field vocabulary",
+                        metadata={"invalid_values": invalid, "allowed_values": list(allowed)},
+                    )
+                )
         if row.coverage_disposition not in FIELD_COVERAGE_DISPOSITIONS:
             findings.append(
                 FieldLifecycleFinding(

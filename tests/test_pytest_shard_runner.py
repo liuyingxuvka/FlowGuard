@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import signal
+import subprocess
+import sys
+import pytest
 from pathlib import Path
 
 import flowguard.pytest_shards_cli as shard_runner
@@ -246,3 +251,140 @@ def test_failed_or_partial_resume_rows_are_never_reused(tmp_path):
             prior_row={"status": status, "exact_selection": True},
         )
         assert resumed is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group cleanup")
+@pytest.mark.parametrize("parent_exits", [False, True])
+def test_process_owner_cleans_children_even_after_parent_exit(tmp_path, parent_exits):
+    pidfile = tmp_path / "child.pid"
+    script = (
+        "import subprocess,sys,time; from pathlib import Path; "
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)']); "
+        f"Path({str(pidfile)!r}).write_text(str(child.pid)); "
+        + ("sys.exit(0)" if parent_exits else "time.sleep(30)")
+    )
+    result = shard_runner._run_process(
+        [sys.executable, "-c", script], cwd=tmp_path, environment=dict(os.environ),
+        stdout_path=tmp_path / "stdout", stderr_path=tmp_path / "stderr",
+        timeout_seconds=.5,
+    )
+    pid = int(pidfile.read_text())
+    try:
+        if Path(f"/proc/{pid}/stat").exists():
+            assert Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z"
+        else:
+            with pytest.raises(ProcessLookupError):
+                os.kill(pid, 0)
+        assert result["exit_code"] != 0
+        assert result["timed_out"] is not parent_exits
+        assert result["cleanup_confirmed"] is True
+    finally:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+def test_resume_requires_current_input_bytes_and_execution_identity(tmp_path, monkeypatch):
+    root = tmp_path / "project"
+    root.mkdir()
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    source = root / "answer.py"
+    source.write_text("def answer(): return 1\n")
+    (root / "test_answer.py").write_text(
+        "from answer import answer\ndef test_answer(): assert answer() == 1\n"
+    )
+    monkeypatch.setenv("PYTHONPATH", str(Path(shard_runner.__file__).resolve().parents[1]))
+    args = shard_runner.build_parser().parse_args([
+        "--root", str(root), "--shards", "1", "--parallel-shards", "1",
+    ])
+    def run(name, previous=""):
+        monkeypatch.setenv("FLOWGUARD_PYTEST_SHARDS_DIR", str(tmp_path / name))
+        args.resume_output = str(tmp_path / previous) if previous else ""
+        return shard_runner.run(args)
+    code, first = run("first")
+    assert code == 0, first
+    code, same = run("same", "first")
+    assert code == 0 and same["shard_execution"]["resumed_shards"] == 1, same
+    monkeypatch.setenv("FLOWGUARD_REGRESSION_INPUT", "changed")
+    code, environment_changed = run("environment", "first")
+    assert code == 0 and environment_changed["shard_execution"]["resumed_shards"] == 0
+    monkeypatch.delenv("FLOWGUARD_REGRESSION_INPUT")
+    source.write_text("def answer(): return 2\n")
+    code, changed = run("changed", "first")
+    assert code == 1 and changed["status"] == "fail", changed
+    assert changed["shard_execution"]["resumed_shards"] == 0
+    assert changed["pytest_execution"]["failed"] == 1
+    source.write_text("def answer(): return 1\n")
+    request = tmp_path / "first" / "shard-01" / "requested.json"
+    legacy = json.loads(request.read_text())
+    del legacy["execution_identity"]
+    request.write_text(json.dumps(legacy))
+    code, unknown = run("legacy", "first")
+    assert code == 0 and unknown["shard_execution"]["resumed_shards"] == 0, unknown
+
+
+def test_unknown_capability_preserves_typed_block_and_aggregate(tmp_path, monkeypatch):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "test_cap.py").write_text(
+        "import pytest\n@pytest.mark.flowguard_capability('unknown-native-capability')\n"
+        "def test_cap(): assert True\n"
+    )
+    output = tmp_path / "evidence"
+    monkeypatch.setenv("PYTHONPATH", str(Path(shard_runner.__file__).resolve().parents[1]))
+    monkeypatch.setenv("FLOWGUARD_PYTEST_SHARDS_DIR", str(output))
+    args = shard_runner.build_parser().parse_args(["--root", str(root)])
+    code, payload = shard_runner.run(args)
+    assert code == 70 and payload["status"] == "blocked"
+    node = "test_cap.py::test_cap"
+    partition = payload["capability_partition"]
+    assert partition["blocked_nodeids"] == [node]
+    assert "unknown-native-capability" in partition["blocked_reasons"][node]
+    assert json.loads((output / "aggregate.json").read_text()) == payload
+    assert "UnboundLocalError" not in json.dumps(payload)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX session ownership")
+@pytest.mark.parametrize("case", ["normal", "outer_timeout", "inner_timeout", "orphan_nested"])
+def test_nested_process_helpers_share_one_finite_owner(tmp_path, case):
+    from flowguard.map.runner import run_isolated_process
+    record = tmp_path / "inner.json"
+    delay = 0 if case == "normal" else 30
+    inner = ("import json,os,time;from pathlib import Path;"
+             f"Path({str(record)!r}).write_text(json.dumps([os.getpid(),os.getpgrp()]));"
+             f"print('nested-ok',flush=True);time.sleep({delay})")
+    outer = ("import os,sys;from pathlib import Path;"
+             "from flowguard.map.runner import run_isolated_process;"
+             f"p,t,c=run_isolated_process([sys.executable,'-c',{inner!r}],"
+             "cwd=Path.cwd(),env=dict(os.environ),"
+             f"timeout={.3 if case == 'inner_timeout' else 20});"
+             "raise SystemExit(p.returncode)")
+    if case == "orphan_nested":
+        worker = "import time;time.sleep(.15);" + outer
+        outer = "import subprocess,sys;subprocess.Popen([sys.executable,'-c'," + repr(worker) + "])"
+    env = dict(os.environ, PYTHONPATH=str(Path(shard_runner.__file__).resolve().parents[1]))
+    # A foreign/stale marker must not make this outside coordinator join or
+    # kill its caller's group. The bootstrap installs the actual child owner.
+    env["_FLOWGUARD_PROCESS_OWNER"] = "1:1:1"
+    result, timed_out, cleaned = run_isolated_process(
+        [sys.executable, "-c", outer], cwd=tmp_path, env=env,
+        timeout=.8 if case in {"outer_timeout", "orphan_nested"} else 3,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    pid, group = json.loads(record.read_text())
+    assert group != pid  # inner helper did not create a detached session
+    assert cleaned
+    assert timed_out == (case in {"outer_timeout", "orphan_nested"})
+    assert (result.returncode == 0) == (case == "normal")
+    try:
+        assert Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] in {"Z", "X"}
+    except FileNotFoundError:
+        pass
+
+
+def test_inaccessible_process_inventory_does_not_claim_cleanup(monkeypatch):
+    from flowguard.map import runner
+    monkeypatch.setattr(runner.sys, "platform", "linux")
+    monkeypatch.setattr(runner.Path, "iterdir", lambda self: (_ for _ in ()).throw(PermissionError()))
+    monkeypatch.setattr(runner.os, "killpg", lambda *args: None)
+    assert runner._group_active(12345)

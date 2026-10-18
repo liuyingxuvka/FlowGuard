@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.70.6 - 2026-10-18 - Preserve failure boundaries and current execution evidence
+
+- Clean the owned POSIX process group after timeout or a leader exits with live
+  descendants. Nested native process helpers share the same finite owner; an
+  inner timeout terminates that leaf. Keep bounded Windows taskkill behavior.
+- Reuse shard results only with exact current input bytes, interpreter, dependencies,
+  environment, arguments and matching recorder input digests. Unknown legacy results
+  run once again; final release checks never resume.
+- Reject unknown field role, lifecycle and behavior-impact vocabulary through typed
+  review blockers, while retaining legal scoped and delegated declarations.
+- Preserve run_owner completion in the contract protocol and select actual registered
+  behavior-ledger/primary-path runner ids. Preserve typed capability-metadata diagnostics.
+
 ## v0.70.5 - 2026-10-18 - Reuse native owners and execute selected checks once
 
 - Align all 14 capability protocols with their actual direct-review, existing-owner

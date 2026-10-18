@@ -33,7 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
-from .runner import COMPLETION_LINE, LOADED_LINE
+from .runner import COMPLETION_LINE, LOADED_LINE, run_isolated_process
 
 DEFAULT_TIMEOUT = 300          # seconds per model
 
@@ -73,8 +73,13 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelRe
     rel = path.relative_to(root).as_posix()
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, "-m", "flowguard.map.proof", str(root), str(path)], cwd=root,
-                              env=env, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout)
+        proc, timed_out, cleaned = run_isolated_process(
+            [sys.executable, "-m", "flowguard.map.proof", str(root), str(path)], cwd=root,
+            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        if timed_out or not cleaned or proc.returncode != 0:
+            return ModelResult(model=path.stem, file=rel, status="error",
+                               problems=[f"model process exit={proc.returncode}; timeout={timed_out}; cleanup_confirmed={cleaned}"],
+                               seconds=round(time.time() - started, 3))
     except subprocess.TimeoutExpired:
         return ModelResult(model=path.stem, file=rel, status="error", problems=[f"timed out after {timeout}s"],
                            seconds=round(time.time() - started, 3))
@@ -265,8 +270,14 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
     result = ModelResult(model=model_id_of(path), file=path.relative_to(root).as_posix())
     started = time.time()
     try:
-        proc = subprocess.run([sys.executable, "-c", "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())", str(path)], cwd=root, env=env, capture_output=True,
-                              encoding="utf-8", errors="replace", timeout=timeout)
+        proc, timed_out, cleaned = run_isolated_process(
+            [sys.executable, "-c", "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())", str(path)],
+            cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        if timed_out or not cleaned:
+            result.status = "error"
+            result.problems.append(f"timed out={timed_out} after {timeout}s; cleanup_confirmed={cleaned}")
+            result.seconds = round(time.time() - started, 3)
+            return result
         loaded = set()
         stderr = []
         for line in proc.stderr.splitlines():

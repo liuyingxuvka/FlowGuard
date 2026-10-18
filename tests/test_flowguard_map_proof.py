@@ -8,6 +8,8 @@ conformance replay must catch the bug.
 from __future__ import annotations
 
 import json
+import os
+import signal
 import shutil
 import subprocess
 from pathlib import Path
@@ -431,3 +433,38 @@ def test_explorer_with_no_initial_states_proves_nothing(shop, capsys):
                 "initial_states=(), external_inputs=INPUTS, invariants=INVARIANTS, progress_steps=0)")
     code, out = models(shop, capsys)
     assert code == 1 and "explored no input transitions" in out
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX process-group cleanup")
+@pytest.mark.parametrize("kind", ["runner", "contract"])
+def test_model_timeout_cleans_its_spawned_child(tmp_path, kind):
+    from flowguard.map.proof import run_model, run_runner
+    body = (
+        "import subprocess,sys,time\nfrom pathlib import Path\n"
+        "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'])\n"
+        "Path('child.pid').write_text(str(child.pid))\ntime.sleep(30)\n"
+    )
+    if kind == "runner":
+        path = tmp_path / ".flowguard" / "probe" / "run_checks.py"
+        function = run_runner
+    else:
+        path = tmp_path / ".flowguard" / "models" / "probe.py"
+        body = "MODEL_ID='probe'\ndef build_explorer(): pass\n" + body
+        function = run_model
+    path.parent.mkdir(parents=True)
+    path.write_text(body)
+    result = function(tmp_path, path, timeout=.5)
+    pid = int((tmp_path / "child.pid").read_text())
+    try:
+        assert result.status == "error"
+        assert "cleanup_confirmed=True" in " ".join(result.problems)
+        if Path(f"/proc/{pid}/stat").exists():
+            assert Path(f"/proc/{pid}/stat").read_text().rsplit(")", 1)[1].split()[0] == "Z"
+        else:
+            with pytest.raises(ProcessLookupError):
+                os.kill(pid, 0)
+    finally:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass

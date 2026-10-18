@@ -33,7 +33,6 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
 - For a rename or removal: every place that still reads the old name (`grep`).
 
 ## Steps
-
 1. Reuse or update the owner's current field lifecycle/review. Only for a missing reusable boundary,
    scaffold with `python -m flowguard template field-lifecycle --write .`.
    It writes owner `model.py`, `.flowguard/verification/owners/field_lifecycle/run_checks.py` and notes.
@@ -80,11 +79,13 @@ ok = correct.ok and not broken.ok and field_lifecycle_to_model_obligations(corre
 10. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
-
 | Code | Meaning |
 |---|---|
 | `field_lifecycle_missing_field_row` | A discovered field has no row. |
 | `behavior_field_projection_missing` | Behavior-bearing field with no projection and no scoped-out reason. |
+| `field_role_invalid` | A row's role is outside exported `FIELD_ROLES`. |
+| `field_lifecycle_invalid` | A row's lifecycle is outside exported `FIELD_LIFECYCLES`. |
+| `field_behavior_impact_invalid` | Any behavior impact is outside exported `FIELD_IMPACTS`. |
 | `field_model_obligation_missing` | A projection has no `model_obligation_id`. |
 | `field_code_contract_missing` | A projection has no `code_contract_id`. |
 | `old_field_disposition_open` | Old/replaced/deprecated field with no closing disposition and evidence. |
@@ -100,16 +101,17 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 `field_lifecycle_scoped` with `ok` = `allow_scoped_confidence` (default `True`): check `report.decision`.
 
 ## Risk-specific regression examples
-
 - Rename left open: `old_mode` with `lifecycle="replaced"`, `replacement_field_id`, no disposition -> `old_field_disposition_open`.
 - Dropped row: a field in `discovered_field_ids` with no row -> `field_lifecycle_missing_field_row`.
 - Unprojected flag: `role="routing"`, `behavior_impacts=("routing",)`, no
   projection -> `behavior_field_projection_missing`.
+- Unknown vocabulary: `behavior_impacts=("permisssion",)` blocks with
+  `field_behavior_impact_invalid`; unknown role or lifecycle blocks with its
+  corresponding code, including for scoped or delegated coverage.
 - Broad claim without trail: `claim_scope="full"`, projection with no `gate:`
   ref -> `field_gate_evidence_missing`.
 
 ## Done when
-
 - [ ] The selected native review/check passes within its declared scope; partial gaps stay visible.
 - [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Every projected obligation has a real test, listed in the component's `tests`.
@@ -118,11 +120,9 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 - [ ] Report which models and tests ran, the claim scope, and what was skipped.
 
 ## Limits
-
 - It checks only the rows you declare. It does not scan or run code; a field
   you never discovered is invisible. Pair projections with real tests.
-- Open gaps: a `replacement_field_id` naming no row still passes; unknown
-  `role`, `lifecycle` or `behavior_impacts` strings are silently accepted; a
+- Open gaps: a `replacement_field_id` naming no row still passes; a
   `scoped_out_reason` alone lets a behavior-bearing row skip its projection;
   duplicate rows are caught only with `require_complete_inventory=True`.
   Fingerprints are only format-checked, never recomputed.

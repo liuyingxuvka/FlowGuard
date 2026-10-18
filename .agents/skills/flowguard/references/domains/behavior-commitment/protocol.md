@@ -76,14 +76,17 @@ print(report.format_text())
 6. Pass `project_root` so source files are checked live (missing file, missing anchor,
    changed content). After an accepted source change, `refresh_behavior_commitment_source_inventory(ledger, root)`
    returns an updated ledger (it raises if a source is missing); save it with `write_behavior_commitment_ledger(path, ledger)`.
-7. The ledger runner calls the review without `project_root`. Add it after you replace the
+7. If using the ledger scaffold, its runner calls the review without `project_root`. Add it after you replace the
    starter `source_ref` values (`README.md#usage`, `api/run-primary-workflow`) with real ones.
    Keep relevant failure assertions; add other variants only for this change's risks, reusing existing owner tests.
 8. If a persistent runner was created or changed, register it in the owner's `models`, then run
-   `python -m flowguard map models primary_path_authority` once (exit 0 = pass).
+   each affected registered runner id once: `python -m flowguard map models <runner-id>`
+   (exit 0 = pass). The unchanged scaffold ids are `behavior_commitment_ledger` for
+   the ledger and `primary_path_authority` for the primary-path plan; use the actual
+   directory id if renamed, not the component id. If no persistent runner changed,
+   use the selected direct native review or existing-owner check without creating a runner.
 
 ## What blocks
-
 | Finding code | Meaning |
 |---|---|
 | `primary_failure_masked_by_fallback_success` | Path A failed, path B ran and returned success. |
@@ -100,7 +103,6 @@ print(report.format_text())
 | `source_surface_content_fingerprint_stale` | The source file changed since the ledger was updated. |
 
 ## Risk-specific regression examples
-
 - A-fails-B-succeeds: a `FallbackPathCandidate` with `candidate_trigger="primary_failure"`,
   `invokes_on_primary_failure=True`, `returns_success_after_primary_failure=True`.
   Must give `primary_failure_masked_by_fallback_success`.
@@ -113,7 +115,6 @@ print(report.format_text())
   `commitment_primary_path_blocked`.
 
 ## Done when
-
 - [ ] The good plan and the good ledger review with `ok=True` and no findings.
 - [ ] Each relevant broken variant fails with its expected code; unrelated variants are not new obligations.
 - [ ] Each changed promise has one commitment, one owner model and tests; any persistent runner is registered.
@@ -121,7 +122,6 @@ print(report.format_text())
 - [ ] You report what ran, what was skipped, and why.
 
 ## Limits
-
 - It checks the rows you declare. A path you never list as a candidate is not found.
   Pair it with real tests that force the primary path to fail.
 - `runtime_evidence_state="current_pass"` is your claim; the review does not run code or open proof files.

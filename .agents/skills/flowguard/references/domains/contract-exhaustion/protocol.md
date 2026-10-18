@@ -27,7 +27,6 @@ rejected before any write happens.
 - You only want to know which field owns a value: use field lifecycle.
 
 ## Inputs
-
 - `python -m flowguard read --find <words>` to find the owning component.
 - `python -m flowguard read --component <id>`: read `entrypoints`, `state`,
   `side_effects`, `tests`, `models`.
@@ -37,7 +36,6 @@ rejected before any write happens.
   subset the code happens to handle today.
 
 ## Steps
-
 1. Reuse or update the owner's finite native boundary/review. Only if a reusable boundary is missing,
    scaffold with `python -m flowguard template contract-exhaustion --write .`.
    It writes owner `model.py`, `.flowguard/verification/owners/contract_exhaustion/run_checks.py` and notes.
@@ -65,9 +63,15 @@ def run_checks():
     bad = [review_contract_exhaustion(p) for p in broken_plans()]
     return good, bad
 
-# run_checks.py
-good, bad = run_checks()
-raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
+# run_checks.py: keep the template's model import and run_owner completion wrapper
+from flowguard.map.runner import run_owner
+
+def main():
+    good, bad = run_checks()
+    return 0 if good.ok and not any(r.ok for r in bad) else 1
+
+if __name__ == "__main__":
+    raise SystemExit(run_owner(main))
 ```
 
 6. If a persistent runner was created or changed, list it in the owner's `models` in `.flowguard/map.json`:
@@ -80,7 +84,6 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 8. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
-
 | Code | Meaning |
 |---|---|
 | `contract_boundary_missing` | No dimensions, axes or seed cases declared. |
@@ -99,7 +102,6 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 `report.findings` holds the codes; `report.ok` is the pass/fail bit.
 
 ## Risk-specific regression examples
-
 - Empty plan: `ContractExhaustionPlan("x")` must block with `contract_boundary_missing`.
 - Product too big: same axes with `cartesian_case_limit` below the real product size
   must block with `contract_cartesian_case_limit_exceeded`.
@@ -110,7 +112,6 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
   `contract_oracle_missing`.
 
 ## Done when
-
 - [ ] The selected direct native review or existing-owner check passes (good plan `ok`).
 - [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Each required case id has a test, and those tests are in the component's `tests`.
@@ -119,7 +120,6 @@ raise SystemExit(0 if good.ok and not any(r.ok for r in bad) else 1)
 - [ ] Report which models and tests ran, the claim scope used, and what was skipped.
 
 ## Limits
-
 - It only exhausts what you declared. A missing dimension or axis is a model gap
   the review cannot see. It does not run the code; pair every case id with a real test.
 - With `ContractCoverageUniverse(allow_partitioned_product=True)`, the denominator is

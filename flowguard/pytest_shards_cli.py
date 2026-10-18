@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
+import hashlib
+import importlib.metadata
 import os
 import platform
 from pathlib import Path
@@ -12,7 +14,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 from flowguard.pytest_shards import (  # noqa: E402
@@ -32,7 +34,9 @@ from flowguard.symlink_capability import (  # noqa: E402
     capability_satisfies,
     probe_symlink_capability,
 )
-from flowguard.pytest_junit import _pytest_junit_projection  # noqa: E402
+from flowguard.map.runner import PROCESS_OWNER_ENV, run_isolated_process
+from flowguard.pytest_junit import (_pytest_junit_projection,
+    worktree_input_paths, pytest_alignment_input_digest)  # noqa: E402
 
 
 def _probe_symlink_capability() -> dict[str, Any]:
@@ -165,6 +169,22 @@ def _full_pytest_leaf_identity(
             "PYTEST_PLUGINS",
         }
     }
+    # Hash the wider environment without recording credentials. Only output
+    # locations and shell bookkeeping are non-semantic for this invocation.
+    ignored_environment = {
+        "FLOWGUARD_PYTEST_SHARDS_DIR", "FLOWGUARD_PYTEST_COLLECTION_NODEIDS",
+        "FLOWGUARD_PYTEST_SHARD_NODEIDS", "FLOWGUARD_PYTEST_SHARD_COLLECTION",
+        "FLOWGUARD_PYTEST_NODEIDS", "PWD", "OLDPWD", "SHLVL", "_", PROCESS_OWNER_ENV,
+    }
+    environment_identity["variables_fingerprint"] = "sha256:" + hashlib.sha256(
+        json.dumps({key: value for key, value in environment.items()
+                    if key not in ignored_environment}, sort_keys=True).encode()
+    ).hexdigest()
+    try:
+        input_paths = worktree_input_paths(root)
+        input_digest = pytest_alignment_input_digest(root, input_paths)
+    except (OSError, ValueError):
+        input_paths, input_digest = (), ""
     configuration = collection.get("configuration", collection.get("config", {}))
     if isinstance(configuration, Mapping):
         configuration_identity: Any = dict(configuration)
@@ -182,6 +202,8 @@ def _full_pytest_leaf_identity(
             "prefix": str(Path(sys.prefix).resolve()),
         },
         "environment": environment_identity,
+        "dependencies": sorted([dist.metadata.get("Name", ""), dist.version]
+                               for dist in importlib.metadata.distributions()),
         "config": configuration_identity,
         "args_semantics": {
             "command": [
@@ -199,6 +221,8 @@ def _full_pytest_leaf_identity(
             "shard_algorithm": PARTITION_ALGORITHM,
         },
         "input_identity": {
+            "input_paths": list(input_paths),
+            "input_digest": input_digest,
             "collected_nodeids": nodeid_fingerprint(tuple(nodeids)),
             "collection_schema": collection.get("schema_version", ""),
         },
@@ -229,62 +253,22 @@ def _run_process(
     stdout_path.parent.mkdir(parents=True, exist_ok=True)
     started = time.time()
     timed_out = False
-    process: subprocess.Popen[str] | None = None
     with stdout_path.open("w", encoding="utf-8", newline="") as stdout, stderr_path.open(
         "w", encoding="utf-8", newline=""
     ) as stderr:
-        kwargs: dict[str, Any] = {
-            "cwd": cwd,
-            "env": dict(environment),
-            "stdout": stdout,
-            "stderr": stderr,
-            "text": True,
-        }
-        if os.name == "nt":
-            kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
-        else:
-            kwargs["start_new_session"] = True
         try:
-            process = subprocess.Popen(command, **kwargs)
-            try:
-                exit_code = process.wait(timeout=timeout_seconds)
-            except subprocess.TimeoutExpired:
-                timed_out = True
-                # Kill the process tree before killing only the direct child.
-                # A pytest case can launch a native model runner of its own;
-                # killing the parent first makes Windows report it as exited
-                # and skips taskkill, leaving that grandchild running outside
-                # the bounded owner.  The tree kill is therefore deliberately
-                # attempted even when the direct process has already changed
-                # state, with process.kill() retained as a portable fallback.
-                if os.name == "nt":
-                    try:
-                        subprocess.run(
-                            ("taskkill", "/PID", str(process.pid), "/T", "/F"),
-                            check=False,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.DEVNULL,
-                        )
-                    except OSError:
-                        pass
-                try:
-                    process.kill()
-                except OSError:
-                    pass
-                try:
-                    process.wait(timeout=10.0)
-                except subprocess.TimeoutExpired:
-                    pass
-                exit_code = 124
+            result, timed_out, cleanup_confirmed = run_isolated_process(
+                command, cwd=cwd, env=dict(environment), stdout=stdout, stderr=stderr,
+                timeout=timeout_seconds,
+            )
+            exit_code = result.returncode
         except (OSError, ValueError) as exc:
             return {
-                "exit_code": 70,
-                "timed_out": False,
-                "cleanup_confirmed": False,
+                "exit_code": 70, "timed_out": False, "cleanup_confirmed": False,
                 "launch_error": f"{type(exc).__name__}: {exc}",
                 "duration_seconds": time.time() - started,
             }
-    cleanup_confirmed = process is not None and process.poll() is not None
+
     return {
         "exit_code": int(exit_code),
         "timed_out": timed_out,
@@ -441,6 +425,7 @@ def _resume_one_shard(
     shard_id: str,
     shard_nodeids: tuple[str, ...],
     prior_row: Mapping[str, Any] | None,
+    execution_identity: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], Mapping[str, Any] | None] | None:
     """Reuse one exact terminal shard from an explicitly supplied run.
 
@@ -467,7 +452,10 @@ def _resume_one_shard(
     junit_path = shard_dir / "pytest-junit.xml"
     request = _read_object(request_path)
     expected_fingerprint = nodeid_fingerprint(shard_nodeids)
-    if request is None:
+    inputs = (execution_identity or {}).get("input_identity", {})
+    if (request is None or not inputs.get("input_digest")
+            or not inputs.get("input_paths")
+            or request.get("execution_identity") != execution_identity):
         return None
     if (
         request.get("schema_version") != "flowguard.pytest_shard_request.v1"
@@ -479,6 +467,12 @@ def _resume_one_shard(
     collection = _read_object(collection_path)
     node_manifest = _read_object(node_manifest_path)
     if collection is None or node_manifest is None or junit_path.is_symlink() or not junit_path.is_file():
+        return None
+    if (node_manifest.get("schema_version") != "flowguard.pytest_nodeids.v2"
+            or node_manifest.get("exit_code") != 0
+            or node_manifest.get("input_paths") != inputs["input_paths"]
+            or node_manifest.get("input_digest_before") != inputs["input_digest"]
+            or node_manifest.get("input_digest_after") != inputs["input_digest"]):
         return None
     selected_ids = tuple(collection.get("selected_nodeids", ()))
     executed_ids = tuple(node_manifest.get("nodeids", ()))
@@ -519,6 +513,7 @@ def _run_one_shard(
     shard_timeout: float,
     deadline: float,
     output_root: Path,
+    execution_identity: Mapping[str, Any],
 ) -> tuple[dict[str, Any], Mapping[str, Any] | None]:
     """Execute one exact-node leaf under the shared invocation deadline.
 
@@ -541,6 +536,7 @@ def _run_one_shard(
             "shard_id": shard_id,
             "nodeids": list(shard_nodeids),
             "inventory_fingerprint": nodeid_fingerprint(shard_nodeids),
+            "execution_identity": dict(execution_identity),
         },
     )
 
@@ -826,7 +822,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         capability_partition = {
             "planned_nodeids": list(collected_nodeids),
             "runnable_nodeids": [],
-            "blocked_nodeids": list(nodeids),
+            "blocked_nodeids": list(collected_nodeids),
             "blocked_reasons": reasons,
             "required_capabilities": [],
             "planned_count": len(collected_nodeids),
@@ -980,6 +976,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
                     shard_id=shard_id,
                     shard_nodeids=tuple(shard_nodeids),
                     prior_row=prior_rows.get(shard_id),
+                    execution_identity=leaf_identity,
                 )
                 if resumed is not None:
                     shard_results[index] = resumed
@@ -1010,6 +1007,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
                     shard_timeout=float(args.shard_timeout),
                     deadline=invocation_deadline,
                     output_root=output_root,
+                    execution_identity=leaf_identity,
                 ): index
                 for index, shard_nodeids in pending_shards
             }

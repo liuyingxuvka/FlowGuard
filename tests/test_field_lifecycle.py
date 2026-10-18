@@ -102,22 +102,76 @@ class FieldLifecycleTests(unittest.TestCase):
         self.assertIn("field_lifecycle_missing_field_row", {finding.code for finding in report.findings})
 
     def test_behavior_field_without_projection_blocks(self):
-        report = flowguard.review_field_lifecycle(
-            flowguard.FieldLifecyclePlan(
-                "checkout-fields",
-                discovered_field_ids=("field:mode",),
-                fields=(
-                    flowguard.FieldLifecycleRow(
-                        "field:mode",
-                        role=flowguard.FIELD_ROLE_ROUTING,
-                        behavior_impacts=(flowguard.FIELD_IMPACT_ROUTING,),
+        for impacts, expected_code in (
+            ((flowguard.FIELD_IMPACT_ROUTING,), "behavior_field_projection_missing"),
+            ((flowguard.FIELD_IMPACT_PERMISSION,), "behavior_field_projection_missing"),
+            (("permisssion",), "field_behavior_impact_invalid"),
+            ((flowguard.FIELD_IMPACT_PERMISSION, "permisssion"), "field_behavior_impact_invalid"),
+            (("",), "field_behavior_impact_invalid"),
+        ):
+            with self.subTest(behavior_impacts=impacts):
+                report = flowguard.review_field_lifecycle(
+                    flowguard.FieldLifecyclePlan(
+                        "checkout-fields",
+                        discovered_field_ids=("field:mode",),
+                        fields=(
+                            flowguard.FieldLifecycleRow(
+                                "field:mode",
+                                role=flowguard.FIELD_ROLE_ROUTING,
+                                behavior_impacts=impacts,
+                            ),
+                        ),
                     ),
-                ),
-            )
-        )
+                )
 
-        self.assertFalse(report.ok)
-        self.assertIn("behavior_field_projection_missing", {finding.code for finding in report.findings})
+                self.assertFalse(report.ok)
+                self.assertEqual(flowguard.FIELD_DECISION_BLOCKED, report.decision)
+                self.assertIn(expected_code, {finding.code for finding in report.findings})
+
+    def test_unknown_vocabulary_blocks_even_scoped_or_delegated_fields(self):
+        for coverage in flowguard.FIELD_COVERAGE_DISPOSITIONS:
+            for attribute, value, expected_code in (
+                ("role", "metdata", "field_role_invalid"),
+                ("role", "", "field_role_invalid"),
+                ("lifecycle", "actve", "field_lifecycle_invalid"),
+                ("lifecycle", "", "field_lifecycle_invalid"),
+                ("behavior_impacts", ("permisssion",), "field_behavior_impact_invalid"),
+            ):
+                with self.subTest(coverage=coverage, attribute=attribute, value=value):
+                    row = flowguard.FieldLifecycleRow(
+                        "field:label",
+                        coverage_disposition=coverage,
+                        scoped_out_reason="display-only label",
+                        delegated_owner_id="native:label",
+                        coverage_evidence_refs=("test:label",),
+                        **{attribute: value},
+                    )
+                    report = flowguard.review_field_lifecycle(
+                        flowguard.FieldLifecyclePlan("labels", fields=(row,))
+                    )
+                    self.assertFalse(report.ok)
+                    self.assertEqual(flowguard.FIELD_DECISION_BLOCKED, report.decision)
+                    self.assertIn(expected_code, {finding.code for finding in report.findings})
+
+    def test_valid_metadata_and_presentation_coverage_still_passes(self):
+        for role in (flowguard.FIELD_ROLE_METADATA, flowguard.FIELD_ROLE_PRESENTATION):
+            for coverage in flowguard.FIELD_COVERAGE_DISPOSITIONS:
+                with self.subTest(role=role, coverage=coverage):
+                    report = flowguard.review_field_lifecycle(
+                        flowguard.FieldLifecyclePlan(
+                            "labels",
+                            fields=(flowguard.FieldLifecycleRow(
+                                "field:label",
+                                role=role,
+                                coverage_disposition=coverage,
+                                behavior_impacts=(flowguard.FIELD_IMPACT_NONE,),
+                                scoped_out_reason="display-only label",
+                                delegated_owner_id="native:label",
+                                coverage_evidence_refs=("test:label",),
+                            ),),
+                        )
+                    )
+                    self.assertTrue(report.ok, report.format_text())
 
     def test_bounded_behavior_projection_does_not_require_route_refs(self):
         report = flowguard.review_field_lifecycle(

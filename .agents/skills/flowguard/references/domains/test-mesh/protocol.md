@@ -116,14 +116,14 @@ print(report.ok, report.decision); print(report.format_text())
 - [ ] Report planned/executed/failed/not-run counts, what ran, what was deferred or skipped, and why.
 
 ## Limits
-
 - `review_test_mesh` judges the facts you declare (counts, `evidence_current`, `result_fingerprint`).
   It does not run tests or read files. Feed it real numbers from the shard runner or pytest.
-- Known gap: the shard runner's `--resume-output` reuses a prior passing shard
-  when the node-id inventory and shard request match. It does not compare source
-  file hashes, so a code edit that keeps the same node ids reuses a stale pass.
-  Do not resume after changes to source, tests, model, command, config, dependencies,
-  environment or interpreter; never resume for release.
+- `--resume-output` reuses only an exact terminal pass with matching source/input
+  bytes, interpreter, dependencies, environment and command identity, plus matching
+  recorder before/after input digests. Missing legacy identity or changed inputs
+  discard that shard's reuse; its current native invocation runs once instead.
+  Keep result directories outside source inputs (the default cache is excluded).
+  Never resume for a final release gate.
 - The shard runner always collects the whole suite; it cannot run only the files `change`
   selected. Run those directly with pytest.
 - A green mesh shows the split is honest. It does not show the tests check the
