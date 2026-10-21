@@ -171,6 +171,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(discovery_findings(raw, data, inv))
     covered_by_model, not_modeled = model_coverage(root, data)
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled))
+    out.extend(model_binding_notes(root, data))
     debts = data.get("accepted_debts", [])
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
@@ -186,13 +187,29 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     return out
 
 
+def model_binding_notes(root: Path, data: dict) -> list[Finding]:
+    """Non-gating binding notes: design-only models still to bind; models whose guarding tests are not named."""
+    out: list[Finding] = []
+    tested = {m for c in data.get("components", []) if c.get("tests") for m in c.get("models", [])}
+    for entry in model_registry(root, data).entries:
+        try:
+            contract = read_model_contract(root / entry.path)
+        except (OSError, SyntaxError, ValueError):
+            continue
+        if contract.get("DESIGN_ONLY"):
+            out.append(Finding("warn", "model_design_only", "", f"{entry.path}: DESIGN_ONLY ({contract['DESIGN_ONLY']}); "
+                               "bind it with IMPLEMENTED_BY and conformance() once the code exists"))
+        elif not contract.get("TESTED_BY") and entry.path in tested:
+            out.append(Finding("warn", "model_tests_unbound", "", f"{entry.path}: TESTED_BY names no test although its "
+                               "component lists tests; name the tests that guard this model"))
+    return out
+
+
 def model_coverage(root: Path, data: dict, registry=None) -> tuple[dict[str, set[str]], set[str]]:
     """Read declared implementation anchors and explicit negative scope once."""
     covered = {}
     not_modeled = set()
     for entry in (registry or model_registry(root, data)).entries:
-        if entry.kind != "contract":
-            continue
         try:
             contract = read_model_contract(root / entry.path)
         except (OSError, SyntaxError, ValueError):

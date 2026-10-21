@@ -191,9 +191,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     registered = {entry.path: entry for entry in registry.entries}
     contract_inputs: dict[str, set[str]] = defaultdict(set)
     contract_tests: dict[str, set[str]] = defaultdict(set)
-    for entry in registry.entries:
-        if entry.kind != "contract":
-            continue
+    for entry in registry.entries:               # contract models and runners bind the same way
         try:
             contract = read_model_contract(root / entry.path)
         except (OSError, SyntaxError, ValueError, TypeError):
@@ -220,6 +218,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 matched.add(f)
             continue
         selected_model_paths.update(contract_inputs.get(f, ()))
+        for model in contract_inputs.get(f, ()):            # anchored code changed: the model's named tests too
+            tests.update(contract_tests.get(model, ()))
         bound_models = _owner_model_paths(f, model_bindings)
         old_bound_models = _owner_model_paths(f, old_models)
         selected_model_paths.update(bound_models)
@@ -233,7 +233,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         for model, linked_tests in contract_tests.items():
             if f in linked_tests:
                 selected_model_paths.add(model)
-            if f == model:
+            if f == model or model in bound_models:
                 tests.update(linked_tests)
         if f.startswith((".flowguard/models/", ".flowguard/verification/")) and f.endswith(".py") \
                 and not bound_models and not old_bound_models:

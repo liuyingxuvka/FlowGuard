@@ -160,7 +160,8 @@ def read_model_contract(path: Path) -> dict:
     found: dict = {"functions": []}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
-                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED"}:
+                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
+                                           "DESIGN_ONLY"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
             found["functions"].append(node.name)
@@ -169,6 +170,8 @@ def read_model_contract(path: Path) -> dict:
         if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
                                                  for k, v in value.items()):
             raise ValueError(f"{key} must map anchors/names to nonempty strings")
+    if "DESIGN_ONLY" in found and not (isinstance(found["DESIGN_ONLY"], str) and found["DESIGN_ONLY"].strip()):
+        raise ValueError("DESIGN_ONLY must be a nonempty reason string")
     tested_by = found.get("TESTED_BY", {})
     if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):

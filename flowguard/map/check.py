@@ -96,9 +96,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
 
     referenced = {m for c in data["components"] for m in c.get("models", [])}
     referenced |= {f["model"] for f in data.get("flows", []) if f.get("model")}
-    for entry in registry.entries:
-        if entry.kind != "contract":
-            continue
+    for entry in registry.entries:              # contract models and runners: one binding rule
         rel = entry.path
         path = root / rel
         try:
@@ -106,10 +104,20 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         except (SyntaxError, ValueError) as exc:
             out.append(Finding("error", "model_unreadable", "", f"{rel}: {exc}"))
             continue
-        if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
-            out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
-        if rel not in referenced:
-            out.append(Finding("warn", "model_unreferenced", "", f"{rel} is not listed in any component's models"))
+        if entry.kind == "contract":
+            if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
+                out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
+            if rel not in referenced:
+                out.append(Finding("warn", "model_unreferenced", "", f"{rel} is not listed in any component's models"))
+        if not contract.get("DESIGN_ONLY"):
+            if not contract.get("IMPLEMENTED_BY"):
+                out.append(Finding("error", "model_anchor_missing", "",
+                                   f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
+                                   "('path:Symbol'), or mark DESIGN_ONLY = '<reason>' while that code does not exist"))
+            if entry.kind == "contract" and "conformance" not in contract["functions"]:
+                out.append(Finding("error", "model_conformance_missing", "",
+                                   f"{rel}: abstract boundary only: no conformance(); replay the real code or "
+                                   "compare it as code facts, or mark DESIGN_ONLY = '<reason>'"))
         for comp_id in contract.get("COMPONENTS", []):
             if comp_id not in by_id:
                 out.append(Finding("error", "model_component_unknown", "", f"{rel}: COMPONENTS names unknown {comp_id!r}"))

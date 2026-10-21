@@ -26,6 +26,7 @@ from typing import Any, Callable
 
 COMPLETION_LINE = "FLOWGUARD_RUNNER_DONE "
 LOADED_LINE = "FLOWGUARD_LOADED "
+CONSULTED_LINE = "FLOWGUARD_CONSULTED "
 
 
 # Internal process plumbing, excluded from semantic pytest environment identity.
@@ -218,17 +219,28 @@ def run_owner(check: Callable[[], Any]) -> int:
 
 
 def _probe_main() -> int:
-    """Run a runner unchanged and disclose loaded project files to the proof owner."""
+    """Run a runner unchanged; disclose loaded project files and the IMPLEMENTED_BY anchors it consulted."""
+    from .facts import AnchorWatch
+    from .mapfile import read_model_contract
+
     path = Path(sys.argv[1]).resolve()
     root = Path.cwd().resolve()
+    try:
+        anchors = list(read_model_contract(path).get("IMPLEMENTED_BY", {}).values())
+    except (OSError, SyntaxError, ValueError):
+        anchors = []                        # the proof owner reports the unreadable literals
+    watch = AnchorWatch(root, anchors)
     sys.argv = [str(path)]
     sys.path.insert(0, str(path.parent))
     code = 0
     try:
-        runpy.run_path(str(path), run_name="__main__")
+        with watch:
+            runpy.run_path(str(path), run_name="__main__")
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
     finally:
+        read = sorted(Path(f).relative_to(root).as_posix() for f in watch.read_files if Path(f).is_relative_to(root))
+        sys.__stderr__.write(CONSULTED_LINE + json.dumps({"anchors": sorted(watch.called), "read": read}) + "\n")
         loaded = set()
         for module in list(sys.modules.values()):
             filename = getattr(module, "__file__", None)

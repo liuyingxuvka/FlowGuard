@@ -31,9 +31,10 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .check import anchor_problems
 from .facts import AnchorWatch
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
-from .runner import COMPLETION_LINE, LOADED_LINE, run_isolated_process
+from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
 
 DEFAULT_TIMEOUT = 300          # seconds per model
 
@@ -110,6 +111,35 @@ def _failed_checks(report) -> set[str]:
 
 
 
+def _fail(result: ModelResult, problem: str) -> None:
+    if result.status != "error":
+        result.status = "fail"
+    result.problems.append(problem)
+
+
+def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: AnchorWatch, where: str) -> None:
+    """The one binding rule for contract models and runners: anchors are declared, resolve and are consulted."""
+    anchors = contract.get("IMPLEMENTED_BY", {})
+    if contract.get("DESIGN_ONLY"):
+        if not anchors:
+            return
+    elif not anchors:
+        _fail(result, "declares no IMPLEMENTED_BY anchors; name the real code this model is about ('path:Symbol'), "
+                      "or mark DESIGN_ONLY = '<reason>' while that code does not exist")
+    problems = anchor_problems(root, anchors.values())
+    for name, anchor in sorted(anchors.items()):
+        if anchor in problems:
+            _fail(result, f"IMPLEMENTED_BY {name} -> {problems[anchor]}")
+    for anchor in watch.missing():
+        if anchor not in problems:
+            _fail(result, f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read {where}; "
+                          "call that code or read it as code facts")
+    for anchor in watch.unobserved():
+        if anchor not in problems:
+            result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
+                                   "execution not verified")
+
+
 def run_model_in_process(root: Path, path: Path) -> ModelResult:
     contract = read_model_contract(path)
     result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
@@ -184,18 +214,12 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
                 else:
                     result.status = "fail"
                     result.problems.append("the real code does not conform to the model:\n" + conf.format_text(max_examples=1))
+        elif contract.get("DESIGN_ONLY"):
+            result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): no conformance(); bind it once the code exists")
         else:
-            result.warnings.append("abstract boundary only: no conformance(); real implementation not verified")
-        for anchor in sorted(calls.missing()):
-            if result.status != "error":
-                result.status = "fail"
-            result.problems.append(f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read during "
-                                   "build_explorer().explore() or conformance(); call that code or read it as code facts")
-        for anchor in calls.unobserved():
-            result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
-                                   "execution not verified")
-        if not anchors and "conformance" in contract["functions"]:
-            result.warnings.append("abstract boundary only: conformance is not tied to IMPLEMENTED_BY code")
+            _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
+                          "or mark DESIGN_ONLY = '<reason>'")
+        _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
     except (ImportError, ModuleNotFoundError) as exc:
         result.status = "error"
         result.problems.append(f"model environment/interpreter error: {exc}; interpreter={sys.executable}")
@@ -225,6 +249,12 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
     result = ModelResult(model=model_id_of(path), file=path.relative_to(root).as_posix())
     started = time.time()
     try:
+        contract = read_model_contract(path)
+    except (OSError, SyntaxError, ValueError) as exc:
+        result.status = "error"
+        result.problems.append(f"cannot read the runner's IMPLEMENTED_BY / TESTED_BY literals: {exc}")
+        return result
+    try:
         proc, timed_out, cleaned = run_isolated_process(
             [sys.executable, "-c", "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())", str(path)],
             cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
@@ -233,11 +263,13 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
             result.problems.append(f"timed out={timed_out} after {timeout}s; cleanup_confirmed={cleaned}")
             result.seconds = round(time.time() - started, 3)
             return result
-        loaded = set()
+        loaded, consulted = set(), {"anchors": [], "read": []}
         stderr = []
         for line in proc.stderr.splitlines():
             if line.startswith(LOADED_LINE):
                 loaded.update(json.loads(line[len(LOADED_LINE):]))
+            elif line.startswith(CONSULTED_LINE):
+                consulted = json.loads(line[len(CONSULTED_LINE):])
             else:
                 stderr.append(line)
         if proc.returncode != 0:
@@ -249,8 +281,14 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
             if not (lines and lines[-1].startswith(COMPLETION_LINE)):
                 result.warnings.append("runner does not end with raise SystemExit(run_owner(main)); "
                                        "its exit code 0 is taken as the result")
-        if own_files is not None and not (loaded & own_files):
-            result.warnings.append("abstract boundary only: runner loaded no code of its bound components")
+        watch = AnchorWatch(root, contract.get("IMPLEMENTED_BY", {}).values())
+        watch.called = set(consulted["anchors"])
+        watch.read_files = {os.path.realpath(root / rel) for rel in consulted["read"]}
+        if contract.get("DESIGN_ONLY"):
+            result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): bind it once the code exists")
+        elif own_files is not None and not ((loaded | set(consulted["read"])) & own_files):
+            _fail(result, "abstract boundary only: runner loaded no code of its bound components")
+        _anchor_verdict(result, root, contract, watch, "by the runner")
     except subprocess.TimeoutExpired:
         result.status = "error"
         result.problems.append(f"timed out after {timeout}s")

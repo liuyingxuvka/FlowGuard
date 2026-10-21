@@ -223,12 +223,16 @@ def test_defined_proof_hooks_cannot_silently_do_nothing(tmp_path, hook):
     assert result.status == "error" and "no " in " ".join(result.problems)
 
 
-def test_abstract_model_exposes_unverified_implementation(tmp_path):
+def test_abstract_model_fails_and_design_only_is_the_one_exemption(tmp_path):
     from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL)
     result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
-    assert result.status == "pass"
-    assert any("abstract boundary only" in warning for warning in result.warnings)
+    assert result.status == "fail"
+    assert any("abstract boundary only" in problem for problem in result.problems)
+    assert any("declares no IMPLEMENTED_BY anchors" in problem for problem in result.problems)
+    write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL + '\nDESIGN_ONLY = "the order service is not written yet"\n')
+    result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
+    assert result.status == "pass" and any("design only" in warning for warning in result.warnings)
 
 
 def test_no_models_output_is_explicitly_not_model_proof(tmp_path):
@@ -253,9 +257,10 @@ def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkey
     monkeypatch.setenv("PYTHONIOENCODING", "cp1252")          # the code page a Windows pipe gives a child
     runner = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
     runner.parent.mkdir(parents=True)
-    runner.write_text("from flowguard.map.runner import run_owner\n"
+    write(tmp_path, "app.py", "def run():\n    return 1\n")
+    runner.write_text("from flowguard.map.runner import run_owner\nimport app\nIMPLEMENTED_BY = {'App': 'app.py:run'}\n"
                       "from flowguard.explorer import Explorer\nfrom flowguard.workflow import Workflow\n"
-                      "def main():\n    print('运行检查 ✓')\n"
+                      "def main():\n    print('运行检查 ✓', app.run())\n"
                       "    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
                       "raise SystemExit(run_owner(main))\n", encoding="utf-8")
     assert run_runner(tmp_path, runner).status == "pass"
@@ -301,12 +306,12 @@ def test_model_that_never_runs_its_implemented_by_code_fails(shop, capsys, case)
     assert code == 1 and "never ran" in out
 
 
-def test_abstract_model_with_empty_implemented_by_still_passes_with_warning(shop, capsys):
+def test_abstract_model_with_empty_implemented_by_fails(shop, capsys):
     write(shop, "shop/orders.py", FIXED)
     _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', "IMPLEMENTED_BY = {}")
     _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
     code, out = models(shop, capsys)
-    assert code == 0 and "abstract boundary only" in out
+    assert code == 1 and "abstract boundary only" in out and "declares no IMPLEMENTED_BY anchors" in out
 
 
 def test_non_python_anchor_is_a_warning_not_a_failure(shop, capsys):
@@ -375,7 +380,9 @@ def test_plain_function_invariant_is_accepted(shop, capsys):
 def test_runner_verdict_is_its_exit_code(tmp_path, body, status):
     from flowguard.map.proof import run_runner
     path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    write(tmp_path, path.relative_to(tmp_path).as_posix(), "from flowguard.map.runner import run_owner\n" + body + "\n")
+    write(tmp_path, "app.py", "def run():\n    return 0\n")
+    write(tmp_path, path.relative_to(tmp_path).as_posix(), "from flowguard.map.runner import run_owner\nimport app\n"
+          "IMPLEMENTED_BY = {'App': 'app.py:run'}\napp.run()\n" + body + "\n")
     result = run_runner(tmp_path, path)
     assert result.status == status, result.problems
     assert any("run_owner(main)" in w for w in result.warnings) == ("run_owner(" not in body)
@@ -420,20 +427,27 @@ def test_conformance_import_error_reports_interpreter_environment(shop, capsys, 
     assert "does not conform" not in out
 
 
-def test_runner_completion_is_distinct_from_component_import_coverage(tmp_path):
+def test_runner_must_call_or_read_its_anchored_code(tmp_path):
     from flowguard.map.proof import run_runner
-    write(tmp_path, "app.py", "VALUE=1\n")
-    source = ("from flowguard.map.runner import run_owner\nfrom flowguard.explorer import Explorer\n"
-              "from flowguard.workflow import Workflow\n"
-              "def main():\n    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
+    write(tmp_path, "app.py", "def run():\n    return 1\n")
+    source = ("from flowguard.map.runner import run_owner\nIMPLEMENTED_BY = {'App': 'app.py:run'}\n"
+              "def main():\n    return 0\n"
               "raise SystemExit(run_owner(main))\n")
     path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    write(tmp_path, path.relative_to(tmp_path).as_posix(), source)
+    rel = path.relative_to(tmp_path).as_posix()
+    write(tmp_path, rel, source)
     result = run_runner(tmp_path, path, own_files={"app.py"})
-    assert result.status == "pass" and any("abstract boundary only" in w for w in result.warnings)
-    write(tmp_path, path.relative_to(tmp_path).as_posix(), "import app\n" + source)
+    problems = " ".join(result.problems)
+    assert result.status == "fail" and "abstract boundary only" in problems and "never ran" in problems
+    write(tmp_path, rel, "import app\n" + source)
     result = run_runner(tmp_path, path, own_files={"app.py"})
-    assert result.status == "pass" and not result.warnings
+    assert result.status == "fail" and "never ran" in " ".join(result.problems)       # importing is not consulting
+    write(tmp_path, rel, "import app\napp.run()\n" + source)
+    result = run_runner(tmp_path, path, own_files={"app.py"})
+    assert result.status == "pass" and not result.warnings, result.problems
+    write(tmp_path, rel, "from flowguard.map.facts import CodeFacts\nCodeFacts().present('run', ['app.py'])\n" + source)
+    result = run_runner(tmp_path, path, own_files={"app.py"})
+    assert result.status == "pass", result.problems                                   # read as code facts
 
 
 def test_explorer_with_no_initial_states_proves_nothing(shop, capsys):
@@ -478,3 +492,63 @@ def test_model_timeout_cleans_its_spawned_child(tmp_path, kind):
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+
+
+RUNNER = ".flowguard/verification/owners/orders_check/run_checks.py"
+RUNNER_SOURCE = ('"""Runner model: places an order through the real OrderService."""\n'
+                 'from flowguard.map.runner import run_owner\n\n'
+                 'IMPLEMENTED_BY = {"Place": "ANCHOR"}\n'
+                 'TESTED_BY = {"places_once": ["tests/test_orders.py:test_place_once"]}\n\n\n'
+                 'def main():\n    from shop.orders import OrderService\n'
+                 '    return 0 if OrderService().place("o1", 5) == "placed" else 1\n\n\n'
+                 'if __name__ == "__main__":\n    raise SystemExit(run_owner(main))\n')
+
+
+def _runner_project(shop, anchor):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, RUNNER, RUNNER_SOURCE.replace("ANCHOR", anchor))
+    data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
+    data["components"][0]["models"].append(RUNNER)
+    (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
+
+
+def _check_codes(shop, capsys):
+    cli.main(["--root", str(shop), "check"])
+    return capsys.readouterr().out
+
+
+def test_runner_models_follow_the_same_binding_rule(shop, capsys):
+    _runner_project(shop, "REPLACE_ME/orders.py:place")
+    out = _check_codes(shop, capsys)
+    assert "model_anchor_broken" in out and "placeholder anchor 'REPLACE_ME/orders.py:place'" in out
+    code, output = models(shop, capsys, "orders_check")
+    assert code == 1 and "placeholder anchor" in output
+    _runner_project(shop, "shop/orders.py:OrderService.place")
+    assert "orders_check" not in _check_codes(shop, capsys)
+    assert models(shop, capsys, "orders_check")[0] == 0
+    write(shop, "shop/orders.py", FIXED.replace("def place(", "def place_order(").replace("return \"placed\"", "return 'placed'"))
+    out = _check_codes(shop, capsys)
+    assert "model_anchor_broken" in out and "symbol 'OrderService.place' not found in shop/orders.py" in out
+
+
+def test_runner_is_selected_by_its_anchored_file_and_its_tests(shop, capsys):
+    _runner_project(shop, "shop/orders.py:OrderService.place")
+    cli.main(["--root", str(shop), "confirm", "orders"])
+    capsys.readouterr()
+    assert cli.main(["--root", str(shop), "impact", "shop/orders.py"]) == 0
+    assert "orders_check" in capsys.readouterr().out
+    assert cli.main(["--root", str(shop), "impact", "tests/test_orders.py"]) == 0
+    assert "orders_check" in capsys.readouterr().out
+
+
+def test_unbound_models_are_errors_in_check(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', "IMPLEMENTED_BY = {}")
+    _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
+    out = _check_codes(shop, capsys)
+    assert "model_anchor_missing" in out and "model_conformance_missing" in out
+    _edit_model(shop, "IMPLEMENTED_BY = {}", 'IMPLEMENTED_BY = {}\nDESIGN_ONLY = "the order service is not written yet"')
+    out = _check_codes(shop, capsys)
+    assert "model_anchor_missing" not in out and "model_conformance_missing" not in out
+    cli.main(["--root", str(shop), "lint"])
+    assert "model_design_only" in capsys.readouterr().out
