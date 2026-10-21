@@ -428,13 +428,6 @@ and which parent items each child owns. Cross-domain support or influence
 belongs in a child's `depends_on`, not in a second structural parent, so each
 child keeps exactly one parent in the partition.
 
-When parent confidence also claims that the underlying code stays inside model
-boundaries, add layered boundary proof. The parent checks coverage and child
-disjointness, consumes current child reattachment evidence, and requires every
-lowest leaf model to prove a complete finite
-`Input x State -> Set(Output x State)` matrix against real-code evidence. A
-child-local green model result alone does not prove that leaf code boundary.
-
 When a child model has runtime path evidence, put the current evidence ids on
 `ChildModelEvidence.runtime_path_evidence_ids`. The parent reattachment
 contract should consume those ids through
@@ -472,37 +465,6 @@ split derivation from a FlowGuard source model or model-of-models. The
 derivation names the source model, target child models, covered partition items,
 state owner fields, side-effect owner fields, and rationale for the split. A
 partition map without this derivation is not enough for green mesh confidence.
-
-
-## Recursive Closure
-
-An arbitrary-depth hierarchy is closed from leaves upward with
-`review_recursive_hierarchy(RecursiveHierarchyPlan(...))`. Each
-`RecursiveModelNode` names its model, its direct children, and, for a leaf, the
-finite input and state cases (`leaf_input_cases`, `leaf_state_cases`) whose
-product is the leaf's boundary. Each node is backed by a
-`RecursiveSubtreeReceipt` that lists the direct-child results it consumed.
-Ordinary `passed` flags or bare string child ids are not a substitute: a
-parent is only closed when every direct child's subtree result is present,
-current, and terminal. Cross-model combinations use typed interface or
-refinement contracts rather than one local Cartesian product.
-
-The review is structural. It tells you whether the hierarchy closes; it does
-not prove that code ran. That proof comes from running the child models and
-the tests that cover the leaf cells. Keep three claims distinct: structural
-composition, executed tests, and cross-sibling interaction.
-
-The finite composition rule is deliberately explicit. A ContractExhaustionMesh
-coverage universe may set `allow_partitioned_product=True` to declare a set of
-disjoint child-local products instead of materialising one enormous
-cross-system table. This only removes the *monolithic* product requirement.
-Each local product still needs its own finite denominator and result, and every
-cross-child route needs a typed handoff obligation that is actually checked. A
-parent cannot turn generated handoff ids, child summaries, or a count into
-execution evidence.
-
-When code or models change, `python -m flowguard change` lists which models
-and tests to rerun; rerun the affected children first, then the parent review.
 
 
 ## Partition Maps

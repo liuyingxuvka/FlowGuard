@@ -37,11 +37,6 @@ from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
     FIELD_LIFECYCLE_NOTES_TEMPLATE,
 )
-from .template_text.layered_boundary_proof import (
-    LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE,
-    LAYERED_BOUNDARY_PROOF_RUN_CHECKS_TEMPLATE,
-    LAYERED_BOUNDARY_PROOF_NOTES_TEMPLATE,
-)
 from .template_text.maintenance_workflow import (
     MAINTENANCE_WORKFLOW_MODEL_TEMPLATE,
     MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE,
@@ -284,13 +279,6 @@ def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def layered_boundary_proof_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/layered_boundary_proof/model.py", LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/layered_boundary_proof/run_checks.py", LAYERED_BOUNDARY_PROOF_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
@@ -419,9 +407,6 @@ __all__ = [
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_NOTES_TEMPLATE",
     "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
-    "LAYERED_BOUNDARY_PROOF_MODEL_TEMPLATE",
-    "LAYERED_BOUNDARY_PROOF_NOTES_TEMPLATE",
-    "LAYERED_BOUNDARY_PROOF_RUN_CHECKS_TEMPLATE",
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
@@ -476,7 +461,6 @@ __all__ = [
     "development_process_flow_template_files",
     "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
-    "layered_boundary_proof_template_files",
     "maintenance_workflow_template_files",
     "model_mesh_template_files",
     "model_miss_review_full_template_files",

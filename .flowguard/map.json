@@ -222,7 +222,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6e0c8c9c6a930fec29823dc978d58b59b750a007cdf5d2e0054761cffd4379e9"
+      "fingerprint": "sha256:4eae14c12ab611479b0f9a0b1187b80c1f04d38c4c1c417b176febd48fd2b342"
     },
     {
       "id": "templates",
@@ -252,7 +252,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7eefc529de69e3b57c3e171d8ab88a257428f2e480ee82979756f46ceb5286f8"
+      "fingerprint": "sha256:09ded670c4b45148ddaeaf9be24f94c23b0ff32085ce9ed08d1e6446d4f72b9f"
     },
     {
       "id": "existing-model",
@@ -521,10 +521,7 @@
         "review partitions, reattachment and closure across models"
       ],
       "files": [
-        "flowguard/blueprint_topology.py",
         "flowguard/hierarchy.py",
-        "flowguard/layered_proof.py",
-        "flowguard/recursive_hierarchy.py",
         "flowguard/transition_coverage.py"
       ],
       "entrypoints": [
@@ -534,24 +531,18 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "contract-exhaustion",
         "engine-core",
-        "engine-path-quality",
         "model-test",
         "shared-vocabulary"
       ],
       "tests": [
-        "tests/test_blueprint_topology.py",
         "tests/test_contract_exhaustion.py",
         "tests/test_hierarchical_mesh.py",
-        "tests/test_layered_boundary_proof.py",
-        "tests/test_recursive_hierarchy.py",
-        "tests/test_recursive_hierarchy_composition.py",
         "tests/test_transition_coverage.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9493bb99bf1b39a17146cb2ae6dfe2f829b12aaa8e69e251c40e848af9f3937b"
+      "fingerprint": "sha256:4a95d005ec94536e4240dc93a8e6c224b2e6759514130ebce6f9332342244b46"
     },
     {
       "id": "portable-models",

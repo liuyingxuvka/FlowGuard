@@ -20,7 +20,6 @@ from flowguard.templates import (
     development_process_flow_template_files,
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
-    layered_boundary_proof_template_files,
     maintenance_workflow_template_files,
     model_mesh_template_files,
     model_miss_review_full_template_files,
@@ -63,7 +62,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
     runtime_path_evidence_template_files,
-    layered_boundary_proof_template_files,
     ui_flow_structure_template_files,
     development_process_flow_template_files,
     workflow_step_contracts_template_files,
@@ -90,7 +88,6 @@ TEMPLATE_CLI_COMMANDS = {
     "code-structure-recommendation-template": "code_structure_recommendation",
     "existing-model-preflight-template": "existing_model_preflight",
     "field-lifecycle-template": "field_lifecycle",
-    "layered-boundary-proof-template": "layered_boundary_proof",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
     "development-process-flow-template": "development_process_flow",
@@ -460,15 +457,6 @@ def build_review():
         self.assertIn("projected_model_obligations: 2", output)
         self.assertIn("behavior_field_projection_missing", output)
         self.assertIn("old_field_disposition_open", output)
-
-    def test_layered_boundary_proof_template_executes(self):
-        output = self.run_written_template(
-            layered_boundary_proof_template_files(),
-            (".flowguard", "verification", "owners", "layered_boundary_proof"),
-        )
-        self.assertIn("flowguard layered boundary proof", output)
-        self.assertIn("parent_coverage_gap", output)
-        self.assertIn("leaf_cell_extra_output", output)
 
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {
