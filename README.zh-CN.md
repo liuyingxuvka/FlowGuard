@@ -8,7 +8,7 @@
 
 [English](./README.md)
 
-当前版本 **0.70.2**：自地图有 37 个组件、4 条流程、32 个可执行自检模型。实测结果和保留边界见[修复与验收报告](docs/flowguard_0_70_2_fix_report.md)。
+FlowGuard 用自己的地图和模型维护本仓库（`.flowguard/map.json`、`.flowguard/models/`）。实测结果和保留边界见[修复与验收报告](docs/flowguard_0_70_2_fix_report.md)。
 
 
 ## 它做什么
@@ -34,7 +34,7 @@ python scripts/install_skill.py --target ~/.claude/skills # 给 AI 安装技能�
 
 cd your-project
 python -m flowguard map scan              # 1. 草拟组件，按 import 猜测试（默认最多 40 个组件）
-python -m flowguard map discover all      # 单独查看路由、命令、副作用和状态写入者
+python -m flowguard map discover          # 单独查看路由、命令、副作用和状态写入者
 python -m flowguard map digest all        # 2. 接口摘要，签名、赋值和文档；大小随项目变化
 #   编辑 .flowguard/map.json：合并/拆分组件，写 summary、职责、层级……
 python -m flowguard map deps --write      # 3. 从真实 import 生成依赖

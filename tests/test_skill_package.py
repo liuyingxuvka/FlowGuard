@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import re
 import os
 import subprocess
@@ -67,6 +69,37 @@ class SkillPackageTests(unittest.TestCase):
                         problems.append(f"{rel}:{number}: python -m flowguard.map {cmd}")
                 if re.search(r"python -m flowguard template [\w-]+ --output", line) or "unittest discover" in line:
                     problems.append(f"{rel}:{number}: {line.strip()}")
+        self.assertEqual([], problems)
+
+    def test_documented_command_arguments_parse(self) -> None:
+        import shlex
+
+        from flowguard.__main__ import _verb_parser
+        from flowguard.map.cli import build_parser
+
+        docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
+                *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
+        problems = []
+        for path in docs:
+            rel = path.relative_to(ROOT).as_posix()
+            for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                for match in re.finditer(r"python -m flowguard ([^`\n]*)", line):
+                    command = re.sub(r"(?<=\S)[.,;:)]+$", "", match.group(1).split("#", 1)[0].strip())
+                    if not command or any(mark in command for mark in ("|", "[", "<", "...")):
+                        continue                      # alternatives, optional parts and placeholders
+                    words = ["1" if re.fullmatch(r"[A-Z][A-Z0-9_]*", word) else word for word in shlex.split(command)]
+                    verb, rest = words[0], words[1:]
+                    if verb == "map" and rest:
+                        parser = build_parser()
+                    elif verb in {"read", "change", "release", "template"}:
+                        parser = _verb_parser(verb)
+                    else:
+                        continue
+                    try:
+                        with contextlib.redirect_stderr(io.StringIO()):
+                            parser.parse_args(rest)
+                    except SystemExit:
+                        problems.append(f"{rel}:{number}: python -m flowguard {command}")
         self.assertEqual([], problems)
 
     def test_installer_expands_literal_environment_variable_and_rejects_unset(self) -> None:

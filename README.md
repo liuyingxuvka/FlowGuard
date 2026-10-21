@@ -8,7 +8,7 @@
 
 [中文说明](./README.zh-CN.md)
 
-Version **0.70.2**: 37 self-map components, 4 flows, 32 executable self-models. See the [repair and validation report](docs/flowguard_0_70_2_fix_report.md) for measured results and remaining limits.
+FlowGuard maps and checks its own repository (`.flowguard/map.json`, `.flowguard/models/`). Measured results and known limits: [repair and validation report](docs/flowguard_0_70_2_fix_report.md).
 
 
 ## What it does
@@ -39,7 +39,7 @@ python scripts/install_skill.py --target ~/.claude/skills # skill for your agent
 
 cd your-project
 python -m flowguard map scan              # 1. draft components; guess tests from imports (default max 40)
-python -m flowguard map discover all      # inspect routes, commands, effects and state writers
+python -m flowguard map discover          # inspect routes, commands, effects and state writers
 python -m flowguard map digest all        # 2. API outline, signatures, assignments and docstrings; size varies
 #   edit .flowguard/map.json: merge/split components, write summary, responsibilities, layer ...
 python -m flowguard map deps --write      # 3. dependencies from real imports
