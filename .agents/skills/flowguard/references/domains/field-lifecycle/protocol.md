@@ -46,22 +46,14 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    - `coverage_disposition`: `modeled` (default), `delegated` (needs `delegated_owner_id`
      + `coverage_evidence_refs`) or `scoped` (needs `scoped_out_reason`). Presentation/metadata
      rows without a `scoped_out_reason` give a gap (see below).
-4. Behavior-bearing rows get `projection=FieldProjection(projection_id, field_id, model_obligation_id=, code_contract_id=, required_test_kinds=, evidence_refs=)`.
-   For a broad `claim_scope` (`full`, `release`, `production`, `broad`, ...),
-   `evidence_refs` need a `gate:` ref, a `test:` ref when failure/negative test
-   kinds are required, and a `replay:` ref when `replay` is a required test
-   kind or a `behavior_impacts` entry.
+4. Behavior-bearing rows get `projection=FieldProjection(projection_id, field_id, model_obligation_id=, code_contract_id=, required_test_kinds=)`.
 5. Rows that are old, replaced, deprecated or set `replacement_field_id` or
    `old_field_ids`: set `disposition` to one of these:
    `deleted`, `blocked`, `migrated`, `delegated_to_new_field` or `same_contract_repaired` (each needs `disposition_evidence_refs`),
    `explicitly_preserved` (also `compatibility_intent`) or `out_of_scope`
    (needs `scoped_out_reason`). Unless compatibility was asked for, remove it.
-6. `FieldLifecyclePlan(mesh_id, discovered_field_ids=, groups=, fields=, claim_scope=)`.
-   For an "every field covered" claim add `require_complete_inventory=True`,
-   `inventory_revision`, `inventory_fingerprint` (`sha256:` + 64 hex),
-   `discovery_evidence_ids`, and per row `locations`, `default_semantics`,
-   `absence_semantics`, `serialization_semantics`, `privacy_classification`,
-   `content_fingerprint`.
+6. `FieldLifecyclePlan(mesh_id, discovered_field_ids=, groups=, fields=)`. Every id in
+   `discovered_field_ids` needs a row; take the list from the code, not from the rows you wrote.
 7. Runtime-gateway evidence routes to `model_test_alignment`.
    Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
 8. Review the current field plan and relevant broken cases. If persisting a runner, update its
@@ -89,13 +81,8 @@ ok = correct.ok and not broken.ok and field_lifecycle_to_model_obligations(corre
 | `field_model_obligation_missing` | A projection has no `model_obligation_id`. |
 | `field_code_contract_missing` | A projection has no `code_contract_id`. |
 | `old_field_disposition_open` | Old/replaced/deprecated field with no closing disposition and evidence. |
-| `field_gate_evidence_missing` | Broad claim, projection has no `gate:` ref. |
-| `field_negative_test_evidence_missing` | Broad claim, negative/failure kind required, no `test:` ref. |
-| `field_replay_evidence_missing` | Broad claim, replay required, no `replay:` ref. |
 | `field_delegation_incomplete` | `delegated` coverage without owner or evidence refs. |
 | `field_scope_reason_missing` | `scoped` coverage without a reason. |
-| `field_inventory_unexpected_row` | Complete inventory: a row is not in `discovered_field_ids`. |
-| `field_inventory_duplicate_row` | Complete inventory: two rows share a field id. |
 
 Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 `field_lifecycle_scoped` with `ok` = `allow_scoped_confidence` (default `True`): check `report.decision`.
@@ -108,8 +95,6 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 - Unknown vocabulary: `behavior_impacts=("permisssion",)` blocks with
   `field_behavior_impact_invalid`; unknown role or lifecycle blocks with its
   corresponding code, including for scoped or delegated coverage.
-- Broad claim without trail: `claim_scope="full"`, projection with no `gate:`
-  ref -> `field_gate_evidence_missing`.
 
 ## Done when
 - [ ] The selected native review/check passes within its declared scope; partial gaps stay visible.
@@ -124,7 +109,6 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
   you never discovered is invisible. Pair projections with real tests.
 - Open gaps: a `replacement_field_id` naming no row still passes; a
   `scoped_out_reason` alone lets a behavior-bearing row skip its projection;
-  duplicate rows are caught only with `require_complete_inventory=True`.
-  Fingerprints are only format-checked, never recomputed.
+  two rows with the same field id are not reported.
 - Vocabulary drift: `legacy_path_disposition_from_field_row` maps
   `delegated_to_new_field` to `unknown`; do not use it for delegated rows.
