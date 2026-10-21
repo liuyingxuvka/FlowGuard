@@ -82,7 +82,7 @@ def _template(ns: argparse.Namespace) -> int:
             print(f"wrote {path}")
         for file in files:
             if file.path.startswith(".flowguard/verification/owners/") and file.path.endswith("/run_checks.py"):
-                print(f"next: replace the example plan in its model.py with your own; add {file.path} to the "
+                print(f"next: replace the REPLACE_ME anchors and the example plan with your own code; add {file.path} to the "
                       f"owning component's models in .flowguard/map.json; then run: "
                       f"python -m flowguard map models {file.path.split('/')[-2]}")
             elif file.path.startswith(".flowguard/models/") and file.path.count("/") == 2:

@@ -71,10 +71,19 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
-    def run_written_template(self, files, run_dir_parts, expected_returncode=0):
+    def run_written_template(self, files, run_dir_parts, expected_returncode=0, fill=True):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write_template_files(root, files)
+            if fill:        # name real code where the template ships REPLACE_ME placeholder anchors
+                for path in root.rglob("*"):
+                    if path.is_file() and "REPLACE_ME" in path.read_text(encoding="utf-8"):
+                        path.write_text(path.read_text(encoding="utf-8").replace("REPLACE_ME", "app"), encoding="utf-8")
+                (root / "app").mkdir()
+                (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")
+                (root / "app/workflow.py").write_text("def run_primary_workflow():\n    return 'done'\n", encoding="utf-8")
+                (root / "app/test_workflow.py").write_text("def test_primary_workflow():\n    assert True\n",
+                                                           encoding="utf-8")
             result = subprocess.run(
                 [sys.executable, "run_checks.py"],
                 cwd=root.joinpath(*run_dir_parts),
@@ -171,6 +180,20 @@ class PublicTemplateTests(unittest.TestCase):
                     offenders.append(f"{path.relative_to(ROOT)}: {', '.join(hits)}")
 
         self.assertEqual([], offenders)
+
+    def test_runner_templates_fail_until_their_anchors_name_real_code(self):
+        runners = {"behavior_commitment_ledger": behavior_commitment_ledger_template_files,
+                   "primary_path_authority": primary_path_authority_template_files,
+                   "model_test_alignment": model_test_alignment_template_files,
+                   "code_structure_recommendation": code_structure_recommendation_template_files,
+                   "model_mesh": model_mesh_template_files,
+                   "ui_flow_structure": ui_flow_structure_full_template_files,
+                   "model_topology_hazard_review": topology_hazard_template_files}
+        for directory, factory in runners.items():
+            with self.subTest(template=directory):
+                output = self.run_written_template(factory(), (".flowguard", "verification", "owners", directory),
+                                                   expected_returncode=1, fill=False)
+                self.assertIn("placeholder anchor 'REPLACE_ME/module.py:Owner'", output)
 
     def test_behavior_commitment_ledger_template_executes(self):
         output = self.run_written_template(

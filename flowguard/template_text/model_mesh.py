@@ -56,9 +56,27 @@ def main() -> int:
     return 0 if good.ok and not bad.ok else 1
 
 
+# The real code this review is about: the placeholder fails until you name it ('path:Symbol').
+# Add TESTED_BY = {"<check>": ["tests/test_x.py:test_name"]} for the tests that guard it.
+IMPLEMENTED_BY = {"Owner": "REPLACE_ME/module.py:Owner"}
+
+
+def bound_main() -> int:
+    """Run the review, then check that IMPLEMENTED_BY names real code."""
+    from pathlib import Path
+
+    from flowguard.map.facts import CodeFacts
+
+    code = main() or 0
+    facts = CodeFacts(Path(__file__).resolve().parents[4])
+    facts.anchors_exist(IMPLEMENTED_BY)
+    print(facts.report().format_text())
+    return code if facts.report().ok else 1
+
+
 if __name__ == "__main__":
     from flowguard.map.runner import run_owner
-    raise SystemExit(run_owner(main))
+    raise SystemExit(run_owner(bound_main))
 '''
 
 MODEL_MESH_NOTES_TEMPLATE = """# FlowGuard ModelMesh Notes
