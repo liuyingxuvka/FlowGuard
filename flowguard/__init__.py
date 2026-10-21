@@ -11,7 +11,7 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
-__version__ = "0.70.6"
+__version__ = "0.70.7"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {
