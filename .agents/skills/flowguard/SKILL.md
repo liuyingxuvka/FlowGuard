@@ -56,7 +56,7 @@ modeling (`references/model_recipes.md`).
 | model-test | rules, code and tests must be checked against each other |
 | topology-hazard | a green model needs review for future-use hazards (shared writers, repeatable effects) |
 | structure-mesh | splitting or refactoring a module while keeping its public surface |
-| test-mesh | the test suite is large, slow, layered or sharded |
+| test-mesh | the whole test suite is too slow to run in one command (shard runner) |
 | ui-flow | UI states, journeys, controls, cancel/recover, operability |
 
 ## Models for risky flows
