@@ -165,3 +165,22 @@ def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys
     write(tmp_path, 'client.py', 'from owner import ORDERS\n\ndef bill():\n    ORDERS = {}\n    ORDERS[1] = "local"\n')
     current, inv = _context(tmp_path)
     assert not any(f.code == 'foreign_state_write' for f in run_lint(tmp_path, current, inv))
+
+
+def test_string_literals_are_dependency_evidence_only_for_exact_modules_or_symbols(tmp_path):
+    from flowguard.map.mapfile import dependency_evidence
+    write(tmp_path, "pkg/__init__.py", "")
+    write(tmp_path, "pkg/b.py", "def func():\n    return 1\n")
+    save(tmp_path, {"schema": "flowguard.map.v1", "components": [
+        {"id": "a", "summary": "A", "responsibilities": ["a"], "files": ["pkg/a.py"], "entrypoints": [],
+         "tests": [], "models": [], "depends_on": [], "status": "draft"},
+        {"id": "b", "summary": "B", "responsibilities": ["b"], "files": ["pkg/__init__.py", "pkg/b.py"],
+         "entrypoints": [], "tests": [], "models": [], "depends_on": [], "status": "draft"},
+    ]})
+    write(tmp_path, "pkg/a.py", 'import logging\nSCHEMA = "pkg.b.v1"\nLOG = logging.getLogger("pkg.b.events")\n')
+    data, inv = _context(tmp_path)
+    assert "b" not in dependency_evidence(data, inv)["a"]
+    for literal in ('"pkg.b"', '"pkg.b:func"', '"pkg.b.func"'):
+        write(tmp_path, "pkg/a.py", f"import importlib\nTARGET = importlib.import_module({literal})\n")
+        data, inv = _context(tmp_path)
+        assert "b" in dependency_evidence(data, inv)["a"], literal

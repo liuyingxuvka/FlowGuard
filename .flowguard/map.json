@@ -322,7 +322,6 @@
       "depends_on": [
         "contract-exhaustion",
         "engine-core",
-        "public-api",
         "shared-vocabulary"
       ],
       "tests": [
@@ -367,7 +366,6 @@
       "depends_on": [
         "code-structure",
         "engine-core",
-        "public-api",
         "shared-vocabulary"
       ],
       "tests": [
@@ -594,9 +592,7 @@
       "side_effects": [
         "writes portable model or system files when requested"
       ],
-      "depends_on": [
-        "public-api"
-      ],
+      "depends_on": [],
       "tests": [
         "tests/test_compositional_verification.py",
         "tests/test_portable_checker.py",
@@ -632,7 +628,6 @@
         "behavior-commitment",
         "development-process",
         "engine-core",
-        "public-api",
         "shared-vocabulary"
       ],
       "tests": [
@@ -667,7 +662,6 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
-        "public-api",
         "shared-vocabulary",
         "test-mesh"
       ],
@@ -783,7 +777,6 @@
         "engine-core",
         "map-proof",
         "portable-models",
-        "public-api",
         "shared-vocabulary"
       ],
       "tests": [
@@ -908,9 +901,7 @@
       "side_effects": [
         "writes .flowguard/cache/inventory.json"
       ],
-      "depends_on": [
-        "cli"
-      ],
+      "depends_on": [],
       "tests": [
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_discover.py"
@@ -952,7 +943,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:184e9826fad0b0a7fb826957a43cf684bc4f14a1693bab344045d9d3b76a873a"
+      "fingerprint": "sha256:705f5a31f7d8c60cbeb524ac61245e58063995775ccc0fb14a2a60864f19b431"
     },
     {
       "id": "map-discover",
@@ -973,7 +964,6 @@
         "writes .flowguard/cache/discover.json"
       ],
       "depends_on": [
-        "cli",
         "map-inventory",
         "tooling"
       ],
@@ -1278,8 +1268,7 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
-        "portable-models",
-        "public-api"
+        "portable-models"
       ],
       "tests": [
         "tests/test_model_path_quality.py",

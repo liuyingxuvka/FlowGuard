@@ -184,19 +184,20 @@ def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
     graph = component_graph(data, inv)
     owner, _ = owner_index(data, inv)
     modules = {info.module: owner[path] for path, info in inv.py.items() if path in owner}
+    symbols = {info.module: info.symbols for info in inv.py.values()}
     for path, info in inv.py.items():
         cid = owner.get(path)
         if cid is None:
             continue
         for literal in getattr(info, "string_literals", set()):
-            module = literal
-            while module:
-                target = modules.get(module)
-                if target is not None:
-                    if target != cid:
-                        graph[cid].add(target)
-                    break
-                module = module.rpartition(".")[0]
+            # Exact module ("pkg.mod" or "pkg.mod:name") or "pkg.mod.symbol"; never truncate further.
+            target = modules.get(literal.split(":", 1)[0])
+            if target is None and ":" not in literal:
+                base, _, name = literal.rpartition(".")
+                if name in symbols.get(base, ()):
+                    target = modules.get(base)
+            if target is not None and target != cid:
+                graph[cid].add(target)
     for debt in data.get("accepted_debts", []):
         if debt.get("code") == "dep_unused" and debt.get("component") in graph and debt.get("reason"):
             cid = debt["component"]
