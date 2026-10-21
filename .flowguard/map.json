@@ -722,7 +722,7 @@
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY",
-        "impact selection: retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits",
+        "impact selection: retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
         "review architecture"
       ],
       "files": [
@@ -755,7 +755,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e33d4aa734d44e6c9928b86a0f4204dc93cfd54067e9faa4a5903192bde9a02b"
+      "fingerprint": "sha256:a81d2630587299bef03e6e4fef9d56561db788ab9f95fc31ead55a091a100571"
     },
     {
       "id": "map-proof",

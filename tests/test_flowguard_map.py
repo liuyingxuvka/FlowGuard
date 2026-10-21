@@ -793,15 +793,17 @@ def test_inventory_without_bodies_still_gives_lint_its_bodies_later(tmp_path):
 
 
 @pytest.mark.parametrize("edit", ["comment", "docstring", "code", "untouched"])
-def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, edit):
+@pytest.mark.parametrize("line_endings", ["\n", "\r\n"], ids=["lf", "crlf"])
+def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, edit, line_endings):
     from flowguard.map.impact import render_impact
     root, data = impact_project
     path = root / "shop/storage.py"
     text = path.read_text(encoding="utf-8")
-    path.write_text({"comment": text.replace("DB = {}\n", "DB = {}  # in-memory store\n\n"),
-                     "docstring": '"""Order storage."""\n' + text,
-                     "code": text.replace("return x", "return x or None"),
-                     "untouched": text}[edit], encoding="utf-8")
+    edited = {"comment": text.replace("DB = {}\n", "DB = {}  # in-memory store\n\n"),
+              "docstring": '"""Order storage."""\n' + text,
+              "code": text.replace("return x", "return x or None"),
+              "untouched": text}[edit]
+    path.write_bytes(edited.replace("\n", line_endings).encode("utf-8"))
     imp = impact_of(root, data, ["shop/storage.py"], base="HEAD")
     assert imp.direct == ["storage"]
     if edit == "comment":

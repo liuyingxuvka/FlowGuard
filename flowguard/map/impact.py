@@ -89,13 +89,14 @@ def _previous_map(root: Path, base: str | None) -> dict | None:
 
 
 def _comment_only(root: Path, base: str | None, path: str) -> bool:
-    """An edited .py file whose AST equals its base version (comments or formatting only; docstrings count)."""
+    """Changed, AST-equivalent source only; physical newline differences alone keep the full impact closure."""
     if base is None or not path.endswith(".py"):
         return False
     old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
     try:
-        new = (root / path).read_bytes()
-        return old.returncode == 0 and old.stdout != new and ast.dump(ast.parse(old.stdout)) == ast.dump(ast.parse(new))
+        previous = old.stdout.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        new = (root / path).read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        return old.returncode == 0 and previous != new and ast.dump(ast.parse(previous)) == ast.dump(ast.parse(new))
     except (OSError, SyntaxError, ValueError):
         return False
 
