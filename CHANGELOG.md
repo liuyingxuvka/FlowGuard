@@ -2,8 +2,9 @@
 
 ## v0.70.7 - 2026-10-20 - Models bound to the real code; slim/2026-10
 
-- Done: FG-01, FG-02, FG-03, FG-04, FG-05, FG-06, FG-07, FG-08, FG-09, FG-10, FG-11, FG-12, FG-13, FG-14, FG-15, FG-16, FG-17, FG-18, FG-19, FG-20, FG-21, FG-22, FG-23, FG-24, FG-25, FG-26, FG-27, FG-28, FG-29, FG-30, FG-31, FG-32, FG-33, FG-34, FG-35, FG-36, FG-37, FG-38, FG-39, FG-40, FG-41, FG-42, FG-43, FG-44, FG-45, FG-46, FG-47, FG-48, FG-49, FG-50, FG-51, FG-52, FG-53, FG-54, FG-55, FG-56, FG-57, FG-58, FG-59, FG-60, FG-61, FG-62, FG-63, FG-64, FG-65, FG-66, FG-67, FG-68, FG-69, FG-70, FG-71, FG-72, FG-73, FG-74, FG-75, FG-76, FG-77, FG-78, FG-79, FG-80, FG-81, FG-82, FG-83, FG-84, FG-85, FG-86, FG-87, FG-88, FG-89, FG-90, FG-91, FG-92, FG-93, FG-94, FG-95, FG-96.
+- Done: FG-01, FG-02, FG-03, FG-04, FG-05, FG-06, FG-07, FG-08, FG-09, FG-10, FG-11, FG-12, FG-13, FG-14, FG-15, FG-16, FG-17, FG-18, FG-19, FG-20, FG-21, FG-22, FG-23, FG-24, FG-25, FG-26, FG-27, FG-28, FG-29, FG-30, FG-31, FG-32, FG-33, FG-34, FG-35, FG-36, FG-37, FG-38, FG-39, FG-40, FG-41, FG-42, FG-43, FG-44, FG-45, FG-46, FG-47, FG-48, FG-49, FG-50, FG-51, FG-52, FG-53, FG-54, FG-55, FG-56, FG-57, FG-58, FG-59, FG-60, FG-61, FG-62, FG-63, FG-64, FG-65, FG-66, FG-67, FG-68, FG-69, FG-70, FG-71, FG-72, FG-73, FG-74, FG-75, FG-76, FG-77, FG-78, FG-79, FG-80, FG-81, FG-82, FG-83, FG-84, FG-85, FG-86, FG-87, FG-88, FG-89, FG-90, FG-91, FG-92, FG-93, FG-94, FG-95, FG-96, FG-97.
 - Skipped: none.
+- Warn for each invariant that no accepted, completed known-bad variant violates; warnings do not change model exit rules.
 - Generated masking variants require a reachable ordered pair that actually hides a code; shared or contained codes no longer produce an equivalent known-bad design.
 - Every model, contract file or runner, names the real code it is about (`IMPLEMENTED_BY`, plus `TESTED_BY`)
   and consults it while it runs (called, or read as code facts). Missing, unresolved or `REPLACE_ME` anchors

@@ -176,6 +176,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
             variants = module.broken_variants()
             if not isinstance(variants, dict) or not variants:
                 raise ValueError("broken_variants() must return a nonempty dictionary; no known-bad proof executed")
+            covered: set[str] = set()
             for name, explorer in variants.items():
                 if not isinstance(explorer, Explorer):
                     raise TypeError(f"broken variant {name!r} must be a flowguard.explorer.Explorer")
@@ -190,12 +191,17 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
                               if v.invariant_name in invariant_checks and not v.message.startswith("invariant raised ")
                               and not (oracle := _check_invariant(invariant_checks[v.invariant_name], v.state, v.trace)).ok
                               and not oracle.message.startswith("invariant raised ")}
+                    invariant_hits = caught.copy()
                     caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}
                     if bad.exploration_status != "budget_exhausted" and (caught & design_checks):
+                        covered |= invariant_hits & invariant_names
                         continue
                     result.status = "fail"
                     result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
                                            "crashes, unrelated rules and budget exhaustion prove nothing")
+            for name in sorted(invariant_names - covered):
+                result.warnings.append(f"invariant {name!r} is violated by no known-bad variant; "
+                                       "add a variant that breaks it, or say why it cannot be broken")
         else:
             raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
         if "conformance" in contract["functions"]:

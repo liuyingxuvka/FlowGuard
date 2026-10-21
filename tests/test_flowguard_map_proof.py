@@ -90,7 +90,19 @@ def test_fixed_code_passes_and_every_run_executes(shop, capsys):
     for _ in range(2):
         code, out = models(shop, capsys)
         assert code == 0 and "PASS" in out and "cached" not in out
+        assert "violated by no known-bad variant" not in out
     assert not (shop / ".flowguard/cache/models.json").exists()
+
+
+def test_invariant_no_known_bad_variant_violates_is_a_warning(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    _edit_model(shop, "INVARIANTS = (at_most_once_by(",
+                "def orders_are_unique(state, trace):\n    return len(set(state.orders)) == len(state.orders)\n\n\n"
+                "INVARIANTS = (orders_are_unique, at_most_once_by(")
+    code, out = models(shop, capsys)
+    assert code == 0, out
+    assert "invariant 'orders_are_unique' is violated by no known-bad variant" in out
+    assert "'one_charge_per_order' is violated by no" not in out
 
 
 def test_invariants_without_teeth_are_rejected(shop, capsys):
@@ -327,7 +339,7 @@ _CRASH = ("return {\"charge_every_time\": _explorer(ChargeEveryTime())}",
           "return {\"charge_every_time\": _explorer(Crashes())}")
 
 
-@pytest.mark.parametrize("case", ["crash", "invariant_crash", "other_invariant", "same_name_wrong_predicate", "budget", "design_without_invariants"])
+@pytest.mark.parametrize("case", ["crash", "invariant_crash", "other_invariant", "same_name_wrong_predicate", "budget", "budget_after_violation", "design_without_invariants"])
 def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
     write(shop, "shop/orders.py", FIXED)
     if case == "crash":
@@ -351,10 +363,17 @@ def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
         if case == "same_name_wrong_predicate":
             _edit_model(shop, "Invariant('never',", "Invariant('one_charge_per_order',")
         expected = "fails without violating"
-    elif case == "budget":
-        _edit_model(shop, "return {\"charge_every_time\": _explorer(ChargeEveryTime())}",
-              "return {'charge_every_time': Explorer(workflow=Workflow((PlaceOrder(),)), initial_states=(State(),), "
-              "external_inputs=INPUTS, invariants=INVARIANTS, max_sequence_length=3, progress_steps=0, max_transitions=1)}")
+    elif case in {"budget", "budget_after_violation"}:
+        block = "ChargeEveryTime()" if case == "budget_after_violation" else "PlaceOrder()"
+        limit = 4 if case == "budget_after_violation" else 1
+        _edit_model(shop, 'return {"charge_every_time": _explorer(ChargeEveryTime())}',
+                    f"bad = Explorer(workflow=Workflow(({block},)), initial_states=(State(),), "
+                    f"external_inputs=INPUTS, invariants=INVARIANTS, max_sequence_length=3, progress_steps=0, max_transitions={limit})\n"
+                    + ("    report = bad.explore()\n"
+                       "    assert report.exploration_status == 'budget_exhausted'\n"
+                       "    assert any(v.invariant_name == 'one_charge_per_order' for v in report.violations)\n"
+                       if case == "budget_after_violation" else "")
+                    + "    return {'charge_every_time': bad}")
         expected = "fails without violating"
     else:
         _edit_model(shop, "def build_explorer() -> Explorer:\n    return _explorer(PlaceOrder())",
@@ -363,6 +382,8 @@ def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
         expected = "declares no invariants"
     code, out = models(shop, capsys)
     assert code == 1 and expected in out
+    if case != "design_without_invariants":
+        assert "invariant 'one_charge_per_order' is violated by no known-bad variant" in out
 
 
 def test_plain_function_invariant_is_accepted(shop, capsys):

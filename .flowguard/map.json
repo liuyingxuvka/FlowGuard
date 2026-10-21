@@ -762,7 +762,7 @@
       "layer": "map",
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
@@ -792,7 +792,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3afbc0e67e982856e0477fb32243261393a084a8802b11c77866e6b7a9788823"
+      "fingerprint": "sha256:5d99a4f303a15dd8d939e66c2da3abf22b31cf1dd0a05fcc41db97769270d7f2"
     },
     {
       "id": "engine-explore",
