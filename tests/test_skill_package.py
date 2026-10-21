@@ -130,7 +130,23 @@ class SkillPackageTests(unittest.TestCase):
             self.assertEqual(0, run().returncode)
             check = run("--check")
             self.assertEqual(0, check.returncode, check.stdout)
-            self.assertTrue((Path(directory) / "flowguard" / "SKILL.md").is_file())
+            skill = Path(directory) / "flowguard" / "SKILL.md"
+            self.assertTrue(skill.is_file())
+            original = skill.read_bytes()
+            stat = skill.stat()
+            skill.write_bytes(bytes([original[0] ^ 1]) + original[1:])
+            os.utime(skill, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            self.assertEqual(stat.st_size, skill.stat().st_size)
+            self.assertEqual(stat.st_mtime_ns, skill.stat().st_mtime_ns)
+            changed = run("--check")
+            self.assertEqual(1, changed.returncode, changed.stdout)
+            self.assertIn("differs: SKILL.md", changed.stdout)
+            skill.write_bytes(original)
+            os.utime(skill, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+            cache = skill.parent / "__pycache__"
+            cache.mkdir(exist_ok=True)
+            (cache / "ignored.pyc").write_bytes(b"ignored")
+            self.assertEqual(0, run("--check").returncode)
 
 
 if __name__ == "__main__":

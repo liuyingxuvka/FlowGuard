@@ -31,7 +31,14 @@ def differences(src: Path, dst: Path) -> list[str]:
         node, rel = stack.pop()
         out += [f"only in source: {rel / n}" for n in node.left_only]
         out += [f"only in target: {rel / n}" for n in node.right_only]
-        out += [f"differs: {rel / n}" for n in node.diff_files]
+        for name in node.common_files:
+            try:
+                different = (Path(node.left) / name).read_bytes() != (Path(node.right) / name).read_bytes()
+            except OSError:
+                different = True
+            if different:
+                out.append(f"differs: {rel / name}")
+        out += [f"differs: {rel / n}" for n in node.common_funny]
         stack += [(sub, rel / name) for name, sub in node.subdirs.items()]
     return out
 
