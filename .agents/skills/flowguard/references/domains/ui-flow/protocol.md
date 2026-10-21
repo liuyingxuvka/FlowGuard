@@ -33,8 +33,8 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 ## Steps
 
 1. If a new boundary needs a scaffold: `python -m flowguard template ui-flow-structure --write .`
-   It writes `.flowguard/models/owners/ui_flow_structure/model.py`, the runner
-   `.flowguard/verification/owners/ui_flow_structure/run_checks.py` and notes.
+   It writes `.flowguard/models/owners/ui_flow_structure/model.py` and the runner
+   `.flowguard/verification/owners/ui_flow_structure/run_checks.py`.
    It runs the real interaction reviewer on a reversible interaction and a broken
    target. `ui-flow-structure-full` retains complete-journey teaching material.
 2. Reuse/update the owner's UI model; replace template fixtures only if step 1 needed a scaffold. Core records (`from flowguard import ...`):

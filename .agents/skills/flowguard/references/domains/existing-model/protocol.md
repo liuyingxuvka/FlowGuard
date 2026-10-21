@@ -76,10 +76,10 @@ files changed since the last `confirm` (or that are still draft).
 6. Only for a new reusable check, start from the template:
    `python -m flowguard template existing-model-preflight --write .`
    It writes `.flowguard/models/owners/existing_model_preflight/model.py` (one correct
-   and one broken preflight), the runner
+   and one broken preflight) and the runner
    `.flowguard/verification/owners/existing_model_preflight/run_checks.py`
-   (exit 0 only if the correct case passes and the broken case fails), and a notes file
-   in `docs/`. Replace the router example with your real owner and plan.
+   (exit 0 only if the correct case passes and the broken case fails).
+   Replace the router example with your real owner and plan.
 7. Only if step 6 created or changed a persistent runner, register its path in the owner's
    `models` and run `python -m flowguard map models existing_model_preflight` (id = folder name).
 8. Fix every unmapped file: add it to one component's `files`, then `python -m flowguard map confirm <id>`.

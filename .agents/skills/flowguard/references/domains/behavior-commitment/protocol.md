@@ -37,7 +37,7 @@ the real bug in A stays hidden.
    (also `tool_ids`, `error_signatures`). Use `primary_hits`; `related_hits` are context only.
    Status `blocked` means the ledger file could not be loaded, not "no promise".
 2. If no ledger exists, run `python -m flowguard template behavior-commitment-ledger --write .`
-   It writes `ledger.json`, a loader `model.py`, a runner `run_checks.py` and notes.
+   It writes `ledger.json`, a loader `model.py` and a runner `run_checks.py`.
 3. Edit `ledger.json` (`BehaviorCommitmentLedger`, rows under the top-level `ledger` key):
    - each `source_surfaces` row: `surface_id`, `source_ref` (path, `path#anchor`, or a
        bounded glob), `coverage_disposition` (`modeled`, `delegated`, `scoped`), `commitment_ids`.

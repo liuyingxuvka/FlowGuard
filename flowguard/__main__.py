@@ -81,6 +81,11 @@ def _template(ns: argparse.Namespace) -> int:
             return 1
         for path in written:
             print(f"wrote {path}")
+        for file in files:
+            if file.path.startswith(".flowguard/verification/owners/") and file.path.endswith("/run_checks.py"):
+                print(f"next: replace the example plan in its model.py with your own; add {file.path} to the "
+                      f"owning component's models in .flowguard/map.json; then run: "
+                      f"python -m flowguard map models {file.path.split('/')[-2]}")
         return 0
     for file in files:
         print(f"===== {file.path} =====")

@@ -38,8 +38,8 @@ the code exists, each recommended module becomes one component in
 
 1. Reuse or update the current owner's native recommendation/review. Only for a missing
    reusable boundary, run `python -m flowguard template code-structure-recommendation --write .`
-   This writes `.flowguard/models/owners/code_structure_recommendation/model.py`,
-   `.flowguard/verification/owners/code_structure_recommendation/run_checks.py` and a notes file.
+   This writes `.flowguard/models/owners/code_structure_recommendation/model.py` and
+   `.flowguard/verification/owners/code_structure_recommendation/run_checks.py`.
    To use a feature name, rename both `code_structure_recommendation` directories and the
    `_MODEL_DIR` path inside `run_checks.py`.
 2. Update the selected owner recommendation (`recommendation()` in a persisted `model.py`). API:

@@ -279,15 +279,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("missing_false_negative_closure_evidence", output)
 
 
-    def test_model_miss_review_template_is_compact_but_preserves_gates(self):
-        combined = "\n".join(file.content for file in model_miss_review_template_files())
-        for text in ("FalseNegativeBackpropagationPlan", "review_false_negative_backpropagation",
-                     "would_have_failed_if", "new_model_obligation_id", "closure_evidence_ids",
-                     "recurring_or_high_risk", "model-miss-full-template"):
-            self.assertIn(text, combined)
-        self.assertNotIn("class MissRepairPlan", combined)
-
-
     def test_model_miss_full_template_keeps_deep_review_material(self):
         files = model_miss_review_full_template_files()
         combined = "\n".join(file.content for file in files)
@@ -316,46 +307,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("design-ready scaffold; target execution: not_run", output)
         self.assertIn("test_evidence_not_passing", output)
 
-
-    def test_model_test_alignment_template_covers_code_contracts_without_mesh_helpers(self):
-        combined = "\n".join(file.content for file in model_test_alignment_template_files())
-        for text in ("ModelObligation", "CodeContract", "TestEvidence", "ModelTestAlignmentPlan",
-                     "review_model_test_alignment", "covered_code_contracts", "not_run",
-                     "model-test-alignment-full-template", "TESTED_BY"):
-            self.assertIn(text, combined)
-        self.assertNotIn("class CompactAlignmentPlan", combined)
-        self.assertNotIn("review_hierarchical_mesh", combined)
-
-
-    def test_model_test_alignment_full_template_teaches_conservative_python_source_audit(self):
-        files = model_test_alignment_full_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("CodeBoundaryContract", combined)
-        self.assertIn("CodeBoundaryObservation", combined)
-        self.assertIn("review_code_boundary_conformance", combined)
-        self.assertIn("TransitionCoverageMatrix", combined)
-        self.assertIn("TransitionCoverageCell", combined)
-        self.assertIn("TEST_EVIDENCE_ROLE_TRANSITION_CELL", combined)
-        self.assertIn("transition_coverage_to_code_contracts", combined)
-        self.assertIn("transition_coverage_to_model_obligations", combined)
-        self.assertIn("model_mesh_closure_to_transition_coverage", combined)
-        self.assertIn("ModelMesh closure projection", combined)
-        self.assertNotIn("TestResultReuseTicket", combined)
-        self.assertNotIn("result_reused=", combined)
-        self.assertNotIn("reuse_ticket=", combined)
-        self.assertIn("sample data, not", combined)
-        self.assertIn("audit_python_code_contracts", combined)
-        self.assertIn("audit_python_test_assertions", combined)
-        self.assertIn("review_python_contract_source_audit", combined)
-        self.assertIn("ArtifactPayloadContract", combined)
-        self.assertIn("real payload surface", combined)
-        self.assertIn("PythonCodeContractEvidence", combined)
-        self.assertIn("PythonTestAssertionEvidence", combined)
-        self.assertIn("function signatures, return values, raises, assignments, and calls", combined)
-        self.assertIn("tests must call the declared code contract symbol", combined)
-        self.assertIn("assert or unittest assertion", combined)
-        self.assertIn("conservative source audit", combined)
 
     def test_model_test_alignment_full_template_executes_all_six_reports(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -395,23 +346,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("release_obligations", output)
         self.assertIn("stale_test_evidence", output)
 
-    def test_test_mesh_template_teaches_parent_child_hierarchy(self):
-        files = mesh_template_files_factory()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("parent test gate", combined)
-        self.assertIn("child suites/scripts", combined)
-        self.assertIn("parallel to ModelMesh and StructureMesh", combined)
-        self.assertIn("one giant parent graph", combined)
-        self.assertIn("model-derived split", combined)
-        self.assertIn("TestResultReuseTicket", combined)
-        self.assertIn("result_reused=True", combined)
-        self.assertIn("TransitionCoverageMatrix", combined)
-        self.assertIn("transition_coverage_to_required_leaf_cell_ids", combined)
-        self.assertIn("model_mesh_closure_to_transition_coverage", combined)
-        self.assertIn("ModelMesh closure projection cells", combined)
-        self.assertIn("required_leaf_cell_ids", combined)
-
     def test_model_mesh_template_executes_and_exposes_negative_fixture(self):
         output = self.run_written_template(
             model_mesh_template_files(),
@@ -422,17 +356,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("missing", output.lower())
         self.assertNotIn("negative-case matrix: PASS", output)
 
-    def test_model_mesh_template_teaches_ownership_and_reattachment(self):
-        combined = "\n".join(file.content for file in model_mesh_template_files())
-        for text in (
-            "parent/child topology",
-            "one owner per child",
-            "changed-child boundary",
-            "stale/not-run child evidence",
-            "parent receipt never proves a child",
-        ):
-            self.assertIn(text, combined)
-
     def test_contract_exhaustion_template_executes_and_exposes_negative_fixture(self):
         output = self.run_written_template(
             contract_exhaustion_template_files(),
@@ -442,17 +365,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("decision:", output)
         self.assertIn("missing", output.lower())
         self.assertNotIn("negative-case matrix: PASS", output)
-
-    def test_contract_exhaustion_template_teaches_finite_oracle_boundary(self):
-        combined = "\n".join(file.content for file in contract_exhaustion_template_files())
-        for text in (
-            "finite dimension",
-            "complete member universe",
-            "stable case ID",
-            "oracle",
-            "Do not hide a rejected\ncase",
-        ):
-            self.assertIn(text, combined)
 
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(
@@ -482,49 +394,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("on_demand_content_visible_in_default_state", output)
         self.assertIn("flowguard UI product consistency review", output)
         self.assertIn("product_semantic_drift", output)
-
-    def test_ui_flow_structure_template_uses_visual_job_typography_scale(self):
-        combined = "\n".join(file.content for file in ui_flow_structure_template_files())
-        for text in ("UIInteractionModel", "review_ui_interaction_model", "ui-flow-structure-full-template",
-                     "The text hierarchy contract is semantic", '"standard-text"', '"user_on_demand"'):
-            self.assertIn(text, combined)
-        self.assertNotIn("class UICompactPlan", combined)
-
-
-    def test_ui_flow_structure_full_template_keeps_deep_route_material(self):
-        files = ui_flow_structure_full_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("UIJourneyCoverage", combined)
-        self.assertIn("UIImplementationValidation", combined)
-        self.assertIn("UIHumanOperabilityAssessment", combined)
-        self.assertIn("review_ui_human_operability", combined)
-        self.assertIn("every reachable enabled", combined)
-        self.assertIn("UIStructureDerivation", combined)
-        self.assertIn("UITextHierarchyBlueprint", combined)
-        self.assertIn("UIFeatureContract", combined)
-        self.assertIn("UIFunctionalCapabilityInventory", combined)
-        self.assertIn("review_ui_functional_capability_coverage", combined)
-        self.assertIn("UIVisibleSurface", combined)
-        self.assertIn("UIContentVisibilityItem", combined)
-        self.assertIn("UIContentVisibilityPlan", combined)
-        self.assertIn("UIRenderEvidenceSet", combined)
-        self.assertIn("UIGeometryLayoutEvidenceSet", combined)
-        self.assertIn("UIResponsivenessContract", combined)
-        self.assertIn("review_ui_visible_surface", combined)
-        self.assertIn("review_ui_content_visibility", combined)
-        self.assertIn("review_ui_render_evidence", combined)
-        self.assertIn("review_ui_geometry_layout_evidence", combined)
-        self.assertIn("review_ui_responsiveness_contract", combined)
-        self.assertIn('"screenshot"', combined)
-        self.assertIn("hidden_displays", combined)
-        self.assertIn("content_visibility_id", combined)
-        self.assertIn("content_visibility_plan_id", combined)
-        self.assertIn("broken_internal_visible_content_plan", combined)
-        self.assertIn("broken_missing_content_class_plan", combined)
-        self.assertIn("broken_on_demand_visible_before_reveal_plan", combined)
-        self.assertIn("analysis_refresh_no_guard", combined)
-        self.assertIn("old cold results can overwrite newer state", combined)
 
     def test_structure_mesh_template_executes(self):
         output = self.run_written_template(
@@ -575,22 +444,6 @@ def build_review():
         self.assertIn("release_claim_with_stale_evidence", output)
         self.assertIn("revalidation", output)
 
-    def test_development_process_flow_template_keeps_sibling_boundary(self):
-        files = development_process_flow_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("development-process simulator front door", combined)
-        self.assertIn("does not inspect", combined)
-        self.assertIn("does not make FlowGuard a task orchestrator", combined)
-        self.assertIn("run AutoSplit, ModelMesh, or TestMesh as its own", combined)
-        self.assertIn("UI observed inventory, functional capability coverage", combined)
-        self.assertIn("Do not copy\nAutoSplit metrics onto `ProcessEvidence`", combined)
-        self.assertIn("producer_route=\"test_mesh\"", combined)
-        self.assertIn("strategy_selection", combined)
-        self.assertIn("safe_parallel", combined)
-        self.assertIn("Ordinary single-route work needs no optimization records", combined)
-        self.assertIn("never a global\noptimum", combined)
-
     def test_workflow_step_contracts_template_executes(self):
         output = self.run_written_template(
             workflow_step_contracts_template_files(),
@@ -600,18 +453,6 @@ def build_review():
         self.assertIn("missing_claim_receipt", output)
         self.assertIn("process_requirements", output)
         self.assertIn("model_obligations", output)
-
-    def test_workflow_step_contracts_template_teaches_receipts(self):
-        files = workflow_step_contracts_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("WorkflowStepContract", combined)
-        self.assertIn("requires_receipts", combined)
-        self.assertIn("produces_receipts", combined)
-        self.assertIn("invalidates_receipts", combined)
-        self.assertIn("required_for_claims", combined)
-        self.assertIn("step_contracts_to_validation_requirements", combined)
-        self.assertIn("step_contracts_to_model_obligations", combined)
 
     def test_existing_model_preflight_template_executes(self):
         output = self.run_written_template(
@@ -631,23 +472,6 @@ def build_review():
         self.assertIn("behavior_field_projection_missing", output)
         self.assertIn("old_field_disposition_open", output)
 
-    def test_field_lifecycle_template_teaches_default_replacement_handoffs(self):
-        files = field_lifecycle_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("FieldLifecycleMesh", combined)
-        self.assertIn("Default replacement policy", combined)
-        self.assertIn("old fields", combined)
-        self.assertIn("compatibility intent", combined)
-        self.assertIn("field_lifecycle_to_model_obligations", combined)
-        self.assertIn("field_lifecycle_to_code_contracts", combined)
-        self.assertIn("Model-Test Alignment", combined)
-        self.assertIn("DevelopmentProcessFlow", combined)
-        self.assertIn("gate:", combined)
-        self.assertIn("test:", combined)
-        self.assertIn("replay:", combined)
-        self.assertIn("Field route refs are handoff labels", combined)
-
     def test_layered_boundary_proof_template_executes(self):
         output = self.run_written_template(
             layered_boundary_proof_template_files(),
@@ -656,16 +480,6 @@ def build_review():
         self.assertIn("flowguard layered boundary proof", output)
         self.assertIn("parent_coverage_gap", output)
         self.assertIn("leaf_cell_extra_output", output)
-
-    def test_layered_boundary_proof_template_teaches_four_tables(self):
-        files = layered_boundary_proof_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("Parent coverage", combined)
-        self.assertIn("Child disjointness", combined)
-        self.assertIn("Child reattachment", combined)
-        self.assertIn("Leaf boundary matrix", combined)
-        self.assertIn("Input x State", combined)
 
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {

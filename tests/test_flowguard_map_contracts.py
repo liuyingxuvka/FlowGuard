@@ -132,7 +132,8 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
                  "field-lifecycle", "model-mesh", "model-miss", "model-test",
                  "topology-hazard", "structure-mesh", "test-mesh", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
-        capsys.readouterr()
+        out = capsys.readouterr().out
+        assert "then run: python -m flowguard map models " in out and "/docs/" not in out, name
     assert main(["template", "architecture-reduction"]) == 2
     assert "protocol.md" in capsys.readouterr().out
 

@@ -37,7 +37,7 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 ## Steps
 
 1. Reuse or update the owner's native mesh/review. Only for a missing reusable composition boundary,
-   `python -m flowguard template model-mesh --write .` writes its model, runner and notes.
+   `python -m flowguard template model-mesh --write .` writes its model and runner.
    To rename `model_mesh`, rename both owner folders and `_MODEL_DIR` in `run_checks.py`.
 2. In the selected owner plan (`model.py` only if persisted), describe children and parent (API from `flowguard`):
    ```python

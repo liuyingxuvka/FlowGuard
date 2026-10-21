@@ -34,7 +34,7 @@ in `.flowguard/map.json` after the split.
 
 1. Reuse or update the owner's native split/review. Only if its reusable boundary is missing,
    write starter files with `python -m flowguard template structure-mesh --write .`.
-   It writes owner `model.py`, `.flowguard/verification/owners/structure_mesh/run_checks.py` and notes.
+   It writes owner `model.py` and `.flowguard/verification/owners/structure_mesh/run_checks.py`.
 2. In the selected owner plan (`model.py` only if persisted), build a `CodeStructureRecommendation` with
    `parent_module_id` equal to the plan's parent, one `TargetModuleRecommendation` per child,
    owner maps and `facade_module_id` (see the code-structure protocol).
