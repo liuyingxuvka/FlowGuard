@@ -75,13 +75,3 @@ python -m flowguard template maintenance-workflow --write .
 ```
 
 Without `--write` the files are printed; `--force` overwrites existing files.
-
-## Pytest Adapter
-
-`flowguard.pytest_adapter` exposes assertion helpers without importing pytest:
-
-- `assert_report_ok(report)`;
-- `assert_no_executable_corpus_regression(report)`.
-
-These helpers let projects integrate flowguard checks into pytest while keeping
-the core package free of external dependencies.

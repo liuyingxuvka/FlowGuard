@@ -470,7 +470,7 @@ def builtin_template_seeds() -> tuple[TemplateSeed, ...]:
             false_friend_cases=("model_count_without_topology",),
             target_fields=("parent_partition", "child_owner", "reattachment_boundary"),
             non_applicable_disposition="proved_or_blocked",
-            source_proof_refs=("tests:test_hierarchical_mesh", "tests:test_auto_split"),
+            source_proof_refs=("tests:test_hierarchical_mesh",),
             promotion_status="promoted",
             closure_disposition="pending",
         ),

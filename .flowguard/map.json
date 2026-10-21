@@ -222,7 +222,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cca324021dedfc441a7c42a60f9dc7c37e8deac0bc84c6dcc334912133eebed6"
+      "fingerprint": "sha256:6e0c8c9c6a930fec29823dc978d58b59b750a007cdf5d2e0054761cffd4379e9"
     },
     {
       "id": "templates",
@@ -302,8 +302,7 @@
       "files": [
         "flowguard/behavior_commitment.py",
         "flowguard/behavior_commitment_lookup.py",
-        "flowguard/primary_path_authority.py",
-        "flowguard/coverage_inventory.py"
+        "flowguard/primary_path_authority.py"
       ],
       "entrypoints": [
         "flowguard/behavior_commitment.py:review_behavior_commitment_ledger",
@@ -327,7 +326,6 @@
         "tests/test_behavior_commitment_primary_path.py",
         "tests/test_behavior_inventory.py",
         "tests/test_behavior_plane_upgrade.py",
-        "tests/test_coverage_inventory.py",
         "tests/test_existing_model_preflight.py",
         "tests/test_primary_path_authority.py",
         "tests/test_primary_path_authority_compatibility_matrix.py",
@@ -342,7 +340,7 @@
         ".flowguard/verification/owners/primary_path_authority/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:8ea5914ce544e1ae9e5b41f0252646772b5585a885e7b42aa3d0a915dd0454e1"
+      "fingerprint": "sha256:559479d1265d53f977441525f284c820a5e56939dd4ef5c7ff719024bfa30573"
     },
     {
       "id": "architecture-reduction",
@@ -416,32 +414,27 @@
         "require an oracle for every generated case"
       ],
       "files": [
-        "flowguard/contract_exhaustion.py",
-        "flowguard/contract_runtime_evidence.py"
+        "flowguard/contract_exhaustion.py"
       ],
       "entrypoints": [
         "flowguard/contract_exhaustion.py:review_contract_exhaustion"
       ],
       "state": [],
-      "side_effects": [
-        "exports contract runtime evidence when requested"
-      ],
+      "side_effects": [],
       "depends_on": [
         "engine-core",
         "model-test",
-        "portable-models",
         "shared-vocabulary"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
         "tests/test_contract_exhaustion.py",
-        "tests/test_contract_runtime_evidence.py",
         "tests/test_hierarchical_mesh.py",
         "tests/test_primary_path_authority_contract_exhaustion.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d4d1f010d9a170d195e5a587e9e497cc1eaeea57970f5d39266d6af1a4cfd9e2"
+      "fingerprint": "sha256:917162ac96cda3a215b19313dd4a95d197274d7280b9827589369e95834f140a"
     },
     {
       "id": "development-process",
@@ -512,7 +505,6 @@
         "model-test"
       ],
       "tests": [
-        "tests/test_coverage_inventory.py",
         "tests/test_field_lifecycle.py"
       ],
       "models": [
@@ -529,7 +521,6 @@
         "review partitions, reattachment and closure across models"
       ],
       "files": [
-        "flowguard/auto_split.py",
         "flowguard/blueprint_topology.py",
         "flowguard/hierarchy.py",
         "flowguard/layered_proof.py",
@@ -547,11 +538,9 @@
         "engine-core",
         "engine-path-quality",
         "model-test",
-        "shared-vocabulary",
-        "test-mesh"
+        "shared-vocabulary"
       ],
       "tests": [
-        "tests/test_auto_split.py",
         "tests/test_blueprint_topology.py",
         "tests/test_contract_exhaustion.py",
         "tests/test_hierarchical_mesh.py",
@@ -562,7 +551,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:667bf0809ae5ed6e77d4af35064379bc7c302c1eaf008bcfc9592939d5624022"
+      "fingerprint": "sha256:9493bb99bf1b39a17146cb2ae6dfe2f829b12aaa8e69e251c40e848af9f3937b"
     },
     {
       "id": "portable-models",
@@ -736,15 +725,12 @@
         "retain typed capability blockers and bounded process cleanup results"
       ],
       "files": [
-        "flowguard/pytest_adapter.py",
         "flowguard/pytest_junit.py",
         "flowguard/pytest_nodeid_recorder.py",
         "flowguard/pytest_shard_plugin.py",
         "flowguard/pytest_shards.py",
         "flowguard/pytest_shards_cli.py",
         "flowguard/symlink_capability.py",
-        "flowguard/test_inventory.py",
-        "flowguard/test_inventory_python.py",
         "flowguard/test_reuse.py",
         "flowguard/testmesh.py"
       ],
@@ -761,20 +747,18 @@
       "depends_on": [
         "engine-core",
         "map-proof",
-        "portable-models",
         "shared-vocabulary"
       ],
       "tests": [
         "tests/test_primary_path_authority_release_gate_matrix.py",
         "tests/test_pytest_shards.py",
-        "tests/test_test_inventory.py",
         "tests/test_test_mesh.py",
         "tests/test_test_reuse.py",
         "tests/test_transition_coverage.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ee429c7c7b705cb50e71e32513e8841b7d30a04cf6c6ac0bf015e97adc12b53a"
+      "fingerprint": "sha256:18382afedc4a73b5e75f126c4e4e5dbeac747ca8fb26fcb7951db8f3b1fdc7d8"
     },
     {
       "id": "ui-flow",
@@ -797,7 +781,6 @@
         "engine-core"
       ],
       "tests": [
-        "tests/test_coverage_inventory.py",
         "tests/test_product_language_path_reuse.py",
         "tests/test_ui_structure.py"
       ],
@@ -1196,7 +1179,7 @@
         ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b64045e0f303aae776013e53d08c68e2bdd4af6ff2d1b2d1ee64884c13065acd"
+      "fingerprint": "sha256:8cf66614e8ab7947f794d03880839cf8f6a921abceccc099a0e7dd686629d11d"
     },
     {
       "id": "engine-path-quality",
@@ -1274,7 +1257,6 @@
         "flowguard/mermaid.py",
         "flowguard/_normalization.py",
         "flowguard/_runtime_progress.py",
-        "flowguard/_package_identity.py",
         "flowguard/_hashing.py"
       ],
       "entrypoints": [
@@ -1293,7 +1275,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:da90adb27eb9152a1cc22df68845f471d217df38432b7209a85a6e543ca7688d"
+      "fingerprint": "sha256:6b14658d07b60a39703cc35f5d4c58d0facc3d1f413349d6753d2f9b2a521311"
     },
     {
       "id": "shared-vocabulary",

@@ -1,7 +1,6 @@
 import json
 import unittest
 
-from flowguard.pytest_adapter import assert_no_executable_corpus_regression
 from flowguard.schema import SCHEMA_VERSION, make_artifact, trace_artifact
 from flowguard.trace import Trace
 
@@ -31,19 +30,6 @@ class EngineeringHardeningTests(unittest.TestCase):
         self.assertEqual("trace", data["artifact_type"])
         self.assertEqual("empty", data["model_name"])
         self.assertIn("steps", data["payload"])
-
-    def test_pytest_adapter_style_regression_assertion(self):
-        class Report:
-            ok = True
-            total_cases = 2100
-            executable_cases = 2100
-            not_executable_yet = 0
-            real_model_cases = 2100
-            generic_fallback_cases = 0
-            failure_cases = 0
-
-        assert_no_executable_corpus_regression(Report())
-
 
 if __name__ == "__main__":
     unittest.main()
