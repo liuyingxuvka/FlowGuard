@@ -211,6 +211,29 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertEqual(TOPOLOGY_CONFIDENCE_BLOCKED, report.confidence)
         self.assertTrue(report.unresolved_hazard_ids)
 
+    def test_unanchored_warning_does_not_switch_off_generated_hazards(self):
+        from dataclasses import replace
+
+        plan = infer_topology_hazard_plan(
+            workflow=Workflow((SaveRecord(),), name="save"),
+            initial_states=(State(),),
+            external_inputs=(Event(),),
+            usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release"),
+        )
+        warning = TopologyHazardCandidate(
+            "hazard:generic",
+            "Generic future risk with no model anchor.",
+            disposition=TOPOLOGY_DISPOSITION_BLOCKED,
+            confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED,
+            severity=TOPOLOGY_SEVERITY_BLOCKER,
+        )
+        generated = review_topology_hazards(plan)
+        warned = review_topology_hazards(replace(plan, candidates=(warning,)))
+
+        self.assertFalse(warned.ok)
+        self.assertTrue(generated.unresolved_hazard_ids)
+        self.assertEqual(generated.unresolved_hazard_ids, warned.unresolved_hazard_ids)
+
     def test_handled_anchored_hazard_passes(self):
         digest = infer_topology_digest(
             workflow=Workflow((SaveRecord(),), name="save"),

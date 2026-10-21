@@ -1217,9 +1217,10 @@ def infer_topology_hazard_plan(
 def review_topology_hazards(plan: TopologyHazardReviewPlan) -> TopologyHazardReport:
     """Review topology-anchored future-use hazard candidates."""
 
-    candidates = plan.candidates
-    if not candidates and plan.auto_generate_candidates:
-        candidates = derive_topology_hazard_candidates(plan.digest)
+    candidates = tuple(plan.candidates)
+    if plan.auto_generate_candidates and not any(candidate.anchored() for candidate in candidates):
+        # Listed anchored hazards replace the generated ones; unanchored warnings never switch generation off.
+        candidates += tuple(derive_topology_hazard_candidates(plan.digest))
 
     findings: list[TopologyHazardFinding] = []
     unresolved: list[str] = []

@@ -518,7 +518,8 @@
       "layer": "capabilities",
       "summary": "Reviews shared writers, repeat effects and fallback paths.",
       "responsibilities": [
-        "flag hazards implied by the model's shape"
+        "flag hazards implied by the shape of the model",
+        "generate hazards from the topology unless the plan lists anchored ones; an unanchored warning never switches generation off"
       ],
       "files": [
         "flowguard/topology_hazard.py"
@@ -538,7 +539,7 @@
         ".flowguard/models/model_topology_hazard_review.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:31506fd2e2c1f5bc7da71341bfc162c2573c7399d3759d88dc7c58eda29e8b5a"
+      "fingerprint": "sha256:aaba10a6050abef10bea2244353b1f5b3629a50bc229cc45cb617a62d6757dcf"
     },
     {
       "id": "test-mesh",
