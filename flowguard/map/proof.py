@@ -26,12 +26,12 @@ import json
 import os
 import subprocess
 import sys
-import threading
 import time
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .facts import AnchorWatch
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
 from .runner import COMPLETION_LINE, LOADED_LINE, run_isolated_process
 
@@ -92,52 +92,6 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelRe
                            seconds=round(time.time() - started, 3))
 
 
-class _AnchorCalls:
-    """Record which IMPLEMENTED_BY anchors run during the model run (global sys.settrace call events only)."""
-
-    def __init__(self, root: Path, anchors: dict) -> None:
-        self.by_path: dict[str, dict[str, str]] = {}
-        self.not_python: list[str] = []
-        for anchor in anchors.values():
-            rel, _, symbol = anchor.partition(":")
-            if not rel.endswith(".py"):
-                self.not_python.append(anchor)       # JS/TS etc.: execution cannot be observed in-process
-                continue
-            self.by_path.setdefault(os.path.realpath(root / rel), {})[symbol] = anchor
-        self.seen: set[str] = set()
-        self._files: dict[str, dict[str, str]] = {}
-
-    def _hook(self, frame, event, arg):
-        if event != "call":
-            return None
-        code = frame.f_code
-        symbols = self._files.get(code.co_filename)
-        if symbols is None:
-            symbols = self._files[code.co_filename] = self.by_path.get(os.path.realpath(code.co_filename), {})
-        if symbols:
-            qualname = code.co_qualname
-            for symbol, anchor in symbols.items():
-                if qualname == symbol or ("." not in symbol and qualname.startswith(symbol + ".")):
-                    self.seen.add(anchor)
-        return None                       # never trace lines
-
-    def __enter__(self):
-        if self.by_path:
-            self._previous = sys.gettrace()
-            self._previous_thread = threading.gettrace()
-            sys.settrace(self._hook)
-            threading.settrace(self._hook)
-        return self
-
-    def __exit__(self, *exc) -> None:
-        if self.by_path:
-            sys.settrace(self._previous)
-            threading.settrace(self._previous_thread)
-
-    def missing(self) -> set[str]:
-        return {a for symbols in self.by_path.values() for a in symbols.values()} - self.seen
-
-
 def _design_checks(explorer) -> set[str]:
     """Names of every property the intended design is judged by: invariants and declared reachability."""
     # same naming rule as flowguard.explorer._invariant_name, so violation names match
@@ -168,7 +122,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
         from flowguard.explorer import Explorer, _invariant_name
         module = _load(root, path)
         anchors = contract.get("IMPLEMENTED_BY", {})
-        calls = _AnchorCalls(root, anchors)
+        calls = AnchorWatch(root, anchors.values())
         design = module.build_explorer()
         if not isinstance(design, Explorer):
             raise TypeError("build_explorer() must return flowguard.explorer.Explorer; no exploration executed")
@@ -235,10 +189,11 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
         for anchor in sorted(calls.missing()):
             if result.status != "error":
                 result.status = "fail"
-            result.problems.append(f"IMPLEMENTED_BY anchor {anchor} never ran during build_explorer().explore() "
-                                   "or conformance(); call that code or declare an abstract model with IMPLEMENTED_BY = {}")
-        for anchor in calls.not_python:
-            result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python: execution not verified")
+            result.problems.append(f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read during "
+                                   "build_explorer().explore() or conformance(); call that code or read it as code facts")
+        for anchor in calls.unobserved():
+            result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
+                                   "execution not verified")
         if not anchors and "conformance" in contract["functions"]:
             result.warnings.append("abstract boundary only: conformance is not tied to IMPLEMENTED_BY code")
     except (ImportError, ModuleNotFoundError) as exc:

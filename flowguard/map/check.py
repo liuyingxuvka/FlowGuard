@@ -14,6 +14,8 @@ from .common import Finding, glob_match, is_test_file, read_source, matches_any
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract
 
+PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
+
 
 def symbol_defined(inv: Inventory, path: str, symbol: str) -> bool:
     """'name', 'Class.method', or a bare method name defined on any class in that file."""
@@ -24,6 +26,8 @@ def symbol_defined(inv: Inventory, path: str, symbol: str) -> bool:
 def anchor_problem(root: Path, inv: Inventory, anchor: str) -> str | None:
     """None when 'path:Symbol' exists; otherwise a human-readable problem."""
     path, sep, symbol = anchor.partition(":")
+    if PLACEHOLDER_ANCHOR in anchor:
+        return f"placeholder anchor {anchor!r}: replace it with the real 'path:Symbol' this model is about"
     if not sep or not symbol:
         return f"anchor {anchor!r} must look like 'path/to/file.py:Symbol'"
     if not (root / path).is_file():
@@ -35,6 +39,18 @@ def anchor_problem(root: Path, inv: Inventory, anchor: str) -> str | None:
     text = read_source(root / path)
     last = symbol.split(".")[-1]
     return None if re.search(rf"\b{re.escape(last)}\b", text) else f"symbol {symbol!r} not found in {path}"
+
+
+def anchor_problems(root: Path, anchors) -> dict[str, str]:
+    """{anchor: problem} for each 'path:Symbol' that does not resolve; parses only the anchored files."""
+    from .inventory import parse_python
+
+    root, anchors = Path(root), list(anchors)
+    paths = sorted({anchor.partition(":")[0] for anchor in anchors})
+    parsed = {path: parse_python(root, path, path[:-3].replace("/", "."), collect_bodies=False)
+              for path in paths if path.endswith(".py") and (root / path).is_file()}
+    inv = Inventory(root, paths, paths, [], parsed, {}, {})
+    return {anchor: problem for anchor in anchors if (problem := anchor_problem(root, inv, anchor))}
 
 
 def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -> list[Finding]:

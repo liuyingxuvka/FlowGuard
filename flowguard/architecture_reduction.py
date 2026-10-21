@@ -726,19 +726,12 @@ def _surfaces_by_candidate(
 
 
 def _candidate_anchor_findings(plan: ArchitectureReductionPlan, project_root: str) -> list[ArchitectureReductionFinding]:
-    from pathlib import Path
+    from .map.check import anchor_problems
 
-    from .map.check import anchor_problem
-    from .map.inventory import Inventory, parse_python
-
-    root = Path(project_root)
-    paths = sorted({candidate.code_node_id.partition(":")[0] for candidate in plan.candidates if candidate.code_node_id})
-    parsed = {path: parse_python(root, path, path[:-3].replace("/", "."), collect_bodies=False)
-              for path in paths if path.endswith(".py") and (root / path).is_file()}
-    inv = Inventory(root, paths, paths, [], parsed, {}, {})
+    problems = anchor_problems(project_root, [c.code_node_id for c in plan.candidates if c.code_node_id])
     findings: list[ArchitectureReductionFinding] = []
     for candidate in plan.candidates:
-        problem = anchor_problem(root, inv, candidate.code_node_id) if candidate.code_node_id else None
+        problem = problems.get(candidate.code_node_id)
         if problem:
             findings.append(
                 ArchitectureReductionFinding(

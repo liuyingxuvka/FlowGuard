@@ -300,7 +300,6 @@
         "code-structure",
         "engine-core",
         "map-analysis",
-        "map-inventory",
         "shared-vocabulary"
       ],
       "tests": [
@@ -309,7 +308,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b3242dabedd3ed74daeb9af7f27a2607618391218f271529b9506639807feaa2"
+      "fingerprint": "sha256:f58cbf0c55b06a7bc76a783a41a24a0bbdbde388b724332084859148ecd72c63"
     },
     {
       "id": "code-structure",
@@ -695,7 +694,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file",
+        "verify the map against code; name the owners next to an unmapped file; resolve anchors (placeholder anchors fail)",
         "impact selection: retain surviving current and historical tests/models; block missing or ambiguous test commands; select no checks for comment-only edits",
         "review architecture"
       ],
@@ -729,7 +728,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:d0496163a120925c4c37b5148466900f2edeb4e1fd2ba404811565265afc42d7"
+      "fingerprint": "sha256:ed7cadaee5420cb6914fd4cde8ed3bf31096702660bfd2a0fb184dbb2b1e6bd3"
     },
     {
       "id": "map-proof",
@@ -737,11 +736,13 @@
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
         "run models and their known-bad and conformance checks",
+        "observe which IMPLEMENTED_BY anchors a model consulted (called or read) and give conformance a static code-facts reader",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
       "files": [
         "flowguard/map/proof.py",
-        "flowguard/map/runner.py"
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py"
       ],
       "entrypoints": [
         "flowguard/map/proof.py:run_models",
@@ -754,15 +755,17 @@
       "depends_on": [
         "engine-explore",
         "map-file",
-        "map-inventory"
+        "map-inventory",
+        "map-analysis"
       ],
       "tests": [
         "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_facts.py",
         "tests/test_flowguard_map_proof.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6bbb7365a7da5e55968e78ee9615d8bd42f4a08f1a332b51ecfa9bf15e3d0d83"
+      "fingerprint": "sha256:e969e30b0a36f8ad1221800adff81dd47431d21c57327c1736626ce7f3e16cad"
     },
     {
       "id": "engine-explore",
