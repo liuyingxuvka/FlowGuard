@@ -32,7 +32,6 @@ from .obligation_family import (
     ObligationFamilyParityFinding,
     review_obligation_family_parity,
 )
-from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 import hashlib
 import json
 from pathlib import Path
@@ -474,7 +473,6 @@ class TestEvidence:
     assertion_scope: str = TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT
     evidence_role: str = TEST_EVIDENCE_ROLE_PRIMARY
     evidence_target_id: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     overclaims_model_confidence: bool = False
     closure_evidence_role: str = TEST_CLOSURE_ROLE_UNSPECIFIED
@@ -495,7 +493,6 @@ class TestEvidence:
         object.__setattr__(self, "assertion_scope", str(self.assertion_scope))
         object.__setattr__(self, "evidence_role", str(self.evidence_role))
         object.__setattr__(self, "evidence_target_id", str(self.evidence_target_id))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "closure_evidence_role", str(self.closure_evidence_role))
         object.__setattr__(self, "behavior_plane", str(self.behavior_plane))
@@ -526,7 +523,6 @@ class TestEvidence:
             "assertion_scope": self.assertion_scope,
             "evidence_role": self.evidence_role,
             "evidence_target_id": self.evidence_target_id,
-            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "stale_reasons": list(self.stale_reasons),
             "overclaims_model_confidence": self.overclaims_model_confidence,
             "closure_evidence_role": self.closure_evidence_role,
@@ -837,7 +833,6 @@ class ArtifactPayloadEvidence:
     observed_side_effects: tuple[str, ...] = ()
     round_trip_ok: bool = False
     evidence_ref: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -853,7 +848,6 @@ class ArtifactPayloadEvidence:
         object.__setattr__(self, "observed_state_writes", _as_tuple(self.observed_state_writes))
         object.__setattr__(self, "observed_side_effects", _as_tuple(self.observed_side_effects))
         object.__setattr__(self, "evidence_ref", str(self.evidence_ref))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def has_current_pass(self) -> bool:
@@ -880,7 +874,7 @@ class ArtifactPayloadEvidence:
                 self.observed_side_effects,
             )
         )
-        return bool(self.evidence_ref or self.proof_artifact) and bool(self.case_id) and has_observation
+        return bool(self.evidence_ref) and bool(self.case_id) and has_observation
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -898,7 +892,6 @@ class ArtifactPayloadEvidence:
             "observed_side_effects": list(self.observed_side_effects),
             "round_trip_ok": self.round_trip_ok,
             "evidence_ref": self.evidence_ref,
-            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -1029,7 +1022,6 @@ class ModelTestAlignmentPlan:
     field_lifecycle_reports: tuple[Any, ...] = ()
     field_lifecycle_projections: tuple[Any, ...] = ()
     canonical_relation_handoff: CanonicalRelationHandoff | Mapping[str, Any] | None = None
-    require_proof_artifacts: bool = False
     require_source_audit: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
@@ -1122,7 +1114,6 @@ class ModelTestAlignmentPlan:
             "canonical_relation_handoff": self.canonical_relation_handoff.to_dict()
             if self.canonical_relation_handoff
             else None,
-            "require_proof_artifacts": self.require_proof_artifacts,
             "require_source_audit": self.require_source_audit,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
@@ -1637,15 +1628,6 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("artifact_payload_evidence_internal_path_only", "artifact_payload_validation_failed"),
         ("artifact_payload_manual_evidence_unstructured", "artifact_payload_validation_failed"),
         ("artifact_payload_evidence_missing_execution_proof", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_status_mismatch", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_not_passing", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_nonzero_exit", "artifact_payload_validation_failed"),
-        ("artifact_payload_stale_proof_artifact", "artifact_payload_validation_failed"),
-        ("artifact_payload_progress_only_proof_artifact", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_route_gap_visible", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_missing_result_path", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_missing_obligation", "artifact_payload_validation_failed"),
-        ("artifact_payload_proof_artifact_internal_path_only", "artifact_payload_validation_failed"),
         ("artifact_payload_status_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_output_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_error_path_mismatch", "artifact_payload_validation_failed"),
@@ -2087,15 +2069,6 @@ def _artifact_payload_decision_for_findings(findings: Sequence[ArtifactPayloadFi
         "artifact_payload_evidence_internal_path_only",
         "artifact_payload_manual_evidence_unstructured",
         "artifact_payload_evidence_missing_execution_proof",
-        "artifact_payload_proof_artifact_status_mismatch",
-        "artifact_payload_proof_artifact_not_passing",
-        "artifact_payload_proof_artifact_nonzero_exit",
-        "artifact_payload_stale_proof_artifact",
-        "artifact_payload_progress_only_proof_artifact",
-        "artifact_payload_proof_artifact_route_gap_visible",
-        "artifact_payload_proof_artifact_missing_result_path",
-        "artifact_payload_proof_artifact_missing_obligation",
-        "artifact_payload_proof_artifact_internal_path_only",
         "artifact_payload_status_mismatch",
         "artifact_payload_output_mismatch",
         "artifact_payload_error_path_mismatch",
@@ -2253,36 +2226,16 @@ def _artifact_payload_status_findings(
             )
         )
     if evidence.has_current_external_pass():
-        if not (evidence.evidence_ref or evidence.proof_artifact):
+        if not evidence.evidence_ref:
             findings.append(
                 _payload_finding(
                     "artifact_payload_evidence_missing_execution_proof",
-                    f"artifact payload evidence {evidence.evidence_id} names no real-surface run (evidence_ref or proof_artifact)",
+                    f"artifact payload evidence {evidence.evidence_id} names no real-surface run (evidence_ref)",
                     contract=contract,
                     evidence=evidence,
                     metadata=evidence.to_dict(),
                 )
             )
-        if evidence.proof_artifact is not None:
-            required_obligations = ()
-            if contract is not None and contract.model_obligation_id:
-                required_obligations = (contract.model_obligation_id,)
-            for code, message in proof_artifact_gap_codes(
-                evidence.proof_artifact,
-                declared_status=evidence.result_status,
-                required_obligation_ids=required_obligations,
-                require_result_path=True,
-                require_external_scope=True,
-            ):
-                findings.append(
-                    _payload_finding(
-                        f"artifact_payload_{code}",
-                        message,
-                        contract=contract,
-                        evidence=evidence,
-                        metadata=evidence.to_dict(),
-                    )
-                )
     return findings
 
 
@@ -2437,7 +2390,7 @@ def _artifact_payload_required_case_findings(
         evidence
         for evidence in evidence_items
         if evidence.has_current_external_pass()
-        and bool(evidence.evidence_ref or evidence.proof_artifact)
+        and bool(evidence.evidence_ref)
     )
     current_case_ids = {evidence.case_id for evidence in current_external_passes}
     for case in cases_by_id.values():
@@ -3407,23 +3360,6 @@ def _evidence_findings(
                     metadata=evidence.to_dict(),
                 )
             )
-        if plan.require_proof_artifacts:
-            for code, message in proof_artifact_gap_codes(
-                evidence.proof_artifact,
-                declared_status=evidence.result_status,
-                required_obligation_ids=evidence.covered_obligations,
-                require_result_path=True,
-                require_fingerprints=True,
-                require_external_scope=bool(evidence.covered_code_contracts),
-            ):
-                findings.append(
-                    ModelTestAlignmentFinding(
-                        code.replace("proof_artifact", "test_proof_artifact"),
-                        message,
-                        evidence_id=evidence.evidence_id,
-                        metadata=evidence.to_dict(),
-                    )
-                )
         if evidence.overclaims_model_confidence:
             findings.append(
                 ModelTestAlignmentFinding(

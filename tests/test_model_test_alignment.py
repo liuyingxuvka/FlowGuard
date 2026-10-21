@@ -26,7 +26,6 @@ from flowguard import (
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
     TEST_KIND_REPLAY,
-    ProofArtifactRef,
     review_artifact_payload_validation,
     review_model_test_alignment,
 )
@@ -135,17 +134,6 @@ def evidence(evidence_id, *covered, **kwargs):
     }
     defaults.update(kwargs)
     return TestEvidence(evidence_id, **defaults)
-
-
-def proof_artifact(artifact_id, *covered):
-    return ProofArtifactRef(
-        artifact_id,
-        result_status="passed",
-        exit_code=0,
-        result_path=f"tmp/{artifact_id.replace(':', '_')}.json",
-        artifact_fingerprints={f"tmp/{artifact_id.replace(':', '_')}.json": "sha256:test"},
-        covered_obligation_ids=covered,
-    )
 
 
 def field_report_with_projection():
@@ -1575,39 +1563,6 @@ def test_submit_order():
 
         self.assertFalse(report.ok)
         self.assertIn("source_test_missing_external_assertion", codes)
-
-    def test_strict_alignment_rejects_declaration_only_test_evidence(self):
-        plan = ModelTestAlignmentPlan(
-            model_id="checkout",
-            require_proof_artifacts=True,
-            obligations=(obligation("accept_valid_order"),),
-            code_contracts=(owner_contract("accept_valid_order"),),
-            test_evidence=(bound_evidence("test_accept_valid_order", "accept_valid_order"),),
-        )
-
-        report = review_model_test_alignment(plan)
-
-        self.assertFalse(report.ok)
-        self.assertIn("missing_test_proof_artifact", finding_codes(report))
-
-    def test_strict_alignment_accepts_artifact_backed_test_evidence(self):
-        plan = ModelTestAlignmentPlan(
-            model_id="checkout",
-            require_proof_artifacts=True,
-            obligations=(obligation("accept_valid_order"),),
-            code_contracts=(owner_contract("accept_valid_order"),),
-            test_evidence=(
-                bound_evidence(
-                    "test_accept_valid_order",
-                    "accept_valid_order",
-                    proof_artifact=proof_artifact("artifact:accept", "accept_valid_order"),
-                ),
-            ),
-        )
-
-        report = review_model_test_alignment(plan)
-
-        self.assertTrue(report.ok, report.format_text())
 
     def test_artifact_payload_cases_are_required_for_file_like_contracts(self):
         payload_contract = ArtifactPayloadContract(

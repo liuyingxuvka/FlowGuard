@@ -56,7 +56,6 @@ from flowguard import (
     ClosureEvidenceTarget,
     ModelObligation,
     ModelTestAlignmentPlan,
-    ProofArtifactRef,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
@@ -88,19 +87,6 @@ PRIMARY_PATH_ID = "path:checkout.reject-duplicate"
 
 ACCEPT_TRANSITION_CELL_ID = "pending.submit->accepted"
 ACCEPT_TRANSITION_OBLIGATION_ID = transition_obligation_id(ACCEPT_TRANSITION_CELL_ID)
-
-
-def proof_artifact(evidence_id: str, *covered: str) -> ProofArtifactRef:
-    # Synthetic teaching evidence; this does not attest a real project run.
-    result_path = f"tmp/{evidence_id}.json"
-    return ProofArtifactRef(
-        f"artifact:{evidence_id}",
-        result_status="passed",
-        exit_code=0,
-        result_path=result_path,
-        artifact_fingerprints={result_path: "sha256:template"},
-        covered_obligation_ids=covered,
-    )
 
 
 def transition_matrix() -> TransitionCoverageMatrix:
@@ -151,7 +137,6 @@ def transition_code_contracts() -> tuple[CodeContract, ...]:
 def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
     return ModelTestAlignmentPlan(
         model_id="sample_checkout_model",
-        require_proof_artifacts=True,
         require_source_audit=bool(source_audit_reports),
         source_audit_reports=source_audit_reports,
         obligations=(
@@ -258,7 +243,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_obligations=("accept_valid_order",),
                 covered_code_contracts=("checkout_accept_order",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-                proof_artifact=proof_artifact("test_accept_valid_order", "accept_valid_order"),
             ),
             TestEvidence(
                 "test_pending_submit_reaches_accepted",
@@ -274,10 +258,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 evidence_role=TEST_EVIDENCE_ROLE_TRANSITION_CELL,
                 evidence_target_id=ACCEPT_TRANSITION_CELL_ID,
-                proof_artifact=proof_artifact(
-                    "test_pending_submit_reaches_accepted",
-                    ACCEPT_TRANSITION_OBLIGATION_ID,
-                ),
             ),
             TestEvidence(
                 "test_reject_duplicate_order_happy",
@@ -291,10 +271,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-                proof_artifact=proof_artifact(
-                    "test_reject_duplicate_order_happy",
-                    "reject_duplicate_order",
-                ),
             ),
             TestEvidence(
                 "test_reject_duplicate_order_failure",
@@ -308,10 +284,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_obligations=("reject_duplicate_order",),
                 covered_code_contracts=("checkout_reject_duplicate",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-                proof_artifact=proof_artifact(
-                    "test_reject_duplicate_order_failure",
-                    "reject_duplicate_order",
-                ),
             ),
             TestEvidence(
                 "test_observed_duplicate_submit_regression",
@@ -326,10 +298,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_code_contracts=("checkout_duplicate_submit_family",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_OBSERVED_REGRESSION,
-                proof_artifact=proof_artifact(
-                    "test_observed_duplicate_submit_regression",
-                    "model_miss_duplicate_submit_family",
-                ),
             ),
             TestEvidence(
                 "test_same_class_duplicate_submit_variants",
@@ -344,10 +312,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 covered_code_contracts=("checkout_duplicate_submit_family",),
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_SAME_CLASS_GENERALIZED,
-                proof_artifact=proof_artifact(
-                    "test_same_class_duplicate_submit_variants",
-                    "model_miss_duplicate_submit_family",
-                ),
             ),
             TestEvidence(
                 "test_duplicate_submit_counterexample_regression",
@@ -363,10 +327,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
                 evidence_target_id="counterexample:duplicate-submit",
-                proof_artifact=proof_artifact(
-                    "test_duplicate_submit_counterexample_regression",
-                    "model_miss_duplicate_submit_family",
-                ),
             ),
             TestEvidence(
                 "test_duplicate_submit_known_bad_replay",
@@ -382,10 +342,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
                 closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
                 evidence_target_id="known-bad:duplicate-submit",
-                proof_artifact=proof_artifact(
-                    "test_duplicate_submit_known_bad_replay",
-                    "model_miss_duplicate_submit_family",
-                ),
             ),
         ),
         boundary_contracts=(
@@ -444,10 +400,7 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 observed_output="checkout.json",
                 observed_state_writes=("export_path",),
                 round_trip_ok=True,
-                proof_artifact=proof_artifact(
-                    "payload_checkout_export_valid_order",
-                    "accept_valid_order",
-                ),
+                evidence_ref="tmp/payload_checkout_export_valid_order.json",
             ),
         ),
     )

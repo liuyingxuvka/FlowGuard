@@ -162,7 +162,7 @@ rejected cases. The synthetic cases are test inputs for the real payload
 surface; they are not standalone payload-only paths. Evidence should
 record the case id, method, current status, external assertion scope, observed
 status/output/error path/state writes/side effects, round-trip result when
-required, and an `evidence_ref` or `proof_artifact` that points to the real
+required, and an `evidence_ref` that points to the real
 surface run. Manual checks must still be structured case evidence; prose-only
 manual review is scoped or blocked.
 
@@ -297,11 +297,6 @@ List test evidence with `TestEvidence`:
   `observed_regression` or `same_class_generalized`;
 - optional source-audit notes when real tests were inspected: asserted symbols,
   assertion forms, status/freshness source, and manual-review reasons.
-- optional `proof_artifact` references. When the plan sets
-  `require_proof_artifacts=True`, a declared passing/current test row must also
-  carry a proof artifact with a result path, artifact fingerprint, matching
-  covered obligations, and external-contract scope when code contracts are
-  being proved.
 
 For field-bearing changes, supply FieldLifecycleMesh reports or projections to
 `ModelTestAlignmentPlan`. Behavior-bearing fields become model obligations and

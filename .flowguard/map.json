@@ -230,7 +230,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:316aae4783f1b4da568dd3438bd536c782df0afe075c1565ac37420377524e2e"
+      "fingerprint": "sha256:935fa9af7c334e408126b2a4f4a37b23ee49d265a108263a4fe17bb32f69bf5b"
     },
     {
       "id": "behavior-commitment",
@@ -503,7 +503,7 @@
         ".flowguard/verification/owners/contract_source_audit/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:8590d51db16730e0cf3850c03c2e95ee86b4144a27607d52869590f168bd9ff7"
+      "fingerprint": "sha256:65ee4dcb90a6d0a791079a1e6ab2e872f64fef9302add7ae0a258bbb69145407"
     },
     {
       "id": "topology-hazard",
