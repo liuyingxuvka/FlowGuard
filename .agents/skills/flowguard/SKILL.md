@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Living, code-anchored map of a codebase plus executable models of its risky flows and 10 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
+description: "Use for software codebases: a living code-anchored map, executable models bound to the real code for risky flows, and 10 capability reviews, to put new code in the right owner and verify only what a change affects. Not for story, trip or world models; use worldguard."
 ---
 
 # FlowGuard
@@ -12,8 +12,8 @@ FlowGuard keeps, next to the code and committed to git:
    fingerprint of its files; when the code changes it becomes STALE until it is re-read and confirmed.
 2. **Models**: executable `Input x State -> Set(Output x State)` models, either contract files
    `.flowguard/models/<id>.py` or model runners `.../run_checks.py` listed in a component's `models`.
-   A model must pass for the intended design, FAIL for its known-bad variants, and (when it can)
-   replay its traces against the real code (conformance).
+   A model must pass for the intended design, FAIL for its known-bad variants, and stay bound to the
+   real code (see Binding).
 
 Commands: `python -m flowguard read | change | release | template` and `python -m flowguard map <command>`.
 
@@ -32,7 +32,8 @@ Commands: `python -m flowguard read | change | release | template` and `python -
    component), `dep_undeclared` (intended and layer-respecting: add to `depends_on`; otherwise move code
    or drop the import), `dep_unused` (remove that `depends_on` entry), `test_missing` (fix the `tests`
    pattern), `model_unbound` (add the runner to the owning component's `models`), `anchor_broken` /
-   `flow_step_broken` / `model_anchor_broken` (update the name). BLOCKED lines name the missing binding.
+   `flow_step_broken` / `model_anchor_broken` (update the name), `model_anchor_missing` /
+   `model_conformance_missing` (bind the model, see Binding). BLOCKED lines name the missing binding.
 3. Run exactly the tests and models it lists. Never claim a test passed unless you ran it.
 4. For each REVIEW component: read the change, update `summary`/`responsibilities`/`state`/
    `side_effects` if behavior changed, then `python -m flowguard map confirm <id>`.
@@ -67,6 +68,15 @@ Component ids select `read --component`; model ids select `map models`. Unknown 
 `change` follows the complete caller closure; explicit `map impact --depth N` is truncated.
 Static Python/relative JS/TS imports and literal lazy exports are supported.
 Each declared edge needs an import, module literal or explicit debt reason; unsupported edges fail check.
+
+## Binding
+
+Every model, contract file or runner, has the same abilities: bounded exploration with counterexamples,
+known-bad variants that must fail, and a binding to the real code. L0 is the map (one owner per file,
+STALE when its code changes). L1: `IMPLEMENTED_BY` (`path:Symbol`) and `TESTED_BY` anchors resolve;
+`REPLACE_ME`, missing or renamed anchors are ERRORs, and `change` reselects the model and its tests.
+Conformance is required: replay the real code (L2, only for risky flows) or compare it as code facts.
+`DESIGN_ONLY = "<reason>"` only while the code does not exist. Build a model only when the task touches it.
 
 ## First map of an existing project
 

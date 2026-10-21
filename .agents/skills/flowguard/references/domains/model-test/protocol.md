@@ -33,7 +33,8 @@ same rule; a test covers an obligation id that no longer exists.
 
 1. For a new reusable boundary, `python -m flowguard template model-test-alignment --write .` writes
    `.flowguard/models/owners/model_test_alignment/model.py` and
-   `.flowguard/verification/owners/model_test_alignment/run_checks.py`. Rename `model_test_alignment` to your component id.
+   `.flowguard/verification/owners/model_test_alignment/run_checks.py`. Rename `model_test_alignment` to your component id
+   and replace the runner's `REPLACE_ME` anchor with the code the alignment is about.
    The template uses the native API with explicit `not_run` target evidence.
    A scaffold run checks design readiness, not target test execution.
    `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.

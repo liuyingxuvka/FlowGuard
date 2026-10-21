@@ -60,6 +60,7 @@ the same. It never deletes code on a guess.
    from flowguard import (ArchitectureReductionCandidate, ArchitectureReductionPlan,
        ArchitectureReductionTrigger, ObservableArchitectureContract, review_architecture_reduction)
    from flowguard.map.runner import run_owner
+   IMPLEMENTED_BY = {"Validate": "app/orders.py:validate_v2"}      # the code this reduction is about
    contract = ObservableArchitectureContract(source_model_id="orders", source_code_boundary_id="orders",
        public_entrypoints=("app/api.py:create_order",), observable_outputs=("order_created",),
        observable_state=("orders.status",), observable_side_effects=("db.write_order",),

@@ -42,7 +42,7 @@ no anchor stays an observation and never blocks.
 
 1. Reuse the owner's native hazard review/model; only a missing reusable boundary needs
    `python -m flowguard template topology-hazard --write .`, which writes
-   owner `model.py` and `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py`.
+   owner `model.py` and `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py` (replace its `REPLACE_ME` anchor).
    Its blocked demo exits 1; a passing real review exits 0. Keep per-case asserts (step 6).
 2. Build the usage intent: `UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release",
    compatibility_policy=TOPOLOGY_COMPAT_UNKNOWN, persistent_history_possible=...)`.

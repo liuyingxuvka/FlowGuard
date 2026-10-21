@@ -8,19 +8,21 @@ COMPONENTS = ["orders"]                                       # map components t
 IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}   # block -> real code (checked by `check`)
 def build_explorer(): ...     # REQUIRED: Explorer of the intended design; must pass
 def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL (proves the invariants have teeth)
-def conformance(): ...        # STRONGLY RECOMMENDED: replay model traces against the real code; .ok must be True
+def conformance(): ...        # REQUIRED: replay the real code, or compare it as code facts; .ok must be True
+# DESIGN_ONLY = "reason"      # only while the code does not exist yet: anchors and conformance come later
 ```
 
 Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
 registered `run_checks.py`; component ids are for `read --component`. Unknown selectors fail.
-Every selected model executes on every call (no result cache). Missing conformance means only
-the abstract boundary was checked.
+Every selected model executes on every call (no result cache). A model without anchors or
+without conformance fails as "abstract boundary only" unless it is marked `DESIGN_ONLY`.
 
-Optional `TESTED_BY = {"invariant_name": ["tests/test_x.py:test_name"]}` binds model rules
+`TESTED_BY = {"invariant_name": ["tests/test_x.py:test_name"]}` binds model rules
 to real test anchors in both directions. Missing or renamed tests fail `map check`; keys must
 be actual design invariants. `NOT_MODELED = {"path.py:Symbol": "reason"}` records an explicit
-unmodeled entry; it grants no implementation proof. Declared implementation anchors must run
-during exploration or conformance; a bad variant must violate the intended design's property.
+unmodeled entry; it grants no implementation proof. Each implementation anchor must be called, or its
+file read as code facts (`flowguard.map.facts.CodeFacts`), during exploration or conformance; a bad
+variant must violate the intended design's property. `map lint` warns when a model names no tests.
 
 Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
 
@@ -114,12 +116,14 @@ fail, required conformance passes, and `python -m flowguard map check` reports n
 `model_*` errors. A pure anchor rename reuses the existing model/tests and does not
 need a new adapter. Report model-level confidence when no runtime replay was needed.
 
-## Model runners (capability models)
+## Capability models (kits and runners)
 
-Capability reviews (UI flow, model mesh, contract exhaustion, ...) are usually checked by a runner:
-`python -m flowguard template <name> --write .` writes `.flowguard/models/owners/<name>/model.py`
-and `.flowguard/verification/owners/<name>/run_checks.py`. Edit the model for your project, list
-the runner (`.../run_checks.py`) in the owning component's `models`, and run
+`python -m flowguard template field-lifecycle | contract-exhaustion | ui-flow-structure --write .`
+writes one contract model built from a kit (`flowguard.kit`: `case_table_explorer`, `plan_explorer`;
+code facts or replay as conformance). The other templates write `.flowguard/models/owners/<name>/model.py`
+and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and
+`TESTED_BY`) at top level and follows the same anchor rule. Template anchors contain `REPLACE_ME` and
+fail until you name your code. List the model or runner in the owning component's `models` and run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
 broken plans are rejected. A runner should print one line per case, return a non-zero exit code
 when any case disagrees with its expectation, and end with `raise SystemExit(run_owner(main))`

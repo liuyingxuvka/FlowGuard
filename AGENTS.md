@@ -16,7 +16,7 @@ FlowGuard on itself.
 
 - `flowguard/` engine and the 10 capabilities; `flowguard/map/` map, discovery and proof layer.
 - `.agents/skills/flowguard/` the single public skill (SKILL.md, references, one protocol per capability, assets).
-- `.flowguard/map.json`, `.flowguard/models/`, `.flowguard/verification/owners/*/run_checks.py`:
+- `.flowguard/map.json`, `.flowguard/models/`:
   FlowGuard's own map and models. `.flowguard/cache/` is never committed.
 - `tests/` unit tests; `examples/` runnable teaching models; `docs/` long-form notes.
 
