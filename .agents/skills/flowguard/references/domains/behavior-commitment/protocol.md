@@ -44,8 +44,7 @@ the real bug in A stays hidden.
    - each `commitments` row: `commitment_id`, `business_intent_id` (one per exact promise),
      `behavior_plane` (`product_runtime`, `agent_operation`, `development_process`),
      `actor_kind`, `trigger`, `expected_result`, `expected_terminal`, `failure_boundary`,
-     `source_surface_ids`, one `primary_owner_model_id`, `evidence.test_evidence_ids`,
-     `path_authority.path_sensitive`.
+     `source_surface_ids`, one `primary_owner_model_id`, `evidence.test_evidence_ids`.
    - set `change_mode`: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
      `remove_or_replace_behavior`, `coverage_gap_backfill` or `model_miss_check`.
    - an alias, wrapper or second UI for the same promise maps to the same commitment.
@@ -57,17 +56,12 @@ the real bug in A stays hidden.
    `FallbackPathCandidate` per other path (`candidate_path_id`, `fallback_for_path_id`,
    `candidate_surface`, `candidate_trigger`, `candidate_behavior`, `invokes_on_primary_failure`,
    `returns_success_after_primary_failure`, `disposition`).
-5. Review the plan, then store `binding.to_dict()` as the commitment's `path_authority`.
-   Set `primary_path_id` on its source surfaces to the same path id, or the ledger review
-   reports `source_surface_primary_path_mismatch`.
+5. Review the plan and the ledger separately; a fallback finding in the plan blocks the change.
 
 ```python
 from flowguard import (review_primary_path_authority, review_behavior_commitment_ledger,
-    behavior_path_binding_from_primary_path_report, load_behavior_commitment_ledger)
+    load_behavior_commitment_ledger)
 ppa = review_primary_path_authority(plan)            # ppa.ok, ppa.findings
-binding = behavior_path_binding_from_primary_path_report(
-    ppa, business_intent_id="intent:submit-order",
-    behavior_commitment_id="commitment:submit-order")
 ledger = load_behavior_commitment_ledger(".flowguard/behavior/inventory/ledger.json")
 report = review_behavior_commitment_ledger(ledger)
 print(report.format_text())
@@ -95,7 +89,6 @@ print(report.format_text())
 | `delegate_commitment_forbidden` | An alias or wrapper was registered as its own commitment. |
 | `source_surface_missing_commitment` | A promise source maps to no commitment. |
 | `commitment_missing_primary_owner` | A commitment has no single owner model. |
-| `commitment_primary_path_blocked` | A path-sensitive commitment points at a blocked path review. |
 
 ## Risk-specific regression examples
 - A-fails-B-succeeds: a `FallbackPathCandidate` with `candidate_trigger="primary_failure"`,
@@ -106,8 +99,6 @@ print(report.format_text())
   `old_field_or_backup_cache_masks_primary_failure` and `fallback_candidate_unknown_disposition`.
 - Ledger with a copied commitment under a new `commitment_id` but the same
   `business_intent_id`. Must give `duplicate_exact_intent_commitment`.
-- A path-sensitive commitment whose binding has `ppa_ok=False`. Must give
-  `commitment_primary_path_blocked`.
 
 ## Done when
 - [ ] The good plan and the good ledger review with `ok=True` and no findings.

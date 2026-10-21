@@ -159,15 +159,8 @@ Behavior Commitment Ledger
 -> TestMesh shards + risk gates
 ```
 
-The ledger should not recreate alternate-path detection. If a behavior is
-path-sensitive, attach PPA evidence with
-`behavior_path_binding_from_primary_path_report()`. If PPA blocks, the ledger
-blocks that commitment and any broad claim depending on it.
-
-The binding (`BehaviorPathAuthorityBinding`) carries exactly one
-`primary_path_id`. FlowGuard never guesses or rewrites that value: author it
-directly, rerun the model and tests, and treat any missing or ambiguous value
-as blocked.
+The ledger does not recreate alternate-path detection: a path-sensitive
+behavior is reviewed by `review_primary_path_authority()` on its own plan.
 
 ## Public API Shape
 
@@ -180,7 +173,6 @@ Core objects:
 - `BehaviorExternalDifference`
 - `BehaviorLookupBinding`
 - `BehaviorCommitmentRelation`
-- `BehaviorPathAuthorityBinding`
 - `BehaviorLookupQuery`
 - `BehaviorCommitmentHit`
 - `BehaviorLookupReport`
@@ -189,7 +181,6 @@ Core objects:
 - `query_behavior_commitments_from_path()`
 - `load_behavior_commitment_ledger()`
 - `write_behavior_commitment_ledger()`
-- `behavior_path_binding_from_primary_path_report()`
 - `behavior_commitment_contract_exhaustion_plan()`
 
 Template:

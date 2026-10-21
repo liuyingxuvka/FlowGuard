@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:76110b000e71b459dd468cd56dc5e5399aa05818b5d75901e7669f154a022f13"
+      "fingerprint": "sha256:254b9b6662d96befa92ed963862eaa8fcf5f8326970ac108f2e6120bca153ad7"
     },
     {
       "id": "templates",
@@ -230,7 +230,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7f6be5ef13f92f53ffb6db0c519a7333d0c590ca843b4bf1e95765bd74d31ca7"
+      "fingerprint": "sha256:3fd51601bc61cb81b62bd3b9fa5b597032693b4344524d0c58f2c24a24c3dfc1"
     },
     {
       "id": "behavior-commitment",
@@ -264,7 +264,6 @@
         "tests/test_behavior_commitment_contract_exhaustion.py",
         "tests/test_behavior_commitment_ledger.py",
         "tests/test_behavior_commitment_lookup.py",
-        "tests/test_behavior_commitment_primary_path.py",
         "tests/test_behavior_inventory.py",
         "tests/test_behavior_plane_upgrade.py",
         "tests/test_primary_path_authority.py",
@@ -279,7 +278,7 @@
         ".flowguard/verification/owners/primary_path_authority/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:559479d1265d53f977441525f284c820a5e56939dd4ef5c7ff719024bfa30573"
+      "fingerprint": "sha256:b89a32f622e1543ab59c55af0ae9478547041b019995c031a5a9c5e0d038d347"
     },
     {
       "id": "architecture-reduction",

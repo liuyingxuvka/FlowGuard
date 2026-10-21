@@ -35,16 +35,7 @@ from .behavior_plane import (
 )
 from .schema import SCHEMA_VERSION
 from ._hashing import canonical_source_bytes, source_file_fingerprint
-from .primary_path_authority import (
-    PPA_CONFIDENCE_BLOCKED,
-    PPA_CONFIDENCE_FULL,
-    PPA_DECISION_BLOCKED,
-    PPA_DECISION_GREEN,
-    PPA_RISK_GATE_AUTHORITY,
-    PPA_RISK_GATE_CARTESIAN_COVERAGE,
-    PRIMARY_PATH_ROUTE_ID,
-    PrimaryPathAuthorityReport,
-)
+from .primary_path_authority import PRIMARY_PATH_ROUTE_ID
 
 
 BEHAVIOR_COMMITMENT_ROUTE_ID = "behavior_commitment_ledger"
@@ -422,15 +413,7 @@ def _coerce_behavior_inventory(
 def _coerce_commitment(value: "BehaviorCommitment | Mapping[str, Any]") -> "BehaviorCommitment":
     if isinstance(value, BehaviorCommitment):
         return value
-    return BehaviorCommitment(**dict(value))
-
-
-def _coerce_path_binding(value: "BehaviorPathAuthorityBinding | Mapping[str, Any] | None") -> "BehaviorPathAuthorityBinding":
-    if value is None:
-        return BehaviorPathAuthorityBinding()
-    if isinstance(value, BehaviorPathAuthorityBinding):
-        return value
-    return BehaviorPathAuthorityBinding(**dict(value))
+    return BehaviorCommitment(**{k: v for k, v in dict(value).items() if k != "path_authority"})  # retired key
 
 
 def _coerce_evidence(value: "BehaviorEvidenceBinding | Mapping[str, Any] | None") -> "BehaviorEvidenceBinding":
@@ -1124,154 +1107,6 @@ def behavior_commitment_relation_allowed(
 
 
 @dataclass(frozen=True)
-class BehaviorPathAuthorityBinding:
-    """PPA binding for a path-sensitive behavior commitment."""
-
-    path_sensitive: bool = False
-    business_intent: str = ""
-    business_intent_id: str = ""
-    behavior_commitment_id: str = ""
-    ppa_report_id: str = ""
-    ppa_decision: str = ""
-    ppa_confidence: str = ""
-    ppa_ok: bool | None = None
-    primary_path_id: str = ""
-    fallback_candidate_ids: tuple[str, ...] = ()
-    ppa_coverage_receipt_ids: tuple[str, ...] = ()
-    ppa_coverage_shard_ids: tuple[str, ...] = ()
-    ppa_risk_gate_ids: tuple[str, ...] = ()
-    scoped_out_reason: str = ""
-    evidence_refs: tuple[str, ...] = ()
-    runtime_observation_ids: tuple[str, ...] = ()
-    proof_artifact_ids: tuple[str, ...] = ()
-    evidence_current: bool = False
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "path_sensitive", bool(self.path_sensitive))
-        object.__setattr__(self, "business_intent", str(self.business_intent))
-        object.__setattr__(self, "business_intent_id", str(self.business_intent_id))
-        object.__setattr__(self, "behavior_commitment_id", str(self.behavior_commitment_id))
-        object.__setattr__(self, "ppa_report_id", str(self.ppa_report_id))
-        object.__setattr__(self, "ppa_decision", str(self.ppa_decision))
-        object.__setattr__(self, "ppa_confidence", str(self.ppa_confidence))
-        object.__setattr__(self, "primary_path_id", str(self.primary_path_id))
-        object.__setattr__(self, "fallback_candidate_ids", _as_tuple(self.fallback_candidate_ids))
-        object.__setattr__(self, "ppa_coverage_receipt_ids", _as_tuple(self.ppa_coverage_receipt_ids))
-        object.__setattr__(self, "ppa_coverage_shard_ids", _as_tuple(self.ppa_coverage_shard_ids))
-        object.__setattr__(self, "ppa_risk_gate_ids", _as_tuple(self.ppa_risk_gate_ids))
-        object.__setattr__(self, "scoped_out_reason", str(self.scoped_out_reason))
-        object.__setattr__(self, "evidence_refs", _as_tuple(self.evidence_refs))
-        object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
-        object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
-        object.__setattr__(self, "evidence_current", bool(self.evidence_current))
-        metadata = _metadata(self.metadata)
-        if "legacy_primary_path_ids" in metadata:
-            raise ValueError(
-                "retired legacy_primary_path_ids metadata is not accepted at runtime"
-            )
-        object.__setattr__(self, "metadata", metadata)
-
-    def has_ppa_evidence(self) -> bool:
-        return bool(
-            self.ppa_report_id
-            or self.ppa_decision
-            or self.ppa_coverage_receipt_ids
-            or self.ppa_risk_gate_ids
-            or self.evidence_refs
-            or self.runtime_observation_ids
-            or self.proof_artifact_ids
-        )
-
-    def ppa_blocked(self) -> bool:
-        return (
-            self.ppa_ok is False
-            or self.ppa_decision == PPA_DECISION_BLOCKED
-            or self.ppa_confidence == PPA_CONFIDENCE_BLOCKED
-        )
-
-    def ppa_passed(self) -> bool:
-        return bool(
-            self.ppa_ok is True
-            and self.ppa_decision == PPA_DECISION_GREEN
-            and self.ppa_confidence == PPA_CONFIDENCE_FULL
-            and self.primary_path_id
-            and self.business_intent_id
-            and self.behavior_commitment_id
-            and self.runtime_observation_ids
-            and self.proof_artifact_ids
-            and self.evidence_current
-        )
-
-    def ppa_result(self) -> str:
-        if not self.path_sensitive:
-            return BCL_PPA_NOT_REQUIRED
-        if self.ppa_blocked():
-            return BCL_PPA_BLOCKED
-        if not self.has_ppa_evidence():
-            return BCL_PPA_MISSING
-        if self.ppa_passed():
-            return BCL_PPA_PASSED
-        return BCL_PPA_BLOCKED
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "path_sensitive": self.path_sensitive,
-            "business_intent": self.business_intent,
-            "business_intent_id": self.business_intent_id,
-            "behavior_commitment_id": self.behavior_commitment_id,
-            "ppa_report_id": self.ppa_report_id,
-            "ppa_decision": self.ppa_decision,
-            "ppa_confidence": self.ppa_confidence,
-            "ppa_ok": self.ppa_ok,
-            "primary_path_id": self.primary_path_id,
-            "fallback_candidate_ids": list(self.fallback_candidate_ids),
-            "ppa_coverage_receipt_ids": list(self.ppa_coverage_receipt_ids),
-            "ppa_coverage_shard_ids": list(self.ppa_coverage_shard_ids),
-            "ppa_risk_gate_ids": list(self.ppa_risk_gate_ids),
-            "scoped_out_reason": self.scoped_out_reason,
-            "evidence_refs": list(self.evidence_refs),
-            "runtime_observation_ids": list(self.runtime_observation_ids),
-            "proof_artifact_ids": list(self.proof_artifact_ids),
-            "evidence_current": self.evidence_current,
-            "metadata": to_jsonable(dict(self.metadata)),
-        }
-
-
-def behavior_path_binding_from_primary_path_report(
-    report: PrimaryPathAuthorityReport,
-    *,
-    business_intent: str = "",
-    business_intent_id: str = "",
-    behavior_commitment_id: str = "",
-    ppa_report_id: str | None = None,
-    path_sensitive: bool = True,
-    evidence_refs: Sequence[str] | None = None,
-) -> BehaviorPathAuthorityBinding:
-    """Create a ledger path binding from a PPA report."""
-
-    return BehaviorPathAuthorityBinding(
-        path_sensitive=path_sensitive,
-        business_intent=business_intent,
-        business_intent_id=business_intent_id or report.business_intent_id,
-        behavior_commitment_id=behavior_commitment_id or report.behavior_commitment_id,
-        ppa_report_id=ppa_report_id or report.plan_id,
-        ppa_decision=report.decision,
-        ppa_confidence=report.confidence,
-        ppa_ok=report.ok,
-        primary_path_id=report.primary_path_id,
-        fallback_candidate_ids=report.fallback_candidate_ids,
-        ppa_coverage_receipt_ids=report.coverage_receipt_ids,
-        ppa_coverage_shard_ids=report.coverage_shard_ids,
-        ppa_risk_gate_ids=report.risk_gate_ids,
-        evidence_refs=evidence_refs or (report.plan_id,),
-        runtime_observation_ids=report.runtime_observation_ids,
-        proof_artifact_ids=report.proof_artifact_ids,
-        evidence_current=report.evidence_current,
-    )
-
-
-@dataclass(frozen=True)
 class BehaviorCommitment:
     """One external behavior promise and its single primary model owner."""
 
@@ -1307,7 +1142,6 @@ class BehaviorCommitment:
     replacement_state: str = BCL_REPLACEMENT_ACTIVE
     model_sync_state: str = BCL_MODEL_SYNC_OWNER_CURRENT
     miss_origin_state: str = BCL_MISS_ORIGIN_NONE
-    path_authority: BehaviorPathAuthorityBinding | Mapping[str, Any] | None = None
     evidence: BehaviorEvidenceBinding | Mapping[str, Any] | None = None
     in_scope: bool = True
     scoped_out_reason: str = ""
@@ -1353,7 +1187,6 @@ class BehaviorCommitment:
         object.__setattr__(self, "replacement_state", str(self.replacement_state or BCL_REPLACEMENT_ACTIVE))
         object.__setattr__(self, "model_sync_state", str(self.model_sync_state or BCL_MODEL_SYNC_OWNER_CURRENT))
         object.__setattr__(self, "miss_origin_state", str(self.miss_origin_state or BCL_MISS_ORIGIN_NONE))
-        object.__setattr__(self, "path_authority", _coerce_path_binding(self.path_authority))
         object.__setattr__(self, "evidence", _coerce_evidence(self.evidence))
         object.__setattr__(self, "in_scope", bool(self.in_scope))
         object.__setattr__(self, "scoped_out_reason", str(self.scoped_out_reason))
@@ -1433,7 +1266,6 @@ class BehaviorCommitment:
             "replacement_state": self.replacement_state,
             "model_sync_state": self.model_sync_state,
             "miss_origin_state": self.miss_origin_state,
-            "path_authority": self.path_authority.to_dict(),
             "evidence": self.evidence.to_dict(),
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
@@ -1712,8 +1544,6 @@ class BehaviorCommitmentCoverageReport:
     unexpected_source_surface_ids: tuple[str, ...] = ()
     unmapped_surface_ids: tuple[str, ...] = ()
     extra_commitment_ids: tuple[str, ...] = ()
-    path_sensitive_commitment_ids: tuple[str, ...] = ()
-    ppa_blocked_commitment_ids: tuple[str, ...] = ()
     required_risk_gate_ids: tuple[str, ...] = ()
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
@@ -1741,8 +1571,6 @@ class BehaviorCommitmentCoverageReport:
         )
         object.__setattr__(self, "unmapped_surface_ids", _as_tuple(self.unmapped_surface_ids))
         object.__setattr__(self, "extra_commitment_ids", _as_tuple(self.extra_commitment_ids))
-        object.__setattr__(self, "path_sensitive_commitment_ids", _as_tuple(self.path_sensitive_commitment_ids))
-        object.__setattr__(self, "ppa_blocked_commitment_ids", _as_tuple(self.ppa_blocked_commitment_ids))
         object.__setattr__(self, "required_risk_gate_ids", _as_tuple(self.required_risk_gate_ids))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
@@ -1774,8 +1602,6 @@ class BehaviorCommitmentCoverageReport:
             f"decision: {self.decision}",
             f"confidence: {self.confidence}",
             f"covered_commitments: {len(self.covered_commitment_ids)}",
-            f"path_sensitive_commitments: {len(self.path_sensitive_commitment_ids)}",
-            f"ppa_blocked_commitments: {len(self.ppa_blocked_commitment_ids)}",
             f"missing_source_surfaces: {len(self.missing_source_surface_ids)}",
             f"unexpected_source_surfaces: {len(self.unexpected_source_surface_ids)}",
             f"unmapped_surfaces: {len(self.unmapped_surface_ids)}",
@@ -1811,8 +1637,6 @@ class BehaviorCommitmentCoverageReport:
             "unexpected_source_surface_ids": list(self.unexpected_source_surface_ids),
             "unmapped_surface_ids": list(self.unmapped_surface_ids),
             "extra_commitment_ids": list(self.extra_commitment_ids),
-            "path_sensitive_commitment_ids": list(self.path_sensitive_commitment_ids),
-            "ppa_blocked_commitment_ids": list(self.ppa_blocked_commitment_ids),
             "required_risk_gate_ids": list(self.required_risk_gate_ids),
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
@@ -3099,8 +2923,6 @@ def review_behavior_commitment_ledger(
         )
 
     extra_commitment_ids: list[str] = []
-    path_sensitive_commitment_ids: list[str] = []
-    ppa_blocked_commitment_ids: list[str] = []
     covered_commitment_ids: list[str] = []
     required_risk_gate_ids: list[str] = []
     coverage_case_ids: list[str] = []
@@ -3115,8 +2937,6 @@ def review_behavior_commitment_ledger(
             ledger,
             findings,
             extra_commitment_ids,
-            path_sensitive_commitment_ids,
-            ppa_blocked_commitment_ids,
             required_risk_gate_ids,
             coverage_case_ids,
             coverage_shard_ids,
@@ -3169,8 +2989,6 @@ def review_behavior_commitment_ledger(
         unexpected_source_surface_ids=unexpected_source_surface_ids,
         unmapped_surface_ids=tuple(dict.fromkeys(unmapped_surface_ids)),
         extra_commitment_ids=tuple(dict.fromkeys(extra_commitment_ids)),
-        path_sensitive_commitment_ids=tuple(dict.fromkeys(path_sensitive_commitment_ids)),
-        ppa_blocked_commitment_ids=tuple(dict.fromkeys(ppa_blocked_commitment_ids)),
         required_risk_gate_ids=tuple(dict.fromkeys(required_risk_gate_ids)),
         coverage_case_ids=tuple(dict.fromkeys(coverage_case_ids)),
         coverage_shard_ids=tuple(dict.fromkeys(coverage_shard_ids)),
@@ -3301,20 +3119,6 @@ def _review_surface(
                     commitment_id=commitment_id,
                 )
             )
-        binding = commitment.path_authority
-        if (
-            surface.primary_path_id
-            and binding.primary_path_id
-            and surface.primary_path_id != binding.primary_path_id
-        ):
-            findings.append(
-                _finding(
-                    "source_surface_primary_path_mismatch",
-                    "source surface points at a different primary path than its commitment",
-                    surface_id=surface.surface_id,
-                    commitment_id=commitment_id,
-                )
-            )
 
 
 def _review_commitment(
@@ -3324,8 +3128,6 @@ def _review_commitment(
     ledger: BehaviorCommitmentLedger,
     findings: list[BehaviorCommitmentFinding],
     extra_commitment_ids: list[str],
-    path_sensitive_commitment_ids: list[str],
-    ppa_blocked_commitment_ids: list[str],
     required_risk_gate_ids: list[str],
     coverage_case_ids: list[str],
     coverage_shard_ids: list[str],
@@ -3580,29 +3382,10 @@ def _review_commitment(
     if ledger.broad_claim():
         _review_change_lifecycle(commitment, findings)
 
-    if commitment.path_authority.path_sensitive and commitment.path_authority.primary_path_id:
-        for surface_id in commitment.source_surface_ids:
-            surface = surface_by_id.get(surface_id)
-            if surface is None or not surface.in_scope:
-                continue
-            if not surface.primary_path_id:
-                findings.append(
-                    _finding(
-                        "path_sensitive_source_surface_primary_path_missing",
-                        "every in-scope surface for a path-sensitive commitment must map to the singular primary path",
-                        commitment_id=commitment.commitment_id,
-                        surface_id=surface_id,
-                    )
-                )
-
-    _review_path_binding(commitment, findings, path_sensitive_commitment_ids, ppa_blocked_commitment_ids)
     required_risk_gate_ids.extend(commitment.evidence.risk_gate_ids)
     coverage_case_ids.extend(commitment.evidence.coverage_case_ids)
     coverage_shard_ids.extend(commitment.evidence.coverage_shard_ids)
     coverage_receipt_ids.extend(commitment.evidence.coverage_receipt_ids)
-    required_risk_gate_ids.extend(commitment.path_authority.ppa_risk_gate_ids)
-    coverage_shard_ids.extend(commitment.path_authority.ppa_coverage_shard_ids)
-    coverage_receipt_ids.extend(commitment.path_authority.ppa_coverage_receipt_ids)
 
 
 def _review_change_lifecycle(
@@ -3678,88 +3461,6 @@ def _review_change_lifecycle(
                     metadata={"commitment": commitment.to_dict(), "evidence": commitment.evidence.to_dict()},
                 )
             )
-
-
-def _review_path_binding(
-    commitment: BehaviorCommitment,
-    findings: list[BehaviorCommitmentFinding],
-    path_sensitive_commitment_ids: list[str],
-    ppa_blocked_commitment_ids: list[str],
-) -> None:
-    binding = commitment.path_authority
-    if not binding.path_sensitive:
-        return
-    path_sensitive_commitment_ids.append(commitment.commitment_id)
-    if binding.business_intent_id != commitment.business_intent_id:
-        findings.append(
-            _finding(
-                "commitment_primary_path_intent_mismatch",
-                "PPA binding and behavior commitment must use the same stable business intent id",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if binding.behavior_commitment_id != commitment.commitment_id:
-        findings.append(
-            _finding(
-                "commitment_primary_path_commitment_mismatch",
-                "PPA binding must point back to the exact behavior commitment it proves",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if not binding.has_ppa_evidence():
-        findings.append(
-            _finding(
-                "commitment_missing_primary_path_authority",
-                "path-sensitive commitment must carry Primary Path Authority evidence",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if binding.ppa_blocked() or (
-        binding.has_ppa_evidence() and binding.ppa_result() != BCL_PPA_PASSED
-    ):
-        ppa_blocked_commitment_ids.append(commitment.commitment_id)
-        findings.append(
-            _finding(
-                "commitment_primary_path_blocked",
-                "Primary Path Authority blocks this path-sensitive commitment",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if binding.has_ppa_evidence() and not binding.primary_path_id:
-        findings.append(
-            _finding(
-                "commitment_primary_path_id_missing",
-                "PPA binding must preserve one singular primary path id for the commitment",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if binding.has_ppa_evidence() and not (
-        binding.runtime_observation_ids
-        and binding.proof_artifact_ids
-        and binding.evidence_current
-    ):
-        findings.append(
-            _finding(
-                "commitment_primary_path_material_evidence_missing",
-                "PPA binding must carry current runtime observations and proof artifact ids",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
-    if binding.has_ppa_evidence() and not binding.ppa_risk_gate_ids:
-        findings.append(
-            _finding(
-                "commitment_primary_path_risk_gate_missing",
-                "PPA binding must preserve downstream risk gate ids",
-                commitment_id=commitment.commitment_id,
-                metadata={"path_authority": binding.to_dict()},
-            )
-        )
 
 
 def default_behavior_commitment_axes(
@@ -4094,13 +3795,7 @@ def behavior_commitment_risk_gate_ids(report: BehaviorCommitmentCoverageReport) 
         f"risk_gate:{BCL_RISK_GATE_COVERAGE}:{report.ledger_id}",
         f"risk_gate:{BCL_RISK_GATE_CARTESIAN_COVERAGE}:{report.ledger_id}",
     )
-    ppa = ()
-    if report.path_sensitive_commitment_ids:
-        ppa = (
-            f"risk_gate:{PPA_RISK_GATE_AUTHORITY}:{report.ledger_id}",
-            f"risk_gate:{PPA_RISK_GATE_CARTESIAN_COVERAGE}:{report.ledger_id}",
-        )
-    return tuple(dict.fromkeys(base + ppa + report.required_risk_gate_ids))
+    return tuple(dict.fromkeys(base + report.required_risk_gate_ids))
 
 
 __all__ = [
@@ -4274,7 +3969,6 @@ __all__ = [
     "BehaviorEvidenceBinding",
     "BehaviorExternalDifference",
     "BehaviorLookupBinding",
-    "BehaviorPathAuthorityBinding",
     "BehaviorSourceSurface",
     "BehaviorSourceFileIdentity",
     "BehaviorSourceSurfaceLiveIdentity",
@@ -4286,7 +3980,6 @@ __all__ = [
     "behavior_commitment_ledger_to_mapping",
     "behavior_commitment_relation_allowed",
     "behavior_commitment_risk_gate_ids",
-    "behavior_path_binding_from_primary_path_report",
     "default_behavior_commitment_axes",
     "default_behavior_commitment_coverage_universe",
     "default_behavior_commitment_interaction_groups",
