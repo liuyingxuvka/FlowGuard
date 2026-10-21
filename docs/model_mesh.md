@@ -190,8 +190,8 @@ no-delta disposition, or a bound/progress rule.
 
 When `HierarchyPartitionMap.closure_model` is present,
 `review_hierarchical_mesh(...)` must consume the closure report before returning
-`mesh_green_can_continue`. If a parent partition declares child outputs,
-reattachment contracts, or runtime path evidence, the closure model is required
+`mesh_green_can_continue`. If a parent partition declares child outputs or
+reattachment contracts, the closure model is required
 for broad parent green confidence. Without it, the mesh may still support
 partition, target-split, evidence, or scoped reattachment facts, but it should
 not be described as proving a closed parent/child flow.
@@ -333,8 +333,8 @@ Tasks:
 8. When parent confidence depends on code boundary proof, build layered
    boundary proof from parent coverage, child disjointness, child
    reattachment, and leaf boundary-matrix rows.
-9. When whole-flow parent confidence is claimed, or when child outputs,
-   reattachment contracts, or runtime path evidence are present, create a mesh
+9. When whole-flow parent confidence is claimed, or when child outputs or
+   reattachment contracts are present, create a mesh
    closure model that records root entries, child outputs, consumers, joins,
    terminals, out-of-scope branches, repeat-input tokens, repair feedback, and
    loop progress or blocker rules.
@@ -409,20 +409,13 @@ and which parent items each child owns. Cross-domain support or influence
 belongs in a child's `depends_on`, not in a second structural parent, so each
 child keeps exactly one parent in the partition.
 
-When a child model has runtime path evidence, put the current evidence ids on
-`ChildModelEvidence.runtime_path_evidence_ids`. The parent reattachment
-contract should consume those ids through
-`ChildReattachmentContract.consumed_runtime_path_evidence_ids`; otherwise the
-parent may know the child model is green but not that it consumed the child's
-current real-code path evidence.
-
 For whole-flow parent confidence, the parent boundary also needs a closure
 model. The closure model is a small FlowGuard-style model of the model network:
 root entries, child-output tokens, parent or sibling consumers, required joins,
 normal/failure exits, and explicit out-of-scope dispositions. It proves the
 handoffs close without expanding child internals.
 
-When the parent mesh declares child outputs, runtime path evidence, or
+When the parent mesh declares child outputs or
 reattachment contracts, `review_hierarchical_mesh(...)` requires a closure model
 before broad parent green confidence. The mesh can still report local partition
 or evidence facts without that model, but it must not say the parent/child route
