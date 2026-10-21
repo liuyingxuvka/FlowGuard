@@ -112,12 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     root = ["--root", ns.root]
     if verb == "read":
         project = Path(ns.root)
-        legacy = (project / ".flowguard/project.toml").is_file()
-        for name in ("AGENTS.md", "CLAUDE.md"):
-            path = project / name
-            if path.is_file():
-                text = path.read_text(encoding="utf-8-sig", errors="replace")
-                legacy |= any(marker in text for marker in ("ModelAuthoritySnapshot", "flowguard model-authority", "flowguard self-review", "ModelRevisionSet", "observed_implementation"))
+        legacy = (project / ".flowguard/project.toml").is_file() and not (project / ".flowguard/map.json").is_file()
         if legacy:
             print("FlowGuard 0.69 project detected; upgrade instructions: references/upgrade_from_0_69.md", file=sys.stderr)
             return 2

@@ -119,6 +119,14 @@ def test_legacy_project_read_points_to_upgrade_guide(tmp_path, capsys):
     assert "upgrade_from_0_69.md" in capsys.readouterr().err
 
 
+def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
+    project(tmp_path)
+    write(tmp_path, "AGENTS.md", "We retired `flowguard self-review` long ago.\n")
+    write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
+    assert main(["read", "--root", str(tmp_path)]) == 0
+    assert "app" in capsys.readouterr().out
+
+
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     for name in ("existing-model", "behavior-commitment", "code-structure", "contract-exhaustion",
                  "development-process", "field-lifecycle", "model-mesh", "model-miss", "model-test",
