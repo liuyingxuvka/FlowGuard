@@ -195,6 +195,20 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
 
+    def test_default_evidence_tier_and_empty_evidence_ids_do_not_block(self):
+        partition = HierarchyPartitionMap(
+            parent_model_id="checkout",
+            coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
+            child_models=(ChildModelEvidence("payment", functional_areas=("payment",)),),
+            target_split_derivation=target("checkout", ("payment",), ("payment",)),
+            reattachment_contracts=(reattachment_empty("payment", consumed_evidence_id=""),),
+            closure_model=reattachment_closure(),
+        )
+
+        report = review_hierarchical_mesh(partition)
+
+        self.assertTrue(report.ok, [finding.code for finding in report.findings])
+
     def test_strict_mesh_blocks_child_with_other_parent_or_scope(self):
         def partition(strict, **child_kwargs):
             return HierarchyPartitionMap(

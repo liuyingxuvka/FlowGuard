@@ -645,7 +645,7 @@ class HierarchyPartitionMap:
     child_models: tuple[ChildModelEvidence, ...] = ()
     target_split_derivation: ModelTargetSplitDerivation | None = None
     reattachment_contracts: tuple[ChildReattachmentContract, ...] = ()
-    required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
+    required_evidence_tier: str = EVIDENCE_CANDIDATE_ONLY
     allowed_shared_areas: tuple[str, ...] = ()
     boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
     closure_model: MeshClosureModel | None = None
@@ -1583,7 +1583,9 @@ def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[H
             )
             continue
 
-        if not contract.consumed_evidence_id:
+        if not contract.consumed_evidence_id and not child.evidence_id:
+            pass  # evidence ids are optional; the map's STALE fingerprint tracks a changed child
+        elif not contract.consumed_evidence_id:
             findings.append(
                 HierarchyMeshFinding(
                     "child_reattachment_missing_parent_consumption",

@@ -572,7 +572,7 @@
         ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ca1c0286eab914568faefe899d38fb06c271364fb41ef1599ba3988b42e60bc3"
+      "fingerprint": "sha256:667bf0809ae5ed6e77d4af35064379bc7c302c1eaf008bcfc9592939d5624022"
     },
     {
       "id": "portable-models",
