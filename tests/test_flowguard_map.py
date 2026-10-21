@@ -365,7 +365,7 @@ def test_impact_duplicate_model_id_is_blocked_without_run_hint(impact_project):
     imp = impact_of(root, data, ["shop/storage.py"])
     assert any("duplicated" in message for message in imp.blocked)
     assert "storage-proof" not in imp.model_ids
-    assert "storage-proof" not in render_impact(imp).split("run: python -m flowguard.map models")[-1]
+    assert "storage-proof" not in render_impact(imp).split("run: python -m flowguard map models")[-1]
 
 
 def test_non_ascii_file_names_are_inventoried_and_fingerprinted(project):

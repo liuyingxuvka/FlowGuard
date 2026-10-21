@@ -192,3 +192,9 @@ def test_string_literals_are_dependency_evidence_only_for_exact_modules_or_symbo
         write(tmp_path, "pkg/a.py", f"import importlib\nTARGET = importlib.import_module({literal})\n")
         data, inv = _context(tmp_path)
         assert "b" in dependency_evidence(data, inv)["a"], literal
+
+
+def test_read_unknown_component_fails_and_names_the_read_command(tmp_path, capsys):
+    project(tmp_path)
+    assert main(["read", "--root", str(tmp_path), "--component", "nope"]) == 1
+    assert "python -m flowguard read" in capsys.readouterr().out

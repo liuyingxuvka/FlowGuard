@@ -172,7 +172,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b0474383f66680e93b77ab2be2722bc39e8bd9626ff262fe6a6342d6d3f1b2e2"
+      "fingerprint": "sha256:82191d362204a24ab5e0d9d9ba8558b2173401a1410892905655c4e8dd915e69"
     },
     {
       "id": "public-api",
@@ -1014,7 +1014,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:77c4916f6657fa88840cd9d0ea4db5aea90993b7beeb6504d17cab1dceec5071"
+      "fingerprint": "sha256:29a55412a87ae8d1f6da06da69a9848d46fe5e91967dc1978c7a2f90b9e142c6"
     },
     {
       "id": "map-proof",

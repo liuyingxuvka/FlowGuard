@@ -95,8 +95,9 @@ def cmd_discover(root: Path, a) -> int:
 
 def cmd_show(root: Path, a) -> int:
     data, inv = _context(root)
-    print(render_show(root, data, inv, component=a.component, detail=a.detail, budget=a.budget))
-    return 0
+    text = render_show(root, data, inv, component=a.component, detail=a.detail, budget=a.budget)
+    print(text)
+    return 1 if text.startswith("no component") else 0
 
 
 def cmd_find(root: Path, a) -> int:

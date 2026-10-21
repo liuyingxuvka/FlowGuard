@@ -336,7 +336,7 @@ def render_impact(imp: Impact) -> str:
         lines.append(f"UNCERTAIN {len(imp.uncertainty) - 5} more surfaces; use map impact --json for all paths")
     lines.extend("BLOCKED " + message for message in imp.blocked)
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
-    lines.append(f"models to run: {len(imp.models)} selected (paths in --json)" if len(imp.models) > 8
+    lines.append(f"models to run: {len(imp.models)} selected (full list: python -m flowguard map impact --json)" if len(imp.models) > 8
                  else f"models to run: {', '.join(imp.models) or '-'}")
     groups: dict[str, list[str]] = defaultdict(list)
     no_command = []
@@ -350,7 +350,7 @@ def render_impact(imp: Impact) -> str:
             no_command.append(test)
     broad = len(imp.tests) > 30
     if broad:
-        lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): broad selection; run commands below (paths in --json)")
+        lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): broad selection; run commands below (full list: python -m flowguard map impact --json)")
     else:
         # The executable command contains the list once; avoid repeating it above.
         lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): " + ("see run below" if imp.tests else "-"))
@@ -360,7 +360,7 @@ def render_impact(imp: Impact) -> str:
         lines.append(f"run: {command} " + " ".join(shlex.quote(t) for t in tests))
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
     if imp.models:
-        lines.append("run: python -m flowguard.map models " + " ".join(imp.model_ids))
+        lines.append("run: python -m flowguard map models " + " ".join(imp.model_ids))
     for cid in imp.needs_review:
         lines.append(f"REVIEW {cid}: its files changed; update its description if behavior changed, then confirm {cid}")
     for cid in imp.map_review:

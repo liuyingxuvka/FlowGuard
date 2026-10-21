@@ -19,7 +19,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     if component:
         comps = [c for c in comps if c["id"] == component or c["id"].startswith(component + ".")]
         if not comps:
-            return f"no component {component!r}; run 'show' to list components"[:budget]
+            return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
     head = f"# {data.get('project', '')}: {len(data['components'])} components"
     if data.get("layers"):
         head += ", layers (top > bottom) " + " > ".join(data["layers"])
@@ -42,8 +42,6 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         declared_only = sorted(set(c.get("depends_on", [])) - graph.get(c["id"], set()))
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))
-        elif declared_only and (component or detail):
-            lines.append(f"  declared, unverified: {len(declared_only)} components (read --component {c['id']})")
         if component or detail:
             for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests"), ("models", "models")):
                 if c.get(key):
