@@ -1219,6 +1219,18 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _summary(payload: Mapping[str, Any]) -> str:
+    """A few lines for the default output; the full payload needs --json."""
+    lines = [f"status: {payload.get('status')}  executed {payload.get('executed_count', 0)}"
+             f" of {payload.get('planned_count', 0)}"]
+    for shard in payload.get("shards", ()):
+        lines.append(f"  {shard.get('shard_id')} {shard.get('status')} exit={shard.get('exit_code')}"
+                     f" executed={shard.get('executed_count')}")
+    lines += [f"  blocker: {blocker}" for blocker in payload.get("blockers", ())]
+    lines.append(f"details: {payload.get('output_root', '')} (full JSON: rerun with --json)")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
@@ -1229,7 +1241,10 @@ def main(argv: list[str] | None = None) -> int:
             reason=f"pytest shard runner internal error: {type(exc).__name__}: {exc}",
         )
         exit_code = 70
-    print(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    if args.json:
+        print(json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    else:
+        print(_summary(payload))
     return exit_code
 
 

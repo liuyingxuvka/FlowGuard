@@ -348,6 +348,21 @@ def test_unknown_capability_preserves_typed_block_and_aggregate(tmp_path, monkey
     assert "UnboundLocalError" not in json.dumps(payload)
 
 
+def test_default_output_is_a_short_summary(tmp_path, monkeypatch, capsys):
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "test_one.py").write_text("def test_one():\n    assert True\n")
+    monkeypatch.setenv("PYTHONPATH", str(Path(shard_runner.__file__).resolve().parents[1]))
+    command = ["--root", str(root), "--shards", "1", "--parallel-shards", "1"]
+    monkeypatch.setenv("FLOWGUARD_PYTEST_SHARDS_DIR", str(tmp_path / "summary"))
+    assert shard_runner.main(command) == 0
+    out = capsys.readouterr().out
+    assert out.startswith("status: pass  executed 1 of 1") and len(out) < 2000
+    monkeypatch.setenv("FLOWGUARD_PYTEST_SHARDS_DIR", str(tmp_path / "full"))
+    assert shard_runner.main([*command, "--json"]) == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "pass"
+
+
 @pytest.mark.skipif(os.name == "nt", reason="POSIX session ownership")
 @pytest.mark.parametrize("case", ["normal", "outer_timeout", "inner_timeout", "orphan_nested"])
 def test_nested_process_helpers_share_one_finite_owner(tmp_path, case):

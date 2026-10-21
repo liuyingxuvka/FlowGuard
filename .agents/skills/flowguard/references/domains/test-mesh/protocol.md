@@ -30,9 +30,9 @@ a routine run silently stands in for the release run.
    For a small selected set, run the exact printed commands once and stop here.
 2. If the selected validation genuinely needs sharding, choose the packaged runner
    instead of first doing the same work directly:
-   `python -m flowguard.pytest_shards_cli --root . --shards 4 --parallel-shards 4 --json`.
+   `python -m flowguard.pytest_shards_cli --root . --shards 4 --parallel-shards 4`.
    It collects the whole suite and runs exact node ids in disjoint shards. It cannot
-   select only `change` files; use direct pytest for those.
+   select only `change` files; use direct pytest for those. `--json` prints the full result.
 3. No hand-filled TestMesh model is needed for that runner's ordinary results. Only
    when a real parent trusts independent child suites/state/effect owners, scaffold
    `python -m flowguard template test-mesh --write .` and use the advanced API below.
