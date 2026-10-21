@@ -42,11 +42,11 @@
 | `id` | lowercase `[a-z0-9][a-z0-9_.-]*`, unique | human/AI |
 | `files` | globs (`*` = one directory level, `**` = any depth); every non-test source file must match exactly one component | human/AI |
 | `entrypoints` | `path:Symbol` or `path:Class.method`; must exist (`check`) | human/AI |
-| `depends_on` | parsed imports plus conservative lazy/alias edges; undeclared imports error, unverified declarations warn; `deps --write` merges imports | tool, then reviewed |
+| `depends_on` | edges supported by parsed imports, lazy/alias exports, exact module literals or an accepted `dep_unused` debt; undeclared imports and unsupported declarations are errors; `deps --write` replaces `depends_on` with the supported edges | tool, then reviewed |
 | `tests` | test files/globs that exercise the component; must match something (`check`) | human/AI |
 | `models` | contract model files (`.flowguard/models/<id>.py`) or model runners (`.../run_checks.py`) protecting the component; must exist (`check`) | human/AI |
 | `status` | `draft` or `confirmed` | `confirm` |
-| `_hint` | facts written by `scan` to help describe a draft (file count, public symbols, discovered entrypoints and effects); `confirm` deletes it | `scan` |
+| `_hint` | facts written by `scan` to help describe a draft (file count, lines of code, a sample of public symbols); `confirm` deletes it | `scan` |
 | `fingerprint` | hash of the component's files at the last `confirm`; mismatch = STALE | `confirm` only |
 | `flows[].steps` | `component` or `component:Symbol`; symbols must exist in that component (`check`) | human/AI |
 
