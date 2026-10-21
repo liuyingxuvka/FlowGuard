@@ -52,8 +52,6 @@ from .template_text.topology_hazard import (
 )
 from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
-    UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE,
-    UI_FLOW_STRUCTURE_NOTES_TEMPLATE,
     UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE,
     UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE,
     UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE,
@@ -132,8 +130,7 @@ def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
 
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/models/owners/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/ui_flow_structure/run_checks.py", UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE),
+        TemplateFile(".flowguard/models/ui_flow_structure.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
     )
 
 

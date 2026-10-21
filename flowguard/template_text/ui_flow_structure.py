@@ -2066,18 +2066,26 @@ UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE = UI_FLOW_STRUCTURE_MODEL_TEMPLATE
 UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE = UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE
 UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE = UI_FLOW_STRUCTURE_NOTES_TEMPLATE
 
-UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard model.
-
-Purpose: review a small native UI interaction model.
-Guards against: a visible control without an event and a transition to an unknown state.
-Use before editing: update this declaration when the modeled boundary changes.
-Run: python -m flowguard map models ui_flow_structure
-Modeled block shape: Input x State -> Set(Output x State).
-"""
+UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''# FlowGuard model: UI journeys over states and controls (ui-flow kit).
+#
+# State: the UI state a journey reached; input: one control the user activates.
+# Invariants: review_ui_interaction_model accepts the model; every reached state is declared; an enabled
+# control always leads somewhere; a non-terminal state always lets the user go on.
+# Known-bad: "show" opens a state that does not exist.
+# Conformance (code facts): every declared control id is present in UI_FILES and every handler anchor exists.
+# Fill in: replace every REPLACE_ME path with your UI files and handlers, model your states, controls and
+# transitions, list this file in the owning component's models in .flowguard/map.json, then run:
+# python -m flowguard map models ui_flow_structure
 
 from dataclasses import replace
-from flowguard import (UIControl, UIStateNode, UITransition, UIInteractionModel,
-                       review_ui_interaction_model)
+
+from flowguard import (UIControl, UIInteractionModel, UIStateNode, UITransition, ui_flow_code_facts,
+                       ui_journey_explorer)
+
+MODEL_ID = "ui_flow_structure"
+IMPLEMENTED_BY = {"show": "REPLACE_ME/app.js:showDetails", "hide": "REPLACE_ME/app.js:hideDetails"}   # handlers
+UI_FILES = ["REPLACE_ME/index.html", "REPLACE_ME/app.js"]                                              # UI source
+# TESTED_BY = {"reached_state_is_declared": ["tests/test_ui.py:test_details_open_and_close"]}
 
 
 def interaction_model() -> UIInteractionModel:
@@ -2102,45 +2110,18 @@ def interaction_model() -> UIInteractionModel:
     )
 
 
-def run_checks():
+def build_explorer():
+    return ui_journey_explorer(interaction_model())
+
+
+def broken_variants():
     model = interaction_model()
-    good = review_ui_interaction_model(model)
-    bad = review_ui_interaction_model(replace(model, transitions=(
-        replace(model.transitions[0], target_state_id="unknown"), model.transitions[1])))
-    return good, bad
+    unknown = replace(model, transitions=(replace(model.transitions[0], target_state_id="unknown"), model.transitions[1]))
+    return {"show_opens_an_unknown_state": ui_journey_explorer(unknown)}
+
+
+def conformance():
+    return ui_flow_code_facts(interaction_model(), UI_FILES, anchors=IMPLEMENTED_BY)
 '''
 
-UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE = '''"""Run the native FlowGuard teaching scaffold; no target execution is claimed."""
-
-from model import run_checks
-
-
-def main() -> int:
-    good, bad = run_checks()
-    print(good.format_text())
-    print(bad.format_text())
-    return 0 if good.ok and not bad.ok else 1
-
-if __name__ == "__main__":
-    from flowguard.map.runner import run_owner
-    raise SystemExit(run_owner(main))
-'''
-
-UI_FLOW_STRUCTURE_NOTES_TEMPLATE = '''# FlowGuard UI Flow Structure Notes
-
-Start with the real UIInteractionModel API: states, controls, events, availability,
-and transitions. The sample checks one pure UI interaction; it does not establish
-a running product's complete journey, content or implementation coverage.
-Select UIJourneyCoverage, UIContentVisibilityPlan, UIHumanOperabilityAssessment,
-structure/text reviewers, or implementation evidence only when the actual claim
-needs them. The ui-flow-structure-full-template retains the full teaching variants.
-Keep business intent/commitment/primary-path IDs internal and bind business actions
-to their existing owner. A screenshot or model review alone is not execution proof.
-
-The text hierarchy contract is semantic; similar text jobs should usually reuse
-visual treatments. Typical roles are "surface-title", "region-heading",
-"standard-text" and "supporting-text". Use content visibility's "user_visible",
-"user_on_demand" and "internal" classes when modeling real displayed content.
-'''
-
-__all__ = ['UI_FLOW_STRUCTURE_MODEL_TEMPLATE', 'UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE', 'UI_FLOW_STRUCTURE_NOTES_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE']
+__all__ = ['UI_FLOW_STRUCTURE_MODEL_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE', 'UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE']

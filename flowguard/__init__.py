@@ -1238,6 +1238,7 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "UIInteractionModel",
         "UIInteractionModelReport",
         "UIJourneyCoverage",
+        "UIJourneyState",
         "UIJourneyCoverageReport",
         "UIJourneyEntryPoint",
         "UIKeyboardFocusContract",
@@ -1366,6 +1367,8 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "review_ui_text_hierarchy",
         "review_ui_visible_surface",
         "ui_content_visibility_candidate_ids_from_field_lifecycle",
+        "ui_flow_code_facts",
+        "ui_journey_explorer",
     ),
     "flowguard.workflow": (
         "Workflow",

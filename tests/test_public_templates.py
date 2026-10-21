@@ -262,12 +262,16 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard code structure recommendation", output)
         self.assertIn("missing_source_model", output)
 
-    def test_ui_flow_structure_template_executes(self):
-        output = self.run_written_template(ui_flow_structure_template_files(),
-            (".flowguard", "verification", "owners", "ui_flow_structure"))
-        self.assertIn("flowguard UI interaction model", output)
-        self.assertIn("transition_target_state_not_registered", output)
-        self.assertNotIn("UI implementation validation", output)
+    def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
+        files = ui_flow_structure_template_files()
+        ui = {"web/index.html": '<button id="show">Show</button><button id="hide">Hide</button>\n',
+              "web/app.js": "function showDetails() {}\nfunction hideDetails() {}\n"}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "ui_flow_structure", ui, expected_returncode=1))
+        self.assertIn("PASS  ui_flow_structure", self.run_kit_template(files, "ui_flow_structure", ui, fill="web",
+                                                                       expected_returncode=0))
+        missing = dict(ui, **{"web/index.html": '<button id="show">Show</button>\n'})
+        self.assertIn("control hide is in the UI source",
+                      self.run_kit_template(files, "ui_flow_structure", missing, fill="web", expected_returncode=1))
 
 
     def test_ui_flow_structure_full_template_executes_content_visibility_cases(self):

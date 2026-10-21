@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4871aa54c406a4b5ff84b98863c6ab2ed3650a91fdd2b6d75275549752785dce"
+      "fingerprint": "sha256:9a8ef674b913f4c43e5be68403657978e3a4947ac1bda2255b9f4168f13fca69"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:09f8c9f0a9c2fb0a4c2ee9a21900a55511629c7d839988fd1cafd9bfa24e5a8d"
+      "fingerprint": "sha256:c5a990dd428ef93fc8beddb0101b3a5541311bfffc499a0a379a39c6b558707b"
     },
     {
       "id": "behavior-commitment",
@@ -580,7 +580,8 @@
       "summary": "Checks controls, UI journeys and runtime observations.",
       "responsibilities": [
         "review UI states, journeys, controls and content visibility",
-        "review runnable UI evidence"
+        "review runnable UI evidence",
+        "model kit: explore control journeys with the reviewer as one invariant and compare control ids and handlers with the UI source"
       ],
       "files": [
         "flowguard/ui_structure.py",
@@ -592,7 +593,9 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-core"
+        "engine-core",
+        "engine-explore",
+        "map-proof"
       ],
       "tests": [
         "tests/test_product_language_path_reuse.py",
@@ -600,7 +603,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7e88a42fbb40084a896c7fb82261764abe445125d341a2de3422dd53def9b217"
+      "fingerprint": "sha256:a19fc27ae059d6150fefa18ff9a2b30b854e9569d412bf6b6463a8cff8c35a65"
     },
     {
       "id": "map-inventory",

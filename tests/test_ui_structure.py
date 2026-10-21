@@ -5208,5 +5208,36 @@ def test_ui_dead_button_gives_unmodeled_control_event():
     assert "unmodeled_control_event" not in {f.code for f in wired.findings}
 
 
+
+def _details_model(target="open"):
+    from flowguard import UIControl, UIInteractionModel, UIStateNode, UITransition
+
+    return UIInteractionModel(
+        "details", initial_state_id="closed",
+        states=(UIStateNode("closed", visible_controls=("show",), enabled_controls=("show",), hidden_controls=("hide",)),
+                UIStateNode("open", visible_controls=("hide",), enabled_controls=("hide",), hidden_controls=("show",))),
+        controls=(UIControl("show", label="Show", function_key="show"), UIControl("hide", label="Hide", function_key="hide")),
+        transitions=(UITransition("click_show", "show", "closed", target, pure_ui=True, function_block="show", output="shown",
+                                  rationale="reveal"),
+                     UITransition("click_hide", "hide", "open", "closed", pure_ui=True, function_block="hide",
+                                  output="hidden", rationale="return")),
+        validation_boundaries=("details",), rationale="toggle")
+
+
+def test_ui_journey_kit_explores_controls_and_compares_ids_with_the_ui_source(tmp_path):
+    from flowguard import ui_flow_code_facts, ui_journey_explorer
+
+    assert ui_journey_explorer(_details_model()).explore().ok
+    bad = ui_journey_explorer(_details_model(target="ghost")).explore()
+    assert not bad.ok and any("undeclared UI state 'ghost'" in v.message for v in bad.violations)
+    (tmp_path / "index.html").write_text('<button id="show">Show</button><button id="hide">Hide</button>\n')
+    (tmp_path / "app.js").write_text("function showDetails() {}\nfunction hideDetails() {}\n")
+    files, anchors = ["index.html", "app.js"], {"show": "app.js:showDetails", "hide": "app.js:hideDetails"}
+    assert ui_flow_code_facts(_details_model(), files, anchors=anchors, root=tmp_path).ok
+    (tmp_path / "index.html").write_text('<button id="show">Show</button>\n')
+    report = ui_flow_code_facts(_details_model(), files, anchors=anchors, root=tmp_path)
+    assert not report.ok and "control hide is in the UI source" in report.format_text()
+
+
 if __name__ == "__main__":
     unittest.main()

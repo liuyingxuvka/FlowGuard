@@ -11410,8 +11410,102 @@ def review_ui_text_hierarchy(
     )
 
 
+@dataclass(frozen=True)
+class UIJourneyState:
+    """State of a UI journey model: the UI state reached, and an enabled control that led nowhere."""
+
+    state_id: str
+    dead_control: str = ""
+
+
+class _UIActivate:
+    """Function block: activate one control in the current UI state (Input x State -> Set(Output x State))."""
+
+    name = "ActivateControl"
+    reads = ("state_id",)
+    writes = ("state_id", "dead_control")
+
+    def __init__(self, model: UIInteractionModel) -> None:
+        self.enabled = {node.state_id: set(node.enabled_controls) for node in model.states}
+        self.targets: dict[tuple[str, str], list[str]] = {}
+        for transition in model.transitions:
+            self.targets.setdefault((transition.source_state_id, transition.control_id), []).append(
+                transition.target_state_id)
+
+    def apply(self, control_id: str, state: UIJourneyState):
+        from .core import FunctionResult
+
+        if control_id not in self.enabled.get(state.state_id, set()):
+            return (FunctionResult("unavailable", state, label="unavailable"),)
+        targets = self.targets.get((state.state_id, control_id), [])
+        if not targets:
+            return (FunctionResult("no_transition", UIJourneyState(state.state_id, control_id), label="dead_control"),)
+        return tuple(FunctionResult(target, UIJourneyState(target), label=f"{control_id}->{target}") for target in targets)
+
+
+def ui_journey_explorer(model: UIInteractionModel, *, max_steps: int = 3):
+    """UI journeys as a model: activate any control from the initial state, up to ``max_steps`` times.
+
+    Invariants: review_ui_interaction_model accepts the model; every reached state is declared; an enabled
+    control always leads somewhere; a reached state that is not terminal has an enabled control that leads on.
+    """
+    from .core import Invariant, InvariantResult
+    from .explorer import Explorer
+    from .workflow import Workflow
+
+    review = review_ui_interaction_model(model)
+    declared = {node.state_id: node for node in model.states}
+    block = _UIActivate(model)
+
+    def review_accepts(state, trace):
+        codes = ", ".join(finding.code for finding in review.findings[:5])
+        return InvariantResult.pass_() if review.ok else InvariantResult.fail(f"review_ui_interaction_model blocks: {codes}")
+
+    def state_declared(state, trace):
+        if state.state_id in declared:
+            return InvariantResult.pass_()
+        return InvariantResult.fail(f"a journey reaches the undeclared UI state {state.state_id!r}")
+
+    def control_leads_somewhere(state, trace):
+        if state.dead_control:
+            return InvariantResult.fail(f"enabled control {state.dead_control!r} in {state.state_id!r} leads nowhere")
+        return InvariantResult.pass_()
+
+    def way_on(state, trace):
+        node = declared.get(state.state_id)
+        if node is None or node.terminal or any((state.state_id, c) in block.targets for c in node.enabled_controls):
+            return InvariantResult.pass_()
+        return InvariantResult.fail(f"UI state {state.state_id!r} is a dead end: no enabled control leads on")
+
+    invariants = (
+        Invariant("ui_review_accepts", "review_ui_interaction_model accepts the interaction model", review_accepts),
+        Invariant("reached_state_is_declared", "every state a journey reaches is declared", state_declared),
+        Invariant("enabled_control_leads_somewhere", "an enabled control always has a transition", control_leads_somewhere),
+        Invariant("non_terminal_state_has_a_way_on", "a reached non-terminal state lets the user go on", way_on),
+    )
+    return Explorer(workflow=Workflow((block,)), initial_states=(UIJourneyState(model.initial_state_id),),
+                    external_inputs=tuple(control.control_id for control in model.controls), invariants=invariants,
+                    max_sequence_length=max_steps, progress_steps=0)
+
+
+def ui_flow_code_facts(model: UIInteractionModel, files: Sequence[str], *, anchors=(), root=None):
+    """Compare a UI interaction model with the UI source (static code facts, nothing is rendered).
+
+    Every declared control id is present in ``files``; every anchor (the handlers) exists.
+    """
+    from .map.facts import CodeFacts
+
+    facts = CodeFacts(root)
+    if anchors:
+        facts.anchors_exist(anchors)
+    for control in model.controls:
+        facts.present(control.control_id, files, f"control {control.control_id} is in the UI source")
+    return facts.report()
+
+
 __all__ = [
     "UIControl",
+    "UIJourneyState",
     "UIProductConsistencyException",
     "UIProductConsistencyFinding",
     "UIProductConsistencyObservation",
@@ -11581,5 +11675,7 @@ __all__ = [
     "review_ui_text_hierarchy",
     "review_ui_visible_surface",
     "ui_content_visibility_candidate_ids_from_field_lifecycle",
+    "ui_flow_code_facts",
+    "ui_journey_explorer",
     "default_ui_product_language_case_seeds",
 ]

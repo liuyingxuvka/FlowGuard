@@ -33,10 +33,12 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 ## Steps
 
 1. If a new boundary needs a scaffold: `python -m flowguard template ui-flow-structure --write .`
-   It writes `.flowguard/models/owners/ui_flow_structure/model.py` and the runner
-   `.flowguard/verification/owners/ui_flow_structure/run_checks.py`.
-   It runs the real interaction reviewer on a reversible interaction and a broken
-   target. `ui-flow-structure-full` retains complete-journey teaching material.
+   It writes one contract model, `.flowguard/models/ui_flow_structure.py`: `ui_journey_explorer(model)`
+   explores every control sequence (the interaction reviewer is one of its invariants, with "every reached
+   state is declared", "an enabled control leads somewhere" and "no dead end"), a broken variant opens an
+   unknown state, and `conformance()` returns `ui_flow_code_facts(model, UI_FILES, anchors=IMPLEMENTED_BY)`
+   (every control id is in the UI source, every handler exists). Its `REPLACE_ME` paths fail until they name
+   your UI files. `ui-flow-structure-full` retains complete-journey teaching material.
 2. Reuse/update the owner's UI model; replace template fixtures only if step 1 needed a scaffold. Core records (`from flowguard import ...`):
    - `UIInteractionModel(model_id, initial_state_id, states=, controls=, transitions=, displays=, validation_boundaries=, rationale=)`
    - `UIStateNode(state_id, visible_controls=, enabled_controls=, disabled_controls=, hidden_controls=, recovery_controls=, terminal=, failure=, visible_displays=, hidden_displays=)`
@@ -66,8 +68,8 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 
 4. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
    returns 0 only if good reports pass and relevant broken reports fail.
-5. If a persistent runner was created or changed, register it in the owner's `models`; run the
-   selected registered owner once via `python -m flowguard map models <id>` (exit 0 = pass).
+5. List the model (or a persistent runner) in the owner's `models`; run it once via
+   `python -m flowguard map models <id>` (exit 0 = pass).
 6. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
@@ -109,5 +111,6 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
   real UI tests show runtime behavior.
 - One event cannot have several outcomes: a reused `event_id` gives
   `duplicate_event_id`. Model each outcome as its own event (`load_ok`, `load_failed`).
-- UI models do not run in the core explorer; invariants over UI states are
-  only what the reviewers check. Pair the model with real UI tests.
+- `ui_journey_explorer` runs the interaction model in the core explorer; the other reviews check
+  declarations only. `ui_flow_code_facts` reads the UI source; nothing is rendered. Pair the model with
+  real UI tests.
