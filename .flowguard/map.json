@@ -353,7 +353,8 @@
       "layer": "capabilities",
       "summary": "Checks whether code can shrink without changing behavior.",
       "responsibilities": [
-        "gate merging or removing code on proven unchanged behaviour"
+        "gate merging or removing code on proven unchanged behaviour",
+        "check that each candidate names real code when given the project root"
       ],
       "files": [
         "flowguard/architecture_reduction.py"
@@ -366,6 +367,8 @@
       "depends_on": [
         "code-structure",
         "engine-core",
+        "map-analysis",
+        "map-inventory",
         "shared-vocabulary"
       ],
       "tests": [
@@ -376,7 +379,7 @@
         ".flowguard/verification/owners/architecture_reduction/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4d38274fc1fca768953af4047e72accaf2f1be962586946a4832263f1b021641"
+      "fingerprint": "sha256:95b0980343395b956757987c999c1b875c6524ed88f6bd651fa26fc5b97008f2"
     },
     {
       "id": "code-structure",

@@ -385,6 +385,25 @@ class ArchitectureReductionTests(unittest.TestCase):
         self.assertEqual(TARGET_ACTION_COLLAPSE, report.target_actions[0].action)
         self.assertIn(ROUTE_CODE_STRUCTURE_RECOMMENDATION, report.required_next_routes)
 
+    def test_project_root_blocks_candidates_that_name_missing_code(self):
+        import tempfile
+        from pathlib import Path
+
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "router").mkdir()
+            (Path(directory) / "router" / "adapter.py").write_text("def normalize(value):\n    return value\n", encoding="utf-8")
+
+            def review(node):
+                plan = ArchitectureReductionPlan(
+                    "router-reduction", observable_contract=contract(), candidates=(candidate(code_node_id=node),),
+                    companion_route_triggers=(), target_structure=target_structure(), rationale="one pass-through adapter")
+                return review_architecture_reduction(plan, project_root=directory)
+
+            self.assertTrue(review("router/adapter.py:normalize").ok)
+            missing = review("router/orders.py:validate_v2")
+            self.assertFalse(missing.ok)
+            self.assertIn("candidate_anchor_missing", [finding.code for finding in missing.findings])
+
     def test_completed_candidate_leaves_active_ready_queue(self):
         plan = ArchitectureReductionPlan(
             "router-reduction",

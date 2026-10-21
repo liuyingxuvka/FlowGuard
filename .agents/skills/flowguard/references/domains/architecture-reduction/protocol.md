@@ -31,7 +31,7 @@ the same. It never deletes code on a guess.
   `responsibilities`, `files`, `entrypoints`, `state`, `side_effects`, `depends_on`, `tests`, `models`.
 - `python -m flowguard map impact <files>`: dependent components, and the tests and models to rerun.
 - `python -m flowguard map check`: must show no `stale` component for the files you touch.
-- The code of both sides of each duplicate, and `git rev-parse HEAD` as the inventory revision.
+- The code of both sides of each duplicate.
 
 ## Steps
 
@@ -52,18 +52,14 @@ the same. It never deletes code on a guess.
 3. Gather proof. Equivalence means: the component's tests pass before and after, every dependent component from
    `map impact` is updated, and no output, state field or side effect disappears. Put test paths in `evidence_refs`.
    If only some properties are shown, use `property_only_safe`; if traces must be replayed, `needs_conformance_replay`.
-4. Optional: for internal steps of a kept route, add `ArchitectureReductionStepAssessment` rows
-   (`action` retain/merge/delegate/remove/explicit_on_demand/unresolved, `caller_ids`, `caller_inventory_complete`,
-   `safety_inventory_complete`, `safety_responsibility_ids`, `safety_owner_bindings`). Every step that is not `unresolved`
-   needs `cost_evidence` (`ArchitectureReductionStepCost`) or blocks (`step_cost_evidence_missing`); cost never replaces proof.
-5. Reuse the owner model; write a new runner only for a reusable reduction boundary. Set `inventory_current=False` if `map check` shows a touched component stale.
+4. Reuse the owner model; write a new runner only for a reusable reduction boundary. Pass `project_root="."`
+   so every `code_node_id` must name real code (`path.py:Symbol`).
    ```python
    # .flowguard/verification/owners/<reduction_id>/run_checks.py
    from dataclasses import replace
    from flowguard import (ArchitectureReductionCandidate, ArchitectureReductionPlan,
        ArchitectureReductionTrigger, ObservableArchitectureContract, review_architecture_reduction)
    from flowguard.map.runner import run_owner
-   REV = "<git HEAD>"
    contract = ObservableArchitectureContract(source_model_id="orders", source_code_boundary_id="orders",
        public_entrypoints=("app/api.py:create_order",), observable_outputs=("order_created",),
        observable_state=("orders.status",), observable_side_effects=("db.write_order",),
@@ -71,22 +67,21 @@ the same. It never deletes code on a guess.
    cand = ArchitectureReductionCandidate(candidate_id="merge-validate", candidate_type="merge_handlers",
        code_node_id="app/orders.py:validate_v2", source_model_element="Validate", target_action="merge",
        proof_status="safe_by_equivalence", required_next_route="",
-       rationale="map lint duplicate_code", evidence_refs=("tests/test_orders.py",), inventory_revision=REV)
+       rationale="map lint duplicate_code", evidence_refs=("tests/test_orders.py",))
    def plan(*cands): return ArchitectureReductionPlan(reduction_id="orders-cleanup", observable_contract=contract,
-       candidates=cands, rationale="lint cleanup", inventory_revision=REV, inventory_source_ref=".flowguard/map.json",
-       inventory_current=True, expected_candidate_ids=("merge-validate",), require_complete_inventory=True,
-       companion_route_triggers=())
+       candidates=cands, rationale="lint cleanup", companion_route_triggers=())
    def main():
-       good = review_architecture_reduction(plan(cand)); print(good.format_text())
-       bad = review_architecture_reduction(plan(replace(cand, target_action="remove", affected_state=("orders.status",))))
+       good = review_architecture_reduction(plan(cand), project_root="."); print(good.format_text())
+       bad = review_architecture_reduction(plan(replace(cand, target_action="remove", affected_state=("orders.status",))),
+                                           project_root=".")
        return good.ok and not bad.ok
    if __name__ == "__main__": raise SystemExit(run_owner(main))
    ```
-6. For a persistent runner created or changed in step 5, register it in the owner's `models`
+5. For a persistent runner created or changed in step 4, register it in the owner's `models`
    and run `python -m flowguard map models <reduction_id>` once; otherwise use the direct native review result.
-7. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
+6. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
    still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.
-8. After the code change: rerun `map lint` (the finding should be gone), update the map descriptions,
+7. After the code change: rerun `map lint` (the finding should be gone), update the map descriptions,
    `python -m flowguard map confirm <ids>`, then `python -m flowguard change`.
 
 ## What blocks
@@ -102,8 +97,7 @@ the same. It never deletes code on a guess.
 | `blocked_by_missing_evidence` | Candidate has no proof yet. |
 | `conformance_replay_required` | Candidate needs trace replay against real code before it can be ready. |
 | `incomplete_candidate` / `missing_observable_contract` | Required fields are empty. |
-| `expected_reduction_candidate_missing` / `candidate_inventory_stale` | A lint finding was dropped, or the map is stale. |
-| `step_unique_safety_owner_removed` / `step_caller_inventory_incomplete` | A merged/removed step still owns a safety duty, or callers are not all known. |
+| `candidate_anchor_missing` | With `project_root`: a candidate's `code_node_id` names no real `path.py:Symbol`. |
 
 `risky_candidate_kept` and `property_only_reduction` are warnings: the candidate is kept, not ready.
 
@@ -111,7 +105,7 @@ the same. It never deletes code on a guess.
 
 - Remove a duplicate handler that is the only writer of an observable state field: expect `removes_observable_state`.
 - Delete a `never_imported` module that is loaded by a plugin registry, marked `blocked_by_missing_evidence`: expect `blocked_by_missing_evidence`.
-- Drop a lint finding from the candidate list while it is in `expected_candidate_ids`: expect `expected_reduction_candidate_missing`.
+- A candidate whose `code_node_id` names a file or symbol that does not exist (with `project_root`): expect `candidate_anchor_missing`.
 
 ## Done when
 
@@ -124,7 +118,7 @@ the same. It never deletes code on a guess.
 
 ## Limits
 
-- The review checks the rows you declared. It does not read code; a wrong `affected_state` gives a wrong pass. Pair it with real tests.
+- The review checks the rows you declared; with `project_root` it also checks that each `code_node_id` exists.
+  It does not read what the code does; a wrong `affected_state` gives a wrong pass. Pair it with real tests.
 - `map lint` finds candidates by word overlap in `responsibilities` and identical AST bodies. Near-duplicates with different code are missed.
 - `never_imported` cannot see dynamic imports or plugin loading. Treat it as a hint, not proof of dead code.
-- Behavior retirement (`retire_behavior`) needs `proof_status="authorized_retirement"` and a full `ArchitectureRetirementProof`; without it the review blocks (`retirement_proof_missing`).

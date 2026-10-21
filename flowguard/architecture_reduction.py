@@ -1626,7 +1626,8 @@ class ArchitectureReductionReport:
         if self.target_actions:
             lines.append("target_actions:")
             for action in self.target_actions:
-                lines.append(f"  - {action.action} {action.code_node_id} via {action.required_next_route}")
+                lines.append(f"  - {action.action} {action.code_node_id}"
+                             + (f" via {action.required_next_route}" if action.required_next_route else ""))
         if self.step_assessments:
             lines.append("internal_step_assessments:")
             for row in self.step_assessments:
@@ -2087,6 +2088,32 @@ def _surfaces_by_candidate(
         for candidate_id in surface.candidate_ids:
             grouped.setdefault(candidate_id, []).append(surface)
     return {candidate_id: tuple(items) for candidate_id, items in grouped.items()}
+
+
+def _candidate_anchor_findings(plan: ArchitectureReductionPlan, project_root: str) -> list[ArchitectureReductionFinding]:
+    from pathlib import Path
+
+    from .map.check import anchor_problem
+    from .map.inventory import Inventory, parse_python
+
+    root = Path(project_root)
+    paths = sorted({candidate.code_node_id.partition(":")[0] for candidate in plan.candidates if candidate.code_node_id})
+    parsed = {path: parse_python(root, path, path[:-3].replace("/", "."), collect_bodies=False)
+              for path in paths if path.endswith(".py") and (root / path).is_file()}
+    inv = Inventory(root, paths, paths, [], parsed, {}, {})
+    findings: list[ArchitectureReductionFinding] = []
+    for candidate in plan.candidates:
+        problem = anchor_problem(root, inv, candidate.code_node_id) if candidate.code_node_id else None
+        if problem:
+            findings.append(
+                ArchitectureReductionFinding(
+                    "candidate_anchor_missing",
+                    problem,
+                    candidate_id=candidate.candidate_id,
+                    item_id=candidate.code_node_id,
+                )
+            )
+    return findings
 
 
 def _candidate_inventory_findings(
@@ -2738,8 +2765,13 @@ def _retirement_proof_findings(
     return findings, not _blockers(findings)
 
 
-def review_architecture_reduction(plan: ArchitectureReductionPlan) -> ArchitectureReductionReport:
-    """Review whether modeled flow evidence supports code architecture contraction."""
+def review_architecture_reduction(
+    plan: ArchitectureReductionPlan, project_root: str | None = None
+) -> ArchitectureReductionReport:
+    """Review whether modeled flow evidence supports code architecture contraction.
+
+    With ``project_root`` every candidate ``code_node_id`` must name real code (``path.py:Symbol``).
+    """
 
     findings: list[ArchitectureReductionFinding] = []
     ready_candidates: list[str] = []
@@ -2752,6 +2784,8 @@ def review_architecture_reduction(plan: ArchitectureReductionPlan) -> Architectu
     surfaces_by_candidate = _surfaces_by_candidate(plan.compatibility_surfaces)
     inventory_values = _candidate_inventory_findings(plan)
     findings.extend(inventory_values[0])
+    if project_root is not None:
+        findings.extend(_candidate_anchor_findings(plan, project_root))
     relation_values = _plan_canonical_relation_findings(plan)
     findings.extend(relation_values[0])
     step_findings = _step_assessment_findings(plan)
