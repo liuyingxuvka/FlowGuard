@@ -172,7 +172,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:5562503a0c1070cf71288bc6113a77bb4f2e24a4e670e756565b6b67ac78cc40"
+      "fingerprint": "sha256:3bd91268643fc89bf7b5587fbcb614e718cf84feb332a8cc9b1fb28ff15a3d94"
     },
     {
       "id": "public-api",
@@ -484,7 +484,6 @@
         "tests/test_development_process_strategy_benchmark.py",
         "tests/test_model_miss_diagnostics.py",
         "tests/test_plan_intake_claims.py",
-        "tests/test_process_optimization_zero_residuals.py",
         "tests/test_step_contracts.py"
       ],
       "models": [

@@ -62,7 +62,7 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    `discovery_evidence_ids`, and per row `locations`, `default_semantics`,
    `absence_semantics`, `serialization_semantics`, `privacy_classification`,
    `content_fingerprint`.
-7. Runtime-gateway evidence routes to `model_test_alignment`; closure routes to `development_process_flow`.
+7. Runtime-gateway evidence routes to `model_test_alignment`.
    Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
 8. Review the current field plan and relevant broken cases. If persisting a runner, update its
    good/bad plans; it exits 0 only if the good plan passes, the broken one fails and

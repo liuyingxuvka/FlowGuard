@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / ".agents" / "skills" / "flowguard"
 CAPABILITIES = (
     "existing-model", "behavior-commitment", "architecture-reduction", "code-structure",
-    "contract-exhaustion", "development-process", "field-lifecycle", "model-mesh", "model-miss",
+    "contract-exhaustion", "field-lifecycle", "model-mesh", "model-miss",
     "model-test", "topology-hazard", "structure-mesh", "test-mesh", "ui-flow",
 )
 SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## What blocks", "## Done when", "## Limits")

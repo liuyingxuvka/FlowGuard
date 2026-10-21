@@ -1,7 +1,7 @@
 # FlowGuard repository rules
 
 FlowGuard maintains a living, code-anchored map of a project (`.flowguard/map.json`),
-executable models of its risky flows, and 14 capability reviews. This repository uses
+executable models of its risky flows, and 13 capability reviews. This repository uses
 FlowGuard on itself.
 
 ## Every task in this repository
@@ -14,7 +14,7 @@ FlowGuard on itself.
 
 ## Layout
 
-- `flowguard/` engine and the 14 capabilities; `flowguard/map/` map, discovery and proof layer.
+- `flowguard/` engine and the 13 capabilities; `flowguard/map/` map, discovery and proof layer.
 - `.agents/skills/flowguard/` the single public skill (SKILL.md, references, one protocol per capability, assets).
 - `.flowguard/map.json`, `.flowguard/models/`, `.flowguard/verification/owners/*/run_checks.py`:
   FlowGuard's own map and models. `.flowguard/cache/` is never committed.

@@ -123,8 +123,6 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
   `map check`, `map lint` and real tests do that.
 - With `blueprint_required=True` the review checks only the element list you pass. The fingerprint is computed from that same
   list, so it does not detect drift from the real model file.
-- `implementation_ready_requested=True` needs an `implementation_admission` object from
-  development-process (`ImplementationAdmissionReport`); leave it False for a plain recommendation.
 - Not checked: the per-module `owns_*`, `reads_fields`, `writes_fields` lists (only the plan-level
   `*_map` pairs are), `facade_module_id`, a module that owns everything, two writers of one field,
   and the kernel/adapter ids when there is no `canonical_relation_handoff`.

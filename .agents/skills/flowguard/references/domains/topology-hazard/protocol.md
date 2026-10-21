@@ -24,7 +24,6 @@ no anchor stays an observation and never blocks.
 - A model was green and a test then failed. Use model-miss.
 - You must decide to delete, migrate or keep an old path. Use architecture-reduction;
   this review only says that a decision is missing.
-- The question is whether local evidence is enough to ship. Use development-process.
 
 ## Inputs
 

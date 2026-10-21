@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Living, code-anchored map of the software plus executable models and 14 focused capabilities (existing-model preflight, behavior commitments, architecture reduction, code structure, contract exhaustion, development process, field lifecycle, model mesh, model miss, model-test alignment, topology hazard, structure mesh, test mesh, UI flow). Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
+description: Living, code-anchored map of a codebase plus executable models of its risky flows and 13 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
 ---
 
 # FlowGuard
@@ -50,7 +50,6 @@ modeling (`references/model_recipes.md`).
 | architecture-reduction | code may shrink or merge without changing behavior |
 | code-structure | deciding where new code goes before writing it |
 | contract-exhaustion | a finite input universe needs every bad case or combination enumerated |
-| development-process | staged work, freshness of results, what to rerun, release order |
 | field-lifecycle | fields, schemas, defaults, aliases or replacements change |
 | model-mesh | several models must fit together (parent/child, producer/consumer) |
 | model-miss | a bug escaped although the model was green |
