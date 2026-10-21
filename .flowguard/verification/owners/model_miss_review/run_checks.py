@@ -109,50 +109,9 @@ def _check_diagnostic_projection() -> bool:
     )
 
 
-def _native_case_projection() -> tuple[dict[str, object], ...]:
-    """Expose the finite diagnostic assertions as named native rows.
-
-    The diagnostic is pure and bounded; this helper calls it once for the
-    current owner invocation and returns three explicit observations.  It is
-    deliberately separate from the human report formatter so the native
-    bridge can consume concrete rows without parsing the long transcript or
-    executing ``run_checks`` a second time.
-    """
-
-    ok = _check_diagnostic_projection()
-    status = "ok" if ok else "violation"
-    return (
-        {
-            "name": "diagnostic_projection_positive",
-            "ok": ok,
-            "observed_status": status,
-            "case_kind": "good",
-        },
-        {
-            "name": "diagnostic_budget_bounded",
-            "ok": ok,
-            "observed_status": status,
-            "case_kind": "good",
-        },
-        {
-            "name": "missing_positive_witness",
-            # The expected-bad diagnostic is a passing oracle when the
-            # missing witness is correctly detected and blocked.
-            "ok": ok,
-            "expected_ok": True,
-            "observed_status": "blocked" if ok else "violation",
-            "case_kind": "bad",
-            "finding_codes": ["diagnostic_positive_witness_required"],
-        },
-    )
-
-
 def main() -> int:
     correct, broken = run_checks()
-    diagnostic_cases = _native_case_projection()
-    diagnostic_ok = bool(diagnostic_cases) and all(
-        bool(item.get("ok")) for item in diagnostic_cases
-    )
+    diagnostic_ok = _check_diagnostic_projection()
     print(f"{correct.scenario_name}: {correct.status.upper()}")
     for item in correct.evidence:
         print(f"  - {item}")

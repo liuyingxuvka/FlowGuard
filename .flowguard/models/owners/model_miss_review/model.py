@@ -1,7 +1,4 @@
-"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+"""FlowGuard model.
 
 Purpose:
 Models the review loop required for a non-trivial bug repair, or when a
@@ -34,7 +31,7 @@ non-trivial bug-fix, model-miss, runtime-validation, replay, or completion-gate
 logic.
 
 Run:
-python .flowguard/verification/owners/model_miss_review/run_checks.py
+python -m flowguard map models model_miss_review
 
 Replace the event names and obligations with the bug class under review.
 """

@@ -1,14 +1,13 @@
 """FlowGuard model for the automatic state closure gate.
 
-FlowGuard Risk Purpose Header
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+FlowGuard model
 Purpose: ensure the model-first helper does not treat finite enumeration as
 complete when unknown or other states may exist.
 Guards against: missing representative unknown cases, accepting unknown states
 as ordinary flow, allowing side effects before unknown resolution, or claiming
 full confidence while the closure policy is still inferred.
 Modeled block shape: Input x State -> Set(Output x State).
-Run: python .flowguard/verification/owners/state_closure_gate/run_checks.py
+Run: python -m flowguard map models state_closure_gate
 """
 
 from __future__ import annotations

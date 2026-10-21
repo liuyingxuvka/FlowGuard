@@ -1,11 +1,10 @@
-"""FlowGuard Risk Purpose Header
+"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Prove that path-sensitive work has one primary runtime authority and that primary failure is exposed instead of silently routed to alternate success.
 Guards against: automatic fallback success after primary failure, compatibility facades becoming second authorities, old fields or backup caches masking broken primary paths, manual recovery paths being auto-invoked, and broad confidence claims without full Cartesian coverage evidence.
 Use before editing: Run this before path-sensitive feature work, bug fixes, refactors, API compatibility decisions, or release claims where alternate execution paths may hide the real broken path.
 
-Run: python .flowguard/verification/owners/primary_path_authority/run_checks.py
+Run: python -m flowguard map models primary_path_authority
 """
 
 from flowguard import (

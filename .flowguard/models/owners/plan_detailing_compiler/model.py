@@ -1,7 +1,4 @@
-"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+"""FlowGuard model.
 
 Purpose:
 Review the plan-detailing compiler rollout before production changes and final
@@ -16,7 +13,7 @@ Use before editing:
 plan-detailing compiler API, templates, routing, or installed skill surfaces.
 
 Run:
-python .flowguard/verification/owners/plan_detailing_compiler/run_checks.py
+python -m flowguard map models plan_detailing_compiler
 """
 
 from examples.plan_detailing_compiler.model import *  # noqa: F401,F403

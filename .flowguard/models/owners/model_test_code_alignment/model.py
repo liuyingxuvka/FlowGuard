@@ -1,7 +1,5 @@
 """FlowGuard rollout model for model/test/code contract alignment.
 
-Risk Purpose Header:
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: review the Model-Test Alignment upgrade that binds model obligations,
 owner code contracts, source audit, closure targets, and test evidence.
 Guards against: green alignment claims when a model obligation has no code
@@ -14,7 +12,7 @@ traceability. Plane-aware obligations also block when
 product runtime, AI operation, and development-process evidence are mixed.
 
 Run:
-python .flowguard/verification/owners/model_test_code_alignment/run_checks.py
+python -m flowguard map models model_test_code_alignment
 """
 
 from __future__ import annotations

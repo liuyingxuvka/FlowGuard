@@ -1,14 +1,13 @@
 """FlowGuard model for model-topology hazard review.
 
-FlowGuard Risk Purpose Header
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+FlowGuard model
 Purpose: ensure experienced-engineer future-risk inference is grounded in model
 topology before it affects confidence.
 Guards against: generic unanchored AI warnings acting as hard gates, topology
 hazards staying as prose only, compatibility history lacking a disposition, and
 full confidence before anchored future-use hazards are handled or scoped.
 Modeled block shape: Input x State -> Set(Output x State).
-Run: python .flowguard/verification/owners/model_topology_hazard_review/run_checks.py
+Run: python -m flowguard map models model_topology_hazard_review
 """
 
 from __future__ import annotations

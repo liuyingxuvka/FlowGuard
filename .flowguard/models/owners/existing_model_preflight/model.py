@@ -19,7 +19,7 @@ global FlowGuard routing, Codex skill prompts, model-grounding helper APIs, or
 skill trigger tests for existing-system work.
 
 Run:
-python .flowguard/verification/owners/existing_model_preflight/run_checks.py
+python -m flowguard map models existing_model_preflight
 """
 
 from __future__ import annotations

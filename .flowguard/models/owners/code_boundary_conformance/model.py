@@ -1,7 +1,5 @@
 """FlowGuard rollout model for code boundary conformance.
 
-Risk Purpose Header:
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: review the Model-Test Alignment upgrade that checks whether real code
 stays inside model-declared input/output boundaries.
 Guards against: accepting forbidden inputs, producing undeclared outputs,
@@ -10,7 +8,7 @@ internal-path-only boundary evidence, and claiming alignment without runtime
 boundary observations.
 
 Run:
-python .flowguard/verification/owners/code_boundary_conformance/run_checks.py
+python -m flowguard map models code_boundary_conformance
 """
 
 from __future__ import annotations

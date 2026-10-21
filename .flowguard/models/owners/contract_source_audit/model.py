@@ -1,7 +1,5 @@
 """FlowGuard rollout model for Python contract source audit.
 
-Risk Purpose Header:
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: review the source-audit layer that checks whether real Python code
 and real Python tests support declared model/test/code external contracts.
 Guards against: trusting declared CodeContract/TestEvidence rows when the code
@@ -9,7 +7,7 @@ symbol is missing, inputs/outputs/state writes/side effects disagree, tests do
 not call the target code surface, or tests have no external assertion.
 
 Run:
-python .flowguard/verification/owners/contract_source_audit/run_checks.py
+python -m flowguard map models contract_source_audit
 """
 
 from __future__ import annotations

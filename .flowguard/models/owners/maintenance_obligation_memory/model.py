@@ -1,14 +1,13 @@
 """FlowGuard model for maintenance obligation memory.
 
-FlowGuard Risk Purpose Header
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+FlowGuard model
 Purpose: ensure remembered FlowGuard maintenance gaps are inherited by existing
 routes instead of becoming a separate debt-hunting workflow.
 Guards against: anchored obligations disappearing, unanchored observations
 blocking unrelated work, self-resolved debt memory, and broad confidence claims
 before owner-route evidence exists.
 Modeled block shape: Input x State -> Set(Output x State).
-Run: python .flowguard/verification/owners/maintenance_obligation_memory/run_checks.py
+Run: python -m flowguard map models maintenance_obligation_memory
 """
 
 from __future__ import annotations

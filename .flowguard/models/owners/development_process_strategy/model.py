@@ -9,7 +9,7 @@ details; this model consumes only its current evidence boundary.
 Every block implements ``Input x State -> Set(Output x State)``.
 
 Run:
-python .flowguard/verification/owners/development_process_strategy/run_checks.py
+python -m flowguard map models development_process_strategy
 """
 
 from __future__ import annotations

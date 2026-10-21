@@ -1,7 +1,4 @@
-"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+"""FlowGuard model.
 
 Purpose:
 Models the development_process_flow route before implementation. The model
@@ -39,7 +36,7 @@ development lifecycle routing, process evidence freshness, V-style validation
 pairs, template guidance, and release/readiness claim logic.
 
 Run:
-python .flowguard/verification/owners/development_process_flow/run_checks.py
+python -m flowguard map models development_process_flow
 """
 
 from __future__ import annotations
