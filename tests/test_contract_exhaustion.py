@@ -99,7 +99,6 @@ class ContractExhaustionTests(unittest.TestCase):
             tuple(acceptance.acceptance_id for acceptance in report.composite_handoff_acceptances),
             contract_exhaustion_to_composite_handoff_acceptance_ids(report),
         )
-        self.assertIn("composite_handoff", report.format_text())
         obligations = contract_exhaustion_to_model_obligations(report)
         self.assertEqual(3, len(obligations))
         self.assertTrue(all("contract_exhaustion:" in obligation.obligation_id for obligation in obligations))

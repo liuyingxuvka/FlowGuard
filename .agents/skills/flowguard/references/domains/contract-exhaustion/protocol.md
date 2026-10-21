@@ -93,11 +93,7 @@ if __name__ == "__main__":
 | `contract_cartesian_axis_unknown` | A group uses an axis id that is not declared. |
 | `contract_cartesian_axis_foreign_model` | A group uses an axis owned by another model. |
 | `contract_cartesian_case_limit_exceeded` | Product exceeds the plan's `cartesian_case_limit` or the group's `max_combinations`. |
-| `contract_oracle_feedback_fields_missing` | Actionable feedback required, oracle has no `expected_message_fields`. |
-| `contract_oracle_repair_fields_missing` | Actionable feedback required, oracle has no `required_repair_fields`. |
 | `expected_family_member_omitted` | An id in `expected_family_member_ids` is missing from `materialized_family_member_ids`. |
-| `coverage_universe_missing` | A broad claim (`done`, `release`, `full`, ...) has no `ContractCoverageUniverse`. |
-| `coverage_universe_item_missing` | The universe lists a dimension, axis or group that the plan never generated. |
 
 `report.findings` holds the codes; `report.ok` is the pass/fail bit.
 
@@ -122,9 +118,6 @@ if __name__ == "__main__":
 ## Limits
 - It only exhausts what you declared. A missing dimension or axis is a model gap
   the review cannot see. It does not run the code; pair every case id with a real test.
-- With `ContractCoverageUniverse(allow_partitioned_product=True)`, the denominator is
-  the plan's own declared groups and axes; `partition_group_coverage_incomplete` checks
-  only against them. Nothing stops a plan shrinking its axes; review diffs to them.
-- Broad claim scopes also require a coverage universe, composite handoff results and
-  actionable oracles for every case; use `claim_scope="routine"` unless you supply them.
+- Keep `claim_scope="routine"`. "confidence: full" in the report means the declared scope is
+  complete; no code was executed.
 - Default oracles exist only for the built-in mutation types; custom types need an oracle.

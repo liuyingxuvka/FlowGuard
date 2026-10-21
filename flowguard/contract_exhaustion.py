@@ -1790,7 +1790,7 @@ class ContractExhaustionReport:
             "=== flowguard contract exhaustion mesh ===",
             f"plan_id: {self.plan_id}",
             f"decision: {self.decision}",
-            f"confidence: {self.confidence}",
+            f"confidence: {self.confidence} (declared scope; no code executed)",
             f"generated_cases: {len(self.generated_cases)}",
             f"combination_cases: {len(self.combination_cases)}",
         ]
@@ -1819,14 +1819,7 @@ class ContractExhaustionReport:
                 f"mapped={len(self.observed_problem_backfeed_report.mapped_problem_ids)} "
                 f"unmapped={len(self.observed_problem_backfeed_report.unmapped_problem_ids)}"
             )
-        for route, case_ids in sorted(self.required_route_case_ids.items()):
-            lines.append(f"route {route}: {', '.join(case_ids) if case_ids else '(none)'}")
-        for acceptance in self.composite_handoff_acceptances:
-            lines.append(
-                "composite_handoff "
-                f"{acceptance.acceptance_id}: {acceptance.case_id} -> "
-                f"{', '.join(acceptance.route_ids)}"
-            )
+
         if self.findings:
             lines.append("findings:")
             for finding in self.findings:
