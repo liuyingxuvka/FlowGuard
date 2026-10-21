@@ -119,8 +119,12 @@ need a new adapter. Report model-level confidence when no runtime replay was nee
 ## Capability models (kits and runners)
 
 `python -m flowguard template field-lifecycle | contract-exhaustion | ui-flow-structure --write .`
-writes one contract model built from a kit (`flowguard.kit`: `case_table_explorer`, `plan_explorer`;
-code facts or replay as conformance). The other templates write `.flowguard/models/owners/<name>/model.py`
+writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
+code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
+each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
+explores every feature and every pair, generates the known-bad variants (`feature_variants`) and, in
+`feature_conformance(features, base, review)`, runs each combination on the real code and prints a
+counterexample (features, expected and observed verdict) for each one that disagrees. The other templates write `.flowguard/models/owners/<name>/model.py`
 and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and
 `TESTED_BY`) at top level and follows the same anchor rule. Template anchors contain `REPLACE_ME` and
 fail until you name your code. List the model or runner in the owning component's `models` and run
