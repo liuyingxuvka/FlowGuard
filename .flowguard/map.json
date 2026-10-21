@@ -503,7 +503,7 @@
         ".flowguard/verification/owners/contract_source_audit/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:08e643b238509f71b81583fbff1a43330118e3b68f90867b8d6e2a0f85c939bd"
+      "fingerprint": "sha256:8590d51db16730e0cf3850c03c2e95ee86b4144a27607d52869590f168bd9ff7"
     },
     {
       "id": "topology-hazard",

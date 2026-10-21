@@ -12,7 +12,6 @@ from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
 from .export import to_jsonable
-from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
 
 
 FAMILY_EVIDENCE_STATUS_PASSED = "passed"
@@ -111,7 +110,6 @@ class ObligationFamily:
     allowed_provenance: tuple[str, ...] = ()
     required: bool = True
     require_external_evidence: bool = True
-    require_proof_artifacts: bool = False
     allow_scoped_confidence: bool = True
     inventory_revision: str = ""
     inventory_source_ref: str = ""
@@ -170,7 +168,6 @@ class ObligationFamily:
             "allowed_provenance": list(self.allowed_provenance),
             "required": self.required,
             "require_external_evidence": self.require_external_evidence,
-            "require_proof_artifacts": self.require_proof_artifacts,
             "allow_scoped_confidence": self.allow_scoped_confidence,
             "inventory_revision": self.inventory_revision,
             "inventory_source_ref": self.inventory_source_ref,
@@ -201,7 +198,6 @@ class ObligationFamilyEvidence:
     covered_obligations: tuple[str, ...] = ()
     command: str = ""
     summary: str = ""
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     stale_reasons: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -216,7 +212,6 @@ class ObligationFamilyEvidence:
         object.__setattr__(self, "covered_obligations", _as_tuple(self.covered_obligations))
         object.__setattr__(self, "command", str(self.command))
         object.__setattr__(self, "summary", str(self.summary))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "stale_reasons", _as_tuple(self.stale_reasons))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
@@ -242,7 +237,6 @@ class ObligationFamilyEvidence:
             "covered_obligations": list(self.covered_obligations),
             "command": self.command,
             "summary": self.summary,
-            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "stale_reasons": list(self.stale_reasons),
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -759,20 +753,6 @@ def _cell_for(
                 )
                 invalid_obligation_binding.append(item)
                 continue
-        gaps = proof_artifact_gap_codes(item.proof_artifact) if family.require_proof_artifacts else ()
-        if gaps:
-            findings.append(
-                _finding(
-                    "family_evidence_proof_artifact_gap",
-                    "family evidence proof artifact is incomplete",
-                    family_id=family.family_id,
-                    member_id=member.member_id,
-                    mechanism_id=mechanism_id,
-                    evidence_id=item.evidence_id,
-                    metadata={"gap_codes": gaps},
-                )
-            )
-            continue
         accepted.append(item)
 
     if accepted:
