@@ -1,51 +1,53 @@
-"""Finite native contract for the Python function/state verification engine.
+"""Feature model of the Python function/state verification engine (FlowGuard's own core).
 
-This owner executes the real Python library, independently of the portable
-JSON interpreter. Passing cases prove only the explicitly declared finite
-fixtures. Bad cases pass their oracle only when the real engine exposes the
-named failure; they never license production conformance or unbounded proofs.
+The engine invokes blocks through their hooks, normalizes their results, explores every
+nondeterministic branch, reports dead, empty and raising paths, checks invariants and required
+labels, reports a spent budget as incomplete, replays a recorded trace against an independent
+adapter, checks step write contracts and searches loop graphs for non-terminating cycles.
+
+The clean input is one small engine fixture that uses all of these correctly: a model whose block
+records tokens (idempotently), branches safely and stops on a terminal output; a recorded trace and an
+adapter that only receives inputs; a write contract the trace keeps; a terminating loop graph.  Each
+rejecting feature adds one engine-level defect to it (a block that cannot be invoked, a duplicate write,
+a corrupted expected trace, ...) and names the finding the engine must report; each benign feature is a
+variation the engine must treat the same (another invocation hook, result objects, a supplied
+exploration report).  The kit explores every feature alone and every pair on the real engine, so a
+defect hidden by another one is a counterexample.
+
+Run:
+python -m flowguard map models python_function_state_verification
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-import json
-from pathlib import Path
 
 from flowguard.checks import no_duplicate_values
 from flowguard.conformance import replay_trace
 from flowguard.contract import FunctionContract, check_trace_contracts
-from flowguard.core import (
-    FunctionResult, Invariant, block_accepts_input, coerce_function_result,
-    invoke_block, normalize_function_results,
-)
+from flowguard.core import FunctionResult, Invariant, invoke_block
+from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
 from flowguard.loop import GraphEdge, LoopCheckConfig, check_loops
 from flowguard.plan import FlowGuardCheckPlan, ScenarioMatrixConfig
-from flowguard.risk import RiskIntent, RiskProfile
-from flowguard.risk_templates import KnownBadProof, MinimumModelContract
 from flowguard.replay import ReplayInput, ReplayObservation
 from flowguard.runner import run_model_first_checks
-from flowguard.trace import Trace
 from flowguard.workflow import Workflow
 
-
 MODEL_ID = "python_function_state_verification"
-PROTECTED_FAILURE_IDS = (
-    "engine_unsupported_invocation_hidden",
-    "engine_result_coercion",
-    "engine_nondeterministic_branch_loss",
-    "engine_exception_or_dead_path_hidden",
-    "engine_invariant_or_reachability_miss",
-    "engine_incomplete_exploration_claimed_complete",
-    "engine_trace_state_corruption",
-    "engine_step_contract_violation_hidden",
-    "engine_conformance_mismatch_or_expectation_leak",
-    "engine_loop_nonprogress_hidden",
-)
-ENGINE_SOURCE_PATHS = tuple("flowguard/" + name + ".py" for name in (
-    "core", "contract", "checks", "explorer", "runner", "trace", "workflow",
-    "plan", "replay", "conformance", "loop", "risk", "risk_templates",
-))
+COMPONENTS = ["engine-properties"]
+IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
+                  "Replay": "flowguard/conformance.py:replay_trace",
+                  "TraceContracts": "flowguard/contract.py:check_trace_contracts",
+                  "Loops": "flowguard/loop.py:check_loops",
+                  "ModelFirstChecks": "flowguard/runner.py:run_model_first_checks"}
+TESTED_BY = {
+    "every_defect_reported": ["tests/test_python_function_state_verification_owner.py:"
+                              "test_the_real_engine_reports_every_defect_alone_and_in_pairs"],
+    "clean_input_accepted": ["tests/test_python_function_state_verification_owner.py:"
+                             "test_invocation_priority_oracle_rejects_running_lower_priority_hook",
+                             "tests/test_python_function_state_verification_owner.py:"
+                             "test_branch_oracle_rejects_loss_of_second_nondeterministic_result"]}
+WRONG_HOOK = "wrong_hook"
 
 
 @dataclass(frozen=True)
@@ -54,411 +56,218 @@ class State:
     cache: tuple[str, ...] = ()
 
 
+@dataclass(frozen=True)
+class ResultObject:
+    """A block result given as a plain object; the engine coerces it."""
+
+    output: str
+    state: State
+    label: str
+
+
+class RouterBase:
+    """The block under test: what it does depends on the input token."""
+
+    name = "Router"
+
+    def __init__(self, objects: bool = False) -> None:
+        self.objects = objects
+        self.calls = 0
+
+    def can_accept(self, token) -> bool:                  # input hook: 'reject' becomes a dead branch
+        return token != "reject"
+
+    def _result(self, value: str, state: State, duplicate: bool = False):
+        records = state.records + (value,) if duplicate or value not in state.records else state.records
+        new = replace(state, records=records)
+        return ResultObject(value, new, value) if self.objects else FunctionResult(value, new, label=value)
+
+    def route(self, token: str, state: State):
+        self.calls += 1
+        if token == "raise":
+            raise ValueError("deliberate block failure")
+        if token == "empty":
+            return ()
+        if token == "invalid":
+            return "not a result"
+        if token == "noninvocable":
+            return invoke_block(object(), token, state)
+        if token == "fork":                               # the right branch breaks an invariant
+            return (self._result("left", state), self._result("right", state))
+        if token == "both":                               # two safe branches; both labels are required
+            return (self._result("both:a", state), self._result("both:b", state))
+        return (self._result(token, state, duplicate=token == "dup"),)
+
+    def wrong(self, token: str, state: State):
+        return (FunctionResult(WRONG_HOOK, replace(state, records=state.records + (WRONG_HOOK,)), label=WRONG_HOOK),)
+
+
+HOOKS = ("apply", "run", "transition", "__call__")          # invocation priority, highest first
+
+
+def router(hook: str = "apply", objects: bool = False) -> RouterBase:
+    """A router whose ``hook`` routes; every lower-priority hook answers wrongly and must never run."""
+    methods = {name: (lambda self, token, state: self.route(token, state)) if name == hook else
+               (lambda self, token, state: self.wrong(token, state)) for name in HOOKS[HOOKS.index(hook):]}
+    return type(f"Router_{hook.strip('_')}", (RouterBase,), methods)(objects)
+
+
+class Tail:
+    """Second block: a terminal output must stop the path before it."""
+
+    name = "Tail"
+
+    def apply(self, value, state):
+        if value == "stop":
+            raise AssertionError("the terminal predicate did not stop the path")
+        return (FunctionResult(value, state),)
+
+
 class Record:
     name = "Record"
     reads = ("records",)
     writes = ("records",)
 
-    def apply(self, input_obj, state):
-        records = state.records if input_obj in state.records else state.records + (input_obj,)
-        return (FunctionResult(input_obj, replace(state, records=records),
-                               label="recorded", reason="idempotent append",
+    def apply(self, value, state):
+        records = state.records if value in state.records else state.records + (value,)
+        return (FunctionResult(value, replace(state, records=records), label="recorded",
                                metadata={"operation": "record"}),)
-
-
-class DuplicateRecord(Record):
-    def apply(self, input_obj, state):
-        return (FunctionResult(input_obj, replace(state, records=state.records + (input_obj,)),
-                               label="recorded"),)
-
-
-class Branch:
-    name = "Branch"
-
-    def apply(self, input_obj, state):
-        return (FunctionResult("left", State(("left",)), label="left"),
-                FunctionResult("right", State(("right",)), label="right"))
-
-
-class RejectInput:
-    name = "RejectInput"
-    accepted_input_type = int
-
-    def apply(self, input_obj, state):
-        raise AssertionError("unaccepted input must not invoke apply")
-
-
-class RaiseError:
-    name = "RaiseError"
-
-    def apply(self, input_obj, state):
-        raise ValueError("deliberate owner fixture")
-
-
-class EmptyResult:
-    name = "EmptyResult"
-
-    def apply(self, input_obj, state):
-        return ()
-
-
-class Priority:
-    def apply(self, input_obj, state):
-        return ("apply", state)
-
-    def run(self, input_obj, state):
-        return ("run", state)
-
-    def transition(self, input_obj, state):
-        return ("transition", state)
-
-    def __call__(self, input_obj, state):
-        return ("call", state)
-
-
-class RunOnly:
-    def run(self, input_obj, state):
-        return ("run", state)
-
-
-class TransitionOnly:
-    def transition(self, input_obj, state):
-        return ("transition", state)
 
 
 class Adapter:
     """Real independent state update: never receives an expected trace step."""
 
-    def __init__(self, broken=False):
-        self.broken = broken
-        self.calls = []
+    def __init__(self, duplicates: bool = False) -> None:
+        self.duplicates = duplicates
 
     def reset(self, initial_state):
         self.state = initial_state
 
     def apply_step(self, request):
-        self.calls.append(request)
         if type(request) is not ReplayInput or any(hasattr(request, key) for key in
-                ("function_output", "new_state", "old_state", "label", "reason")):
+                                                   ("function_output", "new_state", "old_state", "label", "reason")):
             raise AssertionError("replay leaked an expected output or state")
         value = request.function_input
-        if self.broken or value not in self.state.records:
+        if self.duplicates or value not in self.state.records:
             self.state = replace(self.state, records=self.state.records + (value,))
         return ReplayObservation(request.function_name, value, self.state, "recorded")
 
 
-def unique_records():
-    return no_duplicate_values("records_unique", "retries preserve uniqueness",
-                               lambda state: state.records)
+def _raises(state, trace):
+    raise ValueError("deliberate invariant failure")
 
 
-def explore(block=None, **kwargs):
-    # The formal runner owns exploration. The finite engine oracle consumes
-    # its actual report; unrelated audit findings never stand in for an engine verdict.
-    summary = run_model_first_checks(FlowGuardCheckPlan(
-        workflow=Workflow((block if block is not None else Record(),)),
-        initial_states=(State(),), external_inputs=("a",),
-        max_sequence_length=kwargs.pop("max_sequence_length", 1),
-        scenario_matrix_config=ScenarioMatrixConfig(enabled=False), **kwargs))
-    return dict(summary.metadata)["model_check_report"]
+def clean_fixture() -> dict:
+    trace = Workflow((Record(), Record())).execute(State(), "a").completed_paths[0].trace
+    return {"tokens": ("record", "both", "stop"), "hook": "apply", "objects": False, "extra_invariants": (),
+            "labels": ("record", "both:a", "both:b"), "max_transitions": None, "supplied_report": False,
+            "replay_trace": trace, "adapter_duplicates": False, "contract_trace": trace, "cycle": False}
 
 
-def _row(name, kind, ok, observation, finding=""):
-    """The oracle verdict and the actual observation are distinct fields."""
-    return {"name": name, "case_kind": kind, "ok": bool(ok),
-            "expected_ok": True, "observed_status": observation["status"],
-            "finding_codes": [finding] if finding else [],
-            # The native bridge recursively collects dictionaries as cases.
-            # Preserve the complete observation as data without manufacturing
-            # another leaf from an inner report's independent `ok` field.
-            "observation_json": json.dumps(observation, sort_keys=True)}
+def _add(key: str, value):
+    return lambda fixture: {**fixture, key: fixture[key] + (value,)}
 
 
-def _expect_type_error(callback):
-    try:
-        callback()
-    except TypeError as error:
-        return {"status": "violation", "exception": type(error).__name__,
-                "message": str(error)}
-    return {"status": "ok", "exception": ""}
+def _set(key: str, value):
+    return lambda fixture: {**fixture, key: value}
 
 
-def run_review():
-    """Execute each declared finite fixture once and return its own evidence."""
-    cases = []
-    # Hook priority and all remaining invocation forms are tested on real core.
-    values = tuple(invoke_block(block, "a", State())[0] for block in
-                   (Priority(), RunOnly(), TransitionOnly(), lambda value, state: ("call", state)))
-    acceptance = (block_accepts_input(RejectInput(), 1, State()),
-                  block_accepts_input(RejectInput(), "a", State()))
-    class HookPriority(RejectInput):
-        def can_accept(self, value):
-            return value == "allowed"
-
-    hook_priority = (block_accepts_input(HookPriority(), "allowed", State()),
-                     block_accepts_input(HookPriority(), 1, State()))
-    cases.append(_row("invocation_and_input_hooks", "good",
-                      values == ("apply", "run", "transition", "call") and acceptance == (True, False)
-                      and hook_priority == (True, False),
-                      {"status": "ok", "invoked": values, "accepted": acceptance,
-                       "can_accept_priority": hook_priority}))
-    missing = _expect_type_error(lambda: invoke_block(object(), "a", State()))
-    cases.append(_row("noninvocable_block_rejected", "bad", missing["status"] == "violation",
-                      missing, "engine_unsupported_invocation_hidden"))
-
-    result = FunctionResult("a", State(("a",)), label="recorded", metadata={"z": 2, "a": 1})
-    class ObjectResult:
-        output = "a"
-        state = State(("a",))
-        label = "recorded"
-    normalized = normalize_function_results((item for item in (result, ("b", State(("b",))))))
-    coercion_ok = (coerce_function_result(result) is result
-                   and coerce_function_result(ObjectResult()).new_state == State(("a",))
-                   and tuple(item.output for item in normalized) == ("a", "b")
-                   and result.metadata == (("a", 1), ("z", 2))
-                   and normalize_function_results(("a", State())) == (FunctionResult("a", State()),)
-                   and normalize_function_results((result, result)) == (result, result)
-                   and normalize_function_results(None) == ())
-    cases.append(_row("result_forms_and_metadata", "good", coercion_ok,
-                      {"status": "ok", "outputs": [item.output for item in normalized]}))
-    errors = tuple(_expect_type_error(callback) for callback in (
-        lambda: normalize_function_results("not a result"),
-        lambda: coerce_function_result(object()), lambda: FunctionResult([], State()),
-        lambda: FunctionResult("a", {})))
-    cases.append(_row("invalid_result_rejected", "bad",
-                      all(item["status"] == "violation" for item in errors),
-                      {"status": "violation" if all(item["status"] == "violation" for item in errors) else "ok",
-                       "rejections": errors}, "engine_result_coercion"))
-
-    branching = explore(Branch(), required_labels=("left", "right"))
-    outcomes = {trace.final_output for trace in branching.traces}
-    cases.append(_row("all_nondeterministic_branches", "good", branching.ok and outcomes == {"left", "right"},
-                      {"status": "ok" if branching.ok else "violation", "outputs": sorted(outcomes)}))
-    unsafe = explore(Branch(), invariants=(Invariant("reject_right", "right branch is unsafe",
-                                                   lambda state, trace: "right" not in state.records),))
-    cases.append(_row("unsafe_second_branch_detected", "bad",
-                      not unsafe.ok and any(item.trace.final_output == "right" for item in unsafe.violations),
-                      {"status": "violation" if not unsafe.ok else "ok", "report": unsafe.to_dict()},
-                      "engine_nondeterministic_branch_loss"))
-
-    dead = explore(RejectInput())
-    empty = explore(EmptyResult())
-    raised = explore(RaiseError())
-    def raising_invariant(state, trace):
-        raise ValueError("deliberate invariant fixture")
-    invariant_error = explore(invariants=(Invariant("raises", "must fail closed", raising_invariant),))
-    error_ok = (not dead.ok and len(dead.dead_branches) == 1
-                and not empty.ok and len(empty.dead_branches) == 1
-                and not raised.ok and len(raised.exception_branches) == 1
-                and raised.exception_branches[0].error_type == "ValueError"
-                and not invariant_error.ok and bool(invariant_error.violations)
-                and "ValueError" in invariant_error.violations[0].message)
-    cases.append(_row("rejected_empty_and_exception_paths", "bad", error_ok,
-                      {"status": "violation" if error_ok else "ok", "dead": dead.to_dict(),
-                       "empty": empty.to_dict(), "raised": raised.to_dict(),
-                       "invariant_exception": invariant_error.to_dict()},
-                      "engine_exception_or_dead_path_hidden"))
-
-    retry = explore(invariants=(unique_records(),), max_sequence_length=2, required_labels=("recorded",))
-    duplicate = explore(DuplicateRecord(), invariants=(unique_records(),), max_sequence_length=2,
-                        required_labels=("unreachable",))
-    cases.append(_row("idempotent_retry_and_reachability", "good", retry.ok and retry.exploration_complete,
-                      {"status": "ok" if retry.ok else "violation", "report": retry.to_dict()}))
-    cases.append(_row("invariant_and_unreachable_label_detected", "bad",
-                      not duplicate.ok and bool(duplicate.violations) and bool(duplicate.reachability_failures),
-                      {"status": "violation" if not duplicate.ok else "ok", "report": duplicate.to_dict()},
-                      "engine_invariant_or_reachability_miss"))
-
-    bounded = explore(max_sequence_length=2, max_transitions=1)
-    cases.append(_row("finite_cutoff_is_not_exhaustive_success", "bad",
-                      not bounded.ok and not bounded.exploration_complete
-                      and bounded.termination_reason == "max_transitions_exhausted"
-                      and bool(bounded.remaining_scope),
-                      {"status": "violation" if not bounded.ok else "ok", "report": bounded.to_dict()},
-                      "engine_incomplete_exploration_claimed_complete"))
-
-    run = Workflow((Record(), Record())).execute(State(), "a")
-    trace = run.completed_paths[0].trace
-    immutable = Trace(initial_state=State(), external_inputs=("a",))
-    appended = immutable.append(trace.steps[0])
-    trace_ok = (len(immutable.steps) == 0 and len(appended.steps) == 1
-                and trace.steps[0].old_state == State()
-                and trace.steps[1].old_state == trace.steps[0].new_state
-                and trace.final_state == State(("a",))
-                and trace.final_output == "a" and trace.labels == ("recorded", "recorded")
-                and trace.steps[0].metadata == (("operation", "record"),))
-    cases.append(_row("immutable_trace_and_state_chain", "good", trace_ok,
-                      {"status": "ok" if trace_ok else "violation", "trace": trace.to_dict()}))
-    early = Workflow((Record(), RaiseError())).execute(State(), "a",
-        terminal_predicate=lambda input_obj, state, trace: bool(state.records))
-    early_ok = (len(early.completed_paths) == 1 and not early.exception_branches
-                and len(early.completed_paths[0].trace.steps) == 1
-                and early.completed_paths[0].state == State(("a",)))
-    cases.append(_row("terminal_predicate_stops_later_blocks", "good", early_ok,
-                      {"status": "ok" if early_ok else "violation",
-                       "trace": early.completed_paths[0].trace.to_dict() if early.completed_paths else {}}))
-    corrupt_step = replace(trace.steps[0], new_state=State(("wrong",)))
-    corrupt = Trace(initial_state=State(), steps=(corrupt_step,))
-    replayed_corrupt = replay_trace(corrupt, Adapter())
-    cases.append(_row("corrupt_expected_trace_rejected_by_replay", "bad",
-                      not replayed_corrupt.ok and replayed_corrupt.violations[0].rule_name == "projected_state_matches",
-                      {"status": "violation" if not replayed_corrupt.ok else "ok", "report": replayed_corrupt.to_dict()},
-                      "engine_trace_state_corruption"))
-
-    contract = FunctionContract(function_name="Record", accepted_input_type=str,
-                                output_type=str, writes=("records",), forbidden_writes=("cache",))
-    correct_contract = check_trace_contracts(trace, (contract,))
-    forbidden = Trace(initial_state=State(), steps=(replace(trace.steps[0], new_state=State(("a",), ("a",))),))
-    rejected_contract = check_trace_contracts(forbidden, (contract,))
-    cases.append(_row("declared_write_contract", "good", correct_contract.ok,
-                      {"status": "ok" if correct_contract.ok else "violation", "report": correct_contract.to_dict()}))
-    cases.append(_row("forbidden_and_undeclared_write_detected", "bad",
-                      not rejected_contract.ok and {"forbidden_write", "undeclared_write"}
-                      <= set(rejected_contract.violation_names()),
-                      {"status": "violation" if not rejected_contract.ok else "ok", "report": rejected_contract.to_dict()},
-                      "engine_step_contract_violation_hidden"))
-
-    adapter = Adapter()
-    conformance = replay_trace(trace, adapter)
-    broken_adapter = Adapter(broken=True)
-    mismatch = replay_trace(trace, broken_adapter)
-    cases.append(_row("independent_adapter_receives_only_input", "good",
-                      conformance.ok and len(adapter.calls) == 2
-                      and all(type(item) is ReplayInput for item in adapter.calls),
-                      {"status": "ok" if conformance.ok else "violation", "report": conformance.to_dict()}))
-    cases.append(_row("duplicate_implementation_effect_rejected", "bad",
-                      not mismatch.ok and mismatch.failed_step_index == 2
-                      and mismatch.violations[0].rule_name == "projected_state_matches",
-                      {"status": "violation" if not mismatch.ok else "ok", "report": mismatch.to_dict()},
-                      "engine_conformance_mismatch_or_expectation_leak"))
-
-    terminating = check_loops(LoopCheckConfig(initial_states=(0,),
-        transition_fn=lambda state: (GraphEdge(state, 1, "finish"),) if state == 0 else (),
-        is_terminal=lambda state: state == 1, is_success=lambda state: state == 1, required_success=True))
-    looping = check_loops(LoopCheckConfig(initial_states=(0,),
-        transition_fn=lambda state: (GraphEdge(state, state, "retry"),),
-        is_terminal=lambda state: False))
-    cases.append(_row("finite_terminal_graph", "good", terminating.ok,
-                      {"status": "ok" if terminating.ok else "violation", "report": terminating.to_dict()}))
-    cases.append(_row("nonterminal_bottom_cycle_detected", "bad",
-                      not looping.ok and bool(looping.non_terminating_components),
-                      {"status": "violation" if not looping.ok else "ok", "report": looping.to_dict()},
-                      "engine_loop_nonprogress_hidden"))
-
-    # This assertion licenses only consumption of this exact existing report,
-    # not the unrelated entry/audit gates of a bare helper plan.
-    class CountingRecord(Record):
-        def __init__(self):
-            self.calls = 0
-
-        def apply(self, input_obj, state):
-            self.calls += 1
-            return super().apply(input_obj, state)
-
-    # Proofs come only from the counterexamples this invocation actually ran.
-    bad_rows = tuple(row for row in cases if row["case_kind"] == "bad")
-    bad_names = tuple(row["name"] for row in bad_rows)
-    observed_errors = tuple(row["finding_codes"][0] for row in bad_rows)
-    complete_bad = (set(observed_errors) == set(PROTECTED_FAILURE_IDS)
-                    and len(observed_errors) == len(PROTECTED_FAILURE_IDS)
-                    and all(row["ok"] and row["observed_status"] == "violation" for row in bad_rows))
-    proofs = tuple(KnownBadProof(
-        row["name"], protected_error_class=row["finding_codes"][0],
-        method="real_python_engine_counterexample", observed_status="expected_violation",
-        observed_failure=row["observation_json"],
-        evidence_id="native-scenario:" + MODEL_ID + ":" + row["name"],
-    ) for row in bad_rows if row["ok"] and row["observed_status"] == "violation")
-    intent = RiskIntent(
-        failure_modes=PROTECTED_FAILURE_IDS, protected_error_classes=PROTECTED_FAILURE_IDS,
-        protected_harms=("engine hides a finite counterexample or claims incomplete exploration complete",),
-        must_model_state=("records", "cache"), must_model_side_effects=("record writes", "replay adapter effects"),
-        completion_evidence=("actual finite engine oracle results",),
-        adversarial_inputs=bad_names, hard_invariants=("every declared engine failure remains observable",),
-        known_bad_cases=bad_names,
-        blindspots=("only declared finite Python engine fixtures; no portable interpreter or production conformance",),
-    )
-    counted = CountingRecord()
-    plan = FlowGuardCheckPlan(
-        workflow=Workflow((counted,)), initial_states=(State(),), external_inputs=("a",),
-        invariants=(unique_records(),), scenario_matrix_config=ScenarioMatrixConfig(enabled=False),
-        risk_profile=RiskProfile(modeled_boundary=__doc__, risk_intent=intent),
-        minimum_model_contract=MinimumModelContract(
-            protected_error_classes=PROTECTED_FAILURE_IDS, modeled_state=intent.must_model_state,
-            modeled_side_effects=intent.must_model_side_effects,
-            completion_evidence=intent.completion_evidence, known_bad_cases=bad_names),
-        known_bad_proofs=proofs,
-    )
-    initial_summary = run_model_first_checks(plan)
-    supplied = dict(initial_summary.metadata)["model_check_report"]
-    before = counted.calls
-    summary = run_model_first_checks(plan, model_report=supplied)
-    consumed = dict(summary.metadata)["model_check_report"]
-    gate_names = ("minimum_model_review", "known_bad_proof", "model_check")
-    gates = {section.name: section.status for section in summary.sections if section.name in gate_names}
-    missing_proof = run_model_first_checks(replace(plan, known_bad_proofs=proofs[:-1]), model_report=supplied)
-    negative = next(section for section in missing_proof.sections if section.name == "known_bad_proof")
-    same_once = (complete_bad and consumed is supplied and before == 1 and counted.calls == before
-                 and set(gates) == set(gate_names) and all(status == "pass" for status in gates.values())
-                 and negative.status != "pass")
-    cases.append(_row("runner_preserves_supplied_exploration_report", "good", same_once,
-                      {"status": "ok" if same_once else "violation", "formal_gates": gates,
-                       "missing_proof_status": negative.status,
-                       "consumed_same_report": consumed is supplied,
-                       "calls_before": before, "calls_after": counted.calls}))
-    # Keep typed formal evidence as JSON data, outside the native bridge's leaf dictionary collection.
-    return {"native_cases": cases, "claim_boundary": __doc__,
-            "formal_entry_json": json.dumps({"plan": plan.to_dict(), "gates": gates,
-                "missing_proof_status": negative.status, "missing_proof_findings": negative.findings,
-                "complete_executed_bad_cases": complete_bad}, sort_keys=True)}
+def _corrupt_first_step(fixture):
+    trace = fixture["replay_trace"]
+    return {**fixture, "replay_trace": replace(trace, steps=(replace(trace.steps[0], new_state=State(("wrong",))),)
+                                                + trace.steps[1:])}
 
 
-# FlowGuard contract: each declared fixture above is a case (good fixtures must pass, bad ones must
-# be caught); conformance runs them on the real engine once and compares each row's verdict.
-from functools import lru_cache  # noqa: E402
+def _write_forbidden_cache(fixture):
+    trace = fixture["contract_trace"]
+    return {**fixture, "contract_trace": replace(trace, steps=(replace(trace.steps[0], new_state=State(("a",), ("a",))),)
+                                                  + trace.steps[1:])}
 
-from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
 
-COMPONENTS = ["engine-properties"]
-IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
-                  "Replay": "flowguard/conformance.py:replay_trace",
-                  "TraceContracts": "flowguard/contract.py:check_trace_contracts",
-                  "Loops": "flowguard/loop.py:check_loops",
-                  "ModelFirstChecks": "flowguard/runner.py:run_model_first_checks"}
-TESTED_BY = {"verdict_matches_case": [
-    "tests/test_python_function_state_verification_owner.py:"
-    "test_actual_library_satisfies_each_declared_positive_and_negative_oracle"]}
-ORACLE = "oracle_holds"
-GOOD = ("invocation_and_input_hooks", "result_forms_and_metadata", "all_nondeterministic_branches",
-        "idempotent_retry_and_reachability", "immutable_trace_and_state_chain", "terminal_predicate_stops_later_blocks",
-        "declared_write_contract", "independent_adapter_receives_only_input", "finite_terminal_graph",
-        "runner_preserves_supplied_exploration_report")
-BAD = ("noninvocable_block_rejected", "invalid_result_rejected", "unsafe_second_branch_detected",
-       "rejected_empty_and_exception_paths", "invariant_and_unreachable_label_detected",
-       "finite_cutoff_is_not_exhaustive_success", "corrupt_expected_trace_rejected_by_replay",
-       "forbidden_and_undeclared_write_detected", "duplicate_implementation_effect_rejected",
-       "nonterminal_bottom_cycle_detected")
-CASES = tuple(Case(name, True, (ORACLE,)) for name in GOOD) + tuple(Case(name, False, (ORACLE,)) for name in BAD)
+FEATURES = (
+    Feature("noninvocable_block", True, ("exception:noninvocable:TypeError",), _add("tokens", "noninvocable")),
+    Feature("invalid_result", True, ("exception:invalid:TypeError",), _add("tokens", "invalid")),
+    Feature("raising_block", True, ("exception:raise:ValueError",), _add("tokens", "raise")),
+    Feature("rejected_input", True, ("dead:reject",), _add("tokens", "reject")),
+    Feature("empty_result", True, ("dead:empty",), _add("tokens", "empty")),
+    Feature("unsafe_second_branch", True, ("violation:right_branch_unsafe",), _add("tokens", "fork")),
+    Feature("duplicate_record", True, ("violation:records_unique",), _add("tokens", "dup")),
+    Feature("raising_invariant", True, ("invariant_error:raises",),
+            _add("extra_invariants", Invariant("raises", "must fail closed", _raises))),
+    Feature("unreachable_required_label", True, ("unreachable:label:never_reached",), _add("labels", "never_reached")),
+    # A transition budget stops the exploration by design: later defects stay unexplored, not masked.
+    Feature("transition_budget_spent", True, ("incomplete:max_transitions_exhausted",), _set("max_transitions", 1),
+            exclusive=True),
+    Feature("corrupt_expected_trace", True, ("replay:projected_state_matches",), _corrupt_first_step),
+    Feature("duplicating_adapter", True, ("replay:projected_state_matches",), _set("adapter_duplicates", True)),
+    Feature("forbidden_write", True, ("contract:forbidden_write", "contract:undeclared_write"), _write_forbidden_cache),
+    Feature("bottom_cycle", True, ("loop:non_terminating",), _set("cycle", True)),
+    Feature("block_invoked_through_run", False, (), _set("hook", "run")),
+    Feature("block_invoked_as_callable", False, (), _set("hook", "__call__")),
+    Feature("results_as_objects", False, (), _set("objects", True)),
+    Feature("runner_given_its_exploration_report", False, (), _set("supplied_report", True)),
+)
 
 
 def build_explorer():
-    return case_table_explorer(CASES)
+    return feature_explorer(FEATURES)
 
 
 def broken_variants():
-    return case_table_variants(CASES)
+    return feature_variants(FEATURES)
 
 
-@lru_cache(maxsize=1)
-def _rows() -> dict:
-    return {row["name"]: row for row in run_review()["native_cases"]}
+def _explore(fixture: dict) -> tuple[object, list[str]]:
+    block = router(fixture["hook"], fixture["objects"])
+    invariants = (no_duplicate_values("records_unique", "retries preserve uniqueness", lambda state: state.records),
+                  Invariant("right_branch_unsafe", "the right branch is unsafe", lambda s, t: "right" not in s.records),
+                  Invariant("hooks_by_priority", "only the highest-priority hook runs",
+                            lambda s, t: WRONG_HOOK not in s.records)) + fixture["extra_invariants"]
+    plan = FlowGuardCheckPlan(
+        workflow=Workflow((block, Tail())), initial_states=(State(),), external_inputs=fixture["tokens"],
+        invariants=invariants, max_sequence_length=2, max_transitions=fixture["max_transitions"],
+        terminal_predicate=lambda output, state, trace: output == "stop", required_labels=fixture["labels"],
+        scenario_matrix_config=ScenarioMatrixConfig(enabled=False))
+    report = dict(run_model_first_checks(plan).metadata)["model_check_report"]
+    problems = []
+    if fixture["supplied_report"]:                        # the runner must consume it, not explore again
+        calls = block.calls
+        consumed = dict(run_model_first_checks(plan, model_report=report).metadata)["model_check_report"]
+        if consumed is not report or block.calls != calls:
+            problems.append("runner_explored_again")
+    return report, problems
 
 
-def _observe(case):
-    row = _rows().get(case.name)
-    if row is None:
-        return None
-    return row["observed_status"] == "ok", (ORACLE,) if row["ok"] else ()
+def run_engine(fixture: dict):
+    """Run the real engine on the fixture; every finding becomes a code (accepted = no finding)."""
+    report, codes = _explore(fixture)
+    codes += [f"dead:{branch.function_input}" for branch in report.dead_branches]
+    codes += [f"exception:{branch.function_input}:{branch.error_type}" for branch in report.exception_branches]
+    codes += [f"invariant_error:{v.invariant_name}" if v.message.startswith("invariant raised ")
+              else f"violation:{v.invariant_name}" for v in report.violations]
+    codes += [f"unreachable:{failure.name}" for failure in report.reachability_failures]
+    if not report.exploration_complete:
+        codes.append(f"incomplete:{report.termination_reason}")
+    for trace in report.traces:                           # the state chain of every explored trace is intact
+        if any(step.old_state != before.new_state for before, step in zip(trace.steps, trace.steps[1:])):
+            codes.append("trace_state_chain_broken")
+    replayed = replay_trace(fixture["replay_trace"], Adapter(fixture["adapter_duplicates"]))
+    if not replayed.ok:
+        codes.append(f"replay:{replayed.violations[0].rule_name}")
+    contract = FunctionContract(function_name="Record", accepted_input_type=str, output_type=str,
+                                writes=("records",), forbidden_writes=("cache",))
+    codes += [f"contract:{name}" for name in check_trace_contracts(fixture["contract_trace"], (contract,)).violation_names()]
+    if fixture["cycle"]:
+        loops = check_loops(LoopCheckConfig(initial_states=(0,), transition_fn=lambda s: (GraphEdge(s, s, "retry"),),
+                                            is_terminal=lambda s: False))
+    else:
+        loops = check_loops(LoopCheckConfig(
+            initial_states=(0,), transition_fn=lambda s: (GraphEdge(s, 1, "finish"),) if s == 0 else (),
+            is_terminal=lambda s: s == 1, is_success=lambda s: s == 1, required_success=True))
+    if not loops.ok:
+        codes.append("loop:non_terminating" if loops.non_terminating_components else "loop:not_ok")
+    return not codes, tuple(codes)
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, clean_fixture, run_engine)
