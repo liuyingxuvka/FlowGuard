@@ -6,6 +6,7 @@ generic corpus template is intentionally not used by this entry point.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Iterable
 
 from flowguard.executable import ExecutableCaseResult, ExecutableCorpusReport
@@ -25,8 +26,14 @@ def execute_problem_cases(cases: Iterable[ProblemCase]) -> tuple[ExecutableCaseR
     return execute_real_model_cases(cases)
 
 
+@lru_cache(maxsize=1)
+def _default_corpus_review() -> ExecutableCorpusReport:
+    return review_real_model_corpus(build_problem_corpus())
+
+
 def review_executable_corpus(corpus: ProblemCorpus | None = None) -> ExecutableCorpusReport:
-    return review_real_model_corpus(corpus or build_problem_corpus())
+    """The default corpus is reviewed once per process; the frozen report is shared."""
+    return review_real_model_corpus(corpus) if corpus is not None else _default_corpus_review()
 
 
 __all__ = [

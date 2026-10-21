@@ -9,7 +9,8 @@ from typing import Any
 
 from flowguard.export import to_jsonable
 
-from .real_models import classify_failure_mode, review_real_model_corpus
+from .executable import review_executable_corpus
+from .real_models import classify_failure_mode
 
 
 PRIORITY_SCENARIO_FAMILIES = (
@@ -105,7 +106,7 @@ def review_priority_family_scenarios(
 ) -> FamilyScenarioSeedReport:
     """Summarize non-job-matching scenario pressure for priority families."""
 
-    executable_report = review_real_model_corpus()
+    executable_report = review_executable_corpus()
     by_family: dict[str, list] = defaultdict(list)
     for result in executable_report.results:
         if result.workflow_family in families:

@@ -2,6 +2,7 @@ import unittest
 
 from flowguard.benchmark import build_benchmark_scorecard
 
+from examples.problem_corpus.executable import review_executable_corpus
 from examples.problem_corpus.matrix import build_problem_corpus
 from examples.problem_corpus.real_models import (
     MODEL_SPECS,
@@ -18,7 +19,7 @@ class RealModelCorpusTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.corpus = build_problem_corpus()
-        cls.report = review_real_model_corpus(cls.corpus)
+        cls.report = review_executable_corpus()
         cls.results = cls.report.results
 
     def test_model_specs_cover_all_workflow_families(self):
