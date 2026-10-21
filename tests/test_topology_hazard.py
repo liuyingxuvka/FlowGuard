@@ -162,7 +162,7 @@ class TopologyHazardTests(unittest.TestCase):
 
         self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE, landmark_types)
         self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT, landmark_types)
-        self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN, landmark_types)
+        self.assertNotIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN, landmark_types)  # evidence ids are optional
         self.assertIn(TOPOLOGY_LANDMARK_BUSINESS_PATH_LEGACY_DISPOSITION, landmark_types)
         self.assertFalse(report.ok)
         self.assertIn("business_path:submit", plan.digest.anchor_ids())

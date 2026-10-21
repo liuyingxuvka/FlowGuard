@@ -711,7 +711,7 @@
         ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:036ce6c83b4a3d408838ba0623897dc2fedb29a487429873a88c93d2a55de80f"
+      "fingerprint": "sha256:171bc4c6b61b622a596b697ab4efd3c0bf6103b02873a8b7540770bbf1c36e4a"
     },
     {
       "id": "structure-mesh",

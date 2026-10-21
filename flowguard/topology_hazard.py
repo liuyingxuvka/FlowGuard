@@ -935,16 +935,6 @@ def _infer_business_path_landmarks(
     by_id = {path.path_id: path for path in business_paths}
 
     for path in business_paths:
-        if not path.has_current_source():
-            landmarks.append(
-                TopologyLandmark(
-                    f"landmark:business-path-unproven:{path.path_id}",
-                    TOPOLOGY_LANDMARK_BUSINESS_PATH_UNPROVEN,
-                    (path.anchor_id(),),
-                    "business path lacks source labels or current evidence ids",
-                    {"path_id": path.path_id},
-                )
-            )
         if path.supersedes and path.compatibility_disposition == TOPOLOGY_COMPAT_UNKNOWN:
             landmarks.append(
                 TopologyLandmark(

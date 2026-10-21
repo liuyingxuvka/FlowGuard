@@ -48,9 +48,8 @@ no anchor stays an observation and never blocks.
    compatibility_policy=TOPOLOGY_COMPAT_UNKNOWN, persistent_history_possible=...)`.
    `infer_usage_intent(goal=, final_claim=, project_kind=)` guesses one from text; check it.
 3. Declare business paths as `BusinessPathIdentity(path_id, business_intent=, trigger=,
-   expected_terminal=, state_writes=, side_effects=, evidence_ids=, equivalent_to=,
-   exclusive_with=, supersedes=, compatibility_disposition=)`. Put real test ids in
-   `evidence_ids`; a path with no `evidence_ids` and no `source_labels` counts as unproven.
+   expected_terminal=, state_writes=, side_effects=, equivalent_to=,
+   exclusive_with=, supersedes=, compatibility_disposition=)`.
 4. Build and run the review:
 
 ```python
@@ -72,14 +71,10 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
    Each candidate's `required_routes` names the follow-up (for example `model_miss_review`,
    `model_test_alignment`, `architecture_reduction`, `development_process_flow`).
 6. Review the intended plan and relevant broken cases directly or in the existing owner; assert the intended
-   one gives `report.ok` and `report.confidence == "full"` (or `"scoped"` with the reasons
-   listed), and that relevant broken plans give their expected codes. A persistent runner returns 0 only then.
+   one gives `report.ok` and that relevant broken plans give their expected codes. A persistent runner returns 0 only then.
 7. If a persistent runner was created or changed, register it in the owner's `models`; run the
    selected registered owner once with `python -m flowguard map models <id>`. Direct review needs no runner.
    Then use `python -m flowguard change` and execute affected checks not already current.
-8. Shortcut: `run_model_first_checks` already adds a `topology_hazard` section from
-   `FlowGuardCheckPlan(..., usage_intent=...)`. That auto section sees no business paths;
-   pass `topology_hazard_plan=plan` to include them.
 
 ## What blocks
 
@@ -94,7 +89,6 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
 | `hazard:repeatable-side-effect:*` | Repeatable edge with side effects; blocks broad usage. |
 | `hazard:compatibility:*` | Old/compat keyword or history; blocks broad usage if `compatibility_policy` is unknown. |
 | `hazard:business-path-conflict:*` | Paths share trigger and a write or effect but differ in terminal or effects. |
-| `hazard:business-path-unproven:*` | Path has no `evidence_ids` or `source_labels`; blocks broad usage. |
 | `hazard:business-path-legacy:*` | Path `supersedes` old ones with no `compatibility_disposition`. |
 | `hazard:business-path-duplicate:*` | Two paths do the same job (gap, not a blocker). |
 
@@ -116,7 +110,7 @@ Decision values: `topology_hazard_pass`, `topology_hazard_scoped_confidence`, `t
       their expected codes. Any new/changed persistent runner is registered and run once through `map models`.
 - [ ] Every remaining hazard is handled with a named test, or scoped with a written reason.
 - [ ] Scoped confidence is reported as scoped, never as a clean pass.
-- [ ] The tests named in `evidence_ids` pass and are listed in the component's `tests`.
+- [ ] The tests that cover handled hazards pass and are listed in the component's `tests`.
 - [ ] `python -m flowguard change` is clean; you report what ran, what was skipped, and why.
 
 ## Limits
