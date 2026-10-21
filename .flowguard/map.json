@@ -833,7 +833,7 @@
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
         "verify the map against code",
-        "impact selection: retain surviving current and historical tests/models; block missing or ambiguous test commands",
+        "impact selection: retain surviving current and historical tests/models; block missing or ambiguous test commands; select no checks for comment-only edits",
         "review architecture"
       ],
       "files": [
@@ -867,7 +867,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c217f16156256bc717c27176c5988e57a5c52cd59a76f805395a3c713b7a7e49"
+      "fingerprint": "sha256:55af298b2e4fb137914b12c965298fe3b68e614ed48623d939d5d00fd6f55a95"
     },
     {
       "id": "map-proof",

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import subprocess
@@ -35,6 +36,7 @@ class Impact:
     model_ids: list[str] = field(default_factory=list)
     test_commands: dict[str, str] = field(default_factory=dict)
     no_checks: list[str] = field(default_factory=list)
+    comment_only: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -84,6 +86,18 @@ def _previous_map(root: Path, base: str | None) -> dict | None:
         return data if isinstance(data, dict) and isinstance(data.get("components"), list) else None
     except ValueError:
         return None
+
+
+def _comment_only(root: Path, base: str | None, path: str) -> bool:
+    """An edited .py file whose AST equals its base version (comments or formatting only; docstrings count)."""
+    if base is None or not path.endswith(".py"):
+        return False
+    old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
+    try:
+        new = (root / path).read_bytes()
+        return old.returncode == 0 and old.stdout != new and ast.dump(ast.parse(old.stdout)) == ast.dump(ast.parse(new))
+    except (OSError, SyntaxError, ValueError):
+        return False
 
 
 def _binding_indexes(data: dict) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
@@ -141,6 +155,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                       if "__pycache__" not in Path(project_relative(root, f)).parts
                       and not f.endswith((".pyc", ".pyo")) and not project_relative(root, f).startswith(".flowguard/cache/")})
     previous = _previous_map(root, base) if ".flowguard/map.json" in changed else None
+    # A comment-only edit keeps its owner in REVIEW but selects no callers, tests or models.
+    comment_only = sorted(f for f in changed if _comment_only(root, base, f))
     by_id = {c["id"]: c for c in data["components"]}
     old_by_id = {c["id"]: c for c in (previous or {}).get("components", [])}
     inv.set_explicit_sources([p for comp in data["components"] for p in comp.get("files", [])])
@@ -188,15 +204,21 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             for anchor in anchors:
                 contract_tests[entry.path].add(anchor.split(":", 1)[0])
     direct, blocked, map_review = set(), [], []
-    selected_model_paths, matched = set(), set()
+    selected_model_paths, matched, seeds = set(), set(), set()
     matched_owners: dict[str, set[str]] = defaultdict(set)
-    tests = {f for f in changed if f in inv.tests and is_collectable_test(f)}
+    tests = {f for f in changed if f in inv.tests and is_collectable_test(f) and f not in comment_only}
     for f in changed:
         for comp in list(by_id.values()) + list(old_by_id.values()):
             if is_product_file(f, comp.get("files", [])):
                 direct.add(comp["id"])
                 matched.add(f)
                 matched_owners[f].add(comp["id"])
+                if f not in comment_only:
+                    seeds.add(comp["id"])
+        if f in comment_only:
+            if _owner_model_paths(f, model_bindings) or any(glob_match(f, pat) for pat in test_bindings):
+                matched.add(f)
+            continue
         selected_model_paths.update(contract_inputs.get(f, ()))
         bound_models = _owner_model_paths(f, model_bindings)
         old_bound_models = _owner_model_paths(f, old_models)
@@ -241,11 +263,12 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 now, old = by_id.get(cid), old_by_id.get(cid)
                 if now is None or old is None or any(now.get(k, []) != old.get(k, []) for k in VERIFICATION_FIELDS):
                     direct.add(cid)
+                    seeds.add(cid)
                 elif {k: v for k, v in now.items() if k not in {"status", "fingerprint"}} != \
                      {k: v for k, v in old.items() if k not in {"status", "fingerprint"}}:
                     map_review.append(cid)
-    affected, traversed = set(direct), set(direct)
-    queue = deque((cid, 0) for cid in sorted(direct))
+    affected, traversed = set(seeds), set(seeds)
+    queue = deque((cid, 0) for cid in sorted(seeds))
     while queue:
         cid, distance = queue.popleft()
         if depth is not None and distance >= depth:
@@ -256,7 +279,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 affected.add(caller)
                 traversed.add(caller)
                 queue.append((caller, distance + 1))
-    tests.update(_tests_reaching(inv, changed))
+    tests.update(_tests_reaching(inv, [f for f in changed if f not in comment_only]))
     owner_tests: dict[str, set[str]] = defaultdict(set)
     owner_models: dict[str, set[str]] = defaultdict(set)
     for cid in affected:
@@ -321,6 +344,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         map_changed=".flowguard/map.json" in changed, depth=depth,
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
+        comment_only=comment_only,
     )
 
 
@@ -336,6 +360,8 @@ def render_impact(imp: Impact) -> str:
         lines.append(f"UNCERTAIN {len(imp.uncertainty) - 5} more surfaces; use map impact --json for all paths")
     lines.extend("BLOCKED " + message for message in imp.blocked)
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
+    if imp.comment_only:
+        lines.append("comment-only edits (no tests or models selected): " + ", ".join(imp.comment_only))
     lines.append(f"models to run: {len(imp.models)} selected (full list: python -m flowguard map impact --json)" if len(imp.models) > 8
                  else f"models to run: {', '.join(imp.models) or '-'}")
     groups: dict[str, list[str]] = defaultdict(list)

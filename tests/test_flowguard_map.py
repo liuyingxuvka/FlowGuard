@@ -790,3 +790,23 @@ def test_inventory_without_bodies_still_gives_lint_its_bodies_later(tmp_path):
     os.utime(tmp_path / "pkg/a.py", (past, past))          # old enough to be cached
     assert build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False).py["pkg/a.py"].bodies == []
     assert build_inventory(tmp_path, DEFAULT_IGNORE).py["pkg/a.py"].bodies
+
+
+@pytest.mark.parametrize("edit", ["comment", "docstring", "code", "untouched"])
+def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, edit):
+    from flowguard.map.impact import render_impact
+    root, data = impact_project
+    path = root / "shop/storage.py"
+    text = path.read_text(encoding="utf-8")
+    path.write_text({"comment": text.replace("DB = {}\n", "DB = {}  # in-memory store\n\n"),
+                     "docstring": '"""Order storage."""\n' + text,
+                     "code": text.replace("return x", "return x or None"),
+                     "untouched": text}[edit], encoding="utf-8")
+    imp = impact_of(root, data, ["shop/storage.py"], base="HEAD")
+    assert imp.direct == ["storage"]
+    if edit == "comment":
+        assert imp.comment_only == ["shop/storage.py"] and "comment-only edits" in render_impact(imp)
+        assert imp.dependents == [] and imp.tests == [] and imp.models == []
+    else:
+        assert imp.comment_only == [] and imp.dependents == ["api", "orders"]
+        assert "tests/test_storage.py" in imp.tests and "orders" in imp.model_ids
