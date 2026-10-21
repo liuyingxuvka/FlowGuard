@@ -52,8 +52,7 @@ class RolloutCase:
 
 
 # These declarations identify the intended native evidence. The rollout runner
-# checks declaration consistency only; pytest executes separately and its exact
-# run-local results must be consumed through bind_pytest_execution.
+# checks declaration consistency only; pytest executes separately.
 NATIVE_PYTEST_SELECTORS = (
     "tests/test_model_test_alignment.py",
 )

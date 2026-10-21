@@ -17,11 +17,9 @@ from flowguard.model_test_alignment import (
     TestEvidence,
     audit_python_code_contracts,
     audit_python_test_assertions,
-    bind_pytest_execution,
-    pytest_alignment_input_digest,
     review_python_contract_source_audit,
-    worktree_input_paths,
 )
+from flowguard.pytest_junit import pytest_alignment_input_digest, worktree_input_paths
 
 CODE = (
     "class DuplicateOrder(Exception):\n    pass\n\n\n"
@@ -130,86 +128,6 @@ def _git_project(tmp_path):
                                     "command": "python -m pytest", "input_paths": paths,
                                     "input_digest_before": digest, "input_digest_after": digest}))
     return plan, dict(evidence_nodeids={"t": node}, nodeid_manifest=manifest, project_root=tmp_path)
-
-
-def test_recorded_worktree_run_is_current_until_any_file_changes_or_appears(tmp_path):
-    plan, kwargs = _git_project(tmp_path)
-    assert bind_pytest_execution(plan, **kwargs).test_evidence[0].has_current_pass()
-    (tmp_path / "tests/conftest.py").write_text("")
-    assert not bind_pytest_execution(plan, **kwargs).test_evidence[0].has_current_pass()
-    (tmp_path / "tests/conftest.py").unlink()
-    (tmp_path / ".gitignore").write_text(".flowguard/cache/\n# edited\n")
-    assert not bind_pytest_execution(plan, **kwargs).test_evidence[0].has_current_pass()
-
-
-def test_junit_from_another_run_is_rejected(tmp_path):
-    plan, kwargs = _git_project(tmp_path)
-    data = json.loads(kwargs["nodeid_manifest"].read_text())
-    data["statuses"] = {"tests/test_orders.py::test_pay": "skipped"}
-    kwargs["nodeid_manifest"].write_text(json.dumps(data))
-    junit = tmp_path / ".flowguard/cache/junit.xml"
-    junit.write_text('<testsuite><testcase classname="tests.test_orders" name="test_pay"/></testsuite>')
-    row = bind_pytest_execution(plan, junit_path=junit, **kwargs).test_evidence[0]
-    assert not row.has_current_pass()
-    assert any("different pytest runs" in reason for reason in row.stale_reasons)
-
-
-def test_bound_node_must_name_the_planned_test(tmp_path):
-    plan, kwargs = _git_project(tmp_path)
-    kwargs["evidence_nodeids"] = {"t": "tests/test_orders.py::test_other"}
-    data = json.loads(kwargs["nodeid_manifest"].read_text())
-    data["nodeids"] = ["tests/test_orders.py::test_other"]
-    data["statuses"] = {"tests/test_orders.py::test_other": "passed"}
-    kwargs["nodeid_manifest"].write_text(json.dumps(data))
-    row = bind_pytest_execution(plan, **kwargs).test_evidence[0]
-    assert not row.has_current_pass()
-    assert "pytest node ID does not name the planned test function" in row.stale_reasons
-
-
-@pytest.mark.parametrize('planned,node,current', [
-    ('test_pay', 'tests/test_orders.py::test_pay[a::b]', True),
-    ('test_pay[a::b]', 'tests/test_orders.py::test_pay[a::b]', True),
-    ('test_pay[a]', 'tests/test_orders.py::test_pay[b]', False),
-    ('TestA::test_pay', 'tests/test_orders.py::TestB::test_pay', False),
-    ('tests/test_other.py::test_pay', 'tests/test_orders.py::test_pay', False),
-])
-def test_exact_classes_files_and_parameter_cases_are_binding_identity(tmp_path, planned, node, current):
-    from dataclasses import replace
-    plan, kwargs = _git_project(tmp_path)
-    plan = replace(plan, test_evidence=(replace(plan.test_evidence[0], test_name=planned),))
-    kwargs['evidence_nodeids'] = {'t': node}
-    data = json.loads(kwargs['nodeid_manifest'].read_text())
-    data['nodeids'] = [node]
-    data['statuses'] = {node: 'passed'}
-    kwargs['nodeid_manifest'].write_text(json.dumps(data))
-    assert bind_pytest_execution(plan, **kwargs).test_evidence[0].has_current_pass() is current
-
-
-def test_caller_cannot_replace_old_input_digests_with_current_values(tmp_path):
-    plan, kwargs = _git_project(tmp_path)
-    (tmp_path / 'shop/orders.py').write_text("def pay():\n    return 'wrong'\n")
-    paths = list(worktree_input_paths(tmp_path))
-    digest = pytest_alignment_input_digest(tmp_path, paths)
-    row = bind_pytest_execution(plan, run_metadata={
-        'input_paths': paths, 'input_digest_before': digest, 'input_digest_after': digest,
-    }, **kwargs).test_evidence[0]
-    assert not row.has_current_pass()
-    assert any('metadata disagrees with recorder' in reason for reason in row.stale_reasons)
-
-
-def test_junit_same_outcomes_from_another_output_cannot_override_recorder(tmp_path):
-    import hashlib
-    plan, kwargs = _git_project(tmp_path)
-    junit = tmp_path / '.flowguard/cache/junit.xml'
-    junit.write_text('<testsuite><testcase name="test_pay"/></testsuite>')
-    data = json.loads(kwargs['nodeid_manifest'].read_text())
-    data['junit_digest'] = hashlib.sha256(junit.read_bytes()).hexdigest()
-    kwargs['nodeid_manifest'].write_text(json.dumps(data))
-    assert bind_pytest_execution(plan, junit_path=junit, **kwargs).test_evidence[0].has_current_pass()
-    junit.write_text('<testsuite name="another-run"><testcase name="test_pay"/></testsuite>')
-    row = bind_pytest_execution(plan, junit_path=junit, **kwargs).test_evidence[0]
-    assert not row.has_current_pass()
-    assert 'JUnit output is not the file captured by this pytest run' in row.stale_reasons
 
 
 @pytest.mark.parametrize('source', [

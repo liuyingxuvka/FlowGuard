@@ -223,7 +223,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c91d30d8e2ea473ff033d66c48c3bf9c88e2b3ede13a3b69980ccff9611a5ff6"
+      "fingerprint": "sha256:1692eea9b00b89daaca541cafb446fbc5a8d24858d1b534a88b85c1454d2f24b"
     },
     {
       "id": "templates",
@@ -646,7 +646,7 @@
     {
       "id": "model-test",
       "layer": "capabilities",
-      "summary": "Binds obligations, code and same-run test results.",
+      "summary": "Cross-checks obligations, code contracts and tests.",
       "responsibilities": [
         "cross-check obligations, code contracts and tests",
         "record and review the runtime path real code took"
@@ -671,7 +671,6 @@
         "tests/test_contract_exhaustion.py",
         "tests/test_model_test_alignment.py",
         "tests/test_model_test_binding_honesty.py",
-        "tests/test_model_test_pytest_binding.py",
         "tests/test_obligation_family.py",
         "tests/test_primary_path_authority_runtime_matrix.py",
         "tests/test_product_language_path_reuse.py",
@@ -685,7 +684,7 @@
         ".flowguard/verification/owners/runtime_path_evidence/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:8c434aaa3dc7a84065d35116b000452c8aa9b6b989ebf6af59aa815c42133555"
+      "fingerprint": "sha256:525301960037eb967b0eb0d79db5b5abdd5cd4f55affcc72c1da072d86133297"
     },
     {
       "id": "topology-hazard",

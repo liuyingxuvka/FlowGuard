@@ -1080,7 +1080,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "review_artifact_payload_validation",
         "review_code_boundary_conformance",
         "review_model_test_alignment",
-        "bind_pytest_execution",
         "pytest_alignment_input_digest",
         "worktree_input_paths",
         "review_python_contract_source_audit",

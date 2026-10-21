@@ -13,7 +13,6 @@ same rule; a test covers an obligation id that no longer exists.
 - A field, input, output, state write, side effect or error path changed, and you must check code and tests still match.
 - You claim "every rule in the model is implemented and tested" for a component.
 - A facade or adapter forwards to the real owner and must not succeed on its own.
-- Tests should record which modeled steps the real code hit, in order (runtime path evidence).
 ## Do not use when
 - You need to know whether the model itself is right (reachable bad states, invariants). Run the component's model (`python -m flowguard map models <MODEL_ID>`).
 - You need every input x state case of one rule. Use contract-exhaustion.
@@ -50,7 +49,7 @@ same rule; a test covers an obligation id that no longer exists.
        implements_obligations=("reject_duplicate_order",), external_inputs=("order",),
        external_outputs=("result",), state_writes=("orders",))
    t = TestEvidence("t_dup", test_name="test_duplicate_rejected", path="tests/test_orders.py",
-       result_status=status_from_pytest["tests/test_orders.py::test_duplicate_rejected"],
+       result_status="passed",   # what your pytest run of this test showed
        test_kind="failure_path", covered_obligations=("reject_duplicate_order",),
        covered_code_contracts=("orders.place",))
    src = {p: open(p).read() for p in ("shop/orders.py", "tests/test_orders.py")}
@@ -58,27 +57,16 @@ same rule; a test covers an obligation id that no longer exists.
        audit_python_code_contracts((cc,), src), audit_python_test_assertions((t, ...), (cc,), src))
    report = review_model_test_alignment(ModelTestAlignmentPlan("orders", obligations=(ob,),
        code_contracts=(cc,), test_evidence=(t, ...), source_audit_reports=(audit,),
-       require_source_audit=True, require_executed_evidence=True))
+       require_source_audit=True))
    # report.ok, report.decision, report.findings[i].code, report.binding_rows
    ```
-3. For an executed-alignment claim, run pytest once outside the runner with `FLOWGUARD_PYTEST_NODEIDS=.flowguard/cache/pytest-run.json`,
-   `-p flowguard.pytest_nodeid_recorder --junitxml=.flowguard/cache/pytest.xml` in a git project.
-   A separate `bind_run.py` audits sources and calls `bind_pytest_execution(plan,
-   evidence_nodeids={evidence_id: exact_nodeid}, nodeid_manifest=..., project_root=root)`.
-   The recorder supplies actual statuses and input freshness; no hand-written digests/statuses.
-   Missing, skipped, failed or stale results remain blocked. Keep evidence outside model/run_checks.
-4. A facade: `CodeContract(..., role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id="orders.place",
+3. A facade: `CodeContract(..., role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id="orders.place",
    delegation_only=True, delegation_evidence_id=..., delegation_evidence_current=True)`.
-5. Optional runtime path: in a test, `rec = RuntimePathRecorder("run-1")`, call `rec.record(node_id, ...)`
-   at each modeled step, and pass `runtime_node_contracts` (`RuntimeNodeContract`), `runtime_node_observations=rec.observations`
-   and `require_runtime_path_evidence=True` in the plan. Every node contract and every `record(...)` call
-   must carry the same `business_intent_id`, `behavior_commitment_id` and `primary_path_id`, or it blocks.
-   Template: `runtime-path-evidence`.
-6. Optional families (one rule over many members, e.g. every export format): `ObligationFamily`,
+4. Optional families (one rule over many members, e.g. every export format): `ObligationFamily`,
    `ObligationFamilyEvidence`, passed as `obligation_families` / `family_evidence`.
-7. If persisting a runner, return 0 only when the good plan is `ok` and relevant broken variants are not;
+5. If persisting a runner, return 0 only when the good plan is `ok` and relevant broken variants are not;
    direct native alignment review or an existing-owner test update requires no new scaffold.
-8. Register any new/changed persistent runner in the owner's `models`; execute the selected registered
+6. Register any new/changed persistent runner in the owner's `models`; execute the selected registered
    runner once via `python -m flowguard map models <MODEL_ID>`, without a second direct run; then use `change`.
 
 ## What blocks
@@ -90,7 +78,6 @@ same rule; a test covers an obligation id that no longer exists.
 | `code_contract_missing_behavior` | The contract does not declare an input, output, state write, side effect or error path the obligation needs. |
 | `missing_required_test_kind` | A required test kind (e.g. `failure_path`) has no passing, current test. |
 | `test_evidence_not_passing` | A bound test is `failed`, `skipped`, `not_run`, etc. |
-| `stale_test_evidence` | The test result is marked not current. |
 | `test_checks_internal_path_only` | The test asserts on internals, not the external contract. |
 | `missing_code_contract_test_evidence` | An owner contract has no passing external test. |
 | `orphan_test_evidence` | A test covers no obligation (also `unknown_obligation_reference`). |
@@ -98,8 +85,7 @@ same rule; a test covers an obligation id that no longer exists.
 | `facade_independent_business_authority` | A facade can succeed without delegating to its owner. |
 | `source_audit_blocked` | The AST audit failed: e.g. `source_contract_missing_symbol`, `source_contract_missing_state_write`, `source_test_missing_code_contract_call`, `source_test_missing_external_assertion`, `source_contract_parse_error`. |
 
-`executed_evidence_required` appears when `require_executed_evidence=True` and a test was not run.
-Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_mismatch`, `runtime_node_missing_observation`.
+Green decision: `model_test_alignment_green`.
 
 ## Risk-specific regression examples
 
@@ -112,14 +98,14 @@ Green decision: `model_test_alignment_green`. Runtime path: `runtime_path_order_
 
 - [ ] Every code contract comes from a map entrypoint that `python -m flowguard map check` accepts.
 - [ ] The selected direct native review or existing-owner check passes; relevant broken cases are blocked.
-- [ ] Test statuses come from a pytest run in this session; skipped or not-run tests are reported as such.
+- [ ] You ran the tests `python -m flowguard change` lists; skipped or not-run tests are reported as such.
 - [ ] Tests are mapped; any new/changed persistent runner is registered with one current `map models` result.
 - [ ] `python -m flowguard change` is clean. Your report lists what ran, what was skipped, and which obligations had no test.
 
 ## Limits
 
-- Declared rows are not execution evidence. Feed exact pytest node statuses through the result
-  connector with recorder-owned current input scope; require source audit and executed evidence for implementation claims.
+- Declared rows are not execution evidence: `result_status` is what you report from your own pytest run.
+  `require_source_audit=True` makes the review read the code and the tests (AST audit).
 - The AST audit checks simple imports/aliases and direct call-result assertions. Unknown receivers,
   constants-only assertions and complex dataflow cannot close an execution claim. State writes are
   still approximate: a local assignment can resemble a write; review the business meaning yourself.
