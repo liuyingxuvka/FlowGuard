@@ -546,8 +546,7 @@
       "layer": "capabilities",
       "summary": "Collects exact test IDs and runs bounded pytest shards.",
       "responsibilities": [
-        "shard tests by exact node id",
-        "reuse only exact terminal passes with matching current inputs and execution identity",
+        "shard tests by exact node id; every shard runs on every invocation",
         "retain typed capability blockers and bounded process cleanup results"
       ],
       "files": [
@@ -577,7 +576,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fce389ab527f78bd77f5850c1e6bfd1e82079be1b1ebae2fcca2cfdf0e9e6aae"
+      "fingerprint": "sha256:5df31eb76caed9f288a722024541b80df31485fe7c245f2ad5d34fd79ea880b4"
     },
     {
       "id": "ui-flow",

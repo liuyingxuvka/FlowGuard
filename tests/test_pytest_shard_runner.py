@@ -241,18 +241,6 @@ def test_pytest_shard_runner_has_one_absolute_invocation_deadline(tmp_path, monk
     assert calls == []
 
 
-def test_failed_or_partial_resume_rows_are_never_reused(tmp_path):
-    nodeids = ("tests/test_core.py::test_core",)
-    for status in ("fail", "partial", "blocked"):
-        resumed = shard_runner._resume_one_shard(
-            resume_root=tmp_path,
-            shard_id="shard-1",
-            shard_nodeids=nodeids,
-            prior_row={"status": status, "exact_selection": True},
-        )
-        assert resumed is None
-
-
 @pytest.mark.skipif(os.name == "nt", reason="POSIX process-group cleanup")
 @pytest.mark.parametrize("parent_exits", [False, True])
 def test_process_owner_cleans_children_even_after_parent_exit(tmp_path, parent_exits):
@@ -286,45 +274,6 @@ def test_process_owner_cleans_children_even_after_parent_exit(tmp_path, parent_e
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-
-
-def test_resume_requires_current_input_bytes_and_execution_identity(tmp_path, monkeypatch):
-    root = tmp_path / "project"
-    root.mkdir()
-    subprocess.run(["git", "init", "-q", str(root)], check=True)
-    source = root / "answer.py"
-    source.write_text("def answer(): return 1\n")
-    (root / "test_answer.py").write_text(
-        "from answer import answer\ndef test_answer(): assert answer() == 1\n"
-    )
-    monkeypatch.setenv("PYTHONPATH", str(Path(shard_runner.__file__).resolve().parents[1]))
-    args = shard_runner.build_parser().parse_args([
-        "--root", str(root), "--shards", "1", "--parallel-shards", "1",
-    ])
-    def run(name, previous=""):
-        monkeypatch.setenv("FLOWGUARD_PYTEST_SHARDS_DIR", str(tmp_path / name))
-        args.resume_output = str(tmp_path / previous) if previous else ""
-        return shard_runner.run(args)
-    code, first = run("first")
-    assert code == 0, first
-    code, same = run("same", "first")
-    assert code == 0 and same["shard_execution"]["resumed_shards"] == 1, same
-    monkeypatch.setenv("FLOWGUARD_REGRESSION_INPUT", "changed")
-    code, environment_changed = run("environment", "first")
-    assert code == 0 and environment_changed["shard_execution"]["resumed_shards"] == 0
-    monkeypatch.delenv("FLOWGUARD_REGRESSION_INPUT")
-    source.write_text("def answer(): return 2\n")
-    code, changed = run("changed", "first")
-    assert code == 1 and changed["status"] == "fail", changed
-    assert changed["shard_execution"]["resumed_shards"] == 0
-    assert changed["pytest_execution"]["failed"] == 1
-    source.write_text("def answer(): return 1\n")
-    request = tmp_path / "first" / "shard-01" / "requested.json"
-    legacy = json.loads(request.read_text())
-    del legacy["execution_identity"]
-    request.write_text(json.dumps(legacy))
-    code, unknown = run("legacy", "first")
-    assert code == 0 and unknown["shard_execution"]["resumed_shards"] == 0, unknown
 
 
 def test_unknown_capability_preserves_typed_block_and_aggregate(tmp_path, monkeypatch):

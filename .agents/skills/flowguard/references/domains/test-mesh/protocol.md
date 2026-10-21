@@ -56,7 +56,5 @@ never, skips hidden in a green summary, a background job's progress reported as 
 ## Limits
 - The shard runner always collects the whole suite; it cannot run only the files `change`
   selected. Run those directly with pytest.
-- `--resume-output` reuses a prior shard only when its inputs and environment are identical;
-  never resume for a final release gate.
 - A green shard run shows every test ran once and passed. It does not show the tests check the
   right behavior; pair it with model-test.

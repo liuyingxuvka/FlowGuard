@@ -5,25 +5,20 @@ from __future__ import annotations
 import argparse
 from concurrent.futures import ThreadPoolExecutor
 import json
-import hashlib
-import importlib.metadata
 import os
-import platform
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 from flowguard.pytest_shards import (  # noqa: E402
     PARTITION_ALGORITHM,
     aggregate_pytest_projections,
-    freeze_pytest_leaf_plan,
     nodeid_fingerprint,
     normalize_nodeids,
-    observe_pytest_leaf_plan,
     partition_nodeids,
     validate_partition,
 )
@@ -34,9 +29,8 @@ from flowguard.symlink_capability import (  # noqa: E402
     capability_satisfies,
     probe_symlink_capability,
 )
-from flowguard.map.runner import PROCESS_OWNER_ENV, run_isolated_process
-from flowguard.pytest_junit import (_pytest_junit_projection,
-    worktree_input_paths, pytest_alignment_input_digest)  # noqa: E402
+from flowguard.map.runner import run_isolated_process
+from flowguard.pytest_junit import _pytest_junit_projection  # noqa: E402
 
 
 def _probe_symlink_capability() -> dict[str, Any]:
@@ -137,108 +131,6 @@ def _read_object(path: Path) -> Mapping[str, Any] | None:
     except (OSError, UnicodeError, json.JSONDecodeError):
         return None
     return payload if isinstance(payload, Mapping) else None
-
-
-def _full_pytest_leaf_identity(
-    *,
-    root: Path,
-    environment: Mapping[str, str],
-    collection: Mapping[str, Any],
-    nodeids: Sequence[str],
-    capability_scope: str,
-    shard_timeout: float,
-) -> dict[str, Any]:
-    """Build the one runtime identity shared by this frozen pytest owner.
-
-    Output locations and run timestamps are intentionally absent.  The
-    identity contains the interpreter, relevant environment, pytest config
-    observation, actual arguments/instrumentation, source inventory, and
-    timeout semantics so an external/native parent can consume this table
-    only when it really describes the same leaf execution.
-    """
-
-    environment_identity = {
-        key: str(environment.get(key, ""))
-        for key in sorted(environment)
-        if key in {
-            "PYTHONHASHSEED",
-            "PYTHONPATH",
-            "PYTHONUTF8",
-            "PYTEST_ADDOPTS",
-            "PYTEST_DISABLE_PLUGIN_AUTOLOAD",
-            "PYTEST_PLUGINS",
-        }
-    }
-    # Hash the wider environment without recording credentials. Only output
-    # locations and shell bookkeeping are non-semantic for this invocation.
-    ignored_environment = {
-        "FLOWGUARD_PYTEST_SHARDS_DIR", "FLOWGUARD_PYTEST_COLLECTION_NODEIDS",
-        "FLOWGUARD_PYTEST_SHARD_NODEIDS", "FLOWGUARD_PYTEST_SHARD_COLLECTION",
-        "FLOWGUARD_PYTEST_NODEIDS", "PWD", "OLDPWD", "SHLVL", "_", PROCESS_OWNER_ENV,
-    }
-    environment_identity["variables_fingerprint"] = "sha256:" + hashlib.sha256(
-        json.dumps({key: value for key, value in environment.items()
-                    if key not in ignored_environment}, sort_keys=True).encode()
-    ).hexdigest()
-    try:
-        input_paths = worktree_input_paths(root)
-        input_digest = pytest_alignment_input_digest(root, input_paths)
-    except (OSError, ValueError):
-        input_paths, input_digest = (), ""
-    configuration = collection.get("configuration", collection.get("config", {}))
-    if isinstance(configuration, Mapping):
-        configuration_identity: Any = dict(configuration)
-    elif isinstance(configuration, Sequence) and not isinstance(
-        configuration, (str, bytes, bytearray)
-    ):
-        configuration_identity = list(configuration)
-    else:
-        configuration_identity = str(configuration or "")
-    return {
-        "interpreter": {
-            "implementation": platform.python_implementation(),
-            "version": platform.python_version(),
-            "executable": str(Path(sys.executable).resolve()),
-            "prefix": str(Path(sys.prefix).resolve()),
-        },
-        "environment": environment_identity,
-        "dependencies": sorted([dist.metadata.get("Name", ""), dist.version]
-                               for dist in importlib.metadata.distributions()),
-        "config": configuration_identity,
-        "args_semantics": {
-            "command": [
-                sys.executable,
-                "-B",
-                "-m",
-                "pytest",
-                "-p",
-                "flowguard.pytest_shard_plugin",
-                "-p",
-                "flowguard.pytest_nodeid_recorder",
-                "--junit-xml=<LEAF_OUTPUT>",
-            ],
-            "capability_scope": capability_scope,
-            "shard_algorithm": PARTITION_ALGORITHM,
-        },
-        "input_identity": {
-            "input_paths": list(input_paths),
-            "input_digest": input_digest,
-            "collected_nodeids": nodeid_fingerprint(tuple(nodeids)),
-            "collection_schema": collection.get("schema_version", ""),
-        },
-        "timeout_seconds": float(shard_timeout),
-        "timeout_result": "not_observed",
-        "plugins": [
-            "flowguard.pytest_shard_plugin",
-            "flowguard.pytest_nodeid_recorder",
-        ],
-        "instrumentation": {
-            "junit": True,
-            "nodeid_recorder": True,
-            "trace": False,
-        },
-        "working_root": str(root),
-    }
 
 
 def _run_process(
@@ -420,91 +312,6 @@ def _deadline_blocked_shard_row(
     return row, None
 
 
-def _resume_one_shard(
-    *,
-    resume_root: Path,
-    shard_id: str,
-    shard_nodeids: tuple[str, ...],
-    prior_row: Mapping[str, Any] | None,
-    execution_identity: Mapping[str, Any] | None = None,
-) -> tuple[dict[str, Any], Mapping[str, Any] | None] | None:
-    """Reuse one exact terminal shard from an explicitly supplied run.
-
-    Resumption is deliberately opt-in and exact.  The prior request must
-    name the same shard inventory, and its immutable collection/node-manifest
-    and JUnit projection must still prove that every requested node ran.  A
-    blocked, incomplete, or mismatched shard is returned to the one native
-    invocation path; this helper never retries a leaf or guesses from counts.
-    """
-
-    # Only an immutable terminal *pass* can be reused.  A failed or partial
-    # shard has concrete artefacts, but those artefacts are evidence of an
-    # unsuccessful producer and must return to the one native invocation
-    # path.  Treating them as reusable would make a final parent appear to
-    # resume successfully while never rerunning the failed tests.
-    if prior_row is None or prior_row.get("status") != "pass":
-        return None
-    if prior_row.get("exact_selection") is not True:
-        return None
-    shard_dir = resume_root / shard_id
-    request_path = shard_dir / "requested.json"
-    collection_path = shard_dir / "collection.json"
-    node_manifest_path = shard_dir / "nodeids.json"
-    junit_path = shard_dir / "pytest-junit.xml"
-    request = _read_object(request_path)
-    expected_fingerprint = nodeid_fingerprint(shard_nodeids)
-    inputs = (execution_identity or {}).get("input_identity", {})
-    if (request is None or not inputs.get("input_digest")
-            or not inputs.get("input_paths")
-            or request.get("execution_identity") != execution_identity):
-        return None
-    if (
-        request.get("schema_version") != "flowguard.pytest_shard_request.v1"
-        or request.get("shard_id") != shard_id
-        or tuple(request.get("nodeids", ())) != tuple(shard_nodeids)
-        or request.get("inventory_fingerprint") != expected_fingerprint
-    ):
-        return None
-    collection = _read_object(collection_path)
-    node_manifest = _read_object(node_manifest_path)
-    if collection is None or node_manifest is None or junit_path.is_symlink() or not junit_path.is_file():
-        return None
-    if (node_manifest.get("schema_version") != "flowguard.pytest_nodeids.v2"
-            or node_manifest.get("exit_code") != 0
-            or node_manifest.get("input_paths") != inputs["input_paths"]
-            or node_manifest.get("input_digest_before") != inputs["input_digest"]
-            or node_manifest.get("input_digest_after") != inputs["input_digest"]):
-        return None
-    selected_ids = tuple(collection.get("selected_nodeids", ()))
-    executed_ids = tuple(node_manifest.get("nodeids", ()))
-    projection = _pytest_junit_projection(
-        junit_path,
-        nodeid_manifest=node_manifest_path,
-        require_exact_nodeids=True,
-    )
-    projection_ids = tuple(projection.get("node_ids", ())) if projection else ()
-    if (
-        projection is None
-        or set(selected_ids) != set(shard_nodeids)
-        or set(executed_ids) != set(shard_nodeids)
-        or set(projection_ids) != set(shard_nodeids)
-        or len(executed_ids) != len(set(executed_ids))
-    ):
-        return None
-    row = dict(prior_row)
-    row.update(
-        {
-            "request_path": str(request_path),
-            "collection_path": str(collection_path),
-            "node_manifest_path": str(node_manifest_path),
-            "junit_path": str(junit_path),
-            "reused": True,
-            "resume_source": str(resume_root),
-        }
-    )
-    return row, projection
-
-
 def _run_one_shard(
     *,
     root: Path,
@@ -514,7 +321,6 @@ def _run_one_shard(
     shard_timeout: float,
     deadline: float,
     output_root: Path,
-    execution_identity: Mapping[str, Any],
 ) -> tuple[dict[str, Any], Mapping[str, Any] | None]:
     """Execute one exact-node leaf under the shared invocation deadline.
 
@@ -537,7 +343,6 @@ def _run_one_shard(
             "shard_id": shard_id,
             "nodeids": list(shard_nodeids),
             "inventory_fingerprint": nodeid_fingerprint(shard_nodeids),
-            "execution_identity": dict(execution_identity),
         },
     )
 
@@ -875,27 +680,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
 
     runnable_nodeids = tuple(capability_partition["runnable_nodeids"])
     blocked_nodeids = tuple(capability_partition["blocked_nodeids"])
-    leaf_identity = _full_pytest_leaf_identity(
-        root=root,
-        environment=environment,
-        collection=collection,
-        nodeids=collected_nodeids,
-        capability_scope=capability_scope,
-        shard_timeout=float(args.shard_timeout),
-    )
-    frozen_leaf_plan = freeze_pytest_leaf_plan(
-        [
-            {
-                "owner_id": "owner:flowguard:pytest",
-                "obligation_ids": ["flowguard.pytest.full"],
-                "node_ids": list(collected_nodeids),
-                "identity": leaf_identity,
-            }
-        ],
-        required_obligation_ids=("flowguard.pytest.full",),
-    )
-    frozen_leaf_plan_path = output_root / "leaf-plan.json"
-    _write_json(frozen_leaf_plan_path, frozen_leaf_plan)
     if not runnable_nodeids:
         payload = _blocked_payload(
             output_root=output_root,
@@ -911,8 +695,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         payload["planned_count"] = len(nodeids)
         payload["executed_count"] = 0
         payload["not_run_count"] = len(blocked_nodeids)
-        payload["pytest_leaf_plan"] = frozen_leaf_plan
-        payload["pytest_leaf_plan_path"] = str(frozen_leaf_plan_path)
         _write_json(output_root / "aggregate.json", payload)
         return 70, payload
 
@@ -925,64 +707,11 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             collection=collection,
         )
         payload["partition"] = partition_audit
-        payload["pytest_leaf_plan"] = frozen_leaf_plan
-        payload["pytest_leaf_plan_path"] = str(frozen_leaf_plan_path)
         _write_json(output_root / "aggregate.json", payload)
         return 70, payload
 
     shard_stage_started = time.monotonic()
     shard_results: dict[int, tuple[dict[str, Any], Mapping[str, Any] | None]] = {}
-    resume_root_value = str(getattr(args, "resume_output", "") or "").strip()
-    resume_root = Path(resume_root_value).expanduser().resolve() if resume_root_value else None
-    prior_rows: dict[str, Mapping[str, Any]] = {}
-    resumed_count = 0
-    resume_disposition = ""
-    if resume_root is not None:
-        if resume_root.is_symlink() or not resume_root.is_dir():
-            payload = _blocked_payload(
-                output_root=output_root,
-                reason="explicit pytest resume output is missing or unsafe",
-                collection=collection,
-                capability_partition=capability_partition,
-            )
-            _write_json(output_root / "aggregate.json", payload)
-            return 70, payload
-        prior_aggregate = _read_object(resume_root / "aggregate.json")
-        prior_partition = (
-            prior_aggregate.get("partition", {})
-            if prior_aggregate is not None
-            else {}
-        )
-        if (
-            not isinstance(prior_partition, Mapping)
-            or prior_partition.get("inventory_fingerprint")
-            != nodeid_fingerprint(runnable_nodeids)
-            or int(prior_partition.get("effective_shard_count", 0) or 0)
-            != len(shards)
-        ):
-            # A source change can legitimately alter the exact collected
-            # inventory (for example, adding one regression test).  The old
-            # run is then not reusable, but it is not a reason to block the
-            # current finite invocation: discard the stale resume inventory
-            # and execute the current shards once through the native path.
-            resume_disposition = "discarded_mismatched_inventory"
-            resume_root = None
-        else:
-            for raw_row in prior_aggregate.get("shards", ()) if prior_aggregate else ():
-                if isinstance(raw_row, Mapping) and str(raw_row.get("shard_id", "")).strip():
-                    prior_rows[str(raw_row["shard_id"])] = raw_row
-            for index, shard_nodeids in enumerate(shards):
-                shard_id = f"shard-{index + 1:02d}"
-                resumed = _resume_one_shard(
-                    resume_root=resume_root,
-                    shard_id=shard_id,
-                    shard_nodeids=tuple(shard_nodeids),
-                    prior_row=prior_rows.get(shard_id),
-                    execution_identity=leaf_identity,
-                )
-                if resumed is not None:
-                    shard_results[index] = resumed
-                    resumed_count += 1
     requested_parallelism = int(
         getattr(args, "parallel_shards", len(shards)) or len(shards)
     )
@@ -1009,7 +738,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
                     shard_timeout=float(args.shard_timeout),
                     deadline=invocation_deadline,
                     output_root=output_root,
-                    execution_identity=leaf_identity,
                 ): index
                 for index, shard_nodeids in pending_shards
             }
@@ -1065,60 +793,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         status = "blocked"
     if deadline_expired:
         status = "blocked"
-    projection_by_nodeid: dict[str, tuple[str, str]] = {}
-    for index, row in enumerate(shard_rows):
-        projection = shard_results[index][1]
-        if not isinstance(projection, Mapping):
-            continue
-        shard_status = (
-            "pass"
-            if row.get("status") == "pass"
-            else "fail"
-            if row.get("status") == "fail"
-            else "blocked"
-        )
-        evidence_ref = str(row.get("junit_path", ""))
-        node_statuses = projection.get("node_statuses", {})
-        for raw_nodeid in projection.get("node_ids", ()):
-            nodeid = str(raw_nodeid).strip()
-            if nodeid:
-                raw_status = (
-                    node_statuses.get(nodeid)
-                    if isinstance(node_statuses, Mapping)
-                    else None
-                )
-                leaf_status = {
-                    "passed": "pass",
-                    "xfailed": "pass",
-                    "failed": "fail",
-                    "xpassed": "fail",
-                    "error": "fail",
-                    "skipped": "blocked",
-                }.get(str(raw_status), shard_status)
-                projection_by_nodeid[nodeid] = (leaf_status, evidence_ref)
-    leaf_observations: list[dict[str, Any]] = []
-    for leaf in frozen_leaf_plan.get("leaves", ()):
-        nodeid = str(leaf.get("nodeid", "")) if isinstance(leaf, Mapping) else ""
-        if nodeid in blocked_nodeids:
-            leaf_status, evidence_ref = "blocked", ""
-        else:
-            leaf_status, evidence_ref = projection_by_nodeid.get(
-                nodeid, ("blocked", "")
-            )
-        leaf_observations.append(
-            {
-                "leaf_id": str(leaf.get("leaf_id", "")),
-                "status": leaf_status,
-                "scope": "current",
-                "evidence_refs": [evidence_ref] if evidence_ref else [],
-            }
-        )
-    observed_leaf_plan = observe_pytest_leaf_plan(
-        frozen_leaf_plan,
-        leaf_observations,
-    )
-    observed_leaf_plan_path = output_root / "leaf-plan-observation.json"
-    _write_json(observed_leaf_plan_path, observed_leaf_plan)
     payload = {
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": status,
@@ -1130,9 +804,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "that collection or external release/install parity."
         ),
         "output_root": str(output_root),
-        "pytest_leaf_plan": observed_leaf_plan,
-        "pytest_leaf_plan_path": str(frozen_leaf_plan_path),
-        "pytest_leaf_observation_path": str(observed_leaf_plan_path),
         "collection": dict(collection),
         "collection_run": collect_run,
         "deadline": {
@@ -1151,9 +822,6 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "effective_parallelism": max_parallelism,
             "execution_mode": "independent_parallel_leaves",
             "retries": 0,
-            "resumed_shards": resumed_count,
-            "resume_source": str(resume_root) if resume_root is not None else "",
-            "resume_disposition": resume_disposition,
             "leaf_collections": len(shards),
             "additional_full_collections": 0,
         },
@@ -1205,14 +873,6 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "qualify only non-platform core nodes, or require every collected "
             "platform capability (default: full)"
-        ),
-    )
-    parser.add_argument(
-        "--resume-output",
-        default="",
-        help=(
-            "explicit prior pytest-shards directory whose exact terminal "
-            "shards may be reused; incomplete or mismatched leaves run once"
         ),
     )
     parser.add_argument("--json", action="store_true")
