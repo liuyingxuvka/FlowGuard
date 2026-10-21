@@ -193,9 +193,10 @@ def feature_explorer(features: Sequence[Feature], *, max_features: int = 2) -> E
 def feature_variants(features: Sequence[Feature], *, max_features: int = 2) -> dict[str, Explorer]:
     """Generated known-bad designs; each must fail the kit's invariants.
 
-    ``ignores_<first rejecting feature>`` accepts that defect; ``reports_first_defect_only`` (two or more
-    combinable rejecting features with codes) masks every defect after the first; ``rejects_<first benign
-    feature>`` treats that variation as a defect.
+    ``ignores_<first rejecting feature>`` accepts that defect. ``reports_first_defect_only`` needs a
+    reachable ordered defect pair whose later feature adds a code absent from the earlier one; only
+    then can reporting the first defect actually mask a code. ``rejects_<first benign feature>`` treats
+    that variation as a defect.
     """
     universe = _Universe(features, max_features)
     rejecting = [feature for feature in universe.features if feature.rejects]
@@ -205,7 +206,10 @@ def feature_variants(features: Sequence[Feature], *, max_features: int = 2) -> d
         ignored = rejecting[0].name
         variants[f"ignores_{ignored}"] = universe.explorer(
             lambda names: universe.expected(tuple(name for name in names if name != ignored)))
-    if max_features >= 2 and len([f for f in rejecting if f.codes and not f.exclusive]) >= 2:
+    if any(universe.add((earlier.name,), later.name) is not None
+           and bool(set(later.codes) - set(earlier.codes))
+           for index, earlier in enumerate(rejecting)
+           for later in rejecting[index + 1:]):
         def first_only(names):
             outcome, _codes = universe.expected(names)
             first = next(iter(universe.rejecting(names)), None)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants, plan_explorer
 
 def test_plan_explorer_uses_an_existing_review_as_the_invariant():
@@ -82,7 +84,39 @@ def test_generated_known_bad_variants_fail_the_kit_invariants():
     assert "each_defect_rejected" in caught["ignores_empty_id"]
     assert caught["reports_first_defect_only"] == {"every_defect_reported"}
     assert {"clean_input_accepted", "benign_features_neutral"} <= caught["rejects_gift_note"]
-    assert list(feature_variants(FEATURES[:1])) == ["ignores_empty_id"]       # masking needs two coded defects
+    assert list(feature_variants(FEATURES[:1])) == ["ignores_empty_id"]       # a single defect cannot hide a later code
+
+
+@pytest.mark.parametrize(
+    ("earlier_codes", "later_codes", "max_features", "earlier_exclusive", "later_exclusive", "masked"),
+    [
+        (("SHARED",), ("SHARED",), 2, False, False, False),
+        (("A", "B"), ("A", "B"), 2, False, False, False),
+        (("A", "B"), ("A",), 2, False, False, False),
+        (("A",), ("A", "B"), 2, False, False, True),
+        (("A",), ("B",), 2, False, False, True),
+        ((), ("B",), 2, False, False, True),
+        (("A",), (), 2, False, False, False),
+        (("A",), ("B",), 1, False, False, False),
+        (("A",), ("B",), 2, True, False, False),
+        (("A",), ("B",), 2, False, True, False),
+    ],
+    ids=["shared", "shared_multiple", "earlier_contains_later", "later_adds_code", "distinct",
+         "earlier_no_code", "later_no_code", "single_feature_bound", "earlier_exclusive", "later_exclusive"],
+)
+def test_generated_masking_variant_requires_a_reachable_missing_code(
+        earlier_codes, later_codes, max_features, earlier_exclusive, later_exclusive, masked):
+    # Deliberately reverse lexical name order: judgments use declaration order.
+    features = (Feature("z_earlier", True, earlier_codes, exclusive=earlier_exclusive),
+                Feature("a_later", True, later_codes, exclusive=later_exclusive))
+    assert feature_explorer(features, max_features=max_features).explore().ok
+    variants = feature_variants(features, max_features=max_features)
+    assert ("reports_first_defect_only" in variants) is masked
+    for name, explorer in variants.items():
+        report = explorer.explore()
+        assert not report.ok, f"{name} is equivalent to the design: {report.format_text()}"
+        if name == "reports_first_defect_only":
+            assert {v.invariant_name for v in report.violations} == {"every_defect_reported"}
 
 
 def test_conformance_runs_every_combination_on_the_real_code_and_finds_masking():
