@@ -57,7 +57,6 @@ from flowguard import (
     ModelObligation,
     ModelTestAlignmentPlan,
     ProofArtifactRef,
-    RuntimeNodeObservation,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
@@ -386,23 +385,6 @@ def aligned_plan(source_audit_reports=()) -> ModelTestAlignmentPlan:
                 proof_artifact=proof_artifact(
                     "test_duplicate_submit_known_bad_replay",
                     "model_miss_duplicate_submit_family",
-                ),
-            ),
-        ),
-        runtime_node_observations=(
-            RuntimeNodeObservation(
-                "obs:checkout.accept_transition",
-                "checkout.accept_transition",
-                business_intent_id=BUSINESS_INTENT_ID,
-                behavior_commitment_id=BEHAVIOR_COMMITMENT_ID,
-                primary_path_id=PRIMARY_PATH_ID,
-                model_id="sample_checkout_model",
-                model_obligation_id=ACCEPT_TRANSITION_OBLIGATION_ID,
-                code_contract_id="checkout_accept_transition",
-                observed_output="Accepted",
-                proof_artifact=proof_artifact(
-                    "obs_checkout_accept_transition",
-                    ACCEPT_TRANSITION_OBLIGATION_ID,
                 ),
             ),
         ),

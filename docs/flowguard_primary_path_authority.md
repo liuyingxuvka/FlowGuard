@@ -21,8 +21,7 @@ surface/candidate inventory from Existing Model Preflight and the Behavior
 Commitment Ledger (`preflight_id`, `behavior_commitment_ledger_id`), reuses an
 equivalent current path when one exists (`existing_current_path_ids`), and,
 when `require_material_runtime_evidence=True`, requires observed runtime
-evidence (`runtime_observation_ids`, see
-[`runtime_path_evidence.md`](runtime_path_evidence.md)) plus `proof_artifact`
+evidence (`runtime_observation_ids`) plus `proof_artifact`
 coverage before a green decision. Additional public surfaces may delegate,
 remain manual-only, migrate, be removed, or be scoped with evidence; they
 cannot become a second independent success path.

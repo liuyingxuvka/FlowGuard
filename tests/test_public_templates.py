@@ -22,7 +22,6 @@ from flowguard.templates import (
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     primary_path_authority_template_files,
-    runtime_path_evidence_template_files,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
@@ -44,7 +43,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
     field_lifecycle_template_files,
-    runtime_path_evidence_template_files,
     ui_flow_structure_template_files,
     model_mesh_template_files,
     contract_exhaustion_template_files,
@@ -56,7 +54,6 @@ TEMPLATE_CLI_COMMANDS = {
     "primary-path-authority-template": "primary_path_authority",
     "model-test-alignment-template": "model_test_alignment",
     "model-test-alignment-full-template": "model_test_alignment_full",
-    "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
@@ -206,18 +203,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)
         # Alignment, boundary conformance and source audit each reject their bad example.
         self.assertEqual([True, False, True, False, True, False], json.loads(result.stdout))
-
-    def test_runtime_path_evidence_template_executes_and_prints_model_target(self):
-        output = self.run_written_template(
-            runtime_path_evidence_template_files(),
-            (".flowguard", "verification", "owners", "runtime_path_evidence"),
-        )
-
-        self.assertIn("flowguard runtime path evidence", output)
-        self.assertIn("flowguard.runtime_path", output)
-        self.assertIn("model=checkout.leaf", output)
-        self.assertIn("model_path=.flowguard/models/owners/checkout_leaf/model.py", output)
-        self.assertIn("runtime_node_missing_observation", output)
 
     def test_model_mesh_template_executes_and_exposes_negative_fixture(self):
         output = self.run_written_template(

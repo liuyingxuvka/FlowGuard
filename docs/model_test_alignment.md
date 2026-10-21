@@ -268,14 +268,6 @@ List artifact payload rows when the behavior has file/work-package surfaces:
   observed state writes and side effects, evidence reference or proof artifact
   for the real surface run, and stale reason.
 
-When real code path confidence matters, add runtime path rows as well:
-`RuntimeNodeContract`, `RuntimeNodeObservation`, or recorder-produced
-`RuntimePathRun` entries. Each observation should name the compared
-`model_id`, `model_path`, `node_id`, and model obligation so the model-test
-review can block broad confidence when the code never reached the modeled
-node, reached it out of order, or only printed an anonymous/internal progress
-log.
-
 List obligation-family rows when several obligations are being claimed as the
 same family:
 

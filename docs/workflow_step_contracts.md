@@ -13,8 +13,7 @@ of order, or relied on after it went stale.
 
 When a workflow step is also a real-code node in a FlowGuard comparison, add
 `runtime_node_ids` through `step_contract_metadata(...)` or
-`WorkflowStepContract.runtime_node_ids`. This lets later runtime path evidence
-and progress output point back to the same step contract instead of relying on
+`WorkflowStepContract.runtime_node_ids`. This lets progress output point back to the same step contract instead of relying on
 free-form logs.
 
 Use this when the bug risk is not "the whole workflow is unknown" but "one

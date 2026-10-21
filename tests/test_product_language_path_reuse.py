@@ -10,7 +10,6 @@ from flowguard import (
     BCL_SCOPE_FULL,
     BCL_SOURCE_API,
     BCL_SOURCE_UI,
-    CANDIDATE_COLLAPSE_ADAPTER,
     CODE_CONTRACT_ROLE_FACADE,
     FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION,
     FAMILY_EVIDENCE_STATUS_PASSED,
@@ -18,14 +17,7 @@ from flowguard import (
     PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
     PPA_CANDIDATE_COMPATIBILITY_FACADE,
     PPA_CLAIM_SCOPE_FULL,
-    PPA_CONFIDENCE_FULL,
-    PPA_DECISION_GREEN,
     PPA_DISPOSITION_PRESERVE_FACADE,
-    PROOF_SAFE_BY_EQUIVALENCE,
-    ROUTE_CODE_STRUCTURE_RECOMMENDATION,
-    TARGET_ACTION_COLLAPSE,
-    ArchitectureReductionCandidate,
-    ArchitectureReductionPlan,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
     BehaviorEvidenceBinding,
@@ -37,13 +29,9 @@ from flowguard import (
     ObligationFamily,
     ObligationFamilyEvidence,
     ObligationFamilyMember,
-    ObservableArchitectureContract,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
     ProofArtifactRef,
-    RuntimeNodeContract,
-    RuntimeNodeObservation,
-    RuntimePathAlignmentPlan,
     TestEvidence,
     UIContentVisibilityItem,
     UIContentVisibilityPlan,
@@ -55,12 +43,10 @@ from flowguard import (
     UI_PRODUCT_CLAIM_COMPLETE,
     UI_PRODUCT_CONSISTENCY_KINDS,
     UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
-    review_architecture_reduction,
     review_behavior_commitment_ledger,
     review_model_test_alignment,
     review_obligation_family_parity,
     review_primary_path_authority,
-    review_runtime_path_alignment,
     review_ui_content_visibility,
     review_ui_product_consistency,
 )
@@ -259,91 +245,6 @@ def path_authority(*, primary_paths=None):
     )
 
 
-def runtime_contract(node_id: str, *, facade: bool = False) -> RuntimeNodeContract:
-    return RuntimeNodeContract(
-        node_id,
-        model_id="download-material-model",
-        model_path=".flowguard/download-material/model.py",
-        leaf_model_id="download-material-model",
-        model_obligation_id=OBLIGATION_ID,
-        code_contract_id="download.material.api" if facade else OWNER_CONTRACT_ID,
-        boundary_id="download.material.boundary",
-        business_path_id=PRIMARY_PATH_ID,
-        business_intent="download material",
-        business_intent_id=INTENT_ID,
-        behavior_commitment_id=COMMITMENT_ID,
-        expected_terminal="download_ready_or_visible_error",
-        primary_path_id=PRIMARY_PATH_ID,
-        surface_id=API_SURFACE_ID if facade else UI_SURFACE_ID,
-        candidate_id=API_CANDIDATE_ID if facade else PRIMARY_CANDIDATE_ID,
-        surface_role="facade" if facade else "owner",
-        delegates_to_primary_path_id=PRIMARY_PATH_ID if facade else "",
-        delegation_evidence_id="runtime:download-api-delegates" if facade else "",
-        delegation_evidence_current=facade,
-        delegation_only=facade,
-        require_no_fallback=True,
-        allowed_outputs=("download_ready",),
-        allowed_state_writes=("download_status",),
-    )
-
-
-def runtime_observation(node_id: str, *, facade: bool = False, primary_path_id=PRIMARY_PATH_ID):
-    return RuntimeNodeObservation(
-        f"observation:{node_id}",
-        node_id,
-        run_id="run:download-material:v1",
-        model_id="download-material-model",
-        model_path=".flowguard/download-material/model.py",
-        leaf_model_id="download-material-model",
-        model_obligation_id=OBLIGATION_ID,
-        code_contract_id="download.material.api" if facade else OWNER_CONTRACT_ID,
-        boundary_id="download.material.boundary",
-        business_path_id=PRIMARY_PATH_ID,
-        business_intent="download material",
-        business_intent_id=INTENT_ID,
-        behavior_commitment_id=COMMITMENT_ID,
-        primary_path_id=primary_path_id,
-        surface_id=API_SURFACE_ID if facade else UI_SURFACE_ID,
-        candidate_id=API_CANDIDATE_ID if facade else PRIMARY_CANDIDATE_ID,
-        surface_role="facade" if facade else "owner",
-        delegates_to_primary_path_id=PRIMARY_PATH_ID if facade else "",
-        delegation_evidence_id="runtime:download-api-delegates" if facade else "",
-        delegation_evidence_current=facade,
-        delegation_observed=facade,
-        observed_output="download_ready",
-        observed_terminal="download_ready_or_visible_error",
-        observed_state_writes=("download_status",),
-        evidence_id=f"evidence:{node_id}",
-    )
-
-
-def runtime_alignment(*, observations=None):
-    contracts = (runtime_contract("download-primary"), runtime_contract("download-api", facade=True))
-    observed = tuple(
-        observations
-        if observations is not None
-        else (
-            runtime_observation("download-primary"),
-            runtime_observation("download-api", facade=True),
-        )
-    )
-    return review_runtime_path_alignment(
-        RuntimePathAlignmentPlan(
-            "download-material-runtime",
-            model_id="download-material-model",
-            node_contracts=contracts,
-            observations=observed,
-            business_intent_id=INTENT_ID,
-            behavior_commitment_id=COMMITMENT_ID,
-            primary_path_id=PRIMARY_PATH_ID,
-            inventory_revision=REVISION,
-            expected_surface_ids=(UI_SURFACE_ID, API_SURFACE_ID),
-            expected_candidate_ids=(PRIMARY_CANDIDATE_ID, API_CANDIDATE_ID),
-            require_complete_inventory=True,
-        )
-    )
-
-
 def ui_plan() -> UIProductConsistencyPlan:
     rule_ids = tuple(f"rule:{kind}" for kind in UI_PRODUCT_CONSISTENCY_KINDS)
     surfaces = tuple(
@@ -477,9 +378,6 @@ def model_test_alignment():
                     primary_path_id=PRIMARY_PATH_ID,
                 ),
             ),
-            runtime_node_contracts=(runtime_contract("download-primary"),),
-            runtime_node_observations=(runtime_observation("download-primary"),),
-            require_runtime_path_evidence=True,
             require_stable_authority_ids=True,
         )
     )
@@ -489,7 +387,6 @@ def test_same_intent_chain_reuses_one_commitment_path_and_product_language():
     reports = {
         "ledger": behavior_ledger(),
         "path": path_authority(),
-        "runtime": runtime_alignment(),
         "ui": review_ui_product_consistency(ui_plan()),
         "alignment": model_test_alignment(),
     }
@@ -497,7 +394,6 @@ def test_same_intent_chain_reuses_one_commitment_path_and_product_language():
     failures = {name: report.format_text() for name, report in reports.items() if not report.ok}
     assert not failures, failures
     assert reports["path"].primary_path_id == PRIMARY_PATH_ID
-    assert reports["runtime"].primary_path_id == PRIMARY_PATH_ID
     assert set(reports["ui"].covered_surface_ids) == {UI_SURFACE_ID, API_SURFACE_ID}
     assert COMMITMENT_ID in reports["ledger"].covered_commitment_ids
 
@@ -514,19 +410,11 @@ def test_duplicate_or_omitted_same_intent_authority_is_blocked_by_existing_owner
             primary_path("path:download-material-parallel"),
         )
     )
-    wrong_runtime = runtime_alignment(
-        observations=(
-            runtime_observation("download-primary", primary_path_id="path:download-material-parallel"),
-            runtime_observation("download-api", facade=True),
-        )
-    )
 
     assert not duplicate_ledger.ok
     assert "duplicate_exact_intent_commitment" in finding_codes(duplicate_ledger)
     assert not duplicate_path.ok
     assert "duplicate_primary_runtime_authority" in finding_codes(duplicate_path)
-    assert not wrong_runtime.ok
-    assert "runtime_node_primary_path_mismatch" in finding_codes(wrong_runtime)
 
 
 def test_internal_ui_fields_and_cross_surface_typography_drift_are_blocked():

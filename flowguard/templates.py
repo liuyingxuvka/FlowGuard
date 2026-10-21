@@ -39,11 +39,6 @@ from .template_text.primary_path_authority import (
     PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE,
     PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE,
 )
-from .template_text.runtime_path_evidence import (
-    RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE,
-    RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE,
-    RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE,
-)
 from .template_text.model_mesh import (
     MODEL_MESH_MODEL_TEMPLATE,
     MODEL_MESH_RUN_CHECKS_TEMPLATE,
@@ -103,13 +98,6 @@ def primary_path_authority_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/primary_path_authority/model.py", PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/primary_path_authority/run_checks.py", PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def runtime_path_evidence_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/runtime_path_evidence/model.py", RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/runtime_path_evidence/run_checks.py", RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE),
     )
 
 
@@ -265,9 +253,6 @@ __all__ = [
     "PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE",
-    "RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE",
-    "RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE",
-    "RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
@@ -284,7 +269,6 @@ __all__ = [
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "primary_path_authority_template_files",
-    "runtime_path_evidence_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",

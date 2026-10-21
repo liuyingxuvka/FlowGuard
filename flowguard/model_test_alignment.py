@@ -33,13 +33,6 @@ from .obligation_family import (
     review_obligation_family_parity,
 )
 from .proof_artifact import ProofArtifactRef, coerce_proof_artifact_ref, proof_artifact_gap_codes
-from .runtime_path import (
-    RuntimeNodeContract,
-    RuntimeNodeObservation,
-    RuntimePathAlignmentPlan,
-    RuntimePathRun,
-    review_runtime_path_alignment,
-)
 import hashlib
 import json
 from pathlib import Path
@@ -1032,15 +1025,11 @@ class ModelTestAlignmentPlan:
     boundary_observations: tuple[CodeBoundaryObservation, ...] = ()
     payload_contracts: tuple[ArtifactPayloadContract, ...] = ()
     payload_evidence: tuple[ArtifactPayloadEvidence, ...] = ()
-    runtime_node_contracts: tuple[RuntimeNodeContract, ...] = ()
-    runtime_node_observations: tuple[RuntimeNodeObservation, ...] = ()
-    runtime_path_runs: tuple[RuntimePathRun, ...] = ()
     source_audit_reports: tuple[Any, ...] = ()
     field_lifecycle_reports: tuple[Any, ...] = ()
     field_lifecycle_projections: tuple[Any, ...] = ()
     canonical_relation_handoff: CanonicalRelationHandoff | Mapping[str, Any] | None = None
     require_proof_artifacts: bool = False
-    require_runtime_path_evidence: bool = False
     require_source_audit: bool = False
     allow_orphan_tests: bool = False
     allow_orphan_code_contracts: bool = False
@@ -1080,31 +1069,6 @@ class ModelTestAlignmentPlan:
                 for evidence in self.payload_evidence
             ),
         )
-        object.__setattr__(
-            self,
-            "runtime_node_contracts",
-            tuple(
-                item
-                if isinstance(item, RuntimeNodeContract)
-                else RuntimeNodeContract(**item)
-                for item in self.runtime_node_contracts
-            ),
-        )
-        object.__setattr__(
-            self,
-            "runtime_node_observations",
-            tuple(
-                item
-                if isinstance(item, RuntimeNodeObservation)
-                else RuntimeNodeObservation(**item)
-                for item in self.runtime_node_observations
-            ),
-        )
-        object.__setattr__(
-            self,
-            "runtime_path_runs",
-            tuple(item if isinstance(item, RuntimePathRun) else RuntimePathRun(**item) for item in self.runtime_path_runs),
-        )
         object.__setattr__(self, "source_audit_reports", tuple(self.source_audit_reports))
         object.__setattr__(self, "field_lifecycle_reports", tuple(self.field_lifecycle_reports))
         object.__setattr__(self, "field_lifecycle_projections", tuple(self.field_lifecycle_projections))
@@ -1143,11 +1107,6 @@ class ModelTestAlignmentPlan:
             "boundary_observations": [observation.to_dict() for observation in self.boundary_observations],
             "payload_contracts": [contract.to_dict() for contract in self.payload_contracts],
             "payload_evidence": [evidence.to_dict() for evidence in self.payload_evidence],
-            "runtime_node_contracts": [contract.to_dict() for contract in self.runtime_node_contracts],
-            "runtime_node_observations": [
-                observation.to_dict() for observation in self.runtime_node_observations
-            ],
-            "runtime_path_runs": [run.to_dict() for run in self.runtime_path_runs],
             "source_audit_reports": [
                 report.to_dict() if hasattr(report, "to_dict") else to_jsonable(report)
                 for report in self.source_audit_reports
@@ -1164,7 +1123,6 @@ class ModelTestAlignmentPlan:
             if self.canonical_relation_handoff
             else None,
             "require_proof_artifacts": self.require_proof_artifacts,
-            "require_runtime_path_evidence": self.require_runtime_path_evidence,
             "require_source_audit": self.require_source_audit,
             "allow_orphan_tests": self.allow_orphan_tests,
             "allow_orphan_code_contracts": self.allow_orphan_code_contracts,
@@ -1225,7 +1183,6 @@ class ModelCodeTestBindingRow:
     boundary_contract_ids: tuple[str, ...] = ()
     boundary_observation_ids: tuple[str, ...] = ()
     runtime_node_ids: tuple[str, ...] = ()
-    runtime_observation_ids: tuple[str, ...] = ()
     payload_contract_ids: tuple[str, ...] = ()
     field_projection_ids: tuple[str, ...] = ()
     source_audit_decision: str = ""
@@ -1258,7 +1215,6 @@ class ModelCodeTestBindingRow:
         object.__setattr__(self, "boundary_contract_ids", _unique_sorted(self.boundary_contract_ids))
         object.__setattr__(self, "boundary_observation_ids", _unique_sorted(self.boundary_observation_ids))
         object.__setattr__(self, "runtime_node_ids", _unique_sorted(self.runtime_node_ids))
-        object.__setattr__(self, "runtime_observation_ids", _unique_sorted(self.runtime_observation_ids))
         object.__setattr__(self, "payload_contract_ids", _unique_sorted(self.payload_contract_ids))
         object.__setattr__(self, "field_projection_ids", _unique_sorted(self.field_projection_ids))
         object.__setattr__(self, "source_audit_decision", str(self.source_audit_decision))
@@ -1295,7 +1251,6 @@ class ModelCodeTestBindingRow:
             "boundary_contract_ids": list(self.boundary_contract_ids),
             "boundary_observation_ids": list(self.boundary_observation_ids),
             "runtime_node_ids": list(self.runtime_node_ids),
-            "runtime_observation_ids": list(self.runtime_observation_ids),
             "payload_contract_ids": list(self.payload_contract_ids),
             "field_projection_ids": list(self.field_projection_ids),
             "source_audit_decision": self.source_audit_decision,
@@ -1697,14 +1652,6 @@ def _decision_for_findings(findings: Sequence[ModelTestAlignmentFinding]) -> str
         ("artifact_payload_state_write_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_side_effect_mismatch", "artifact_payload_validation_failed"),
         ("artifact_payload_round_trip_missing", "artifact_payload_validation_failed"),
-        ("missing_runtime_path_contracts", "runtime_path_alignment_failed"),
-        ("runtime_node_missing_observation", "runtime_path_alignment_failed"),
-        ("runtime_node_observation_not_current_pass", "runtime_path_alignment_failed"),
-        ("runtime_node_internal_path_only", "runtime_path_alignment_failed"),
-        ("runtime_path_order_mismatch", "runtime_path_alignment_failed"),
-        ("runtime_path_missing_ordered_node", "runtime_path_alignment_failed"),
-        ("uncontracted_runtime_node_observed", "runtime_path_alignment_failed"),
-        ("missing_proof_artifact", "runtime_path_alignment_failed"),
         ("obligation_too_coarse_for_primary_evidence", "child_model_split_required"),
         ("leaf_matrix_cell_target_missing", "leaf_matrix_cell_target_required"),
         ("supporting_evidence_target_missing", "supporting_evidence_target_required"),
@@ -2625,64 +2572,6 @@ def _artifact_payload_findings_as_alignment_findings(
             },
         )
         for finding in report.findings
-    ]
-
-
-def _runtime_path_contracts_for_plan(plan: ModelTestAlignmentPlan) -> tuple[RuntimeNodeContract, ...]:
-    contracts = list(plan.runtime_node_contracts)
-    declared = {
-        (contract.node_id, contract.model_obligation_id)
-        for contract in contracts
-    }
-    for obligation in plan.obligations:
-        for node_id in obligation.required_runtime_node_ids:
-            key = (node_id, obligation.obligation_id)
-            if key in declared:
-                continue
-            contracts.append(
-                RuntimeNodeContract(
-                    node_id=node_id,
-                    model_id=plan.model_id,
-                    model_obligation_id=obligation.obligation_id,
-                    business_intent_id=obligation.business_intent_id,
-                    behavior_commitment_id=obligation.behavior_commitment_id,
-                    primary_path_id=obligation.primary_path_id,
-                    required=True,
-                )
-            )
-            declared.add(key)
-    return tuple(contracts)
-
-
-def _runtime_path_metadata_value(
-    metadata: Mapping[str, Any],
-    key: str,
-) -> str:
-    if key in metadata:
-        return str(metadata[key])
-    contract = metadata.get("contract")
-    if isinstance(contract, Mapping) and key in contract:
-        return str(contract[key])
-    return ""
-
-
-def _runtime_path_findings_as_alignment_findings(
-    runtime_report,
-) -> list[ModelTestAlignmentFinding]:
-    return [
-        ModelTestAlignmentFinding(
-            finding.code,
-            finding.message,
-            severity=finding.severity,
-            obligation_id=_runtime_path_metadata_value(finding.metadata, "model_obligation_id"),
-            evidence_id=finding.evidence_id or finding.observation_id,
-            code_contract_id=_runtime_path_metadata_value(finding.metadata, "code_contract_id"),
-            metadata={
-                "runtime_path_report_decision": runtime_report.decision,
-                "runtime_path_finding": finding.to_dict(),
-            },
-        )
-        for finding in runtime_report.findings
     ]
 
 
@@ -3775,19 +3664,7 @@ def _binding_rows(
                 for observation in plan.boundary_observations
                 if observation.boundary_id in boundary_contract_ids
             )
-            runtime_node_ids = tuple(obligation.required_runtime_node_ids) + tuple(
-                runtime_contract.node_id
-                for runtime_contract in plan.runtime_node_contracts
-                if runtime_contract.model_obligation_id == obligation_id
-                or runtime_contract.code_contract_id in contract_ids
-            )
-            runtime_observation_ids = tuple(
-                observation.observation_id
-                for observation in plan.runtime_node_observations
-                if observation.model_obligation_id == obligation_id
-                or observation.code_contract_id in contract_ids
-                or observation.node_id in runtime_node_ids
-            )
+            runtime_node_ids = tuple(obligation.required_runtime_node_ids)
             payload_contract_ids = tuple(
                 payload.payload_contract_id
                 for payload in plan.payload_contracts
@@ -3827,7 +3704,6 @@ def _binding_rows(
                         boundary_contract_ids=boundary_contract_ids,
                         boundary_observation_ids=boundary_observation_ids,
                         runtime_node_ids=runtime_node_ids,
-                        runtime_observation_ids=runtime_observation_ids,
                         payload_contract_ids=payload_contract_ids,
                         field_projection_ids=field_projection_ids,
                         source_audit_decision=source_audit_decision,
@@ -3859,7 +3735,6 @@ def _binding_rows(
                         boundary_contract_ids=boundary_contract_ids,
                         boundary_observation_ids=boundary_observation_ids,
                         runtime_node_ids=runtime_node_ids,
-                        runtime_observation_ids=runtime_observation_ids,
                         payload_contract_ids=payload_contract_ids,
                         field_projection_ids=field_projection_ids,
                         source_audit_decision=source_audit_decision,
@@ -4189,33 +4064,6 @@ def review_model_test_alignment(plan: ModelTestAlignmentPlan) -> ModelTestAlignm
             plan.obligations,
         )
         findings.extend(_artifact_payload_findings_as_alignment_findings(payload_report))
-    runtime_path_contracts = _runtime_path_contracts_for_plan(plan)
-    if (
-        plan.require_runtime_path_evidence
-        or runtime_path_contracts
-        or plan.runtime_node_observations
-        or plan.runtime_path_runs
-    ):
-        if plan.require_runtime_path_evidence and not runtime_path_contracts:
-            findings.append(
-                ModelTestAlignmentFinding(
-                    "missing_runtime_path_contracts",
-                    "model-test alignment requires runtime path evidence but declares no runtime node contracts",
-                    metadata={"model_id": plan.model_id},
-                )
-            )
-        runtime_report = review_runtime_path_alignment(
-            RuntimePathAlignmentPlan(
-                plan_id=f"{plan.model_id}:runtime-path",
-                model_id=plan.model_id,
-                node_contracts=runtime_path_contracts,
-                observations=plan.runtime_node_observations,
-                runs=plan.runtime_path_runs,
-                require_proof_artifacts=plan.require_proof_artifacts,
-                require_exact_path=True,
-            )
-        )
-        findings.extend(_runtime_path_findings_as_alignment_findings(runtime_report))
     if plan.obligation_families or plan.family_evidence:
         family_report = review_obligation_family_parity(
             plan.obligation_families,

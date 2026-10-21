@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:91574caff2f7c5c5b2c26badfac06124bd2683193905638f37d56235d70633f5"
+      "fingerprint": "sha256:4f8241427ced9b334f1aecefb73699c016848752b633e96f99a4c1def5a5756d"
     },
     {
       "id": "templates",
@@ -230,7 +230,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:606431daa87181b4b2a675162f60f4edb8ee283d13ec46f8aa9d2e86dc60c875"
+      "fingerprint": "sha256:b019b6dd86ecbf76701441c2adc65b528dc5ed3eee3bfee64b11cdadafcfeb61"
     },
     {
       "id": "behavior-commitment",
@@ -473,13 +473,11 @@
       "layer": "capabilities",
       "summary": "Cross-checks obligations, code contracts and tests.",
       "responsibilities": [
-        "cross-check obligations, code contracts and tests",
-        "record and review the runtime path real code took"
+        "cross-check obligations, code contracts and tests"
       ],
       "files": [
         "flowguard/model_test_alignment.py",
         "flowguard/model_test_alignment_source.py",
-        "flowguard/runtime_path.py",
         "flowguard/obligation_family.py"
       ],
       "entrypoints": [
@@ -496,9 +494,7 @@
         "tests/test_model_test_alignment.py",
         "tests/test_model_test_binding_honesty.py",
         "tests/test_obligation_family.py",
-        "tests/test_primary_path_authority_runtime_matrix.py",
         "tests/test_product_language_path_reuse.py",
-        "tests/test_runtime_path_evidence.py",
         "tests/test_step_contracts.py"
       ],
       "models": [
@@ -507,7 +503,7 @@
         ".flowguard/verification/owners/contract_source_audit/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:fd2aaf11691ca25fc2b6ce77465f60df9b63ad509dc7960477494bbfde378fe1"
+      "fingerprint": "sha256:08e643b238509f71b81583fbff1a43330118e3b68f90867b8d6e2a0f85c939bd"
     },
     {
       "id": "topology-hazard",
