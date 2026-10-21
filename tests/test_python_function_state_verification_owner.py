@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 
 
-PATH = Path(__file__).resolve().parents[1] / ".flowguard/models/owners/python_function_state_verification/model.py"
+PATH = Path(__file__).resolve().parents[1] / ".flowguard/models/python_function_state_verification.py"
 NAME = "_python_function_state_verification_owner_test"
 SPEC = importlib.util.spec_from_file_location(NAME, PATH)
 OWNER = importlib.util.module_from_spec(SPEC)

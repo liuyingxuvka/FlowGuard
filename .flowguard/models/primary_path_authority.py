@@ -221,3 +221,44 @@ def broken_stale_material_evidence():
         behavior_commitment_ledger_id=plan.behavior_commitment_ledger_id,
         existing_current_path_ids=plan.existing_current_path_ids,
     )
+
+
+# FlowGuard contract: the plans above form a case table; conformance reviews each plan with the
+# real primary-path authority review and compares.
+from flowguard import review_primary_path_authority  # noqa: E402
+from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+
+MODEL_ID = "primary_path_authority"
+COMPONENTS = ["behavior-commitment"]
+IMPLEMENTED_BY = {"Review": "flowguard/primary_path_authority.py:review_primary_path_authority"}
+TESTED_BY = {"verdict_matches_case": [
+    "tests/test_primary_path_authority.py:test_good_plan_with_thin_facade_and_coverage_passes",
+    "tests/test_primary_path_authority.py:test_duplicate_primary_authority_blocks"]}
+CASES = (
+    Case("complete_plan", True),
+    Case("broken_a_failed_b_success", False, ("primary_failure_masked_by_fallback_success",)),
+    Case("broken_old_field_fallback", False,
+         ("fallback_candidate_unknown_disposition", "old_field_or_backup_cache_masks_primary_failure")),
+    Case("broken_manual_recovery_auto_invoked", False, ("manual_recovery_auto_invoked",)),
+    Case("broken_two_paths_same_exact_intent", False, ("duplicate_primary_runtime_authority",)),
+    Case("broken_missing_candidate_inventory", False,
+         ("expected_primary_path_candidate_missing", "expected_primary_path_surface_missing")),
+    Case("broken_stale_material_evidence", False, ("primary_path_runtime_evidence_not_current",)),
+)
+
+
+def build_explorer():
+    return case_table_explorer(CASES)
+
+
+def broken_variants():
+    return case_table_variants(CASES)
+
+
+def _observe(case):
+    report = review_primary_path_authority(globals()[case.name]())
+    return report.ok, tuple(finding.code for finding in report.findings)
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)

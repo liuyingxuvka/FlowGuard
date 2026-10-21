@@ -49,37 +49,6 @@ class RolloutCase:
     expected_executed_evidence_status: str = ""
 
 
-# These declarations identify the intended native evidence. The rollout runner
-# checks declaration consistency only; pytest executes separately.
-NATIVE_PYTEST_SELECTORS = (
-    "tests/test_model_test_alignment.py",
-)
-
-NATIVE_TEST_OBLIGATION_BINDINGS = (
-    (
-        "pre_code_design_is_not_execution",
-        "tests/test_model_test_alignment.py::ModelTestAlignmentTests::test_pre_code_design_ready_does_not_promote_not_run_evidence",
-    ),
-)
-
-
-def native_test_obligation_bindings_are_consistent() -> bool:
-    """Check declaration uniqueness and selector coverage, without execution."""
-
-    obligation_ids = tuple(item[0] for item in NATIVE_TEST_OBLIGATION_BINDINGS)
-    evidence_nodes = tuple(item[1] for item in NATIVE_TEST_OBLIGATION_BINDINGS)
-    selected = set(NATIVE_PYTEST_SELECTORS)
-    selected_files = {selector for selector in selected if "::" not in selector}
-    return (
-        len(obligation_ids) == len(set(obligation_ids))
-        and len(evidence_nodes) == len(set(evidence_nodes))
-        and all(
-            node in selected or node.split("::", 1)[0] in selected_files
-            for node in evidence_nodes
-        )
-    )
-
-
 def _obligation() -> ModelObligation:
     return ModelObligation(
         "reject_duplicate_order",
@@ -515,43 +484,50 @@ def rollout_cases() -> tuple[RolloutCase, ...]:
     )
 
 
-def run_rollout_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
-    results: list[tuple[str, bool, tuple[str, ...]]] = []
-    for case in rollout_cases():
-        report = review_model_test_alignment(case.plan)
-        codes = tuple(finding.code for finding in report.findings)
-        ok_matches = report.ok is case.expected_ok
-        codes_match = all(code in codes for code in case.expected_codes)
-        pre_code_matches = (
-            not case.expected_pre_code_status
-            or getattr(report, "pre_code_status", "") == case.expected_pre_code_status
-        )
-        execution_matches = (
-            not case.expected_executed_evidence_status
-            or getattr(report, "executed_evidence_status", "")
-            == case.expected_executed_evidence_status
-        )
-        results.append(
-            (
-                case.name,
-                ok_matches and codes_match and pre_code_matches and execution_matches,
-                codes,
-            )
-        )
-    return tuple(results)
+__all__ = ["rollout_cases"]
 
 
-__all__ = [
-    "NATIVE_PYTEST_SELECTORS",
-    "NATIVE_TEST_OBLIGATION_BINDINGS",
-    
-    
-    
-    "native_test_obligation_bindings_are_consistent",
-    "rollout_cases",
-    
-    "run_rollout_review",
-    
-]
+# FlowGuard contract: the rollout cases above form a case table; conformance reviews each plan with
+# the real model-test alignment and compares (status expectations are checked as codes).
+from functools import lru_cache  # noqa: E402
+
+from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+
+MODEL_ID = "model_test_code_alignment"
+COMPONENTS = ["model-test"]
+IMPLEMENTED_BY = {"Review": "flowguard/model_test_alignment.py:review_model_test_alignment"}
+TESTED_BY = {"verdict_matches_case": [
+    "tests/test_model_test_alignment.py:test_pre_code_design_ready_does_not_promote_not_run_evidence",
+    "tests/test_model_test_alignment.py:test_missing_code_contract_blocks_required_external_contract"]}
 
 
+@lru_cache(maxsize=1)
+def _rollout() -> dict:
+    return {case.name: case for case in rollout_cases()}
+
+
+def _cases() -> tuple[Case, ...]:
+    return tuple(Case(case.name, case.expected_ok, case.expected_codes
+                      + ((f"pre_code_status={case.expected_pre_code_status}",) if case.expected_pre_code_status else ())
+                      + ((f"executed_evidence_status={case.expected_executed_evidence_status}",)
+                         if case.expected_executed_evidence_status else ()))
+                 for case in _rollout().values())
+
+
+def build_explorer():
+    return case_table_explorer(_cases())
+
+
+def broken_variants():
+    return case_table_variants(_cases())
+
+
+def _observe(case):
+    report = review_model_test_alignment(_rollout()[case.name].plan)
+    return report.ok, tuple(finding.code for finding in report.findings) + (
+        f"pre_code_status={getattr(report, 'pre_code_status', '')}",
+        f"executed_evidence_status={getattr(report, 'executed_evidence_status', '')}")
+
+
+def conformance():
+    return case_table_conformance(_cases(), _observe)

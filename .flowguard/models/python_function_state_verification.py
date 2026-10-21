@@ -410,3 +410,55 @@ def run_review():
             "formal_entry_json": json.dumps({"plan": plan.to_dict(), "gates": gates,
                 "missing_proof_status": negative.status, "missing_proof_findings": negative.findings,
                 "complete_executed_bad_cases": complete_bad}, sort_keys=True)}
+
+
+# FlowGuard contract: each declared fixture above is a case (good fixtures must pass, bad ones must
+# be caught); conformance runs them on the real engine once and compares each row's verdict.
+from functools import lru_cache  # noqa: E402
+
+from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+
+COMPONENTS = ["engine-properties"]
+IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
+                  "Replay": "flowguard/conformance.py:replay_trace",
+                  "TraceContracts": "flowguard/contract.py:check_trace_contracts",
+                  "Loops": "flowguard/loop.py:check_loops",
+                  "ModelFirstChecks": "flowguard/runner.py:run_model_first_checks"}
+TESTED_BY = {"verdict_matches_case": [
+    "tests/test_python_function_state_verification_owner.py:"
+    "test_actual_library_satisfies_each_declared_positive_and_negative_oracle"]}
+ORACLE = "oracle_holds"
+GOOD = ("invocation_and_input_hooks", "result_forms_and_metadata", "all_nondeterministic_branches",
+        "idempotent_retry_and_reachability", "immutable_trace_and_state_chain", "terminal_predicate_stops_later_blocks",
+        "declared_write_contract", "independent_adapter_receives_only_input", "finite_terminal_graph",
+        "runner_preserves_supplied_exploration_report")
+BAD = ("noninvocable_block_rejected", "invalid_result_rejected", "unsafe_second_branch_detected",
+       "rejected_empty_and_exception_paths", "invariant_and_unreachable_label_detected",
+       "finite_cutoff_is_not_exhaustive_success", "corrupt_expected_trace_rejected_by_replay",
+       "forbidden_and_undeclared_write_detected", "duplicate_implementation_effect_rejected",
+       "nonterminal_bottom_cycle_detected")
+CASES = tuple(Case(name, True, (ORACLE,)) for name in GOOD) + tuple(Case(name, False, (ORACLE,)) for name in BAD)
+
+
+def build_explorer():
+    return case_table_explorer(CASES)
+
+
+def broken_variants():
+    return case_table_variants(CASES)
+
+
+@lru_cache(maxsize=1)
+def _rows() -> dict:
+    return {row["name"]: row for row in run_review()["native_cases"]}
+
+
+def _observe(case):
+    row = _rows().get(case.name)
+    if row is None:
+        return None
+    return row["observed_status"] == "ok", (ORACLE,) if row["ok"] else ()
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)

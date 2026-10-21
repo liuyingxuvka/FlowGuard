@@ -82,13 +82,13 @@ def boundary_reports() -> tuple[tuple[str, object, bool, tuple[str, ...]], ...]:
     cases = (
         (
             "green_boundary",
-            review_code_boundary_conformance((BOUNDARY,), good_observations()),
+            lambda: review_code_boundary_conformance((BOUNDARY,), good_observations()),
             True,
             (),
         ),
         (
             "forbidden_input_accepted",
-            review_code_boundary_conformance(
+            lambda: review_code_boundary_conformance(
                 (BOUNDARY,),
                 (
                     _obs("boundary_accept_valid_order", "valid_order"),
@@ -100,7 +100,7 @@ def boundary_reports() -> tuple[tuple[str, object, bool, tuple[str, ...]], ...]:
         ),
         (
             "extra_output_and_side_effect",
-            review_code_boundary_conformance(
+            lambda: review_code_boundary_conformance(
                 (
                     CodeBoundaryContract(
                         **{
@@ -125,13 +125,13 @@ def boundary_reports() -> tuple[tuple[str, object, bool, tuple[str, ...]], ...]:
         ),
         (
             "missing_rejected_input_gate_evidence",
-            review_code_boundary_conformance((BOUNDARY,), (_obs("boundary_accept_valid_order", "valid_order"),)),
+            lambda: review_code_boundary_conformance((BOUNDARY,), (_obs("boundary_accept_valid_order", "valid_order"),)),
             False,
             ("boundary_missing_rejected_input_evidence",),
         ),
         (
             "internal_path_only_boundary_observation",
-            review_code_boundary_conformance(
+            lambda: review_code_boundary_conformance(
                 (BOUNDARY,),
                 (
                     _obs("boundary_accept_valid_order", "valid_order"),
@@ -191,22 +191,36 @@ def alignment_report():
     return review_model_test_alignment(plan)
 
 
-def run_rollout_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
-    results: list[tuple[str, bool, tuple[str, ...]]] = []
-    for name, report, expected_ok, expected_codes in boundary_reports():
-        codes = tuple(finding.code for finding in report.findings)
-        results.append((name, report.ok is expected_ok and all(code in codes for code in expected_codes), codes))
+# FlowGuard contract: the expected verdicts above form a case table; conformance runs each case
+# through the real reviews and compares.
+from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
 
-    report = alignment_report()
-    codes = tuple(finding.code for finding in report.findings)
-    results.append(
-        (
-            "alignment_blocks_on_boundary_failure",
-            not report.ok and report.decision == "code_boundary_conformance_failed" and "boundary_extra_output" in codes,
-            codes,
-        )
-    )
-    return tuple(results)
+MODEL_ID = "code_boundary_conformance"
+COMPONENTS = ["model-test"]
+IMPLEMENTED_BY = {"BoundaryReview": "flowguard/model_test_alignment.py:review_code_boundary_conformance",
+                  "AlignmentReview": "flowguard/model_test_alignment.py:review_model_test_alignment"}
+TESTED_BY = {"verdict_matches_case": [
+    "tests/test_code_boundary_conformance.py:test_forbidden_input_acceptance_blocks_boundary_confidence",
+    "tests/test_code_boundary_conformance.py:test_exact_boundary_blocks_extra_outputs_and_side_effects"]}
+REVIEWS = {name: review for name, review, _ok, _codes in boundary_reports()}
+REVIEWS["alignment_blocks_on_boundary_failure"] = alignment_report
+CASES = tuple(Case(name, ok, codes) for name, _review, ok, codes in boundary_reports()) + (
+    Case("alignment_blocks_on_boundary_failure", False,
+         ("boundary_extra_output", "decision:code_boundary_conformance_failed")),)
 
 
-__all__ = ["run_rollout_review"]
+def build_explorer():
+    return case_table_explorer(CASES)
+
+
+def broken_variants():
+    return case_table_variants(CASES)
+
+
+def _observe(case):
+    report = REVIEWS[case.name]()
+    return report.ok, tuple(finding.code for finding in report.findings) + (f"decision:{report.decision}",)
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)

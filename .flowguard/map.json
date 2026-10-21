@@ -275,7 +275,7 @@
         "tests/test_product_language_path_reuse.py"
       ],
       "models": [
-        ".flowguard/verification/owners/primary_path_authority/run_checks.py"
+        ".flowguard/models/primary_path_authority.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:2230d2c17ea47e25972c87efae1ecb1c762bbf5f865b831b29b39aaa1bc627a7"
@@ -497,9 +497,9 @@
         "tests/test_step_contracts.py"
       ],
       "models": [
-        ".flowguard/verification/owners/model_test_code_alignment/run_checks.py",
-        ".flowguard/verification/owners/code_boundary_conformance/run_checks.py",
-        ".flowguard/verification/owners/contract_source_audit/run_checks.py"
+        ".flowguard/models/code_boundary_conformance.py",
+        ".flowguard/models/contract_source_audit.py",
+        ".flowguard/models/model_test_code_alignment.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:65ee4dcb90a6d0a791079a1e6ab2e872f64fef9302add7ae0a258bbb69145407"
@@ -526,7 +526,7 @@
         "tests/test_topology_hazard.py"
       ],
       "models": [
-        ".flowguard/verification/owners/model_topology_hazard_review/run_checks.py"
+        ".flowguard/models/model_topology_hazard_review.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:31506fd2e2c1f5bc7da71341bfc162c2573c7399d3759d88dc7c58eda29e8b5a"
@@ -804,7 +804,9 @@
         "tests/test_progress_core.py",
         "tests/test_scenario_matrix.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/python_function_state_verification.py"
+      ],
       "status": "confirmed",
       "fingerprint": "sha256:d5595928df4da85591124a94decc6a12e3dff3338c079c2a591ee0dfade8b7e5"
     },
@@ -843,8 +845,8 @@
         "tests/test_state_closure.py"
       ],
       "models": [
-        ".flowguard/verification/owners/python_function_state_verification/run_checks.py",
-        ".flowguard/verification/owners/state_closure_gate/run_checks.py"
+        ".flowguard/models/python_function_state_verification.py",
+        ".flowguard/models/state_closure_gate.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:168f8a165764bd4b9d6e4dd821da83576a118b9b37a795bb227c1591cbe2d9f3"
@@ -908,7 +910,9 @@
         "tests/test_conformance_replay_success.py",
         "tests/test_model_kit.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/python_function_state_verification.py"
+      ],
       "status": "confirmed",
       "fingerprint": "sha256:5600c12e39edc320e6a76ba26ded85c32af1a7ddb4236c2b3c23e98a38c6d428"
     },
@@ -960,7 +964,8 @@
         "tests/test_template_packs.py"
       ],
       "models": [
-        ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py"
+        ".flowguard/models/maintenance_obligation_memory.py",
+        ".flowguard/models/python_function_state_verification.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:68f5dd686c2f3c1b34dfffbb1da02f689b4f9a108a1a66be9881b6dc45fcd756"
@@ -1056,7 +1061,9 @@
         "tests/test_shared_normalization.py",
         "tests/test_workflow_execution.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/python_function_state_verification.py"
+      ],
       "status": "confirmed",
       "fingerprint": "sha256:05c8de2e2f964b4d14795c05e048e34c90b24fe7b595bd666b9bcd7a01c89a68"
     },

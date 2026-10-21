@@ -123,18 +123,40 @@ def cases() -> tuple[SourceAuditCase, ...]:
     )
 
 
-def run_rollout_review() -> tuple[tuple[str, bool, tuple[str, ...]], ...]:
-    results: list[tuple[str, bool, tuple[str, ...]]] = []
-    for case in cases():
-        sources = {"checkout.py": case.code_source, "test_checkout.py": case.test_source}
-        code_evidence = audit_python_code_contracts((CONTRACT,), sources)
-        test_evidence = audit_python_test_assertions((EVIDENCE,), (CONTRACT,), sources)
-        report = review_python_contract_source_audit((CONTRACT,), (EVIDENCE,), code_evidence, test_evidence)
-        codes = tuple(finding.code for finding in report.findings)
-        ok_matches = report.ok is case.expected_ok
-        codes_match = all(code in codes for code in case.expected_codes)
-        results.append((case.name, ok_matches and codes_match, codes))
-    return tuple(results)
+__all__ = ["cases"]
 
 
-__all__ = ["cases", "run_rollout_review"]
+# FlowGuard contract: the source-audit cases above form a case table; conformance audits each
+# case's sources with the real audit and compares.
+from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+
+MODEL_ID = "contract_source_audit"
+COMPONENTS = ["model-test"]
+IMPLEMENTED_BY = {"AuditCode": "flowguard/model_test_alignment_source.py:audit_python_code_contracts",
+                  "AuditTests": "flowguard/model_test_alignment_source.py:audit_python_test_assertions",
+                  "Review": "flowguard/model_test_alignment_source.py:review_python_contract_source_audit"}
+TESTED_BY = {"verdict_matches_case": [
+    "tests/test_model_test_alignment.py:test_python_source_audit_accepts_external_contract_test"]}
+SOURCES = {case.name: case for case in cases()}
+CASES = tuple(Case(case.name, case.expected_ok, case.expected_codes) for case in cases())
+
+
+def build_explorer():
+    return case_table_explorer(CASES)
+
+
+def broken_variants():
+    return case_table_variants(CASES)
+
+
+def _observe(case):
+    item = SOURCES[case.name]
+    sources = {"checkout.py": item.code_source, "test_checkout.py": item.test_source}
+    code_evidence = audit_python_code_contracts((CONTRACT,), sources)
+    test_evidence = audit_python_test_assertions((EVIDENCE,), (CONTRACT,), sources)
+    report = review_python_contract_source_audit((CONTRACT,), (EVIDENCE,), code_evidence, test_evidence)
+    return report.ok, tuple(finding.code for finding in report.findings)
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)

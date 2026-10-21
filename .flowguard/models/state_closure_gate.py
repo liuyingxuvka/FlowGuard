@@ -232,3 +232,60 @@ __all__ = [
     "initial_state",
     "terminal_predicate",
 ]
+
+
+# FlowGuard contract: explore the model above, prove its known-bad variants fail,
+# and compare it with the real state-closure review (case table).
+from flowguard import (  # noqa: E402
+    STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT,
+    STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL,
+    STATE_CLOSURE_HANDLING_REJECT,
+    STATE_CLOSURE_POLICY_OPEN,
+    StateClosureDimension,
+    StateClosurePlan,
+    review_state_closure,
+)
+from flowguard.explorer import Explorer  # noqa: E402
+from flowguard.kit import Case, case_table_conformance  # noqa: E402
+
+MODEL_ID = "state_closure_gate"
+COMPONENTS = ["engine-properties"]
+IMPLEMENTED_BY = {"Review": "flowguard/state_closure.py:review_state_closure"}
+TESTED_BY = {
+    "full_claim_requires_safe_handling": [
+        "tests/test_state_closure.py:test_explicit_open_boundary_with_safe_handling_passes"],
+    "side_effect_blocks_full_claim": [
+        "tests/test_state_closure.py:test_unsafe_or_side_effect_unknown_handling_blocks"],
+}
+REQUIRED_LABELS = ("unknown_observed", "unknown_case_generated", "safe_handling_declared", "full_claim_accepted",
+                   "scoped_or_blocked_claim")
+CASES = (Case("safe_unknown_rejects_before_side_effect", True), Case("unsafe_unknown_accepts_as_normal", False))
+
+
+def _explorer(workflow, length, labels=()):
+    return Explorer(workflow=workflow, initial_states=(initial_state(),), external_inputs=EXTERNAL_INPUTS,
+                    invariants=INVARIANTS, max_sequence_length=length, terminal_predicate=terminal_predicate,
+                    required_labels=labels, progress_steps=0)
+
+
+def build_explorer() -> Explorer:
+    return _explorer(build_correct_workflow(), MAX_SEQUENCE_LENGTH, REQUIRED_LABELS)
+
+
+def broken_variants() -> dict:
+    missing_generation, without_handling, side_effect = build_broken_workflows()
+    return {missing_generation.name: _explorer(missing_generation, 2, ("unknown_case_generated",)),
+            without_handling.name: _explorer(without_handling, 1),
+            side_effect.name: _explorer(side_effect, 1)}
+
+
+def _observe(case):
+    handling = STATE_CLOSURE_HANDLING_REJECT if case.accept else STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL
+    plan = StateClosurePlan("safe" if case.accept else "unsafe", dimensions=(StateClosureDimension(
+        "external_input", STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT, policy=STATE_CLOSURE_POLICY_OPEN,
+        known_values=("known",), representative_unknowns=("other",), handling=handling),))
+    return review_state_closure(plan).ok
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)

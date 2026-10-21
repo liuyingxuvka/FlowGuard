@@ -280,3 +280,77 @@ __all__ = [
 ]
 
 
+# FlowGuard contract: explore the model above, prove its known-bad variants fail,
+# and compare it with the real topology-hazard review (case table).
+from flowguard import (  # noqa: E402
+    TOPOLOGY_CONFIDENCE_BLOCKED,
+    TOPOLOGY_DISPOSITION_BLOCKED,
+    TOPOLOGY_SEVERITY_BLOCKER,
+    TopologyHazardCandidate,
+    TopologyHazardReviewPlan,
+    UsageIntent,
+    infer_topology_digest,
+    review_topology_hazards,
+)
+from flowguard.explorer import Explorer  # noqa: E402
+from flowguard.kit import Case, case_table_conformance  # noqa: E402
+
+MODEL_ID = "model_topology_hazard_review"
+COMPONENTS = ["topology-hazard"]
+IMPLEMENTED_BY = {"Digest": "flowguard/topology_hazard.py:infer_topology_digest",
+                  "Review": "flowguard/topology_hazard.py:review_topology_hazards"}
+TESTED_BY = {
+    "unanchored_hazards_do_not_become_hard_gates": [
+        "tests/test_topology_hazard.py:test_unanchored_ai_hazard_cannot_become_hard_gate"],
+    "anchored_hazards_need_route_or_scope": [
+        "tests/test_topology_hazard.py:test_anchored_broad_side_effect_hazard_blocks_until_handled",
+        "tests/test_topology_hazard.py:test_handled_anchored_hazard_passes"],
+}
+REQUIRED_LABELS = ("anchor_observed", "anchored_hazard_inferred", "required_route_created", "hazard_handled_or_scoped",
+                   "compatibility_disposition_chosen", "full_claim_accepted", "scoped_or_blocked_claim")
+BROKEN_LENGTH = {"topology_hazard_unanchored_hard_gate": 1, "topology_hazard_full_without_route": 3,
+                 "topology_hazard_compatibility_ignored": 2}
+CASES = (Case("unanchored_hazard_is_observation", True), Case("anchored_side_effect_blocks_release", False))
+
+
+class EffectBlock:
+    name = "EffectBlock"
+    reads = ("phase",)
+    writes = ("saved_record",)
+    side_effects = ("database_write",)
+
+    def apply(self, input_obj, state):
+        return ()
+
+
+def _explorer(workflow, length, labels=()):
+    return Explorer(workflow=workflow, initial_states=(initial_state(),), external_inputs=EXTERNAL_INPUTS,
+                    invariants=INVARIANTS, max_sequence_length=length, terminal_predicate=terminal_predicate,
+                    required_labels=labels, progress_steps=0)
+
+
+def build_explorer() -> Explorer:
+    return _explorer(build_correct_workflow(), 4, REQUIRED_LABELS)      # every label is reached within 4 inputs
+
+
+def broken_variants() -> dict:
+    return {workflow.name: _explorer(workflow, BROKEN_LENGTH[workflow.name]) for workflow in build_broken_workflows()}
+
+
+def _observe(case):
+    digest = infer_topology_digest(workflow=Workflow((EffectBlock(),), name="effect"), external_inputs=("event",),
+                                   usage_intent=UsageIntent(usage_modes=("release",), final_claim="release"))
+    if case.accept:
+        plan = TopologyHazardReviewPlan(
+            "unanchored", digest=digest, auto_generate_candidates=False,
+            candidates=(TopologyHazardCandidate("hazard:generic", "generic warning with no anchor",
+                                                disposition=TOPOLOGY_DISPOSITION_BLOCKED,
+                                                confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED,
+                                                severity=TOPOLOGY_SEVERITY_BLOCKER),))
+    else:
+        plan = TopologyHazardReviewPlan("anchored", digest=digest)
+    return review_topology_hazards(plan).ok
+
+
+def conformance():
+    return case_table_conformance(CASES, _observe)
