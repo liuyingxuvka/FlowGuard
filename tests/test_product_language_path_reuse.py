@@ -31,7 +31,6 @@ from flowguard import (
     ObligationFamilyMember,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
-    ProofArtifactRef,
     TestEvidence,
     UIContentVisibilityItem,
     UIContentVisibilityPlan,
@@ -66,19 +65,6 @@ REVISION = "download-material:v1"
 
 def finding_codes(report) -> set[str]:
     return {finding.code for finding in report.findings}
-
-
-def current_proof() -> ProofArtifactRef:
-    return ProofArtifactRef(
-        "proof:download-material",
-        producer_route="runtime_path_evidence",
-        command="python -m pytest tests/test_product_language_path_reuse.py -q",
-        result_path=".flowguard/evidence/product-language-path-reuse/runtime.json",
-        result_status="passed",
-        exit_code=0,
-        artifact_fingerprints={OWNER_CONTRACT_ID: "sha256:download-material-v1"},
-        covered_obligation_ids=(OBLIGATION_ID,),
-    )
 
 
 def commitment(commitment_id: str = COMMITMENT_ID) -> BehaviorCommitment:
@@ -197,7 +183,6 @@ def primary_path(path_id: str = PRIMARY_PATH_ID) -> PrimaryPathContract:
         runtime_evidence_state="current_pass",
         runtime_observation_ids=("runtime:download-material",),
         required_obligation_ids=(OBLIGATION_ID,),
-        proof_artifact=current_proof(),
         source_surface_ids=(UI_SURFACE_ID,),
     )
 

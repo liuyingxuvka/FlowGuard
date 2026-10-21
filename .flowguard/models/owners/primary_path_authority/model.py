@@ -11,7 +11,6 @@ from flowguard import (
     FallbackPathCandidate,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
-    ProofArtifactRef,
     PPA_AUTHORITY_EXTERNAL_FACADE,
     PPA_AUTHORITY_MANUAL_RECOVERY,
     PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
@@ -36,25 +35,6 @@ COMMITMENT_ID = "commitment:submit-order"
 PRIMARY_PATH_ID = "submit_order"
 
 
-def current_proof():
-    return ProofArtifactRef(
-        "proof:submit-order-primary",
-        producer_route="runtime_path_evidence",
-        command="python -m pytest tests/test_primary_path_authority.py -q",
-        result_path=".flowguard/evidence/submit-order-primary.json",
-        result_status="passed",
-        exit_code=0,
-        artifact_fingerprints={"orders.submit.contract": "sha256:current"},
-        covered_obligation_ids=("obligation:submit-order-primary",),
-        metadata={
-            "business_intent_id": INTENT_ID,
-            "behavior_commitment_id": COMMITMENT_ID,
-            "primary_path_id": PRIMARY_PATH_ID,
-            "expected_terminal": "accepted_or_visible_error",
-        },
-    )
-
-
 def primary_path():
     return PrimaryPathContract(
         PRIMARY_PATH_ID,
@@ -69,7 +49,6 @@ def primary_path():
         runtime_evidence_state="current_pass",
         runtime_observation_ids=("runtime:submit-order:no-fallback",),
         required_obligation_ids=("obligation:submit-order-primary",),
-        proof_artifact=current_proof(),
         source_surface_ids=("surface:orders-primary",),
     )
 
@@ -225,12 +204,6 @@ def broken_stale_material_evidence():
         runtime_evidence_state="stale",
         runtime_observation_ids=("runtime:submit-order:stale",),
         required_obligation_ids=("obligation:submit-order-primary",),
-        proof_artifact=ProofArtifactRef(
-            "proof:submit-order-stale",
-            result_path=".flowguard/evidence/submit-order-stale.json",
-            result_status="stale",
-            current=False,
-        ),
     )
     plan = complete_plan()
     return PrimaryPathAuthorityPlan(

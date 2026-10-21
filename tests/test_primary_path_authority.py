@@ -4,7 +4,6 @@ from flowguard import (
     FallbackPathCandidate,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
-    ProofArtifactRef,
     PPA_AUTHORITY_EXTERNAL_FACADE,
     PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
     PPA_CANDIDATE_COMPATIBILITY_FACADE,
@@ -17,19 +16,6 @@ from flowguard import (
 INTENT_ID = "intent:submit-order"
 COMMITMENT_ID = "commitment:submit-order"
 PRIMARY_PATH_ID = "submit_order"
-
-
-def current_proof():
-    return ProofArtifactRef(
-        "proof:submit-order-primary",
-        producer_route="runtime_path_evidence",
-        command="python -m pytest tests/test_primary_path_authority.py -q",
-        result_path=".flowguard/evidence/submit-order-primary.json",
-        result_status="passed",
-        exit_code=0,
-        artifact_fingerprints={"orders.submit.contract": "sha256:current"},
-        covered_obligation_ids=("obligation:submit-order-primary",),
-    )
 
 
 def primary(**kwargs):
@@ -46,7 +32,6 @@ def primary(**kwargs):
         "runtime_evidence_state": "current_pass",
         "runtime_observation_ids": ("runtime:submit-order:no-fallback",),
         "required_obligation_ids": ("obligation:submit-order-primary",),
-        "proof_artifact": current_proof(),
         "source_surface_ids": ("surface:orders-primary",),
     }
     defaults.update(kwargs)

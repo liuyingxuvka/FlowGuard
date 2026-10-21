@@ -13,7 +13,6 @@ from flowguard import (
     FallbackPathCandidate,
     PrimaryPathAuthorityPlan,
     PrimaryPathContract,
-    ProofArtifactRef,
     PPA_AUTHORITY_EXTERNAL_FACADE,
     PPA_AUTHORITY_MANUAL_RECOVERY,
     PPA_CANDIDATE_COMPATIBILITY_FACADE,
@@ -38,19 +37,6 @@ BEHAVIOR_COMMITMENT_ID = "commitment:submit-order"
 PRIMARY_PATH_ID = "submit_order"
 
 
-def current_proof():
-    return ProofArtifactRef(
-        "proof:submit-order-primary",
-        producer_route="runtime_path_evidence",
-        command="python .flowguard/verification/owners/primary_path_authority/run_checks.py",
-        result_path=".flowguard/evidence/submit-order-primary.json",
-        result_status="passed",
-        exit_code=0,
-        artifact_fingerprints={"orders.submit.contract": "sha256:current"},
-        covered_obligation_ids=("obligation:submit-order-primary",),
-    )
-
-
 def good_plan():
     return PrimaryPathAuthorityPlan(
         "good-primary-path-authority",
@@ -68,7 +54,6 @@ def good_plan():
                 runtime_evidence_state="current_pass",
                 runtime_observation_ids=("runtime:submit-order:no-fallback",),
                 required_obligation_ids=("obligation:submit-order-primary",),
-                proof_artifact=current_proof(),
                 source_surface_ids=("surface:orders-primary",),
             ),
         ),

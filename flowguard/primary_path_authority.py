@@ -16,11 +16,6 @@ from .contract_exhaustion import (
     ContractOracle,
 )
 from .export import to_jsonable
-from .proof_artifact import (
-    ProofArtifactRef,
-    coerce_proof_artifact_ref,
-    proof_artifact_gap_codes,
-)
 
 
 PRIMARY_PATH_ROUTE_ID = "primary_path_authority"
@@ -229,7 +224,6 @@ class PrimaryPathContract:
     runtime_evidence_state: str = ""
     runtime_observation_ids: tuple[str, ...] = ()
     required_obligation_ids: tuple[str, ...] = ()
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     source_surface_ids: tuple[str, ...] = ()
     replaces_primary_path_id: str = ""
     old_primary_path_disposition: str = ""
@@ -255,7 +249,6 @@ class PrimaryPathContract:
         object.__setattr__(self, "runtime_evidence_state", str(self.runtime_evidence_state))
         object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
         object.__setattr__(self, "required_obligation_ids", _as_tuple(self.required_obligation_ids))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "source_surface_ids", _as_tuple(self.source_surface_ids))
         object.__setattr__(self, "replaces_primary_path_id", str(self.replaces_primary_path_id))
         object.__setattr__(self, "old_primary_path_disposition", str(self.old_primary_path_disposition))
@@ -299,7 +292,6 @@ class PrimaryPathContract:
             "runtime_evidence_state": self.runtime_evidence_state,
             "runtime_observation_ids": list(self.runtime_observation_ids),
             "required_obligation_ids": list(self.required_obligation_ids),
-            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "source_surface_ids": list(self.source_surface_ids),
             "replaces_primary_path_id": self.replaces_primary_path_id,
             "old_primary_path_disposition": self.old_primary_path_disposition,
@@ -322,7 +314,6 @@ class FallbackPathCandidate:
     delegates_to_path_id: str = ""
     expected_terminal: str = ""
     runtime_observation_ids: tuple[str, ...] = ()
-    proof_artifact: ProofArtifactRef | Mapping[str, Any] | None = None
     candidate_surface: str = PPA_CANDIDATE_UNKNOWN
     candidate_trigger: str = PPA_TRIGGER_NEVER
     candidate_behavior: str = PPA_BEHAVIOR_NO_OP
@@ -349,7 +340,6 @@ class FallbackPathCandidate:
         object.__setattr__(self, "delegates_to_path_id", str(self.delegates_to_path_id))
         object.__setattr__(self, "expected_terminal", str(self.expected_terminal))
         object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
-        object.__setattr__(self, "proof_artifact", coerce_proof_artifact_ref(self.proof_artifact))
         object.__setattr__(self, "candidate_surface", str(self.candidate_surface or PPA_CANDIDATE_UNKNOWN))
         object.__setattr__(self, "candidate_trigger", str(self.candidate_trigger or PPA_TRIGGER_NEVER))
         object.__setattr__(self, "candidate_behavior", str(self.candidate_behavior or PPA_BEHAVIOR_NO_OP))
@@ -383,7 +373,6 @@ class FallbackPathCandidate:
             "delegates_to_path_id": self.delegates_to_path_id,
             "expected_terminal": self.expected_terminal,
             "runtime_observation_ids": list(self.runtime_observation_ids),
-            "proof_artifact": self.proof_artifact.to_dict() if self.proof_artifact else None,
             "candidate_surface": self.candidate_surface,
             "candidate_trigger": self.candidate_trigger,
             "candidate_behavior": self.candidate_behavior,
@@ -561,7 +550,6 @@ class PrimaryPathAuthorityReport:
     covered_surface_ids: tuple[str, ...] = ()
     missing_surface_ids: tuple[str, ...] = ()
     runtime_observation_ids: tuple[str, ...] = ()
-    proof_artifact_ids: tuple[str, ...] = ()
     evidence_current: bool = False
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
@@ -588,7 +576,6 @@ class PrimaryPathAuthorityReport:
         object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
         object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
         object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
-        object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
         object.__setattr__(self, "evidence_current", bool(self.evidence_current))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
@@ -648,7 +635,6 @@ class PrimaryPathAuthorityReport:
             "covered_surface_ids": list(self.covered_surface_ids),
             "missing_surface_ids": list(self.missing_surface_ids),
             "runtime_observation_ids": list(self.runtime_observation_ids),
-            "proof_artifact_ids": list(self.proof_artifact_ids),
             "evidence_current": self.evidence_current,
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
@@ -748,16 +734,7 @@ def review_primary_path_authority(
                         path_id=path.business_path_id,
                     )
                 )
-            evidence_gaps = list(
-                proof_artifact_gap_codes(
-                    path.proof_artifact,
-                    declared_status="passed" if path.runtime_evidence_state == PPA_EVIDENCE_CURRENT_PASS else "",
-                    required_obligation_ids=path.required_obligation_ids,
-                    require_result_path=True,
-                    require_fingerprints=True,
-                    require_external_scope=True,
-                )
-            )
+            evidence_gaps = []
             if path.runtime_evidence_state != PPA_EVIDENCE_CURRENT_PASS:
                 evidence_gaps.append(
                     ("runtime_evidence_state_not_current_pass", path.runtime_evidence_state or "missing")
@@ -766,17 +743,11 @@ def review_primary_path_authority(
                 evidence_gaps.append(("runtime_observation_missing", "no runtime observation ids"))
             if not path.required_obligation_ids:
                 evidence_gaps.append(("runtime_obligation_missing", "no required obligation ids"))
-            elif path.proof_artifact is not None and not set(path.required_obligation_ids).issubset(
-                path.proof_artifact.covered_obligation_ids
-            ):
-                evidence_gaps.append(
-                    ("runtime_obligation_coverage_incomplete", "proof artifact does not cover every required obligation")
-                )
             if evidence_gaps:
                 findings.append(
                     _finding(
                         "primary_path_runtime_evidence_not_current",
-                        "primary-path authority lacks a current external runtime observation and proof artifact",
+                        "primary-path authority lacks a current external runtime observation",
                         path_id=path.business_path_id,
                         metadata={"gaps": [list(item) for item in evidence_gaps]},
                     )
@@ -1001,11 +972,6 @@ def review_primary_path_authority(
                 for path in plan.primary_paths
                 for observation_id in path.runtime_observation_ids
             )
-        ),
-        proof_artifact_ids=tuple(
-            path.proof_artifact.artifact_id
-            for path in plan.primary_paths
-            if path.proof_artifact is not None
         ),
         evidence_current=bool(material_required and not blockers),
         coverage_case_ids=plan.coverage_case_ids,
