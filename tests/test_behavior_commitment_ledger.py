@@ -393,5 +393,27 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertIn("duplicate_commitment_id", codes(report))
 
 
+
+class CommitmentAnchorTests(unittest.TestCase):
+    def test_commitments_name_real_entrypoints_and_tests_when_the_project_root_is_given(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "tests").mkdir()
+            (root / "app.py").write_text("def run():\n    return 'done'\n", encoding="utf-8")
+            (root / "tests/test_app.py").write_text("def test_run():\n    assert True\n", encoding="utf-8")
+            bound = ledger(commitments=(commitment(entrypoints=("app.py:run",), tests=("tests/test_app.py:test_run",)),))
+            self.assertTrue(review_behavior_commitment_ledger(bound, project_root=root).ok)
+            self.assertTrue(review_behavior_commitment_ledger(ledger()).ok)        # no root: anchors are not checked
+            self.assertTrue({"commitment_entrypoint_unanchored", "commitment_test_unanchored"}
+                            <= codes(review_behavior_commitment_ledger(ledger(), project_root=root)))
+            (root / "app.py").write_text("def start():\n    return 'done'\n", encoding="utf-8")
+            report = review_behavior_commitment_ledger(bound, project_root=root)
+            self.assertFalse(report.ok)
+            self.assertIn("symbol 'run' not found in app.py",
+                          [f.message for f in report.findings if f.code == "commitment_anchor_missing"])
+
+
 if __name__ == "__main__":
     unittest.main()

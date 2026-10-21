@@ -1148,6 +1148,8 @@ class BehaviorCommitment:
     validation_boundary: str = ""
     rationale: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
+    entrypoints: tuple[str, ...] = ()      # 'path:Symbol' of the code that keeps the promise
+    tests: tuple[str, ...] = ()            # 'tests/x.py:test_name' of the tests that guard it
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "commitment_id", str(self.commitment_id))
@@ -1177,6 +1179,8 @@ class BehaviorCommitment:
         object.__setattr__(self, "surface_delegation_only", bool(self.surface_delegation_only))
         object.__setattr__(self, "source_surface_ids", _as_tuple(self.source_surface_ids))
         object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
+        object.__setattr__(self, "entrypoints", _as_tuple(self.entrypoints))
+        object.__setattr__(self, "tests", _as_tuple(self.tests))
         object.__setattr__(self, "primary_owner_model_id", str(self.primary_owner_model_id))
         object.__setattr__(self, "supporting_model_ids", _as_tuple(self.supporting_model_ids))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
@@ -1256,6 +1260,8 @@ class BehaviorCommitment:
             "surface_delegation_only": self.surface_delegation_only,
             "source_surface_ids": list(self.source_surface_ids),
             "source_refs": list(self.source_refs),
+            "entrypoints": list(self.entrypoints),
+            "tests": list(self.tests),
             "primary_owner_model_id": self.primary_owner_model_id,
             "supporting_model_ids": list(self.supporting_model_ids),
             "child_model_ids": list(self.child_model_ids),
@@ -2169,10 +2175,40 @@ def _review_complete_source_identity(
             )
 
 
+def _commitment_anchor_findings(ledger: BehaviorCommitmentLedger, project_root: Any) -> list[BehaviorCommitmentFinding]:
+    """Each in-scope commitment names the code entrypoint that keeps it and the tests that guard it."""
+    from .map.check import anchor_problems
+
+    active = [commitment for commitment in ledger.commitments if commitment.in_scope]
+    problems = anchor_problems(project_root, [anchor for c in active for anchor in (*c.entrypoints, *c.tests)])
+    findings: list[BehaviorCommitmentFinding] = []
+    for commitment in active:
+        if not commitment.entrypoints:
+            findings.append(_finding("commitment_entrypoint_unanchored",
+                                     "name the code entrypoint that keeps this promise in entrypoints ('path:Symbol')",
+                                     commitment_id=commitment.commitment_id))
+        if not commitment.tests:
+            findings.append(_finding("commitment_test_unanchored",
+                                     "name the tests that guard this promise in tests ('tests/x.py:test_name')",
+                                     commitment_id=commitment.commitment_id))
+        for anchor in (*commitment.entrypoints, *commitment.tests):
+            if anchor in problems:
+                findings.append(_finding("commitment_anchor_missing", problems[anchor],
+                                         commitment_id=commitment.commitment_id, metadata={"anchor": anchor}))
+    return findings
+
+
 def review_behavior_commitment_ledger(
     ledger: BehaviorCommitmentLedger | Mapping[str, Any],
+    *,
+    project_root: Any = None,
 ) -> BehaviorCommitmentCoverageReport:
-    """Review the declared promises, their sources, owners and tests."""
+    """Review the declared promises, their sources, owners and tests.
+
+    With ``project_root`` each in-scope commitment must also name its entrypoint and tests as anchors
+    that exist in the real code (``commitment_entrypoint_unanchored``, ``commitment_test_unanchored``,
+    ``commitment_anchor_missing``).
+    """
 
     ledger = behavior_commitment_ledger_from_mapping(ledger)
     findings: list[BehaviorCommitmentFinding] = []
@@ -2484,6 +2520,8 @@ def review_behavior_commitment_ledger(
             coverage_shard_ids,
             coverage_receipt_ids,
         )
+    if project_root is not None:
+        findings.extend(_commitment_anchor_findings(ledger, project_root))
 
     blocked_commitments = {
         finding.commitment_id

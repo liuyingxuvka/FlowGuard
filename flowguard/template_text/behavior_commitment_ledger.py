@@ -61,6 +61,8 @@ BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE = r'''{
         "canonical_relation_ids": [],
         "source_surface_ids": ["surface:readme-workflow", "surface:workflow-api"],
         "source_refs": [],
+        "entrypoints": ["REPLACE_ME/workflow.py:run_primary_workflow"],
+        "tests": ["REPLACE_ME/test_workflow.py:test_primary_workflow"],
         "state_writes": [],
         "supporting_model_ids": [],
         "surface_delegation_only": false,

@@ -44,7 +44,8 @@ the real bug in A stays hidden.
    - each `commitments` row: `commitment_id`, `business_intent_id` (one per exact promise),
      `behavior_plane` (`product_runtime`, `agent_operation`, `development_process`),
      `actor_kind`, `trigger`, `expected_result`, `expected_terminal`, `failure_boundary`,
-     `source_surface_ids`, one `primary_owner_model_id`, `evidence.test_evidence_ids`.
+     `source_surface_ids`, one `primary_owner_model_id`, `evidence.test_evidence_ids`, and the anchors
+     `entrypoints` (`path:Symbol` of the code that keeps the promise) and `tests` (`tests/x.py:test_name`).
    - set `change_mode`: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
      `remove_or_replace_behavior`, `coverage_gap_backfill` or `model_miss_check`.
    - an alias, wrapper or second UI for the same promise maps to the same commitment.
@@ -63,7 +64,7 @@ from flowguard import (review_primary_path_authority, review_behavior_commitment
     load_behavior_commitment_ledger)
 ppa = review_primary_path_authority(plan)            # ppa.ok, ppa.findings
 ledger = load_behavior_commitment_ledger(".flowguard/behavior/inventory/ledger.json")
-report = review_behavior_commitment_ledger(ledger)
+report = review_behavior_commitment_ledger(ledger, project_root=".")   # anchors must exist in the code
 print(report.format_text())
 ```
 

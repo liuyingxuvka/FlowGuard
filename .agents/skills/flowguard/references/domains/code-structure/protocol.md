@@ -79,7 +79,9 @@ the code exists, each recommended module becomes one component in
    partition_items=, child_modules=, public_entrypoints=))`: one `StructurePartitionItem(item_id,
    owner_module_id=)` per top-level symbol of `python -m flowguard map digest PARENT`, one
    `ModuleStructureEvidence` per child, one `PublicEntrypointEvidence(entrypoint, compatibility_preserved=)`
-   per old import path, command or route. After moving the code, keep the old anchors in the facade
+   per old import path, command or route. After moving the code, pass `project_root="."`: each child
+   `path` and each `path:Symbol` entrypoint must exist (`child_module_missing`, `public_entrypoint_missing`).
+   Keep the old anchors in the facade
    component's `entrypoints`; run `map deps --write`, `map check` (`anchor_broken` = a lost entrypoint),
    `map lint` (no `dependency_cycle` between children) and the tests `change` selects; confirm each child.
 
@@ -125,4 +127,4 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
 - Not checked: the per-module `owns_*`, `reads_fields`, `writes_fields` lists (only the plan-level
   `*_map` pairs are), `facade_module_id`, a module that owns everything, two writers of one field,
   and the kernel/adapter ids when there is no `canonical_relation_handoff`.
-- The split review (step 7) also checks only the facts you pass; `map check` and `map lint` on the moved code are the real check.
+- The split review (step 7) checks the facts you pass (with `project_root` also child paths and entrypoints); `map check` and `map lint` on the moved code are the full check.

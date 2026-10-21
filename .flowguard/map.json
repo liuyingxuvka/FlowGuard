@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c5a990dd428ef93fc8beddb0101b3a5541311bfffc499a0a379a39c6b558707b"
+      "fingerprint": "sha256:9dd7b99b46d2e56f22a0cbc5a2c5c221bec445f453bac3f4156292a97dadcf4a"
     },
     {
       "id": "behavior-commitment",
@@ -239,7 +239,8 @@
       "summary": "Binds external promises to one owner and its tests.",
       "responsibilities": [
         "register each external promise with one owner and tests",
-        "block silent fallback from a failed primary path"
+        "block silent fallback from a failed primary path",
+        "with a project root, require each promise to name its entrypoint and tests as anchors that exist"
       ],
       "files": [
         "flowguard/behavior_commitment.py",
@@ -259,7 +260,8 @@
       "depends_on": [
         "contract-exhaustion",
         "engine-core",
-        "shared-vocabulary"
+        "shared-vocabulary",
+        "map-analysis"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
@@ -279,7 +281,7 @@
         ".flowguard/models/primary_path_authority.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2230d2c17ea47e25972c87efae1ecb1c762bbf5f865b831b29b39aaa1bc627a7"
+      "fingerprint": "sha256:ebfd513f0c3899715da9cf07fc07536abc0d3e2d93f6d9047cd6da8fe5ed2896"
     },
     {
       "id": "architecture-reduction",
@@ -317,7 +319,7 @@
       "summary": "Assigns model functions, state and effects to modules and checks module splits.",
       "responsibilities": [
         "recommend one owning module per model element",
-        "check that a module split keeps one owner per item and the old public entrypoints"
+        "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist"
       ],
       "files": [
         "flowguard/code_structure.py",
@@ -331,7 +333,8 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
-        "shared-vocabulary"
+        "shared-vocabulary",
+        "map-analysis"
       ],
       "tests": [
         "tests/test_architecture_reduction.py",
@@ -343,7 +346,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3139576e088e20e217ea057b0a37337fea3f9137a7839ac739da8e24cd0c50fe"
+      "fingerprint": "sha256:a6eb123cc867510f96a645e8c472abde169d85a36fa974f6bc6721ab9bea23a9"
     },
     {
       "id": "contract-exhaustion",

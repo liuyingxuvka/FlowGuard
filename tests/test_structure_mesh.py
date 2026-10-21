@@ -450,5 +450,38 @@ class StructureMeshTests(unittest.TestCase):
         self.assertIn("target_state_owner_mismatch", codes)
 
 
+
+class StructureMeshProjectRootTests(unittest.TestCase):
+    def test_split_names_real_child_modules_and_entrypoints_when_the_project_root_is_given(self):
+        import tempfile
+        from pathlib import Path
+
+        plan = StructureMeshPlan(
+            parent_module_id="router",
+            target_structure=recommendation(state_map=(("route_state", "dispatch"),),
+                                            side_effect_map=(("write_event", "dispatch"),)),
+            partition_items=(StructurePartitionItem("cli", item_type="entrypoint", owner_module_id="facade"),
+                             StructurePartitionItem("dispatch", item_type="function", owner_module_id="dispatch")),
+            child_modules=(module("facade", path="router/__init__.py", facade_retained=True, owns_functions=("main",)),
+                           module("dispatch", path="router/dispatch.py", owns_state=("route_state",),
+                                  owns_side_effects=("write_event",))),
+            public_entrypoints=(entrypoint("python -m router", old_path="router.py", new_path="router/__init__.py:main"),),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "router").mkdir()
+            (root / "router/__init__.py").write_text("def main():\n    return 0\n", encoding="utf-8")
+            (root / "router/dispatch.py").write_text("def dispatch():\n    return 1\n", encoding="utf-8")
+            self.assertTrue(review_structure_mesh(plan, project_root=root).ok)
+            (root / "router/__init__.py").write_text("def start():\n    return 0\n", encoding="utf-8")
+            report = review_structure_mesh(plan, project_root=root)
+            self.assertIn("public_entrypoint_missing", [f.code for f in report.findings])
+            (root / "router/dispatch.py").unlink()
+            report = review_structure_mesh(plan, project_root=root)
+            self.assertIn("child_module_missing", [f.code for f in report.findings])
+            self.assertFalse(report.ok)
+            self.assertTrue(review_structure_mesh(plan).ok)        # no root: only the declared plan is reviewed
+
+
 if __name__ == "__main__":
     unittest.main()
