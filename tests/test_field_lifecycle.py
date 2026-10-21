@@ -1,6 +1,9 @@
 import unittest
 
 import flowguard
+from flowguard import (FIELD_DISPOSITION_DELETED, FIELD_IMPACT_STATE, FIELD_LIFECYCLE_REPLACED,
+                       FIELD_ROLE_METADATA, FIELD_ROLE_STATE, FieldLifecyclePlan, FieldLifecycleRow, FieldProjection,
+                       add_field_row, field_lifecycle_code_facts, field_lifecycle_explorer, replace_field_row)
 
 
 class FieldLifecycleTests(unittest.TestCase):
@@ -366,6 +369,48 @@ class FieldLifecycleTests(unittest.TestCase):
 
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(flowguard.FIELD_DECISION_FULL, report.decision)
+
+
+def _kit_plan():
+    return FieldLifecyclePlan("orders", discovered_field_ids=("field:mode",), fields=(
+        FieldLifecycleRow("field:mode", role=FIELD_ROLE_STATE, behavior_impacts=(FIELD_IMPACT_STATE,),
+                          locations=("shop/orders.py:mode",),
+                          projection=FieldProjection("projection:mode", "field:mode", model_obligation_id="obligation:mode",
+                                                     code_contract_id="contract:mode")),))
+
+
+_KIT_EDITS = {
+    "add_old": lambda plan: add_field_row(plan, FieldLifecycleRow("field:old_mode", role=FIELD_ROLE_METADATA,
+                                                                  scoped_out_reason="label only")),
+    "delete_old": lambda plan: replace_field_row(plan, "field:old_mode", lifecycle=FIELD_LIFECYCLE_REPLACED,
+                                                 replacement_field_id="field:mode", disposition=FIELD_DISPOSITION_DELETED,
+                                                 disposition_evidence_refs=("test:old_mode_gone",))
+    if any(row.field_id == "field:old_mode" for row in plan.fields) else plan,
+    "drop_old": lambda plan: replace_field_row(plan, "field:old_mode", lifecycle=FIELD_LIFECYCLE_REPLACED)
+    if any(row.field_id == "field:old_mode" for row in plan.fields) else plan,
+}
+
+
+def test_field_lifecycle_kit_explores_edits_with_the_review_as_invariant():
+    assert field_lifecycle_explorer(_kit_plan, _KIT_EDITS, explore=["add_old", "delete_old"]).explore().ok
+    bad = field_lifecycle_explorer(_kit_plan, _KIT_EDITS, explore=["add_old", "drop_old"]).explore()
+    assert not bad.ok and "old_field_disposition_open" in bad.violations[0].message
+
+
+def test_field_lifecycle_code_facts_compare_the_plan_with_the_code(tmp_path):
+    (tmp_path / "shop").mkdir()
+    source = tmp_path / "shop/orders.py"
+    source.write_text("class Order:\n    mode = 'fast'\n", encoding="utf-8")
+    target = _KIT_EDITS["delete_old"](_KIT_EDITS["add_old"](_kit_plan()))
+    report = field_lifecycle_code_facts(target, ["shop/orders.py"], anchors={"Order": "shop/orders.py:Order"}, root=tmp_path)
+    assert report.ok, report.format_text()
+    source.write_text("class Order:\n    mode = 'fast'\n    old_mode = None\n", encoding="utf-8")
+    report = field_lifecycle_code_facts(target, ["shop/orders.py"], root=tmp_path)
+    assert not report.ok and "field:old_mode: deleted field has no reference left" in report.format_text()
+    source.write_text("class Order:\n    kind = 'fast'\n", encoding="utf-8")
+    text = field_lifecycle_code_facts(target, ["shop/orders.py"], root=tmp_path).format_text()
+    assert "replacement field:mode exists" in text and "field:mode: declared at shop/orders.py:mode" in text
+
 
 if __name__ == "__main__":
     unittest.main()

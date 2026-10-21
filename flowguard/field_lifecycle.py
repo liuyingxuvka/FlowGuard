@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from typing import TYPE_CHECKING
@@ -1032,6 +1032,60 @@ def field_lifecycle_to_code_contracts(
     return tuple(result)
 
 
+def add_field_row(plan: FieldLifecyclePlan, row: FieldLifecycleRow) -> FieldLifecyclePlan:
+    """Plan edit for a field-lifecycle model: a new field row, also recorded as discovered."""
+    discovered = tuple(dict.fromkeys(plan.discovered_field_ids + (row.field_id,)))
+    return replace(plan, fields=plan.fields + (row,), discovered_field_ids=discovered)
+
+
+def replace_field_row(plan: FieldLifecyclePlan, field_id: str, **changes: Any) -> FieldLifecyclePlan:
+    """Plan edit for a field-lifecycle model: change one row (lifecycle, disposition, replacement, ...)."""
+    if not any(row.field_id == field_id for row in plan.fields):
+        raise KeyError(f"no field row {field_id!r}")
+    return replace(plan, fields=tuple(replace(row, **changes) if row.field_id == field_id else row for row in plan.fields))
+
+
+def field_lifecycle_explorer(initial, edits, *, explore=None, max_sequence_length: int = 2):
+    """Field-lifecycle model: named edits change the plan; review_field_lifecycle must accept every plan reached."""
+    from .kit import plan_explorer
+
+    return plan_explorer(initial, edits, review_field_lifecycle, explore=explore,
+                         invariant_name="field_lifecycle_review_accepts", max_sequence_length=max_sequence_length)
+
+
+def _code_name(row: FieldLifecycleRow) -> str:
+    return row.field_name.split(":")[-1].split(".")[-1]
+
+
+def field_lifecycle_code_facts(plan: FieldLifecyclePlan, files: Sequence[str], *, anchors=(), root=None):
+    """Compare a field-lifecycle plan with the real code (static code facts, nothing is executed).
+
+    * a row closed as deleted has no reference left in ``files``;
+    * a row's replacement field is present in ``files``;
+    * every other row's ``locations`` ('path:name') still hold the field's name;
+    * every anchor exists.
+    """
+    from .map.facts import CodeFacts
+
+    facts = CodeFacts(root)
+    if anchors:
+        facts.anchors_exist(anchors)
+    files = list(files)
+    by_id = {row.field_id: row for row in plan.fields}
+    for row in plan.fields:
+        name = _code_name(row)
+        if row.replacement_field_id in by_id:
+            facts.present(_code_name(by_id[row.replacement_field_id]), files,
+                          f"{row.field_id}: replacement {row.replacement_field_id} exists")
+        if row.disposition == FIELD_DISPOSITION_DELETED:
+            facts.absent(name, files, f"{row.field_id}: deleted field has no reference left")
+            continue
+        for location in row.locations:
+            path, _, word = location.partition(":")
+            facts.present(word or name, [path], f"{row.field_id}: declared at {location}")
+    return facts.report()
+
+
 __all__ = [
     "BEHAVIOR_FIELD_IMPACTS",
     "FIELD_CONFIDENCE_BLOCKED",
@@ -1099,6 +1153,10 @@ __all__ = [
     "FIELD_ROUTE_RUNTIME_GATEWAY",
     "FIELD_ROUTE_TEST_MESH",
     "PASSING_FIELD_DISPOSITIONS",
+    "add_field_row",
+    "field_lifecycle_code_facts",
+    "field_lifecycle_explorer",
+    "replace_field_row",
     "FieldLifecycleFinding",
     "FieldLifecycleGroup",
     "FieldLifecyclePlan",

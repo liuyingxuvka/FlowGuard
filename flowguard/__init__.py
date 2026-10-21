@@ -562,8 +562,12 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "FieldLifecycleRow",
         "FieldProjection",
         "PASSING_FIELD_DISPOSITIONS",
+        "add_field_row",
+        "field_lifecycle_code_facts",
+        "field_lifecycle_explorer",
         "field_lifecycle_to_code_contracts",
         "field_lifecycle_to_model_obligations",
+        "replace_field_row",
         "review_field_lifecycle",
     ),
     "flowguard.hierarchy": (

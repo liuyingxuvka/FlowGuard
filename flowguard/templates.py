@@ -23,8 +23,6 @@ from .template_text.behavior_commitment_ledger import (
 )
 from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_MODEL_TEMPLATE,
-    FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
-    FIELD_LIFECYCLE_NOTES_TEMPLATE,
 )
 from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
@@ -130,8 +128,7 @@ def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
 
 def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/models/owners/field_lifecycle/model.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/field_lifecycle/run_checks.py", FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE),
+        TemplateFile(".flowguard/models/field_lifecycle.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
     )
 
 
@@ -241,8 +238,6 @@ __all__ = [
     "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
-    "FIELD_LIFECYCLE_NOTES_TEMPLATE",
-    "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",

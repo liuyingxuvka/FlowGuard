@@ -86,6 +86,32 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
         return result.stdout
 
+    def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None):
+        """Write a model-kit template into a tiny git project, list it in the map and run it."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for rel, text in code.items():
+                (root / rel).parent.mkdir(parents=True, exist_ok=True)
+                (root / rel).write_text(text, encoding="utf-8")
+            subprocess.run(["git", "init", "-q", "."], cwd=root, check=True)
+            write_template_files(root, files)
+            model = root / files[0].path
+            if fill:
+                model.write_text(model.read_text(encoding="utf-8").replace("REPLACE_ME", fill), encoding="utf-8")
+
+            def flowguard_map(*args):
+                return subprocess.run([sys.executable, "-m", "flowguard", "map", *args], cwd=root, env=_template_env(),
+                                      text=True, capture_output=True, check=False)
+
+            flowguard_map("scan")
+            data = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
+            data["components"][0]["models"] = [files[0].path]
+            (root / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
+            result = flowguard_map("models", model_id)
+        if expected_returncode is not None:
+            self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
+        return result.stdout + result.stderr
+
     def run_cli(self, argv):
         stdout = io.StringIO()
         stderr = io.StringIO()
@@ -284,15 +310,15 @@ def build_review():
         )
         self.assertIn("topology_hazard_pass", output)
 
-    def test_field_lifecycle_template_executes(self):
-        output = self.run_written_template(
-            field_lifecycle_template_files(),
-            (".flowguard", "verification", "owners", "field_lifecycle"),
-        )
-        self.assertIn("flowguard field lifecycle mesh", output)
-        self.assertIn("projected_model_obligations: 2", output)
-        self.assertIn("behavior_field_projection_missing", output)
-        self.assertIn("old_field_disposition_open", output)
+    def test_field_lifecycle_template_fails_until_bound_to_real_code(self):
+        files = field_lifecycle_template_files()
+        code = {"shop/orders.py": "class Order:\n    mode = 'fast'\n"}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "field_lifecycle", code, expected_returncode=1))
+        self.assertIn("PASS  field_lifecycle", self.run_kit_template(files, "field_lifecycle", code, fill="shop",
+                                                                     expected_returncode=0))
+        stale = {"shop/orders.py": code["shop/orders.py"] + "    old_mode = None\n"}
+        self.assertIn("field:old_mode: deleted field has no reference left",
+                      self.run_kit_template(files, "field_lifecycle", stale, fill="shop", expected_returncode=1))
 
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {

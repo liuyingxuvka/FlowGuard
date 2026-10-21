@@ -34,9 +34,9 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
 
 ## Steps
 1. Reuse or update the owner's current field lifecycle/review. Only for a missing reusable boundary,
-   scaffold with `python -m flowguard template field-lifecycle --write .`.
-   It writes owner `model.py` and `.flowguard/verification/owners/field_lifecycle/run_checks.py`.
-2. In the selected plan (`model.py` only if persisted): `from flowguard import FieldLifecyclePlan, FieldLifecycleRow, FieldLifecycleGroup, FieldProjection, review_field_lifecycle`.
+   scaffold with `python -m flowguard template field-lifecycle --write .`. It writes one contract model,
+   `.flowguard/models/field_lifecycle.py`, whose `REPLACE_ME` anchors fail until they name your real code.
+2. In the selected plan: `from flowguard import FieldLifecyclePlan, FieldLifecycleRow, FieldLifecycleGroup, FieldProjection, review_field_lifecycle`.
 3. One `FieldLifecycleRow(field_id, role=, lifecycle=, behavior_impacts=, reader_ids=, writer_ids=, owner_id=)` per field.
    - `role`: `state`, `routing`, `permission`, `feature_flag`, `schema_version`,
      `persisted`, `presentation`, `metadata`, `prompt_config`.
@@ -56,18 +56,13 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    `discovered_field_ids` needs a row; take the list from the code, not from the rows you wrote.
 7. Runtime-gateway evidence routes to `model_test_alignment`.
    Feed model-test alignment: `field_lifecycle_to_model_obligations(report)`, `field_lifecycle_to_code_contracts(report)`.
-8. Review the current field plan and relevant broken cases. If persisting a runner, update its
-   good/bad plans; it exits 0 only if the good plan passes, the broken one fails and
-   obligations and code contracts were projected (shortened):
-
-```python
-correct = review_field_lifecycle(complete_field_lifecycle())
-broken = review_field_lifecycle(broken_field_lifecycle())
-ok = correct.ok and not broken.ok and field_lifecycle_to_model_obligations(correct)
-```
-
-9. If a persistent runner was created or changed, register it in the component's `models`;
-   run the selected registered owner once with `python -m flowguard map models <id>`.
+8. In the model, write the change as named plan edits (`add_field_row`, `replace_field_row`):
+   `build_explorer()` returns `field_lifecycle_explorer(plan, EDITS, explore=[...])` (the review must accept
+   every plan the edits reach), `broken_variants()` explores one wrong edit (for example an old field dropped
+   without disposition), and `conformance()` returns
+   `field_lifecycle_code_facts(target_plan, OWNED_FILES, anchors=IMPLEMENTED_BY)`: a deleted field has no
+   reference left in `OWNED_FILES`, its replacement is present, every declared location still holds its field.
+9. List the model in the component's `models`; run `python -m flowguard map models field_lifecycle`.
 10. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
@@ -100,13 +95,13 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 - [ ] The selected native review/check passes within its declared scope; partial gaps stay visible.
 - [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Every projected obligation has a real test, listed in the component's `tests`.
-- [ ] No source file still reads a removed or renamed field (grep the old name).
+- [ ] No source file still reads a removed or renamed field (`field_lifecycle_code_facts` checks `OWNED_FILES`).
 - [ ] Any persistent runner is registered and executed once; `python -m flowguard change` is clean.
 - [ ] Report which models and tests ran, the claim scope, and what was skipped.
 
 ## Limits
-- It checks only the rows you declare. It does not scan or run code; a field
-  you never discovered is invisible. Pair projections with real tests.
+- The review checks only the rows you declare; `field_lifecycle_code_facts` reads `OWNED_FILES`
+  statically and runs nothing. A field you never discovered is invisible. Pair projections with real tests.
 - Open gaps: a `replacement_field_id` naming no row still passes; a
   `scoped_out_reason` alone lets a behavior-bearing row skip its projection;
   two rows with the same field id are not reported.

@@ -85,6 +85,10 @@ def _template(ns: argparse.Namespace) -> int:
                 print(f"next: replace the example plan in its model.py with your own; add {file.path} to the "
                       f"owning component's models in .flowguard/map.json; then run: "
                       f"python -m flowguard map models {file.path.split('/')[-2]}")
+            elif file.path.startswith(".flowguard/models/") and file.path.count("/") == 2:
+                print(f"next: replace every REPLACE_ME anchor and the example with your own code; add {file.path} "
+                      f"to the owning component's models in .flowguard/map.json; then run: "
+                      f"python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")
         return 0
     for file in files:
         print(f"===== {file.path} =====")
