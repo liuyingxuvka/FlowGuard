@@ -83,7 +83,7 @@ the same. It never deletes code on a guess.
 | `blocked_by_missing_evidence` | Candidate has no proof yet. |
 | `conformance_replay_required` | Candidate needs trace replay against real code before it can be ready. |
 | `incomplete_candidate` / `missing_observable_contract` | Required fields are empty. |
-| `candidate_anchor_missing` | With `project_root`: a candidate's `code_node_id` names no real `path.py:Symbol`. |
+| `candidate_anchor_missing` | With `project_root`: a candidate's `code_node_id` names no real `path.py:Symbol`. Completed removals, merges and collapses are exempt; code facts check that the code is gone. |
 | `removed_code_still_referenced` | Model kit: another file still imports or names the code a candidate removes. |
 
 `risky_candidate_kept` and `property_only_reduction` are warnings: the candidate is kept, not ready.

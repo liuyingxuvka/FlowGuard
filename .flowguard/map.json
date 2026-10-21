@@ -294,7 +294,7 @@
       "summary": "Checks whether code can shrink without changing behavior.",
       "responsibilities": [
         "gate merging or removing code on proven unchanged behaviour",
-        "check that each candidate names real code when given the project root",
+        "check that each candidate names real code when given the project root (a completed removal names code that is gone and is not checked)",
         "model kit: explore added candidates with the review and a static reference scan as invariants (deleting a symbol that another file still imports or names is a counterexample) and compare the target plan with the code"
       ],
       "files": [
@@ -319,7 +319,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5258f7bedef47e12f546d3f73b33d038e818f31323214b0594597b13511b4970"
+      "fingerprint": "sha256:02a9acab82ae33332588657e1e92a517078819e65469af502ae4a1659fda6486"
     },
     {
       "id": "code-structure",

@@ -165,6 +165,21 @@ class ArchitectureReductionTests(unittest.TestCase):
             self.assertFalse(missing.ok)
             self.assertIn("candidate_anchor_missing", [finding.code for finding in missing.findings])
 
+    def test_project_root_skips_the_anchor_of_a_completed_removal(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            done = candidate(code_node_id="router/orders.py:validate_v2",
+                             lifecycle_disposition=CANDIDATE_DISPOSITION_COMPLETED,
+                             completion_evidence_refs=("tests/test_architecture_reduction.py",))
+            plan = ArchitectureReductionPlan(
+                "router-reduction", observable_contract=contract(), candidates=(done,),
+                companion_route_triggers=(trigger(),), target_structure=target_structure(),
+                rationale="the completed contraction names code that is gone")
+            report = review_architecture_reduction(plan, project_root=directory)
+            self.assertNotIn("candidate_anchor_missing", [finding.code for finding in report.findings])
+            self.assertTrue(report.ok)
+
     def test_completed_candidate_leaves_active_ready_queue(self):
         plan = ArchitectureReductionPlan(
             "router-reduction",

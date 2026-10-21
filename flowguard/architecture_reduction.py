@@ -733,9 +733,12 @@ def _surfaces_by_candidate(
 def _candidate_anchor_findings(plan: ArchitectureReductionPlan, project_root: str) -> list[ArchitectureReductionFinding]:
     from .map.check import anchor_problems
 
-    problems = anchor_problems(project_root, [c.code_node_id for c in plan.candidates if c.code_node_id])
+    problems = anchor_problems(project_root, [c.code_node_id for c in plan.candidates
+                                              if c.code_node_id and not _removal_completed(c)])
     findings: list[ArchitectureReductionFinding] = []
     for candidate in plan.candidates:
+        if _removal_completed(candidate):
+            continue
         problem = problems.get(candidate.code_node_id)
         if problem:
             findings.append(
@@ -837,7 +840,8 @@ def review_architecture_reduction(
 ) -> ArchitectureReductionReport:
     """Review whether modeled flow evidence supports code architecture contraction.
 
-    With ``project_root`` every candidate ``code_node_id`` must name real code (``path.py:Symbol``).
+    With ``project_root`` every candidate ``code_node_id`` must name real code (``path.py:Symbol``),
+    except a completed removal, merge or collapse: code facts require that code to be gone.
     """
 
     findings: list[ArchitectureReductionFinding] = []
@@ -1333,6 +1337,11 @@ def add_reduction_candidate(plan: ArchitectureReductionPlan,
     return replace(plan, candidates=kept + (candidate,))
 
 
+def _removal_completed(candidate: ArchitectureReductionCandidate) -> bool:
+    return (candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_COMPLETED
+            and candidate.target_action in _REMOVING_ACTIONS)
+
+
 def _removes_code(candidate: ArchitectureReductionCandidate) -> bool:
     return (candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
             and candidate.target_action in _REMOVING_ACTIONS and ":" in candidate.code_node_id)
@@ -1396,7 +1405,7 @@ def architecture_reduction_code_facts(plan: ArchitectureReductionPlan, *, anchor
             if exists and _removes_code(c):
                 facts.unreferenced(c.code_node_id, f"{c.candidate_id}: {c.code_node_id} has no reference outside "
                                                    f"{c.code_node_id.partition(':')[0]}")
-        elif c.lifecycle_disposition == CANDIDATE_DISPOSITION_COMPLETED and c.target_action in _REMOVING_ACTIONS:
+        elif _removal_completed(c):
             facts.check(f"{c.candidate_id}: {c.code_node_id} is gone", c.code_node_id in problems,
                         f"{c.code_node_id} still exists")
     return facts.report()
