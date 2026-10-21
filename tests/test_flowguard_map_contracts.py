@@ -198,3 +198,23 @@ def test_read_unknown_component_fails_and_names_the_read_command(tmp_path, capsy
     project(tmp_path)
     assert main(["read", "--root", str(tmp_path), "--component", "nope"]) == 1
     assert "python -m flowguard read" in capsys.readouterr().out
+
+
+def test_accepted_debts_mean_the_same_in_check_and_lint(tmp_path):
+    data = project(tmp_path)
+    write(tmp_path, "app.py", "def run():\n    open('out.txt', 'w').write('x')\n    return True\n")
+    write(tmp_path, "lib.py", "VALUE = 1\n")
+    data["components"].append({"id": "lib", "summary": "Lib", "responsibilities": ["hold a value"], "files": ["lib.py"],
+                               "entrypoints": [], "tests": [], "models": [], "depends_on": [], "status": "draft"})
+    data["components"][0]["depends_on"] = ["lib"]
+    data["accepted_debts"] = [
+        {"code": "dep_unused", "component": "app", "contains": "lib", "reason": "loaded by path at runtime"},
+        {"code": "entrypoint_unmodeled", "component": "app", "reason": "file output is covered by an integration test"}]
+    save(tmp_path, data)
+    d, inv = _context(tmp_path)
+    levels = {f.code: f.level for f in run_check(tmp_path, d, inv)}
+    assert "dep_unused" not in levels and levels.get("entrypoint_unmodeled") == "info"
+    assert "debt_stale" not in {f.code for f in run_lint(tmp_path, d, inv)}
+    write(tmp_path, "app.py", "import lib\n\ndef run():\n    open('out.txt', 'w').write('x')\n    return lib.VALUE\n")
+    d, inv = _context(tmp_path)
+    assert any(f.code == "debt_stale" and "loaded by path" in f.message for f in run_lint(tmp_path, d, inv))

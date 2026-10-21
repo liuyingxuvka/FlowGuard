@@ -20,7 +20,7 @@ from pathlib import Path
 from .common import Finding, read_source, tokens
 from .discover import discover_inventory, reachable_effects
 from .inventory import Inventory, parse_python, resolve_import
-from .mapfile import component_files, component_graph, model_registry, owner_index, read_model_contract
+from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract
 
 @dataclass
 class Limits:
@@ -173,6 +173,12 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled))
     debts = data.get("accepted_debts", [])
     out, used = apply_accepted_debts(out, debts)
+    # A dep_unused debt is used by check while its declared edge has no other evidence.
+    bare = dependency_evidence({**data, "accepted_debts": []}, inv)
+    declared = {c["id"]: set(c.get("depends_on", [])) for c in comps}
+    used |= {index for index, debt in enumerate(debts) if debt.get("code") == "dep_unused"
+             and debt.get("contains") in declared.get(debt.get("component"), set())
+             and debt.get("contains") not in bare.get(debt.get("component"), set())}
     for index, debt in enumerate(debts):
         if index not in used:
             out.append(Finding("warn", "debt_stale", debt.get("component", ""),

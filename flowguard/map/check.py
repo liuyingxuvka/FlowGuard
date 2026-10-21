@@ -149,7 +149,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         elif is_stale(root, c, inv):
             out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
     from .discover import discover_inventory
-    from .lint import entrypoint_coverage_findings, model_coverage
+    from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage
     covered, not_modeled = model_coverage(root, data, registry)
-    out.extend(entrypoint_coverage_findings(discover_inventory(root, inv), data, inv, covered, not_modeled=not_modeled))
+    entry_findings = entrypoint_coverage_findings(discover_inventory(root, inv), data, inv, covered, not_modeled=not_modeled)
+    out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
     return out
