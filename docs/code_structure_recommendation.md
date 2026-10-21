@@ -88,10 +88,11 @@ report = review_code_structure_recommendation(recommendation)
 print(report.format_text())
 ```
 
-For a ready scaffold, run:
+For a contract model built from the code-structure kit (plan edits, both reviews as invariants, code
+facts against the code and the map), run:
 
 ```powershell
-python -m flowguard template code-structure-recommendation --write .
+python -m flowguard template code-structure --write .
 ```
 
 ## From Recommendation To Proof

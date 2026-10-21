@@ -730,26 +730,14 @@ def _project_anchor_findings(plan: StructureMeshPlan, project_root: Any) -> list
     """After the split, every child module path and every public entrypoint exists in the real code."""
     from pathlib import Path
 
-    from .map.check import anchor_problems
+    from .code_structure import _code_entrypoint_problems
 
     root = Path(project_root)
-    findings: list[StructureMeshFinding] = []
-    for module in plan.child_modules:
-        if module.path and not (root / module.path).exists():
-            findings.append(StructureMeshFinding("child_module_missing", f"{module.path} does not exist",
-                                                 module_id=module.module_id))
-    problems = anchor_problems(root, [entry.new_path for entry in plan.public_entrypoints if ":" in entry.new_path])
-    code_suffixes = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
-    for entry in plan.public_entrypoints:
-        target = entry.new_path
-        if ":" in target:
-            problem = problems.get(target)
-        elif Path(target).suffix in code_suffixes:
-            problem = None if (root / target).is_file() else f"entrypoint file missing: {target}"
-        else:
-            problem = None                      # a command, route or dotted import path is checked by tests
-        if problem:
-            findings.append(StructureMeshFinding("public_entrypoint_missing", problem, item_id=entry.entrypoint_id))
+    findings = [StructureMeshFinding("child_module_missing", f"{module.path} does not exist", module_id=module.module_id)
+                for module in plan.child_modules if module.path and not (root / module.path).exists()]
+    found = _code_entrypoint_problems(root, [entry.new_path for entry in plan.public_entrypoints])
+    findings += [StructureMeshFinding("public_entrypoint_missing", found[entry.new_path], item_id=entry.entrypoint_id)
+                 for entry in plan.public_entrypoints if found.get(entry.new_path)]
     return findings
 
 

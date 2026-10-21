@@ -158,7 +158,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:13ae852fe631899c006c8c279a24fe593322216bac9a69dc6557d9824c4364c4"
+      "fingerprint": "sha256:4339274500fad4dd263c0e767da8dc32ad143774cbc07a14bcc1c5aa06d6e4de"
     },
     {
       "id": "public-api",
@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2ee22e277b8ed0041c12c7dbc5d6756fe54410bc3ddbd28f1a5f407c2e82c548"
+      "fingerprint": "sha256:7951646b6fe9cfe23834eca5a836e291c245262f1bb9810cf7d74df07c88a8ac"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:56536d9d70e6a75b4f1fc59559010c6748b7f1650b6b6751d46abe04c88513b8"
+      "fingerprint": "sha256:81d2d4fc52704d78c6078019ddb3c90dd40fe01acb7ebff813e1e854f393261f"
     },
     {
       "id": "behavior-commitment",
@@ -319,7 +319,8 @@
       "summary": "Assigns model functions, state and effects to modules and checks module splits.",
       "responsibilities": [
         "recommend one owning module per model element",
-        "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist"
+        "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist",
+        "model kit: explore module-plan edits with the recommendation and split reviews as invariants and compare the target plan with the code and the map (module files, split children and entrypoints exist; each owner file belongs to the named component)"
       ],
       "files": [
         "flowguard/code_structure.py",
@@ -334,7 +335,11 @@
       "depends_on": [
         "engine-core",
         "shared-vocabulary",
-        "map-analysis"
+        "map-analysis",
+        "engine-conformance",
+        "map-file",
+        "map-inventory",
+        "map-proof"
       ],
       "tests": [
         "tests/test_architecture_reduction.py",
@@ -346,7 +351,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a6eb123cc867510f96a645e8c472abde169d85a36fa974f6bc6721ab9bea23a9"
+      "fingerprint": "sha256:cfb69ec9f2589c756fff944c7d9c63a3d6a6f837a7e4915761262037bf0cab2a"
     },
     {
       "id": "contract-exhaustion",
@@ -902,7 +907,7 @@
       "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
         "replay model traces on the real code",
-        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by an existing review (model kits)"
+        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by existing reviews (model kits)"
       ],
       "files": [
         "flowguard/conformance.py",
@@ -928,7 +933,7 @@
         ".flowguard/models/python_function_state_verification.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c47baefc9f3709ca11a0780780fba79c7d6acda4d25b69b633f49d431afa20ba"
+      "fingerprint": "sha256:444f54bdf0d40c1e4877bf25c3a8633c0fe01b77fd0c0f33e73761631d824f5c"
     },
     {
       "id": "engine-runner",

@@ -36,13 +36,11 @@ the code exists, each recommended module becomes one component in
 
 ## Steps
 
-1. Reuse or update the current owner's native recommendation/review. Only for a missing
-   reusable boundary, run `python -m flowguard template code-structure-recommendation --write .`
-   This writes `.flowguard/models/owners/code_structure_recommendation/model.py` and
-   `.flowguard/verification/owners/code_structure_recommendation/run_checks.py` (replace its `REPLACE_ME` anchor).
-   To use a feature name, rename both `code_structure_recommendation` directories and the
-   `_MODEL_DIR` path inside `run_checks.py`.
-2. Update the selected owner recommendation (`recommendation()` in a persisted `model.py`). API:
+1. Reuse or update the current owner's model or review. Only for a missing reusable boundary, run
+   `python -m flowguard template code-structure --write .`. It writes one contract model,
+   `.flowguard/models/code_structure.py`, whose `REPLACE_ME` anchors fail until they name your real code;
+   use your map component ids as module ids.
+2. Write the recommendation (a split of an existing module wraps it in a `StructureMeshPlan`, step 7). API:
    ```python
    from flowguard import (CodeStructureRecommendation, TargetModuleRecommendation,
                           review_code_structure_recommendation)
@@ -64,12 +62,12 @@ the code exists, each recommended module becomes one component in
    `field_writer_map`, `public_entrypoint_map` (tuples of `(item_id, module_id)`).
    Optional: `facade_module_id`, `shared_kernel_module_id`, `variant_adapter_module_ids`, and
    `canonical_relation_handoff` (a `CanonicalRelationHandoff` from `flowguard.canonical_relation`).
-3. Keep the relevant broken recommendations (see below). A persistent `run_checks.py`, if needed,
-   returns 0 only when the good plan passes and those broken variants fail.
-4. If a persistent runner was created or changed, register it in the parent's `models` in `map.json`
-   (`".flowguard/verification/owners/<id>/run_checks.py"`). Direct native review needs no new runner.
-5. Execute a selected registered runner once with `python -m flowguard map models <id>`;
-   do not also require a direct runner invocation for the same current checks.
+3. In the model, write the change as plan edits (`add_target_module`, `move_responsibility`); `build_explorer()`
+   returns `code_structure_explorer(plan, EDITS, explore=[...])`: the recommendation review and, for a split,
+   `review_structure_mesh` must accept every plan reached; `broken_variants()` explores wrong edits (below).
+4. `conformance()` returns `code_structure_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: named files, split
+   children and `path:Symbol` entrypoints exist; with a map, each owner file is in its module's (or parent's) component.
+5. List the model in the parent's `models`; run `python -m flowguard map models code_structure` once.
 6. Write the code. Then turn each target module into a map component: `files` = `path`,
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,
    `state` and `side_effects` = owned items, `tests` = the real tests for its
@@ -114,16 +112,17 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
 
 ## Done when
 
-- [ ] The selected direct native review or existing-owner model passes; relevant broken cases fail.
-- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
+- [ ] The selected direct review or existing-owner model passes; relevant broken cases fail.
+- [ ] Any new or changed model is listed in `models` and has one current `map models <id>` result.
 - [ ] After coding, each module is one component with its tests listed; `map check` has no errors.
 - [ ] `python -m flowguard change` is clean for the changed files.
 - [ ] Your report names what ran, what was skipped and why.
 
 ## Limits
 
-- It reviews the plan you declared. It does not read source code or prove the code follows the plan;
-  `map check`, `map lint` and real tests do that.
+- The reviews check the plan you declared. `code_structure_code_facts` only checks that named files,
+  children and entrypoints exist and that owner files sit in the named map component; it does not prove the
+  code follows the plan. `map check`, `map lint` and real tests do that.
 - Not checked: the per-module `owns_*`, `reads_fields`, `writes_fields` lists (only the plan-level
   `*_map` pairs are), `facade_module_id`, a module that owns everything, two writers of one field,
   and the kernel/adapter ids when there is no `canonical_relation_handoff`.

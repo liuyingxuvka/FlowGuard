@@ -4,11 +4,17 @@ Code structure recommendation turns a FlowGuard functional model into an
 implementation-structure proposal. It does not write production code and it is
 not behavior proof; it is structured design evidence that other helpers, such
 as StructureMesh, can review.
+
+Model kit: ``add_target_module`` and ``move_responsibility`` are plan edits,
+``code_structure_explorer`` explores them with the existing reviews as
+invariants, and ``code_structure_code_facts`` compares the target plan with the
+real code and the project map.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
@@ -520,10 +526,177 @@ def review_code_structure_recommendation(
     )
 
 
+# Model kit: plan edits, the reviews as invariants, code facts.  The plan is a CodeStructureRecommendation
+# or, for a split of an existing module, a StructureMeshPlan whose target_structure is the recommendation.
+_OWNERSHIP = {   # kind -> (recommendation map, target-module list, split-child list, partition item type)
+    "function_block": ("function_block_map", "owns_function_blocks", "owns_functions", "function"),
+    "state": ("state_owner_map", "owns_state", "owns_state", "state"),
+    "side_effect": ("side_effect_owner_map", "owns_side_effects", "owns_side_effects", "side_effect"),
+    "config": ("config_owner_map", "owns_config", "owns_config", "config"),
+    "field": ("field_owner_map", "owns_fields", "", ""),
+    "entrypoint": ("public_entrypoint_map", "public_entrypoints", "", "entrypoint"),
+}
+_CODE_SUFFIXES = {".py", ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs"}
+
+
+def _recommendation_of(plan: Any) -> CodeStructureRecommendation | None:
+    return plan if isinstance(plan, CodeStructureRecommendation) else plan.target_structure
+
+
+def _with_recommendation(plan: Any, recommendation: CodeStructureRecommendation) -> Any:
+    return recommendation if isinstance(plan, CodeStructureRecommendation) else replace(plan, target_structure=recommendation)
+
+
+def _moved(values: tuple[str, ...], item_id: str, here: bool) -> tuple[str, ...]:
+    return tuple(value for value in values if value != item_id) + ((item_id,) if here else ())
+
+
+def add_target_module(plan: Any, module: TargetModuleRecommendation) -> Any:
+    """Plan edit for a code-structure model: a new target module (in a split also a new child module)."""
+    from .structuremesh import ModuleStructureEvidence
+
+    recommendation = _recommendation_of(plan)
+    if module.module_id not in recommendation.module_ids():
+        plan = _with_recommendation(plan, replace(recommendation,
+                                                  target_modules=recommendation.target_modules + (module,)))
+    if not isinstance(plan, CodeStructureRecommendation) and \
+            module.module_id not in {child.module_id for child in plan.child_modules}:
+        plan = replace(plan, child_modules=plan.child_modules + (ModuleStructureEvidence(module.module_id, path=module.path),))
+    return plan
+
+
+def move_responsibility(plan: Any, item_id: str, module_id: str, kind: str = "function_block") -> Any:
+    """Plan edit for a code-structure model: ``module_id`` becomes the one owner of ``item_id``.
+
+    ``kind`` is function_block, state, side_effect, config, field or entrypoint.  The owner map, the target
+    modules' ``owns_*`` lists and, in a split, the partition item and the child modules move together.
+    """
+    from .structuremesh import StructurePartitionItem
+
+    pair_map, owns, child_owns, item_type = _OWNERSHIP[kind]
+    recommendation = _recommendation_of(plan)
+    pairs = tuple(pair for pair in getattr(recommendation, pair_map) if pair[0] != item_id) + ((item_id, module_id),)
+    modules = tuple(replace(module, **{owns: _moved(getattr(module, owns), item_id, module.module_id == module_id)})
+                    for module in recommendation.target_modules)
+    plan = _with_recommendation(plan, replace(recommendation, **{pair_map: pairs, "target_modules": modules}))
+    if isinstance(plan, CodeStructureRecommendation):
+        return plan
+    if item_type:
+        items = plan.partition_items
+        if any(item.item_id == item_id for item in items):
+            items = tuple(replace(item, owner_module_id=module_id) if item.item_id == item_id else item for item in items)
+        else:
+            items += (StructurePartitionItem(item_id, item_type=item_type, owner_module_id=module_id),)
+        plan = replace(plan, partition_items=items)
+    if child_owns:
+        plan = replace(plan, child_modules=tuple(
+            replace(child, **{child_owns: _moved(getattr(child, child_owns), item_id, child.module_id == module_id)})
+            for child in plan.child_modules))
+    return plan
+
+
+def _review_plan_recommendation(plan: Any) -> CodeStructureRecommendationReport:
+    recommendation = _recommendation_of(plan)
+    if recommendation is None:
+        return CodeStructureRecommendationReport(False, "", (CodeStructureFinding(
+            "missing_target_structure", "the split has no model-derived target code structure"),))
+    return review_code_structure_recommendation(recommendation)
+
+
+def code_structure_explorer(initial, edits, *, explore=None, max_sequence_length: int = 2):
+    """Code-structure model: named edits change the module plan; the existing reviews must accept every plan.
+
+    Invariants: ``code_structure_review_accepts`` (``review_code_structure_recommendation``) and, when the
+    plan is a split (``StructureMeshPlan``), ``structure_mesh_review_accepts`` (``review_structure_mesh``).
+    """
+    from .kit import plan_explorer
+    from .structuremesh import review_structure_mesh
+
+    split = not isinstance(initial(), CodeStructureRecommendation)
+    return plan_explorer(initial, edits, _review_plan_recommendation, explore=explore,
+                         invariant_name="code_structure_review_accepts", max_sequence_length=max_sequence_length,
+                         extra_reviews={"structure_mesh_review_accepts": review_structure_mesh} if split else None)
+
+
+def _code_entrypoint_problems(root: Path, targets: Sequence[str]) -> dict[str, str | None]:
+    """For each target that names code ('path:Symbol' or a source file): None when it exists, else the problem.
+
+    Commands, routes and dotted import paths are left out; tests check them.
+    """
+    from .map.check import anchor_problems
+
+    problems = anchor_problems(root, [target for target in targets if ":" in target])
+    found: dict[str, str | None] = {}
+    for target in targets:
+        if ":" in target:
+            found[target] = problems.get(target)
+        elif Path(target).suffix in _CODE_SUFFIXES:
+            found[target] = None if (Path(root) / target).is_file() else f"entrypoint file missing: {target}"
+    return found
+
+
+def code_structure_code_facts(plan: Any, *, anchors=(), root=None):
+    """Compare a module plan with the real code and the project map (static code facts, nothing is executed).
+
+    * every target module path, split child path and source model path exists, and every public entrypoint
+      that names code ('path:Symbol' or a source file) resolves;
+    * with ``.flowguard/map.json``: the file of each responsibility's owner module belongs to the map
+      component with that module id (or, when the map has no such component, to the plan's parent component);
+    * every anchor exists.
+    """
+    from .map.common import matches_any
+    from .map.facts import CodeFacts
+    from .map.mapfile import MapError, load_map, map_path
+
+    facts = CodeFacts(root)
+    if anchors:
+        facts.anchors_exist(anchors)
+    recommendation = _recommendation_of(plan)
+    split = None if isinstance(plan, CodeStructureRecommendation) else plan
+    modules = [(m.module_id, m.path) for m in (recommendation.target_modules if recommendation else ())]
+    modules += [(child.module_id, child.path) for child in (split.child_modules if split else ())]
+    paths: dict[str, str] = {}
+    for module_id, path in modules:
+        if path and module_id not in paths:
+            paths[module_id] = path
+            facts.check(f"module {module_id} exists at {path}", (facts.root / path).exists(), f"{path} does not exist")
+    if recommendation and recommendation.source_model_path:
+        facts.check(f"source model {recommendation.source_model_path} exists",
+                    (facts.root / recommendation.source_model_path).is_file(),
+                    f"{recommendation.source_model_path} does not exist")
+    targets = [item for item, _module in (recommendation.public_entrypoint_map if recommendation else ())]
+    targets += [entry for module in (recommendation.target_modules if recommendation else ())
+                for entry in module.public_entrypoints]
+    targets += [entry.new_path for entry in (split.public_entrypoints if split else ())]
+    for target, problem in _code_entrypoint_problems(facts.root, list(dict.fromkeys(targets))).items():
+        facts.check(f"entrypoint {target} exists", problem is None, problem or "")
+    if map_path(facts.root).is_file():
+        try:
+            components = {c["id"]: c.get("files", []) for c in load_map(facts.root)["components"]}
+        except MapError as exc:
+            facts.check("the project map is readable", False, str(exc))
+            return facts.report()
+        parent = (recommendation.parent_module_id if recommendation else "") or (split.parent_module_id if split else "")
+        owned = [pair for kind in _OWNERSHIP for pair in getattr(recommendation, _OWNERSHIP[kind][0])] if recommendation else []
+        for item_id, module_id in dict.fromkeys(owned):
+            path = paths.get(module_id)
+            if not path:
+                continue
+            expected = module_id if module_id in components else parent
+            owners = sorted(cid for cid, patterns in components.items() if matches_any(path, patterns))
+            facts.check(f"{item_id}: owner file {path} belongs to map component {expected}", expected in owners,
+                        f"{path} belongs to {', '.join(owners) or 'no component'}")
+    return facts.report()
+
+
 __all__ = [
     "CodeStructureFinding",
     "CodeStructureRecommendation",
     "CodeStructureRecommendationReport",
     "TargetModuleRecommendation",
+    "add_target_module",
+    "code_structure_code_facts",
+    "code_structure_explorer",
+    "move_responsibility",
     "review_code_structure_recommendation",
 ]

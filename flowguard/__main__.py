@@ -58,7 +58,6 @@ def _template(ns: argparse.Namespace) -> int:
         return 0
     aliases = {
         "behavior-commitment": "behavior-commitment-ledger",
-        "code-structure": "code-structure-recommendation",
         "model-test": "model-test-alignment",
         "ui-flow": "ui-flow-structure",
     }

@@ -6,10 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-from .template_text.code_structure_recommendation import (
-    CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE,
-    CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE,
-    CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE,
+from .template_text.code_structure import (
+    CODE_STRUCTURE_MODEL_TEMPLATE,
 )
 from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
@@ -109,16 +107,9 @@ def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
+def code_structure_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(
-            ".flowguard/models/owners/code_structure_recommendation/model.py",
-            CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE,
-        ),
-        TemplateFile(
-            ".flowguard/verification/owners/code_structure_recommendation/run_checks.py",
-            CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE,
-        ),
+        TemplateFile(".flowguard/models/code_structure.py", CODE_STRUCTURE_MODEL_TEMPLATE),
     )
 
 
@@ -222,9 +213,7 @@ __all__ = [
     "BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE",
-    "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
-    "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
-    "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
+    "CODE_STRUCTURE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
@@ -245,7 +234,7 @@ __all__ = [
     "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
     "behavior_commitment_ledger_template_files",
-    "code_structure_recommendation_template_files",
+    "code_structure_template_files",
     "contract_exhaustion_template_files",
     "field_lifecycle_template_files",
     "model_mesh_template_files",

@@ -20,8 +20,9 @@ give a capability or a self-model all five with little code:
   sequence, the expected and the observed verdict) for every combination that
   breaks an invariant or differs from the design.
 * **Plan edits** - the state is a capability plan reached by named edits, and
-  an existing review (``review_field_lifecycle``, ``review_ui_interaction_model``,
-  ...) is the invariant every reachable plan must pass (``plan_explorer``).
+  existing reviews (``review_field_lifecycle``, ``review_code_structure_recommendation``
+  and ``review_structure_mesh``, ...) are the invariants every reachable plan must
+  pass (``plan_explorer``).
 """
 
 from __future__ import annotations
@@ -371,19 +372,24 @@ def review_invariant(name: str, review: Callable[[Any], Any], plan_of: Callable[
         report = review(plan_of(state) if plan_of else state)
         if getattr(report, "ok", False):
             return InvariantResult.pass_()
-        codes = [getattr(finding, "code", "") for finding in getattr(report, "findings", ())]
-        return InvariantResult.fail(f"the review rejects the plan: {', '.join(c for c in codes[:5] if c) or 'not ok'}")
+        findings = list(getattr(report, "findings", ()))
+        codes = [getattr(finding, "code", "") for finding in findings]
+        first = next((getattr(f, "message", "") for f in findings if getattr(f, "severity", "blocker") == "blocker"), "")
+        return InvariantResult.fail(f"the review rejects the plan: {', '.join(c for c in codes[:5] if c) or 'not ok'}"
+                                    + (f" ({first})" if first else ""))
 
     return Invariant(name, description or f"{name}: the capability review accepts every reachable plan", check)
 
 
 def plan_explorer(initial: Callable[[], Any], edits: Mapping[str, Callable[[Any], Any]], review: Callable[[Any], Any],
                   *, explore: Sequence[str] | None = None, invariant_name: str = "review_accepts_plan",
-                  max_sequence_length: int = 2, extra_invariants: Iterable[Invariant] = ()) -> Explorer:
+                  max_sequence_length: int = 2, extra_invariants: Iterable[Invariant] = (),
+                  extra_reviews: Mapping[str, Callable[[Any], Any]] | None = None) -> Explorer:
     """Explore every sequence of the named edits in ``explore`` (default: all) from the initial plan.
 
-    The review must accept every plan reached.  Give the design and its known-bad variants the same
-    ``edits`` mapping and different ``explore`` lists, so each can rebuild the other's plans.
+    The review (invariant ``invariant_name``) and each of ``extra_reviews`` ({invariant name: review}) must
+    accept every plan reached.  Give the design and its known-bad variants the same ``edits`` mapping and
+    different ``explore`` lists, so each can rebuild the other's plans.
     """
     edits = dict(edits)
     cache: dict[tuple, Any] = {}
@@ -396,7 +402,9 @@ def plan_explorer(initial: Callable[[], Any], edits: Mapping[str, Callable[[Any]
             cache[state.edits] = plan
         return cache[state.edits]
 
-    invariants = (review_invariant(invariant_name, review, plan_of), *extra_invariants)
+    invariants = (review_invariant(invariant_name, review, plan_of),
+                  *(review_invariant(name, check, plan_of) for name, check in (extra_reviews or {}).items()),
+                  *extra_invariants)
     return Explorer(workflow=Workflow((_PlanEdit(),)), initial_states=(PlanState(),),
                     external_inputs=tuple(edits if explore is None else explore),
                     invariants=invariants, max_sequence_length=max_sequence_length, progress_steps=0)

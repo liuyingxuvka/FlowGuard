@@ -15,7 +15,7 @@ from flowguard import (
 from flowguard.__main__ import main as flowguard_cli_main
 from flowguard.templates import (
     behavior_commitment_ledger_template_files,
-    code_structure_recommendation_template_files,
+    code_structure_template_files,
     contract_exhaustion_template_files,
     field_lifecycle_template_files,
     model_mesh_template_files,
@@ -41,7 +41,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
     behavior_commitment_ledger_template_files,
     primary_path_authority_template_files,
     model_test_alignment_template_files,
-    code_structure_recommendation_template_files,
+    code_structure_template_files,
     field_lifecycle_template_files,
     ui_flow_structure_template_files,
     model_mesh_template_files,
@@ -54,7 +54,7 @@ TEMPLATE_CLI_COMMANDS = {
     "primary-path-authority-template": "primary_path_authority",
     "model-test-alignment-template": "model_test_alignment",
     "model-test-alignment-full-template": "model_test_alignment_full",
-    "code-structure-recommendation-template": "code_structure_recommendation",
+    "code-structure-template": "code_structure",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
@@ -96,8 +96,11 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
         return result.stdout
 
-    def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None):
-        """Write a model-kit template into a tiny git project, list it in the map and run it."""
+    def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None, components=None):
+        """Write a model-kit template into a tiny git project, list it in the map and run it.
+
+        ``components`` ({id: files}) replaces the scanned components; the model is listed in the first one.
+        """
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             for rel, text in code.items():
@@ -115,6 +118,9 @@ class PublicTemplateTests(unittest.TestCase):
 
             flowguard_map("scan")
             data = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
+            if components:
+                data["components"] = [dict(data["components"][0], id=cid, files=paths, tests=[], models=[])
+                                      for cid, paths in components.items()]
             data["components"][0]["models"] = [files[0].path]
             (root / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
             result = flowguard_map("models", model_id)
@@ -186,7 +192,6 @@ class PublicTemplateTests(unittest.TestCase):
         runners = {"behavior_commitment_ledger": behavior_commitment_ledger_template_files,
                    "primary_path_authority": primary_path_authority_template_files,
                    "model_test_alignment": model_test_alignment_template_files,
-                   "code_structure_recommendation": code_structure_recommendation_template_files,
                    "model_mesh": model_mesh_template_files,
                    "ui_flow_structure": ui_flow_structure_full_template_files,
                    "model_topology_hazard_review": topology_hazard_template_files}
@@ -294,13 +299,25 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("- each_defect_rejected: contract:order_id:missing_required_field: expected rejected, "
                       "observed accepted", output)
 
-    def test_code_structure_recommendation_template_executes(self):
-        output = self.run_written_template(
-            code_structure_recommendation_template_files(),
-            (".flowguard", "verification", "owners", "code_structure_recommendation"),
-        )
-        self.assertIn("flowguard code structure recommendation", output)
-        self.assertIn("missing_source_model", output)
+    def test_code_structure_template_compares_the_split_with_the_code_and_the_map(self):
+        files = code_structure_template_files()
+        code = {"shop/orders.py": "from shop.pricing import price_order\n\n\ndef place_order(order):\n"
+                                  "    return {'total': price_order(order)}\n",
+                "shop/pricing.py": "def price_order(order):\n    return order['amount']\n"}
+        split = {"orders": ["shop/orders.py"], "pricing": ["shop/pricing.py"]}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "code_structure", code, components=split,
+                                                                  expected_returncode=1))
+        self.assertIn("PASS  code_structure", self.run_kit_template(files, "code_structure", code, fill="shop",
+                                                                    components=split, expected_returncode=0))
+        other_owner = {"orders": ["shop/orders.py"], "billing": ["shop/pricing.py"]}
+        self.assertIn("- PriceOrder: owner file shop/pricing.py belongs to map component orders: "
+                      "shop/pricing.py belongs to billing",
+                      self.run_kit_template(files, "code_structure", code, fill="shop", components=other_owner,
+                                            expected_returncode=1))
+        renamed = {"shop/orders.py": code["shop/orders.py"], "shop/prices.py": code["shop/pricing.py"]}
+        self.assertIn("IMPLEMENTED_BY PriceOrder -> anchor file missing: shop/pricing.py",
+                      self.run_kit_template(files, "code_structure", renamed, fill="shop", components=split,
+                                            expected_returncode=1))
 
     def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
         files = ui_flow_structure_template_files()

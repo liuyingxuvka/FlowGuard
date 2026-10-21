@@ -118,7 +118,7 @@ need a new adapter. Report model-level confidence when no runtime replay was nee
 
 ## Capability models (kits and runners)
 
-`python -m flowguard template field-lifecycle | contract-exhaustion | ui-flow-structure --write .`
+`python -m flowguard template field-lifecycle | contract-exhaustion | ui-flow-structure | code-structure --write .`
 writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
 code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
 each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
