@@ -17,7 +17,6 @@ from flowguard.templates import (
     behavior_commitment_ledger_template_files,
     code_structure_recommendation_template_files,
     contract_exhaustion_template_files,
-    existing_model_preflight_template_files,
     field_lifecycle_template_files,
     maintenance_workflow_template_files,
     model_mesh_template_files,
@@ -55,7 +54,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     model_miss_review_template_files,
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
-    existing_model_preflight_template_files,
     field_lifecycle_template_files,
     runtime_path_evidence_template_files,
     ui_flow_structure_template_files,
@@ -79,7 +77,6 @@ TEMPLATE_CLI_COMMANDS = {
     "model-test-alignment-full-template": "model_test_alignment_full",
     "runtime-path-evidence-template": "runtime_path_evidence",
     "code-structure-recommendation-template": "code_structure_recommendation",
-    "existing-model-preflight-template": "existing_model_preflight",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
@@ -367,14 +364,6 @@ def build_review():
         self.assertIn("flowguard workflow step contracts", output)
         self.assertIn("missing_claim_receipt", output)
         self.assertIn("model_obligations", output)
-
-    def test_existing_model_preflight_template_executes(self):
-        output = self.run_written_template(
-            existing_model_preflight_template_files(),
-            (".flowguard", "verification", "owners", "existing_model_preflight"),
-        )
-        self.assertIn("flowguard existing model preflight", output)
-        self.assertIn("duplicate_boundary_risk_unresolved", output)
 
     def test_field_lifecycle_template_executes(self):
         output = self.run_written_template(

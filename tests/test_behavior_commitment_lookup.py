@@ -23,10 +23,8 @@ from flowguard import (
     BehaviorLookupQuery,
     behavior_commitment_ledger_fingerprint,
     behavior_commitment_ledger_to_mapping,
-    existing_model_preflight_from_project,
     query_behavior_commitments,
     query_behavior_commitments_from_path,
-    review_existing_model_preflight,
     write_behavior_commitment_ledger,
 )
 
@@ -273,37 +271,6 @@ class BehaviorCommitmentLookupTests(unittest.TestCase):
             write_behavior_commitment_ledger(target, ledger)
             payload = json.loads(target.read_text(encoding="utf-8"))
             self.assertEqual(behavior_commitment_ledger_to_mapping(ledger), payload)
-
-    def test_existing_model_preflight_uses_plane_lookup_before_path_inventory(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            target = root / ".flowguard" / "behavior" / "inventory" / "ledger.json"
-            write_behavior_commitment_ledger(target, three_plane_ledger())
-
-            preflight = existing_model_preflight_from_project(
-                root,
-                "UI handoff hit ECONNREFUSED:4173",
-                behavior_plane=BCL_PLANE_AGENT_OPERATION,
-                error_signatures=("ECONNREFUSED:4173",),
-                downstream_routes=("model_miss_review", "development_process_flow"),
-            )
-            report = review_existing_model_preflight(preflight)
-
-            self.assertFalse(report.ok, report.format_text())
-            self.assertEqual("not_adopted", preflight.authority_status)
-            self.assertEqual(BCL_LOOKUP_STATUS_PERFORMED, preflight.behavior_lookup_status)
-            self.assertEqual(BCL_PLANE_AGENT_OPERATION, preflight.primary_behavior_plane)
-            self.assertEqual(
-                ("commitment:agent-port-bridge",),
-                tuple(hit.commitment_id for hit in preflight.primary_commitment_hits),
-            )
-            self.assertIn(
-                "commitment:product-download",
-                {hit.commitment_id for hit in preflight.related_commitment_hits},
-            )
-            self.assertEqual((), preflight.relevant_models)
-            self.assertEqual("adoption_candidate", preflight.grounding_state)
-
 
 if __name__ == "__main__":
     unittest.main()

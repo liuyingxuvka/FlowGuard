@@ -21,13 +21,6 @@ from flowguard.contract_exhaustion import (
     contract_exhaustion_to_model_obligations,
     review_contract_exhaustion,
 )
-from flowguard.existing_model_preflight import (
-    REUSE_DECISION_EXTEND_EXISTING,
-    ExistingModelPreflight,
-    ExistingOwnershipSnapshot,
-    ModelContextHit,
-    review_existing_model_preflight,
-)
 from flowguard.canonical_relation import (
     CanonicalRelation,
     CanonicalRelationHandoff,
@@ -61,73 +54,6 @@ def _relation(
 
 
 class CanonicalRelationIntegrationTests(unittest.TestCase):
-    def test_existing_preflight_consumes_current_relation_without_a_review_route(self):
-        relation = _relation(
-            "relation:checkout-affected-sibling",
-            RELATION_SAME_INTENT,
-        )
-        preflight = ExistingModelPreflight(
-            "canonical-relation-current",
-            "Change checkout validation",
-            mode="full",
-            model_search_performed=True,
-            search_paths=(".flowguard/checkout",),
-            relevant_models=(
-                ModelContextHit(
-                    "checkout-simple",
-                    function_blocks=("ValidateOrder",),
-                    state_owned=("orders",),
-                ),
-            ),
-            ownership_snapshot=ExistingOwnershipSnapshot(
-                function_block_owners=(("ValidateOrder", "checkout-simple"),),
-                state_owners=(("orders", "checkout-simple"),),
-            ),
-            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-            downstream_routes=("development_process_flow",),
-            rationale="The current relation keeps the affected sibling explicit.",
-            canonical_relation_handoff=CanonicalRelationHandoff(
-                relations=(relation,),
-                affected_model_ids=("checkout-retry",),
-            ),
-        )
-
-        report = review_existing_model_preflight(preflight)
-        codes = {finding.code for finding in report.findings}
-
-        self.assertNotIn("stale_canonical_relation_evidence", codes)
-        self.assertNotIn("unresolved_canonical_relation_gap", codes)
-        handoff_payload = preflight.to_dict()["canonical_relation_handoff"]
-        self.assertEqual(
-            relation.relation_id,
-            handoff_payload["relations"][0]["relation_id"],
-        )
-
-    def test_existing_preflight_blocks_stale_or_gapped_relation_input(self):
-        report = review_existing_model_preflight(
-            ExistingModelPreflight(
-                "canonical-relation-gap",
-                "Change checkout validation",
-                mode="light",
-                reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-                rationale="The relation evidence is not ready.",
-                canonical_relation_handoff=CanonicalRelationHandoff(
-                    relations=(
-                        _relation(
-                            "relation:checkout-stale",
-                            RELATION_SAME_INTENT,
-                        ),
-                    ),
-                    gap_ids=("gap:checkout-owner",),
-                    evidence_current=False,
-                ),
-            )
-        )
-
-        codes = {finding.code for finding in report.findings}
-        self.assertIn("stale_canonical_relation_evidence", codes)
-        self.assertIn("unresolved_canonical_relation_gap", codes)
-
     def test_architecture_reduction_does_not_treat_relation_as_contraction_proof(self):
         relation = _relation(
             "relation:checkout-adapter-only",

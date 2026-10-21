@@ -21,11 +21,6 @@ from .template_text.behavior_commitment_ledger import (
     BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE,
     BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE,
 )
-from .template_text.existing_model_preflight import (
-    EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE,
-    EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE,
-    EXISTING_MODEL_PREFLIGHT_NOTES_TEMPLATE,
-)
 from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_MODEL_TEMPLATE,
     FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
@@ -235,13 +230,6 @@ def code_structure_recommendation_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def existing_model_preflight_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/existing_model_preflight/model.py", EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/existing_model_preflight/run_checks.py", EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/field_lifecycle/model.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
@@ -361,9 +349,6 @@ __all__ = [
     "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
-    "EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE",
-    "EXISTING_MODEL_PREFLIGHT_NOTES_TEMPLATE",
-    "EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_NOTES_TEMPLATE",
     "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
@@ -412,7 +397,6 @@ __all__ = [
     "behavior_commitment_ledger_template_files",
     "code_structure_recommendation_template_files",
     "contract_exhaustion_template_files",
-    "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
     "maintenance_workflow_template_files",
     "model_mesh_template_files",

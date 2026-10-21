@@ -22,7 +22,6 @@ from flowguard import (
     PPA_DECISION_GREEN,
     PPA_DISPOSITION_PRESERVE_FACADE,
     PROOF_SAFE_BY_EQUIVALENCE,
-    REUSE_DECISION_EXTEND_EXISTING,
     ROUTE_CODE_STRUCTURE_RECOMMENDATION,
     TARGET_ACTION_COLLAPSE,
     ArchitectureReductionCandidate,
@@ -33,11 +32,7 @@ from flowguard import (
     BehaviorPathAuthorityBinding,
     BehaviorSourceSurface,
     CodeContract,
-    ExistingIntentSurface,
-    ExistingModelPreflight,
-    ExistingOwnershipSnapshot,
     FallbackPathCandidate,
-    ModelContextHit,
     ModelObligation,
     ModelTestAlignmentPlan,
     ObligationFamily,
@@ -63,7 +58,6 @@ from flowguard import (
     UI_PRODUCT_CONSISTENCY_TYPOGRAPHY,
     review_architecture_reduction,
     review_behavior_commitment_ledger,
-    review_existing_model_preflight,
     review_model_test_alignment,
     review_obligation_family_parity,
     review_primary_path_authority,
@@ -99,66 +93,6 @@ def current_proof() -> ProofArtifactRef:
         exit_code=0,
         artifact_fingerprints={OWNER_CONTRACT_ID: "sha256:download-material-v1"},
         covered_obligation_ids=(OBLIGATION_ID,),
-    )
-
-
-def intent_surface(surface_id: str, surface_kind: str) -> ExistingIntentSurface:
-    return ExistingIntentSurface(
-        surface_id,
-        surface_kind=surface_kind,
-        business_intent_id=INTENT_ID,
-        behavior_commitment_id=COMMITMENT_ID,
-        business_path_id=PRIMARY_PATH_ID,
-        primary_path_id=PRIMARY_PATH_ID,
-        expected_terminal="download_ready_or_visible_error",
-        state_writes=("download_status",),
-        side_effects=("prepare_download",),
-        owner_id="download-material-model",
-        evidence_ids=(f"inventory:{surface_id}",),
-    )
-
-
-def preflight(*, expected_surface_ids=(UI_SURFACE_ID, API_SURFACE_ID), surfaces=None):
-    return review_existing_model_preflight(
-        ExistingModelPreflight(
-            "download-material-preflight",
-            "Reuse one validated download path across the page and API",
-            mode="full",
-            model_search_performed=True,
-            search_paths=(".flowguard/download-material",),
-            relevant_models=(
-                ModelContextHit(
-                    "download-material-model",
-                    function_blocks=("PrepareDownload",),
-                    state_owned=("download_status",),
-                    side_effects_owned=("prepare_download",),
-                    public_entrypoints=("download.material",),
-                ),
-            ),
-            ownership_snapshot=ExistingOwnershipSnapshot(
-                function_block_owners=(("PrepareDownload", "download-material-model"),),
-                state_owners=(("download_status", "download-material-model"),),
-                side_effect_owners=(("prepare_download", "download-material-model"),),
-            ),
-            reuse_decision=REUSE_DECISION_EXTEND_EXISTING,
-            downstream_routes=("behavior_commitment_ledger", "primary_path_authority"),
-            rationale="Both surfaces expose the same exact external purpose.",
-            affected_business_intent_id=INTENT_ID,
-            selected_commitment_id=COMMITMENT_ID,
-            selected_primary_path_id=PRIMARY_PATH_ID,
-            expected_surface_ids=expected_surface_ids,
-            intent_surfaces=tuple(
-                surfaces
-                if surfaces is not None
-                else (
-                    intent_surface(UI_SURFACE_ID, "ui"),
-                    intent_surface(API_SURFACE_ID, "api"),
-                )
-            ),
-            surface_inventory_revision=REVISION,
-            surface_inventory_evidence_ids=("inventory:download-material:v1",),
-            require_complete_surface_inventory=True,
-        )
     )
 
 
@@ -573,7 +507,6 @@ def model_test_alignment():
 
 def test_same_intent_chain_reuses_one_commitment_path_and_product_language():
     reports = {
-        "preflight": preflight(),
         "ledger": behavior_ledger(),
         "path": path_authority(),
         "runtime": runtime_alignment(),
@@ -583,9 +516,6 @@ def test_same_intent_chain_reuses_one_commitment_path_and_product_language():
 
     failures = {name: report.format_text() for name, report in reports.items() if not report.ok}
     assert not failures, failures
-    assert reports["preflight"].business_intent_id == INTENT_ID
-    assert reports["preflight"].behavior_commitment_id == COMMITMENT_ID
-    assert reports["preflight"].primary_path_id == PRIMARY_PATH_ID
     assert reports["path"].primary_path_id == PRIMARY_PATH_ID
     assert reports["runtime"].primary_path_id == PRIMARY_PATH_ID
     assert set(reports["ui"].covered_surface_ids) == {UI_SURFACE_ID, API_SURFACE_ID}
@@ -593,7 +523,6 @@ def test_same_intent_chain_reuses_one_commitment_path_and_product_language():
 
 
 def test_duplicate_or_omitted_same_intent_authority_is_blocked_by_existing_owners():
-    missing_surface = preflight(surfaces=(intent_surface(UI_SURFACE_ID, "ui"),))
     duplicate_commitment = commitment("commitment:download-material-parallel")
     duplicate_ledger = behavior_ledger(
         commitments=(commitment(), duplicate_commitment),
@@ -612,8 +541,6 @@ def test_duplicate_or_omitted_same_intent_authority_is_blocked_by_existing_owner
         )
     )
 
-    assert not missing_surface.ok
-    assert "missing_expected_intent_surface" in finding_codes(missing_surface)
     assert not duplicate_ledger.ok
     assert "duplicate_exact_intent_commitment" in finding_codes(duplicate_ledger)
     assert not duplicate_path.ok

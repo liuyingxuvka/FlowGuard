@@ -150,7 +150,6 @@
         "templates"
       ],
       "tests": [
-        "tests/test_existing_model_preflight_map.py",
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_proof.py",
         "tests/test_packaged_cli_surface.py",
@@ -189,7 +188,6 @@
         "engine-properties",
         "engine-runner",
         "engine-scenarios",
-        "existing-model",
         "field-lifecycle",
         "model-mesh",
         "model-miss",
@@ -208,7 +206,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dde60eff3dbb6c55cccebefe22abbced9e3f5323053780d9640e6b0276065b17"
+      "fingerprint": "sha256:c801f666f78ab93ffeb6b0bab51249893526e7db10c92ac5804925236bb78e99"
     },
     {
       "id": "templates",
@@ -237,44 +235,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9aedd5346357c301145db6e3668931ba0d3d26008619e56a97769ba045033b19"
-    },
-    {
-      "id": "existing-model",
-      "layer": "capabilities",
-      "summary": "Finds the existing owner before adding behavior.",
-      "responsibilities": [
-        "select the existing owner of a requested behaviour",
-        "block a duplicate owner for the same state or effect"
-      ],
-      "files": [
-        "flowguard/existing_model_preflight.py"
-      ],
-      "entrypoints": [
-        "flowguard/existing_model_preflight.py:review_existing_model_preflight"
-      ],
-      "state": [],
-      "side_effects": [
-        "reads git revisions"
-      ],
-      "depends_on": [
-        "behavior-commitment",
-        "engine-core",
-        "map-analysis",
-        "map-file",
-        "map-inventory",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_behavior_commitment_lookup.py",
-        "tests/test_canonical_relation_integrations.py",
-        "tests/test_existing_model_preflight.py"
-      ],
-      "models": [
-        ".flowguard/verification/owners/existing_model_preflight/run_checks.py"
-      ],
-      "status": "confirmed",
-      "fingerprint": "sha256:5d68cf5f68f26a5c0bc9ba396e4daf13adbd89981467e6da09b56f4d19859b81"
+      "fingerprint": "sha256:ba42a414a54179f384d7a1f79f8c068437ae353402c77e19cd7886f8a0c56370"
     },
     {
       "id": "behavior-commitment",
@@ -311,7 +272,6 @@
         "tests/test_behavior_commitment_primary_path.py",
         "tests/test_behavior_inventory.py",
         "tests/test_behavior_plane_upgrade.py",
-        "tests/test_existing_model_preflight.py",
         "tests/test_primary_path_authority.py",
         "tests/test_primary_path_authority_compatibility_matrix.py",
         "tests/test_primary_path_authority_contract_exhaustion.py",
@@ -858,7 +818,6 @@
         "map-inventory"
       ],
       "tests": [
-        "tests/test_existing_model_preflight_map.py",
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_contracts.py",
         "tests/test_flowguard_map_discover.py",
