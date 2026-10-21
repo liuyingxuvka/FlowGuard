@@ -388,7 +388,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "CodeStructureRecommendation",
         "CodeStructureRecommendationReport",
         "TargetModuleRecommendation",
-        "implementation_coverage_obligation_id",
         "review_code_structure_recommendation",
     ),
     "flowguard.conformance": (
