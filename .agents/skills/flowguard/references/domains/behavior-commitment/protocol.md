@@ -69,17 +69,14 @@ binding = behavior_path_binding_from_primary_path_report(
     ppa, business_intent_id="intent:submit-order",
     behavior_commitment_id="commitment:submit-order")
 ledger = load_behavior_commitment_ledger(".flowguard/behavior/inventory/ledger.json")
-report = review_behavior_commitment_ledger(ledger, project_root=".")
+report = review_behavior_commitment_ledger(ledger)
 print(report.format_text())
 ```
 
-6. Pass `project_root` so source files are checked live (missing file, missing anchor,
-   changed content). After an accepted source change, `refresh_behavior_commitment_source_inventory(ledger, root)`
-   returns an updated ledger (it raises if a source is missing); save it with `write_behavior_commitment_ledger(path, ledger)`.
-7. If using the ledger scaffold, its runner calls the review without `project_root`. Add it after you replace the
-   starter `source_ref` values (`README.md#usage`, `api/run-primary-workflow`) with real ones.
-   Keep relevant failure assertions; add other variants only for this change's risks, reusing existing owner tests.
-8. If a persistent runner was created or changed, register it in the owner's `models`, then run
+6. If using the ledger scaffold, replace the starter `source_ref` values (`README.md#usage`,
+   `api/run-primary-workflow`) with real ones. Keep relevant failure assertions; add other variants
+   only for this change's risks, reusing existing owner tests.
+7. If a persistent runner was created or changed, register it in the owner's `models`, then run
    each affected registered runner id once: `python -m flowguard map models <runner-id>`
    (exit 0 = pass). The unchanged scaffold ids are `behavior_commitment_ledger` for
    the ledger and `primary_path_authority` for the primary-path plan; use the actual
@@ -94,13 +91,11 @@ print(report.format_text())
 | `manual_recovery_auto_invoked` | A manual repair path runs automatically on failure. |
 | `duplicate_primary_runtime_authority` | Two primary paths serve the same exact intent. |
 | `facade_contains_business_logic` | A compatibility facade writes state or decides results instead of delegating. |
-| `primary_path_runtime_evidence_not_current` | The plan needs run evidence and the primary path's proof is not a current pass. |
 | `duplicate_exact_intent_commitment` | Two commitments describe the same promise. |
 | `delegate_commitment_forbidden` | An alias or wrapper was registered as its own commitment. |
 | `source_surface_missing_commitment` | A promise source maps to no commitment. |
 | `commitment_missing_primary_owner` | A commitment has no single owner model. |
 | `commitment_primary_path_blocked` | A path-sensitive commitment points at a blocked path review. |
-| `source_surface_content_fingerprint_stale` | The source file changed since the ledger was updated. |
 
 ## Risk-specific regression examples
 - A-fails-B-succeeds: a `FallbackPathCandidate` with `candidate_trigger="primary_failure"`,
@@ -124,7 +119,4 @@ print(report.format_text())
 ## Limits
 - It checks the rows you declare. A path you never list as a candidate is not found.
   Pair it with real tests that force the primary path to fail.
-- `runtime_evidence_state="current_pass"` is your claim; the review does not run code or open proof files.
-- Live audit checks that source files exist and have not changed. It does not check
-  that the code still does what the commitment says.
 - There is no CLI command for the promise lookup; use the Python call in step 1.
