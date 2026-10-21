@@ -567,6 +567,25 @@ class ModelTestAlignmentTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("test_checks_internal_path_only", finding_codes(report))
 
+    def test_unbound_internal_path_test_reports_both_defects(self):
+        plan = ModelTestAlignmentPlan(
+            model_id="checkout",
+            obligations=(obligation("accept_valid_order"),),
+            code_contracts=(code_contract("checkout.submit", "accept_valid_order"),),
+            test_evidence=(
+                evidence(
+                    "test_accept_valid_order_internal_helper",
+                    "accept_valid_order",
+                    assertion_scope=api_name("TEST_ASSERTION_SCOPE_INTERNAL_PATH"),
+                ),
+            ),
+        )
+
+        codes = finding_codes(review_model_test_alignment(plan))
+
+        self.assertIn("test_not_bound_to_code_contract", codes)
+        self.assertIn("test_checks_internal_path_only", codes)      # not masked by the missing binding
+
     def test_unknown_code_contract_reference_is_visible(self):
         plan = ModelTestAlignmentPlan(
             model_id="checkout",

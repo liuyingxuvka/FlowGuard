@@ -3275,7 +3275,7 @@ def _evidence_findings(
                 )
             )
         if (
-            evidence.covered_code_contracts
+            (evidence.covered_obligations or evidence.covered_code_contracts)    # reported even when unbound
             and evidence.assertion_scope
             in {TEST_ASSERTION_SCOPE_INTERNAL_PATH, TEST_ASSERTION_SCOPE_UNKNOWN}
         ):
