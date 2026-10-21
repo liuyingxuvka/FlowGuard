@@ -190,7 +190,7 @@ def _seed_contains_self_owner_identifier(value: Any) -> bool:
     if not isinstance(value, str):
         return False
     tokens = {token for token in re.split(r"[^a-z0-9]+", value.lower()) if token}
-    return bool(tokens.intersection({"flowguard", "skillguard"}))
+    return "flowguard" in tokens
 
 
 @dataclass(frozen=True)

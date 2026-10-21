@@ -207,7 +207,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8c09235996b79bfd63856b5724887c50334aef4c2420072e5742595549bcf6bf"
+      "fingerprint": "sha256:dde60eff3dbb6c55cccebefe22abbced9e3f5323053780d9640e6b0276065b17"
     },
     {
       "id": "templates",
@@ -1097,7 +1097,7 @@
         ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:8cf66614e8ab7947f794d03880839cf8f6a921abceccc099a0e7dd686629d11d"
+      "fingerprint": "sha256:da55b89dda9579a554d4fb7e930d4a8cdad2330a589a99b8c986730a8b5a76af"
     },
     {
       "id": "engine-path-quality",
