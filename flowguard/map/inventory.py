@@ -309,8 +309,13 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
     lazy = {info.module: info.lazy_exports for info in py.values() if info.lazy_exports}
     for f, info in py.items():
         loc[f] = info.loc
+        here = f.rpartition("/")[0]
+        script_dir = bool(here) and f"{here}/__init__.py" not in files_set
         for imp in info.imports:
             target = resolve_import(imp, mod_to_path, lazy)
+            if target is None and script_dir:          # a script imports a sibling through sys.path[0]
+                head = imp.split(":", 1)[0].split(".", 1)[0]
+                target = next((p for p in (f"{here}/{head}.py", f"{here}/{head}/__init__.py") if p in py), None)
             if target and target != f:
                 deps[f].add(target)
             if ":" in imp:

@@ -768,3 +768,15 @@ def test_exact_schema_binding_tracks_content_and_deletion_without_broad_json_sca
     assert any(f.code == "pattern_dead" and path in f.message for f in run_check(root, data, inv))
     deleted = impact_of(root, data, [path])
     assert deleted.direct == ["storage"] and path not in deleted.no_checks
+
+
+def test_script_directory_imports_resolve_to_sibling_files(tmp_path):
+    from flowguard.map.inventory import build_inventory
+    write(tmp_path, "scripts/run.py", "from helper import value\nimport json\n")
+    write(tmp_path, "scripts/helper.py", "value = 1\n")
+    write(tmp_path, "pkg/__init__.py", "")
+    write(tmp_path, "pkg/a.py", "import helper\n")
+    write(tmp_path, "pkg/helper.py", "value = 2\n")
+    inv = build_inventory(tmp_path, [])
+    assert inv.file_deps.get("scripts/run.py") == {"scripts/helper.py"}
+    assert "pkg/helper.py" not in inv.file_deps.get("pkg/a.py", set())
