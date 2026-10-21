@@ -62,6 +62,27 @@ def _group_active(group: int) -> bool:
     return True
 
 
+def _descendants(pid: int) -> list[int]:
+    """Linux only: all transitive children of pid (empty elsewhere)."""
+    if not sys.platform.startswith("linux"):
+        return []
+    children: dict[int, list[int]] = {}
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(")", 1)[1].split()
+            children.setdefault(int(fields[1]), []).append(int(entry.name))
+        except (OSError, ValueError, IndexError):
+            continue
+    found, stack = [], [pid]
+    while stack:
+        for child in children.get(stack.pop(), []):
+            found.append(child)
+            stack.append(child)
+    return found
+
+
 def _inherited_owner(environment: dict) -> int | None:
     """Accept only a marker matching this real, separately coordinated session."""
     if os.name == "nt":
@@ -125,6 +146,12 @@ def run_isolated_process(command: list[str], *, cwd: Path, env: dict,
                 cleanup = killed.returncode == 0
             except (OSError, subprocess.TimeoutExpired):
                 cleanup = False
+        elif inherited is not None:
+            for pid in _descendants(process.pid):      # a nested helper never kills its owner's group
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except OSError:
+                    pass
         else:
             try:
                 os.killpg(group, signal.SIGKILL)

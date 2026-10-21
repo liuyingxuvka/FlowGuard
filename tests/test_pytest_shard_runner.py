@@ -382,6 +382,22 @@ def test_nested_process_helpers_share_one_finite_owner(tmp_path, case):
         pass
 
 
+@pytest.mark.skipif(os.name == "nt", reason="POSIX session ownership")
+def test_nested_timeout_kills_only_its_own_child(tmp_path):
+    from flowguard.map.runner import run_isolated_process
+    outer = ("import os,sys;from pathlib import Path;"
+             "from flowguard.map.runner import run_isolated_process;"
+             "p,t,c=run_isolated_process([sys.executable,'-c','import time;time.sleep(30)'],"
+             "cwd=Path.cwd(),env=dict(os.environ),timeout=.3);"
+             "print('outer-survived',p.returncode,t,flush=True)")
+    env = dict(os.environ, PYTHONPATH=str(Path(shard_runner.__file__).resolve().parents[1]))
+    result, timed_out, cleaned = run_isolated_process(
+        [sys.executable, "-c", outer], cwd=tmp_path, env=env, timeout=10,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    assert not timed_out and cleaned
+    assert result.returncode == 0 and "outer-survived 124 True" in result.stdout
+
+
 def test_inaccessible_process_inventory_does_not_claim_cleanup(monkeypatch):
     from flowguard.map import runner
     monkeypatch.setattr(runner.sys, "platform", "linux")
