@@ -82,13 +82,6 @@ to disk.
   `run_model_first_checks(...)` compiles them together with the plan's own
   invariants.
 
-Starter template (prints the files; add `--write .` to write them):
-
-```powershell
-python -m flowguard template workflow-step-contracts
-```
-
-Run the generated check script to prove the contracts catch the bad orders.
 When the workflow code changes later, `python -m flowguard change` lists the
 models and tests to rerun, and `python -m flowguard map check` reports stale map
 fingerprints.

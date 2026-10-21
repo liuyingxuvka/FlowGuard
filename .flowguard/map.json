@@ -196,15 +196,14 @@
         "shared-vocabulary",
         "templates",
         "topology-hazard",
-        "ui-flow",
-        "work-context"
+        "ui-flow"
       ],
       "tests": [
         "tests/test_public_api.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c2dc4172a50823fce25bdc2f6da1a8b12f4246c273cb99d6f28d84a5215b4eeb"
+      "fingerprint": "sha256:fedfaf57dc4522e99aa6b4a29ef8a71ff241f88b712c00e76919b8b93babda60"
     },
     {
       "id": "templates",
@@ -227,13 +226,12 @@
       "depends_on": [],
       "tests": [
         "tests/test_engineering_hardening.py",
-        "tests/test_maintenance_template.py",
         "tests/test_project_integration.py",
         "tests/test_public_templates.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a3ead8b5cd1f44cab532f468aeabd149efda8b26b40cda861734057c4f1cc6fe"
+      "fingerprint": "sha256:7f6be5ef13f92f53ffb6db0c519a7333d0c590ca843b4bf1e95765bd74d31ca7"
     },
     {
       "id": "behavior-commitment",
@@ -604,32 +602,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:1e03314236caf5b547b1eaa00e15fe00209056773c151f0fd10bfd28e7c57390"
-    },
-    {
-      "id": "work-context",
-      "layer": "capabilities",
-      "summary": "Reads external planning context without changing it.",
-      "responsibilities": [
-        "read external planning context without writing it"
-      ],
-      "files": [
-        "flowguard/work_context.py",
-        "flowguard/work_context_adapters/*.py"
-      ],
-      "entrypoints": [
-        "flowguard/work_context.py:read_work_context"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core"
-      ],
-      "tests": [
-        "tests/test_work_context.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:05ad5c906131e7bc8d341686b05a34a19af57fb80458b7c9a8ba52b78e813168"
     },
     {
       "id": "map-inventory",

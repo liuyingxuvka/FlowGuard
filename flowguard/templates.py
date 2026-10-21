@@ -26,11 +26,6 @@ from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE,
     FIELD_LIFECYCLE_NOTES_TEMPLATE,
 )
-from .template_text.maintenance_workflow import (
-    MAINTENANCE_WORKFLOW_MODEL_TEMPLATE,
-    MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE,
-    MAINTENANCE_WORKFLOW_NOTES_TEMPLATE,
-)
 from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
     MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE,
@@ -43,16 +38,6 @@ from .template_text.primary_path_authority import (
     PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE,
     PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE,
     PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE,
-)
-from .template_text.risk_intent_check_plan import (
-    RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE,
-    RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE,
-    RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE,
-)
-from .template_text.risk_template_library import (
-    RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE,
-    RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE,
-    RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE,
 )
 from .template_text.runtime_path_evidence import (
     RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE,
@@ -82,16 +67,6 @@ from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE,
     UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE,
 )
-from .template_text.workflow_step_contracts import (
-    WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE,
-    WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE,
-    WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE,
-)
-from .template_text.work_context import (
-    WORK_CONTEXT_MODEL_TEMPLATE,
-    WORK_CONTEXT_NOTES_TEMPLATE,
-    WORK_CONTEXT_RUN_CHECKS_TEMPLATE,
-)
 
 
 @dataclass(frozen=True)
@@ -116,27 +91,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
     )
 
 
-def risk_intent_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/risk_intent_check_plan/model.py", RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/risk_intent_check_plan/run_checks.py", RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def work_context_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/work_context/model.py", WORK_CONTEXT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/work_context/run_checks.py", WORK_CONTEXT_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def risk_template_library_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/risk_template_library/model.py", RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/risk_template_library/run_checks.py", RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def behavior_commitment_ledger_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/behavior/inventory/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE),
@@ -149,13 +103,6 @@ def primary_path_authority_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/primary_path_authority/model.py", PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/primary_path_authority/run_checks.py", PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def maintenance_workflow_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/maintenance_workflow/model.py", MAINTENANCE_WORKFLOW_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/maintenance_workflow/run_checks.py", MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE),
     )
 
 
@@ -177,16 +124,6 @@ def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def workflow_step_contracts_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/workflow_step_contracts/model.py", WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE),
-        TemplateFile(
-            ".flowguard/verification/owners/workflow_step_contracts/run_checks.py",
-            WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE,
-        ),
     )
 
 
@@ -318,9 +255,6 @@ __all__ = [
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_NOTES_TEMPLATE",
     "FIELD_LIFECYCLE_RUN_CHECKS_TEMPLATE",
-    "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
-    "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
-    "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
@@ -331,12 +265,6 @@ __all__ = [
     "PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE",
-    "RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE",
-    "RISK_INTENT_CHECK_PLAN_NOTES_TEMPLATE",
-    "RISK_INTENT_CHECK_PLAN_RUN_CHECKS_TEMPLATE",
-    "RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE",
-    "RISK_TEMPLATE_LIBRARY_NOTES_TEMPLATE",
-    "RISK_TEMPLATE_LIBRARY_RUN_CHECKS_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_NOTES_TEMPLATE",
     "RUNTIME_PATH_EVIDENCE_RUN_CHECKS_TEMPLATE",
@@ -347,26 +275,18 @@ __all__ = [
     "UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE",
     "UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE",
     "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
-    "WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE",
-    "WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE",
-    "WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
     "behavior_commitment_ledger_template_files",
     "code_structure_recommendation_template_files",
     "contract_exhaustion_template_files",
     "field_lifecycle_template_files",
-    "maintenance_workflow_template_files",
     "model_mesh_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "primary_path_authority_template_files",
-    "risk_intent_template_files",
-    "risk_template_library_template_files",
-    "work_context_template_files",
     "runtime_path_evidence_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",
-    "workflow_step_contracts_template_files",
     "write_template_files",
 ]

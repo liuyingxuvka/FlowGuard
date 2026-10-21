@@ -53,21 +53,15 @@ does not prove that the runtime dependencies are installed.
 
 The package exposes public-safe scaffolds for common agent situations:
 
-- `risk_intent_template_files()`: a Risk Intent + `FlowGuardCheckPlan`
-  starter with model-level confidence boundaries;
 - `model_test_alignment_template_files()`: a direct model-obligation to
-  ordinary test-evidence alignment starter;
-- `maintenance_workflow_template_files()`: a recurring maintenance workflow
-  starter.
+  ordinary test-evidence alignment starter.
 
 The helpers return content instead of writing files so callers can decide where
 and how to create project files. The CLI can print or write the same templates
 (`python -m flowguard template --list` shows every name):
 
 ```powershell
-python -m flowguard template risk-intent --write .
 python -m flowguard template model-test-alignment --write .
-python -m flowguard template maintenance-workflow --write .
 ```
 
 Without `--write` the files are printed; `--force` overwrites existing files.

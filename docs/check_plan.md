@@ -69,7 +69,7 @@ evidence, adversarial inputs to simulate, known-bad cases, hard invariants, and
 blindspots. Missing or thin risk intent, missing completion evidence, or
 missing known-bad cases are pre-modeling gaps.
 
-Reusing a shared risk template (`python -m flowguard template risk-template-library`)
+Reusing a shared risk template (`flowguard.risk_templates`)
 is optional. Use it only when the user asks for template reuse or a bounded,
 stable pattern is meant to be used outside the target project. Ordinary
 modeling, repair, maintenance, cleanup, and release never wait on it.

@@ -18,19 +18,14 @@ from flowguard.templates import (
     code_structure_recommendation_template_files,
     contract_exhaustion_template_files,
     field_lifecycle_template_files,
-    maintenance_workflow_template_files,
     model_mesh_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     primary_path_authority_template_files,
-    risk_intent_template_files,
-    risk_template_library_template_files,
     runtime_path_evidence_template_files,
-    work_context_template_files,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
-    workflow_step_contracts_template_files,
     write_template_files,
 )
 from flowguard.risk_templates import (
@@ -44,8 +39,6 @@ from flowguard.risk_templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    risk_intent_template_files,
-    risk_template_library_template_files,
     behavior_commitment_ledger_template_files,
     primary_path_authority_template_files,
     model_test_alignment_template_files,
@@ -53,17 +46,12 @@ PUBLIC_TEMPLATE_FACTORIES = (
     field_lifecycle_template_files,
     runtime_path_evidence_template_files,
     ui_flow_structure_template_files,
-    workflow_step_contracts_template_files,
     model_mesh_template_files,
     contract_exhaustion_template_files,
     topology_hazard_template_files,
-    work_context_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "work-context-template": "work_context",
-    "risk-intent-template": "risk_intent_check_plan",
-    "risk-template-library-template": "risk_template_library",
     "behavior-commitment-ledger-template": "behavior_commitment_ledger",
     "primary-path-authority-template": "primary_path_authority",
     "model-test-alignment-template": "model_test_alignment",
@@ -73,7 +61,6 @@ TEMPLATE_CLI_COMMANDS = {
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
-    "workflow-step-contracts-template": "workflow_step_contracts",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
     "topology-hazard-template": "model_topology_hazard_review",
@@ -161,25 +148,6 @@ class PublicTemplateTests(unittest.TestCase):
                     offenders.append(f"{path.relative_to(ROOT)}: {', '.join(hits)}")
 
         self.assertEqual([], offenders)
-
-    def test_risk_intent_template_executes(self):
-        output = self.run_written_template(
-            risk_intent_template_files(),
-            (".flowguard", "verification", "owners", "risk_intent_check_plan"),
-        )
-        self.assertIn("flowguard summary", output)
-        self.assertIn("risk_intent", output)
-
-    def test_risk_template_library_template_executes(self):
-        output = self.run_written_template(
-            risk_template_library_template_files(),
-            (".flowguard", "verification", "owners", "risk_template_library"),
-        )
-        self.assertIn("flowguard risk template search", output)
-        self.assertIn("completion_requires_evidence", output)
-        self.assertIn("flowguard minimum valuable model review", output)
-        self.assertIn("flowguard risk template harvest", output)
-        self.assertIn("flowguard template harvest closure", output)
 
     def test_behavior_commitment_ledger_template_executes(self):
         output = self.run_written_template(
@@ -331,15 +299,6 @@ def build_review():
         )
         self.assertIn("topology_hazard_pass", output)
 
-    def test_workflow_step_contracts_template_executes(self):
-        output = self.run_written_template(
-            workflow_step_contracts_template_files(),
-            (".flowguard", "verification", "owners", "workflow_step_contracts"),
-        )
-        self.assertIn("flowguard workflow step contracts", output)
-        self.assertIn("missing_claim_receipt", output)
-        self.assertIn("model_obligations", output)
-
     def test_field_lifecycle_template_executes(self):
         output = self.run_written_template(
             field_lifecycle_template_files(),
@@ -355,7 +314,6 @@ def build_review():
             factory.__name__.removesuffix("_template_files"): factory
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
-        factories["risk_intent_check_plan"] = risk_intent_template_files
         factories["model_test_alignment_full"] = model_test_alignment_full_template_files
         factories["ui_flow_structure_full"] = ui_flow_structure_full_template_files
         factories["model_topology_hazard_review"] = topology_hazard_template_files
