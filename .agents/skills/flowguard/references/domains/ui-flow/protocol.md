@@ -27,8 +27,8 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
   `state`, `side_effects`, `tests`, `models`.
 - From the code: states (empty, loading, failed, ...), controls per state
   (visible/enabled/disabled/hidden), events, handlers, displays, shown fields.
-- For a runnable claim: the real inventory of what renders, and a test or
-  script that clicks through and writes a result file.
+- For a runnable claim: the real inventory of what renders, and a test that
+  clicks through it.
 
 ## Steps
 
@@ -64,24 +64,11 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 | `review_ui_product_consistency` | Do surfaces with one intent reuse the same grammar and typography? |
 | `review_ui_source_baseline_interactions` / `review_ui_source_baseline_alignment` | For source-based work, is the old UI's behavior kept or mapped? |
 
-4. Runnable-UI proof: set `require_runtime_proof=True` on `UIImplementationValidation`
-   (or pass it to `review_ui_control_functional_chains`) and give each journey run,
-   step or chain `proof_artifact=UIRuntimeProof(...)`. A caller-written `result="passed"` is not proof:
-
-```python
-proof = UIRuntimeProof(
-    "export-click", command="pytest tests/ui/test_export.py",
-    result_path="build/ui/export.json", result_status="passed", exit_code=0,
-    result_fingerprint="sha256:" + hashlib.sha256(Path("build/ui/export.json").read_bytes()).hexdigest(),
-    assertion_scope="external_contract", metadata={"model_revision": rev},
-)
-```
-
-5. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
+4. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
    returns 0 only if good reports pass and relevant broken reports fail.
-6. If a persistent runner was created or changed, register it in the owner's `models`; run the
+5. If a persistent runner was created or changed, register it in the owner's `models`; run the
    selected registered owner once via `python -m flowguard map models <id>` (exit 0 = pass).
-7. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
+6. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks
 
@@ -99,10 +86,7 @@ proof = UIRuntimeProof(
 | `hover_reveal_missing_keyboard_focus_equivalent` | Hover-only reveal with no keyboard/focus path. |
 | `observed_visible_item_unmapped` | A really rendered item maps to no control, display or blindspot. |
 | `enabled_control_missing_functional_chain` | An observed enabled control has no click-to-result chain. |
-| `ui_proof_result_hash_mismatch` | The result file bytes do not match `result_fingerprint`. |
-| `ui_runtime_proof_revision_stale` | Proof `metadata["model_revision"]` differs from the validation's `current_model_revision` (or the chain set's `current_revision`). |
 
-Also: `ui_missing_proof_artifact`, `ui_proof_artifact_not_passing`, `ui_proof_artifact_nonzero_exit`, `ui_proof_result_path_missing`.
 
 ## Risk-specific regression examples
 
@@ -110,20 +94,19 @@ Also: `ui_missing_proof_artifact`, `ui_proof_artifact_not_passing`, `ui_proof_ar
 - Leak: an `internal` item (e.g. `debug_run_id`) mapped to a display -> `internal_content_mapped_to_ui`.
 - Sticky panel: `user_on_demand` details visible in the initial state, no
   `dismiss_event_ids` -> `on_demand_content_visible_in_default_state`, `on_demand_content_missing_dismiss_event`.
-- Edited result: proof file changed after hashing -> `ui_proof_result_hash_mismatch`.
 
 ## Done when
 
 - [ ] The selected native UI reviews/existing-owner checks pass; any persistent runner is registered and run once.
 - [ ] Relevant broken fixtures fail with their expected code (assert the code, not only `not ok`).
 - [ ] Real UI tests (click-through or component tests) are in the component's `tests`.
-- [ ] Runnable claims use `require_runtime_proof=True`; `python -m flowguard change` is clean.
+- [ ] `python -m flowguard change` is clean.
 - [ ] Report which reviews ran, which evidence classes were omitted (scoped claim), and what was skipped.
 
 ## Limits
 
-- It checks the rows you declare. It does not render or click the UI. Only a
-  real runner that writes the result file proves runtime behavior.
+- It checks the rows you declare. It does not render or click the UI. Only
+  real UI tests show runtime behavior.
 - One event cannot have several outcomes: a reused `event_id` gives
   `duplicate_event_id`. Model each outcome as its own event (`load_ok`, `load_failed`).
 - UI models do not run in the core explorer; invariants over UI states are
