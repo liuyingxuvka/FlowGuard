@@ -22,7 +22,7 @@ Create or update a local model mesh when any of these are true:
 
 Do not merge every child model into one giant state graph. The mesh is a
 model-of-models: it treats child models as contract-bearing evidence sources
-with inputs, outputs, state ownership, evidence tier, freshness, and known
+with inputs, outputs, state ownership, freshness, and known
 blindspots.
 
 When a child model is repaired after a model miss, a child-local green result is
@@ -75,7 +75,6 @@ Before trusting existing models, write a compact inventory:
 | `contracts_in` | Preconditions or upstream guarantees the child depends on. |
 | `contracts_out` | Outputs, guarantees, or evidence other models depend on. |
 | `depends_on` | Upstream models, live state, logs, fixtures, or artifacts. |
-| `evidence_tier` | Current tier from the list below. |
 | `freshness_rule` | What makes this result stale. |
 | `blindspots` | Known not-modeled areas and skipped checks. |
 | `coverage_owned` | Parent partition items owned by this child. |
@@ -197,22 +196,6 @@ for broad parent green confidence. Without it, the mesh may still support
 partition, target-split, evidence, or scoped reattachment facts, but it should
 not be described as proving a closed parent/child flow.
 
-Suggested evidence tiers:
-
-- `candidate_only`: model exists but has not produced trustworthy current
-  evidence.
-- `abstract_green`: abstract formal model/invariant checks passed.
-- `hazard_green`: known-bad hazard variants fail for the intended reasons.
-- `live_current_green`: current runtime state or current artifact projection was
-  checked against the model boundary.
-- `conformance_green`: production or artifact replay conforms to model traces
-  or projected states.
-- `mesh_green`: the model mesh confirms no cross-model contradiction, stale
-  dependency, missing hazard, or hidden skipped check blocks the decision.
-
-Never use `abstract_green` alone as permission to continue a live workflow when
-live evidence or conformance is required.
-
 Background long-running checks are not pass evidence while they are still
 running. Progress output is liveness only. A mesh may consume a long-check
 result only after the final output, error, combined log, exit, and metadata
@@ -223,7 +206,7 @@ artifacts exist and the freshness rule says they still match this decision.
 Keep the mesh finite and inspectable. A useful mesh state usually contains:
 
 - registered child models and their declared risk boundaries;
-- evidence tier and freshness for each child model;
+- freshness for each child model;
 - model-scoped Cartesian coverage rows and the required child coverage ids;
 - live/current run or artifact facts that the decision depends on;
 - cross-model dependencies and contract obligations;
@@ -332,9 +315,7 @@ Context:
 Tasks:
 1. Inventory every local FlowGuard model, runner, result file, adoption log, and
    conformance/replay artifact relevant to this decision.
-2. Classify each model's evidence tier:
-   candidate_only, abstract_green, hazard_green, live_current_green,
-   conformance_green, or mesh_green.
+2. Record whether each model's result is current, skipped or not run.
 3. Define freshness rules for each result and mark stale, skipped, not-run, or
    parse-error evidence explicitly.
 4. Create or update a model-of-models. Treat child models as evidence contracts;
@@ -382,7 +363,7 @@ Tasks:
 The mesh is sufficient for the current decision only when:
 
 - model inventory is complete enough for the decision boundary;
-- each required child model has a freshness rule and evidence tier;
+- each required child model has a freshness rule;
 - known-bad hazards fail for the intended reasons;
 - skipped or missing live/conformance checks remain visible;
 - cross-model contradictions are either absent or converted into blockers;
@@ -503,7 +484,7 @@ Legacy models are not rewritten first. They are discovered and classified:
 A legacy model without a compatibility contract can be registered, but it should
 not become strong child evidence. The compatibility contract records the
 model's risk boundary, owned state, side effects, output contracts, freshness
-rule, skipped checks, and evidence tier.
+rule and skipped checks.
 
 
 ## Minimal API Example
@@ -531,14 +512,12 @@ from flowguard import (
 old_payment = ChildModelEvidence(
     "payment",
     evidence_id="payment:model-check:v0",
-    evidence_tier="abstract_green",
     inputs_accepted=("payment_request",),
     outputs_emitted=("payment_result",),
 )
 new_payment = ChildModelEvidence(
     "payment",
     evidence_id="payment:model-check:v1",
-    evidence_tier="abstract_green",
     inputs_accepted=("payment_request",),
     outputs_emitted=("payment_result",),
 )
@@ -555,7 +534,6 @@ partition = HierarchyPartitionMap(
         new_payment,
         ChildModelEvidence(
             "inventory",
-            evidence_tier="abstract_green",
             outputs_emitted=("inventory_result",),
         ),
     ),

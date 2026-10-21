@@ -26,7 +26,7 @@ def target_mesh() -> HierarchyPartitionMap:
         coverage_items=(HierarchyCoverageItem("parse-request", owner_model_id="request-child"),),
         child_models=(ChildModelEvidence("request-child", parent_model_id="target-parent-model",
                                         owner_id="request-owner", functions_owned=("parse-request",),
-                                        functional_areas=("request",), evidence_tier="abstract_green"),),
+                                        functional_areas=("request",)),),
         target_split_derivation=ModelTargetSplitDerivation(
             "target-parent-model", target_child_model_ids=("request-child",),
             covered_partition_item_ids=("parse-request",),

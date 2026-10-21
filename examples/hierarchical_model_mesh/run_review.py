@@ -20,7 +20,6 @@ from flowguard import (
 
 def _child(model_id: str, **kwargs) -> ChildModelEvidence:
     defaults = {
-        "evidence_tier": "abstract_green",
         "functional_areas": (model_id,),
         "state_owned": (f"{model_id}_state",),
     }

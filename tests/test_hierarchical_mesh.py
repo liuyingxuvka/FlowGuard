@@ -72,7 +72,6 @@ def path_quality(model_id="payment", currentness_id="snapshot:current"):
 
 def child(model_id, **kwargs):
     defaults = {
-        "evidence_tier": "abstract_green",
         "functional_areas": (model_id,),
     }
     defaults.update(kwargs)
@@ -195,7 +194,7 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual([], report.to_dict()["findings"])
         self.assertIn("flowguard hierarchical mesh", report.format_text())
 
-    def test_default_evidence_tier_and_empty_evidence_ids_do_not_block(self):
+    def test_empty_evidence_ids_do_not_block(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",
             coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
@@ -777,15 +776,13 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertEqual("large_model_split_review_required", report.decision)
         self.assertEqual({"large": "split_into_children"}, report.split_decisions)
 
-    def test_stale_skipped_and_insufficient_evidence_are_visible(self):
+    def test_stale_and_skipped_child_evidence_are_visible(self):
         partition = HierarchyPartitionMap(
             parent_model_id="release",
-            required_evidence_tier="conformance_green",
             coverage_items=(HierarchyCoverageItem("publish", owner_model_id="publisher"),),
             child_models=(
                 child(
                     "publisher",
-                    evidence_tier="abstract_green",
                     evidence_current=False,
                     skipped_checks=("conformance",),
                     not_run_checks=("live_projection",),
@@ -800,7 +797,6 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("stale_child_evidence", codes)
         self.assertIn("missing_or_skipped_child_check", codes)
-        self.assertIn("insufficient_evidence_tier", codes)
         self.assertIn("skipped_checks", json.dumps(report.to_dict()))
 
     def test_legacy_model_requires_contract_before_strong_evidence(self):
@@ -1249,7 +1245,7 @@ def test_model_mesh_renamed_output_gives_child_reattachment_missing_output():
             parent_model_id="checkout",
             coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
             child_models=(ChildModelEvidence(
-                "payment", evidence_tier="abstract_green", functional_areas=("payment",),
+                "payment", functional_areas=("payment",),
                 evidence_id="payment:v1", inputs_accepted=("parent_input",), outputs_emitted=outputs),),
             target_split_derivation=ModelTargetSplitDerivation(
                 "checkout", target_child_model_ids=("payment",), covered_partition_item_ids=("payment",),

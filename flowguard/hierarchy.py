@@ -11,12 +11,6 @@ from .export import to_jsonable
 
 
 from ._mesh_vocab import (
-    EVIDENCE_ABSTRACT_GREEN,
-    EVIDENCE_CANDIDATE_ONLY,
-    EVIDENCE_CONFORMANCE_GREEN,
-    EVIDENCE_HAZARD_GREEN,
-    EVIDENCE_LIVE_CURRENT_GREEN,
-    EVIDENCE_MESH_GREEN,
     OWNERSHIP_CHILD,
     OWNERSHIP_PARENT,
     OWNERSHIP_READ_ONLY,
@@ -142,7 +136,6 @@ class ChildModelEvidence:
     contracts_in: tuple[str, ...] = ()
     contracts_out: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
-    evidence_tier: str = EVIDENCE_CANDIDATE_ONLY
     evidence_current: bool = True
     skipped_checks: tuple[str, ...] = ()
     not_run_checks: tuple[str, ...] = ()
@@ -192,7 +185,6 @@ class ChildModelEvidence:
         object.__setattr__(self, "subtree_receipt_fingerprint", str(self.subtree_receipt_fingerprint))
         object.__setattr__(self, "is_leaf", bool(self.is_leaf))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
-        object.__setattr__(self, "evidence_tier", str(self.evidence_tier))
         object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
         object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
         object.__setattr__(self, "overlaps_existing_model", str(self.overlaps_existing_model))
@@ -231,7 +223,6 @@ class ChildModelEvidence:
             "risk_classes": list(self.risk_classes),
             "validation_evidence": list(self.validation_evidence),
             "runtime_path_evidence_ids": list(self.runtime_path_evidence_ids),
-            "evidence_tier": self.evidence_tier,
             "evidence_current": self.evidence_current,
             "skipped_checks": list(self.skipped_checks),
             "not_run_checks": list(self.not_run_checks),
@@ -645,7 +636,6 @@ class HierarchyPartitionMap:
     child_models: tuple[ChildModelEvidence, ...] = ()
     target_split_derivation: ModelTargetSplitDerivation | None = None
     reattachment_contracts: tuple[ChildReattachmentContract, ...] = ()
-    required_evidence_tier: str = EVIDENCE_CANDIDATE_ONLY
     allowed_shared_areas: tuple[str, ...] = ()
     boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
     closure_model: MeshClosureModel | None = None
@@ -659,7 +649,6 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "coverage_items", tuple(self.coverage_items))
         object.__setattr__(self, "child_models", tuple(self.child_models))
         object.__setattr__(self, "reattachment_contracts", tuple(self.reattachment_contracts))
-        object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "allowed_shared_areas", _as_tuple(self.allowed_shared_areas))
         object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
         object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
@@ -681,7 +670,6 @@ class HierarchyPartitionMap:
             "reattachment_contracts": [
                 contract.to_dict() for contract in self.reattachment_contracts
             ],
-            "required_evidence_tier": self.required_evidence_tier,
             "allowed_shared_areas": list(self.allowed_shared_areas),
             "boundary_changes": [summary.to_dict() for summary in self.boundary_changes],
             "closure_model": (
@@ -861,18 +849,6 @@ class LegacyModelClassification:
             "can_be_strong_evidence": self.can_be_strong_evidence,
             "reason": self.reason,
         }
-
-
-def _evidence_rank(tier: str) -> int:
-    order = {
-        EVIDENCE_CANDIDATE_ONLY: 0,
-        EVIDENCE_ABSTRACT_GREEN: 1,
-        EVIDENCE_HAZARD_GREEN: 2,
-        EVIDENCE_LIVE_CURRENT_GREEN: 3,
-        EVIDENCE_CONFORMANCE_GREEN: 4,
-        EVIDENCE_MESH_GREEN: 5,
-    }
-    return order.get(str(tier), -1)
 
 
 def _is_large_child(child: ChildModelEvidence, threshold: int) -> bool:
@@ -2107,7 +2083,6 @@ def review_hierarchical_mesh(
                     "stale_child_evidence",
                     "child evidence is stale",
                     model_id=child.model_id,
-                    metadata={"evidence_tier": child.evidence_tier},
                 )
             )
         if child.skipped_checks or child.not_run_checks:
@@ -2119,18 +2094,6 @@ def review_hierarchical_mesh(
                     metadata={
                         "skipped_checks": child.skipped_checks,
                         "not_run_checks": child.not_run_checks,
-                    },
-                )
-            )
-        if _evidence_rank(child.evidence_tier) < _evidence_rank(partition_map.required_evidence_tier):
-            findings.append(
-                HierarchyMeshFinding(
-                    "insufficient_evidence_tier",
-                    "child evidence tier is below the parent requirement",
-                    model_id=child.model_id,
-                    metadata={
-                        "required": partition_map.required_evidence_tier,
-                        "actual": child.evidence_tier,
                     },
                 )
             )
@@ -2253,12 +2216,6 @@ __all__ = [
     "BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED",
     "BOUNDARY_PROPAGATION_UNAFFECTED",
     "DEFAULT_LARGE_MODEL_STATE_THRESHOLD",
-    "EVIDENCE_ABSTRACT_GREEN",
-    "EVIDENCE_CANDIDATE_ONLY",
-    "EVIDENCE_CONFORMANCE_GREEN",
-    "EVIDENCE_HAZARD_GREEN",
-    "EVIDENCE_LIVE_CURRENT_GREEN",
-    "EVIDENCE_MESH_GREEN",
     "MESH_CLOSURE_FAILURE_EXIT",
     "MESH_CLOSURE_NORMAL_EXIT",
     "MESH_CLOSURE_OUT_OF_SCOPE",
