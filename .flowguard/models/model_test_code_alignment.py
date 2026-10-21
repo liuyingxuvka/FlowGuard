@@ -17,36 +17,35 @@ python -m flowguard map models model_test_code_alignment
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
+from functools import lru_cache
 
 from flowguard import (
-    CodeContract,
-    ClosureEvidenceTarget,
-    ModelObligation,
-    ModelTestAlignmentPlan,
+    CODE_CONTRACT_ROLE_FACADE,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
     TEST_ASSERTION_SCOPE_INTERNAL_PATH,
     TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
-    TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
-    CODE_CONTRACT_ROLE_FACADE,
+    ClosureEvidenceTarget,
+    CodeContract,
+    ModelObligation,
+    ModelTestAlignmentPlan,
     TestEvidence,
     audit_python_code_contracts,
     audit_python_test_assertions,
-    review_python_contract_source_audit,
     review_model_test_alignment,
+    review_python_contract_source_audit,
 )
+from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
 
-
-@dataclass(frozen=True)
-class RolloutCase:
-    name: str
-    plan: ModelTestAlignmentPlan
-    expected_ok: bool
-    expected_codes: tuple[str, ...] = ()
-    expected_pre_code_status: str = ""
-    expected_executed_evidence_status: str = ""
+PLANE = "product_runtime"
+RELATION = "canonical-relation:checkout-duplicate-handlers"
+RELATION_TEST = "relation-test:checkout-duplicate-handlers"
+RELATION_CODE = "relation-code:checkout-duplicate-handlers"
+MAIN, FACADE, COUNTEREXAMPLE = "checkout_reject_duplicate", "checkout_public_facade", "checkout_reject_counterexample"
+PAIR = ("test_duplicate_happy", "test_duplicate_failure")
+REPLAY = "test_duplicate_counterexample_replay"
 
 
 def _obligation() -> ModelObligation:
@@ -64,12 +63,16 @@ def _obligation() -> ModelObligation:
         business_intent_id="checkout.submit-order",
         behavior_commitment_id="commitment:checkout.submit-order",
         primary_path_id="path:checkout.reject-duplicate",
+        relation_ids=(RELATION,),
+        relation_test_obligation_ids=(RELATION_TEST,),
+        relation_impacted_model_ids=("checkout",),
+        behavior_plane=PLANE,
     )
 
 
 def _contract(**overrides: object) -> CodeContract:
     values = {
-        "code_contract_id": "checkout_reject_duplicate",
+        "code_contract_id": MAIN,
         "path": "checkout/service.py",
         "symbol": "reject_duplicate_order",
         "implements_obligations": ("reject_duplicate_order",),
@@ -81,6 +84,7 @@ def _contract(**overrides: object) -> CodeContract:
         "business_intent_id": "checkout.submit-order",
         "behavior_commitment_id": "commitment:checkout.submit-order",
         "primary_path_id": "path:checkout.reject-duplicate",
+        "behavior_plane": PLANE,
     }
     values.update(overrides)
     return CodeContract(**values)
@@ -93,40 +97,15 @@ def _evidence(evidence_id: str, kind: str, **overrides: object) -> TestEvidence:
         "result_status": "passed",
         "test_kind": kind,
         "covered_obligations": ("reject_duplicate_order",),
-        "covered_code_contracts": ("checkout_reject_duplicate",),
+        "covered_code_contracts": (MAIN,),
         "assertion_scope": TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
         "business_intent_id": "checkout.submit-order",
         "behavior_commitment_id": "commitment:checkout.submit-order",
         "primary_path_id": "path:checkout.reject-duplicate",
+        "behavior_plane": PLANE,
     }
     values.update(overrides)
     return TestEvidence(evidence_id, **values)
-
-
-def aligned_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-    )
-
-
-def pre_code_design_plan() -> ModelTestAlignmentPlan:
-    """Complete obligation/oracle design with deliberately not-run execution."""
-
-    return ModelTestAlignmentPlan(
-        model_id="checkout-pre-code",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH, result_status="not_run"),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH, result_status="not_run"),
-        ),
-    )
 
 
 SOURCE = {
@@ -157,377 +136,155 @@ def source_audit_report(plan: ModelTestAlignmentPlan):
     return review_python_contract_source_audit(plan.code_contracts, plan.test_evidence, code_audit, test_audit)
 
 
-def source_audited_plan() -> ModelTestAlignmentPlan:
-    base = aligned_plan()
-    return replace(base, require_source_audit=True, source_audit_reports=(source_audit_report(base),))
-
-
-def missing_source_audit_plan() -> ModelTestAlignmentPlan:
-    return replace(aligned_plan(), require_source_audit=True)
-
-
-def missing_code_contract_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH, covered_code_contracts=()),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH, covered_code_contracts=()),
-        ),
-    )
-
-
-def extra_side_effect_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(side_effects=("publish_duplicate_metric",)),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-    )
-
-
-def missing_output_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(external_outputs=()),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-    )
-
-
-def missing_code_bound_test_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH, covered_code_contracts=()),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH, covered_code_contracts=()),
-        ),
-    )
-
-
-def internal_path_only_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(),),
-        test_evidence=(
-            _evidence(
-                "test_duplicate_happy",
-                TEST_KIND_HAPPY_PATH,
-                assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH,
-            ),
-            _evidence(
-                "test_duplicate_failure",
-                TEST_KIND_FAILURE_PATH,
-                assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH,
-            ),
-        ),
-    )
-
-
-def binding_mismatch_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(), ModelObligation("accept_valid_order")),
-        code_contracts=(_contract(code_contract_id="checkout_accept_order", implements_obligations=("accept_valid_order",)),),
-        test_evidence=(
-            _evidence(
-                "test_duplicate_happy",
-                TEST_KIND_HAPPY_PATH,
-                covered_code_contracts=("checkout_accept_order",),
-            ),
-            _evidence(
-                "test_duplicate_failure",
-                TEST_KIND_FAILURE_PATH,
-                covered_code_contracts=("checkout_accept_order",),
-            ),
-        ),
-    )
-
-
-def stable_path_mismatch_plan() -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(_contract(primary_path_id="path:checkout.alternate-success"),),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-    )
-
-
-def facade_delegation_plan(*, current: bool, delegation_only: bool) -> ModelTestAlignmentPlan:
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(_obligation(),),
-        code_contracts=(
-            _contract(),
-            _contract(
-                code_contract_id="checkout_public_facade",
-                role=CODE_CONTRACT_ROLE_FACADE,
-                delegates_to_code_contract_id="checkout_reject_duplicate",
-                delegation_evidence_id="runtime:checkout-public-facade",
-                delegation_evidence_current=current,
-                delegation_only=delegation_only,
-            ),
-        ),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-    )
-
-
-def canonical_relation_materialization_plan(*, materialized: bool) -> ModelTestAlignmentPlan:
-    relation_id = "canonical-relation:checkout-duplicate-handlers"
-    test_obligation_id = "relation-test:checkout-duplicate-handlers"
-    code_obligation_id = "relation-code:checkout-duplicate-handlers"
-    obligation = replace(
-        _obligation(),
-        relation_ids=(relation_id,) if materialized else (),
-        relation_test_obligation_ids=(test_obligation_id,) if materialized else (),
-        relation_impacted_model_ids=("checkout",) if materialized else (),
-    )
-    contract = replace(
-        _contract(),
-        relation_ids=(relation_id,) if materialized else (),
-        relation_code_obligation_ids=(code_obligation_id,) if materialized else (),
-    )
-    return ModelTestAlignmentPlan(
-        model_id="checkout",
-        obligations=(obligation,),
-        code_contracts=(contract,),
-        test_evidence=(
-            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
-            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
-        ),
-        canonical_relation_handoff={
-            "relations": ({
-                "relation_id": relation_id,
-                "relation_type": "duplicate_boundary",
-                "source_endpoint_kind": "model",
-                "source_endpoint_id": "checkout",
-                "target_endpoint_kind": "code_contract",
-                "target_endpoint_id": "checkout_reject_duplicate",
-                "source_ids": ("semantic-mesh:checkout",),
-            },),
-            "relation_group_ids": ("relation-group:checkout",),
-            "affected_model_ids": ("checkout",),
-            "test_obligation_ids": (test_obligation_id,),
-            "code_obligation_ids": (code_obligation_id,),
-            "evidence_current": True,
-        },
-    )
-
-
-def plane_aware_alignment_plan(*, mismatch: bool = False) -> ModelTestAlignmentPlan:
-    plane_rows = (
-        ("behavior_plane_schema", "development_process"),
-        ("behavior_plane_lookup", "agent_operation"),
-        ("behavior_plane_preflight", "agent_operation"),
-        ("behavior_plane_relation", "agent_operation"),
-        ("behavior_plane_migration", "development_process"),
-        ("behavior_plane_miss_backfeed", "agent_operation"),
-    )
-    obligations = tuple(
-        ModelObligation(
-            obligation_id,
-            description=f"{obligation_id} remains bound to its owning behavior plane",
-            required_test_kinds=(TEST_KIND_HAPPY_PATH,),
-            required_closure_targets=(
-                ClosureEvidenceTarget(
-                    f"plane-upgrade:{obligation_id}",
-                    closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
-                ),
-            ),
-            behavior_plane=behavior_plane,
-        )
-        for obligation_id, behavior_plane in plane_rows
-    )
-    contracts = tuple(
-        CodeContract(
-            f"flowguard.{obligation_id}",
-            path="flowguard/behavior_commitment.py",
-            symbol=obligation_id,
-            implements_obligations=(obligation_id,),
-            behavior_plane=(
-                "product_runtime"
-                if mismatch and obligation_id == "behavior_plane_lookup"
-                else behavior_plane
-            ),
-        )
-        for obligation_id, behavior_plane in plane_rows
-    )
-    evidence = tuple(
-        TestEvidence(
-            f"test_{obligation_id}",
-            result_status="passed",
-            test_kind=TEST_KIND_HAPPY_PATH,
-            covered_obligations=(obligation_id,),
-            covered_code_contracts=(f"flowguard.{obligation_id}",),
-            assertion_scope=TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
-            closure_evidence_role=TEST_CLOSURE_ROLE_KNOWN_BAD_REPLAY,
-            evidence_target_id=f"plane-upgrade:{obligation_id}",
-            behavior_plane=behavior_plane,
-        )
-        for obligation_id, behavior_plane in plane_rows
-    )
-    return ModelTestAlignmentPlan(
-        model_id="behavior-plane-upgrade",
-        obligations=obligations,
-        code_contracts=contracts,
-        test_evidence=evidence,
-        require_behavior_plane_binding=True,
-    )
-
-
-def counterexample_closure_obligation() -> ModelObligation:
-    return ModelObligation(
+@lru_cache(maxsize=1)                 # the plan is immutable; features build changed copies
+def complete_plan() -> ModelTestAlignmentPlan:
+    """Every part aligned: the duplicate-order obligation with its code contract, happy and failure tests,
+    a delegating facade, a materialized canonical relation, a replayed counterexample target, behavior
+    planes and a source audit of the real code and tests."""
+    counterexample = ModelObligation(
         "reject_duplicate_counterexample",
         obligation_type="model_miss",
         description="duplicate-order counterexample is replayed through owner code",
         external_inputs=("order_id",),
         external_outputs=("Rejected",),
         required_test_kinds=(TEST_KIND_HAPPY_PATH,),
-        required_closure_targets=(
-            ClosureEvidenceTarget(
-                "counterexample:duplicate-order",
-                closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
-            ),
-        ),
+        required_closure_targets=(ClosureEvidenceTarget(
+            "counterexample:duplicate-order", closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION),),
+        behavior_plane=PLANE,
     )
-
-
-def counterexample_closure_plan(include_target_evidence: bool) -> ModelTestAlignmentPlan:
-    test_items = (
-        _evidence(
-            "test_duplicate_counterexample_replay",
-            TEST_KIND_HAPPY_PATH,
-            covered_obligations=("reject_duplicate_counterexample",),
-            covered_code_contracts=("checkout_reject_counterexample",),
-            closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION if include_target_evidence else "",
-            evidence_target_id="counterexample:duplicate-order" if include_target_evidence else "",
-        ),
-    )
-    return ModelTestAlignmentPlan(
+    plan = ModelTestAlignmentPlan(
         model_id="checkout",
-        obligations=(counterexample_closure_obligation(),),
+        obligations=(_obligation(), counterexample),
         code_contracts=(
-            _contract(
-                code_contract_id="checkout_reject_counterexample",
-                implements_obligations=("reject_duplicate_counterexample",),
-            ),
+            _contract(relation_ids=(RELATION,), relation_code_obligation_ids=(RELATION_CODE,)),
+            _contract(code_contract_id=FACADE, role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id=MAIN,
+                      delegation_evidence_id="runtime:checkout-public-facade", delegation_evidence_current=True,
+                      delegation_only=True),
+            _contract(code_contract_id=COUNTEREXAMPLE, implements_obligations=("reject_duplicate_counterexample",)),
         ),
-        test_evidence=test_items,
+        test_evidence=(
+            _evidence("test_duplicate_happy", TEST_KIND_HAPPY_PATH),
+            _evidence("test_duplicate_failure", TEST_KIND_FAILURE_PATH),
+            _evidence(REPLAY, TEST_KIND_HAPPY_PATH, covered_obligations=("reject_duplicate_counterexample",),
+                      covered_code_contracts=(COUNTEREXAMPLE,),
+                      closure_evidence_role=TEST_CLOSURE_ROLE_COUNTEREXAMPLE_REGRESSION,
+                      evidence_target_id="counterexample:duplicate-order"),
+        ),
+        canonical_relation_handoff={
+            "relations": ({
+                "relation_id": RELATION,
+                "relation_type": "duplicate_boundary",
+                "source_endpoint_kind": "model",
+                "source_endpoint_id": "checkout",
+                "target_endpoint_kind": "code_contract",
+                "target_endpoint_id": MAIN,
+                "source_ids": ("semantic-mesh:checkout",),
+            },),
+            "relation_group_ids": ("relation-group:checkout",),
+            "affected_model_ids": ("checkout",),
+            "test_obligation_ids": (RELATION_TEST,),
+            "code_obligation_ids": (RELATION_CODE,),
+            "evidence_current": True,
+        },
+        require_behavior_plane_binding=True,
     )
+    return replace(plan, require_source_audit=True, source_audit_reports=(source_audit_report(plan),))
 
 
-def rollout_cases() -> tuple[RolloutCase, ...]:
-    return (
-        RolloutCase("aligned_model_code_test_contracts", aligned_plan(), True),
-        RolloutCase(
-            "pre_code_design_is_ready_but_execution_is_not_run",
-            pre_code_design_plan(),
-            False,
-            ("test_evidence_not_passing",),
-            "ready",
-            "not_run",
-        ),
-        RolloutCase("source_audited_real_code_claim", source_audited_plan(), True),
-        RolloutCase("missing_source_audit_blocks", missing_source_audit_plan(), False, ("missing_source_audit_report",)),
-        RolloutCase("counterexample_target_closure_passes", counterexample_closure_plan(True), True),
-        RolloutCase(
-            "counterexample_target_without_replay_blocks",
-            counterexample_closure_plan(False),
-            False,
-            ("missing_counterexample_regression_test",),
-        ),
-        RolloutCase("missing_code_contract_blocks", missing_code_contract_plan(), False, ("missing_code_contract",)),
-        RolloutCase("extra_code_side_effect_blocks", extra_side_effect_plan(), False, ("code_contract_extra_behavior",)),
-        RolloutCase("missing_code_output_blocks", missing_output_plan(), False, ("code_contract_missing_behavior",)),
-        RolloutCase(
-            "test_without_code_contract_binding_blocks",
-            missing_code_bound_test_plan(),
-            False,
-            ("test_not_bound_to_code_contract", "missing_code_contract_test_evidence"),
-        ),
-        RolloutCase(
-            "internal_path_only_test_blocks",
-            internal_path_only_plan(),
-            False,
-            ("test_checks_internal_path_only", "missing_code_contract_test_evidence"),
-        ),
-        RolloutCase("model_code_test_binding_mismatch_blocks", binding_mismatch_plan(), False, ("model_code_test_binding_mismatch",)),
-        RolloutCase("stable_primary_path_mismatch_blocks", stable_path_mismatch_plan(), False, ("primary_path_id_mismatch",)),
-        RolloutCase("current_delegating_facade_passes", facade_delegation_plan(current=True, delegation_only=True), True),
-        RolloutCase("stale_facade_delegation_blocks", facade_delegation_plan(current=False, delegation_only=True), False, ("facade_delegation_evidence_stale",)),
-        RolloutCase("facade_parallel_success_blocks", facade_delegation_plan(current=True, delegation_only=False), False, ("facade_independent_business_authority",)),
-        RolloutCase("canonical_relation_handoff_materializes", canonical_relation_materialization_plan(materialized=True), True),
-        RolloutCase("opaque_canonical_relation_handoff_blocks", canonical_relation_materialization_plan(materialized=False), False, ("unmaterialized_canonical_relation_id",)),
-        RolloutCase("plane_aware_model_code_test_bindings_pass", plane_aware_alignment_plan(), True),
-        RolloutCase(
-            "cross_plane_code_binding_blocks",
-            plane_aware_alignment_plan(mismatch=True),
-            False,
-            ("behavior_plane_mismatch",),
-        ),
-    )
+__all__ = ["complete_plan"]
 
 
-__all__ = ["rollout_cases"]
-
-
-# FlowGuard contract: the rollout cases above form a case table; conformance reviews each plan with
-# the real model-test alignment and compares (status expectations are checked as codes).
-from functools import lru_cache  # noqa: E402
-
-from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
-
+# FlowGuard contract (feature kit): each former broken plan is a feature that changes one part of the
+# complete plan; the kit explores every feature alone and every pair, and conformance reviews each
+# combination with the real model-test alignment review.  "pre_code_status=incomplete" is reported as a
+# code, so a defect that must not block the pre-code design (tests not run) is checked too.
 MODEL_ID = "model_test_code_alignment"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"Review": "flowguard/model_test_alignment.py:review_model_test_alignment"}
-TESTED_BY = {"verdict_matches_case": [
+TESTED_BY = {"each_defect_rejected": [
     "tests/test_model_test_alignment.py:test_pre_code_design_ready_does_not_promote_not_run_evidence",
     "tests/test_model_test_alignment.py:test_missing_code_contract_blocks_required_external_contract"]}
+INCOMPLETE = "pre_code_status=incomplete"
 
 
-@lru_cache(maxsize=1)
-def _rollout() -> dict:
-    return {case.name: case for case in rollout_cases()}
+def _contracts(contract_id: str, **values):
+    return lambda plan: replace(plan, code_contracts=tuple(replace(c, **values) if c.code_contract_id == contract_id
+                                                           else c for c in plan.code_contracts))
 
 
-def _cases() -> tuple[Case, ...]:
-    return tuple(Case(case.name, case.expected_ok, case.expected_codes
-                      + ((f"pre_code_status={case.expected_pre_code_status}",) if case.expected_pre_code_status else ())
-                      + ((f"executed_evidence_status={case.expected_executed_evidence_status}",)
-                         if case.expected_executed_evidence_status else ()))
-                 for case in _rollout().values())
+def _tests(evidence_ids, **values):
+    return lambda plan: replace(plan, test_evidence=tuple(replace(e, **values) if e.evidence_id in evidence_ids
+                                                          else e for e in plan.test_evidence))
+
+
+def _unrelated(plan):
+    obligation = replace(_obligation(), relation_ids=(), relation_test_obligation_ids=(),
+                         relation_impacted_model_ids=())
+    return replace(_contracts(MAIN, relation_ids=(), relation_code_obligation_ids=())(plan),
+                   obligations=(obligation,) + plan.obligations[1:])
+
+
+def _unimplemented_obligation(plan):
+    obligation = ModelObligation("reject_unknown_order", external_inputs=("order_id",), external_outputs=("Rejected",),
+                                 exact_external_contract=True, required_test_kinds=(TEST_KIND_HAPPY_PATH,),
+                                 behavior_plane=PLANE)
+    test = _evidence("test_unknown_order", TEST_KIND_HAPPY_PATH, covered_obligations=("reject_unknown_order",),
+                     covered_code_contracts=())
+    return replace(plan, obligations=plan.obligations + (obligation,), test_evidence=plan.test_evidence + (test,))
+
+
+def _alternate_path(plan):
+    return _contracts(FACADE, primary_path_id="path:checkout.alternate-success")(
+        _contracts(MAIN, primary_path_id="path:checkout.alternate-success")(plan))
+
+
+FEATURES = (
+    Feature("tests_not_run", True, ("test_evidence_not_passing", "missing_test_evidence",
+                                    "missing_code_contract_test_evidence"), _tests(PAIR, result_status="not_run")),
+    Feature("missing_source_audit", True, ("missing_source_audit_report",),
+            lambda plan: replace(plan, source_audit_reports=())),
+    Feature("counterexample_not_replayed", True, ("missing_counterexample_regression_test", INCOMPLETE),
+            _tests((REPLAY,), closure_evidence_role="", evidence_target_id="")),
+    Feature("missing_code_contract", True, ("missing_code_contract", "test_not_bound_to_code_contract",
+                                            "missing_test_evidence", INCOMPLETE), _unimplemented_obligation),
+    Feature("extra_code_side_effect", True, ("code_contract_extra_behavior",),
+            _contracts(MAIN, side_effects=("publish_duplicate_metric",))),
+    Feature("missing_code_output", True, ("code_contract_missing_behavior",), _contracts(MAIN, external_outputs=())),
+    Feature("tests_not_bound_to_code_contract", True, ("test_not_bound_to_code_contract", "missing_test_evidence",
+                                                       "missing_code_contract_test_evidence", INCOMPLETE),
+            _tests(PAIR, covered_code_contracts=())),
+    Feature("internal_path_only_tests", True, ("test_checks_internal_path_only", "missing_test_evidence",
+                                               "missing_code_contract_test_evidence", INCOMPLETE),
+            _tests(PAIR, assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH)),
+    Feature("model_code_test_binding_mismatch", True, ("model_code_test_binding_mismatch", INCOMPLETE),
+            _tests(("test_duplicate_failure",), covered_code_contracts=(COUNTEREXAMPLE,))),
+    Feature("primary_path_mismatch", True, ("primary_path_id_mismatch",), _alternate_path),
+    Feature("stale_facade_delegation", True, ("facade_delegation_evidence_stale",),
+            _contracts(FACADE, delegation_evidence_current=False)),
+    Feature("facade_parallel_success", True, ("facade_independent_business_authority",),
+            _contracts(FACADE, delegation_only=False)),
+    Feature("opaque_canonical_relation", True, ("unmaterialized_canonical_relation_id",
+                                                "unmaterialized_relation_test_obligation_id",
+                                                "unmaterialized_relation_code_obligation_id"), _unrelated),
+    Feature("cross_plane_code_binding", True, ("behavior_plane_mismatch",),
+            _contracts(MAIN, behavior_plane="agent_operation")),
+    Feature("evidence_listed_in_reverse_order", False, (),
+            lambda plan: replace(plan, code_contracts=plan.code_contracts[::-1], test_evidence=plan.test_evidence[::-1])),
+)
 
 
 def build_explorer():
-    return case_table_explorer(_cases())
+    return feature_explorer(FEATURES)
 
 
 def broken_variants():
-    return case_table_variants(_cases())
+    return feature_variants(FEATURES)
 
 
-def _observe(case):
-    report = review_model_test_alignment(_rollout()[case.name].plan)
-    return report.ok, tuple(finding.code for finding in report.findings) + (
-        f"pre_code_status={getattr(report, 'pre_code_status', '')}",
-        f"executed_evidence_status={getattr(report, 'executed_evidence_status', '')}")
+def _review(plan):
+    report = review_model_test_alignment(plan)
+    return report.ok, tuple(finding.code for finding in report.findings) + (f"pre_code_status={report.pre_code_status}",)
 
 
 def conformance():
-    return case_table_conformance(_cases(), _observe)
+    return feature_conformance(FEATURES, complete_plan, _review)

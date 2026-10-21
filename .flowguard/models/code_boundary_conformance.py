@@ -13,7 +13,7 @@ python -m flowguard map models code_boundary_conformance
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import replace
 
 from flowguard import (
     CodeBoundaryContract,
@@ -27,14 +27,6 @@ from flowguard import (
     review_code_boundary_conformance,
     review_model_test_alignment,
 )
-
-
-@dataclass(frozen=True)
-class BoundaryCase:
-    name: str
-    report_ok: bool
-    expected_codes: tuple[str, ...] = ()
-    alignment_case: bool = False
 
 
 BOUNDARY = CodeBoundaryContract(
@@ -78,84 +70,9 @@ def good_observations() -> tuple[CodeBoundaryObservation, ...]:
     )
 
 
-def boundary_reports() -> tuple[tuple[str, object, bool, tuple[str, ...]], ...]:
-    cases = (
-        (
-            "green_boundary",
-            lambda: review_code_boundary_conformance((BOUNDARY,), good_observations()),
-            True,
-            (),
-        ),
-        (
-            "forbidden_input_accepted",
-            lambda: review_code_boundary_conformance(
-                (BOUNDARY,),
-                (
-                    _obs("boundary_accept_valid_order", "valid_order"),
-                    _obs("boundary_accept_unknown_event", "unknown_event"),
-                ),
-            ),
-            False,
-            ("boundary_forbidden_input_accepted",),
-        ),
-        (
-            "extra_output_and_side_effect",
-            lambda: review_code_boundary_conformance(
-                (
-                    CodeBoundaryContract(
-                        **{
-                            **BOUNDARY.to_dict(),
-                            "allowed_outputs": ("Accepted",),
-                            "allowed_side_effects": (),
-                        }
-                    ),
-                ),
-                (
-                    _obs(
-                        "boundary_accept_valid_order",
-                        "valid_order",
-                        observed_output="PartialSuccess",
-                        observed_side_effects=("publish_accept", "publish_metric"),
-                    ),
-                    good_observations()[1],
-                ),
-            ),
-            False,
-            ("boundary_extra_output", "boundary_extra_side_effect"),
-        ),
-        (
-            "missing_rejected_input_gate_evidence",
-            lambda: review_code_boundary_conformance((BOUNDARY,), (_obs("boundary_accept_valid_order", "valid_order"),)),
-            False,
-            ("boundary_missing_rejected_input_evidence",),
-        ),
-        (
-            "internal_path_only_boundary_observation",
-            lambda: review_code_boundary_conformance(
-                (BOUNDARY,),
-                (
-                    _obs("boundary_accept_valid_order", "valid_order"),
-                    _obs(
-                        "boundary_reject_unknown_event",
-                        "unknown_event",
-                        accepted=False,
-                        observed_output="RejectedInvalidInput",
-                        observed_error_path="invalid_input",
-                        observed_state_writes=(),
-                        observed_side_effects=(),
-                        assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH,
-                    ),
-                ),
-            ),
-            False,
-            ("boundary_observation_internal_path_only",),
-        ),
-    )
-    return cases
-
-
-def alignment_report():
-    plan = ModelTestAlignmentPlan(
+def alignment_plan(observations) -> ModelTestAlignmentPlan:
+    """The complete plan: one obligation, its code contract and passing test, the boundary and its observations."""
+    return ModelTestAlignmentPlan(
         model_id="checkout",
         obligations=(
             ModelObligation(
@@ -183,44 +100,62 @@ def alignment_report():
             ),
         ),
         boundary_contracts=(BOUNDARY,),
-        boundary_observations=(
-            _obs("boundary_accept_valid_order", "valid_order", observed_output="AcceptedAndCached"),
-            good_observations()[1],
-        ),
+        boundary_observations=tuple(observations),
     )
-    return review_model_test_alignment(plan)
 
 
-# FlowGuard contract: the expected verdicts above form a case table; conformance runs each case
-# through the real reviews and compares.
-from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+# FlowGuard contract (feature kit): each broken boundary observation is a feature that changes the good
+# observations; the kit explores every feature alone and every pair, and conformance reviews each
+# combination with the real model-test alignment review (which runs the boundary review).
+from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "code_boundary_conformance"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"BoundaryReview": "flowguard/model_test_alignment.py:review_code_boundary_conformance",
                   "AlignmentReview": "flowguard/model_test_alignment.py:review_model_test_alignment"}
-TESTED_BY = {"verdict_matches_case": [
+TESTED_BY = {"each_defect_rejected": [
     "tests/test_code_boundary_conformance.py:test_forbidden_input_acceptance_blocks_boundary_confidence",
     "tests/test_code_boundary_conformance.py:test_exact_boundary_blocks_extra_outputs_and_side_effects"]}
-REVIEWS = {name: review for name, review, _ok, _codes in boundary_reports()}
-REVIEWS["alignment_blocks_on_boundary_failure"] = alignment_report
-CASES = tuple(Case(name, ok, codes) for name, _review, ok, codes in boundary_reports()) + (
-    Case("alignment_blocks_on_boundary_failure", False,
-         ("boundary_extra_output", "decision:code_boundary_conformance_failed")),)
+FAILED = "decision:code_boundary_conformance_failed"
+
+
+def _change(observation_id: str, **values):
+    def apply(observations: tuple) -> tuple:
+        assert any(item.observation_id == observation_id for item in observations), observation_id
+        return tuple(replace(item, **{key: value(item) if callable(value) else value for key, value in values.items()})
+                     if item.observation_id == observation_id else item for item in observations)
+    return apply
+
+
+VALID, REJECT = "boundary_accept_valid_order", "boundary_reject_unknown_event"
+FEATURES = (
+    Feature("forbidden_input_accepted", True, ("boundary_forbidden_input_accepted", FAILED),
+            lambda observations: observations + (_obs("boundary_accept_unknown_event", "unknown_event"),)),
+    Feature("extra_output", True, ("boundary_extra_output", FAILED), _change(VALID, observed_output="PartialSuccess")),
+    Feature("extra_side_effect", True, ("boundary_extra_side_effect", FAILED),
+            _change(VALID, observed_side_effects=lambda item: item.observed_side_effects + ("publish_metric",))),
+    Feature("missing_rejected_input_evidence", True, ("boundary_missing_rejected_input_evidence", FAILED),
+            lambda observations: tuple(item for item in observations if item.observation_id != REJECT)),
+    Feature("internal_path_only_observation", True, ("boundary_observation_internal_path_only", FAILED),
+            lambda observations: observations + (_obs("boundary_internal_valid_order", "valid_order",
+                                                      assertion_scope=TEST_ASSERTION_SCOPE_INTERNAL_PATH),)),
+    Feature("repeated_valid_observation", False, (),
+            lambda observations: observations + (_obs("boundary_accept_valid_order_again", "valid_order"),)),
+)
 
 
 def build_explorer():
-    return case_table_explorer(CASES)
+    return feature_explorer(FEATURES)
 
 
 def broken_variants():
-    return case_table_variants(CASES)
+    return feature_variants(FEATURES)
 
 
-def _observe(case):
-    report = REVIEWS[case.name]()
+def _review(observations):
+    report = review_model_test_alignment(alignment_plan(observations))
     return report.ok, tuple(finding.code for finding in report.findings) + (f"decision:{report.decision}",)
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, good_observations, _review)

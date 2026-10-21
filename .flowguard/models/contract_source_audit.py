@@ -12,8 +12,6 @@ python -m flowguard map models contract_source_audit
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from flowguard import (
     CodeContract,
     TEST_ASSERTION_SCOPE_EXTERNAL_CONTRACT,
@@ -22,15 +20,6 @@ from flowguard import (
     audit_python_test_assertions,
     review_python_contract_source_audit,
 )
-
-
-@dataclass(frozen=True)
-class SourceAuditCase:
-    name: str
-    code_source: str
-    test_source: str
-    expected_ok: bool
-    expected_codes: tuple[str, ...] = ()
 
 
 CONTRACT = CodeContract(
@@ -68,90 +57,56 @@ def test_submit_order():
 """
 
 
-def cases() -> tuple[SourceAuditCase, ...]:
-    return (
-        SourceAuditCase("good_external_contract_source", GOOD_CODE, GOOD_TEST, True),
-        SourceAuditCase(
-            "missing_code_symbol_blocks",
-            "def other(order_id): return 'Accepted'",
-            GOOD_TEST,
-            False,
-            ("source_contract_missing_symbol",),
-        ),
-        SourceAuditCase(
-            "missing_input_blocks",
-            "def submit_order(): return 'Accepted'",
-            GOOD_TEST,
-            False,
-            ("source_contract_missing_input",),
-        ),
-        SourceAuditCase(
-            "missing_return_blocks",
-            "def submit_order(order_id): state = {}; state['order_status'] = 'Accepted'",
-            GOOD_TEST,
-            False,
-            ("source_contract_missing_output",),
-        ),
-        SourceAuditCase(
-            "missing_state_write_blocks",
-            "def submit_order(order_id): return 'Accepted'",
-            GOOD_TEST,
-            False,
-            ("source_contract_missing_state_write",),
-        ),
-        SourceAuditCase(
-            "extra_side_effect_blocks",
-            "def submit_order(order_id): publish_metric(order_id); return 'Accepted'",
-            GOOD_TEST,
-            False,
-            ("source_contract_missing_state_write", "source_contract_extra_side_effect"),
-        ),
-        SourceAuditCase(
-            "test_calls_helper_blocks",
-            GOOD_CODE,
-            "def test_submit_order(): result = helper_submit_order('order-1'); assert result == 'Accepted'",
-            False,
-            ("source_test_missing_code_contract_call", "source_test_internal_path_only"),
-        ),
-        SourceAuditCase(
-            "test_without_assertion_blocks",
-            GOOD_CODE,
-            "def test_submit_order(): submit_order('order-1')",
-            False,
-            ("source_test_missing_external_assertion", "source_test_internal_path_only"),
-        ),
-    )
-
-
-__all__ = ["cases"]
-
-
-# FlowGuard contract: the source-audit cases above form a case table; conformance audits each
-# case's sources with the real audit and compares.
-from flowguard.kit import Case, case_table_conformance, case_table_explorer, case_table_variants  # noqa: E402
+# FlowGuard contract (feature kit): each broken source is a feature that changes the good code or test
+# above; the kit explores every feature alone and every pair, and conformance audits each combination with
+# the real source audit.
+from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "contract_source_audit"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"AuditCode": "flowguard/model_test_alignment_source.py:audit_python_code_contracts",
                   "AuditTests": "flowguard/model_test_alignment_source.py:audit_python_test_assertions",
                   "Review": "flowguard/model_test_alignment_source.py:review_python_contract_source_audit"}
-TESTED_BY = {"verdict_matches_case": [
+TESTED_BY = {"clean_input_accepted": [
     "tests/test_model_test_alignment.py:test_python_source_audit_accepts_external_contract_test"]}
-SOURCES = {case.name: case for case in cases()}
-CASES = tuple(Case(case.name, case.expected_ok, case.expected_codes) for case in cases())
+
+
+def _edit(path: str, old: str, new: str):
+    def apply(sources: dict) -> dict:
+        assert old in sources[path], (path, old)
+        return {**sources, path: sources[path].replace(old, new, 1)}
+    return apply
+
+
+CODE, TEST = "checkout.py", "test_checkout.py"
+FEATURES = (
+    Feature("missing_code_symbol", True, ("source_contract_missing_symbol",),
+            _edit(CODE, "def submit_order(", "def other("), exclusive=True),   # removes what the code features edit
+    Feature("missing_input", True, ("source_contract_missing_input",),
+            _edit(CODE, "def submit_order(order_id):", "def submit_order():")),
+    Feature("missing_return", True, ("source_contract_missing_output",), _edit(CODE, '    return "Accepted"\n', "")),
+    Feature("missing_state_write", True, ("source_contract_missing_state_write",),
+            _edit(CODE, '    state["order_status"] = "Accepted"\n', "")),
+    Feature("extra_side_effect", True, ("source_contract_extra_side_effect",),
+            _edit(CODE, "    state = {}\n", "    state = {}\n    publish_metric(order_id)\n")),
+    Feature("test_calls_helper", True, ("source_test_missing_code_contract_call", "source_test_internal_path_only"),
+            _edit(TEST, "result = submit_order(", "result = helper_submit_order(")),
+    Feature("test_without_assertion", True, ("source_test_missing_external_assertion", "source_test_internal_path_only"),
+            _edit(TEST, '    assert result == "Accepted"\n', "")),
+    Feature("unrelated_helper_in_module", False, (),
+            _edit(CODE, "def submit_order(", "def format_order(order_id):\n    return str(order_id)\n\n\ndef submit_order(")),
+)
 
 
 def build_explorer():
-    return case_table_explorer(CASES)
+    return feature_explorer(FEATURES)
 
 
 def broken_variants():
-    return case_table_variants(CASES)
+    return feature_variants(FEATURES)
 
 
-def _observe(case):
-    item = SOURCES[case.name]
-    sources = {"checkout.py": item.code_source, "test_checkout.py": item.test_source}
+def _audit(sources: dict):
     code_evidence = audit_python_code_contracts((CONTRACT,), sources)
     test_evidence = audit_python_test_assertions((EVIDENCE,), (CONTRACT,), sources)
     report = review_python_contract_source_audit((CONTRACT,), (EVIDENCE,), code_evidence, test_evidence)
@@ -159,4 +114,4 @@ def _observe(case):
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, lambda: {CODE: GOOD_CODE, TEST: GOOD_TEST}, _audit)
