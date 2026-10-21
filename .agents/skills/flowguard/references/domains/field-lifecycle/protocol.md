@@ -35,7 +35,7 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
 ## Steps
 1. Reuse or update the owner's current field lifecycle/review. Only for a missing reusable boundary,
    scaffold with `python -m flowguard template field-lifecycle --write .`. It writes one contract model,
-   `.flowguard/models/field_lifecycle.py`, whose `REPLACE_ME` anchors fail until they name your real code.
+   `.flowguard/models/field_lifecycle.py`, whose `REPLACE_ME` anchors fail until they name your real code and test.
 2. In the selected plan: `from flowguard import FieldLifecyclePlan, FieldLifecycleRow, FieldLifecycleGroup, FieldProjection, review_field_lifecycle`.
 3. One `FieldLifecycleRow(field_id, role=, lifecycle=, behavior_impacts=, reader_ids=, writer_ids=, owner_id=)` per field.
    - `role`: `state`, `routing`, `permission`, `feature_flag`, `schema_version`,

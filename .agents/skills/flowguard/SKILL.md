@@ -71,10 +71,10 @@ Each declared edge needs an import, module literal or explicit debt reason; unsu
 
 ## Binding
 
-Every model, contract file or runner, has the same abilities: bounded exploration with counterexamples,
-known-bad variants that must fail, and a binding to the real code. L0 is the map (one owner per file,
-STALE when its code changes). L1: `IMPLEMENTED_BY` (`path:Symbol`) and `TESTED_BY` anchors resolve;
-`REPLACE_ME`, missing or renamed anchors are ERRORs, and `change` reselects the model and its tests.
+Every model has five abilities: a state model of its concern, counterexamples, known-bad variants, code and test binding.
+Only the meta-capabilities (model-mesh, topology-hazard, model-test) inspect other models and tests and keep runners.
+L0 is the map (one owner per file, STALE when its code changes). L1: `IMPLEMENTED_BY` (`path:Symbol`) and
+`TESTED_BY` anchors resolve; `REPLACE_ME`, missing or renamed anchors are ERRORs, and `change` reselects the model and its tests.
 Conformance is required: replay the real code (L2, only for risky flows) or compare it as code facts.
 `DESIGN_ONLY = "<reason>"` only while the code does not exist. Build a model only when the task touches it.
 

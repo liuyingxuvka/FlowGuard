@@ -56,7 +56,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | 会话开始 | `python -m flowguard read` / `read --find 关键词` | 读地图；加代码前先找已有的负责者 |
 | 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
-| 新的专项模型 | `python -m flowguard template --list` | 每个专项检查的起步模型和运行脚本 |
+| 新的专项模型 | `python -m flowguard template --list` | 每个专项检查一个起步合约模型（model-mesh、topology-hazard、model-test 另写运行脚本） |
 
 ## 10 个专项检查
 

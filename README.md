@@ -61,7 +61,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | session start | `python -m flowguard read` / `read --find WORDS` | read the map; find the existing owner before adding code |
 | after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
-| new capability model | `python -m flowguard template --list` | starter model and runner files for each capability |
+| new capability model | `python -m flowguard template --list` | one starter contract model per capability (model-mesh, topology-hazard and model-test also write a runner) |
 
 ## The 10 capabilities
 

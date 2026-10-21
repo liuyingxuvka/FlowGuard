@@ -38,7 +38,7 @@ rejected before any write happens.
 ## Steps
 1. Reuse or update the owner's finite native boundary/review. Only if a reusable boundary is missing,
    scaffold with `python -m flowguard template contract-exhaustion --write .`. It writes one contract model,
-   `.flowguard/models/contract_exhaustion.py`, whose `REPLACE_ME` anchor fails until it names your function.
+   `.flowguard/models/contract_exhaustion.py`, whose `REPLACE_ME` anchors fail until they name your function and its test.
    For a second model, copy the file under a new name and change `MODEL_ID`.
 2. Declare the boundary in the selected plan, using the real API:
    `from flowguard import ContractDimension, ContractAxis, ContractInteractionGroup, ContractOracle, ContractExhaustionPlan, review_contract_exhaustion`.
