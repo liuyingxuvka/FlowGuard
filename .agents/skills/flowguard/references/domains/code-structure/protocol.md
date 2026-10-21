@@ -64,20 +64,13 @@ the code exists, each recommended module becomes one component in
    `field_writer_map`, `public_entrypoint_map` (tuples of `(item_id, module_id)`).
    Optional: `facade_module_id`, `shared_kernel_module_id`, `variant_adapter_module_ids`, and
    `canonical_relation_handoff` (a `CanonicalRelationHandoff` from `flowguard.canonical_relation`).
-3. For an exact element-by-element plan, set `blueprint_required=True` and list every model
-   element in `model_element_universe` as `(kind, id)` pairs. Kinds are `function_block`,
-   `state`, `effect`, `config`, `field`, `entrypoint`. The review then also requires
-   `model_element_universe_fingerprint` = `canonical_identity({"model_elements": [list(p) for p
-   in sorted(set(universe))]})` (from `flowguard.portable_model`; inner pairs must be lists, tuples
-   raise an error) and `reverse_implementation_obligation_ids`
-   (`implementation_coverage_obligation_id(kind, id)` for each element).
-4. Keep the relevant broken recommendations (see below). A persistent `run_checks.py`, if needed,
+3. Keep the relevant broken recommendations (see below). A persistent `run_checks.py`, if needed,
    returns 0 only when the good plan passes and those broken variants fail.
-5. If a persistent runner was created or changed, register it in the parent's `models` in `map.json`
+4. If a persistent runner was created or changed, register it in the parent's `models` in `map.json`
    (`".flowguard/verification/owners/<id>/run_checks.py"`). Direct native review needs no new runner.
-6. Execute a selected registered runner once with `python -m flowguard map models <id>`;
+5. Execute a selected registered runner once with `python -m flowguard map models <id>`;
    do not also require a direct runner invocation for the same current checks.
-7. Write the code. Then turn each target module into a map component: `files` = `path`,
+6. Write the code. Then turn each target module into a map component: `files` = `path`,
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,
    `state` and `side_effects` = owned items, `tests` = the real tests for its
    `validation_boundaries`. Run `python -m flowguard map check`, `map lint`, then `map confirm ID`.
@@ -97,7 +90,6 @@ the code exists, each recommended module becomes one component in
 | `function_block_owner_not_registered` | An item points at a module not in `target_modules` (same for `state_`, `side_effect_`, `field_writer_`, `entrypoint_owner_not_registered`). |
 | `false_friend_relation_blocks_shared_structure` | The relation handoff has a false-friend relation; no shared module may come from it. |
 | `shared_kernel_module_not_registered` | With a relation handoff: the shared kernel is not a target module (also `variant_adapter_module_not_registered`). |
-| `model_element_coverage_mismatch` | With `blueprint_required=True`: mappings do not cover the element list exactly. |
 
 After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `duplicate_owner`
 (lint) show where the code drifted from one owner per responsibility.
@@ -121,8 +113,6 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
 
 - It reviews the plan you declared. It does not read source code or prove the code follows the plan;
   `map check`, `map lint` and real tests do that.
-- With `blueprint_required=True` the review checks only the element list you pass. The fingerprint is computed from that same
-  list, so it does not detect drift from the real model file.
 - Not checked: the per-module `owns_*`, `reads_fields`, `writes_fields` lists (only the plan-level
   `*_map` pairs are), `facade_module_id`, a module that owns everything, two writers of one field,
   and the kernel/adapter ids when there is no `canonical_relation_handoff`.
