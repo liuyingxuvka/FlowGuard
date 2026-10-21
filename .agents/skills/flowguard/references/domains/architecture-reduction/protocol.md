@@ -19,7 +19,7 @@ the same. It never deletes code on a guess.
 
 ## Do not use when
 
-- You need to split a large file or component (`large_file`, `large_component`). Use structure-mesh or code-structure.
+- You need to split a large file or component (`large_file`, `large_component`). Use code-structure (step 7).
 - You plan a field rename or retirement. Use field-lifecycle.
 - You are adding new behavior or do not yet know the owner. Run `python -m flowguard read --find <words>` first.
 - The change is formatting or a pure rename with no caller change.
@@ -43,7 +43,7 @@ the same. It never deletes code on a guess.
      dynamic imports, plugin registration, console scripts and string references.
    - `entrypoint_unlisted`: first add it to the component's `entrypoints`. If it is a second path to the same behavior,
      record a `CompatibilitySurfaceClassification` with `public_entrypoints` set; preserve its observable contract.
-   - `large_file` / `large_component`: not a candidate. Add `ArchitectureReductionTrigger("structure_mesh", reason)` instead.
+   - `large_file` / `large_component`: not a candidate. Split it with code-structure step 7 instead.
    With no actionable candidate, report that result and stop. Start each candidate at `proof_status="risky_keep"`; raise it to `safe_by_equivalence` only when step 3 holds.
    Fill `affected_public_entrypoints`, `affected_state`, `affected_side_effects` from the map fields of the removed side.
 2. Build the observable contract from the owning component: `public_entrypoints` = entrypoints,

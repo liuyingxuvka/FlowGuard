@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Living, code-anchored map of a codebase plus executable models of its risky flows and 12 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
+description: Living, code-anchored map of a codebase plus executable models of its risky flows and 11 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
 ---
 
 # FlowGuard
@@ -48,14 +48,13 @@ modeling (`references/model_recipes.md`).
 | --- | --- |
 | behavior-commitment | external promises (API, CLI, UI, workflow) need one owner, a source and tests; no silent fallback paths |
 | architecture-reduction | code may shrink or merge without changing behavior |
-| code-structure | deciding where new code goes before writing it |
+| code-structure | deciding where new code goes, or splitting a module while keeping its public surface |
 | contract-exhaustion | a finite input universe needs every bad case or combination enumerated |
 | field-lifecycle | fields, schemas, defaults, aliases or replacements change |
 | model-mesh | several models must fit together (parent/child, producer/consumer) |
 | model-miss | a bug escaped although the model was green |
 | model-test | rules, code and tests must be checked against each other |
 | topology-hazard | a green model needs review for future-use hazards (shared writers, repeatable effects) |
-| structure-mesh | splitting or refactoring a module while keeping its public surface |
 | test-mesh | the whole test suite is too slow to run in one command (shard runner) |
 | ui-flow | UI states, journeys, controls, cancel/recover, operability |
 

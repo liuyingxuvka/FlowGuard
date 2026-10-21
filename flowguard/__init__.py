@@ -1373,7 +1373,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "risk_intent_template_files",
         "risk_template_library_template_files",
         "runtime_path_evidence_template_files",
-        "structure_mesh_template_files",
         "topology_hazard_template_files",
         "ui_flow_structure_full_template_files",
         "ui_flow_structure_template_files",

@@ -22,7 +22,7 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 
 - There is only one model. Check it directly with its own model file.
 - You are splitting tests or a test suite. Use test-mesh.
-- You are splitting a large code file or module. Use structure-mesh.
+- You are splitting a large code file or module. Use code-structure.
 - You need every input x state case of one leaf model. Use contract-exhaustion.
 
 ## Inputs

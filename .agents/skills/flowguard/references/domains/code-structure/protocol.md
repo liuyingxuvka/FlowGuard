@@ -17,10 +17,10 @@ the code exists, each recommended module becomes one component in
 - It is unclear which module should own a piece of state, a durable write or a field.
 - You plan a facade plus adapters, or a shared kernel plus variant adapters.
 - You want test boundaries per module that trace back to the model.
+- You split an existing large file or module and must keep its owners and public entrypoints (step 7).
 
 ## Do not use when
 
-- You are splitting an existing large file or module. Use structure-mesh.
 - You do not yet know whether an owner already exists. Run `python -m flowguard read --find <words>` first.
 - You are renaming or retiring a field. Use field-lifecycle.
 - There is no functional model yet. Build the model first; this route does not invent behavior.
@@ -74,6 +74,14 @@ the code exists, each recommended module becomes one component in
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,
    `state` and `side_effects` = owned items, `tests` = the real tests for its
    `validation_boundaries`. Run `python -m flowguard map check`, `map lint`, then `map confirm ID`.
+7. Splitting an existing module: `parent_module_id` = the old component, one target module per child.
+   Review the split with `review_structure_mesh(StructureMeshPlan(parent_module_id=, target_structure=rec,
+   partition_items=, child_modules=, public_entrypoints=))`: one `StructurePartitionItem(item_id,
+   owner_module_id=)` per top-level symbol of `python -m flowguard map digest PARENT`, one
+   `ModuleStructureEvidence` per child, one `PublicEntrypointEvidence(entrypoint, compatibility_preserved=)`
+   per old import path, command or route. After moving the code, keep the old anchors in the facade
+   component's `entrypoints`; run `map deps --write`, `map check` (`anchor_broken` = a lost entrypoint),
+   `map lint` (no `dependency_cycle` between children) and the tests `change` selects; confirm each child.
 
 ## What blocks
 
@@ -89,6 +97,7 @@ the code exists, each recommended module becomes one component in
 | `field_access_without_owner` | A field is read or written but no module owns it. |
 | `function_block_owner_not_registered` | An item points at a module not in `target_modules` (same for `state_`, `side_effect_`, `field_writer_`, `entrypoint_owner_not_registered`). |
 | `false_friend_relation_blocks_shared_structure` | The relation handoff has a false-friend relation; no shared module may come from it. |
+| `coverage_gap` / `duplicate_state_owner` / `entrypoint_removed` | Split review (step 7): a partition item has no child owner, two children own one state, or an old entrypoint is not preserved. |
 | `shared_kernel_module_not_registered` | With a relation handoff: the shared kernel is not a target module (also `variant_adapter_module_not_registered`). |
 
 After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `duplicate_owner`
@@ -116,3 +125,4 @@ After coding, map findings `file_multi_owner`, `file_unmapped` (check) and `dupl
 - Not checked: the per-module `owns_*`, `reads_fields`, `writes_fields` lists (only the plan-level
   `*_map` pairs are), `facade_module_id`, a module that owns everything, two writers of one field,
   and the kernel/adapter ids when there is no `canonical_relation_handoff`.
+- The split review (step 7) also checks only the facts you pass; `map check` and `map lint` on the moved code are the real check.

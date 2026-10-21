@@ -61,7 +61,7 @@ def _template(ns: argparse.Namespace) -> int:
         "code-structure": "code-structure-recommendation",
         "model-miss": "model-miss-review",
         "model-test": "model-test-alignment",
-        "structure-mesh": "structure-mesh", "ui-flow": "ui-flow-structure",
+        "ui-flow": "ui-flow-structure",
     }
     if ns.name == "architecture-reduction":
         print("architecture-reduction uses the runnable snippet in references/domains/architecture-reduction/protocol.md")

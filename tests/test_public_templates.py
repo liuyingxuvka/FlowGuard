@@ -29,7 +29,6 @@ from flowguard.templates import (
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
     work_context_template_files,
-    structure_mesh_template_files,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
@@ -60,7 +59,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     workflow_step_contracts_template_files,
     model_mesh_template_files,
     contract_exhaustion_template_files,
-    structure_mesh_template_files,
     topology_hazard_template_files,
     work_context_template_files,
 )
@@ -83,7 +81,6 @@ TEMPLATE_CLI_COMMANDS = {
     "workflow-step-contracts-template": "workflow_step_contracts",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
-    "structure-mesh-template": "structure_mesh",
     "topology-hazard-template": "model_topology_hazard_review",
 }
 
@@ -316,15 +313,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard UI product consistency review", output)
         self.assertIn("product_semantic_drift", output)
 
-    def test_structure_mesh_template_executes(self):
-        output = self.run_written_template(
-            structure_mesh_template_files(),
-            (".flowguard", "verification", "owners", "structure_mesh"),
-        )
-        self.assertIn("flowguard structure mesh", output)
-        self.assertIn("release_obligations", output)
-        self.assertIn("duplicate_state_owner", output)
-
     def test_topology_hazard_template_executes(self):
         output = self.run_written_template(
             topology_hazard_template_files(),
@@ -406,10 +394,10 @@ def build_review():
             self.assertEqual(0, code, name + stderr)
             self.assertIn("===== ", stdout, name)
         with tempfile.TemporaryDirectory() as directory:
-            code, stdout, _stderr = self.run_cli(["template", "structure-mesh", "--write", directory])
+            code, stdout, _stderr = self.run_cli(["template", "model-mesh", "--write", directory])
             self.assertEqual(0, code)
             self.assertTrue(any(Path(directory).rglob("run_checks.py")))
-            code, _stdout, stderr = self.run_cli(["template", "structure-mesh", "--write", directory])
+            code, _stdout, stderr = self.run_cli(["template", "model-mesh", "--write", directory])
             self.assertEqual(1, code)
             self.assertIn("--force", stderr)
         code, _stdout, _stderr = self.run_cli(["template", "no-such-template"])

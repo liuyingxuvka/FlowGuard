@@ -159,7 +159,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:de38524baea1e324b2ccf9da0121b2c5288ec48453f78f867f57333e5fe408f7"
+      "fingerprint": "sha256:c58d718fe6b2dca7053d0895bed9a817ee8747e65a4ca1b1ebecc7aff1a4347e"
     },
     {
       "id": "public-api",
@@ -195,7 +195,6 @@
         "portable-models",
         "problem-corpus",
         "shared-vocabulary",
-        "structure-mesh",
         "templates",
         "topology-hazard",
         "ui-flow",
@@ -206,7 +205,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c801f666f78ab93ffeb6b0bab51249893526e7db10c92ac5804925236bb78e99"
+      "fingerprint": "sha256:a0658cea4344b28fbbf83553bcc57a91d622b35bf106c0df010450e848d4bd01"
     },
     {
       "id": "templates",
@@ -235,7 +234,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ba42a414a54179f384d7a1f79f8c068437ae353402c77e19cd7886f8a0c56370"
+      "fingerprint": "sha256:ce9cc16ed01c905fcca4a4ca4987cc996273efe8810fd35b36d70412632467b4"
     },
     {
       "id": "behavior-commitment",
@@ -320,15 +319,18 @@
     {
       "id": "code-structure",
       "layer": "capabilities",
-      "summary": "Assigns model functions, state and effects to modules.",
+      "summary": "Assigns model functions, state and effects to modules and checks module splits.",
       "responsibilities": [
-        "recommend one owning module per model element"
+        "recommend one owning module per model element",
+        "check that a module split keeps one owner per item and the old public entrypoints"
       ],
       "files": [
-        "flowguard/code_structure.py"
+        "flowguard/code_structure.py",
+        "flowguard/structuremesh.py"
       ],
       "entrypoints": [
-        "flowguard/code_structure.py:review_code_structure_recommendation"
+        "flowguard/code_structure.py:review_code_structure_recommendation",
+        "flowguard/structuremesh.py:review_structure_mesh"
       ],
       "state": [],
       "side_effects": [],
@@ -347,7 +349,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:227c4222472a002d6c0db8cdd2c5042e080defa75c6f518da4574c6249aca99c"
+      "fingerprint": "sha256:9b30c3d5d53b6beab659b5361dff5a45691a277dee7b69fb6182197bb00542fc"
     },
     {
       "id": "contract-exhaustion",
@@ -575,33 +577,6 @@
       ],
       "status": "confirmed",
       "fingerprint": "sha256:171bc4c6b61b622a596b697ab4efd3c0bf6103b02873a8b7540770bbf1c36e4a"
-    },
-    {
-      "id": "structure-mesh",
-      "layer": "capabilities",
-      "summary": "Checks module splits preserve owners and entrypoints.",
-      "responsibilities": [
-        "check that a module split keeps one owner and the public surface"
-      ],
-      "files": [
-        "flowguard/structuremesh.py"
-      ],
-      "entrypoints": [
-        "flowguard/structuremesh.py:review_structure_mesh"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "code-structure",
-        "engine-core",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_structure_mesh.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:0b295dfcae96178a2a73c43f692629bca1aefda56bc2efc163b351c5537b8567"
     },
     {
       "id": "test-mesh",

@@ -12,7 +12,7 @@ never, skips hidden in a green summary, a background job's progress reported as 
 - The test set is small and runs in one command. Just run it.
 - You only need the tests `python -m flowguard change` selected. Run its printed command; the shard runner cannot run a subset.
 - You need to decide which tests match which model behavior. Use model-test.
-- You need to split code or models, not tests. Use structure-mesh or model-mesh.
+- You need to split code or models, not tests. Use code-structure or model-mesh.
 
 ## Inputs
 
