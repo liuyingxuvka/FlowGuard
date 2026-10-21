@@ -780,3 +780,13 @@ def test_script_directory_imports_resolve_to_sibling_files(tmp_path):
     inv = build_inventory(tmp_path, [])
     assert inv.file_deps.get("scripts/run.py") == {"scripts/helper.py"}
     assert "pkg/helper.py" not in inv.file_deps.get("pkg/a.py", set())
+
+
+def test_inventory_without_bodies_still_gives_lint_its_bodies_later(tmp_path):
+    import os
+    import time
+    write(tmp_path, "pkg/a.py", "def f(a):\n" + "    a = a + 1\n" * 10 + "    return a\n")
+    past = time.time() - 60
+    os.utime(tmp_path / "pkg/a.py", (past, past))          # old enough to be cached
+    assert build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False).py["pkg/a.py"].bodies == []
+    assert build_inventory(tmp_path, DEFAULT_IGNORE).py["pkg/a.py"].bodies

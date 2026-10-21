@@ -266,7 +266,8 @@ def _read_cache(path: Path) -> dict:
         return {}
 
 
-def build_inventory(root: Path, ignore: list[str]) -> Inventory:
+def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True) -> Inventory:
+    """with_bodies=False skips duplicate-body hashing (only lint needs it); cached bodies are kept."""
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
     files_set = set(files)
     source = [f for f in files if Path(f).suffix in SOURCE_EXTS]
@@ -286,14 +287,16 @@ def build_inventory(root: Path, ignore: list[str]) -> Inventory:
         except OSError:
             key = None
         hit = old.get(f)
-        if key is not None and hit and hit.get("key") == key:
-            info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"],
+        if key is not None and hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
+            info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"] or [],
                           hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"])
+            bodies_known = hit.get("bodies") is not None
         else:
-            info = parse_python(root, f, module)
+            info = parse_python(root, f, module, collect_bodies=with_bodies)
+            bodies_known = with_bodies
         if key is not None:
             new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
-                      "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies,
+                      "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies if bodies_known else None,
                       "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
                       "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines}
         py[f] = info

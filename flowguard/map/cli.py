@@ -35,9 +35,9 @@ from .scan import new_map
 from .views import find_owners, render_digest, render_show
 
 
-def _context(root: Path):
+def _context(root: Path, with_bodies: bool = True):
     data = load_map(root)
-    inv = build_inventory(root, ignore_patterns(data))
+    inv = build_inventory(root, ignore_patterns(data), with_bodies=with_bodies)
     if hasattr(inv, "set_explicit_sources"):
         inv.set_explicit_sources([pattern for comp in data["components"] for pattern in comp.get("files", [])])
     return data, inv
@@ -94,14 +94,14 @@ def cmd_discover(root: Path, a) -> int:
 
 
 def cmd_show(root: Path, a) -> int:
-    data, inv = _context(root)
+    data, inv = _context(root, with_bodies=False)
     text = render_show(root, data, inv, component=a.component, detail=a.detail, budget=a.budget)
     print(text)
     return 1 if text.startswith("no component") else 0
 
 
 def cmd_find(root: Path, a) -> int:
-    data, inv = _context(root)
+    data, inv = _context(root, with_bodies=False)
     hits = find_owners(data, inv, a.words)
     if not hits:
         print("no existing owner found; decide which component should own this before writing code")
@@ -114,7 +114,7 @@ def cmd_find(root: Path, a) -> int:
 
 
 def cmd_digest(root: Path, a) -> int:
-    data, inv = _context(root)
+    data, inv = _context(root, with_bodies=False)
     text = render_digest(root, data, inv, a.ids, a.max_lines)
     print(text)
     return 1 if text.startswith("unknown component") else 0
