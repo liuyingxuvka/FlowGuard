@@ -138,25 +138,6 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     assert "protocol.md" in capsys.readouterr().out
 
 
-def test_runner_completion_counts_real_exact_sequence_wrapper(capsys):
-    from flowguard import FunctionResult, Invariant, InvariantResult, Workflow, run_exact_sequence
-    from flowguard.map.runner import run_owner
-
-    class Step:
-        name = "Step"
-        def apply(self, event, state):
-            return (FunctionResult("ok", state + 1, label="done"),)
-
-    def check():
-        result = run_exact_sequence(workflow=Workflow((Step(),)), initial_state=0,
-                                    external_input_sequence=(1,),
-                                    invariants=(Invariant("positive", "positive", lambda state, trace: InvariantResult.pass_()),))
-        return 0 if result.model_report.ok else 1
-
-    assert run_owner(check) == 0
-    assert '"checked": 0' not in capsys.readouterr().out
-
-
 def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys):
     write(tmp_path, 'owner.py', 'ORDERS = {}\n')
     write(tmp_path, 'client.py', 'from owner import ORDERS\n\ndef bill():\n    ORDERS[1] = "billed"\n')

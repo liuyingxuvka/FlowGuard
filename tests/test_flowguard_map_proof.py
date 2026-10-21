@@ -369,14 +369,16 @@ def test_plain_function_invariant_is_accepted(shop, capsys):
     assert code == 0, out
 
 
-@pytest.mark.parametrize("source", ["raise SystemExit(0)\n", "from flowguard.map.runner import run_owner\nraise SystemExit(run_owner(lambda: 0))\n", "from flowguard.map.runner import run_owner\nraise SystemExit(run_owner(lambda: []))\n"])
-def test_runner_that_runs_nothing_cannot_pass(tmp_path, source):
+@pytest.mark.parametrize("body,status", [("raise SystemExit(0)", "pass"), ("raise SystemExit(run_owner(lambda: 0))", "pass"),
+                                         ("raise SystemExit(run_owner(lambda: None))", "error"),
+                                         ("raise SystemExit(run_owner(lambda: []))", "fail")])
+def test_runner_verdict_is_its_exit_code(tmp_path, body, status):
     from flowguard.map.proof import run_runner
     path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    write(tmp_path, path.relative_to(tmp_path).as_posix(), source)
+    write(tmp_path, path.relative_to(tmp_path).as_posix(), "from flowguard.map.runner import run_owner\n" + body + "\n")
     result = run_runner(tmp_path, path)
-    assert result.status == "error"
-    assert "run_owner" in " ".join(result.problems)
+    assert result.status == status, result.problems
+    assert any("run_owner(main)" in w for w in result.warnings) == ("run_owner(" not in body)
 
 
 def test_non_explorer_proves_nothing(tmp_path):

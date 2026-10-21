@@ -103,8 +103,9 @@ Capability reviews (UI flow, model mesh, contract exhaustion, ...) are usually c
 and `.flowguard/verification/owners/<name>/run_checks.py`. Edit the model for your project, list
 the runner (`.../run_checks.py`) in the owning component's `models`, and run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
-broken plans are rejected. A runner should print one line per case and end with a non-zero exit
-when any case disagrees with its expectation.
+broken plans are rejected. A runner should print one line per case, return a non-zero exit code
+when any case disagrees with its expectation, and end with `raise SystemExit(run_owner(main))`
+(`from flowguard.map.runner import run_owner`); a `main()` that returns `None` is reported as an error.
 
 ## Helpers
 

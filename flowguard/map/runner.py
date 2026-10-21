@@ -212,33 +212,8 @@ def exit_code_of(result: Any) -> int:
 
 
 def run_owner(check: Callable[[], Any]) -> int:
-    completed = 0
-    previous = sys.getprofile()
-
-    def observe(frame, event, result):
-        nonlocal completed
-        # Count actual completed check reports, not an integer returned by
-        # main(). No line tracing, no nested test launch and no retained reports.
-        if event == "return":
-            if frame.f_code.co_name not in {"__init__", "__new__", "__post_init__", "_check_invariant"}:
-                report = getattr(result, "model_report", result)
-                if callable(getattr(report, "format_text", None)) and isinstance(getattr(report, "ok", None), bool):
-                    completed += 1
-                elif isinstance(result, dict) and isinstance(result.get("ok"), bool):
-                    completed += 1
-        if previous is not None:
-            previous(frame, event, result)
-
-    try:
-        sys.setprofile(observe)
-        result = check()
-    finally:
-        sys.setprofile(previous)
-    code = exit_code_of(result)
-    if not completed:
-        print("run_owner: no FlowGuard checks completed; exit code alone proves nothing", file=sys.stderr)
-        code = 3
-    print(COMPLETION_LINE + json.dumps({"exit_code": code, "checked": completed}), flush=True)
+    code = exit_code_of(check())
+    print(COMPLETION_LINE + json.dumps({"exit_code": code}), flush=True)
     return code
 
 

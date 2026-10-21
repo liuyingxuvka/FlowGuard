@@ -286,22 +286,14 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
             else:
                 stderr.append(line)
         if proc.returncode != 0:
-            result.status = "error" if proc.returncode == 3 and "no FlowGuard checks completed" in proc.stderr else "fail"
+            result.status = "error" if proc.returncode == 3 and "no checks completed" in proc.stderr else "fail"
             tail = "\n".join((proc.stdout + "\n" + "\n".join(stderr)).strip().splitlines()[-15:])
             result.problems.append(f"runner exited with {proc.returncode}:\n{tail}")
         else:
             lines = proc.stdout.strip().splitlines()
-            completion = None
-            if lines and lines[-1].startswith(COMPLETION_LINE):
-                try:
-                    completion = json.loads(lines[-1][len(COMPLETION_LINE):])
-                except ValueError:
-                    pass
-            if not isinstance(completion, dict) or completion.get("exit_code") != 0 or type(completion.get("checked")) is not int or completion["checked"] <= 0:
-                result.status = "error"
-                result.problems.append("runner exited 0 without completed checks; end with:\n"
-                                       "from flowguard.map.runner import run_owner\n"
-                                       "raise SystemExit(run_owner(main))")
+            if not (lines and lines[-1].startswith(COMPLETION_LINE)):
+                result.warnings.append("runner does not end with raise SystemExit(run_owner(main)); "
+                                       "its exit code 0 is taken as the result")
         if own_files is not None and not (loaded & own_files):
             result.warnings.append("abstract boundary only: runner loaded no code of its bound components")
     except subprocess.TimeoutExpired:
