@@ -121,6 +121,7 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(6, len(re.findall(r"^\d\. ", rules.content, re.M)))
         self.assertIn("python -m flowguard change", rules.content)
         self.assertFalse(any(f.path in ("AGENTS.md", "CLAUDE.md") for f in adoption_template_files()))
+        self.assertEqual(["docs/flowguard_agents_rules.md"], [f.path for f in adoption_template_files()])
 
     def test_installer_copies_the_skill(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

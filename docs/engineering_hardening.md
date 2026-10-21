@@ -92,27 +92,3 @@ Without `--write` the files are printed; `--force` overwrites existing files.
 
 These helpers let projects integrate flowguard checks into pytest while keeping
 the core package free of external dependencies.
-
-## Adoption Logging
-
-`flowguard.adoption` is a lightweight record layer for real
-project pilots:
-
-- `AdoptionCommandResult`;
-- `AdoptionLogEntry`;
-- `AdoptionTimer`;
-- `append_jsonl()`;
-- `append_markdown_log()`.
-
-Use `.flowguard/adoption_log.jsonl` for machine-readable entries and
-`docs/flowguard_adoption_log.md` for a human-readable project log. The log
-should record status, trigger reason, elapsed time, files touched, checks run,
-findings, counterexamples, skipped steps, friction, and next actions.
-
-Logging does not replace executable checks. It exists so repeated real use can
-show where flowguard is useful, where it is slow, and where the workflow needs
-better templates or math.
-
-Adoption status should be one of `in_progress`, `completed`, `blocked`,
-`skipped_with_reason`, or `failed`. Only `completed` means the adoption evidence
-is final and successful.

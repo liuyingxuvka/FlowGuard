@@ -190,7 +190,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "adoption-log",
         "architecture-reduction",
         "behavior-commitment",
         "code-structure",
@@ -223,7 +222,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1692eea9b00b89daaca541cafb446fbc5a8d24858d1b534a88b85c1454d2f24b"
+      "fingerprint": "sha256:37a11b0b27054ad4a3584d4555d107429756b97326e66e4791ff1bb87780b658"
     },
     {
       "id": "templates",
@@ -246,7 +245,6 @@
       ],
       "depends_on": [],
       "tests": [
-        "tests/test_adoption_logging.py",
         "tests/test_engineering_hardening.py",
         "tests/test_maintenance_template.py",
         "tests/test_project_integration.py",
@@ -256,7 +254,7 @@
         ".flowguard/verification/owners/template_public_release/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:d4657d4537389d8f3a61a25a0c758fdaf8ae1c297eca73e676b0d3c9ba32ab02"
+      "fingerprint": "sha256:ed8e0b5db5ab118580adac6672bafdd95d7aab3eac00d037b907ccacdaa3283e"
     },
     {
       "id": "existing-model",
@@ -854,33 +852,6 @@
       ],
       "status": "confirmed",
       "fingerprint": "sha256:05ad5c906131e7bc8d341686b05a34a19af57fb80458b7c9a8ba52b78e813168"
-    },
-    {
-      "id": "adoption-log",
-      "layer": "capabilities",
-      "summary": "Appends an optional per-task usage journal.",
-      "responsibilities": [
-        "append a usage journal entry"
-      ],
-      "files": [
-        "flowguard/adoption.py"
-      ],
-      "entrypoints": [
-        "flowguard/adoption.py:append_jsonl"
-      ],
-      "state": [],
-      "side_effects": [
-        "appends to a log file"
-      ],
-      "depends_on": [
-        "engine-core"
-      ],
-      "tests": [
-        "tests/test_adoption_logging.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:9174da83a3f41f890f38e848bcb7c03e8e3584757c58f16619a99fc314d3ae1d"
     },
     {
       "id": "map-inventory",

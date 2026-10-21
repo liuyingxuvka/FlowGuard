@@ -161,8 +161,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 5. Re-read each REVIEW component, update its description if behavior changed, then `python -m flowguard map confirm ID`.
 6. At final release, freeze the source and run the full suite and `python -m flowguard release` once on that revision (same-SHA CI may provide this); report failures and unrun checks honestly.
 """),
-        TemplateFile("docs/flowguard_adoption_log.md", ADOPTION_LOG_TEMPLATE),
-        TemplateFile("docs/flowguard_model_notes.md", MODEL_NOTES_TEMPLATE),
     )
 
 

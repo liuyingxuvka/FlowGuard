@@ -41,16 +41,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "OWNERSHIP_READ_ONLY",
         "OWNERSHIP_SHARED_KERNEL",
     ),
-    "flowguard.adoption": (
-        "ADOPTION_STATUSES",
-        "AdoptionCommandResult",
-        "AdoptionLogEntry",
-        "AdoptionTimer",
-        "append_jsonl",
-        "append_markdown_log",
-        "make_adoption_log_entry",
-        "utc_now_text",
-    ),
     "flowguard.agent_workflow_rehearsal": (
         "AgentWorkflowPlan",
         "AgentWorkflowRehearsalFinding",
