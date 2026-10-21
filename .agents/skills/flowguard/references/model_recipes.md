@@ -69,6 +69,24 @@ Packs bundle invariants and scenarios: `RetryPack`, `DeduplicationPack`, `CacheP
 - **Permissions**: inputs carry a role; invariant: a forbidden role never reaches the protected
   effect; broken variant = check placed after the effect.
 
+## When a green model missed a bug
+
+A model passed, then a test, a run or a user hit a bug in the same behavior. Make the owning
+model reject the escaped case and keep one real regression test:
+
+1. Reproduce the failure; keep its evidence (failing test node id, log line, steps).
+2. `python -m flowguard map impact <file under the failure>` names the owning component and its
+   model. No model covers the behavior: write one (Five steps above).
+3. Classify the miss: an input the model lacks (timeout, empty list, second click), state too
+   coarse to tell the cases apart, an invariant too weak to see the bad state, or a conformance
+   adapter that maps the real code wrongly.
+4. Fix the model: add the missing input or state, or strengthen the invariant; add the escaped
+   behavior as a broken variant (`broken_variants()`) that must FAIL. Recurring miss: add one
+   sibling case of the same class.
+5. Rerun `python -m flowguard map models <id>`: the intended design passes, every broken variant fails.
+6. Add or update one regression test for the observed failure and list it in the owner's `tests`;
+   fix the code; run `python -m flowguard change` and the tests and models it lists.
+
 ## Conformance (model <-> code)
 
 When the changed contract depends on order, repeated inputs, state or side effects,

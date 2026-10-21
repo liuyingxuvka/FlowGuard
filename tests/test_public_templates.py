@@ -20,8 +20,6 @@ from flowguard.templates import (
     field_lifecycle_template_files,
     maintenance_workflow_template_files,
     model_mesh_template_files,
-    model_miss_review_full_template_files,
-    model_miss_review_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     primary_path_authority_template_files,
@@ -50,7 +48,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     risk_template_library_template_files,
     behavior_commitment_ledger_template_files,
     primary_path_authority_template_files,
-    model_miss_review_template_files,
     model_test_alignment_template_files,
     code_structure_recommendation_template_files,
     field_lifecycle_template_files,
@@ -69,8 +66,6 @@ TEMPLATE_CLI_COMMANDS = {
     "risk-template-library-template": "risk_template_library",
     "behavior-commitment-ledger-template": "behavior_commitment_ledger",
     "primary-path-authority-template": "primary_path_authority",
-    "model-miss-template": "model_miss_review",
-    "model-miss-full-template": "model_miss_review_full",
     "model-test-alignment-template": "model_test_alignment",
     "model-test-alignment-full-template": "model_test_alignment_full",
     "runtime-path-evidence-template": "runtime_path_evidence",
@@ -219,14 +214,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("Primary Path Authority checks passed", output)
         self.assertIn("primary_path_authority_green", output)
 
-    def test_model_miss_review_template_executes(self):
-        output = self.run_written_template(model_miss_review_template_files(),
-            (".flowguard", "verification", "owners", "model_miss_review"))
-        self.assertIn("false-negative", output)
-        self.assertIn("missing_new_model_obligation", output)
-        self.assertIn("missing_false_negative_closure_evidence", output)
-
-
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(model_test_alignment_template_files(),
             (".flowguard", "verification", "owners", "model_test_alignment"))
@@ -369,7 +356,6 @@ def build_review():
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
         factories["risk_intent_check_plan"] = risk_intent_template_files
-        factories["model_miss_review_full"] = model_miss_review_full_template_files
         factories["model_test_alignment_full"] = model_test_alignment_full_template_files
         factories["ui_flow_structure_full"] = ui_flow_structure_full_template_files
         factories["model_topology_hazard_review"] = topology_hazard_template_files

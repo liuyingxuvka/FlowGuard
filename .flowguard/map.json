@@ -159,7 +159,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c58d718fe6b2dca7053d0895bed9a817ee8747e65a4ca1b1ebecc7aff1a4347e"
+      "fingerprint": "sha256:42f43d2005214e2218a6f75a7d706addb3b1ba8c9419234ba785b96fb226bbae"
     },
     {
       "id": "public-api",
@@ -205,7 +205,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c77d83919c581443c46950ab60e6d288d650cea1b70342355a80f213cdbdaef8"
+      "fingerprint": "sha256:cf8948b48afc5ab9f36f45af7fe704d78025d102aaf70032f67cffde6d921ec3"
     },
     {
       "id": "templates",
@@ -234,7 +234,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ce9cc16ed01c905fcca4a4ca4987cc996273efe8810fd35b36d70412632467b4"
+      "fingerprint": "sha256:a3ead8b5cd1f44cab532f468aeabd149efda8b26b40cda861734057c4f1cc6fe"
     },
     {
       "id": "behavior-commitment",
@@ -502,9 +502,7 @@
         "tests/test_plan_intake_claims.py",
         "tests/test_recurring_model_miss.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/model_miss_review/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:1eb57bc31b74837eefd28a6194c3cad71c17030f48251581ec8febe49afae196"
     },

@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Living, code-anchored map of a codebase plus executable models of its risky flows and 11 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
+description: Living, code-anchored map of a codebase plus executable models of its risky flows and 10 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
 ---
 
 # FlowGuard
@@ -42,7 +42,8 @@ Commands: `python -m flowguard read | change | release | template` and `python -
 Most edits need no capability. When a task matches a row below, read that one protocol:
 `references/domains/<name>/protocol.md`. Starter files: `python -m flowguard template --list`, then
 `python -m flowguard template <name> --write .`. Do not chain protocols. If none fits, use plain
-modeling (`references/model_recipes.md`).
+modeling (`references/model_recipes.md`). A bug escaped a green model: follow "When a green model
+missed a bug" in `references/model_recipes.md`.
 
 | capability | use when |
 | --- | --- |
@@ -52,7 +53,6 @@ modeling (`references/model_recipes.md`).
 | contract-exhaustion | a finite input universe needs every bad case or combination enumerated |
 | field-lifecycle | fields, schemas, defaults, aliases or replacements change |
 | model-mesh | several models must fit together (parent/child, producer/consumer) |
-| model-miss | a bug escaped although the model was green |
 | model-test | rules, code and tests must be checked against each other |
 | topology-hazard | a green model needs review for future-use hazards (shared writers, repeatable effects) |
 | test-mesh | the whole test suite is too slow to run in one command (shard runner) |

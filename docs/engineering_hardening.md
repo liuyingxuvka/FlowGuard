@@ -55,9 +55,6 @@ The package exposes public-safe scaffolds for common agent situations:
 
 - `risk_intent_template_files()`: a Risk Intent + `FlowGuardCheckPlan`
   starter with model-level confidence boundaries;
-- `model_miss_review_template_files()`: a bug-repair/model-miss review starter
-  for non-trivial bug repairs or cases where real validation finds a gap after
-  a FlowGuard pass;
 - `model_test_alignment_template_files()`: a direct model-obligation to
   ordinary test-evidence alignment starter;
 - `maintenance_workflow_template_files()`: a recurring maintenance workflow
@@ -69,7 +66,6 @@ and how to create project files. The CLI can print or write the same templates
 
 ```powershell
 python -m flowguard template risk-intent --write .
-python -m flowguard template model-miss-review --write .
 python -m flowguard template model-test-alignment --write .
 python -m flowguard template maintenance-workflow --write .
 ```

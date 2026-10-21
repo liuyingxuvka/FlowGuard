@@ -21,7 +21,7 @@ no anchor stays an observation and never blocks.
 ## Do not use when
 
 - No model exists for the behavior. Write one first (plain modeling, model recipes).
-- A model was green and a test then failed. Use model-miss.
+- A model was green and a test then failed. Use "When a green model missed a bug" in model recipes.
 - You must decide to delete, migrate or keep an old path. Use architecture-reduction;
   this review only says that a decision is missing.
 

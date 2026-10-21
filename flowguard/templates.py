@@ -31,14 +31,6 @@ from .template_text.maintenance_workflow import (
     MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE,
     MAINTENANCE_WORKFLOW_NOTES_TEMPLATE,
 )
-from .template_text.model_miss_review import (
-    MODEL_MISS_REVIEW_MODEL_TEMPLATE,
-    MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE,
-    MODEL_MISS_REVIEW_NOTES_TEMPLATE,
-    MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE,
-    MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE,
-    MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE,
-)
 from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
     MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE,
@@ -157,20 +149,6 @@ def primary_path_authority_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/primary_path_authority/model.py", PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/primary_path_authority/run_checks.py", PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def model_miss_review_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/model_miss_review/model.py", MODEL_MISS_REVIEW_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/model_miss_review/run_checks.py", MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def model_miss_review_full_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/model_miss_review/model.py", MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/model_miss_review/run_checks.py", MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE),
     )
 
 
@@ -343,12 +321,6 @@ __all__ = [
     "MAINTENANCE_WORKFLOW_MODEL_TEMPLATE",
     "MAINTENANCE_WORKFLOW_NOTES_TEMPLATE",
     "MAINTENANCE_WORKFLOW_RUN_CHECKS_TEMPLATE",
-    "MODEL_MISS_REVIEW_MODEL_TEMPLATE",
-    "MODEL_MISS_REVIEW_NOTES_TEMPLATE",
-    "MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE",
-    "MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE",
-    "MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE",
-    "MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
@@ -385,8 +357,6 @@ __all__ = [
     "field_lifecycle_template_files",
     "maintenance_workflow_template_files",
     "model_mesh_template_files",
-    "model_miss_review_full_template_files",
-    "model_miss_review_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "primary_path_authority_template_files",

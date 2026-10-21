@@ -1364,8 +1364,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "field_lifecycle_template_files",
         "maintenance_workflow_template_files",
         "model_mesh_template_files",
-        "model_miss_review_full_template_files",
-        "model_miss_review_template_files",
         "model_test_alignment_full_template_files",
         "model_test_alignment_template_files",
         "primary_path_authority_template_files",

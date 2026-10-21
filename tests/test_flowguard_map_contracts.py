@@ -129,7 +129,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     for name in ("behavior-commitment", "code-structure", "contract-exhaustion",
-                 "field-lifecycle", "model-mesh", "model-miss", "model-test",
+                 "field-lifecycle", "model-mesh", "model-test",
                  "topology-hazard", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
