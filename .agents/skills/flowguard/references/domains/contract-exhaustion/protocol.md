@@ -53,12 +53,12 @@ rejected before any write happens.
    `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
    `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
-5. In the model, `contract_exhaustion_cases(plan(), accepted=("valid_call",))` is the case table (every
-   generated bad case must be rejected, the valid call accepted); `build_explorer()` and `broken_variants()`
-   use `case_table_explorer` / `case_table_variants`. `conformance()` runs the cases against the real
-   function: `execute_contract_cases(cases, load_anchor(IMPLEMENTED_BY["place"]), build_input, rejected=...)`.
-   A case is rejected when the call raises or `rejected(result)` is true; its report says
-   `executed against code: N of M cases`. A case `build_input` cannot build stays declared only and fails.
+5. In the model, `contract_exhaustion_features(plan(), mutate)` makes every generated bad case a feature
+   that changes the valid call (`flowguard.kit`); `build_explorer()` and `broken_variants()` use
+   `feature_explorer` / `feature_variants`. `conformance()` runs every bad case and every pair against the
+   real function: `execute_contract_features(features(), load_anchor(IMPLEMENTED_BY["place"]), VALID, rejected=...)`.
+   A combination is rejected when the call raises or `rejected(result)` is true; the report says
+   `executed against code: N of M feature combinations` and prints a counterexample for each one accepted.
 6. List the model in the owner's `models` in `.flowguard/map.json` and run
    `python -m flowguard map models contract_exhaustion` (exit 0 = pass).
 7. Hand case ids to tests. `contract_exhaustion_to_test_mesh_cell_ids(report)` gives
@@ -102,6 +102,6 @@ rejected before any write happens.
 ## Limits
 - It only exhausts what you declared. A missing dimension or axis is a model gap
   the review cannot see. The review itself runs no code (its report says "declared only");
-  `execute_contract_cases` in the model's conformance is what runs the cases against the function.
+  `execute_contract_features` in the model's conformance is what runs the bad cases against the function.
 - Keep `claim_scope="routine"`.
 - Default oracles exist only for the built-in mutation types; custom types need an oracle.

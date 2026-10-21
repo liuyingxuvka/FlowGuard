@@ -3,8 +3,8 @@ from dataclasses import replace
 from tempfile import TemporaryDirectory
 
 from flowguard import (
-    contract_exhaustion_cases,
-    execute_contract_cases,
+    contract_exhaustion_features,
+    execute_contract_features,
     CONTRACT_DIMENSION_FIELD,
     CONTRACT_DIMENSION_INPUT,
     CONTRACT_DIMENSION_PAYLOAD,
@@ -1030,24 +1030,29 @@ _PLAN = ContractExhaustionPlan(
 _BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": "five"}
 
 
-def _build(case):
-    if case.name == "valid":
-        return ("o1", 5)
-    _, argument, mutation = case.name.split(":")
-    return {"order_id": "o1", "amount": 5, argument: _BAD[mutation]}
+def _mutate(arguments, case_id):
+    _, argument, mutation = case_id.split(":")
+    return {**arguments, argument: _BAD[mutation]}
 
 
-def test_contract_exhaustion_runs_the_generated_cases_against_the_real_function():
-    cases = contract_exhaustion_cases(_PLAN, accepted=("valid",))
-    assert [case.accept for case in cases] == [False, False, False, True]
-    report = execute_contract_cases(cases, _place, _build, rejected=lambda result: result is None)
-    assert report.ok and report.executed == 4, report.format_text()
-    lax = execute_contract_cases(cases, lambda order_id, amount: "placed", _build)
+def test_contract_exhaustion_runs_every_bad_case_and_pair_against_the_real_function():
+    features = contract_exhaustion_features(_PLAN, _mutate)
+    assert [(feature.name, feature.rejects) for feature in features] == [
+        ("contract:order_id:missing_required_field", True), ("contract:order_id:empty_value", True),
+        ("contract:amount:wrong_type", True)]
+    valid = {"order_id": "o1", "amount": 5}
+    report = execute_contract_features(features, _place, valid, rejected=lambda result: result is None)
+    assert report.ok and report.executed == 7, report.format_text()      # valid call, 3 bad cases, 3 pairs
+    lax = execute_contract_features(features, lambda order_id, amount: "placed", valid)
     assert not lax.ok and lax.format_text().startswith(
-        "executed against code: 4 of 4 cases; declared only: 0; disagree with the model: 3")
-    partial = execute_contract_cases(cases, _place, lambda case: None if case.name == "valid" else _build(case),
-                                     rejected=lambda result: result is None)
-    assert not partial.ok and "declared only: 1" in partial.format_text()
+        "executed against code: 7 of 7 feature combinations; declared only: 0; errors: 0; counterexamples: 6")
+    assert lax.violations[0].format_text() == (
+        "- each_defect_rejected: contract:order_id:missing_required_field: expected rejected, observed accepted")
+    amount_only = execute_contract_features(features, lambda order_id, amount: None if amount != 5 else "placed",
+                                            valid, rejected=lambda result: result is None)
+    assert [v.features for v in amount_only.violations] == [      # only the order_id defects get through
+        ("contract:order_id:missing_required_field",), ("contract:order_id:empty_value",),
+        ("contract:order_id:missing_required_field", "contract:order_id:empty_value")]
     text = review_contract_exhaustion(_PLAN).format_text()
     assert "confidence: full" not in text and "declared only" in text
 

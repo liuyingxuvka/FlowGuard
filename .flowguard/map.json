@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0a2af4bb4f7d4e718e3eb736dddd39b3b005cfb44b66c982b4cd2cdc7536cce4"
+      "fingerprint": "sha256:bcbffbb09d6f0dfd48efb8ea8de58b0a92ff62a97e4671689a62372f2dc9a847"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:271a1770963828af4229738e153f2aab7d2bd712ae37284d9b3f74fb3cc0dc98"
+      "fingerprint": "sha256:56536d9d70e6a75b4f1fc59559010c6748b7f1650b6b6751d46abe04c88513b8"
     },
     {
       "id": "behavior-commitment",
@@ -355,7 +355,7 @@
       "responsibilities": [
         "generate every bad case and combination of a finite boundary",
         "require an oracle for every generated case",
-        "model kit: run every generated bad case against the real function and report executed against code versus declared only"
+        "model kit: every generated bad case is a feature of the valid call; every bad case and pair runs against the real function and is reported executed against code versus declared only"
       ],
       "files": [
         "flowguard/contract_exhaustion.py"
@@ -379,7 +379,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fc0bd1973d10e3def6782cf25ce755f8805395d0405df06c7f102f5352928299"
+      "fingerprint": "sha256:3afdfdaf72f03ef8ae1bd5c2e4024cee722753aa922dd2de6d0bffcacf26c7e6"
     },
     {
       "id": "field-lifecycle",

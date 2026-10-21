@@ -289,8 +289,10 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("PASS  contract_exhaustion", self.run_kit_template(files, "contract_exhaustion", strict,
                                                                          fill="shop", expected_returncode=0))
         output = self.run_kit_template(files, "contract_exhaustion", lax, fill="shop", expected_returncode=1)
-        self.assertIn("executed against code: 7 of 7 cases; declared only: 0; disagree with the model: 6", output)
-        self.assertIn("contract:order_id:missing_required_field: expected rejected, observed accepted", output)
+        self.assertIn("executed against code: 22 of 22 feature combinations; declared only: 0; errors: 0; "
+                      "counterexamples: 21", output)
+        self.assertIn("- each_defect_rejected: contract:order_id:missing_required_field: expected rejected, "
+                      "observed accepted", output)
 
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(
