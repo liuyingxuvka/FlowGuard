@@ -38,8 +38,7 @@
         "engine-scenarios",
         "model-mesh",
         "portable-models",
-        "problem-corpus",
-        "public-api"
+        "problem-corpus"
       ],
       "tests": [
         "tests/test_assumption_card_safety.py",
@@ -50,16 +49,11 @@
         "tests/test_duplicate_record_detection.py",
         "tests/test_evidence_baseline.py",
         "tests/test_executable_corpus.py",
-        "tests/test_flowguard_product_boundary.py",
-        "tests/test_flowguard_skill_collaboration.py",
-        "tests/test_flowguard_skill_trigger.py",
         "tests/test_job_matching_example.py",
         "tests/test_job_matching_oracle_expected_vs_observed.py",
         "tests/test_job_matching_scenario_review.py",
-        "tests/test_latest_schema_upgrade_policy.py",
         "tests/test_looping_workflow_review.py",
         "tests/test_problem_corpus.py",
-        "tests/test_public_release_adoption_review.py",
         "tests/test_real_model_corpus.py",
         "tests/test_repeated_scoring_detection.py",
         "tests/test_system_composition_benchmark.py",
@@ -67,7 +61,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b7dee1490095f4b89c792fb4ef99ba4a7682207b585669fdcaed2b6cb716ada2"
+      "fingerprint": "sha256:216dd9f04842ad05af76c669382f645250e8f096b9c1eeb4bd220f4f8acd1fd8"
     },
     {
       "id": "tooling",
@@ -1094,7 +1088,6 @@
         "tests/test_audit.py",
         "tests/test_explorer_progress.py",
         "tests/test_formal_runner.py",
-        "tests/test_model_hardening_gate.py",
         "tests/test_risk_plan.py",
         "tests/test_risk_templates.py",
         "tests/test_route_scoped_template_seeds.py",
