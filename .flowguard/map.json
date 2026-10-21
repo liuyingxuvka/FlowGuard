@@ -204,7 +204,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e631a6fe00ea20a2f9fc1bf04af77e0fad54eddd56cf25f0c12b24ffc47d0b7a"
+      "fingerprint": "sha256:c2dc4172a50823fce25bdc2f6da1a8b12f4246c273cb99d6f28d84a5215b4eeb"
     },
     {
       "id": "templates",
@@ -493,8 +493,7 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
-        "shared-vocabulary",
-        "test-mesh"
+        "shared-vocabulary"
       ],
       "tests": [
         "tests/test_contract_exhaustion.py",
@@ -512,7 +511,7 @@
         ".flowguard/verification/owners/contract_source_audit/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:525301960037eb967b0eb0d79db5b5abdd5cd4f55affcc72c1da072d86133297"
+      "fingerprint": "sha256:fd2aaf11691ca25fc2b6ce77465f60df9b63ad509dc7960477494bbfde378fe1"
     },
     {
       "id": "topology-hazard",
@@ -576,7 +575,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5df31eb76caed9f288a722024541b80df31485fe7c245f2ad5d34fd79ea880b4"
+      "fingerprint": "sha256:cad6ba5a55bc9d0ff5fc1a04e3cb0185fb3a6e4066272178e1b0c07f30df608c"
     },
     {
       "id": "ui-flow",

@@ -52,7 +52,6 @@ def fingerprint_value(value: Any) -> str:
     return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-from .pytest_junit import pytest_alignment_input_digest, worktree_input_paths  # one owner: test-mesh
 
 
 TEST_STATUS_PASSED = "passed"
@@ -4401,8 +4400,6 @@ __all__ = [
     "TEST_STATUS_TIMEOUT",
     "audit_python_code_contracts",
     "audit_python_test_assertions",
-    "pytest_alignment_input_digest",
-    "worktree_input_paths",
     "review_artifact_payload_validation",
     "review_code_boundary_conformance",
     "review_python_contract_source_audit",

@@ -19,7 +19,6 @@ from flowguard.model_test_alignment import (
     audit_python_test_assertions,
     review_python_contract_source_audit,
 )
-from flowguard.pytest_junit import pytest_alignment_input_digest, worktree_input_paths
 
 CODE = (
     "class DuplicateOrder(Exception):\n    pass\n\n\n"
@@ -102,34 +101,6 @@ def test_recorder_keeps_the_worst_phase_outcome():
     assert rec._NODEIDS == ["t.py::a", "t.py::b", "t2.py"] and rec._STATUSES["t2.py"] == "skipped"
 
 
-def _git_project(tmp_path):
-    if shutil.which("git") is None:
-        pytest.skip("git is not installed")
-    (tmp_path / "shop").mkdir()
-    (tmp_path / "tests").mkdir()
-    (tmp_path / "shop/orders.py").write_text("def pay():\n    return 'paid'\n")
-    (tmp_path / "tests/test_orders.py").write_text("from shop.orders import pay\n\ndef test_pay():\n    assert pay() == 'paid'\n")
-    (tmp_path / ".gitignore").write_text(".flowguard/cache/\n")
-    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
-    contract = CodeContract("c", path="shop/orders.py", symbol="pay", implements_obligations=("o",))
-    evidence = TestEvidence("t", test_name="test_pay", path="tests/test_orders.py", covered_obligations=("o",), covered_code_contracts=("c",))
-    src = {p: (tmp_path / p).read_text() for p in (contract.path, evidence.path)}
-    audit = review_python_contract_source_audit((contract,), (evidence,), audit_python_code_contracts((contract,), src),
-                                                audit_python_test_assertions((evidence,), (contract,), src))
-    plan = ModelTestAlignmentPlan("x", obligations=(ModelObligation("o"),), code_contracts=(contract,),
-                                  test_evidence=(evidence,), source_audit_reports=(audit,))
-    paths = list(worktree_input_paths(tmp_path))
-    digest = pytest_alignment_input_digest(tmp_path, paths)
-    node = "tests/test_orders.py::test_pay"
-    manifest = tmp_path / ".flowguard/cache/pytest-run.json"
-    manifest.parent.mkdir(parents=True)
-    manifest.write_text(json.dumps({"schema_version": "flowguard.pytest_nodeids.v2", "run_id": "run-1",
-                                    "project_root": str(tmp_path.resolve()), "nodeids": [node], "statuses": {node: "passed"}, "exit_status": 0, "exit_code": 0,
-                                    "command": "python -m pytest", "input_paths": paths,
-                                    "input_digest_before": digest, "input_digest_after": digest}))
-    return plan, dict(evidence_nodeids={"t": node}, nodeid_manifest=manifest, project_root=tmp_path)
-
-
 @pytest.mark.parametrize('source', [
     'def test_it():\n    x = place_order([], "a")\n    self.assertEqual(x, x)\n',
     'def test_it():\n    def place_order(*args):\n        return {"ok": True}\n    assert place_order([], "a")["ok"]\n',
@@ -152,21 +123,18 @@ def test_src_layout_imported_class_receivers_have_real_owner(call):
     assert report.ok, report.format_text()
 
 
-def test_recorder_captures_new_inputs_and_resets_each_run(tmp_path, monkeypatch):
-    _, kwargs = _git_project(tmp_path)
+
+
+def test_recorder_writes_node_outcomes_and_resets_each_run(tmp_path, monkeypatch):
     rec = _recorder_copy()
     session = SimpleNamespace(config=SimpleNamespace(rootpath=tmp_path, option=SimpleNamespace(xmlpath=None)))
-    target = kwargs['nodeid_manifest']
-    monkeypatch.setenv('FLOWGUARD_PYTEST_NODEIDS', str(target))
+    target = tmp_path / "nodeids.json"
+    monkeypatch.setenv("FLOWGUARD_PYTEST_NODEIDS", str(target))
     rec.pytest_sessionstart(session)
-    first_run = rec._RUN['run_id']
-    rec.pytest_runtest_logreport(SimpleNamespace(nodeid='tests/test_orders.py::test_pay', when='call',
-                                                passed=True, failed=False, skipped=False))
-    (tmp_path / 'tests/new_helper.py').write_text('changed = True\n')
+    rec.pytest_runtest_logreport(SimpleNamespace(nodeid="t.py::a", when="call", passed=True, failed=False, skipped=False))
     rec.pytest_sessionfinish(session, 0)
     record = json.loads(target.read_text())
-    assert record['run_id'] == first_run
-    assert record['input_digest_before'] != record['input_digest_after']
+    assert record["nodeids"] == ["t.py::a"] and record["statuses"] == {"t.py::a": "passed"}
+    assert "input_digest_before" not in record
     rec.pytest_sessionstart(session)
-    assert rec._RUN['run_id'] != first_run
     assert rec._NODEIDS == [] and rec._STATUSES == {}

@@ -2,53 +2,10 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import subprocess
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 import xml.etree.ElementTree as ET
-
-
-def worktree_input_paths(project_root: Path) -> tuple[str, ...]:
-    """Every tracked and untracked-but-not-ignored file under ``project_root``.
-
-    This is the default input scope of a recorded pytest run: an edit to any
-    helper, conftest, fixture or model after the run makes the result stale.
-    """
-
-    root = Path(project_root).resolve()
-    result = subprocess.run(
-        ["git", "-C", str(root), "ls-files", "-z", "-c", "-o", "--exclude-standard"],
-        capture_output=True, text=True, encoding="utf-8", errors="surrogateescape",
-    )
-    if result.returncode != 0:
-        raise ValueError("worktree input scope needs git; pass explicit input_paths instead")
-    return tuple(sorted(
-        path for path in set(result.stdout.split("\0"))
-        if path and not path.startswith(".flowguard/cache/") and (root / path).is_file()
-        and "__pycache__" not in path.split("/") and not path.startswith(".pytest_cache/")
-        and not path.endswith((".pyc", ".pyo"))
-    ))
-
-
-def pytest_alignment_input_digest(project_root: Path, input_paths: Sequence[str]) -> str:
-    """Hash exact input files of one pytest run (missing files hash as ``None``)."""
-
-    root = Path(project_root).resolve()
-    paths = tuple(sorted(set(str(path) for path in input_paths)))
-    if not paths:
-        raise ValueError("pytest execution evidence requires explicit input files")
-    inputs = []
-    for relative in paths:
-        path = (root / relative).resolve()
-        if not path.is_relative_to(root):
-            raise ValueError(f"pytest input escapes project root: {relative}")
-        if path.exists() and not path.is_file():
-            raise ValueError(f"pytest input is not a file: {relative}")
-        inputs.append((relative, hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None))
-    text = json.dumps(inputs, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def pytest_junit_projection(

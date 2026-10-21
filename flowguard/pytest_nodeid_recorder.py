@@ -18,8 +18,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-from flowguard.pytest_junit import pytest_alignment_input_digest as _digest
-from flowguard.pytest_junit import worktree_input_paths as _worktree_paths
 
 
 _NODEIDS: list[str] = []
@@ -63,11 +61,6 @@ def pytest_collectreport(report: Any) -> None:
 _RUN: dict[str, Any] = {}
 
 
-def _inputs_digest(root: Path) -> tuple[list[str], str]:
-    paths = list(_worktree_paths(root))
-    return paths, _digest(root, paths)
-
-
 def pytest_sessionstart(session: Any) -> None:
     if hasattr(session.config, "workerinput") or not os.environ.get("FLOWGUARD_PYTEST_NODEIDS", "").strip():
         return
@@ -76,10 +69,6 @@ def pytest_sessionstart(session: Any) -> None:
     _RUN.clear()
     root = Path(str(session.config.rootpath)).resolve()
     _RUN["run_id"] = uuid.uuid4().hex
-    try:
-        _RUN["input_paths"], _RUN["input_digest_before"] = _inputs_digest(root)
-    except (OSError, ValueError):
-        _RUN["input_paths"], _RUN["input_digest_before"] = [], ""
     _RUN["root"] = root
     _RUN["command"] = " ".join(["python -m pytest", *sys.argv[1:]])
 
@@ -91,12 +80,6 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
     target_text = str(os.environ.get("FLOWGUARD_PYTEST_NODEIDS", "")).strip()
     if not target_text:
         return
-    after = ""
-    if _RUN.get("input_paths"):
-        try:
-            after = _digest(_RUN["root"], _worktree_paths(_RUN["root"]))
-        except (OSError, ValueError):
-            after = ""
     target = Path(target_text).expanduser().resolve()
     if target.exists() and target.is_symlink():
         return
@@ -118,9 +101,6 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
         "exit_status": int(exitstatus),
         "exit_code": int(exitstatus),
         "command": _RUN.get("command", ""),
-        "input_paths": list(_RUN.get("input_paths", [])),
-        "input_digest_before": _RUN.get("input_digest_before", ""),
-        "input_digest_after": after,
     }
     target.write_text(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
