@@ -1107,7 +1107,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "model_test_alignment_full_template_files",
         "model_test_alignment_template_files",
         "topology_hazard_template_files",
-        "ui_flow_structure_full_template_files",
         "ui_flow_structure_template_files",
         "write_template_files",
     ),

@@ -46,9 +46,6 @@ from .template_text.topology_hazard import (
 )
 from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
-    UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE,
-    UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE,
-    UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE,
 )
 
 
@@ -116,13 +113,6 @@ def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/ui_flow_structure.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
-    )
-
-
-def ui_flow_structure_full_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/ui_flow_structure/model.py", UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/ui_flow_structure/run_checks.py", UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE),
     )
 
 
@@ -219,9 +209,6 @@ __all__ = [
     "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
     "TemplateFile",
-    "UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE",
-    "UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE",
-    "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
     "architecture_reduction_template_files",
     "behavior_commitment_template_files",
@@ -232,7 +219,6 @@ __all__ = [
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "topology_hazard_template_files",
-    "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",
     "write_template_files",
 ]

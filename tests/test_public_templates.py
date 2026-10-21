@@ -12,7 +12,7 @@ from flowguard import (
     behavior_commitment_ledger_from_mapping,
     behavior_commitment_ledger_to_mapping,
 )
-from flowguard.__main__ import main as flowguard_cli_main
+from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     architecture_reduction_template_files,
     behavior_commitment_template_files,
@@ -23,7 +23,6 @@ from flowguard.templates import (
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     topology_hazard_template_files,
-    ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
     write_template_files,
 )
@@ -57,7 +56,6 @@ TEMPLATE_CLI_COMMANDS = {
     "code-structure-template": "code_structure",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
-    "ui-flow-structure-full-template": "ui_flow_structure_full",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
     "topology-hazard-template": "model_topology_hazard_review",
@@ -187,7 +185,6 @@ class PublicTemplateTests(unittest.TestCase):
     def test_runner_templates_fail_until_their_anchors_name_real_code(self):
         runners = {"model_test_alignment": model_test_alignment_template_files,
                    "model_mesh": model_mesh_template_files,
-                   "ui_flow_structure": ui_flow_structure_full_template_files,
                    "model_topology_hazard_review": topology_hazard_template_files}
         for directory, factory in runners.items():
             with self.subTest(template=directory):
@@ -345,18 +342,12 @@ class PublicTemplateTests(unittest.TestCase):
                       self.run_kit_template(files, "ui_flow_structure", missing, fill="web", expected_returncode=1))
 
 
-    def test_ui_flow_structure_full_template_executes_content_visibility_cases(self):
-        output = self.run_written_template(
-            ui_flow_structure_full_template_files(),
-            (".flowguard", "verification", "owners", "ui_flow_structure"),
-        )
-
-        self.assertIn("flowguard UI content visibility review", output)
-        self.assertIn("internal_content_mapped_to_ui", output)
-        self.assertIn("unknown_content_visibility_class", output)
-        self.assertIn("on_demand_content_visible_in_default_state", output)
-        self.assertIn("flowguard UI product consistency review", output)
-        self.assertIn("product_semantic_drift", output)
+    def test_only_the_meta_capabilities_write_runners(self):
+        # Domain capabilities write one contract model built from a kit; model-mesh, topology-hazard and model-test
+        # inspect other models and tests, so their templates keep a runner.
+        runners = sorted(name for name, factory in template_factories().items()
+                         if any(file.path.endswith("/run_checks.py") for file in factory()))
+        self.assertEqual(["model-mesh", "model-test-alignment", "model-test-alignment-full", "topology-hazard"], runners)
 
     def test_topology_hazard_template_executes(self):
         output = self.run_written_template(
@@ -405,7 +396,6 @@ def build_review():
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
         factories["model_test_alignment_full"] = model_test_alignment_full_template_files
-        factories["ui_flow_structure_full"] = ui_flow_structure_full_template_files
         factories["model_topology_hazard_review"] = topology_hazard_template_files
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
             self.assertIn(template_name, factories, command)
@@ -422,7 +412,6 @@ def build_review():
         self.assertEqual(0, code)
         listed = stdout.split()
         self.assertNotIn("project", listed)
-        self.assertIn("ui-flow-structure-full", listed)
         for name in listed:
             code, stdout, stderr = self.run_cli(["template", name])
             self.assertEqual(0, code, name + stderr)

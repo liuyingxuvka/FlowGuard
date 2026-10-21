@@ -891,8 +891,8 @@ For a ready scaffold, run:
 python -m flowguard template ui-flow-structure --write .
 ```
 
-For the larger scaffold with every UI review stage, use
-`python -m flowguard template ui-flow-structure-full --write .`.
+The other review stages above are called directly on the same interaction model;
+the scaffold models the journeys and compares the controls with the UI source.
 
 ## Relationship To Other Routes
 

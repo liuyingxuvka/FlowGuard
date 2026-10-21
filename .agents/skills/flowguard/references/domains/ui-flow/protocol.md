@@ -38,7 +38,7 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
    state is declared", "an enabled control leads somewhere" and "no dead end"), a broken variant opens an
    unknown state, and `conformance()` returns `ui_flow_code_facts(model, UI_FILES, anchors=IMPLEMENTED_BY)`
    (every control id is in the UI source, every handler exists). Its `REPLACE_ME` paths fail until they name
-   your UI files. `ui-flow-structure-full` retains complete-journey teaching material.
+   your UI files. The other UI reviews (step 3) are called directly on the same model.
 2. Reuse/update the owner's UI model; replace template fixtures only if step 1 needed a scaffold. Core records (`from flowguard import ...`):
    - `UIInteractionModel(model_id, initial_state_id, states=, controls=, transitions=, displays=, validation_boundaries=, rationale=)`
    - `UIStateNode(state_id, visible_controls=, enabled_controls=, disabled_controls=, hidden_controls=, recovery_controls=, terminal=, failure=, visible_displays=, hidden_displays=)`

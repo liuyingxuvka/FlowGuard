@@ -202,15 +202,16 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e931a1c196be7e9b8177834a1aaf84bd9c38258ab9b55e34506a05b587de3cdf"
+      "fingerprint": "sha256:bafeddf4b8f6c270852cd6801d82fc13a3b78c7e8f0a4d05db5b2952203c9767"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates starter models and their check runners.",
+      "summary": "Generates starter contract models, and check runners for the meta-capabilities.",
       "responsibilities": [
         "provide starter files for each capability",
-        "kit templates write one contract model whose placeholder anchors fail until replaced with real code"
+        "kit templates write one contract model whose placeholder anchors fail until replaced with real code",
+        "only the meta-capabilities (model-mesh, topology-hazard, model-test) keep runner templates: they inspect other models and tests"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -231,7 +232,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e1c7de87d411001e3bf8487cc18aac5b89c43983a9286a9b24c789ae93918528"
+      "fingerprint": "sha256:d88f63a85c422959e5e710510dc5380a9f4d13745a4e71341803bd957659c86b"
     },
     {
       "id": "behavior-commitment",
