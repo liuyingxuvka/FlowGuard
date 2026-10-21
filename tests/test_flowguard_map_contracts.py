@@ -130,7 +130,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     for name in ("existing-model", "behavior-commitment", "code-structure", "contract-exhaustion",
                  "field-lifecycle", "model-mesh", "model-miss", "model-test",
-                 "topology-hazard", "structure-mesh", "test-mesh", "ui-flow"):
+                 "topology-hazard", "structure-mesh", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
         assert "then run: python -m flowguard map models " in out and "/docs/" not in out, name

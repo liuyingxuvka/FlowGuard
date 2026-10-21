@@ -33,7 +33,6 @@ from flowguard.templates import (
     runtime_path_evidence_template_files,
     work_context_template_files,
     structure_mesh_template_files,
-    test_mesh_template_files as mesh_template_files_factory,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
@@ -65,7 +64,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     ui_flow_structure_template_files,
     development_process_flow_template_files,
     workflow_step_contracts_template_files,
-    mesh_template_files_factory,
     model_mesh_template_files,
     contract_exhaustion_template_files,
     structure_mesh_template_files,
@@ -92,7 +90,6 @@ TEMPLATE_CLI_COMMANDS = {
     "ui-flow-structure-full-template": "ui_flow_structure_full",
     "development-process-flow-template": "development_process_flow",
     "workflow-step-contracts-template": "workflow_step_contracts",
-    "test-mesh-template": "test_mesh",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
     "structure-mesh-template": "structure_mesh",
@@ -323,15 +320,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("model_path=.flowguard/models/owners/checkout_leaf/model.py", output)
         self.assertIn("runtime_node_missing_observation", output)
 
-    def test_test_mesh_template_executes(self):
-        output = self.run_written_template(
-            mesh_template_files_factory(),
-            (".flowguard", "verification", "owners", "test_mesh"),
-        )
-        self.assertIn("flowguard test mesh", output)
-        self.assertIn("release_obligations", output)
-        self.assertIn("stale_test_evidence", output)
-
     def test_model_mesh_template_executes_and_exposes_negative_fixture(self):
         output = self.run_written_template(
             model_mesh_template_files(),
@@ -467,7 +455,6 @@ def build_review():
         factories["model_miss_review_full"] = model_miss_review_full_template_files
         factories["model_test_alignment_full"] = model_test_alignment_full_template_files
         factories["ui_flow_structure_full"] = ui_flow_structure_full_template_files
-        factories["test_mesh"] = mesh_template_files_factory
         factories["model_topology_hazard_review"] = topology_hazard_template_files
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
             self.assertIn(template_name, factories, command)

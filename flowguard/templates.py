@@ -88,11 +88,6 @@ from .template_text.structure_mesh import (
     STRUCTURE_MESH_RUN_CHECKS_TEMPLATE,
     STRUCTURE_MESH_NOTES_TEMPLATE,
 )
-from .template_text.test_mesh import (
-    TEST_MESH_MODEL_TEMPLATE,
-    TEST_MESH_RUN_CHECKS_TEMPLATE,
-    TEST_MESH_NOTES_TEMPLATE,
-)
 from .template_text.model_mesh import (
     MODEL_MESH_MODEL_TEMPLATE,
     MODEL_MESH_RUN_CHECKS_TEMPLATE,
@@ -293,13 +288,6 @@ def ui_flow_structure_full_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def test_mesh_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/test_mesh/model.py", TEST_MESH_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/test_mesh/run_checks.py", TEST_MESH_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def structure_mesh_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/structure_mesh/model.py", STRUCTURE_MESH_MODEL_TEMPLATE),
@@ -441,9 +429,6 @@ __all__ = [
     "STRUCTURE_MESH_MODEL_TEMPLATE",
     "STRUCTURE_MESH_NOTES_TEMPLATE",
     "STRUCTURE_MESH_RUN_CHECKS_TEMPLATE",
-    "TEST_MESH_MODEL_TEMPLATE",
-    "TEST_MESH_NOTES_TEMPLATE",
-    "TEST_MESH_RUN_CHECKS_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
@@ -474,7 +459,6 @@ __all__ = [
     "work_context_template_files",
     "runtime_path_evidence_template_files",
     "structure_mesh_template_files",
-    "test_mesh_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",

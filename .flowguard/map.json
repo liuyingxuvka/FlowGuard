@@ -212,7 +212,6 @@
         "shared-vocabulary",
         "structure-mesh",
         "templates",
-        "test-mesh",
         "topology-hazard",
         "ui-flow",
         "work-context"
@@ -222,7 +221,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4eae14c12ab611479b0f9a0b1187b80c1f04d38c4c1c417b176febd48fd2b342"
+      "fingerprint": "sha256:689bc3825a878f369949ae63187be6a2294ab814dd92b618489f540d90c1b4bb"
     },
     {
       "id": "templates",
@@ -233,7 +232,6 @@
       ],
       "files": [
         "flowguard/template_text/*.py",
-        "flowguard/template_text/test_mesh.py",
         "flowguard/templates.py"
       ],
       "entrypoints": [
@@ -252,7 +250,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:09ded670c4b45148ddaeaf9be24f94c23b0ff32085ce9ed08d1e6446d4f72b9f"
+      "fingerprint": "sha256:f127e690e5f95560c9832db7f227116fc5fb6317c1a19e1e1770c52b9b06d9ad"
     },
     {
       "id": "existing-model",
@@ -709,7 +707,7 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Collects exact test IDs and reviews current, bounded shard execution.",
+      "summary": "Collects exact test IDs and runs bounded pytest shards.",
       "responsibilities": [
         "shard tests by exact node id",
         "reuse only exact terminal passes with matching current inputs and execution identity",
@@ -721,12 +719,9 @@
         "flowguard/pytest_shard_plugin.py",
         "flowguard/pytest_shards.py",
         "flowguard/pytest_shards_cli.py",
-        "flowguard/symlink_capability.py",
-        "flowguard/test_reuse.py",
-        "flowguard/testmesh.py"
+        "flowguard/symlink_capability.py"
       ],
       "entrypoints": [
-        "flowguard/testmesh.py:review_test_mesh",
         "flowguard/pytest_shards.py:partition_nodeids"
       ],
       "state": [
@@ -736,20 +731,15 @@
         "runs pytest shards; writes run-local cache"
       ],
       "depends_on": [
-        "engine-core",
-        "map-proof",
-        "shared-vocabulary"
+        "map-proof"
       ],
       "tests": [
-        "tests/test_primary_path_authority_release_gate_matrix.py",
         "tests/test_pytest_shards.py",
-        "tests/test_test_mesh.py",
-        "tests/test_test_reuse.py",
         "tests/test_transition_coverage.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:18382afedc4a73b5e75f126c4e4e5dbeac747ca8fb26fcb7951db8f3b1fdc7d8"
+      "fingerprint": "sha256:fce389ab527f78bd77f5850c1e6bfd1e82079be1b1ebae2fcca2cfdf0e9e6aae"
     },
     {
       "id": "ui-flow",

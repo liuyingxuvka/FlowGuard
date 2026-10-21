@@ -11,11 +11,6 @@ from flowguard import (
     TEST_EVIDENCE_ROLE_TRANSITION_CELL,
     TEST_KIND_FAILURE_PATH,
     TEST_KIND_HAPPY_PATH,
-    TEST_LAYER_LEAF_MATRIX_CELL,
-    TestMeshPlan,
-    TestPartitionItem,
-    TestSuiteEvidence,
-    TestTargetSplitDerivation,
     TestEvidence,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
@@ -25,7 +20,6 @@ from flowguard import (
     UITransition,
     model_mesh_closure_to_transition_coverage,
     review_model_test_alignment,
-    review_test_mesh,
     transition_coverage_to_code_contracts,
     transition_coverage_to_model_obligations,
     transition_coverage_to_required_leaf_cell_ids,
@@ -47,19 +41,6 @@ def transition_evidence(evidence_id, obligation_id, cell_id, contract_id="map.dr
     }
     defaults.update(kwargs)
     return TestEvidence(evidence_id, **defaults)
-
-
-def child_suite(suite_id, *cell_ids, **kwargs):
-    defaults = {
-        "layer": TEST_LAYER_LEAF_MATRIX_CELL,
-        "result_status": "passed",
-        "evidence_tier": EVIDENCE_ABSTRACT_GREEN,
-        "test_count": 1,
-        "selected_count": 1,
-        "owned_leaf_cell_ids": tuple(cell_ids),
-    }
-    defaults.update(kwargs)
-    return TestSuiteEvidence(suite_id, **defaults)
 
 
 class TransitionCoverageTests(unittest.TestCase):
@@ -287,68 +268,6 @@ class TransitionCoverageTests(unittest.TestCase):
         self.assertEqual(("map.drag_transition",), obligations[0].required_runtime_node_ids)
         self.assertEqual(("viewport_changed",), obligations[0].external_outputs)
 
-    def test_transition_matrix_required_cells_feed_test_mesh(self):
-        matrix = TransitionCoverageMatrix(
-            "map-ui-transitions",
-            model_id="map-ui",
-            cells=(
-                TransitionCoverageCell("idle.drag->dragging", "idle", "drag", "dragging"),
-                TransitionCoverageCell("dragging.release->idle", "dragging", "release", "idle"),
-            ),
-        )
-        required_cells = transition_coverage_to_required_leaf_cell_ids(matrix)
-        plan = TestMeshPlan(
-            parent_suite_id="map-ui-transition-suite",
-            partition_items=tuple(
-                TestPartitionItem(cell_id, item_type="transition_coverage", owner_suite_id="browser-cells")
-                for cell_id in required_cells
-            ),
-            child_suites=(child_suite("browser-cells", *required_cells),),
-            target_split_derivation=TestTargetSplitDerivation(
-                "map-ui",
-                target_suite_ids=("browser-cells",),
-                covered_partition_item_ids=required_cells,
-                rationale="transition coverage matrix cells are owned by browser tests",
-            ),
-            required_leaf_cell_ids=required_cells,
-        )
-
-        report = review_test_mesh(plan)
-
-        self.assertTrue(report.ok, report.format_text())
-
-    def test_missing_transition_matrix_required_cell_blocks_test_mesh(self):
-        matrix = TransitionCoverageMatrix(
-            "map-ui-transitions",
-            model_id="map-ui",
-            cells=(
-                TransitionCoverageCell("idle.drag->dragging", "idle", "drag", "dragging"),
-                TransitionCoverageCell("dragging.release->idle", "dragging", "release", "idle"),
-            ),
-        )
-        required_cells = transition_coverage_to_required_leaf_cell_ids(matrix)
-        plan = TestMeshPlan(
-            parent_suite_id="map-ui-transition-suite",
-            partition_items=tuple(
-                TestPartitionItem(cell_id, item_type="transition_coverage", owner_suite_id="browser-cells")
-                for cell_id in required_cells
-            ),
-            child_suites=(child_suite("browser-cells", "idle.drag->dragging"),),
-            target_split_derivation=TestTargetSplitDerivation(
-                "map-ui",
-                target_suite_ids=("browser-cells",),
-                covered_partition_item_ids=required_cells,
-                rationale="transition coverage matrix cells are owned by browser tests",
-            ),
-            required_leaf_cell_ids=required_cells,
-        )
-
-        report = review_test_mesh(plan)
-
-        self.assertFalse(report.ok)
-        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
-        self.assertIn("leaf_matrix_cell_evidence_missing", [finding.code for finding in report.findings])
-
     def test_model_mesh_closure_projects_retry_transition_to_matrix(self):
         closure = MeshClosureModel(
             "flowpilot-parent",
@@ -423,48 +342,6 @@ class TransitionCoverageTests(unittest.TestCase):
 
         self.assertFalse(report.ok)
         self.assertIn("missing_required_test_kind", [finding.code for finding in report.findings])
-
-    def test_model_mesh_required_leaf_cell_id_feeds_test_mesh(self):
-        closure = MeshClosureModel(
-            "flowpilot-parent",
-            root_entries=("rejected_packet",),
-            transitions=(
-                MeshClosureTransition(
-                    "retry_same_packet",
-                    consumes=("rejected_packet",),
-                    emits=("repair_feedback", "blocked"),
-                    loop=True,
-                    repeat_input_tokens=("rejected_packet",),
-                    repair_feedback_tokens=("repair_feedback",),
-                    blocker_tokens=("blocked",),
-                ),
-            ),
-            terminals=(MeshClosureTerminal("blocked", consumes=("blocked",)),),
-        )
-        required_cells = transition_coverage_to_required_leaf_cell_ids(
-            model_mesh_closure_to_transition_coverage(closure)
-        )
-        plan = TestMeshPlan(
-            parent_suite_id="flowpilot-parent-retry",
-            partition_items=tuple(
-                TestPartitionItem(cell_id, item_type="model_mesh_closure", owner_suite_id="retry-cells")
-                for cell_id in required_cells
-            ),
-            child_suites=(child_suite("retry-cells"),),
-            target_split_derivation=TestTargetSplitDerivation(
-                "flowpilot-parent",
-                target_suite_ids=("retry-cells",),
-                covered_partition_item_ids=required_cells,
-                rationale="ModelMesh closure retry cells are owned by retry regression tests",
-            ),
-            required_leaf_cell_ids=required_cells,
-        )
-
-        report = review_test_mesh(plan)
-
-        self.assertFalse(report.ok)
-        self.assertEqual("leaf_matrix_cell_evidence_required", report.decision)
-
 
 if __name__ == "__main__":
     unittest.main()

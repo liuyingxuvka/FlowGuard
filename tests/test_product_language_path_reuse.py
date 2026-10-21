@@ -51,10 +51,6 @@ from flowguard import (
     RuntimeNodeObservation,
     RuntimePathAlignmentPlan,
     TestEvidence,
-    TestMeshPlan,
-    TestPartitionItem,
-    TestSuiteEvidence,
-    TestTargetSplitDerivation,
     UIContentVisibilityItem,
     UIContentVisibilityPlan,
     UIProductConsistencyObservation,
@@ -72,7 +68,6 @@ from flowguard import (
     review_obligation_family_parity,
     review_primary_path_authority,
     review_runtime_path_alignment,
-    review_test_mesh,
     review_ui_content_visibility,
     review_ui_product_consistency,
 )
@@ -726,37 +721,9 @@ def test_family_reduction_and_background_inventory_cannot_be_shrunk_or_faked():
             rationale="A caller cannot omit the inconvenient duplicate handler.",
         )
     )
-    mesh_report = review_test_mesh(
-        TestMeshPlan(
-            parent_suite_id="download-regression",
-            partition_items=(TestPartitionItem("download-chain", owner_suite_id="download-chain"),),
-            child_suites=(
-                TestSuiteEvidence(
-                    "download-chain",
-                    result_status="running",
-                    evidence_tier="abstract_green",
-                    background=True,
-                    progress_only=True,
-                    has_exit_artifact=False,
-                    has_result_artifact=False,
-                    test_count=1,
-                    selected_count=1,
-                ),
-            ),
-            target_split_derivation=TestTargetSplitDerivation(
-                "download-material-model",
-                target_suite_ids=("download-chain",),
-                covered_partition_item_ids=("download-chain",),
-                rationale="The parent model assigns the chain to one child suite.",
-            ),
-        )
-    )
-
     assert not family_report.ok
     assert "expected_family_member_missing" in finding_codes(family_report)
     assert not reduction_report.ok
     assert "expected_reduction_candidate_missing" in finding_codes(reduction_report)
-    assert not mesh_report.ok
-    assert "background_incomplete" in finding_codes(mesh_report)
 
 
