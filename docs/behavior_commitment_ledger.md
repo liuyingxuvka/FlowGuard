@@ -183,11 +183,13 @@ Core objects:
 - `write_behavior_commitment_ledger()`
 - `behavior_commitment_contract_exhaustion_plan()`
 
-Template:
+Template (the ledger plus one contract model built with the behavior-commitment kit:
+`add_commitment`, `retire_commitment`, `add_path`, `retire_path`, `behavior_commitment_explorer`,
+`behavior_commitment_code_facts`):
 
 ```powershell
-python -m flowguard template behavior-commitment-ledger            # print
-python -m flowguard template behavior-commitment-ledger --write .  # write files
+python -m flowguard template behavior-commitment            # print
+python -m flowguard template behavior-commitment --write .  # write files
 ```
 
 ## Broad Claim Rule

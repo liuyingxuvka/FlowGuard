@@ -415,5 +415,115 @@ class CommitmentAnchorTests(unittest.TestCase):
                           [f.message for f in report.findings if f.code == "commitment_anchor_missing"])
 
 
+class BehaviorCommitmentKitTests(unittest.TestCase):
+    """The behavior-commitment kit: plan edits, both reviews and a scan of the real tests as invariants, code facts."""
+
+    SUBMIT, V1, TEST = "shop/orders.py:submit_order", "shop/orders_v1.py:submit", "shop/test_orders.py:test_submit_order"
+
+    def project(self, directory, *, test_calls=True, v1_delegates=True):
+        root = Path(directory)
+        (root / "shop").mkdir()
+        (root / "shop/orders.py").write_text("def submit_order(order):\n    return order\n", encoding="utf-8")
+        (root / "shop/orders_v1.py").write_text(
+            "from shop.orders import submit_order\n\n\ndef submit(order):\n    return submit_order(order)\n"
+            if v1_delegates else "def submit(order):\n    return dict(order, legacy=True)\n", encoding="utf-8")
+        (root / "shop/test_orders.py").write_text(
+            ("from shop.orders import submit_order\n\n\ndef test_submit_order():\n    assert submit_order({'id': 1})\n"
+             if test_calls else "def test_submit_order():\n    assert {'id': 1}\n"), encoding="utf-8")
+        return root
+
+    def plan(self):
+        from flowguard import BehaviorPlan, PrimaryPathAuthorityPlan, PrimaryPathContract
+
+        bound = commitment(entrypoints=(self.SUBMIT,), tests=(self.TEST,))
+        primary = PrimaryPathContract("submit_order", business_intent="run workflow", business_intent_id="intent:workflow",
+                                      behavior_commitment_id="commitment:workflow", primary_entrypoint_id=self.SUBMIT,
+                                      owner_model_id="model:workflow", owner_code_contract_id=self.SUBMIT,
+                                      expected_terminal="documented success or visible repairable error")
+        return BehaviorPlan(ledger(commitments=(bound,)), PrimaryPathAuthorityPlan("workflow", primary_paths=(primary,)))
+
+    def facade(self, **values):
+        from flowguard import (PPA_AUTHORITY_EXTERNAL_FACADE, PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
+                               PPA_CANDIDATE_COMPATIBILITY_FACADE, PPA_DISPOSITION_PRESERVE_FACADE, FallbackPathCandidate)
+
+        defaults = dict(fallback_for_path_id="submit_order", business_intent="run workflow",
+                        delegates_to_path_id="submit_order", candidate_surface=PPA_CANDIDATE_COMPATIBILITY_FACADE,
+                        candidate_behavior=PPA_BEHAVIOR_DELEGATE_TO_PRIMARY, classification=PPA_AUTHORITY_EXTERNAL_FACADE,
+                        disposition=PPA_DISPOSITION_PRESERVE_FACADE, evidence_refs=("test:v1",),
+                        compatibility_intent="old clients keep v1")
+        defaults.update(values)
+        return FallbackPathCandidate(self.V1, **defaults)
+
+    def test_edits_keep_the_ledger_and_the_authority_plan_consistent(self):
+        from flowguard import (PPA_TRIGGER_PRIMARY_FAILURE, add_commitment, add_path, retire_commitment, retire_path,
+                               review_primary_path_authority)
+
+        cli = surface(surface_id="surface:cli-workflow", source_ref="cli run", commitment_ids=(), business_intent_ids=())
+        plan = add_commitment(self.plan(), "commitment:workflow", cli)
+        self.assertEqual(plan, add_commitment(plan, "commitment:workflow", cli))          # edits are idempotent
+        workflow = plan.ledger.commitments[0]
+        self.assertIn("surface:cli-workflow", workflow.source_surface_ids)
+        self.assertEqual(("commitment:workflow",), plan.ledger.source_surfaces[-1].commitment_ids)
+        self.assertIn("surface:cli-workflow", plan.ledger.expected_source_surface_ids)   # the ledger keeps one
+        self.assertTrue(review_behavior_commitment_ledger(plan.ledger).ok)
+        retired = retire_commitment(plan, "commitment:workflow", "the workflow is withdrawn")
+        self.assertFalse(retired.ledger.commitments[0].in_scope)
+        self.assertNotIn("intent:workflow", retired.ledger.expected_business_intent_ids)
+        self.assertTrue(review_behavior_commitment_ledger(retired.ledger).ok,
+                        review_behavior_commitment_ledger(retired.ledger).format_text())
+        with_v1 = add_path(plan, self.facade())
+        self.assertTrue(review_primary_path_authority(with_v1.authority).ok)
+        masked = add_path(with_v1, self.facade(candidate_trigger=PPA_TRIGGER_PRIMARY_FAILURE,
+                                               returns_success_after_primary_failure=True))
+        self.assertEqual(1, len(masked.authority.fallback_candidates))                   # same id replaced
+        self.assertIn("primary_failure_masked_by_fallback_success",
+                      {f.code for f in review_primary_path_authority(masked.authority).findings})
+        closed = retire_path(masked, self.V1, "v1 clients moved")
+        self.assertTrue(review_primary_path_authority(closed.authority).ok)
+        with self.assertRaises(ValueError):
+            retire_path(plan, "submit_order", "a primary path is replaced, not retired")
+
+    def test_a_commitment_whose_test_never_touches_its_entrypoint_is_a_counterexample(self):
+        import os
+        import tempfile
+
+        from flowguard import add_commitment, behavior_commitment_code_facts, behavior_commitment_explorer
+
+        edits = {"bind": lambda plan: add_commitment(plan, "commitment:workflow")}
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.project(directory)
+            self.assertTrue(behavior_commitment_explorer(self.plan, edits, root=root).explore().ok)
+            self.assertTrue(behavior_commitment_code_facts(self.plan(), root=root).ok)
+            (root / "shop/test_orders.py").write_text("def test_submit_order():\n    assert {'id': 1}\n", encoding="utf-8")
+            report = behavior_commitment_explorer(self.plan, edits, root=root).explore()
+            self.assertEqual({"commitment_tests_touch_entrypoints"}, {v.invariant_name for v in report.violations})
+            facts = behavior_commitment_code_facts(self.plan(), root=root)
+            self.assertFalse(facts.ok)
+            self.assertIn("shop/test_orders.py never imports or calls shop/orders.py:submit_order", facts.format_text())
+            cwd = os.getcwd()
+            os.chdir(root)            # the default root is the current directory, as under map models
+            try:
+                self.assertFalse(behavior_commitment_explorer(self.plan, edits).explore().ok)
+            finally:
+                os.chdir(cwd)
+
+    def test_code_facts_compare_the_paths_with_the_code(self):
+        import tempfile
+
+        from flowguard import add_path, behavior_commitment_code_facts, retire_path
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = self.project(directory, v1_delegates=False)
+            plan = add_path(self.plan(), self.facade())
+            text = behavior_commitment_code_facts(plan, root=root).format_text()
+            self.assertIn("- shop/orders_v1.py:submit delegates to the primary path shop/orders.py:submit_order: "
+                          "shop/orders_v1.py never imports or calls shop/orders.py:submit_order", text)
+            text = behavior_commitment_code_facts(retire_path(plan, self.V1, "v1 is deleted"), root=root).format_text()
+            self.assertIn("- shop/orders_v1.py:submit is gone (disposition delete): shop/orders_v1.py:submit still exists",
+                          text)
+            (root / "shop/orders_v1.py").unlink()
+            self.assertTrue(behavior_commitment_code_facts(retire_path(plan, self.V1, "v1 is deleted"), root=root).ok)
+
+
 if __name__ == "__main__":
     unittest.main()

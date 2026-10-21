@@ -36,47 +36,46 @@ the real bug in A stays hidden.
    `query_behavior_commitments_from_path(path, BehaviorLookupQuery(task_summary=..., changed_paths=...))`
    (also `tool_ids`, `error_signatures`). Use `primary_hits`; `related_hits` are context only.
    Status `blocked` means the ledger file could not be loaded, not "no promise".
-2. If no ledger exists, run `python -m flowguard template behavior-commitment-ledger --write .`
-   It writes `ledger.json`, a loader `model.py` and a runner `run_checks.py`; their `REPLACE_ME` anchors fail until they name your code.
+2. Reuse the owner model. Only when the project has none for these promises, run
+   `python -m flowguard template behavior-commitment --write .`: it writes the ledger
+   `.flowguard/behavior/inventory/ledger.json` (the one place promises are kept) and one contract model,
+   `.flowguard/models/behavior_commitment.py`, whose `REPLACE_ME` anchors fail until they name your code.
 3. Edit `ledger.json` (`BehaviorCommitmentLedger`, rows under the top-level `ledger` key):
    - each `source_surfaces` row: `surface_id`, `source_ref` (path, `path#anchor`, or a
        bounded glob), `coverage_disposition` (`modeled`, `delegated`, `scoped`), `commitment_ids`.
    - each `commitments` row: `commitment_id`, `business_intent_id` (one per exact promise),
      `behavior_plane` (`product_runtime`, `agent_operation`, `development_process`),
      `actor_kind`, `trigger`, `expected_result`, `expected_terminal`, `failure_boundary`,
-     `source_surface_ids`, one `primary_owner_model_id`, `evidence.test_evidence_ids`, and the anchors
+     `source_surface_ids`, one `primary_owner_model_id`, and the anchors
      `entrypoints` (`path:Symbol` of the code that keeps the promise) and `tests` (`tests/x.py:test_name`).
    - set `change_mode`: `bootstrap_ledger`, `add_behavior`, `change_behavior`,
      `remove_or_replace_behavior`, `coverage_gap_backfill` or `model_miss_check`.
    - an alias, wrapper or second UI for the same promise maps to the same commitment.
-4. For each changed path-sensitive promise, reuse its existing primary-path owner and plan.
-   Only for a missing reusable boundary, run `python -m flowguard template primary-path-authority --write .`;
-   fill/update `PrimaryPathAuthorityPlan`: one `PrimaryPathContract` per intent
-   (`business_path_id`, `business_intent_id`, `primary_entrypoint_id`, `owner_model_id`,
-   `owner_code_contract_id`, `expected_terminal`, `failure_policy`) and one
-   `FallbackPathCandidate` per other path (`candidate_path_id`, `fallback_for_path_id`,
+4. In the model, `plan()` returns `BehaviorPlan(ledger, authority)`: the loaded ledger and, for a path-sensitive
+   promise, its `PrimaryPathAuthorityPlan`: one `PrimaryPathContract` per intent (`business_path_id`,
+   `business_intent_id`, `primary_entrypoint_id`, `owner_model_id`, `owner_code_contract_id`, `expected_terminal`,
+   `failure_policy`) and one `FallbackPathCandidate` per other path (`candidate_path_id`, `fallback_for_path_id`,
    `candidate_surface`, `candidate_trigger`, `candidate_behavior`, `invokes_on_primary_failure`,
-   `returns_success_after_primary_failure`, `disposition`).
-5. Review the plan and the ledger separately; a fallback finding in the plan blocks the change.
-
-```python
-from flowguard import (review_primary_path_authority, review_behavior_commitment_ledger,
-    load_behavior_commitment_ledger)
-ppa = review_primary_path_authority(plan)            # ppa.ok, ppa.findings
-ledger = load_behavior_commitment_ledger(".flowguard/behavior/inventory/ledger.json")
-report = review_behavior_commitment_ledger(ledger, project_root=".")   # anchors must exist in the code
-print(report.format_text())
-```
-
-6. If using the ledger scaffold, replace the starter `source_ref` values (`README.md#usage`,
-   `api/run-primary-workflow`) with real ones. Keep relevant failure assertions; add other variants
-   only for this change's risks, reusing existing owner tests.
-7. If a persistent runner was created or changed, register it in the owner's `models`, then run
-   each affected registered runner id once: `python -m flowguard map models <runner-id>`
-   (exit 0 = pass). The unchanged scaffold ids are `behavior_commitment_ledger` for
-   the ledger and `primary_path_authority` for the primary-path plan; use the actual
-   directory id if renamed, not the component id. If no persistent runner changed,
-   use the selected direct native review or existing-owner check without creating a runner.
+   `returns_success_after_primary_failure`, `disposition`). Write paths as `path:Symbol` where they are code.
+5. Write the change as named edits: `add_commitment(plan, commitment or id, *surfaces)` (a surface is linked both
+   ways), `retire_commitment(plan, id, reason)`, `add_path(plan, path)` (a primary path with
+   `replaces_primary_path_id` replaces that one), `retire_path(plan, path_id, reason)` (default disposition
+   `delete`). Edits replace by id, so applying one twice changes nothing.
+   - `build_explorer()`: `behavior_commitment_explorer(plan, EDITS, explore=[...])` explores every sequence of
+     the edits. `review_behavior_commitment_ledger` (with the project root: anchors exist),
+     `review_primary_path_authority` and a static scan of the real tests (each test file of a commitment imports
+     or calls one of its entrypoints, and each entrypoint is imported or called by one of its tests) must accept
+     every plan reached.
+   - `broken_variants()`: one wrong edit per risk of this change (examples below).
+   - `conformance()`: `behavior_commitment_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: entrypoints and
+     tests exist and touch each other, the primary entrypoint exists, a facade that delegates imports or calls
+     it, and a path retired with disposition `delete` is gone from the code.
+   A one-off direct check without a model:
+   `review_behavior_commitment_ledger(load_behavior_commitment_ledger(path), project_root=".")` and
+   `review_primary_path_authority(plan)`.
+6. List the model in the owner's `models`; run `python -m flowguard map models behavior_commitment` once.
+7. After the code change, save the target ledger with `write_behavior_commitment_ledger(path, target_plan.ledger)`,
+   update the map descriptions, `python -m flowguard map confirm <ids>`, then `python -m flowguard change`.
 
 ## What blocks
 | Finding code | Meaning |
@@ -90,6 +89,8 @@ print(report.format_text())
 | `delegate_commitment_forbidden` | An alias or wrapper was registered as its own commitment. |
 | `source_surface_missing_commitment` | A promise source maps to no commitment. |
 | `commitment_missing_primary_owner` | A commitment has no single owner model. |
+| `commitment_anchor_missing` | With the project root: an entrypoint or test anchor names no real code. |
+| `commitment_test_misses_entrypoint` | Model kit: a commitment's test never imports or calls its entrypoint. |
 
 ## Risk-specific regression examples
 - A-fails-B-succeeds: a `FallbackPathCandidate` with `candidate_trigger="primary_failure"`,
@@ -100,15 +101,20 @@ print(report.format_text())
   `old_field_or_backup_cache_masks_primary_failure` and `fallback_candidate_unknown_disposition`.
 - Ledger with a copied commitment under a new `commitment_id` but the same
   `business_intent_id`. Must give `duplicate_exact_intent_commitment`.
+- A commitment that names a second entrypoint (an old API) that none of its tests calls. Must give
+  `commitment_test_misses_entrypoint`.
 
 ## Done when
-- [ ] The good plan and the good ledger review with `ok=True` and no findings.
-- [ ] Each relevant broken variant fails with its expected code; unrelated variants are not new obligations.
-- [ ] Each changed promise has one commitment, one owner model and tests; any persistent runner is registered.
+- [ ] The intended edits pass; each relevant known-bad edit fails; unrelated variants are not new obligations.
+- [ ] The code facts hold: anchors exist, tests touch their entrypoints, facades call the primary path.
+- [ ] Each changed promise has one commitment, one owner model and tests; the model is listed in `models`.
 - [ ] `python -m flowguard change` is clean, and the listed tests and models ran.
 - [ ] You report what ran, what was skipped, and why.
 
 ## Limits
 - It checks the rows you declare. A path you never list as a candidate is not found.
   Pair it with real tests that force the primary path to fail.
+- The test scan is static and per file: an import counts, a test file that tests several things passes for any
+  of them, and a call through a helper in another file is not seen. "Delegates" means the facade's file imports
+  or calls the primary entrypoint, not that it returns the same result.
 - There is no CLI command for the promise lookup; use the Python call in step 1.

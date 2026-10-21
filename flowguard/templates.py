@@ -9,18 +9,16 @@ from pathlib import Path
 from .template_text.architecture_reduction import (
     ARCHITECTURE_REDUCTION_MODEL_TEMPLATE,
 )
+from .template_text.behavior_commitment import (
+    BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE,
+    BEHAVIOR_COMMITMENT_MODEL_TEMPLATE,
+)
 from .template_text.code_structure import (
     CODE_STRUCTURE_MODEL_TEMPLATE,
 )
 from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
-)
-from .template_text.behavior_commitment_ledger import (
-    BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE,
-    BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE,
-    BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE,
-    BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE,
 )
 from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_MODEL_TEMPLATE,
@@ -32,11 +30,6 @@ from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE,
     MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE,
     MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE,
-)
-from .template_text.primary_path_authority import (
-    PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE,
-    PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE,
-    PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE,
 )
 from .template_text.model_mesh import (
     MODEL_MESH_MODEL_TEMPLATE,
@@ -81,21 +74,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
     )
 
 
-def behavior_commitment_ledger_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/behavior/inventory/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE),
-        TemplateFile(".flowguard/models/owners/behavior_commitment_ledger/model.py", BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/behavior_commitment_ledger/run_checks.py", BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def primary_path_authority_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/primary_path_authority/model.py", PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/primary_path_authority/run_checks.py", PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),
@@ -113,6 +91,13 @@ def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
 def architecture_reduction_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/architecture_reduction.py", ARCHITECTURE_REDUCTION_MODEL_TEMPLATE),
+    )
+
+
+def behavior_commitment_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/models/behavior_commitment.py", BEHAVIOR_COMMITMENT_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/behavior/inventory/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE),
     )
 
 
@@ -219,10 +204,8 @@ def write_template_files(
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
     "ARCHITECTURE_REDUCTION_MODEL_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE",
+    "BEHAVIOR_COMMITMENT_MODEL_TEMPLATE",
     "CODE_STRUCTURE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
@@ -232,9 +215,6 @@ __all__ = [
     "MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
-    "PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE",
-    "PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE",
-    "PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TOPOLOGY_HAZARD_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE",
@@ -244,14 +224,13 @@ __all__ = [
     "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
     "architecture_reduction_template_files",
-    "behavior_commitment_ledger_template_files",
+    "behavior_commitment_template_files",
     "code_structure_template_files",
     "contract_exhaustion_template_files",
     "field_lifecycle_template_files",
     "model_mesh_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
-    "primary_path_authority_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_full_template_files",
     "ui_flow_structure_template_files",

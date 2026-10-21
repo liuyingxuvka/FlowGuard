@@ -34,11 +34,12 @@ cannot become a second independent success path.
 - `primary_path_authority_contract_exhaustion_plan(...)`: the Cartesian
   coverage plan for broad claims.
 
-Starter model:
+Starter model (the behavior-commitment template: the ledger and one contract model whose
+`BehaviorPlan` holds the ledger and this plan):
 
 ```powershell
-python -m flowguard template primary-path-authority            # print
-python -m flowguard template primary-path-authority --write .  # write files
+python -m flowguard template behavior-commitment            # print
+python -m flowguard template behavior-commitment --write .  # write files
 ```
 
 The review is a model check. It does not prove the code: run the project's

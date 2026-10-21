@@ -15,14 +15,13 @@ from flowguard import (
 from flowguard.__main__ import main as flowguard_cli_main
 from flowguard.templates import (
     architecture_reduction_template_files,
-    behavior_commitment_ledger_template_files,
+    behavior_commitment_template_files,
     code_structure_template_files,
     contract_exhaustion_template_files,
     field_lifecycle_template_files,
     model_mesh_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
-    primary_path_authority_template_files,
     topology_hazard_template_files,
     ui_flow_structure_full_template_files,
     ui_flow_structure_template_files,
@@ -40,8 +39,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
     architecture_reduction_template_files,
-    behavior_commitment_ledger_template_files,
-    primary_path_authority_template_files,
+    behavior_commitment_template_files,
     model_test_alignment_template_files,
     code_structure_template_files,
     field_lifecycle_template_files,
@@ -53,8 +51,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
 
 TEMPLATE_CLI_COMMANDS = {
     "architecture-reduction-template": "architecture_reduction",
-    "behavior-commitment-ledger-template": "behavior_commitment_ledger",
-    "primary-path-authority-template": "primary_path_authority",
+    "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
     "model-test-alignment-full-template": "model_test_alignment_full",
     "code-structure-template": "code_structure",
@@ -85,9 +82,6 @@ class PublicTemplateTests(unittest.TestCase):
                 (root / "app").mkdir()
                 (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")
                 (root / "app/request.py").write_text("def parse_request(data):\n    return data\n", encoding="utf-8")
-                (root / "app/workflow.py").write_text("def run_primary_workflow():\n    return 'done'\n", encoding="utf-8")
-                (root / "app/test_workflow.py").write_text("def test_primary_workflow():\n    assert True\n",
-                                                           encoding="utf-8")
             result = subprocess.run(
                 [sys.executable, "run_checks.py"],
                 cwd=root.joinpath(*run_dir_parts),
@@ -111,9 +105,8 @@ class PublicTemplateTests(unittest.TestCase):
                 (root / rel).write_text(text, encoding="utf-8")
             subprocess.run(["git", "init", "-q", "."], cwd=root, check=True)
             write_template_files(root, files)
-            model = root / files[0].path
-            if fill:
-                model.write_text(model.read_text(encoding="utf-8").replace("REPLACE_ME", fill), encoding="utf-8")
+            for written in (root / file.path for file in files) if fill else ():
+                written.write_text(written.read_text(encoding="utf-8").replace("REPLACE_ME", fill), encoding="utf-8")
 
             def flowguard_map(*args):
                 return subprocess.run([sys.executable, "-m", "flowguard", "map", *args], cwd=root, env=_template_env(),
@@ -192,9 +185,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual([], offenders)
 
     def test_runner_templates_fail_until_their_anchors_name_real_code(self):
-        runners = {"behavior_commitment_ledger": behavior_commitment_ledger_template_files,
-                   "primary_path_authority": primary_path_authority_template_files,
-                   "model_test_alignment": model_test_alignment_template_files,
+        runners = {"model_test_alignment": model_test_alignment_template_files,
                    "model_mesh": model_mesh_template_files,
                    "ui_flow_structure": ui_flow_structure_full_template_files,
                    "model_topology_hazard_review": topology_hazard_template_files}
@@ -204,17 +195,8 @@ class PublicTemplateTests(unittest.TestCase):
                                                    expected_returncode=1, fill=False)
                 self.assertIn("placeholder anchor 'REPLACE_ME/module.py:Owner'", output)
 
-    def test_behavior_commitment_ledger_template_executes(self):
-        output = self.run_written_template(
-            behavior_commitment_ledger_template_files(),
-            (".flowguard", "verification", "owners", "behavior_commitment_ledger"),
-        )
-        self.assertIn("flowguard behavior commitment ledger", output)
-        self.assertIn("full_inventory_registered: yes", output)
-        self.assertIn("behavior_commitment_coverage_green", output)
-
     def test_behavior_commitment_template_has_one_canonical_ledger_authority(self):
-        files = behavior_commitment_ledger_template_files()
+        files = behavior_commitment_template_files()
         by_path = {file.path: file.content for file in files}
 
         self.assertIn(".flowguard/behavior/inventory/ledger.json", by_path)
@@ -223,19 +205,30 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual(payload, behavior_commitment_ledger_to_mapping(canonical))
         commitment = payload["ledger"]["commitments"][0]
         self.assertEqual("product_runtime", commitment["behavior_plane"])
-        self.assertEqual("end_user", commitment["actor_kind"])
-        self.assertEqual("intent:run-primary-workflow", commitment["business_intent_id"])
-        model_text = by_path[".flowguard/models/owners/behavior_commitment_ledger/model.py"]
+        self.assertEqual("intent:submit-order", commitment["business_intent_id"])
+        model_text = by_path[".flowguard/models/behavior_commitment.py"]
         self.assertIn("load_behavior_commitment_ledger", model_text)
         self.assertNotIn("BehaviorCommitment(", model_text)
 
-    def test_primary_path_authority_template_executes(self):
-        output = self.run_written_template(
-            primary_path_authority_template_files(),
-            (".flowguard", "verification", "owners", "primary_path_authority"),
-        )
-        self.assertIn("Primary Path Authority checks passed", output)
-        self.assertIn("primary_path_authority_green", output)
+    def test_behavior_commitment_template_binds_promises_paths_and_tests_to_the_code(self):
+        files = behavior_commitment_template_files()
+        code = {"shop/orders.py": "def submit_order(order):\n    return order\n",
+                "shop/orders_v1.py": "from shop.orders import submit_order\n\n\ndef submit(order):\n"
+                                     "    return submit_order(order)\n",
+                "shop/test_orders.py": "from shop.orders import submit_order\n\n\ndef test_submit_order():\n"
+                                       "    assert submit_order({'id': 1})\n"}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "behavior_commitment", code,
+                                                                  expected_returncode=1))
+        self.assertIn("PASS  behavior_commitment", self.run_kit_template(files, "behavior_commitment", code,
+                                                                         fill="shop", expected_returncode=0))
+        untouched = dict(code, **{"shop/test_orders.py": "def test_submit_order():\n    assert {'id': 1}\n"})
+        output = self.run_kit_template(files, "behavior_commitment", untouched, fill="shop", expected_returncode=1)
+        self.assertIn("invariant: commitment_tests_touch_entrypoints", output)
+        self.assertIn("shop/test_orders.py never imports or calls shop/orders.py:submit_order", output)
+        own_logic = dict(code, **{"shop/orders_v1.py": "def submit(order):\n    return dict(order, via='v1')\n"})
+        self.assertIn("shop/orders_v1.py never imports or calls shop/orders.py:submit_order",
+                      self.run_kit_template(files, "behavior_commitment", own_logic, fill="shop",
+                                            expected_returncode=1))
 
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(model_test_alignment_template_files(),

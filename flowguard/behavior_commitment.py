@@ -4,6 +4,12 @@ The ledger is the upstream account book for user-visible or externally
 reliable behavior. It answers "what behavior did we promise and who owns it?"
 Path-sensitive rows then hand off to Primary Path Authority for the stricter
 "one runtime path, no automatic alternate success" rule.
+
+Model kit: ``add_commitment``, ``retire_commitment``, ``add_path`` and
+``retire_path`` are plan edits, ``behavior_commitment_explorer`` explores them
+with the ledger review, a static scan of the real tests and the primary-path
+review as invariants, and ``behavior_commitment_code_facts`` compares the
+target plan with the code.
 """
 
 from __future__ import annotations
@@ -11,9 +17,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from ._normalization import string_tuple as _as_tuple
 
@@ -34,7 +40,19 @@ from .behavior_plane import (
     BCL_PLANE_UNCLASSIFIED,
 )
 from .schema import SCHEMA_VERSION
-from .primary_path_authority import PRIMARY_PATH_ROUTE_ID
+from .primary_path_authority import (
+    PPA_BEHAVIOR_DELEGATE_TO_PRIMARY,
+    PPA_BEHAVIOR_NO_OP,
+    PPA_DISPOSITION_DELEGATE_TO_PRIMARY,
+    PPA_DISPOSITION_DELETE,
+    PPA_DISPOSITION_PRESERVE_FACADE,
+    PPA_TRIGGER_NEVER,
+    PRIMARY_PATH_ROUTE_ID,
+    FallbackPathCandidate,
+    PrimaryPathAuthorityPlan,
+    PrimaryPathContract,
+    review_primary_path_authority,
+)
 
 
 BEHAVIOR_COMMITMENT_ROUTE_ID = "behavior_commitment_ledger"
@@ -3378,6 +3396,268 @@ def behavior_commitment_risk_gate_ids(report: BehaviorCommitmentCoverageReport) 
     return tuple(dict.fromkeys(base + report.required_risk_gate_ids))
 
 
+# Model kit: the plan grows or shrinks by commitments and paths; the ledger review, a static scan of the real
+# tests and the primary-path review are the invariants.
+@dataclass(frozen=True)
+class BehaviorPlan:
+    """What a behavior-commitment model explores: the promise ledger and, for its path-sensitive promises,
+    the primary-path authority plan.  Either part may be None."""
+
+    ledger: BehaviorCommitmentLedger | None = None
+    authority: PrimaryPathAuthorityPlan | None = None
+
+
+def _ledger_of(plan: Any) -> BehaviorCommitmentLedger | None:
+    return plan if isinstance(plan, BehaviorCommitmentLedger) else getattr(plan, "ledger", None)
+
+
+def _authority_of(plan: Any) -> PrimaryPathAuthorityPlan | None:
+    return plan if isinstance(plan, PrimaryPathAuthorityPlan) else getattr(plan, "authority", None)
+
+
+def _with_ledger(plan: Any, ledger: BehaviorCommitmentLedger) -> Any:
+    return ledger if isinstance(plan, BehaviorCommitmentLedger) else replace(plan, ledger=ledger)
+
+
+def _with_authority(plan: Any, authority: PrimaryPathAuthorityPlan) -> Any:
+    return authority if isinstance(plan, PrimaryPathAuthorityPlan) else replace(plan, authority=authority)
+
+
+def _put(items: tuple, item: Any, key) -> tuple:
+    """Replace the item with the same key in place, or append it."""
+    if any(key(existing) == key(item) for existing in items):
+        return tuple(item if key(existing) == key(item) else existing for existing in items)
+    return items + (item,)
+
+
+def _registered(expected: tuple[str, ...], new: Sequence[str]) -> tuple[str, ...]:
+    """An expected inventory the plan already keeps also lists the new ids; an empty one stays empty."""
+    return tuple(dict.fromkeys((*expected, *(value for value in new if value)))) if expected else expected
+
+
+def add_commitment(plan: Any, commitment: BehaviorCommitment | str, *surfaces: BehaviorSourceSurface) -> Any:
+    """Plan edit for a behavior-commitment model: add a promise (or replace the one with the same id).
+
+    ``commitment`` is a ``BehaviorCommitment`` or the id of one already in the ledger (to map more surfaces,
+    such as an alias or a second UI, to it).  Each surface is added (or replaces the one with the same id) and
+    linked both ways with the commitment.  Expected inventories the ledger already keeps also list the new ids.
+    """
+    ledger = _ledger_of(plan)
+    if isinstance(commitment, str):
+        commitment = next(c for c in ledger.commitments if c.commitment_id == commitment)
+    commitment = _coerce_commitment(commitment)
+    linked = []
+    for surface in map(_coerce_surface, surfaces):
+        linked.append(replace(
+            surface, commitment_ids=tuple(dict.fromkeys((*surface.commitment_ids, commitment.commitment_id))),
+            business_intent_ids=tuple(dict.fromkeys((*surface.business_intent_ids, commitment.business_intent_id)))
+            if commitment.business_intent_id else surface.business_intent_ids))
+    commitment = replace(commitment, source_surface_ids=tuple(dict.fromkeys(
+        (*commitment.source_surface_ids, *(surface.surface_id for surface in linked)))))
+    sources = ledger.source_surfaces
+    for surface in linked:
+        sources = _put(sources, surface, lambda s: s.surface_id)
+    return _with_ledger(plan, replace(
+        ledger, commitments=_put(ledger.commitments, commitment, lambda c: c.commitment_id), source_surfaces=sources,
+        expected_commitment_ids=_registered(ledger.expected_commitment_ids, [commitment.commitment_id]),
+        expected_business_intent_ids=_registered(ledger.expected_business_intent_ids, [commitment.business_intent_id]),
+        expected_source_surface_ids=_registered(ledger.expected_source_surface_ids, [s.surface_id for s in linked])))
+
+
+def retire_commitment(plan: Any, commitment_id: str, reason: str, *, owner: str = "",
+                      replacement_commitment_id: str = "") -> Any:
+    """Plan edit: a promise leaves service.
+
+    The commitment stays in the ledger, out of scope with a closing disposition: removed, or replaced by
+    ``replacement_commitment_id``.  Its intent leaves the expected intents unless another active commitment
+    keeps it, and surfaces that map only to it leave scope (disposition ``scoped``) with the same reason.
+    Each disposition takes ``owner`` (default: the item's, the commitment's or the ledger's owner), the item's
+    or the commitment's validation boundary, and the item's rationale (default: ``reason``).
+    """
+    ledger = _ledger_of(plan)
+    old = next(c for c in ledger.commitments if c.commitment_id == commitment_id)
+
+    def closed(item):
+        return replace(item, in_scope=False, scoped_out_reason=reason,
+                       owner=owner or item.owner or old.owner or ledger.owner,
+                       validation_boundary=item.validation_boundary or old.validation_boundary or ledger.validation_boundary,
+                       rationale=item.rationale or reason)
+
+    retired = replace(closed(old), replacement_state=BCL_REPLACEMENT_REPLACED if replacement_commitment_id
+                      else BCL_REPLACEMENT_REMOVED_SCOPED_OUT,
+                      metadata=dict(old.metadata, replacement_commitment_id=replacement_commitment_id)
+                      if replacement_commitment_id else old.metadata)
+    commitments = tuple(retired if c.commitment_id == commitment_id else c for c in ledger.commitments)
+    kept = {c.business_intent_id for c in commitments if c.active_external_commitment()}
+    surfaces = tuple(replace(closed(s), coverage_disposition=BCL_DISPOSITION_SCOPED, commitment_ids=())
+                     if s.in_scope and set(s.commitment_ids) == {commitment_id} else s for s in ledger.source_surfaces)
+    return _with_ledger(plan, replace(
+        ledger, commitments=commitments, source_surfaces=surfaces,
+        expected_business_intent_ids=tuple(i for i in ledger.expected_business_intent_ids
+                                           if i != old.business_intent_id or i in kept)))
+
+
+def add_path(plan: Any, path: PrimaryPathContract | FallbackPathCandidate) -> Any:
+    """Plan edit: add a primary path or another path to the same result (or replace the one with the same id).
+
+    A ``PrimaryPathContract`` that names ``replaces_primary_path_id`` replaces that primary path.  Expected
+    inventories the authority plan already keeps also list the new ids.
+    """
+    authority = _authority_of(plan)
+    if isinstance(path, PrimaryPathContract):
+        kept = tuple(p for p in authority.primary_paths if p.business_path_id != path.replaces_primary_path_id
+                     or p.business_path_id == path.business_path_id)
+        authority = replace(
+            authority, primary_paths=_put(kept, path, lambda p: p.business_path_id),
+            expected_business_intent_ids=_registered(authority.expected_business_intent_ids, [path.business_intent_id]),
+            expected_surface_ids=_registered(authority.expected_surface_ids, path.source_surface_ids))
+    else:
+        authority = replace(
+            authority, fallback_candidates=_put(authority.fallback_candidates, path, lambda c: c.candidate_path_id),
+            expected_candidate_ids=_registered(authority.expected_candidate_ids, [path.candidate_path_id]),
+            expected_surface_ids=_registered(authority.expected_surface_ids, [path.source_surface_id]))
+    return _with_authority(plan, authority)
+
+
+def retire_path(plan: Any, path_id: str, reason: str, disposition: str = PPA_DISPOSITION_DELETE) -> Any:
+    """Plan edit: another path to the same result leaves service.
+
+    The candidate keeps its inventory row with a closing ``disposition`` (default ``delete``), out of scope with
+    ``reason``; it no longer runs or returns success when the primary path fails.  A primary path is retired by
+    adding its replacement (``add_path`` with ``replaces_primary_path_id``).
+    """
+    authority = _authority_of(plan)
+    if any(p.business_path_id == path_id for p in authority.primary_paths):
+        raise ValueError(f"{path_id} is a primary path: add its replacement with add_path(replaces_primary_path_id=...)")
+    return _with_authority(plan, replace(authority, fallback_candidates=tuple(
+        replace(c, disposition=disposition, in_scope=False, scoped_out_reason=reason, candidate_trigger=PPA_TRIGGER_NEVER,
+                candidate_behavior=PPA_BEHAVIOR_NO_OP, invokes_on_primary_failure=False,
+                returns_success_after_primary_failure=False)
+        if c.candidate_path_id == path_id else c for c in authority.fallback_candidates)))
+
+
+def _file_of(anchor: str) -> str:
+    return anchor.partition(":")[0]
+
+
+def _test_touch_problems(commitment: BehaviorCommitment, facts: Any, seen: dict) -> list[str]:
+    """Static: every entrypoint is imported or called by one of the commitment's test files and every test file
+    imports or calls one of its entrypoints.  Missing files are left to the anchor check."""
+    entries = [e for e in dict.fromkeys(commitment.entrypoints) if ":" in e and (facts.root / _file_of(e)).is_file()]
+    files = [f for f in dict.fromkeys(map(_file_of, commitment.tests)) if (facts.root / f).is_file()]
+    if not entries or not files:
+        return []
+    for entry in entries:
+        for test_file in files:
+            if (entry, test_file) not in seen:
+                seen[entry, test_file] = bool(facts.symbol_references(entry, [test_file]))
+    idle = [f for f in files if not any(seen[e, f] for e in entries)]
+    problems = [f"{f} never imports or calls {', '.join(entries)}" for f in idle]
+    if len(idle) < len(files):
+        problems += [f"no test of {commitment.commitment_id} imports or calls {e} (tests: {', '.join(files)})"
+                     for e in entries if not any(seen[e, f] for f in files)]
+    return problems
+
+
+def _test_touch_report(ledger: BehaviorCommitmentLedger, facts: Any, seen: dict) -> BehaviorCommitmentCoverageReport:
+    findings = tuple(_finding("commitment_test_misses_entrypoint", problem, commitment_id=c.commitment_id)
+                     for c in ledger.commitments if c.in_scope for problem in _test_touch_problems(c, facts, seen))
+    return BehaviorCommitmentCoverageReport(
+        ok=not findings, ledger_id=ledger.ledger_id, findings=findings,
+        decision=BCL_DECISION_BLOCKED if findings else BCL_DECISION_GREEN,
+        confidence=BCL_CONFIDENCE_BLOCKED if findings else BCL_CONFIDENCE_FULL)
+
+
+def behavior_commitment_explorer(initial, edits, *, explore=None, max_sequence_length: int = 2, root=None):
+    """Behavior-commitment model: named edits add or retire commitments and paths; every plan reached must pass.
+
+    The plan is a ``BehaviorCommitmentLedger``, a ``PrimaryPathAuthorityPlan`` or a ``BehaviorPlan`` holding both.
+    Invariants for a ledger: ``behavior_commitment_review_accepts`` (``review_behavior_commitment_ledger`` with
+    the project root, so entrypoint and test anchors must exist) and ``commitment_tests_touch_entrypoints`` (a
+    static scan of the real tests under ``root``, default the current directory: each test file of a commitment
+    imports or calls one of its entrypoints, and each entrypoint is imported or called by one of its test
+    files).  For an authority plan: ``primary_path_authority_review_accepts`` (``review_primary_path_authority``).
+    """
+    from .kit import plan_explorer
+    from .map.facts import CodeFacts
+
+    sample, facts, seen = initial(), CodeFacts(root), {}
+    reviews: dict[str, Any] = {}
+    if _ledger_of(sample) is not None:
+        reviews["behavior_commitment_review_accepts"] = lambda plan: review_behavior_commitment_ledger(
+            _ledger_of(plan), project_root=facts.root)
+        reviews["commitment_tests_touch_entrypoints"] = lambda plan: _test_touch_report(_ledger_of(plan), facts, seen)
+    if _authority_of(sample) is not None:
+        reviews["primary_path_authority_review_accepts"] = lambda plan: review_primary_path_authority(_authority_of(plan))
+    if not reviews:
+        raise ValueError("a behavior-commitment model needs a ledger, a primary-path authority plan or both")
+    (name, review), *others = reviews.items()
+    return plan_explorer(initial, edits, review, explore=explore, invariant_name=name,
+                         max_sequence_length=max_sequence_length, extra_reviews=dict(others))
+
+
+def _names_code(value: str) -> bool:
+    from .map.common import SOURCE_EXTS
+
+    return ":" in value and Path(_file_of(value)).suffix in SOURCE_EXTS
+
+
+def behavior_commitment_code_facts(plan: Any, *, anchors=(), root=None):
+    """Compare a behavior plan with the real code (static code facts, nothing is executed).
+
+    * ledger: every in-scope commitment names its entrypoints and tests, they exist, its test files import or
+      call its entrypoints (both ways, as in ``behavior_commitment_explorer``);
+    * authority plan: a primary entrypoint that names code ('path:Symbol') exists; a path candidate that names
+      code is gone when its disposition is ``delete`` and exists otherwise, and one that delegates to the
+      primary path imports or calls the primary entrypoint;
+    * every anchor exists.
+    """
+    from .map.check import anchor_problems
+    from .map.facts import CodeFacts
+
+    facts, seen = CodeFacts(root), {}
+    if anchors:
+        facts.anchors_exist(anchors)
+    ledger, authority = _ledger_of(plan), _authority_of(plan)
+    for commitment in (c for c in (ledger.commitments if ledger else ()) if c.in_scope):
+        cid, named = commitment.commitment_id, tuple(dict.fromkeys((*commitment.entrypoints, *commitment.tests)))
+        facts.check(f"{cid} names its entrypoints and tests", bool(commitment.entrypoints and commitment.tests),
+                    "entrypoints or tests is empty")
+        problems = anchor_problems(facts.root, list(named))
+        for anchor in named:
+            facts.check(f"{cid}: {anchor} exists", anchor not in problems, problems.get(anchor, ""))
+        touch = _test_touch_problems(commitment, facts, seen)
+        facts.check(f"{cid}: its tests import or call its entrypoints", not touch, "; ".join(touch))
+    if authority is not None:
+        named = [p.primary_entrypoint_id for p in authority.primary_paths if _names_code(p.primary_entrypoint_id)]
+        named += [c.candidate_path_id for c in authority.fallback_candidates if _names_code(c.candidate_path_id)]
+        problems = anchor_problems(facts.root, named)
+        primary = {p.business_path_id: p.primary_entrypoint_id for p in authority.primary_paths}
+        for path in authority.primary_paths:
+            if _names_code(path.primary_entrypoint_id):
+                facts.check(f"primary path {path.business_path_id}: {path.primary_entrypoint_id} exists",
+                            path.primary_entrypoint_id not in problems, problems.get(path.primary_entrypoint_id, ""))
+        for candidate in authority.fallback_candidates:
+            anchor = candidate.candidate_path_id
+            if not _names_code(anchor):
+                continue
+            if candidate.disposition == PPA_DISPOSITION_DELETE:
+                facts.check(f"{anchor} is gone (disposition delete)", anchor in problems, f"{anchor} still exists")
+                continue
+            if not facts.check(f"{anchor} exists", anchor not in problems, problems.get(anchor, "")):
+                continue
+            target = primary.get(candidate.delegates_to_path_id or candidate.fallback_for_path_id, "")
+            if (candidate.candidate_behavior == PPA_BEHAVIOR_DELEGATE_TO_PRIMARY
+                    or candidate.disposition in (PPA_DISPOSITION_DELEGATE_TO_PRIMARY, PPA_DISPOSITION_PRESERVE_FACADE)) \
+                    and _names_code(target) and target not in problems:
+                own = _file_of(anchor) == _file_of(target)
+                calls = (len(facts.references(target.partition(":")[2].split(".")[-1], [_file_of(anchor)])) > 1 if own
+                         else bool(facts.symbol_references(target, [_file_of(anchor)])))
+                facts.check(f"{anchor} delegates to the primary path {target}", calls,
+                            f"{_file_of(anchor)} never imports or calls {target}")
+    return facts.report()
+
+
 __all__ = [
     "BCL_ACTOR_AI_AGENT",
     "BCL_ACTOR_APPLICATION",
@@ -3549,6 +3829,7 @@ __all__ = [
     "BehaviorEvidenceBinding",
     "BehaviorExternalDifference",
     "BehaviorLookupBinding",
+    "BehaviorPlan",
     "BehaviorSourceSurface",
     "behavior_commitment_contract_exhaustion_plan",
     "behavior_commitment_ledger_fingerprint",
@@ -3563,4 +3844,10 @@ __all__ = [
     "review_independent_behavior_inventory",
     "review_behavior_commitment_ledger",
     "write_behavior_commitment_ledger",
+    "add_commitment",
+    "add_path",
+    "behavior_commitment_code_facts",
+    "behavior_commitment_explorer",
+    "retire_commitment",
+    "retire_path",
 ]

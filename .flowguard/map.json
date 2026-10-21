@@ -158,7 +158,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:5531fde483e3a2a325dd35e146710d53371685ed0e9eb588bb33bbd5d9b4b3f3"
+      "fingerprint": "sha256:45767167642c1f4c113f3cef3a1700fa25eacfa9e5948d33c8cd99e0b25f6d5d"
     },
     {
       "id": "public-api",
@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:529cf669998a304a64e030caad287f9c1d7d5ab44806144b9e90b216bfb45c62"
+      "fingerprint": "sha256:e931a1c196be7e9b8177834a1aaf84bd9c38258ab9b55e34506a05b587de3cdf"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f6fc85d3802da7397ba14e9e86db727cd0dff1c84512bdc26ab71f96cea8dab1"
+      "fingerprint": "sha256:e1c7de87d411001e3bf8487cc18aac5b89c43983a9286a9b24c789ae93918528"
     },
     {
       "id": "behavior-commitment",
@@ -240,7 +240,8 @@
       "responsibilities": [
         "register each external promise with one owner and tests",
         "block silent fallback from a failed primary path",
-        "with a project root, require each promise to name its entrypoint and tests as anchors that exist"
+        "with a project root, require each promise to name its entrypoint and tests as anchors that exist",
+        "model kit: explore added or retired commitments and paths with the ledger and primary-path reviews and a static scan of the real tests as invariants (a commitment whose test never imports or calls its entrypoint is a counterexample) and compare the target plan with the code"
       ],
       "files": [
         "flowguard/behavior_commitment.py",
@@ -261,7 +262,10 @@
         "contract-exhaustion",
         "engine-core",
         "shared-vocabulary",
-        "map-analysis"
+        "map-analysis",
+        "engine-conformance",
+        "map-inventory",
+        "map-proof"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
@@ -281,7 +285,7 @@
         ".flowguard/models/primary_path_authority.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ebfd513f0c3899715da9cf07fc07536abc0d3e2d93f6d9047cd6da8fe5ed2896"
+      "fingerprint": "sha256:743f580f7ccc31455dca9afad8e7a22c1c986c1a1b97576e481f476de8605847"
     },
     {
       "id": "architecture-reduction",
