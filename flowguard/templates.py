@@ -44,8 +44,6 @@ from .template_text.model_mesh import (
 )
 from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
-    CONTRACT_EXHAUSTION_RUN_CHECKS_TEMPLATE,
-    CONTRACT_EXHAUSTION_NOTES_TEMPLATE,
 )
 from .template_text.topology_hazard import (
     TOPOLOGY_HAZARD_MODEL_TEMPLATE,
@@ -162,14 +160,7 @@ def model_mesh_template_files() -> tuple[TemplateFile, ...]:
 
 def contract_exhaustion_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(
-            ".flowguard/models/owners/contract_exhaustion/model.py",
-            CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
-        ),
-        TemplateFile(
-            ".flowguard/verification/owners/contract_exhaustion/run_checks.py",
-            CONTRACT_EXHAUSTION_RUN_CHECKS_TEMPLATE,
-        ),
+        TemplateFile(".flowguard/models/contract_exhaustion.py", CONTRACT_EXHAUSTION_MODEL_TEMPLATE),
     )
 
 

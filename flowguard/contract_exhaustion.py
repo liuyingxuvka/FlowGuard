@@ -1788,7 +1788,8 @@ class ContractExhaustionReport:
             "=== flowguard contract exhaustion mesh ===",
             f"plan_id: {self.plan_id}",
             f"decision: {self.decision}",
-            f"confidence: {self.confidence} (declared scope; no code executed)",
+            f"declared scope: {self.confidence} (declared only; no code executed - "
+            "execute_contract_cases runs the cases against the real function)",
             f"generated_cases: {len(self.generated_cases)}",
             f"combination_cases: {len(self.combination_cases)}",
         ]
@@ -4138,6 +4139,45 @@ def contract_exhaustion_to_coverage_receipt_ids(report: ContractExhaustionReport
     return _unique(receipt.receipt_id for receipt in report.coverage_receipts if receipt.receipt_id)
 
 
+def contract_exhaustion_cases(plan: ContractExhaustionPlan, *, accepted: Sequence[str] = ()):
+    """Case table of a contract-exhaustion model.
+
+    The review must accept the plan (finite boundary, an oracle for every case); every generated bad case
+    must then be rejected, and each name in ``accepted`` is a valid input that must be accepted.
+    """
+    from .kit import Case
+
+    report = review_contract_exhaustion(plan)
+    if not report.ok:
+        raise ValueError("review_contract_exhaustion blocks the plan:\n" + report.format_text())
+    return tuple(Case(case.case_id, False) for case in report.generated_cases) + tuple(Case(name, True) for name in accepted)
+
+
+def execute_contract_cases(cases, call, build_input, *, rejected=None):
+    """Replay conformance: run every case against the real function through a small adapter.
+
+    ``build_input(case)`` returns the call's arguments (a tuple, or a dict of keyword arguments), or None when
+    it cannot build that case: the case then stays declared only and conformance fails.  A case counts as
+    rejected when the call raises (an ImportError is an environment error, not a rejection) or when
+    ``rejected(result)`` is true.  The report states how many cases were executed against the code.
+    """
+    from .kit import case_table_conformance
+
+    def observe(case):
+        arguments = build_input(case)
+        if arguments is None:
+            return None
+        try:
+            result = call(**arguments) if isinstance(arguments, dict) else call(*arguments)
+        except ImportError:
+            raise
+        except Exception:  # noqa: BLE001 - raising is how real code rejects a bad input
+            return False
+        return not (rejected(result) if rejected else False)
+
+    return case_table_conformance(cases, observe)
+
+
 __all__ = (
     "CONTRACT_DIMENSION_EVIDENCE",
     "CONTRACT_DIMENSION_FIELD",
@@ -4229,12 +4269,14 @@ __all__ = (
     "artifact_payload_cases_to_contract_cases",
     "build_contract_product_signature",
     "contract_fault_profiles_from_report",
+    "contract_exhaustion_cases",
     "contract_exhaustion_to_composite_handoff_acceptance_ids",
     "contract_exhaustion_to_coverage_receipt_ids",
     "contract_exhaustion_to_model_obligations",
     "contract_exhaustion_to_risk_gate_ids",
     "contract_exhaustion_to_test_mesh_cell_ids",
     "contract_exhaustion_to_test_mesh_shard_ids",
+    "execute_contract_cases",
     "family_bad_case_seed_to_contract_cases",
     "model_mesh_closure_to_contract_cases",
     "review_contract_exhaustion",

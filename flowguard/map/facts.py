@@ -208,4 +208,34 @@ class CodeFacts:
         return CodeFactsReport(tuple(self.facts))
 
 
-__all__ = ["AnchorWatch", "CodeFacts", "CodeFactsReport", "Fact"]
+def load_anchor(anchor: str, root: str | Path | None = None):
+    """Import the object an anchor names ('path/to/module.py:Name' or ':Class.method') for replay."""
+    import importlib
+    import importlib.util
+
+    from .check import PLACEHOLDER_ANCHOR
+
+    path, _, symbol = anchor.partition(":")
+    if PLACEHOLDER_ANCHOR in anchor or not path.endswith(".py") or not symbol:
+        raise ValueError(f"placeholder anchor {anchor!r}: replace it with the real 'path:Symbol' this model is about"
+                         if PLACEHOLDER_ANCHOR in anchor else f"anchor {anchor!r} must look like 'path/to/module.py:Name'")
+    dotted = path[:-3].replace("/", ".").removesuffix(".__init__")
+    module = None
+    for name in (dotted, dotted.removeprefix("src.")):
+        try:
+            module = importlib.import_module(name)
+            break
+        except ModuleNotFoundError as exc:
+            if exc.name is None or not name.startswith(exc.name):
+                raise
+    if module is None:
+        spec = importlib.util.spec_from_file_location(f"_flowguard_anchor_{dotted}", Path(root or Path.cwd()) / path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    value = module
+    for part in symbol.split("."):
+        value = getattr(value, part)
+    return value
+
+
+__all__ = ["AnchorWatch", "CodeFacts", "CodeFactsReport", "Fact", "load_anchor"]

@@ -3,6 +3,8 @@ from dataclasses import replace
 from tempfile import TemporaryDirectory
 
 from flowguard import (
+    contract_exhaustion_cases,
+    execute_contract_cases,
     CONTRACT_DIMENSION_FIELD,
     CONTRACT_DIMENSION_INPUT,
     CONTRACT_DIMENSION_PAYLOAD,
@@ -1009,6 +1011,45 @@ class ContractExhaustionTests(unittest.TestCase):
             closure_cases[0].mutation_type,
         )
         self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
+
+
+
+def _place(order_id, amount):
+    if not isinstance(order_id, str) or not order_id:
+        raise ValueError("order_id")
+    if not isinstance(amount, int) or amount <= 0:
+        return None
+    return "placed"
+
+
+_PLAN = ContractExhaustionPlan(
+    "place-contract",
+    dimensions=(ContractDimension("order_id", "input", values=("o1",), mutation_types=("missing_required_field", "empty_value")),
+                ContractDimension("amount", "input", values=(5,), mutation_types=("wrong_type",))),
+    oracles=(ContractOracle("oracle:reject", expected_status="blocked"),), claim_scope="routine")
+_BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": "five"}
+
+
+def _build(case):
+    if case.name == "valid":
+        return ("o1", 5)
+    _, argument, mutation = case.name.split(":")
+    return {"order_id": "o1", "amount": 5, argument: _BAD[mutation]}
+
+
+def test_contract_exhaustion_runs_the_generated_cases_against_the_real_function():
+    cases = contract_exhaustion_cases(_PLAN, accepted=("valid",))
+    assert [case.accept for case in cases] == [False, False, False, True]
+    report = execute_contract_cases(cases, _place, _build, rejected=lambda result: result is None)
+    assert report.ok and report.executed == 4, report.format_text()
+    lax = execute_contract_cases(cases, lambda order_id, amount: "placed", _build)
+    assert not lax.ok and lax.format_text().startswith(
+        "executed against code: 4 of 4 cases; declared only: 0; disagree with the model: 3")
+    partial = execute_contract_cases(cases, _place, lambda case: None if case.name == "valid" else _build(case),
+                                     rejected=lambda result: result is None)
+    assert not partial.ok and "declared only: 1" in partial.format_text()
+    text = review_contract_exhaustion(_PLAN).format_text()
+    assert "confidence: full" not in text and "declared only" in text
 
 
 if __name__ == "__main__":

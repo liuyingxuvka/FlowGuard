@@ -240,15 +240,19 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("missing", output.lower())
         self.assertNotIn("negative-case matrix: PASS", output)
 
-    def test_contract_exhaustion_template_executes_and_exposes_negative_fixture(self):
-        output = self.run_written_template(
-            contract_exhaustion_template_files(),
-            (".flowguard", "verification", "owners", "contract_exhaustion"),
-        )
-        self.assertIn("flowguard contract exhaustion mesh", output)
-        self.assertIn("decision:", output)
-        self.assertIn("missing", output.lower())
-        self.assertNotIn("negative-case matrix: PASS", output)
+    def test_contract_exhaustion_template_runs_the_bad_cases_against_the_real_function(self):
+        files = contract_exhaustion_template_files()
+        strict = {"shop/orders.py": "def place(order_id, amount):\n"
+                  "    if not isinstance(order_id, str) or not order_id or not isinstance(amount, int):\n"
+                  "        raise ValueError('bad input')\n    return 'placed'\n"}
+        lax = {"shop/orders.py": "def place(order_id, amount):\n    return 'placed'\n"}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "contract_exhaustion", strict,
+                                                                  expected_returncode=1))
+        self.assertIn("PASS  contract_exhaustion", self.run_kit_template(files, "contract_exhaustion", strict,
+                                                                         fill="shop", expected_returncode=0))
+        output = self.run_kit_template(files, "contract_exhaustion", lax, fill="shop", expected_returncode=1)
+        self.assertIn("executed against code: 7 of 7 cases; declared only: 0; disagree with the model: 6", output)
+        self.assertIn("contract:order_id:missing_required_field: expected rejected, observed accepted", output)
 
     def test_code_structure_recommendation_template_executes(self):
         output = self.run_written_template(

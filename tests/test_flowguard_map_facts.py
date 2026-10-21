@@ -61,3 +61,21 @@ def test_anchor_watch_counts_calls_and_reads_but_not_imports(tmp_path):
         sys.path.remove(str(root))
         sys.modules.pop("shop.orders", None)
         sys.modules.pop("shop", None)
+
+
+def test_load_anchor_imports_the_named_code_and_rejects_placeholders(tmp_path):
+    import pytest
+
+    from flowguard.map.facts import load_anchor
+
+    root = _project(tmp_path)
+    sys.path.insert(0, str(root))
+    try:
+        assert load_anchor("shop/orders.py:Order.mode") == "fast"
+        assert load_anchor("shop/orders.py:place", root)(load_anchor("shop/orders.py:Order")()) == "fast"
+        with pytest.raises(ValueError, match="placeholder anchor"):
+            load_anchor("REPLACE_ME/orders.py:place")
+    finally:
+        sys.path.remove(str(root))
+        sys.modules.pop("shop.orders", None)
+        sys.modules.pop("shop", None)

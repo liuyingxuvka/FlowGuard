@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9e5d42f3b722b77916e900b80fa6cb7a02415e87445126c23be58cd6a10f80ee"
+      "fingerprint": "sha256:4871aa54c406a4b5ff84b98863c6ab2ed3650a91fdd2b6d75275549752785dce"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bb52e9fbff0f63430224d7237faca0597bab11436e14cf39279990fb176698f5"
+      "fingerprint": "sha256:09f8c9f0a9c2fb0a4c2ee9a21900a55511629c7d839988fd1cafd9bfa24e5a8d"
     },
     {
       "id": "behavior-commitment",
@@ -351,7 +351,8 @@
       "summary": "Enumerates a finite contract boundary and its expected reactions.",
       "responsibilities": [
         "generate every bad case and combination of a finite boundary",
-        "require an oracle for every generated case"
+        "require an oracle for every generated case",
+        "model kit: run every generated bad case against the real function and report executed against code versus declared only"
       ],
       "files": [
         "flowguard/contract_exhaustion.py"
@@ -364,7 +365,8 @@
       "depends_on": [
         "engine-core",
         "model-test",
-        "shared-vocabulary"
+        "shared-vocabulary",
+        "engine-conformance"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
@@ -374,7 +376,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fa081f0ba3e4a06e1c2352cc3eb2b12ff215d15a46dbfb3f46e1fa0ca3f9586b"
+      "fingerprint": "sha256:fc0bd1973d10e3def6782cf25ce755f8805395d0405df06c7f102f5352928299"
     },
     {
       "id": "field-lifecycle",
@@ -740,7 +742,7 @@
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
         "run models and their known-bad and conformance checks",
-        "observe which IMPLEMENTED_BY anchors a model consulted (called or read) and give conformance a static code-facts reader",
+        "observe which IMPLEMENTED_BY anchors a model consulted (called or read); give conformance a static code-facts reader and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
       "files": [
@@ -769,7 +771,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e969e30b0a36f8ad1221800adff81dd47431d21c57327c1736626ce7f3e16cad"
+      "fingerprint": "sha256:ecc3c062c8048ad9aa3a0a86aa6153e741ff67ad8e28c74d164f1b00f5e1268f"
     },
     {
       "id": "engine-explore",

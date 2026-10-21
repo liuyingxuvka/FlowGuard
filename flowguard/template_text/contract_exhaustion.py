@@ -1,89 +1,61 @@
-"""Public target scaffold for finite ContractExhaustion coverage."""
+# Template text for the contract-exhaustion model kit.
 
 from __future__ import annotations
 
-CONTRACT_EXHAUSTION_MODEL_TEMPLATE = '''"""FlowGuard model
+CONTRACT_EXHAUSTION_MODEL_TEMPLATE = '''# FlowGuard model: every bad input of one function's finite contract is rejected (contract-exhaustion kit).
+#
+# Input universe: the bad cases review_contract_exhaustion generates from the declared boundary, plus the
+# valid call.  Invariant: every case gets the verdict of the case table (bad cases rejected, the valid call
+# accepted); the review must accept the plan (finite boundary, an oracle for every case).
+# Known-bad: designs that accept every case or reject every case.
+# Conformance (replay): each case runs against the real function; a case counts as rejected when the call
+# raises or returns a rejection.  The report says how many cases were executed against the code.
+# Fill in: replace REPLACE_ME with the module and function you protect, declare its arguments in VALID and
+# the bad values in BAD, list this file in the owning component's models in .flowguard/map.json, then run:
+# python -m flowguard map models contract_exhaustion
 
-Purpose: Review a finite denominator, oracle, and shard-owned contract-exhaustion boundary.
-Guards against: observed-only coverage, missing oracles, duplicate case IDs, hidden reject cases, and unbounded products.
-Use before editing: Update this ContractExhaustion model when a finite dimension, member universe, oracle, or shard changes.
-Run: python -m flowguard map models contract_exhaustion
-"""
+from flowguard import (ContractDimension, ContractExhaustionPlan, ContractOracle, case_table_explorer,
+                       case_table_variants, contract_exhaustion_cases, execute_contract_cases)
+from flowguard.map.facts import load_anchor
 
-from __future__ import annotations
-
-from flowguard import (
-    ContractDimension,
-    ContractExhaustionPlan,
-    ContractOracle,
-    review_contract_exhaustion,
-)
+MODEL_ID = "contract_exhaustion"
+IMPLEMENTED_BY = {"place": "REPLACE_ME/orders.py:place"}      # the function whose bad inputs must be rejected
+# TESTED_BY = {"verdict_matches_case": ["tests/test_orders.py:test_place_rejects_bad_input"]}
+VALID = {"order_id": "o1", "amount": 5}                      # one valid call; each bad case changes one argument
+BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": object()}
 
 
-def finite_plan() -> ContractExhaustionPlan:
+def plan():
     return ContractExhaustionPlan(
-        "target-contract-exhaustion",
-        dimensions=(
-            ContractDimension(
-                "request-shape",
-                "input",
-                source_route="request-boundary",
-                owner_model_id="target-contract-model",
-                values=("valid", "missing", "malformed"),
-                mutation_types=("missing_required_field", "malformed_input"),
-                currentness_rule="member universe changes require a fresh inventory revision",
-            ),
-        ),
-        oracles=(
-            ContractOracle(
-                "oracle:request-shape",
-                expected_status="blocked",
-                expected_message_fields=("error_code",),
-                forbidden_downstream_steps=("commit_side_effect",),
-            ),
-        ),
-        source_model_ids=("target-contract-model",),
-        claim_scope="routine",
-    )
+        "place-contract",
+        dimensions=tuple(ContractDimension(name, "input", values=(value,), mutation_types=tuple(BAD))
+                         for name, value in VALID.items()),
+        oracles=(ContractOracle("oracle:reject-before-side-effect", expected_status="blocked"),),
+        claim_scope="routine")
 
 
-def run_checks():
-    good = review_contract_exhaustion(finite_plan())
-    bad = review_contract_exhaustion(ContractExhaustionPlan("missing-denominator"))
-    return good, bad
+def cases():
+    return contract_exhaustion_cases(plan(), accepted=("valid_call",))
+
+
+def build_explorer():
+    return case_table_explorer(cases())
+
+
+def broken_variants():
+    return case_table_variants(cases())
+
+
+def build_input(case):
+    if case.name == "valid_call":
+        return dict(VALID)
+    _, argument, mutation = case.name.split(":")
+    return {**VALID, argument: BAD[mutation]}
+
+
+def conformance():
+    place = load_anchor(IMPLEMENTED_BY["place"])
+    return execute_contract_cases(cases(), place, build_input, rejected=lambda result: result is None or result is False)
 '''
 
-CONTRACT_EXHAUSTION_RUN_CHECKS_TEMPLATE = '''"""Run finite ContractExhaustion scaffold checks."""
-
-from model import run_checks
-
-
-def main() -> int:
-    good, bad = run_checks()
-    print(good.format_text())
-    print()
-    print(bad.format_text())
-    print()
-    return 0 if good.ok and not bad.ok else 1
-
-
-if __name__ == "__main__":
-    from flowguard.map.runner import run_owner
-    raise SystemExit(run_owner(main))
-'''
-
-CONTRACT_EXHAUSTION_NOTES_TEMPLATE = """# FlowGuard ContractExhaustion Notes
-
-Declare a finite dimension and its complete member universe before generating
-cases.  Every accepted/rejected combination needs a stable case ID and an
-oracle; exclusions require proof. Use a shard owner and native result evidence
-when executing cases; add handoffs only when those owners are actually needed.  Do not hide a rejected
-case behind fallback normalization, and do not claim exhaustive coverage
-from observed examples alone.
-"""
-
-__all__ = [
-    "CONTRACT_EXHAUSTION_MODEL_TEMPLATE",
-    "CONTRACT_EXHAUSTION_RUN_CHECKS_TEMPLATE",
-    "CONTRACT_EXHAUSTION_NOTES_TEMPLATE",
-]
+__all__ = ["CONTRACT_EXHAUSTION_MODEL_TEMPLATE"]

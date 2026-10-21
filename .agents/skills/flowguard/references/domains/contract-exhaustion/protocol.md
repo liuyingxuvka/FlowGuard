@@ -37,10 +37,10 @@ rejected before any write happens.
 
 ## Steps
 1. Reuse or update the owner's finite native boundary/review. Only if a reusable boundary is missing,
-   scaffold with `python -m flowguard template contract-exhaustion --write .`.
-   It writes owner `model.py` and `.flowguard/verification/owners/contract_exhaustion/run_checks.py`.
-   For a second model, rename both directories and fix `_MODEL_DIR` in `run_checks.py`.
-2. Declare the boundary in the selected owner plan (`model.py` only if persisted), using the real API:
+   scaffold with `python -m flowguard template contract-exhaustion --write .`. It writes one contract model,
+   `.flowguard/models/contract_exhaustion.py`, whose `REPLACE_ME` anchor fails until it names your function.
+   For a second model, copy the file under a new name and change `MODEL_ID`.
+2. Declare the boundary in the selected plan, using the real API:
    `from flowguard import ContractDimension, ContractAxis, ContractInteractionGroup, ContractOracle, ContractExhaustionPlan, review_contract_exhaustion`.
    - `ContractDimension(dimension_id, dimension_type, values=..., mutation_types=..., finite=True)`
      for single-field bad cases. Types include `field`, `input`, `state`, `payload`.
@@ -53,30 +53,14 @@ rejected before any write happens.
    `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
    `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
-5. If persisting a runner, return the good and bad reports from `run_checks()` and update `main()`
-   in `run_checks.py` to match (the template returns two reports). The runner must
-   exit 0 only when the good plan is `ok` and every bad plan is not `ok`:
-
-```python
-def run_checks():
-    good = review_contract_exhaustion(finite_plan())
-    bad = [review_contract_exhaustion(p) for p in broken_plans()]
-    return good, bad
-
-# run_checks.py: keep the template's model import and run_owner completion wrapper
-from flowguard.map.runner import run_owner
-
-def main():
-    good, bad = run_checks()
-    return 0 if good.ok and not any(r.ok for r in bad) else 1
-
-if __name__ == "__main__":
-    raise SystemExit(run_owner(main))
-```
-
-6. If a persistent runner was created or changed, list it in the owner's `models` in `.flowguard/map.json`:
-   `".flowguard/verification/owners/contract_exhaustion/run_checks.py"`.
-   Run it: `python -m flowguard map models contract_exhaustion` (exit 0 = pass).
+5. In the model, `contract_exhaustion_cases(plan(), accepted=("valid_call",))` is the case table (every
+   generated bad case must be rejected, the valid call accepted); `build_explorer()` and `broken_variants()`
+   use `case_table_explorer` / `case_table_variants`. `conformance()` runs the cases against the real
+   function: `execute_contract_cases(cases, load_anchor(IMPLEMENTED_BY["place"]), build_input, rejected=...)`.
+   A case is rejected when the call raises or `rejected(result)` is true; its report says
+   `executed against code: N of M cases`. A case `build_input` cannot build stays declared only and fails.
+6. List the model in the owner's `models` in `.flowguard/map.json` and run
+   `python -m flowguard map models contract_exhaustion` (exit 0 = pass).
 7. Hand case ids to tests. `contract_exhaustion_to_test_mesh_cell_ids(report)` gives
    product ids (`cartesian:<model>:<group>:<n>`); it is empty for single-field cases.
    `contract_exhaustion_to_model_obligations(report)` covers every case
@@ -111,13 +95,13 @@ if __name__ == "__main__":
 - [ ] The selected direct native review or existing-owner check passes (good plan `ok`).
 - [ ] Relevant broken plans fail with the expected code (assert the code, not only `not ok`).
 - [ ] Each required case id has a test, and those tests are in the component's `tests`.
-- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
+- [ ] The model is registered and `map models <id>` passes: every case was executed against the code.
 - [ ] `python -m flowguard change` is clean.
 - [ ] Report which models and tests ran, the claim scope used, and what was skipped.
 
 ## Limits
 - It only exhausts what you declared. A missing dimension or axis is a model gap
-  the review cannot see. It does not run the code; pair every case id with a real test.
-- Keep `claim_scope="routine"`. "confidence: full" in the report means the declared scope is
-  complete; no code was executed.
+  the review cannot see. The review itself runs no code (its report says "declared only");
+  `execute_contract_cases` in the model's conformance is what runs the cases against the function.
+- Keep `claim_scope="routine"`.
 - Default oracles exist only for the built-in mutation types; custom types need an oracle.
