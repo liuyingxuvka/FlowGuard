@@ -218,3 +218,15 @@ def test_accepted_debts_mean_the_same_in_check_and_lint(tmp_path):
     write(tmp_path, "app.py", "import lib\n\ndef run():\n    open('out.txt', 'w').write('x')\n    return lib.VALUE\n")
     d, inv = _context(tmp_path)
     assert any(f.code == "debt_stale" and "loaded by path" in f.message for f in run_lint(tmp_path, d, inv))
+
+
+def test_change_prints_info_only_for_changed_owners(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "lib.py", "def save():\n    open('out.txt', 'w').write('x')\n")
+    data["components"].append({"id": "lib", "summary": "Lib", "responsibilities": ["save"], "files": ["lib.py"],
+                               "entrypoints": ["lib.py:save"], "tests": [], "models": [], "depends_on": [], "status": "draft"})
+    data["accepted_debts"] = [{"code": "entrypoint_unmodeled", "component": "lib", "reason": "covered by an integration test"}]
+    save(tmp_path, data)
+    main(["change", "--root", str(tmp_path), "app.py"])
+    out = capsys.readouterr().out
+    assert "INFO" not in out and "not repeated here" in out

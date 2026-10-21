@@ -147,11 +147,19 @@ def cmd_change(root: Path, a) -> int:
 
     data, inv = _context(root)
     changes = a.files or changed_files(root, a.base)
-    counts = print_findings(run_check(root, data, inv), "check", as_json=False, limit=80)
+    findings = run_check(root, data, inv)
     imp = compute_impact(root, data, inv, changes, base=a.base)
+    architecture = scoped_architecture_findings(root, data, inv, imp.direct)
+    # Info only for changed owners; a layer violation is shown once, as its ARCH line with import sites.
+    arch_layers = {f.component for f in architecture if f.code == "layer_violation"}
+    shown = [f for f in findings if (f.level != "info" or f.component in imp.direct)
+             and not (f.code == "layer_violation" and f.component in arch_layers)]
+    counts = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
+    print_findings(shown, "check", as_json=False, limit=80)
+    if len(shown) < len(findings):
+        print(f"({len(findings) - len(shown)} more finding(s) not repeated here: python -m flowguard map check)")
     print()
     print(render_impact(imp))
-    architecture = scoped_architecture_findings(root, data, inv, imp.direct)
     for finding in architecture:
         print(f"ARCH {finding.level.upper()} {finding.code} {finding.component}: {finding.message}")
     affected = set(imp.direct)

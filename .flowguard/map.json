@@ -172,7 +172,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e116611619749574ffd9a8e15253524822bc27770b610801cfe2d4697eb53765"
+      "fingerprint": "sha256:5562503a0c1070cf71288bc6113a77bb4f2e24a4e670e756565b6b67ac78cc40"
     },
     {
       "id": "public-api",
