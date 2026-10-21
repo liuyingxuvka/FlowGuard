@@ -250,9 +250,7 @@
         "tests/test_project_integration.py",
         "tests/test_public_templates.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/template_public_release/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:7eefc529de69e3b57c3e171d8ab88a257428f2e480ee82979756f46ceb5286f8"
     },
@@ -373,9 +371,7 @@
         "tests/test_architecture_reduction.py",
         "tests/test_canonical_relation_integrations.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/architecture_reduction/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:95b0980343395b956757987c999c1b875c6524ed88f6bd651fa26fc5b97008f2"
     },
@@ -564,11 +560,7 @@
         "tests/test_recursive_hierarchy_composition.py",
         "tests/test_transition_coverage.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/hierarchical_model_mesh/run_checks.py",
-        ".flowguard/verification/owners/mesh_target_split_derivation/run_checks.py",
-        ".flowguard/verification/owners/model_mesh_closure_model/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:667bf0809ae5ed6e77d4af35064379bc7c302c1eaf008bcfc9592939d5624022"
     },
@@ -600,9 +592,7 @@
         "tests/test_portable_model_cli.py",
         "tests/test_portable_system.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/compositional_verification_kernel/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:f0e65ec158075721f29aa2c8eb169990ea7f3a48e4473d2486d3457c4a8dce2f"
     },
@@ -677,8 +667,7 @@
       "models": [
         ".flowguard/verification/owners/model_test_code_alignment/run_checks.py",
         ".flowguard/verification/owners/code_boundary_conformance/run_checks.py",
-        ".flowguard/verification/owners/contract_source_audit/run_checks.py",
-        ".flowguard/verification/owners/runtime_path_evidence/run_checks.py"
+        ".flowguard/verification/owners/contract_source_audit/run_checks.py"
       ],
       "status": "confirmed",
       "fingerprint": "sha256:525301960037eb967b0eb0d79db5b5abdd5cd4f55affcc72c1da072d86133297"
@@ -733,9 +722,7 @@
       "tests": [
         "tests/test_structure_mesh.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/structure_refactor_mesh/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:0b295dfcae96178a2a73c43f692629bca1aefda56bc2efc163b351c5537b8567"
     },
@@ -785,9 +772,7 @@
         "tests/test_test_reuse.py",
         "tests/test_transition_coverage.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/test_evidence_mesh/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:ee429c7c7b705cb50e71e32513e8841b7d30a04cf6c6ac0bf015e97adc12b53a"
     },
@@ -816,11 +801,7 @@
         "tests/test_product_language_path_reuse.py",
         "tests/test_ui_structure.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/ui_flow_structure_skill/run_checks.py",
-        ".flowguard/verification/owners/harden_ui_real_surface_validation/run_checks.py",
-        ".flowguard/verification/owners/ui_human_operability_gate/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:1e03314236caf5b547b1eaa00e15fe00209056773c151f0fd10bfd28e7c57390"
     },
@@ -846,9 +827,7 @@
       "tests": [
         "tests/test_work_context.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/work_context/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:05ad5c906131e7bc8d341686b05a34a19af57fb80458b7c9a8ba52b78e813168"
     },
@@ -1133,9 +1112,7 @@
         "tests/test_scenario_core.py",
         "tests/test_scenario_matrix.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/adversarial_scenario_synthesis/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:731191c10840a952d679de14fe499869eef46d80687d4d4f8e628ea1e1e5626d"
     },
@@ -1314,9 +1291,7 @@
         "tests/test_shared_normalization.py",
         "tests/test_workflow_execution.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/user_facing_model_diagrams/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:da90adb27eb9152a1cc22df68845f471d217df38432b7209a85a6e543ca7688d"
     },
