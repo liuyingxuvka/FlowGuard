@@ -21,12 +21,6 @@ from .template_text.behavior_commitment_ledger import (
     BEHAVIOR_COMMITMENT_LEDGER_RUN_CHECKS_TEMPLATE,
     BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE,
 )
-from .template_text.development_process_flow import (
-    DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE,
-    DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE,
-    DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE,
-    DEVELOPMENT_PROCESS_STRATEGY_NOTES_TEMPLATE,
-)
 from .template_text.existing_model_preflight import (
     EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE,
     EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE,
@@ -57,11 +51,6 @@ from .template_text.model_test_alignment import (
     MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE,
     MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE,
     MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE,
-)
-from .template_text.plan_detailing import (
-    PLAN_DETAILING_MODEL_TEMPLATE,
-    PLAN_DETAILING_RUN_CHECKS_TEMPLATE,
-    PLAN_DETAILING_NOTES_TEMPLATE,
 )
 from .template_text.primary_path_authority import (
     PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE,
@@ -166,13 +155,6 @@ def risk_template_library_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def plan_detailing_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/plan_detailing/model.py", PLAN_DETAILING_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/plan_detailing/run_checks.py", PLAN_DETAILING_RUN_CHECKS_TEMPLATE),
-    )
-
-
 def behavior_commitment_ledger_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/behavior/inventory/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE),
@@ -227,13 +209,6 @@ def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def development_process_flow_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/development_process_flow/model.py", DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/development_process_flow/run_checks.py", DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE),
     )
 
 
@@ -386,9 +361,6 @@ __all__ = [
     "CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE",
     "CODE_STRUCTURE_RECOMMENDATION_RUN_CHECKS_TEMPLATE",
-    "DEVELOPMENT_PROCESS_FLOW_MODEL_TEMPLATE",
-    "DEVELOPMENT_PROCESS_FLOW_NOTES_TEMPLATE",
-    "DEVELOPMENT_PROCESS_FLOW_RUN_CHECKS_TEMPLATE",
     "EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE",
     "EXISTING_MODEL_PREFLIGHT_NOTES_TEMPLATE",
     "EXISTING_MODEL_PREFLIGHT_RUN_CHECKS_TEMPLATE",
@@ -411,9 +383,6 @@ __all__ = [
     "MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
-    "PLAN_DETAILING_MODEL_TEMPLATE",
-    "PLAN_DETAILING_NOTES_TEMPLATE",
-    "PLAN_DETAILING_RUN_CHECKS_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_MODEL_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_NOTES_TEMPLATE",
     "PRIMARY_PATH_AUTHORITY_RUN_CHECKS_TEMPLATE",
@@ -443,7 +412,6 @@ __all__ = [
     "behavior_commitment_ledger_template_files",
     "code_structure_recommendation_template_files",
     "contract_exhaustion_template_files",
-    "development_process_flow_template_files",
     "existing_model_preflight_template_files",
     "field_lifecycle_template_files",
     "maintenance_workflow_template_files",
@@ -452,7 +420,6 @@ __all__ = [
     "model_miss_review_template_files",
     "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
-    "plan_detailing_template_files",
     "primary_path_authority_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",

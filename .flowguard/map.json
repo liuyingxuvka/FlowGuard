@@ -31,7 +31,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "development-process",
         "engine-conformance",
         "engine-core",
         "engine-explore",
@@ -51,7 +50,6 @@
         "tests/test_duplicate_record_detection.py",
         "tests/test_evidence_baseline.py",
         "tests/test_executable_corpus.py",
-        "tests/test_flowguard_agent_workflow_rehearsal.py",
         "tests/test_flowguard_product_boundary.py",
         "tests/test_flowguard_skill_collaboration.py",
         "tests/test_flowguard_skill_trigger.py",
@@ -60,7 +58,6 @@
         "tests/test_job_matching_scenario_review.py",
         "tests/test_latest_schema_upgrade_policy.py",
         "tests/test_looping_workflow_review.py",
-        "tests/test_plan_detailing.py",
         "tests/test_problem_corpus.py",
         "tests/test_public_release_adoption_review.py",
         "tests/test_real_model_corpus.py",
@@ -70,7 +67,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:88f2feb6a074e872a54d1eb206dd4032283e30425fb62e26f4d51d9f637cd0c6"
+      "fingerprint": "sha256:b7dee1490095f4b89c792fb4ef99ba4a7682207b585669fdcaed2b6cb716ada2"
     },
     {
       "id": "tooling",
@@ -194,7 +191,6 @@
         "behavior-commitment",
         "code-structure",
         "contract-exhaustion",
-        "development-process",
         "engine-conformance",
         "engine-core",
         "engine-explore",
@@ -221,7 +217,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:267fb152cfa4626f863fe1bf8d777f4979a489606c6fc7d20564f7a716f04803"
+      "fingerprint": "sha256:8c09235996b79bfd63856b5724887c50334aef4c2420072e5742595549bcf6bf"
     },
     {
       "id": "templates",
@@ -250,7 +246,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9cd19824e62aab968987d4643086cde9e2887019ec70402807e625d2db530be6"
+      "fingerprint": "sha256:9aedd5346357c301145db6e3668931ba0d3d26008619e56a97769ba045033b19"
     },
     {
       "id": "existing-model",
@@ -435,54 +431,6 @@
       "fingerprint": "sha256:917162ac96cda3a215b19313dd4a95d197274d7280b9827589369e95834f140a"
     },
     {
-      "id": "development-process",
-      "layer": "capabilities",
-      "summary": "Tracks artifact changes and invalidates stale evidence.",
-      "responsibilities": [
-        "invalidate evidence when the artifact it covered changes",
-        "compute the minimum checks to rerun",
-        "review plans and agent workflows before work"
-      ],
-      "files": [
-        "flowguard/development_process_flow.py",
-        "flowguard/development_process_strategy.py",
-        "flowguard/_development_process_strategy_review.py",
-        "flowguard/development_process_simulator.py",
-        "flowguard/plan_detailing.py",
-        "flowguard/plan_intake.py",
-        "flowguard/agent_workflow_rehearsal.py"
-      ],
-      "entrypoints": [
-        "flowguard/development_process_flow.py:review_development_process_flow",
-        "flowguard/development_process_flow.py:derive_revalidation_plan"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core",
-        "engine-properties",
-        "public-api",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_code_structure.py",
-        "tests/test_development_process_flow.py",
-        "tests/test_development_process_simulator.py",
-        "tests/test_development_process_strategy.py",
-        "tests/test_development_process_strategy_benchmark.py",
-        "tests/test_model_miss_diagnostics.py",
-        "tests/test_plan_intake_claims.py",
-        "tests/test_step_contracts.py"
-      ],
-      "models": [
-        ".flowguard/verification/owners/development_process_flow/run_checks.py",
-        ".flowguard/verification/owners/development_process_strategy/run_checks.py",
-        ".flowguard/verification/owners/plan_detailing_compiler/run_checks.py"
-      ],
-      "status": "confirmed",
-      "fingerprint": "sha256:a1c1e8ed4adca5fd5af040518e6e58060b1c347412a5d7aed17be6e11aefc043"
-    },
-    {
       "id": "field-lifecycle",
       "layer": "capabilities",
       "summary": "Checks field vocabulary, readers, writers, defaults and replacements.",
@@ -584,7 +532,8 @@
       "files": [
         "flowguard/model_miss_diagnostics.py",
         "flowguard/recurring_model_miss.py",
-        "flowguard/legacy_path_disposition.py"
+        "flowguard/legacy_path_disposition.py",
+        "flowguard/plan_intake.py"
       ],
       "entrypoints": [
         "flowguard/model_miss_diagnostics.py:diagnose_false_negative_backpropagation"
@@ -593,20 +542,20 @@
       "side_effects": [],
       "depends_on": [
         "behavior-commitment",
-        "development-process",
         "engine-core",
         "shared-vocabulary"
       ],
       "tests": [
         "tests/test_behavior_plane_upgrade.py",
         "tests/test_model_miss_diagnostics.py",
+        "tests/test_plan_intake_claims.py",
         "tests/test_recurring_model_miss.py"
       ],
       "models": [
         ".flowguard/verification/owners/model_miss_review/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:7b5a1fa2a233b1e26880d0f3ff48e78b7bcbe00e2fe221c350858d3a509408a1"
+      "fingerprint": "sha256:1eb57bc31b74837eefd28a6194c3cad71c17030f48251581ec8febe49afae196"
     },
     {
       "id": "model-test",

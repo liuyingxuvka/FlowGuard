@@ -17,7 +17,6 @@ from flowguard.templates import (
     behavior_commitment_ledger_template_files,
     code_structure_recommendation_template_files,
     contract_exhaustion_template_files,
-    development_process_flow_template_files,
     existing_model_preflight_template_files,
     field_lifecycle_template_files,
     maintenance_workflow_template_files,
@@ -26,7 +25,6 @@ from flowguard.templates import (
     model_miss_review_template_files,
     model_test_alignment_full_template_files,
     model_test_alignment_template_files,
-    plan_detailing_template_files,
     primary_path_authority_template_files,
     risk_intent_template_files,
     risk_template_library_template_files,
@@ -52,7 +50,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     risk_intent_template_files,
     risk_template_library_template_files,
-    plan_detailing_template_files,
     behavior_commitment_ledger_template_files,
     primary_path_authority_template_files,
     model_miss_review_template_files,
@@ -62,7 +59,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
     field_lifecycle_template_files,
     runtime_path_evidence_template_files,
     ui_flow_structure_template_files,
-    development_process_flow_template_files,
     workflow_step_contracts_template_files,
     model_mesh_template_files,
     contract_exhaustion_template_files,
@@ -75,7 +71,6 @@ TEMPLATE_CLI_COMMANDS = {
     "work-context-template": "work_context",
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
-    "plan-detailing-template": "plan_detailing",
     "behavior-commitment-ledger-template": "behavior_commitment_ledger",
     "primary-path-authority-template": "primary_path_authority",
     "model-miss-template": "model_miss_review",
@@ -88,7 +83,6 @@ TEMPLATE_CLI_COMMANDS = {
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "ui-flow-structure-full-template": "ui_flow_structure_full",
-    "development-process-flow-template": "development_process_flow",
     "workflow-step-contracts-template": "workflow_step_contracts",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
@@ -198,28 +192,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("flowguard minimum valuable model review", output)
         self.assertIn("flowguard risk template harvest", output)
         self.assertIn("flowguard template harvest closure", output)
-
-    def test_plan_detailing_template_executes(self):
-        output = self.run_written_template(
-            plan_detailing_template_files(),
-            (".flowguard", "verification", "owners", "plan_detailing"),
-        )
-        self.assertIn("flowguard plan-detailing template", output)
-        self.assertIn("flowguard plan detailing review", output)
-        self.assertIn("missing_failure_branches", output)
-        self.assertIn("rework_gate_missing", output)
-        self.assertIn("missing_validations", output)
-
-    def test_plan_detailing_template_teaches_detail_rows(self):
-        files = plan_detailing_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("PlanDetail", combined)
-        self.assertIn("PlanDetailStep", combined)
-        self.assertIn("PlanDetailValidation", combined)
-        self.assertIn("PlanDetailFailureBranch", combined)
-        self.assertIn("plan_detail_to_development_process", combined)
-        self.assertIn("plan_detail_to_step_contracts", combined)
 
     def test_behavior_commitment_ledger_template_executes(self):
         output = self.run_written_template(
@@ -408,15 +380,6 @@ def build_review():
             files, (".flowguard", "verification", "owners", "model_topology_hazard_review"),
         )
         self.assertIn("topology_hazard_pass", output)
-
-    def test_development_process_flow_template_executes(self):
-        output = self.run_written_template(
-            development_process_flow_template_files(),
-            (".flowguard", "verification", "owners", "development_process_flow"),
-        )
-        self.assertIn("flowguard development process flow", output)
-        self.assertIn("release_claim_with_stale_evidence", output)
-        self.assertIn("revalidation", output)
 
     def test_workflow_step_contracts_template_executes(self):
         output = self.run_written_template(
