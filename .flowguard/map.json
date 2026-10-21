@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:254b9b6662d96befa92ed963862eaa8fcf5f8326970ac108f2e6120bca153ad7"
+      "fingerprint": "sha256:eff7f772bbeb0020d87758fc0a7c2054737cf04d314b2b419acc6661577a4968"
     },
     {
       "id": "templates",
@@ -309,7 +309,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:95b0980343395b956757987c999c1b875c6524ed88f6bd651fa26fc5b97008f2"
+      "fingerprint": "sha256:307ac2edb80fa533455bcd4f06d4492349be1695689cb1e838d91ead7ecc0d4f"
     },
     {
       "id": "code-structure",

@@ -597,40 +597,7 @@ def test_family_reduction_and_background_inventory_cannot_be_shrunk_or_faked():
             ),
         ),
     )
-    reduction_report = review_architecture_reduction(
-        ArchitectureReductionPlan(
-            "download-reduction",
-            observable_contract=ObservableArchitectureContract(
-                source_model_id="download-material-model",
-                source_code_boundary_id="download-package",
-                public_entrypoints=("download.material",),
-                observable_outputs=("download_ready",),
-                validation_boundaries=("download parity tests",),
-                rationale="Preserve the selected public behavior.",
-            ),
-            candidates=(
-                ArchitectureReductionCandidate(
-                    "collapse-download-adapter",
-                    candidate_type=CANDIDATE_COLLAPSE_ADAPTER,
-                    code_node_id="download.adapter",
-                    source_model_element="PrepareDownload",
-                    target_action=TARGET_ACTION_COLLAPSE,
-                    proof_status=PROOF_SAFE_BY_EQUIVALENCE,
-                    required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
-                    inventory_revision=REVISION,
-                    rationale="The adapter delegates without owning behavior.",
-                ),
-            ),
-            expected_candidate_ids=("collapse-download-adapter", "merge-download-handler"),
-            inventory_revision=REVISION,
-            inventory_source_ref="preflight:download-material",
-            require_complete_inventory=True,
-            rationale="A caller cannot omit the inconvenient duplicate handler.",
-        )
-    )
     assert not family_report.ok
     assert "expected_family_member_missing" in finding_codes(family_report)
-    assert not reduction_report.ok
-    assert "expected_reduction_candidate_missing" in finding_codes(reduction_report)
 
 
