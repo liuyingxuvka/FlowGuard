@@ -70,19 +70,25 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     return (shown + f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID")[:budget]
 
 
+def _find_words(words: set[str]) -> set[str]:
+    """Owner lookup also matches the singular of a plural word ("orders" ~ "order")."""
+    return words | {w[:-1] for w in words if len(w) > 3 and w.endswith("s")}
+
+
 def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) -> list[tuple[int, str, list[str]]]:
     """Rank components by how well they already own the described responsibility."""
-    query = tokens(" ".join(words))
+    query = _find_words(tokens(" ".join(words)))
     scored = []
     for c in data["components"]:
-        text = tokens(" ".join([c["id"], c.get("summary", "")] + c.get("responsibilities", [])
-                               + c.get("state", []) + c.get("side_effects", [])))
-        symbol_words = {w for f in component_files(c, inv) if f in inv.py
-                        for s in inv.py[f].symbols for w in re.findall(r"[a-z0-9]+", s.lower())}
+        text = _find_words(tokens(" ".join([c["id"], c.get("summary", "")] + c.get("responsibilities", [])
+                                           + c.get("state", []) + c.get("side_effects", []))))
+        symbol_words = _find_words({w.lower() for f in component_files(c, inv) if f in inv.py
+                                    for s in inv.py[f].symbols
+                                    for w in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z0-9]+", s)})
         score = 3 * len(query & text) + len(query & symbol_words)
         if score:
-            scored.append((score, c["id"], [r for r in c.get("responsibilities", []) if tokens(r) & query]))
-    scored.sort(key=lambda x: (-x[0], -sum(len(tokens(r) & query) for r in x[2]), x[1]))
+            scored.append((score, c["id"], [r for r in c.get("responsibilities", []) if _find_words(tokens(r)) & query]))
+    scored.sort(key=lambda x: (-x[0], -sum(len(_find_words(tokens(r)) & query) for r in x[2]), x[1]))
     return scored[:limit]
 
 

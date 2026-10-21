@@ -1,7 +1,7 @@
 """Finite checks for the human/agent map views, including strict output budgets."""
 from pathlib import Path
 
-from flowguard.map.inventory import Inventory
+from flowguard.map.inventory import Inventory, PyInfo
 from flowguard.map.views import file_outline, find_owners, render_show
 
 
@@ -33,6 +33,15 @@ def test_find_responsibility_breaks_equal_summary_score(tmp_path):
     scores = find_owners(data, _inventory(tmp_path), ['impact', 'selection'])
     assert scores[0][1] == 'map-analysis'
     assert scores[0][0] == scores[1][0]
+
+
+def test_find_matches_plural_and_camel_case_words(tmp_path):
+    data = dict(components=[_component('api', summary='cancel endpoint', responsibilities=['route cancel requests']),
+                            _component('orders', responsibilities=['place orders and cancel them'])])
+    assert find_owners(data, _inventory(tmp_path), ['cancel', 'order'])[0][1] == 'orders'
+    inv = Inventory(tmp_path, ['shop/svc.py'], ['shop/svc.py'], [], {'shop/svc.py': PyInfo('shop.svc', {'OrderService'})}, {}, {})
+    data = dict(components=[dict(_component('svc'), files=['shop/svc.py'])])
+    assert [hit[1] for hit in find_owners(data, inv, ['order'])] == ['svc']
 
 
 def test_digest_captures_module_assignments_and_guarded_definitions_without_bodies(tmp_path):
