@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bcbffbb09d6f0dfd48efb8ea8de58b0a92ff62a97e4671689a62372f2dc9a847"
+      "fingerprint": "sha256:2ee22e277b8ed0041c12c7dbc5d6756fe54410bc3ddbd28f1a5f407c2e82c548"
     },
     {
       "id": "templates",
@@ -899,10 +899,10 @@
     {
       "id": "engine-conformance",
       "layer": "engine",
-      "summary": "Replays modeled traces, feature combinations and case tables against real implementations.",
+      "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
         "replay model traces on the real code",
-        "build complete models from features (every single feature and pair, explored on the design and on the real code), from a case table, or from plan edits checked by an existing review (model kits)"
+        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by an existing review (model kits)"
       ],
       "files": [
         "flowguard/conformance.py",
@@ -928,7 +928,7 @@
         ".flowguard/models/python_function_state_verification.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:14f5b92001d389f6b2fbb3fa73c544a1732ad5648ffcc801b01f915ee8940f47"
+      "fingerprint": "sha256:c47baefc9f3709ca11a0780780fba79c7d6acda4d25b69b633f49d431afa20ba"
     },
     {
       "id": "engine-runner",
