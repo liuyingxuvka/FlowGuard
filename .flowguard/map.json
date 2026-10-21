@@ -66,10 +66,9 @@
     {
       "id": "tooling",
       "layer": "examples",
-      "summary": "Repository entry scripts and field inventory generation.",
+      "summary": "Repository script that installs or checks the packaged skill copy.",
       "responsibilities": [
-        "run the test suite as exact node-id shards",
-        "generate a field lifecycle inventory"
+        "install the packaged skill into a skills directory, or check an installed copy"
       ],
       "files": [
         "scripts/*.py"
@@ -77,21 +76,18 @@
       "entrypoints": [],
       "state": [],
       "side_effects": [
-        "runs pytest subprocesses",
-        "writes shard result files"
+        "copies the skill files into the target skills directory"
       ],
       "depends_on": [
-        "public-api",
-        "test-mesh"
+        "public-api"
       ],
       "tests": [
-        "tests/test_maintenance_scripts.py",
-        "tests/test_pytest_shard_runner.py",
-        "tests/test_readme_mirror.py"
+        "tests/test_readme_mirror.py",
+        "tests/test_skill_package.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1a2c9fb7e2c41fd85be3fe5534d3a322f9a5308eac0fe0cc3cfcecd1dec0fd2b"
+      "fingerprint": "sha256:ad80192704c1b8faa6047a2ca6b2d7338d8059d7b9ec139f9b0d7feab102f3f6"
     },
     {
       "id": "skill-assets",
@@ -277,7 +273,7 @@
         ".flowguard/verification/owners/existing_model_preflight/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:33e73a16d3d0196c511ca6a55b509acaebf31f90387edcada6413a4049bddd84"
+      "fingerprint": "sha256:5d68cf5f68f26a5c0bc9ba396e4daf13adbd89981467e6da09b56f4d19859b81"
     },
     {
       "id": "behavior-commitment",
@@ -481,7 +477,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4a95d005ec94536e4240dc93a8e6c224b2e6759514130ebce6f9332342244b46"
+      "fingerprint": "sha256:d3249827a388ace5949af780104affb76d03bb3d4af4b7d02e1ecf573906ffe8"
     },
     {
       "id": "portable-models",
@@ -676,6 +672,7 @@
         "map-proof"
       ],
       "tests": [
+        "tests/test_pytest_shard_runner.py",
         "tests/test_pytest_shards.py",
         "tests/test_transition_coverage.py"
       ],
@@ -1119,7 +1116,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-core",
         "portable-models"
       ],
       "tests": [
@@ -1130,7 +1126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2f39176baa6b6a514cdd4d06c6651e41f539adef2f4735eaca902d4a1fc66f73"
+      "fingerprint": "sha256:abbaa5431c393682cb4a8d70dc280f0b4db7133e51bca0c24d3a0fd26273bb5e"
     },
     {
       "id": "problem-corpus",

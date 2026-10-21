@@ -1058,19 +1058,6 @@ def _normalized_owner_fingerprint(value: str) -> str:
     return normalized if normalized.startswith("sha256:") else ""
 
 
-def _owner_matches_instance(owner_id: str, instance) -> bool:
-    owner = str(owner_id).strip()
-    if not owner:
-        return False
-    logical_owner = owner.split("model:", 1)[1] if owner.startswith("model:") else owner
-    if _normalized_model_path(logical_owner) == _normalized_model_path(instance.logical_model_id):
-        return True
-    if _path_identity_equivalent(owner, instance.model_path):
-        return True
-    owner_fingerprint = _normalized_owner_fingerprint(owner)
-    return bool(owner_fingerprint and owner_fingerprint == str(instance.fingerprint).casefold())
-
-
 def _owner_matches_model_hit(owner_id: str, hit: ModelContextHit) -> bool:
     owner = str(owner_id).strip()
     if not owner:

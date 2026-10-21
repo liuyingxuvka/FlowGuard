@@ -1227,13 +1227,6 @@ def _boundary_propagation_rank(status: str) -> int:
     return order.get(str(status), -1)
 
 
-def _strongest_boundary_propagation(statuses: Sequence[str]) -> str:
-    valid = [str(status) for status in statuses if str(status) in ALLOWED_BOUNDARY_PROPAGATION]
-    if not valid:
-        return ""
-    return max(valid, key=_boundary_propagation_rank)
-
-
 def _diff_sequence_field(
     previous_child: ChildModelEvidence,
     current_child: ChildModelEvidence,
