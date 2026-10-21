@@ -27,19 +27,21 @@ Commands: `python -m flowguard read | change | release | template` and `python -
 ## After editing code
 
 1. `python -m flowguard change` (check + impact).
-2. Fix every ERROR: `file_unmapped` (add the file to one component), `dep_undeclared` (intended and
-   layer-respecting: add to `depends_on`; otherwise move code or drop the import), `anchor_broken` /
-   `flow_step_broken` / `model_anchor_broken` (update the name).
+2. Fix every ERROR; each message says what is wrong. Common: `file_unmapped` (add the file to one
+   component), `dep_undeclared` (intended and layer-respecting: add to `depends_on`; otherwise move code
+   or drop the import), `dep_unused` (remove that `depends_on` entry), `test_missing` (fix the `tests`
+   pattern), `model_unbound` (add the runner to the owning component's `models`), `anchor_broken` /
+   `flow_step_broken` / `model_anchor_broken` (update the name). BLOCKED lines name the missing binding.
 3. Run exactly the tests and models it lists. Never claim a test passed unless you ran it.
 4. For each REVIEW component: read the change, update `summary`/`responsibilities`/`state`/
    `side_effects` if behavior changed, then `python -m flowguard map confirm <id>`.
 
-## Capabilities: pick one primary per task
+## Capabilities
 
-Read the primary capability protocol: `references/domains/<name>/protocol.md`.
-Starter files: `python -m flowguard template --list`, then `python -m flowguard template <name> --write .`.
-Add another native check only for an independent observed risk, reusing the same facts;
-do not chain full protocols by default. If none fits, use plain modeling (`references/model_recipes.md`).
+Most edits need no capability. When a task matches a row below, read that one protocol:
+`references/domains/<name>/protocol.md`. Starter files: `python -m flowguard template --list`, then
+`python -m flowguard template <name> --write .`. Do not chain protocols. If none fits, use plain
+modeling (`references/model_recipes.md`).
 
 | capability | use when |
 | --- | --- |
