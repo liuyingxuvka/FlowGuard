@@ -29,7 +29,6 @@ from flowguard.templates import (
     model_test_alignment_template_files,
     plan_detailing_template_files,
     primary_path_authority_template_files,
-    project_template_files,
     risk_intent_template_files,
     risk_template_library_template_files,
     runtime_path_evidence_template_files,
@@ -53,7 +52,6 @@ from flowguard.risk_templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    project_template_files,
     risk_intent_template_files,
     risk_template_library_template_files,
     plan_detailing_template_files,
@@ -78,7 +76,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "project-template": "project",
     "work-context-template": "work_context",
     "risk-intent-template": "risk_intent_check_plan",
     "risk-template-library-template": "risk_template_library",
@@ -137,14 +134,6 @@ class PublicTemplateTests(unittest.TestCase):
         except SystemExit as exc:
             return_code = int(exc.code or 0)
         return return_code, stdout.getvalue(), stderr.getvalue()
-
-    def test_project_template_executes(self):
-        output = self.run_written_template(project_template_files(), ())
-        self.assertIn("status: OK", output)
-        self.assertIn("stored", output)
-        self.assertIn("completed_with_evidence", output)
-        self.assertIn("rejected_duplicate", output)
-        self.assertIn("known_bad_without_evidence_rejected: yes", output)
 
     def test_template_text_is_route_scoped_behind_public_facade(self):
         template_text_root = ROOT / "flowguard" / "template_text"
@@ -506,7 +495,7 @@ def build_review():
         code, stdout, _stderr = self.run_cli(["template", "--list"])
         self.assertEqual(0, code)
         listed = stdout.split()
-        self.assertIn("project", listed)
+        self.assertNotIn("project", listed)
         self.assertIn("ui-flow-structure-full", listed)
         for name in listed:
             code, stdout, stderr = self.run_cli(["template", name])

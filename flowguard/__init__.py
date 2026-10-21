@@ -1708,7 +1708,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "model_test_alignment_template_files",
         "plan_detailing_template_files",
         "primary_path_authority_template_files",
-        "project_template_files",
         "risk_intent_template_files",
         "risk_template_library_template_files",
         "runtime_path_evidence_template_files",

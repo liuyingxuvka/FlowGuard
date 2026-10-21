@@ -12,8 +12,6 @@ from .template_text.code_structure_recommendation import (
     CODE_STRUCTURE_RECOMMENDATION_NOTES_TEMPLATE,
 )
 from .template_text.core import (
-    MODEL_TEMPLATE,
-    RUN_CHECKS_TEMPLATE,
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
 )
@@ -139,13 +137,6 @@ from .template_text.work_context import (
 class TemplateFile:
     path: str
     content: str
-
-
-def project_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile("model.py", MODEL_TEMPLATE),
-        TemplateFile("run_checks.py", RUN_CHECKS_TEMPLATE),
-    )
 
 
 def adoption_template_files() -> tuple[TemplateFile, ...]:
@@ -494,7 +485,6 @@ __all__ = [
     "model_test_alignment_template_files",
     "plan_detailing_template_files",
     "primary_path_authority_template_files",
-    "project_template_files",
     "risk_intent_template_files",
     "risk_template_library_template_files",
     "work_context_template_files",

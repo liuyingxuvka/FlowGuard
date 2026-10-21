@@ -222,7 +222,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:37a11b0b27054ad4a3584d4555d107429756b97326e66e4791ff1bb87780b658"
+      "fingerprint": "sha256:cca324021dedfc441a7c42a60f9dc7c37e8deac0bc84c6dcc334912133eebed6"
     },
     {
       "id": "templates",
@@ -254,7 +254,7 @@
         ".flowguard/verification/owners/template_public_release/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:9615de3a3cdeb1d5f379667e573bf5a145f41201a763156f0952e1daa34c04b2"
+      "fingerprint": "sha256:7eefc529de69e3b57c3e171d8ab88a257428f2e480ee82979756f46ceb5286f8"
     },
     {
       "id": "existing-model",

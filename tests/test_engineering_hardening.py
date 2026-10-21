@@ -3,7 +3,6 @@ import unittest
 
 from flowguard.pytest_adapter import assert_no_executable_corpus_regression
 from flowguard.schema import SCHEMA_VERSION, make_artifact, trace_artifact
-from flowguard.templates import project_template_files
 from flowguard.trace import Trace
 
 
@@ -32,14 +31,6 @@ class EngineeringHardeningTests(unittest.TestCase):
         self.assertEqual("trace", data["artifact_type"])
         self.assertEqual("empty", data["model_name"])
         self.assertIn("steps", data["payload"])
-
-    def test_project_templates_are_available_without_file_writes(self):
-        files = project_template_files()
-        paths = {item.path for item in files}
-        self.assertIn("model.py", paths)
-        self.assertIn("run_checks.py", paths)
-        for item in files:
-            self.assertTrue(item.content.strip())
 
     def test_pytest_adapter_style_regression_assertion(self):
         class Report:

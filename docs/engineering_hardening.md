@@ -51,13 +51,7 @@ does not prove that the runtime dependencies are installed.
 
 ## Templates
 
-`flowguard.templates.project_template_files()` returns starter files for a
-basic model-first workflow:
-
-- `model.py`;
-- `run_checks.py`.
-
-The package also exposes public-safe scaffolds for common agent situations:
+The package exposes public-safe scaffolds for common agent situations:
 
 - `risk_intent_template_files()`: a Risk Intent + `FlowGuardCheckPlan`
   starter with model-level confidence boundaries;
@@ -74,7 +68,6 @@ and how to create project files. The CLI can print or write the same templates
 (`python -m flowguard template --list` shows every name):
 
 ```powershell
-python -m flowguard template project --write .
 python -m flowguard template risk-intent --write .
 python -m flowguard template model-miss-review --write .
 python -m flowguard template model-test-alignment --write .
