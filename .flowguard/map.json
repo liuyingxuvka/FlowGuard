@@ -601,7 +601,6 @@
         "tests/test_portable_system.py"
       ],
       "models": [
-        ".flowguard/verification/owners/bounded_system_composition_benchmark/run_checks.py",
         ".flowguard/verification/owners/compositional_verification_kernel/run_checks.py"
       ],
       "status": "confirmed",
@@ -1277,9 +1276,7 @@
         "tests/test_problem_corpus.py",
         "tests/test_real_model_corpus.py"
       ],
-      "models": [
-        ".flowguard/verification/owners/problem_corpus_coverage/run_checks.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:a253eabb589b822de83a1c2c067d16915493dae9da45c6217b9e8876b84675e6"
     },
