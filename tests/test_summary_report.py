@@ -161,7 +161,7 @@ class SummaryReportTests(unittest.TestCase):
         conformance, model_gap = ledger.entries
         self.assertEqual("model_test_alignment", conformance.owner_route)
         self.assertEqual("run_conformance_or_scope_claim", conformance.action_kind)
-        self.assertIn("proof_artifact", conformance.required_input_kinds)
+        self.assertIn("check_result", conformance.required_input_kinds)
         self.assertEqual("scoped_until_resolved", conformance.claim_effect)
         self.assertIn("missing_conformance_proof", conformance.proof_gap_codes)
 

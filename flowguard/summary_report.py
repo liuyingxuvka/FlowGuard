@@ -410,11 +410,11 @@ def _ledger_required_input_kinds(section: FlowGuardSection, category: str) -> tu
     if category == "model_coverage_gap":
         return ("model_update", "scenario_or_invariant")
     if category == "conformance_gap":
-        return ("conformance_report", "proof_artifact")
+        return ("conformance_report", "check_result")
     if category == "missing_or_skipped_check":
-        return ("proof_artifact", "skip_reason")
+        return ("check_result", "skip_reason")
     if category == "blocked_check":
-        return ("blocker_resolution", "proof_artifact")
+        return ("blocker_resolution", "check_result")
     if category == "human_review":
         return ("policy_expectation", "oracle")
     if category == "confidence_gap":
@@ -430,7 +430,7 @@ def _ledger_proof_gap_codes(section: FlowGuardSection, category: str) -> tuple[s
     if category == "missing_or_skipped_check":
         return ("missing_or_skipped_proof",)
     if category == "blocked_check":
-        return ("blocked_proof_artifact",)
+        return ("blocked_check_result",)
     if category in {"model_coverage_gap", "confidence_gap", "human_review"}:
         return ("route_gap_visible",)
     return ()

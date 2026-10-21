@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4f8241427ced9b334f1aecefb73699c016848752b633e96f99a4c1def5a5756d"
+      "fingerprint": "sha256:45794f59bdf6d533d08d5dd0184520bc58cadb645b7a242bddbce4b06ea198b8"
     },
     {
       "id": "templates",
@@ -956,7 +956,7 @@
         ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:421236ea19b28c51e0e8dcbc52402555d8238b8b06c2aaf753c5ce783d71bccd"
+      "fingerprint": "sha256:68f5dd686c2f3c1b34dfffbb1da02f689b4f9a108a1a66be9881b6dc45fcd756"
     },
     {
       "id": "engine-path-quality",
@@ -1056,7 +1056,7 @@
     {
       "id": "shared-vocabulary",
       "layer": "foundation",
-      "summary": "Defines common evidence, relation and proof terms.",
+      "summary": "Defines common evidence and relation terms.",
       "responsibilities": [
         "hold vocabulary shared by several capabilities"
       ],
@@ -1064,8 +1064,7 @@
         "flowguard/canonical_relation.py",
         "flowguard/_mesh_vocab.py",
         "flowguard/_evidence_status.py",
-        "flowguard/behavior_plane.py",
-        "flowguard/proof_artifact.py"
+        "flowguard/behavior_plane.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -1074,12 +1073,11 @@
         "engine-core"
       ],
       "tests": [
-        "tests/test_canonical_relation.py",
-        "tests/test_proof_artifact.py"
+        "tests/test_canonical_relation.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9f6fe7a0543938fcc327ef9405ea4b9e37c99fb1d033aba755318625fcee230b"
+      "fingerprint": "sha256:55eccc9a42d4623faa8d0c25de8a06cc9cdabceb8ca9122275abbe24de59d2d2"
     }
   ],
   "flows": [
