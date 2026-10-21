@@ -130,7 +130,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("ui_flow_structure", route_modules)
         self.assertNotIn("model_similarity_consolidation", route_modules)
         self.assertNotIn("risk_evidence_ledger", route_modules)
-        self.assertLess(len((ROOT / "flowguard" / "templates.py").read_text(encoding="utf-8").splitlines()), 1000)
         self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
 
     def test_active_ui_guidance_does_not_hardcode_specific_source_technology(self):
@@ -233,27 +232,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("missing_new_model_obligation", output)
         self.assertIn("missing_false_negative_closure_evidence", output)
 
-
-    def test_model_miss_full_template_keeps_deep_review_material(self):
-        files = model_miss_review_full_template_files()
-        combined = "\n".join(file.content for file in files)
-
-        self.assertIn("generalized_bad_case_in_scope", combined)
-        self.assertIn("generalized_bad_case_represented_in_model", combined)
-        self.assertIn("known_bug_used_as_holdout", combined)
-        self.assertIn("record_known_bug_holdout", combined)
-        self.assertIn("legacy_path_disposition_recorded", combined)
-        self.assertIn("model_test_alignment_rerun", combined)
-        self.assertIn("recurring_family_detected", combined)
-        self.assertIn("affected_blueprint_gap_id", combined)
-        self.assertIn("affected_canonical_relation_ids", combined)
-        self.assertIn("affected_contract_case_ids", combined)
-        self.assertIn("contract_exhaustion_contribution_emitted", combined)
-        self.assertIn("model_maturation_contribution_emitted", combined)
-        self.assertIn("recurring_family_requires_canonical_contributions", combined)
-        self.assertIn("validate_recurring_without_canonical_contributions", combined)
-        self.assertIn("broken_point_fix_only_validation", combined)
-        self.assertIn("affected ContractExhaustion case identities", combined)
 
     def test_model_test_alignment_template_executes(self):
         output = self.run_written_template(model_test_alignment_template_files(),

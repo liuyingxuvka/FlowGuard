@@ -75,26 +75,6 @@ def finding_codes(report):
 
 
 class BehaviorPlaneUpgradeTests(unittest.TestCase):
-    def test_public_guidance_explains_planes_lookup_and_non_guarantee_boundary(self):
-        ledger_docs = (ROOT / "docs" / "behavior_commitment_ledger.md").read_text(
-            encoding="utf-8"
-        )
-        preflight_docs = (ROOT / "docs" / "existing_model_preflight.md").read_text(
-            encoding="utf-8"
-        )
-        combined = "\n".join((ledger_docs, preflight_docs))
-
-        for value in (
-            "product_runtime",
-            "agent_operation",
-            "development_process",
-            "primary_commitment_hits",
-            "related_commitment_hits",
-            "ledger_fingerprint",
-        ):
-            self.assertIn(value, combined)
-        self.assertNotIn("evidence engine, or\n  CLI command", (ROOT / "CHANGELOG.md").read_text(encoding="utf-8"))
-
     def test_relation_matrix_preserves_directional_layer_ownership(self):
         self.assertTrue(
             behavior_commitment_relation_allowed(

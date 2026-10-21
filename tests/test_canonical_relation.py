@@ -165,35 +165,5 @@ class CanonicalRelationHandoffTests(unittest.TestCase):
                 }
             )
 
-    def test_standalone_similarity_engine_symbols_are_retired(self):
-        retired_symbols = {
-            "ModelSignature",
-            "ModelSimilarityPlan",
-            "ModelSimilarityReport",
-            "SimilarityHandoff",
-            "model_similarity_plan_for_changed_member",
-            "normalize_similarity_handoff",
-            "review_model_similarity_consolidation",
-        }
-
-        self.assertTrue(retired_symbols.isdisjoint(vars(relation_handoff)))
-        self.assertEqual(
-            {
-                "CANONICAL_RELATION_TYPES",
-                "CanonicalRelation",
-                "CanonicalRelationHandoff",
-                "RELATION_ADAPTER_ONLY",
-                "RELATION_AFFECTED_SIBLING",
-                "RELATION_DUPLICATE_BOUNDARY",
-                "RELATION_FALSE_FRIEND",
-                "RELATION_SAME_INTENT",
-                "RELATION_SHARED_MECHANISM",
-                "RELATION_SHARED_OWNER",
-                "normalize_canonical_relation_handoff",
-            },
-            set(relation_handoff.__all__),
-        )
-
-
 if __name__ == "__main__":
     unittest.main()

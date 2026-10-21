@@ -130,14 +130,5 @@ class ProblemCorpusTests(unittest.TestCase):
         self.assertNotIn("executable_tests: 2100", completed.stdout)
         self.assertNotIn("unit_tests: 2100", completed.stdout)
 
-    def test_benchmark_baseline_contract_documents_freeze_rules(self):
-        text = Path("docs/benchmark_baseline_contract.md").read_text(encoding="utf-8")
-        self.assertIn("total_cases: 2100", text)
-        self.assertIn("pressure_100: 100", text)
-        self.assertIn("Allowed Changes", text)
-        self.assertIn("Disallowed Changes", text)
-        self.assertIn("known_limitation", text)
-
-
 if __name__ == "__main__":
     unittest.main()

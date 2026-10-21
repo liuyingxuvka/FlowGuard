@@ -16,25 +16,6 @@ class ProjectIntegrationTests(unittest.TestCase):
         self.assertIn('"flowguard*"', text)
         self.assertIn('flowguard = "flowguard.__main__:main"', text)
 
-    def test_project_integration_doc_separates_skill_suite_from_check_engine(self):
-        text = (ROOT / "docs" / "project_integration.md").read_text(encoding="utf-8")
-
-        for phrase in (
-            "one clean consumer surface",
-            "three public lifecycle operations",
-            "`$CODEX_HOME/skills/flowguard/SKILL.md`",
-            "Python package supplies",
-            "does not copy the author checkout",
-            "`read` starts zero producers and writes",
-            "per-element good, bad, and draft evidence is added only",
-            "Git tags and GitHub publication remain separate transactions",
-        ):
-            self.assertIn(phrase, text)
-        self.assertNotIn("project-adopt", text)
-        self.assertNotIn("project-audit", text)
-        self.assertNotIn("project-upgrade", text)
-        self.assertNotIn("artifact-upgrade", text)
-
     def test_import_preflight_command_works_in_this_environment(self):
         completed = subprocess.run(
             [

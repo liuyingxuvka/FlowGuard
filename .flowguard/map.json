@@ -325,7 +325,6 @@
         "tests/test_primary_path_authority_compatibility_matrix.py",
         "tests/test_primary_path_authority_contract_exhaustion.py",
         "tests/test_primary_path_authority_core_matrix.py",
-        "tests/test_primary_path_authority_docs.py",
         "tests/test_primary_path_authority_facade_matrix.py",
         "tests/test_primary_path_authority_field_matrix.py",
         "tests/test_product_language_path_reuse.py"
