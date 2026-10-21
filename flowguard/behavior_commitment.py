@@ -11,9 +11,9 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 from ._normalization import string_tuple as _as_tuple
 
@@ -34,7 +34,6 @@ from .behavior_plane import (
     BCL_PLANE_UNCLASSIFIED,
 )
 from .schema import SCHEMA_VERSION
-from ._hashing import canonical_source_bytes, source_file_fingerprint
 from .primary_path_authority import PRIMARY_PATH_ROUTE_ID
 
 
@@ -1934,66 +1933,6 @@ def review_independent_behavior_inventory(
     )
 
 
-@dataclass(frozen=True)
-class BehaviorSourceFileIdentity:
-    """One repository-bounded file identity used by a BCL source surface."""
-
-    path: str
-    content_fingerprint: str
-
-    def to_dict(self) -> dict[str, str]:
-        return {
-            "path": self.path,
-            "content_fingerprint": self.content_fingerprint,
-        }
-
-
-@dataclass(frozen=True)
-class BehaviorSourceSurfaceLiveIdentity:
-    """Resolved, current physical identity for one authored source surface."""
-
-    surface_id: str
-    source_ref: str
-    members: tuple[BehaviorSourceFileIdentity, ...]
-    content_fingerprint: str
-
-    @property
-    def member_paths(self) -> tuple[str, ...]:
-        return tuple(member.path for member in self.members)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "surface_id": self.surface_id,
-            "source_ref": self.source_ref,
-            "members": [member.to_dict() for member in self.members],
-            "content_fingerprint": self.content_fingerprint,
-        }
-
-
-@dataclass(frozen=True)
-class BehaviorSourceInventoryAuditReport:
-    """Read-only comparison between stored BCL identities and current files."""
-
-    ok: bool
-    project_root: str
-    live_inventory_fingerprint: str
-    live_inventory_revision: str
-    live_discovery_evidence_id: str
-    surface_identities: tuple[BehaviorSourceSurfaceLiveIdentity, ...] = ()
-    findings: tuple[BehaviorCommitmentFinding, ...] = ()
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "ok": self.ok,
-            "project_root": self.project_root,
-            "live_inventory_fingerprint": self.live_inventory_fingerprint,
-            "live_inventory_revision": self.live_inventory_revision,
-            "live_discovery_evidence_id": self.live_discovery_evidence_id,
-            "surface_identities": [item.to_dict() for item in self.surface_identities],
-            "findings": [finding.to_dict() for finding in self.findings],
-        }
-
-
 _WINDOWS_DRIVE_PATH = re.compile(r"^[A-Za-z]:[/\\]")
 _GLOB_MAGIC = frozenset("*?[")
 _LIVE_SOURCE_RESOLUTION_CODES = frozenset(
@@ -2016,394 +1955,6 @@ def _canonical_sha256(value: Any) -> str:
         sort_keys=True,
     ).encode("utf-8")
     return f"sha256:{hashlib.sha256(encoded).hexdigest()}"
-
-
-def _path_is_within_root(path: Path, root: Path) -> bool:
-    return path == root or root in path.parents
-
-
-def _source_ref_path_and_anchor(token: str) -> tuple[str, str]:
-    path_text, separator, anchor = token.partition("#")
-    return path_text.strip().replace("\\", "/"), anchor.strip() if separator else ""
-
-
-def _source_ref_path_is_unsafe(path_text: str) -> bool:
-    if not path_text or path_text.startswith(("/", "//")):
-        return True
-    if _WINDOWS_DRIVE_PATH.match(path_text):
-        return True
-    return ".." in Path(path_text).parts
-
-
-def _source_glob_has_fixed_directory_prefix(path_text: str) -> bool:
-    parts = tuple(part for part in path_text.split("/") if part not in ("", "."))
-    first_glob_index = next(
-        (
-            index
-            for index, part in enumerate(parts)
-            if any(character in part for character in _GLOB_MAGIC)
-        ),
-        -1,
-    )
-    return first_glob_index >= 1
-
-
-def _source_anchor_exists(path: Path, anchor: str) -> bool:
-    if not anchor:
-        return True
-    try:
-        text = canonical_source_bytes(path).decode("utf-8")
-    except UnicodeDecodeError:
-        return False
-    expected = " ".join(anchor.casefold().split())
-    for line in text.splitlines():
-        candidate = line.strip()
-        if candidate.startswith("#"):
-            candidate = candidate.lstrip("#").strip()
-        if " ".join(candidate.casefold().split()) == expected:
-            return True
-    return False
-
-
-def _resolve_behavior_source_surface(
-    project_root: Path,
-    surface: BehaviorSourceSurface,
-) -> tuple[BehaviorSourceSurfaceLiveIdentity, tuple[BehaviorCommitmentFinding, ...]]:
-    findings: list[BehaviorCommitmentFinding] = []
-    resolved_by_path: dict[str, Path] = {}
-    member_source_token: dict[str, str] = {}
-    tokens = tuple(part.strip() for part in surface.source_ref.split(";") if part.strip())
-    if not tokens:
-        findings.append(
-            _finding(
-                "source_surface_ref_missing",
-                "source surface has no repository source reference",
-                surface_id=surface.surface_id,
-            )
-        )
-
-    for token in tokens:
-        path_text, anchor = _source_ref_path_and_anchor(token)
-        if _source_ref_path_is_unsafe(path_text):
-            findings.append(
-                _finding(
-                    "source_surface_ref_unsafe",
-                    "source reference must remain inside the declared project root",
-                    surface_id=surface.surface_id,
-                    metadata={"source_ref_token": token},
-                )
-            )
-            continue
-
-        has_glob = any(character in path_text for character in _GLOB_MAGIC)
-        if has_glob:
-            if not _source_glob_has_fixed_directory_prefix(path_text):
-                findings.append(
-                    _finding(
-                        "source_surface_glob_unbounded",
-                        "source glob must have a fixed directory prefix before its first wildcard",
-                        surface_id=surface.surface_id,
-                        metadata={"source_ref_token": token},
-                    )
-                )
-                continue
-            try:
-                candidates = tuple(path for path in project_root.glob(path_text) if path.is_file())
-            except (OSError, ValueError):
-                candidates = ()
-            if not candidates:
-                findings.append(
-                    _finding(
-                        "source_surface_glob_empty",
-                        "bounded source glob resolves to no current files",
-                        surface_id=surface.surface_id,
-                        metadata={"source_ref_token": token},
-                    )
-                )
-                continue
-        else:
-            candidate = project_root / path_text
-            if not candidate.exists() or not candidate.is_file():
-                findings.append(
-                    _finding(
-                        "source_surface_ref_missing",
-                        "source reference does not resolve to a current file",
-                        surface_id=surface.surface_id,
-                        metadata={"source_ref_token": token},
-                    )
-                )
-                continue
-            candidates = (candidate,)
-
-        for candidate in candidates:
-            try:
-                resolved = candidate.resolve(strict=True)
-            except OSError:
-                findings.append(
-                    _finding(
-                        "source_surface_ref_missing",
-                        "source reference cannot be resolved to a current file",
-                        surface_id=surface.surface_id,
-                        metadata={"source_ref_token": token},
-                    )
-                )
-                continue
-            if not _path_is_within_root(resolved, project_root):
-                findings.append(
-                    _finding(
-                        "source_surface_ref_unsafe",
-                        "source reference resolves outside the declared project root",
-                        surface_id=surface.surface_id,
-                        metadata={"source_ref_token": token},
-                    )
-                )
-                continue
-            relative = resolved.relative_to(project_root).as_posix()
-            if relative in resolved_by_path:
-                findings.append(
-                    _finding(
-                        "source_surface_member_duplicate",
-                        "source surface resolves the same physical member more than once",
-                        surface_id=surface.surface_id,
-                        metadata={
-                            "source_ref_token": token,
-                            "first_source_ref_token": member_source_token[relative],
-                            "resolved_path": relative,
-                        },
-                    )
-                )
-                continue
-            resolved_by_path[relative] = resolved
-            member_source_token[relative] = token
-            if anchor and not _source_anchor_exists(resolved, anchor):
-                findings.append(
-                    _finding(
-                        "source_surface_anchor_missing",
-                        "source reference anchor is absent from the current file",
-                        surface_id=surface.surface_id,
-                        metadata={
-                            "source_ref_token": token,
-                            "resolved_path": relative,
-                            "anchor": anchor,
-                        },
-                    )
-                )
-
-    members = tuple(
-        BehaviorSourceFileIdentity(relative, source_file_fingerprint(resolved_by_path[relative]))
-        for relative in sorted(resolved_by_path)
-    )
-    if len(members) == 1:
-        content_fingerprint = members[0].content_fingerprint
-    elif members:
-        content_fingerprint = _canonical_sha256(
-            {
-                "schema_version": BCL_SOURCE_FILE_AGGREGATE_SCHEMA,
-                "members": [member.to_dict() for member in members],
-            }
-        )
-    else:
-        content_fingerprint = ""
-    return (
-        BehaviorSourceSurfaceLiveIdentity(
-            surface_id=surface.surface_id,
-            source_ref=surface.source_ref,
-            members=members,
-            content_fingerprint=content_fingerprint,
-        ),
-        tuple(findings),
-    )
-
-
-def _live_source_inventory_payload(
-    identities: Sequence[BehaviorSourceSurfaceLiveIdentity],
-) -> dict[str, Any]:
-    return {
-        "schema_version": BCL_SOURCE_INVENTORY_SCHEMA,
-        "surfaces": [
-            {
-                "surface_id": identity.surface_id,
-                "source_ref": identity.source_ref,
-                "members": [member.to_dict() for member in identity.members],
-                "content_fingerprint": identity.content_fingerprint,
-            }
-            for identity in sorted(identities, key=lambda item: item.surface_id)
-        ],
-    }
-
-
-def audit_behavior_commitment_source_inventory(
-    ledger: BehaviorCommitmentLedger | Mapping[str, Any],
-    project_root: str | Path,
-) -> BehaviorSourceInventoryAuditReport:
-    """Read current source files and compare them with stored BCL identities."""
-
-    normalized = behavior_commitment_ledger_from_mapping(ledger)
-    root = Path(project_root).resolve(strict=True)
-    if not root.is_dir():
-        raise ValueError("behavior commitment project root must be a directory")
-
-    findings: list[BehaviorCommitmentFinding] = []
-    identities: list[BehaviorSourceSurfaceLiveIdentity] = []
-    for surface in normalized.source_surfaces:
-        identity, resolution_findings = _resolve_behavior_source_surface(root, surface)
-        identities.append(identity)
-        findings.extend(resolution_findings)
-        if identity.content_fingerprint != surface.content_fingerprint:
-            findings.append(
-                _finding(
-                    "source_surface_content_fingerprint_stale",
-                    "stored source fingerprint does not match current canonical file content",
-                    surface_id=surface.surface_id,
-                    metadata={
-                        "stored_fingerprint": surface.content_fingerprint,
-                        "live_fingerprint": identity.content_fingerprint,
-                    },
-                )
-            )
-        stored_identity = surface.metadata.get(BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY, {})
-        stored_members = ()
-        if isinstance(stored_identity, Mapping):
-            stored_members = _as_tuple(stored_identity.get("member_paths", ()))
-        if stored_members != identity.member_paths:
-            findings.append(
-                _finding(
-                    "source_surface_membership_stale",
-                    "stored source membership does not match the current direct, composite, or glob expansion",
-                    surface_id=surface.surface_id,
-                    metadata={
-                        "stored_member_paths": list(stored_members),
-                        "live_member_paths": list(identity.member_paths),
-                    },
-                )
-            )
-
-    resolution_blocked = any(finding.code in _LIVE_SOURCE_RESOLUTION_CODES for finding in findings)
-    inventory_fingerprint = ""
-    inventory_revision = ""
-    discovery_evidence_id = ""
-    if not resolution_blocked:
-        inventory_fingerprint = _canonical_sha256(
-            _live_source_inventory_payload(identities)
-        )
-        digest = inventory_fingerprint.removeprefix("sha256:")
-        inventory_revision = f"source-inventory:{digest}"
-        discovery_evidence_id = f"source-inventory-discovery:{digest}"
-
-        for surface in normalized.source_surfaces:
-            if surface.inventory_revision != inventory_revision:
-                findings.append(
-                    _finding(
-                        "source_surface_inventory_revision_live_stale",
-                        "source row inventory revision does not match the live inventory",
-                        surface_id=surface.surface_id,
-                        metadata={
-                            "stored_revision": surface.inventory_revision,
-                            "live_revision": inventory_revision,
-                        },
-                    )
-                )
-            if surface.discovery_evidence_ids != (discovery_evidence_id,):
-                findings.append(
-                    _finding(
-                        "source_surface_discovery_evidence_live_stale",
-                        "source row discovery evidence does not identify the live inventory",
-                        surface_id=surface.surface_id,
-                        metadata={
-                            "stored_evidence_ids": list(surface.discovery_evidence_ids),
-                            "live_evidence_id": discovery_evidence_id,
-                        },
-                    )
-                )
-        if normalized.source_inventory_fingerprint != inventory_fingerprint:
-            findings.append(
-                _finding(
-                    "source_inventory_fingerprint_stale",
-                    "stored source inventory fingerprint does not match all live surface identities",
-                    metadata={
-                        "stored_fingerprint": normalized.source_inventory_fingerprint,
-                        "live_fingerprint": inventory_fingerprint,
-                    },
-                )
-            )
-        if normalized.source_inventory_revision != inventory_revision:
-            findings.append(
-                _finding(
-                    "source_inventory_revision_stale",
-                    "stored source inventory revision does not match the live inventory",
-                    metadata={
-                        "stored_revision": normalized.source_inventory_revision,
-                        "live_revision": inventory_revision,
-                    },
-                )
-            )
-        if normalized.source_inventory_evidence_ids != (discovery_evidence_id,):
-            findings.append(
-                _finding(
-                    "source_inventory_evidence_stale",
-                    "stored discovery evidence does not identify the live inventory",
-                    metadata={
-                        "stored_evidence_ids": list(normalized.source_inventory_evidence_ids),
-                        "live_evidence_id": discovery_evidence_id,
-                    },
-                )
-            )
-
-    return BehaviorSourceInventoryAuditReport(
-        ok=not findings,
-        project_root=root.as_posix(),
-        live_inventory_fingerprint=inventory_fingerprint,
-        live_inventory_revision=inventory_revision,
-        live_discovery_evidence_id=discovery_evidence_id,
-        surface_identities=tuple(identities),
-        findings=tuple(findings),
-    )
-
-
-def refresh_behavior_commitment_source_inventory(
-    ledger: BehaviorCommitmentLedger | Mapping[str, Any],
-    project_root: str | Path,
-) -> BehaviorCommitmentLedger:
-    """Return a refreshed ledger without writing files or changing authored semantics."""
-
-    normalized = behavior_commitment_ledger_from_mapping(ledger)
-    audit = audit_behavior_commitment_source_inventory(normalized, project_root)
-    resolution_findings = tuple(
-        finding for finding in audit.findings if finding.code in _LIVE_SOURCE_RESOLUTION_CODES
-    )
-    if resolution_findings:
-        details = ", ".join(
-            f"{finding.surface_id or '<inventory>'}:{finding.code}"
-            for finding in resolution_findings
-        )
-        raise ValueError(f"behavior commitment source inventory cannot refresh: {details}")
-
-    identity_by_id = {identity.surface_id: identity for identity in audit.surface_identities}
-    refreshed_surfaces = []
-    for surface in normalized.source_surfaces:
-        identity = identity_by_id[surface.surface_id]
-        metadata = dict(surface.metadata)
-        metadata[BCL_LIVE_SOURCE_IDENTITY_METADATA_KEY] = {
-            "schema_version": BCL_SOURCE_FILE_AGGREGATE_SCHEMA,
-            "member_paths": list(identity.member_paths),
-        }
-        refreshed_surfaces.append(
-            replace(
-                surface,
-                content_fingerprint=identity.content_fingerprint,
-                inventory_revision=audit.live_inventory_revision,
-                discovery_evidence_ids=(audit.live_discovery_evidence_id,),
-                freshness_state=BCL_SOURCE_FRESHNESS_CURRENT,
-                metadata=metadata,
-            )
-        )
-    return replace(
-        normalized,
-        source_surfaces=tuple(refreshed_surfaces),
-        source_inventory_revision=audit.live_inventory_revision,
-        source_inventory_fingerprint=audit.live_inventory_fingerprint,
-        source_inventory_evidence_ids=(audit.live_discovery_evidence_id,),
-    )
 
 
 def _review_source_classification(
@@ -2620,20 +2171,11 @@ def _review_complete_source_identity(
 
 def review_behavior_commitment_ledger(
     ledger: BehaviorCommitmentLedger | Mapping[str, Any],
-    *,
-    project_root: str | Path | None = None,
 ) -> BehaviorCommitmentCoverageReport:
-    """Review a ledger and optionally bind source freshness to a live project root."""
+    """Review the declared promises, their sources, owners and tests."""
 
     ledger = behavior_commitment_ledger_from_mapping(ledger)
     findings: list[BehaviorCommitmentFinding] = []
-    if project_root is not None:
-        findings.extend(
-            audit_behavior_commitment_source_inventory(
-                ledger,
-                project_root,
-            ).findings
-        )
 
     if not ledger.ledger_id:
         findings.append(_finding("ledger_missing_id", "ledger must name a stable id"))
@@ -3970,10 +3512,6 @@ __all__ = [
     "BehaviorExternalDifference",
     "BehaviorLookupBinding",
     "BehaviorSourceSurface",
-    "BehaviorSourceFileIdentity",
-    "BehaviorSourceSurfaceLiveIdentity",
-    "BehaviorSourceInventoryAuditReport",
-    "audit_behavior_commitment_source_inventory",
     "behavior_commitment_contract_exhaustion_plan",
     "behavior_commitment_ledger_fingerprint",
     "behavior_commitment_ledger_from_mapping",
@@ -3984,7 +3522,6 @@ __all__ = [
     "default_behavior_commitment_coverage_universe",
     "default_behavior_commitment_interaction_groups",
     "load_behavior_commitment_ledger",
-    "refresh_behavior_commitment_source_inventory",
     "review_independent_behavior_inventory",
     "review_behavior_commitment_ledger",
     "write_behavior_commitment_ledger",

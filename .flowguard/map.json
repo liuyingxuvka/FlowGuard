@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:eff7f772bbeb0020d87758fc0a7c2054737cf04d314b2b419acc6661577a4968"
+      "fingerprint": "sha256:3eff976d9e19a156059d0eae4789fe5ebf5d574b32055c53ca0d0d8c2b968a29"
     },
     {
       "id": "templates",
@@ -278,7 +278,7 @@
         ".flowguard/verification/owners/primary_path_authority/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b89a32f622e1543ab59c55af0ae9478547041b019995c031a5a9c5e0d038d347"
+      "fingerprint": "sha256:eb437edb314458f67577dfd2955caa672962315d6edfe02edb57bada8eb0d52a"
     },
     {
       "id": "architecture-reduction",
