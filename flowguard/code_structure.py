@@ -90,7 +90,6 @@ class CodeStructureRecommendation:
     parent_module_id: str
     target_modules: tuple[TargetModuleRecommendation, ...] = ()
     source_model_path: str = ""
-    source_model_evidence_tier: str = "abstract_green"
     function_block_map: tuple[tuple[str, str], ...] = ()
     state_owner_map: tuple[tuple[str, str], ...] = ()
     side_effect_owner_map: tuple[tuple[str, str], ...] = ()
@@ -113,7 +112,6 @@ class CodeStructureRecommendation:
         object.__setattr__(self, "parent_module_id", str(self.parent_module_id))
         object.__setattr__(self, "target_modules", tuple(self.target_modules))
         object.__setattr__(self, "source_model_path", str(self.source_model_path))
-        object.__setattr__(self, "source_model_evidence_tier", str(self.source_model_evidence_tier))
         object.__setattr__(self, "function_block_map", _as_pairs(self.function_block_map))
         object.__setattr__(self, "state_owner_map", _as_pairs(self.state_owner_map))
         object.__setattr__(self, "side_effect_owner_map", _as_pairs(self.side_effect_owner_map))
@@ -167,7 +165,6 @@ class CodeStructureRecommendation:
             "parent_module_id": self.parent_module_id,
             "target_modules": [module.to_dict() for module in self.target_modules],
             "source_model_path": self.source_model_path,
-            "source_model_evidence_tier": self.source_model_evidence_tier,
             "function_block_map": [list(pair) for pair in self.function_block_map],
             "state_owner_map": [list(pair) for pair in self.state_owner_map],
             "side_effect_owner_map": [list(pair) for pair in self.side_effect_owner_map],

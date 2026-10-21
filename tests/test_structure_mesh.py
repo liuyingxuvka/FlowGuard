@@ -2,8 +2,6 @@ import unittest
 
 from flowguard import (
     CodeStructureRecommendation,
-    EVIDENCE_ABSTRACT_GREEN,
-    EVIDENCE_CONFORMANCE_GREEN,
     ModuleStructureEvidence,
     PublicEntrypointEvidence,
     STRUCTURE_SCOPE_RELEASE,
@@ -18,7 +16,6 @@ from flowguard import (
 def module(module_id: str, **kwargs) -> ModuleStructureEvidence:
     defaults = {
         "behavior_parity_current": True,
-        "behavior_parity_tier": EVIDENCE_ABSTRACT_GREEN,
     }
     defaults.update(kwargs)
     return ModuleStructureEvidence(module_id, **defaults)
@@ -29,7 +26,6 @@ def entrypoint(entrypoint_id: str, **kwargs) -> PublicEntrypointEvidence:
         "compatibility_preserved": True,
         "facade_available": True,
         "parity_evidence_current": True,
-        "parity_evidence_tier": EVIDENCE_ABSTRACT_GREEN,
     }
     defaults.update(kwargs)
     return PublicEntrypointEvidence(entrypoint_id, **defaults)
@@ -77,75 +73,7 @@ def recommendation(
     )
 
 
-class InventoryReportStub:
-    def __init__(self, *, required_surface_ids, ok=True, fingerprint="sha256:inventory"):
-        self.ok = ok
-        self.inventory_fingerprint = fingerprint
-        self.required_surface_ids = tuple(required_surface_ids)
-
-    def to_dict(self):
-        return {
-            "ok": self.ok,
-            "inventory_fingerprint": self.inventory_fingerprint,
-            "required_surface_ids": list(self.required_surface_ids),
-        }
-
-
 class StructureMeshTests(unittest.TestCase):
-    def test_blueprint_structure_consumes_exact_independent_inventory_surface_set(self):
-        inventory = InventoryReportStub(required_surface_ids=("cli", "dispatch"))
-        plan = StructureMeshPlan(
-            parent_module_id="router",
-            target_structure=recommendation(),
-            partition_items=(
-                StructurePartitionItem("cli", item_type="entrypoint", owner_module_id="facade"),
-                StructurePartitionItem("dispatch", owner_module_id="dispatch"),
-            ),
-            child_modules=(
-                module("facade", facade_retained=True, owns_functions=("main",)),
-                module("dispatch"),
-            ),
-            public_entrypoints=(entrypoint("python -m router"),),
-            blueprint_required=True,
-            implementation_inventory_fingerprint=inventory.inventory_fingerprint,
-            implementation_inventory_report=inventory,
-        )
-
-        report = review_structure_mesh(plan)
-        self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(inventory.inventory_fingerprint, report.implementation_inventory_fingerprint)
-        self.assertEqual(("cli", "dispatch"), report.covered_partition_surface_ids)
-
-    def test_blueprint_structure_rejects_caller_partition_that_omits_discovered_method(self):
-        inventory = InventoryReportStub(
-            required_surface_ids=("cli", "dispatch", "hidden_writer")
-        )
-        plan = StructureMeshPlan(
-            parent_module_id="router",
-            target_structure=recommendation(),
-            partition_items=(
-                StructurePartitionItem("cli", item_type="entrypoint", owner_module_id="facade"),
-                StructurePartitionItem("dispatch", owner_module_id="dispatch"),
-            ),
-            child_modules=(
-                module("facade", facade_retained=True, owns_functions=("main",)),
-                module("dispatch"),
-            ),
-            public_entrypoints=(entrypoint("python -m router"),),
-            blueprint_required=True,
-            implementation_inventory_fingerprint=inventory.inventory_fingerprint,
-            implementation_inventory_report=inventory,
-        )
-
-        report = review_structure_mesh(plan)
-        self.assertFalse(report.ok)
-        finding = next(
-            finding
-            for finding in report.findings
-            if finding.code == "implementation_partition_coverage_mismatch"
-        )
-        self.assertEqual(("hidden_writer",), finding.metadata["missing"])
-
     def test_non_ui_currentness_children_have_one_exact_release_structure(self):
         plan = StructureMeshPlan(
             parent_module_id="flowguard_currentness",
@@ -178,7 +106,6 @@ class StructureMeshTests(unittest.TestCase):
                 ),
                 facade_module_id="package_facade",
             ),
-            required_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
             decision_scope=STRUCTURE_SCOPE_RELEASE,
             partition_items=(
                 StructurePartitionItem(
@@ -235,12 +162,10 @@ class StructureMeshTests(unittest.TestCase):
                 module(
                     "package_facade",
                     facade_retained=True,
-                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
                 ),
                 module(
                     "api_registry",
                     owns_config=("public_name_order",),
-                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
                 ),
                 module(
                     "process_supervision",
@@ -250,7 +175,6 @@ class StructureMeshTests(unittest.TestCase):
                         "persist_terminal_artifact",
                     ),
                     owns_config=("grace_seconds",),
-                    behavior_parity_tier=EVIDENCE_CONFORMANCE_GREEN,
                 ),
             ),
             public_entrypoints=(
@@ -258,7 +182,6 @@ class StructureMeshTests(unittest.TestCase):
                     "flowguard.__all__",
                     old_path="flowguard.__init__.__all__",
                     new_path="flowguard.__init__.__all__",
-                    parity_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
                     release_required=True,
                 ),
             ),
@@ -404,7 +327,6 @@ class StructureMeshTests(unittest.TestCase):
         for kwargs, decision, code in (
             ({"dependency_cycles": ("module_a->module_b->module_a",)}, "dependency_cycle_blocked", "dependency_cycle"),
             ({"config_defaults_changed": True}, "config_drift_blocked", "config_drift"),
-            ({"behavior_parity_tier": ""}, "missing_behavior_parity", "missing_behavior_parity"),
             ({"behavior_parity_current": False}, "stale_behavior_parity", "stale_behavior_parity"),
         ):
             with self.subTest(code=code):
@@ -441,26 +363,6 @@ class StructureMeshTests(unittest.TestCase):
         report = review_structure_mesh(plan)
 
         self.assertTrue(report.ok)
-
-    def test_evidence_tier_below_required_is_visible(self):
-        plan = StructureMeshPlan(
-            parent_module_id="release",
-            target_structure=recommendation(
-                parent_module_id="release",
-                modules=("publish",),
-                function_map=(("publish", "publish"),),
-                entrypoint_map=(),
-                facade_module_id="",
-            ),
-            required_evidence_tier=EVIDENCE_CONFORMANCE_GREEN,
-            partition_items=(StructurePartitionItem("publish", owner_module_id="publish"),),
-            child_modules=(module("publish", behavior_parity_tier=EVIDENCE_ABSTRACT_GREEN),),
-        )
-
-        report = review_structure_mesh(plan)
-
-        self.assertFalse(report.ok)
-        self.assertEqual("insufficient_evidence", report.decision)
 
     def test_routine_scope_can_defer_release_only_module_and_entrypoint(self):
         plan = StructureMeshPlan(

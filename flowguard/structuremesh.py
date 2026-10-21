@@ -16,12 +16,6 @@ from ._normalization import string_sequence as _as_tuple
 from .code_structure import CodeStructureRecommendation, review_code_structure_recommendation
 from .export import to_jsonable
 from ._mesh_vocab import (
-    EVIDENCE_ABSTRACT_GREEN,
-    EVIDENCE_CANDIDATE_ONLY,
-    EVIDENCE_CONFORMANCE_GREEN,
-    EVIDENCE_HAZARD_GREEN,
-    EVIDENCE_LIVE_CURRENT_GREEN,
-    EVIDENCE_MESH_GREEN,
     OWNERSHIP_CHILD,
     OWNERSHIP_PARENT,
     OWNERSHIP_READ_ONLY,
@@ -31,16 +25,6 @@ from ._mesh_vocab import (
 
 STRUCTURE_SCOPE_ROUTINE = "routine"
 STRUCTURE_SCOPE_RELEASE = "release"
-
-STRUCTURE_EVIDENCE_ORDER = {
-    EVIDENCE_CANDIDATE_ONLY: 0,
-    EVIDENCE_ABSTRACT_GREEN: 1,
-    EVIDENCE_HAZARD_GREEN: 2,
-    EVIDENCE_LIVE_CURRENT_GREEN: 3,
-    EVIDENCE_CONFORMANCE_GREEN: 4,
-    EVIDENCE_MESH_GREEN: 5,
-}
-
 
 @dataclass(frozen=True)
 class StructurePartitionItem:
@@ -88,7 +72,6 @@ class PublicEntrypointEvidence:
     compatibility_preserved: bool = True
     facade_available: bool = True
     parity_evidence_current: bool = True
-    parity_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     release_required: bool = False
     evidence_path: str = ""
     not_ready_reason: str = ""
@@ -98,7 +81,6 @@ class PublicEntrypointEvidence:
         object.__setattr__(self, "entrypoint_type", str(self.entrypoint_type))
         object.__setattr__(self, "old_path", str(self.old_path))
         object.__setattr__(self, "new_path", str(self.new_path))
-        object.__setattr__(self, "parity_evidence_tier", str(self.parity_evidence_tier))
         object.__setattr__(self, "evidence_path", str(self.evidence_path))
         object.__setattr__(self, "not_ready_reason", str(self.not_ready_reason))
 
@@ -118,7 +100,6 @@ class PublicEntrypointEvidence:
             "compatibility_preserved": self.compatibility_preserved,
             "facade_available": self.facade_available,
             "parity_evidence_current": self.parity_evidence_current,
-            "parity_evidence_tier": self.parity_evidence_tier,
             "release_required": self.release_required,
             "evidence_path": self.evidence_path,
             "not_ready_reason": self.not_ready_reason,
@@ -142,7 +123,6 @@ class ModuleStructureEvidence:
     dependency_cycles: tuple[str, ...] = ()
     facade_retained: bool = True
     behavior_parity_current: bool = True
-    behavior_parity_tier: str = EVIDENCE_ABSTRACT_GREEN
     config_defaults_changed: bool = False
     release_required: bool = False
     not_ready_reason: str = ""
@@ -159,14 +139,13 @@ class ModuleStructureEvidence:
         object.__setattr__(self, "behavior_contracts", _as_tuple(self.behavior_contracts))
         object.__setattr__(self, "dependencies", _as_tuple(self.dependencies))
         object.__setattr__(self, "dependency_cycles", _as_tuple(self.dependency_cycles))
-        object.__setattr__(self, "behavior_parity_tier", str(self.behavior_parity_tier))
         object.__setattr__(self, "not_ready_reason", str(self.not_ready_reason))
 
     def is_release_only(self) -> bool:
         return self.release_required or self.layer == "release"
 
     def has_current_parity(self) -> bool:
-        return self.behavior_parity_current and bool(self.behavior_parity_tier)
+        return self.behavior_parity_current
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -183,7 +162,6 @@ class ModuleStructureEvidence:
             "dependency_cycles": list(self.dependency_cycles),
             "facade_retained": self.facade_retained,
             "behavior_parity_current": self.behavior_parity_current,
-            "behavior_parity_tier": self.behavior_parity_tier,
             "config_defaults_changed": self.config_defaults_changed,
             "release_required": self.release_required,
             "not_ready_reason": self.not_ready_reason,
@@ -199,34 +177,23 @@ class StructureMeshPlan:
     child_modules: tuple[ModuleStructureEvidence, ...] = ()
     public_entrypoints: tuple[PublicEntrypointEvidence, ...] = ()
     target_structure: CodeStructureRecommendation | None = None
-    required_evidence_tier: str = EVIDENCE_ABSTRACT_GREEN
     decision_scope: str = STRUCTURE_SCOPE_ROUTINE
     release_deferred_allowed: bool = True
     allowed_shared_state: tuple[str, ...] = ()
     allowed_shared_side_effects: tuple[str, ...] = ()
     allowed_shared_config: tuple[str, ...] = ()
     allowed_dependency_cycles: tuple[str, ...] = ()
-    blueprint_required: bool = False
-    implementation_inventory_fingerprint: str = ""
-    implementation_inventory_report: Any | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_module_id", str(self.parent_module_id))
         object.__setattr__(self, "partition_items", tuple(self.partition_items))
         object.__setattr__(self, "child_modules", tuple(self.child_modules))
         object.__setattr__(self, "public_entrypoints", tuple(self.public_entrypoints))
-        object.__setattr__(self, "required_evidence_tier", str(self.required_evidence_tier))
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
         object.__setattr__(self, "allowed_shared_state", _as_tuple(self.allowed_shared_state))
         object.__setattr__(self, "allowed_shared_side_effects", _as_tuple(self.allowed_shared_side_effects))
         object.__setattr__(self, "allowed_shared_config", _as_tuple(self.allowed_shared_config))
         object.__setattr__(self, "allowed_dependency_cycles", _as_tuple(self.allowed_dependency_cycles))
-        object.__setattr__(self, "blueprint_required", bool(self.blueprint_required))
-        object.__setattr__(
-            self,
-            "implementation_inventory_fingerprint",
-            str(self.implementation_inventory_fingerprint),
-        )
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -235,20 +202,12 @@ class StructureMeshPlan:
             "child_modules": [module.to_dict() for module in self.child_modules],
             "public_entrypoints": [entrypoint.to_dict() for entrypoint in self.public_entrypoints],
             "target_structure": self.target_structure.to_dict() if self.target_structure else None,
-            "required_evidence_tier": self.required_evidence_tier,
             "decision_scope": self.decision_scope,
             "release_deferred_allowed": self.release_deferred_allowed,
             "allowed_shared_state": list(self.allowed_shared_state),
             "allowed_shared_side_effects": list(self.allowed_shared_side_effects),
             "allowed_shared_config": list(self.allowed_shared_config),
             "allowed_dependency_cycles": list(self.allowed_dependency_cycles),
-            "blueprint_required": self.blueprint_required,
-            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
-            "implementation_inventory_report": (
-                self.implementation_inventory_report.to_dict()
-                if hasattr(self.implementation_inventory_report, "to_dict")
-                else to_jsonable(self.implementation_inventory_report)
-            ),
         }
 
 
@@ -292,8 +251,6 @@ class StructureMeshReport:
     decision_scope: str
     findings: tuple[StructureMeshFinding, ...] = ()
     release_obligations: tuple[str, ...] = ()
-    implementation_inventory_fingerprint: str = ""
-    covered_partition_surface_ids: tuple[str, ...] = ()
     summary: str = ""
 
     def __post_init__(self) -> None:
@@ -302,16 +259,6 @@ class StructureMeshReport:
         object.__setattr__(self, "decision_scope", str(self.decision_scope))
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "release_obligations", _as_tuple(self.release_obligations))
-        object.__setattr__(
-            self,
-            "implementation_inventory_fingerprint",
-            str(self.implementation_inventory_fingerprint),
-        )
-        object.__setattr__(
-            self,
-            "covered_partition_surface_ids",
-            _as_tuple(self.covered_partition_surface_ids),
-        )
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
             object.__setattr__(
@@ -357,14 +304,8 @@ class StructureMeshReport:
             "decision_scope": self.decision_scope,
             "findings": [finding.to_dict() for finding in self.findings],
             "release_obligations": list(self.release_obligations),
-            "implementation_inventory_fingerprint": self.implementation_inventory_fingerprint,
-            "covered_partition_surface_ids": list(self.covered_partition_surface_ids),
             "summary": self.summary,
         }
-
-
-def _tier_value(tier: str) -> int:
-    return STRUCTURE_EVIDENCE_ORDER.get(tier, -1)
 
 
 def _blocker_findings(findings: Sequence[StructureMeshFinding]) -> tuple[StructureMeshFinding, ...]:
@@ -399,9 +340,7 @@ def _decision_for_findings(findings: Sequence[StructureMeshFinding]) -> str:
         ("facade_missing", "facade_compatibility_blocked"),
         ("dependency_cycle", "dependency_cycle_blocked"),
         ("config_drift", "config_drift_blocked"),
-        ("missing_behavior_parity", "missing_behavior_parity"),
         ("stale_behavior_parity", "stale_behavior_parity"),
-        ("insufficient_evidence_tier", "insufficient_evidence"),
         ("release_parity_not_current", "missing_release_evidence"),
     ]
     codes = {finding.code for finding in blockers}
@@ -464,52 +403,6 @@ def _partition_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
                     metadata={"owners": [owner.to_dict() for owner in owners]},
                 )
             )
-    return findings
-
-
-def _blueprint_inventory_findings(plan: StructureMeshPlan) -> list[StructureMeshFinding]:
-    if not plan.blueprint_required:
-        return []
-    report = plan.implementation_inventory_report
-    if report is None:
-        return [
-            StructureMeshFinding(
-                "missing_implementation_inventory",
-                "blueprint StructureMesh has no independently discovered implementation inventory",
-            )
-        ]
-    findings: list[StructureMeshFinding] = []
-    actual_fingerprint = str(getattr(report, "inventory_fingerprint", ""))
-    if not bool(getattr(report, "ok", False)):
-        findings.append(
-            StructureMeshFinding(
-                "implementation_inventory_blocked",
-                "the independent implementation inventory is not terminal green",
-            )
-        )
-    if not actual_fingerprint or plan.implementation_inventory_fingerprint != actual_fingerprint:
-        findings.append(
-            StructureMeshFinding(
-                "implementation_inventory_fingerprint_mismatch",
-                "StructureMesh does not bind the exact independent inventory identity",
-                metadata={
-                    "expected": actual_fingerprint,
-                    "actual": plan.implementation_inventory_fingerprint,
-                },
-            )
-        )
-    required = {str(value) for value in getattr(report, "required_surface_ids", ())}
-    partitioned = {item.item_id for item in plan.partition_items}
-    missing = tuple(sorted(required - partitioned))
-    unexpected = tuple(sorted(partitioned - required))
-    if missing or unexpected:
-        findings.append(
-            StructureMeshFinding(
-                "implementation_partition_coverage_mismatch",
-                "StructureMesh partition rows do not exactly cover the independent required surface set",
-                metadata={"missing": missing, "unexpected": unexpected},
-            )
-        )
     return findings
 
 
@@ -714,7 +607,6 @@ def _duplicate_value_findings(
 def _module_findings(plan: StructureMeshPlan) -> tuple[list[StructureMeshFinding], list[str]]:
     findings: list[StructureMeshFinding] = []
     release_obligations: list[str] = []
-    required_tier = _tier_value(plan.required_evidence_tier)
     allowed_cycles = set(plan.allowed_dependency_cycles)
     for module in plan.child_modules:
         release_only = module.is_release_only()
@@ -766,30 +658,12 @@ def _module_findings(plan: StructureMeshPlan) -> tuple[list[StructureMeshFinding
                     metadata=module.to_dict(),
                 )
             )
-        if not module.behavior_parity_tier:
-            findings.append(
-                StructureMeshFinding(
-                    "missing_behavior_parity",
-                    f"module {module.module_id} has no behavior parity evidence tier",
-                    module_id=module.module_id,
-                    metadata=module.to_dict(),
-                )
-            )
-        elif not module.behavior_parity_current:
+        if not module.behavior_parity_current:
             code = "release_parity_not_current" if plan.decision_scope == STRUCTURE_SCOPE_RELEASE and release_only else "stale_behavior_parity"
             findings.append(
                 StructureMeshFinding(
                     code,
                     f"module {module.module_id} behavior parity evidence is not current",
-                    module_id=module.module_id,
-                    metadata=module.to_dict(),
-                )
-            )
-        if _tier_value(module.behavior_parity_tier) < required_tier:
-            findings.append(
-                StructureMeshFinding(
-                    "insufficient_evidence_tier",
-                    f"module {module.module_id} evidence tier {module.behavior_parity_tier} is below {plan.required_evidence_tier}",
                     module_id=module.module_id,
                     metadata=module.to_dict(),
                 )
@@ -800,7 +674,6 @@ def _module_findings(plan: StructureMeshPlan) -> tuple[list[StructureMeshFinding
 def _entrypoint_findings(plan: StructureMeshPlan) -> tuple[list[StructureMeshFinding], list[str]]:
     findings: list[StructureMeshFinding] = []
     release_obligations: list[str] = []
-    required_tier = _tier_value(plan.required_evidence_tier)
     for entrypoint in plan.public_entrypoints:
         release_only = entrypoint.release_required
         deferred_release = (
@@ -840,30 +713,12 @@ def _entrypoint_findings(plan: StructureMeshPlan) -> tuple[list[StructureMeshFin
                     metadata=entrypoint.to_dict(),
                 )
             )
-        if not entrypoint.parity_evidence_tier:
-            findings.append(
-                StructureMeshFinding(
-                    "missing_behavior_parity",
-                    f"public entrypoint {entrypoint.entrypoint_id} has no behavior parity evidence",
-                    item_id=entrypoint.entrypoint_id,
-                    metadata=entrypoint.to_dict(),
-                )
-            )
-        elif not entrypoint.parity_evidence_current:
+        if not entrypoint.parity_evidence_current:
             code = "release_parity_not_current" if plan.decision_scope == STRUCTURE_SCOPE_RELEASE and release_only else "stale_behavior_parity"
             findings.append(
                 StructureMeshFinding(
                     code,
                     f"public entrypoint {entrypoint.entrypoint_id} parity evidence is not current",
-                    item_id=entrypoint.entrypoint_id,
-                    metadata=entrypoint.to_dict(),
-                )
-            )
-        if _tier_value(entrypoint.parity_evidence_tier) < required_tier:
-            findings.append(
-                StructureMeshFinding(
-                    "insufficient_evidence_tier",
-                    f"public entrypoint {entrypoint.entrypoint_id} evidence tier {entrypoint.parity_evidence_tier} is below {plan.required_evidence_tier}",
                     item_id=entrypoint.entrypoint_id,
                     metadata=entrypoint.to_dict(),
                 )
@@ -877,7 +732,6 @@ def review_structure_mesh(plan: StructureMeshPlan) -> StructureMeshReport:
     findings: list[StructureMeshFinding] = []
     release_obligations: list[str] = []
     findings.extend(_target_structure_findings(plan))
-    findings.extend(_blueprint_inventory_findings(plan))
     findings.extend(_partition_findings(plan))
     findings.extend(
         _duplicate_value_findings(
@@ -920,15 +774,10 @@ def review_structure_mesh(plan: StructureMeshPlan) -> StructureMeshReport:
         decision_scope=plan.decision_scope,
         findings=tuple(findings),
         release_obligations=tuple(release_obligations),
-        implementation_inventory_fingerprint=plan.implementation_inventory_fingerprint,
-        covered_partition_surface_ids=tuple(
-            sorted(item.item_id for item in plan.partition_items)
-        ),
     )
 
 
 __all__ = [
-    "STRUCTURE_EVIDENCE_ORDER",
     "STRUCTURE_SCOPE_RELEASE",
     "STRUCTURE_SCOPE_ROUTINE",
     "CodeStructureRecommendation",

@@ -61,7 +61,6 @@ parity evidence.
 ```python
 from flowguard import (
     CodeStructureRecommendation,
-    EVIDENCE_ABSTRACT_GREEN,
     ModuleStructureEvidence,
     PublicEntrypointEvidence,
     StructureMeshPlan,
@@ -110,14 +109,12 @@ plan = StructureMeshPlan(
         ModuleStructureEvidence(
             "cli",
             owns_functions=("parse_args",),
-            behavior_parity_tier=EVIDENCE_ABSTRACT_GREEN,
         ),
         ModuleStructureEvidence(
             "renderer",
             owns_functions=("render_report",),
             owns_state=("render_cache",),
             owns_side_effects=("write_report",),
-            behavior_parity_tier=EVIDENCE_ABSTRACT_GREEN,
         ),
     ),
     public_entrypoints=(
@@ -125,7 +122,6 @@ plan = StructureMeshPlan(
             "python -m reporter",
             old_path="reporter.py",
             new_path="reporter/__main__.py",
-            parity_evidence_tier=EVIDENCE_ABSTRACT_GREEN,
         ),
     ),
 )
@@ -150,8 +146,7 @@ trusted:
 - compatibility facade missing;
 - unsafe dependency cycle;
 - config/default drift;
-- missing or stale behavior parity;
-- insufficient evidence tier;
+- stale behavior parity;
 - missing release-required parity under release scope.
 
 ## Scope Of The Result
@@ -159,8 +154,8 @@ trusted:
 StructureMesh can show that a split kept a public entrypoint, facade, or child
 module parity boundary intact. It does not by itself prove every user-facing
 risk in the broader task. When reporting the result, name the public
-entrypoints and child modules that were checked, the parity evidence tier each
-one carried, and any release-required obligations that were deferred. A
+entrypoints and child modules that were checked, whether each one's parity
+evidence was current, and any release-required obligations that were deferred. A
 routine StructureMesh warning must stay visible in that report as a scoped
 gap, not disappear behind a green local refactor check. The proof itself comes
 from running the parity tests and models; after the split, `python -m flowguard

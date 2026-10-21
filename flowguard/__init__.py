@@ -30,12 +30,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "RISK_PROOF_STATUS_STALE",
     ),
     "flowguard._mesh_vocab": (
-        "EVIDENCE_ABSTRACT_GREEN",
-        "EVIDENCE_CANDIDATE_ONLY",
-        "EVIDENCE_CONFORMANCE_GREEN",
-        "EVIDENCE_HAZARD_GREEN",
-        "EVIDENCE_LIVE_CURRENT_GREEN",
-        "EVIDENCE_MESH_GREEN",
         "OWNERSHIP_CHILD",
         "OWNERSHIP_PARENT",
         "OWNERSHIP_READ_ONLY",
@@ -1085,7 +1079,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
     "flowguard.structuremesh": (
         "ModuleStructureEvidence",
         "PublicEntrypointEvidence",
-        "STRUCTURE_EVIDENCE_ORDER",
         "STRUCTURE_SCOPE_RELEASE",
         "STRUCTURE_SCOPE_ROUTINE",
         "StructureMeshFinding",

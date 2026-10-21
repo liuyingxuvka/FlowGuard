@@ -1,7 +1,6 @@
 import unittest
 
 from flowguard import (
-    EVIDENCE_ABSTRACT_GREEN,
     MODEL_MESH_CLOSURE_RETRY_TEST_KINDS,
     MeshClosureModel,
     MeshClosureTerminal,
