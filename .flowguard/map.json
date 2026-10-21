@@ -190,7 +190,6 @@
         "engine-scenarios",
         "field-lifecycle",
         "model-mesh",
-        "model-miss",
         "model-test",
         "portable-models",
         "problem-corpus",
@@ -205,7 +204,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cf8948b48afc5ab9f36f45af7fe704d78025d102aaf70032f67cffde6d921ec3"
+      "fingerprint": "sha256:e631a6fe00ea20a2f9fc1bf04af77e0fad54eddd56cf25f0c12b24ffc47d0b7a"
     },
     {
       "id": "templates",
@@ -472,39 +471,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:f0e65ec158075721f29aa2c8eb169990ea7f3a48e4473d2486d3457c4a8dce2f"
-    },
-    {
-      "id": "model-miss",
-      "layer": "capabilities",
-      "summary": "Turns escaped bugs into model cases and regression tests.",
-      "responsibilities": [
-        "turn an escaped failure into model bad cases and a regression test"
-      ],
-      "files": [
-        "flowguard/model_miss_diagnostics.py",
-        "flowguard/recurring_model_miss.py",
-        "flowguard/legacy_path_disposition.py",
-        "flowguard/plan_intake.py"
-      ],
-      "entrypoints": [
-        "flowguard/model_miss_diagnostics.py:diagnose_false_negative_backpropagation"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "behavior-commitment",
-        "engine-core",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_behavior_plane_upgrade.py",
-        "tests/test_model_miss_diagnostics.py",
-        "tests/test_plan_intake_claims.py",
-        "tests/test_recurring_model_miss.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:1eb57bc31b74837eefd28a6194c3cad71c17030f48251581ec8febe49afae196"
     },
     {
       "id": "model-test",

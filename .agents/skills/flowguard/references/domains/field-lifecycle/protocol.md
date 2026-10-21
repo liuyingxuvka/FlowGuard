@@ -110,5 +110,3 @@ Gaps (`non_behavior_field_scope_missing`, `field_group_missing`) give decision
 - Open gaps: a `replacement_field_id` naming no row still passes; a
   `scoped_out_reason` alone lets a behavior-bearing row skip its projection;
   two rows with the same field id are not reported.
-- Vocabulary drift: `legacy_path_disposition_from_field_row` maps
-  `delegated_to_new_field` to `unknown`; do not use it for delegated rows.

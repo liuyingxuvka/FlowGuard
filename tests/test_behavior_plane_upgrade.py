@@ -12,19 +12,12 @@ from flowguard import (
     BCL_RELATION_INVOKES,
     BCL_RELATION_REQUIRES_EVIDENCE_FROM,
     BCL_RELATION_VALIDATES,
-    MODEL_MISS_BACKFEED_COVERAGE_GAP,
-    MODEL_MISS_BACKFEED_REUSE_EXISTING,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
     BehaviorCommitmentRelation,
     BehaviorLookupBinding,
-    UIModelMissRecord,
-    UIModelMissReviewPlan,
-    apply_model_miss_behavior_backfeed,
-    backfeed_model_miss_to_behavior_ledger,
     behavior_commitment_relation_allowed,
     review_behavior_commitment_ledger,
-    review_ui_model_misses,
 )
 
 
@@ -203,103 +196,6 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
 
         self.assertIn("commitment_behavior_plane_missing_or_invalid", finding_codes(report))
         self.assertIn("commitment_actor_kind_missing_or_invalid", finding_codes(report))
-
-    def test_model_miss_reuses_same_plane_commitment_and_keeps_related_context_typed(self):
-        product = row(
-            "commitment:product-ui-proxy",
-            plane=BCL_PLANE_PRODUCT_RUNTIME,
-            actor_kind=BCL_ACTOR_END_USER,
-            lookup_binding=BehaviorLookupBinding(task_terms=("UI proxy",)),
-        )
-        agent = row(
-            "commitment:agent-port-bridge",
-            plane=BCL_PLANE_AGENT_OPERATION,
-            actor_kind=BCL_ACTOR_AI_AGENT,
-            lookup_binding=BehaviorLookupBinding(
-                task_terms=("port bridge",),
-                error_signatures=("ECONNREFUSED:4173",),
-            ),
-            relations=(
-                BehaviorCommitmentRelation(
-                    product.commitment_id,
-                    BCL_RELATION_INVOKES,
-                    "The AI port bridge invokes, but does not own, the product proxy.",
-                ),
-            ),
-        )
-        process = row(
-            "commitment:process-ui-handoff-check",
-            plane=BCL_PLANE_DEVELOPMENT_PROCESS,
-            actor_kind=BCL_ACTOR_AUTOMATION,
-            relations=(
-                BehaviorCommitmentRelation(
-                    agent.commitment_id,
-                    BCL_RELATION_VALIDATES,
-                    "The development process validates the operational receipt.",
-                ),
-            ),
-        )
-        miss = UIModelMissRecord(
-            "miss:port-bridge",
-            previous_claim_id="claim:ui-ready",
-            previous_green_reason="the UI server itself was healthy",
-            observed_failure="ECONNREFUSED:4173 after handing the UI to the next port",
-            observed_failure_evidence_ref="log:port-bridge-failure",
-            affected_capability_ids=("capability:ui-handoff",),
-            same_class_capability_ids=("capability:ui-handoff",),
-            required_test_ids=("test:port-bridge",),
-            root_cause_backpropagation="model the missing connect-and-health-check operation",
-            code_owner="agent-ui-handoff",
-            rationale="the failed promise belongs to the AI operation, not the product download",
-            affected_behavior_plane=BCL_PLANE_AGENT_OPERATION,
-            error_signatures=("ECONNREFUSED:4173",),
-            error_evidence_ids=("log:port-bridge-failure",),
-        )
-
-        backfeed = backfeed_model_miss_to_behavior_ledger(
-            miss,
-            ledger(product, agent, process),
-        )
-        bound = apply_model_miss_behavior_backfeed(miss, backfeed)
-        report = review_ui_model_misses(
-            UIModelMissReviewPlan(
-                "plan:port-bridge",
-                (bound,),
-                require_behavior_binding=True,
-            )
-        )
-
-        self.assertEqual(MODEL_MISS_BACKFEED_REUSE_EXISTING, backfeed.disposition)
-        self.assertEqual(agent.commitment_id, bound.affected_commitment_id)
-        self.assertEqual(agent.primary_owner_model_id, bound.primary_owner_model_id)
-        self.assertEqual(
-            {product.commitment_id, process.commitment_id},
-            {context.commitment_id for context in bound.related_behavior_context},
-        )
-        self.assertTrue(report.ok, report.to_dict())
-
-    def test_model_miss_proposes_coverage_gap_only_after_same_plane_lookup_has_no_hit(self):
-        existing = row(
-            "commitment:product-download",
-            plane=BCL_PLANE_PRODUCT_RUNTIME,
-            actor_kind=BCL_ACTOR_END_USER,
-            lookup_binding=BehaviorLookupBinding(task_terms=("download",)),
-        )
-        miss = UIModelMissRecord(
-            "miss:unknown-agent-operation",
-            observed_failure="agent forgot to combine artifacts before publishing",
-            affected_behavior_plane=BCL_PLANE_AGENT_OPERATION,
-            error_signatures=("artifact composition missing",),
-            error_evidence_ids=("log:publish-miss",),
-        )
-
-        backfeed = backfeed_model_miss_to_behavior_ledger(miss, ledger(existing))
-        bound = apply_model_miss_behavior_backfeed(miss, backfeed)
-
-        self.assertEqual(MODEL_MISS_BACKFEED_COVERAGE_GAP, backfeed.disposition)
-        self.assertTrue(bound.behavior_coverage_gap_candidate)
-        self.assertEqual("", bound.affected_commitment_id)
-
 
 if __name__ == "__main__":
     unittest.main()
