@@ -68,8 +68,8 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
    hazard now covered by a named test, or `replace(c, disposition=TOPOLOGY_DISPOSITION_SCOPED_OUT,
    scoped_reason="...")` with a concrete reason, and rerun with `replace(plan, candidates=...)`.
    Pass every candidate: a non-empty `candidates` turns off automatic candidates.
-   Each candidate's `required_routes` names the follow-up (for example `model_miss_review`,
-   `model_test_alignment`, `architecture_reduction`, `development_process_flow`).
+   Each candidate's `required_routes` names the follow-up (`model_test_alignment`, `architecture_reduction`;
+   `model_miss_review` = the "When a green model missed a bug" recipe in model recipes).
 6. Review the intended plan and relevant broken cases directly or in the existing owner; assert the intended
    one gives `report.ok` and that relevant broken plans give their expected codes. A persistent runner returns 0 only then.
 7. If a persistent runner was created or changed, register it in the owner's `models`; run the

@@ -664,7 +664,7 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                     "field_inventory_fingerprint_invalid",
                     "field inventory fingerprint is not a canonical sha256 fingerprint",
                     FIELD_FINDING_BLOCKER,
-                    owner_route=FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
                     action="recompute the inventory fingerprint from the frozen discovered field set",
                 )
             )
@@ -805,7 +805,7 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                         "field content fingerprint is not a canonical sha256 fingerprint",
                         FIELD_FINDING_BLOCKER,
                         field_id=row.field_id,
-                        owner_route=FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                        owner_route=FIELD_ROUTE_MODEL_FIRST,
                         action="recompute the fingerprint from the frozen field semantics",
                         metadata=row.to_dict(),
                     )
@@ -855,7 +855,7 @@ def review_field_lifecycle(plan: FieldLifecyclePlan) -> FieldLifecycleReport:
                     "required field lifecycle row is not current",
                     FIELD_FINDING_BLOCKER,
                     field_id=row.field_id,
-                    owner_route=FIELD_ROUTE_DEVELOPMENT_PROCESS_FLOW,
+                    owner_route=FIELD_ROUTE_MODEL_FIRST,
                     action="refresh field lifecycle evidence and rerun dependent routes",
                     metadata=row.to_dict(),
                 )

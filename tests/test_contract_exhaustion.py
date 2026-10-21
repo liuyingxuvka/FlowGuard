@@ -22,7 +22,6 @@ from flowguard import (
     CONTRACT_ROUTE_MODEL_MESH,
     CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
     CONTRACT_ROUTE_OBLIGATION_FAMILY,
-    CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
     CONTRACT_ROUTE_TEST_MESH,
     ArtifactPayloadCase,
     ArtifactPayloadContract,
@@ -52,7 +51,6 @@ from flowguard import (
     contract_exhaustion_to_composite_handoff_acceptance_ids,
     contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_model_obligations,
-    contract_exhaustion_to_risk_gate_ids,
     contract_exhaustion_to_test_mesh_cell_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
     family_bad_case_seed_to_contract_cases,
@@ -225,7 +223,6 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertEqual(("contract_shard:packet-router:packet-evidence-contract",), contract_exhaustion_to_test_mesh_shard_ids(report))
         self.assertTrue(all(case.model_id == "packet-router" for case in report.combination_cases))
         self.assertTrue(set(report.required_combination_case_ids).issubset(set(contract_exhaustion_to_test_mesh_cell_ids(report))))
-        self.assertTrue(contract_exhaustion_to_risk_gate_ids(report))
         obligations = contract_exhaustion_to_model_obligations(report)
         cartesian_obligations = [
             obligation
@@ -1001,7 +998,6 @@ class ContractExhaustionTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn(CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER, report.required_route_case_ids)
         self.assertIn(CONTRACT_ROUTE_MODEL_MESH, report.required_route_case_ids)
         self.assertIn(CONTRACT_ROUTE_TEST_MESH, report.required_route_case_ids)
         self.assertIn(
@@ -1012,7 +1008,6 @@ class ContractExhaustionTests(unittest.TestCase):
             CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
             closure_cases[0].mutation_type,
         )
-        self.assertIn("artifact-proof-gate", contract_exhaustion_to_risk_gate_ids(report))
         self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
 
 

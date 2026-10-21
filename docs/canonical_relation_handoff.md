@@ -41,14 +41,9 @@ current commitment / map component / topology review
 -> owning route proves code, test, mesh, reduction, or risk obligations
 ```
 
-`existing_model_preflight_from_project(...)` builds one such handoff itself:
-for every selected `.flowguard/map.json` component that depends on another
-selected component it emits a `depends_on` relation whose source identity is
-`map:<component id>`.
-
 ContractExhaustionMesh may use the handoff to materialize stable relation-based
 case ids and to report a gap when a declared relation was not materialized.
-Existing Model Preflight, Architecture Reduction, Code Structure
+Architecture Reduction, Code Structure
 Recommendation, Model-Test Alignment, and other owners may consume the same
 handoff, but each remains responsible for its own decision and evidence.
 

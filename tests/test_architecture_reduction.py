@@ -1,12 +1,10 @@
 import unittest
-from dataclasses import replace
 
 from flowguard import (
     CANDIDATE_DISPOSITION_COMPLETED,
     CANDIDATE_COLLAPSE_ADAPTER,
     CANDIDATE_KEEP_PUBLIC_FACADE,
     CANDIDATE_MERGE_HANDLERS,
-    CANDIDATE_REMOVE_BRANCH,
     CANDIDATE_REMOVE_STATE_FIELD,
     COMPATIBILITY_ACTION_ARCHIVE,
     COMPATIBILITY_ACTION_COLLECT_EVIDENCE,
@@ -25,9 +23,7 @@ from flowguard import (
     PROOF_SAFE_BY_EQUIVALENCE,
     PROOF_SAFE_BY_PUBLIC_FACADE,
     ROUTE_CODE_STRUCTURE_RECOMMENDATION,
-    ROUTE_DEVELOPMENT_PROCESS_FLOW,
     ROUTE_MANUAL_REVIEW,
-    ROUTE_STRUCTURE_MESH,
     TARGET_ACTION_COLLAPSE,
     TARGET_ACTION_KEEP_FACADE,
     TARGET_ACTION_MANUAL_REVIEW,
@@ -63,7 +59,7 @@ def contract(**kwargs) -> ObservableArchitectureContract:
 
 def trigger(**kwargs) -> ArchitectureReductionTrigger:
     defaults = {
-        "route_id": ROUTE_DEVELOPMENT_PROCESS_FLOW,
+        "route_id": ROUTE_CODE_STRUCTURE_RECOMMENDATION,
         "trigger_reason": "staged implementation added repeated adapters around the same behavior",
         "complexity_signal": "repeated_adapter",
         "recommended_timing": "before done claim",
@@ -256,7 +252,7 @@ class ArchitectureReductionTests(unittest.TestCase):
                     source_model_element="PublicCliEntrypoint",
                     target_action=TARGET_ACTION_KEEP_FACADE,
                     proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
-                    required_next_route=ROUTE_STRUCTURE_MESH,
+                    required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
                     affected_public_entrypoints=("router.cli",),
                     business_intent_id="intent:router.route",
                     behavior_commitment_id="commitment:router.route",
@@ -318,7 +314,7 @@ class ArchitectureReductionTests(unittest.TestCase):
                     source_model_element="PublicCliEntrypoint",
                     target_action=TARGET_ACTION_KEEP_FACADE,
                     proof_status=PROOF_SAFE_BY_PUBLIC_FACADE,
-                    required_next_route=ROUTE_STRUCTURE_MESH,
+                    required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
                     affected_public_entrypoints=("router.cli",),
                     business_intent_id="intent:router.route",
                     behavior_commitment_id="commitment:router.route",
@@ -353,7 +349,7 @@ class ArchitectureReductionTests(unittest.TestCase):
                     code_node_id="RouterState.route_status",
                     source_model_element="route_status",
                     target_action=TARGET_ACTION_REMOVE,
-                    required_next_route=ROUTE_STRUCTURE_MESH,
+                    required_next_route=ROUTE_CODE_STRUCTURE_RECOMMENDATION,
                     affected_state=("route_status",),
                 ),
             ),

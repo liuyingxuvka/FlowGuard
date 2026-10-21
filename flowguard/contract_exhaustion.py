@@ -415,7 +415,6 @@ class ContractMutationCase:
             return (
                 CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
                 CONTRACT_ROUTE_TEST_MESH,
-                CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
             )
         if self.mutation_type in {
             CONTRACT_MUTATION_STALE_CHILD_EVIDENCE,
@@ -444,7 +443,6 @@ class ContractMutationCase:
                 CONTRACT_ROUTE_MODEL_MESH,
                 CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
                 CONTRACT_ROUTE_TEST_MESH,
-                CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
             )
         return (
             CONTRACT_ROUTE_FIELD_LIFECYCLE,
@@ -2609,7 +2607,6 @@ def _generated_cases_for_interaction_group(
             CONTRACT_ROUTE_MODEL_MESH,
             CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
             CONTRACT_ROUTE_TEST_MESH,
-            CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
         )
         mutation_cases.append(
             ContractMutationCase(
@@ -3946,7 +3943,6 @@ def artifact_payload_cases_to_contract_cases(
                 required_routes=(
                     CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
                     CONTRACT_ROUTE_TEST_MESH,
-                    CONTRACT_ROUTE_RISK_EVIDENCE_LEDGER,
                 ),
                 description=str(getattr(case, "description", "")),
                 metadata={

@@ -3119,7 +3119,7 @@ def default_behavior_commitment_interaction_groups(
 ) -> tuple[ContractInteractionGroup, ...]:
     """Return default finite interaction groups for ledger coverage."""
 
-    routes = ("model_test_alignment", "test_mesh", "development_process_flow")
+    routes = ("model_test_alignment", "test_mesh")
     return (
         ContractInteractionGroup(
             "plane_kind_actor",
@@ -3169,7 +3169,7 @@ def default_behavior_commitment_interaction_groups(
             "cross_plane_relation",
             model_id=model_id,
             axis_ids=("behavior_plane", "relation_type", "relation_target_plane"),
-            required_routes=routes + ("existing_model_preflight",),
+            required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -3177,7 +3177,7 @@ def default_behavior_commitment_interaction_groups(
             "lookup_migration_state",
             model_id=model_id,
             axis_ids=("behavior_plane", "lookup_binding_state", "migration_state"),
-            required_routes=routes + ("existing_model_preflight", "development_process_flow"),
+            required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -3201,7 +3201,7 @@ def default_behavior_commitment_interaction_groups(
             "replacement_model_sync",
             model_id=model_id,
             axis_ids=("change_mode", "replacement_state", "model_sync_state"),
-            required_routes=routes + ("existing_model_preflight",),
+            required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -3225,7 +3225,7 @@ def default_behavior_commitment_interaction_groups(
             "exact_intent_semantic_uniqueness",
             model_id=model_id,
             axis_ids=("exact_intent_identity_state", "external_semantics_state", "surface_authority_role"),
-            required_routes=routes + ("existing_model_preflight",),
+            required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
         ),
@@ -3315,7 +3315,7 @@ def behavior_commitment_contract_exhaustion_plan(
             ),
         ),
         claim_scope=claim_scope,
-        required_route_ids=("model_test_alignment", "test_mesh", "development_process_flow", PRIMARY_PATH_ROUTE_ID),
+        required_route_ids=("model_test_alignment", "test_mesh", PRIMARY_PATH_ROUTE_ID),
         require_model_coverage_receipt=True,
         require_coverage_universe=True,
         metadata={

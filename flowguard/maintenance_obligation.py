@@ -228,12 +228,12 @@ def _owner_route_for_section(section_name: str, category: str) -> str:
     section = str(section_name)
     text = f"{section_name} {category}".lower()
     if "conformance" in text:
-        return "development_process_flow"
+        return "model_test_alignment"
     if "state_closure" in text or "topology_hazard" in text:
         return "model_miss_review"
     if "model" in text or "scenario" in text or "contract" in text or "progress" in text:
         return "model_miss_review"
-    return "development_process_flow" if section in {"not_run", "skipped_with_reason"} else "model_miss_review"
+    return "change" if section in {"not_run", "skipped_with_reason"} else "model_miss_review"
 
 
 def obligation_from_finding_ledger_entry(entry: Any) -> MaintenanceObligation | None:
