@@ -314,11 +314,15 @@ __all__ = [
 ]
 
 
-# FlowGuard contract: explore the model above, prove its known-bad variants fail,
-# and compare it with the real maintenance-obligation report (case table).
-from flowguard import OBLIGATION_STATUS_RESOLVED, MaintenanceObligation, build_maintenance_obligation_report  # noqa: E402
+# FlowGuard contract: explore the model above, prove its known-bad variants fail, and compare the real
+# maintenance-obligation report with it (feature kit).  The clean report holds one obligation resolved
+# with owner evidence; each feature adds one obligation.  An anchored required obligation that is still
+# open must stay open in the report (it blocks a broad claim and routes to its owner); an unanchored
+# observation, a suggested obligation and an obligation scoped with a reason must not block.
+from flowguard import (OBLIGATION_STATUS_OBSERVATION, OBLIGATION_STATUS_RESOLVED, OBLIGATION_STATUS_SCOPED,  # noqa: E402
+                       OBLIGATION_STRENGTH_SUGGESTED, MaintenanceObligation, build_maintenance_obligation_report)
 from flowguard.explorer import Explorer  # noqa: E402
-from flowguard.kit import Case, case_table_conformance  # noqa: E402
+from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "maintenance_obligation_memory"
 COMPONENTS = ["engine-runner"]
@@ -327,8 +331,31 @@ REQUIRED_LABELS = ("anchored_obligation_recorded", "unanchored_observation_recor
                    "owner_evidence_recorded", "scoped_claim_only", "full_claim_accepted")
 BROKEN_LENGTH = {"maintenance_obligation_missing_owner_route": 1, "maintenance_obligation_hard_gated_observation": 1,
                  "maintenance_obligation_self_resolved": 1, "maintenance_obligation_bad_claim": 2}
-CASES = (Case("anchored_obligation_stays_open_for_its_owner_route", False, ("open:structure:checkout", "anchored")),
-         Case("owner_evidence_resolves_the_obligation", True, ("owner_evidence",)))
+
+
+def _obligation(obligation_id: str, **values) -> MaintenanceObligation:
+    return MaintenanceObligation(obligation_id, owner_route="structure_mesh_maintenance", reason_code="large_module",
+                                 **values)
+
+
+def _adds(obligation: MaintenanceObligation):
+    return lambda obligations: obligations + (obligation,)
+
+
+FEATURES = (
+    Feature("anchored_obligation_open", True, ("open:structure:checkout",),
+            _adds(_obligation("structure:checkout", anchor_paths=("flowguard/checkout.py",)))),
+    Feature("anchored_symbol_obligation_open", True, ("open:structure:billing",),
+            _adds(_obligation("structure:billing", anchor_symbols=("Billing.charge",)))),
+    Feature("unanchored_observation", False, (),
+            _adds(_obligation("observation:naming", status=OBLIGATION_STATUS_OBSERVATION))),
+    Feature("suggested_obligation_open", False, (),
+            _adds(_obligation("structure:reports", strength=OBLIGATION_STRENGTH_SUGGESTED,
+                              anchor_paths=("flowguard/reports.py",)))),
+    Feature("scoped_obligation_with_reason", False, (),
+            _adds(_obligation("structure:legacy", status=OBLIGATION_STATUS_SCOPED,
+                              scope_reason="legacy module kept as it is"))),
+)
 
 
 def _explorer(workflow, length, labels=()):
@@ -345,18 +372,15 @@ def broken_variants() -> dict:
     return {workflow.name: _explorer(workflow, BROKEN_LENGTH[workflow.name]) for workflow in build_broken_workflows()}
 
 
-def _observe(case):
-    common = {"owner_route": "structure_mesh_maintenance", "reason_code": "large_module"}
-    if case.accept:
-        obligation = MaintenanceObligation("structure:checkout", status=OBLIGATION_STATUS_RESOLVED,
-                                           evidence_ids=("structuremesh:passed",), **common)
-    else:
-        obligation = MaintenanceObligation("structure:checkout", anchor_paths=("flowguard/checkout.py",), **common)
-    report = build_maintenance_obligation_report(f"self-model-{case.name}", (obligation,))
-    codes = tuple(f"open:{item}" for item in report.open_required_obligation_ids)
-    codes += ("anchored",) * obligation.has_anchor() + ("owner_evidence",) * obligation.has_resolution_evidence()
-    return not report.open_required_obligation_ids, codes
+def _clean_memory() -> tuple:
+    return (_obligation("structure:orders", status=OBLIGATION_STATUS_RESOLVED, evidence_ids=("structuremesh:passed",),
+                        anchor_paths=("flowguard/orders.py",)),)
+
+
+def _report(obligations: tuple):
+    report = build_maintenance_obligation_report("self-model", obligations)
+    return not report.open_required_obligation_ids, tuple(f"open:{item}" for item in report.open_required_obligation_ids)
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, _clean_memory, _report)

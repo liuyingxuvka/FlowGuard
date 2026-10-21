@@ -234,19 +234,25 @@ __all__ = [
 ]
 
 
-# FlowGuard contract: explore the model above, prove its known-bad variants fail,
-# and compare it with the real state-closure review (case table).
+# FlowGuard contract: explore the model above, prove its known-bad variants fail, and compare the real
+# state-closure review with it (feature kit).  The clean plan has two open dimensions whose unknown values
+# are rejected before any side effect.  Each feature changes one dimension: accepting unknown values as
+# normal, a side effect before resolution, or no declared handling must block; leaving the representative
+# unknown to the gate, another known value and an extra closed dimension must not.
 from flowguard import (  # noqa: E402
     STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT,
+    STATE_CLOSURE_DIMENSION_INPUT_FIELD,
     STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL,
     STATE_CLOSURE_HANDLING_REJECT,
+    STATE_CLOSURE_HANDLING_UNKNOWN,
+    STATE_CLOSURE_POLICY_CLOSED,
     STATE_CLOSURE_POLICY_OPEN,
     StateClosureDimension,
     StateClosurePlan,
     review_state_closure,
 )
 from flowguard.explorer import Explorer  # noqa: E402
-from flowguard.kit import Case, case_table_conformance  # noqa: E402
+from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "state_closure_gate"
 COMPONENTS = ["engine-properties"]
@@ -259,7 +265,6 @@ TESTED_BY = {
 }
 REQUIRED_LABELS = ("unknown_observed", "unknown_case_generated", "safe_handling_declared", "full_claim_accepted",
                    "scoped_or_blocked_claim")
-CASES = (Case("safe_unknown_rejects_before_side_effect", True), Case("unsafe_unknown_accepts_as_normal", False))
 
 
 def _explorer(workflow, length, labels=()):
@@ -279,13 +284,41 @@ def broken_variants() -> dict:
             side_effect.name: _explorer(side_effect, 1)}
 
 
-def _observe(case):
-    handling = STATE_CLOSURE_HANDLING_REJECT if case.accept else STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL
-    plan = StateClosurePlan("safe" if case.accept else "unsafe", dimensions=(StateClosureDimension(
-        "external_input", STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT, policy=STATE_CLOSURE_POLICY_OPEN,
-        known_values=("known",), representative_unknowns=("other",), handling=handling),))
-    return review_state_closure(plan).ok
+def _clean_plan() -> StateClosurePlan:
+    return StateClosurePlan("safe", dimensions=(
+        StateClosureDimension("external_input", STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT, policy=STATE_CLOSURE_POLICY_OPEN,
+                              known_values=("known",), representative_unknowns=("other",),
+                              handling=STATE_CLOSURE_HANDLING_REJECT),
+        StateClosureDimension("input.status", STATE_CLOSURE_DIMENSION_INPUT_FIELD, policy=STATE_CLOSURE_POLICY_OPEN,
+                              known_values=("known",), representative_unknowns=("cancelled",),
+                              handling=STATE_CLOSURE_HANDLING_REJECT)))
+
+
+def _dimension(dimension_id: str, **values):
+    return lambda plan: replace(plan, dimensions=tuple(replace(d, **values) if d.dimension_id == dimension_id else d
+                                                       for d in plan.dimensions))
+
+
+FEATURES = (
+    Feature("unknown_accepted_as_normal", True, ("state_closure_unknown_handling_unsafe",),
+            _dimension("external_input", handling=STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL)),
+    Feature("side_effect_before_resolution", True, ("state_closure_side_effect_before_resolution",),
+            _dimension("input.status", side_effects_before_resolution=True)),
+    Feature("unknown_handling_missing", True, ("state_closure_unknown_handling_missing",),
+            _dimension("input.status", handling=STATE_CLOSURE_HANDLING_UNKNOWN)),
+    Feature("representative_unknown_left_to_the_gate", False, (),
+            _dimension("external_input", representative_unknowns=())),
+    Feature("another_known_value", False, (), _dimension("external_input", known_values=("known", "known_2"))),
+    Feature("extra_closed_dimension", False, (),
+            lambda plan: replace(plan, dimensions=plan.dimensions + (StateClosureDimension(
+                "mode", STATE_CLOSURE_DIMENSION_INPUT_FIELD, policy=STATE_CLOSURE_POLICY_CLOSED, known_values=("a", "b")),))),
+)
+
+
+def _review(plan: StateClosurePlan):
+    report = review_state_closure(plan)
+    return report.ok, tuple(finding.code for finding in report.findings)
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, _clean_plan, _review)

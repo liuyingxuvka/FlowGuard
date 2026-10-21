@@ -280,11 +280,16 @@ __all__ = [
 ]
 
 
-# FlowGuard contract: explore the model above, prove its known-bad variants fail,
-# and compare it with the real topology-hazard review (case table).
+# FlowGuard contract: explore the model above, prove its known-bad variants fail, and compare the real
+# topology-hazard review with it (feature kit).  The clean plan reviews a release of a block with a side
+# effect and lists one anchored ledger hazard that is handled; a full claim is accepted.  Each feature
+# changes the listed hazards.  An unhandled or blocked anchored hazard must stop a full claim and be
+# reported; an unanchored generic warning and another handled hazard must not.
 from flowguard import (  # noqa: E402
     TOPOLOGY_CONFIDENCE_BLOCKED,
+    TOPOLOGY_CONFIDENCE_FULL,
     TOPOLOGY_DISPOSITION_BLOCKED,
+    TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
     TOPOLOGY_SEVERITY_BLOCKER,
     TopologyHazardCandidate,
     TopologyHazardReviewPlan,
@@ -293,7 +298,7 @@ from flowguard import (  # noqa: E402
     review_topology_hazards,
 )
 from flowguard.explorer import Explorer  # noqa: E402
-from flowguard.kit import Case, case_table_conformance  # noqa: E402
+from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "model_topology_hazard_review"
 COMPONENTS = ["topology-hazard"]
@@ -301,7 +306,8 @@ IMPLEMENTED_BY = {"Digest": "flowguard/topology_hazard.py:infer_topology_digest"
                   "Review": "flowguard/topology_hazard.py:review_topology_hazards"}
 TESTED_BY = {
     "unanchored_hazards_do_not_become_hard_gates": [
-        "tests/test_topology_hazard.py:test_unanchored_ai_hazard_cannot_become_hard_gate"],
+        "tests/test_topology_hazard.py:test_unanchored_ai_hazard_cannot_become_hard_gate",
+        "tests/test_topology_hazard.py:test_unanchored_warning_does_not_switch_off_generated_hazards"],
     "anchored_hazards_need_route_or_scope": [
         "tests/test_topology_hazard.py:test_anchored_broad_side_effect_hazard_blocks_until_handled",
         "tests/test_topology_hazard.py:test_handled_anchored_hazard_passes"],
@@ -310,7 +316,6 @@ REQUIRED_LABELS = ("anchor_observed", "anchored_hazard_inferred", "required_rout
                    "compatibility_disposition_chosen", "full_claim_accepted", "scoped_or_blocked_claim")
 BROKEN_LENGTH = {"topology_hazard_unanchored_hard_gate": 1, "topology_hazard_full_without_route": 3,
                  "topology_hazard_compatibility_ignored": 2}
-CASES = (Case("unanchored_hazard_is_observation", True), Case("anchored_side_effect_blocks_release", False))
 
 
 class EffectBlock:
@@ -337,20 +342,54 @@ def broken_variants() -> dict:
     return {workflow.name: _explorer(workflow, BROKEN_LENGTH[workflow.name]) for workflow in build_broken_workflows()}
 
 
-def _observe(case):
+def _clean_plan() -> TopologyHazardReviewPlan:
     digest = infer_topology_digest(workflow=Workflow((EffectBlock(),), name="effect"), external_inputs=("event",),
                                    usage_intent=UsageIntent(usage_modes=("release",), final_claim="release"))
-    if case.accept:
-        plan = TopologyHazardReviewPlan(
-            "unanchored", digest=digest, auto_generate_candidates=False,
-            candidates=(TopologyHazardCandidate("hazard:generic", "generic warning with no anchor",
-                                                disposition=TOPOLOGY_DISPOSITION_BLOCKED,
-                                                confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED,
-                                                severity=TOPOLOGY_SEVERITY_BLOCKER),))
-    else:
-        plan = TopologyHazardReviewPlan("anchored", digest=digest)
-    return review_topology_hazards(plan).ok
+    edge = digest.edges[0].edge_id
+    return TopologyHazardReviewPlan("release", digest=digest, candidates=(TopologyHazardCandidate(
+        "hazard:ledger", "Repeated save is recorded in the ledger.", topology_anchor_ids=(edge,),
+        disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED, handled=True),))
+
+
+def _candidate(hazard_id: str, description: str, *, anchored: bool = True, **values):
+    def apply(plan: TopologyHazardReviewPlan) -> TopologyHazardReviewPlan:
+        anchors = (plan.digest.edges[0].edge_id,) if anchored else ()
+        return replace(plan, candidates=plan.candidates + (
+            TopologyHazardCandidate(hazard_id, description, topology_anchor_ids=anchors, **values),))
+    return apply
+
+
+def _ledger_unhandled(plan: TopologyHazardReviewPlan) -> TopologyHazardReviewPlan:
+    return replace(plan, candidates=tuple(replace(c, handled=False) if c.hazard_id == "hazard:ledger" else c
+                                          for c in plan.candidates))
+
+
+FEATURES = (
+    # Listed anchored hazards replace the generated ones by design, so this one is explored alone.
+    Feature("release_hazards_left_to_the_review", True, ("unresolved:generated",),
+            lambda plan: replace(plan, candidates=()), exclusive=True),
+    Feature("ledger_hazard_not_handled", True, ("unresolved:hazard:ledger",), _ledger_unhandled),
+    Feature("retry_hazard_unhandled", True, ("unresolved:hazard:retry",),
+            _candidate("hazard:retry", "A retry may write twice.", disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED)),
+    Feature("blocked_hazard", True, ("unresolved:hazard:blocked",),
+            _candidate("hazard:blocked", "Release blocked until reviewed.", disposition=TOPOLOGY_DISPOSITION_BLOCKED,
+                       severity=TOPOLOGY_SEVERITY_BLOCKER)),
+    Feature("unanchored_blocker_warning", False, (),
+            _candidate("hazard:generic", "generic warning with no anchor", anchored=False,
+                       disposition=TOPOLOGY_DISPOSITION_BLOCKED, confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED,
+                       severity=TOPOLOGY_SEVERITY_BLOCKER)),
+    Feature("second_handled_hazard", False, (),
+            _candidate("hazard:replay", "Replay is recorded.", disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
+                       handled=True)),
+)
+
+
+def _review(plan: TopologyHazardReviewPlan):
+    report = review_topology_hazards(plan)
+    listed = {candidate.hazard_id for candidate in plan.candidates}
+    return report.confidence == TOPOLOGY_CONFIDENCE_FULL, tuple(
+        f"unresolved:{hazard}" if hazard in listed else "unresolved:generated" for hazard in report.unresolved_hazard_ids)
 
 
 def conformance():
-    return case_table_conformance(CASES, _observe)
+    return feature_conformance(FEATURES, _clean_plan, _review)
