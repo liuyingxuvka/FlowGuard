@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:725f859a8c1a3b8f097acf7a76a2a3811c8a1ebe44a7d2c2526e08fd9729685f"
+      "fingerprint": "sha256:91574caff2f7c5c5b2c26badfac06124bd2683193905638f37d56235d70633f5"
     },
     {
       "id": "templates",
@@ -599,7 +599,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1e03314236caf5b547b1eaa00e15fe00209056773c151f0fd10bfd28e7c57390"
+      "fingerprint": "sha256:7e88a42fbb40084a896c7fb82261764abe445125d341a2de3422dd53def9b217"
     },
     {
       "id": "map-inventory",

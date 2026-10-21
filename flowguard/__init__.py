@@ -1298,7 +1298,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "UIRenderEvidenceSet",
         "UIResponsivenessContract",
         "UIResponsivenessContractReport",
-        "UIRuntimeProof",
         "UISourceBaseline",
         "UISourceBaselineAlignmentReport",
         "UISourceBaselineInteractionGate",

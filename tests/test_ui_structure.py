@@ -1,6 +1,5 @@
 import ast
 import json
-import tempfile
 import unittest
 from dataclasses import replace
 from itertools import product
@@ -112,12 +111,6 @@ from flowguard import (
     review_contract_exhaustion,
     ui_content_visibility_candidate_ids_from_field_lifecycle,
 )
-import hashlib
-
-
-def sha256_fingerprint(data: bytes) -> str:
-    return "sha256:" + hashlib.sha256(data).hexdigest()
-
 
 from flowguard.contract_exhaustion import (
     CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,
@@ -2635,73 +2628,6 @@ class UIImplementationValidationTests(unittest.TestCase):
         self.assertEqual(UI_IMPLEMENTATION_CLAIM_COMPLETE, report.claim_scope)
         self.assertEqual((), report.omitted_evidence_classes)
         self.assertTrue(report.broad_confidence_supported)
-
-    def test_runtime_proof_mode_rejects_non_empty_fixture_evidence(self):
-        validation, report = self.review_complete_action_only()
-        self.assertTrue(report.ok, report.format_text())
-
-        strict_validation = replace(validation, require_runtime_proof=True)
-        strict_report = review_ui_implementation_validation(
-            strict_validation,
-            interaction_model=app_ui_model(),
-            journey_coverage=journey_coverage(),
-            capability_inventory=complete_action_only_implementation_context()[2],
-            capability_coverage=complete_action_only_implementation_context()[3],
-            visible_surface=complete_action_only_implementation_context()[4],
-            observed_inventory=complete_action_only_implementation_context()[5],
-            content_visibility_plan=complete_action_only_implementation_context()[6],
-        )
-
-        self.assertFalse(strict_report.ok)
-        self.assertIn("ui_missing_proof_artifact", finding_codes(strict_report))
-
-    def _light_proof_validation(self, *, tamper: bool):
-        context = complete_action_only_implementation_context()
-        validation = replace(context[7], require_runtime_proof=True)
-        with tempfile.TemporaryDirectory(prefix="flowguard-ui-proof-") as temp_root:
-            def proof(artifact_id):
-                result_path = Path(temp_root) / f"{artifact_id}.result.json"
-                result_path.write_text('{"status":"passed"}', encoding="utf-8")
-                fingerprint = sha256_fingerprint(result_path.read_bytes())
-                if tamper:
-                    result_path.write_text('{"status":"edited"}', encoding="utf-8")
-                return ui_structure_module.UIRuntimeProof(
-                    artifact_id=artifact_id,
-                    command="browser-runner --scenario project",
-                    result_path=str(result_path),
-                    result_status="passed",
-                    exit_code=0,
-                    result_fingerprint=fingerprint,
-                    metadata={"model_revision": context[7].current_model_revision},
-                )
-            runs = tuple(
-                replace(
-                    run,
-                    proof_artifact=proof(f"run-{i}"),
-                    steps=tuple(replace(step, proof_artifact=proof(f"step-{i}-{step.step_id}")) for step in run.steps),
-                )
-                for i, run in enumerate(validation.journey_runs)
-            )
-            return review_ui_implementation_validation(
-                replace(validation, journey_runs=runs),
-                interaction_model=context[0],
-                journey_coverage=context[1],
-                capability_inventory=context[2],
-                capability_coverage=context[3],
-                visible_surface=context[4],
-                observed_inventory=context[5],
-                content_visibility_plan=context[6],
-            )
-
-    def test_runtime_proof_mode_accepts_real_result_file(self):
-        report = self._light_proof_validation(tamper=False)
-        self.assertTrue(report.ok, report.format_text())
-        self.assertTrue(report.broad_confidence_supported)
-
-    def test_runtime_proof_mode_rejects_result_file_edited_after_run(self):
-        report = self._light_proof_validation(tamper=True)
-        self.assertFalse(report.ok, report.format_text())
-        self.assertIn("ui_proof_result_hash_mismatch", finding_codes(report))
 
     def test_complete_ui_claim_omitting_capability_bundle_blocks(self):
         (
