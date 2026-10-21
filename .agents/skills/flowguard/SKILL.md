@@ -1,6 +1,6 @@
 ---
 name: flowguard
-description: Living, code-anchored map of a codebase plus executable models of its risky flows and 13 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
+description: Living, code-anchored map of a codebase plus executable models of its risky flows and 12 focused capability reviews. Use it to understand a codebase cheaply, put new code in the right owner, catch architecture drift and behavior bugs, and verify only what a change affects.
 ---
 
 # FlowGuard
@@ -20,8 +20,9 @@ Commands: `python -m flowguard read | change | release | template` and `python -
 ## Every session
 
 1. `python -m flowguard read` - the whole map (a few thousand tokens). Read it before opening source files. Business data stays read-only; disposable caches may update.
-2. Before adding behavior: `python -m flowguard read --find <words>`; extend the existing owner. Create a
-   new component only when nothing owns the responsibility.
+2. Before adding behavior: `python -m flowguard read --find <words>`; extend the owner it names (it lists
+   that owner's files, state and side effects). Create a new component only when nothing owns the
+   responsibility; for a new file, `change` names the component that owns the files next to it.
 3. Open only the files of the components you touch: `python -m flowguard read --component <id>`.
 
 ## After editing code
@@ -45,7 +46,6 @@ modeling (`references/model_recipes.md`).
 
 | capability | use when |
 | --- | --- |
-| existing-model | before changing behavior that an existing component or model may already own |
 | behavior-commitment | external promises (API, CLI, UI, workflow) need one owner, a source and tests; no silent fallback paths |
 | architecture-reduction | code may shrink or merge without changing behavior |
 | code-structure | deciding where new code goes before writing it |

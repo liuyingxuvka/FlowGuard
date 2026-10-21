@@ -110,6 +110,10 @@ def cmd_find(root: Path, a) -> int:
     for score, cid, owned in hits:
         print(f"{score:3}  {cid}" + (f"  owns: {'; '.join(owned)}" if owned else ""))
         print(f"     files: {', '.join(by_id[cid].get('files', []))}")
+        for label, key in (("state", "state"), ("effects", "side_effects")):
+            if by_id[cid].get(key):
+                print(f"     {label}: {'; '.join(by_id[cid][key])}")
+    print("next: extend the owner above that already holds this behavior; create a new component only when none does")
     return 0
 
 

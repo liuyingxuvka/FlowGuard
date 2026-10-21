@@ -4,7 +4,7 @@
   <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" />
 </p>
 
-<p align="center"><strong>A "software DNA" for AI-assisted development: a living map of the software that evolves with the code and is verified against it, executable models of the risky flows, and 13 focused reviews for architecture and behavior defects.</strong></p>
+<p align="center"><strong>A "software DNA" for AI-assisted development: a living map of the software that evolves with the code and is verified against it, executable models of the risky flows, and 12 focused reviews for architecture and behavior defects.</strong></p>
 
 [中文说明](./README.zh-CN.md)
 
@@ -24,7 +24,7 @@ things in the project:
    (retries, idempotency, caching, ordering, money, permissions, multi-step workflows). FlowGuard
    explores every input sequence within a bound, reports counterexamples, checks that known-bad
    variants fail, and replays model traces against the real code (conformance).
-3. **Capability reviews** - 13 focused checks an agent picks when the task needs one (table below).
+3. **Capability reviews** - 12 focused checks an agent picks when the task needs one (table below).
 
 Map and code verify each other: every source file belongs to exactly one component; entrypoints,
 flow steps and model files must exist; every real import must be declared;
@@ -63,11 +63,10 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
 | new capability model | `python -m flowguard template --list` | starter model and runner files for each capability |
 
-## The 13 capabilities
+## The 12 capabilities
 
 | capability | catches |
 | --- | --- |
-| existing-model | a second owner for behavior that already has one |
 | behavior-commitment | external promises without one owner and tests; silent fallback paths |
 | architecture-reduction | unsafe merges or deletions of duplicate code |
 | code-structure | a module layout where state or effects have no single owner |

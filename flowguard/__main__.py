@@ -57,7 +57,7 @@ def _template(ns: argparse.Namespace) -> int:
             print(name)
         return 0
     aliases = {
-        "existing-model": "existing-model-preflight", "behavior-commitment": "behavior-commitment-ledger",
+        "behavior-commitment": "behavior-commitment-ledger",
         "code-structure": "code-structure-recommendation",
         "model-miss": "model-miss-review",
         "model-test": "model-test-alignment",

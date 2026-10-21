@@ -44,9 +44,17 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
     for f, ids in sorted(owners_all.items()):
         if len(ids) > 1:
             out.append(Finding("error", "file_multi_owner", ids[0], f"{f} is also matched by {ids[1:]}"))
-    for f in inv.source:
-        if not is_test_file(f) and f not in owner:
-            out.append(Finding("error", "file_unmapped", "", f"{f} has no owning component"))
+    unmapped = [f for f in inv.source if not is_test_file(f) and f not in owner]
+    near: dict[str, set[str]] = {}
+    for path, cid in (owner.items() if unmapped else ()):
+        near.setdefault(path.rpartition("/")[0], set()).add(cid)
+    for f in unmapped:
+        here = sorted(near.get(f.rpartition("/")[0], ()))   # point at existing owners before a new component
+        hint = (f"; the files next to it belong to {here[0]}: add it there unless it is a new responsibility"
+                if len(here) == 1 else
+                f"; the files next to it belong to {', '.join(here)}: add it to the one that owns its responsibility"
+                if 1 < len(here) <= 4 else "")
+        out.append(Finding("error", "file_unmapped", "", f"{f} has no owning component{hint}"))
 
     for path, info in sorted(inv.py.items()):
         if path in inv.source and (path in owner or not is_test_file(path)) and info.parse_error:

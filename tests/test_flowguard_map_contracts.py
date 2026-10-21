@@ -128,7 +128,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
-    for name in ("existing-model", "behavior-commitment", "code-structure", "contract-exhaustion",
+    for name in ("behavior-commitment", "code-structure", "contract-exhaustion",
                  "field-lifecycle", "model-mesh", "model-miss", "model-test",
                  "topology-hazard", "structure-mesh", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
@@ -212,3 +212,27 @@ def test_change_prints_info_only_for_changed_owners(tmp_path, capsys):
     main(["change", "--root", str(tmp_path), "app.py"])
     out = capsys.readouterr().out
     assert "INFO" not in out and "not repeated here" in out
+
+
+def test_find_and_check_point_at_the_existing_owner(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "shop/orders.py", "def place():\n    return 1\n")
+    data["components"].append({"id": "orders", "summary": "Places orders", "responsibilities": ["place orders"],
+                               "files": ["shop/orders.py"], "entrypoints": [], "tests": [], "models": [],
+                               "depends_on": [], "state": ["order status"], "status": "draft"})
+    save(tmp_path, data)
+    assert main(["read", "--root", str(tmp_path), "--find", "order"]) == 0
+    out = capsys.readouterr().out
+    assert "state: order status" in out and "create a new component only when none does" in out
+    write(tmp_path, "shop/refunds.py", "def refund():\n    return 1\n")
+    assert [f.message for f in findings(tmp_path) if f.code == "file_unmapped"] == [
+        "shop/refunds.py has no owning component; the files next to it belong to orders: "
+        "add it there unless it is a new responsibility"]
+    write(tmp_path, "shop/billing.py", "def bill():\n    return 1\n")
+    data["components"].append({"id": "billing", "summary": "Bills orders", "responsibilities": ["bill orders"],
+                               "files": ["shop/billing.py"], "entrypoints": [], "tests": [], "models": [],
+                               "depends_on": [], "status": "draft"})
+    save(tmp_path, data)
+    assert [f.message for f in findings(tmp_path) if f.code == "file_unmapped"] == [
+        "shop/refunds.py has no owning component; the files next to it belong to billing, orders: "
+        "add it to the one that owns its responsibility"]

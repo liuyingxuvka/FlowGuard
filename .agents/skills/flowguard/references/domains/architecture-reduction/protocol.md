@@ -21,7 +21,7 @@ the same. It never deletes code on a guess.
 
 - You need to split a large file or component (`large_file`, `large_component`). Use structure-mesh or code-structure.
 - You plan a field rename or retirement. Use field-lifecycle.
-- You are adding new behavior or do not yet know the owner. Use existing-model first.
+- You are adding new behavior or do not yet know the owner. Run `python -m flowguard read --find <words>` first.
 - The change is formatting or a pure rename with no caller change.
 
 ## Inputs

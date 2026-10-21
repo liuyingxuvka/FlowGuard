@@ -122,7 +122,8 @@
       "layer": "interface",
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands"
+        "parse command lines and dispatch to map, proof and template commands",
+        "show the existing owner of a behavior with its files, state and side effects (read --find)"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -159,7 +160,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:8c6ece2a059f752cc6cf88c33e78256b8da0b14f47398f672102ed03277d94a6"
+      "fingerprint": "sha256:de38524baea1e324b2ccf9da0121b2c5288ec48453f78f867f57333e5fe408f7"
     },
     {
       "id": "public-api",
@@ -832,7 +833,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code",
+        "verify the map against code; name the owners next to an unmapped file",
         "impact selection: retain surviving current and historical tests/models; block missing or ambiguous test commands; select no checks for comment-only edits",
         "review architecture"
       ],
@@ -867,7 +868,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:55af298b2e4fb137914b12c965298fe3b68e614ed48623d939d5d00fd6f55a95"
+      "fingerprint": "sha256:d0496163a120925c4c37b5148466900f2edeb4e1fd2ba404811565265afc42d7"
     },
     {
       "id": "map-proof",

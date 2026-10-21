@@ -21,7 +21,7 @@ the code exists, each recommended module becomes one component in
 ## Do not use when
 
 - You are splitting an existing large file or module. Use structure-mesh.
-- You do not yet know whether an owner already exists. Run existing-model first.
+- You do not yet know whether an owner already exists. Run `python -m flowguard read --find <words>` first.
 - You are renaming or retiring a field. Use field-lifecycle.
 - There is no functional model yet. Build the model first; this route does not invent behavior.
 
