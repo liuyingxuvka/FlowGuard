@@ -342,6 +342,21 @@ class PublicTemplateTests(unittest.TestCase):
                       self.run_kit_template(files, "ui_flow_structure", missing, fill="web", expected_returncode=1))
 
 
+    def test_every_kit_template_names_its_code_and_its_tests(self):
+        from flowguard.map.mapfile import read_model_contract
+
+        for name, factory in template_factories().items():
+            model = factory()[0]
+            if not model.path.startswith(".flowguard/models/") or model.path.count("/") != 2:
+                continue                      # adoption rules and the meta-capability runners
+            with self.subTest(template=name), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "model.py"
+                path.write_text(model.content, encoding="utf-8")
+                contract = read_model_contract(path)
+                anchors = [*contract["IMPLEMENTED_BY"].values(), *(a for v in contract["TESTED_BY"].values() for a in v)]
+                self.assertTrue(contract["IMPLEMENTED_BY"] and contract["TESTED_BY"])
+                self.assertTrue(all(anchor.startswith("REPLACE_ME/") for anchor in anchors), anchors)
+
     def test_only_the_meta_capabilities_write_runners(self):
         # Domain capabilities write one contract model built from a kit; model-mesh, topology-hazard and model-test
         # inspect other models and tests, so their templates keep a runner.

@@ -21,7 +21,7 @@ from flowguard.map.facts import load_anchor
 
 MODEL_ID = "contract_exhaustion"
 IMPLEMENTED_BY = {"place": "REPLACE_ME/orders.py:place"}      # the function whose bad inputs must be rejected
-# TESTED_BY = {"each_defect_rejected": ["tests/test_orders.py:test_place_rejects_bad_input"]}
+TESTED_BY = {"each_defect_rejected": ["REPLACE_ME/test_orders.py:test_place_rejects_bad_input"]}
 VALID = {"order_id": "o1", "amount": 5}                      # one valid call; each bad case changes one argument
 BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": object()}
 

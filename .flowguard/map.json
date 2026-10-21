@@ -210,7 +210,7 @@
       "summary": "Generates starter contract models, and check runners for the meta-capabilities.",
       "responsibilities": [
         "provide starter files for each capability",
-        "kit templates write one contract model whose placeholder anchors fail until replaced with real code",
+        "kit templates write one contract model whose placeholder code and test anchors fail until replaced with real ones",
         "only the meta-capabilities (model-mesh, topology-hazard, model-test) keep runner templates: they inspect other models and tests"
       ],
       "files": [
@@ -232,7 +232,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d88f63a85c422959e5e710510dc5380a9f4d13745a4e71341803bd957659c86b"
+      "fingerprint": "sha256:ca847790a555e2204199fe676fe1ef5606bfa00e2bc466b7e5eaf4776c4be550"
     },
     {
       "id": "behavior-commitment",

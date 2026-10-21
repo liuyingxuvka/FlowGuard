@@ -21,7 +21,7 @@ from flowguard import (UIControl, UIInteractionModel, UIStateNode, UITransition,
 MODEL_ID = "ui_flow_structure"
 IMPLEMENTED_BY = {"show": "REPLACE_ME/app.js:showDetails", "hide": "REPLACE_ME/app.js:hideDetails"}   # handlers
 UI_FILES = ["REPLACE_ME/index.html", "REPLACE_ME/app.js"]                                              # UI source
-# TESTED_BY = {"reached_state_is_declared": ["tests/test_ui.py:test_details_open_and_close"]}
+TESTED_BY = {"reached_state_is_declared": ["REPLACE_ME/test_ui.py:test_details_open_and_close"]}
 
 
 def interaction_model() -> UIInteractionModel:

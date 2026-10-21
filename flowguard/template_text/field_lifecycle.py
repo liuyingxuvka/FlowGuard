@@ -19,7 +19,7 @@ from flowguard import (FIELD_DISPOSITION_DELETED, FIELD_IMPACT_ROUTING, FIELD_LI
 MODEL_ID = "field_lifecycle"
 IMPLEMENTED_BY = {"Order": "REPLACE_ME/orders.py:Order"}     # the code that reads and writes these fields
 OWNED_FILES = ["REPLACE_ME/orders.py"]                      # files searched for the field names
-# TESTED_BY = {"field_lifecycle_review_accepts": ["tests/test_orders.py:test_old_mode_is_rejected"]}
+TESTED_BY = {"field_lifecycle_review_accepts": ["REPLACE_ME/test_orders.py:test_old_mode_is_rejected"]}
 
 
 def _routing(field_id, name, **extra):
