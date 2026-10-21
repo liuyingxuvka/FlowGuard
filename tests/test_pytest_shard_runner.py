@@ -275,7 +275,10 @@ def test_process_owner_cleans_children_even_after_parent_exit(tmp_path, parent_e
         else:
             with pytest.raises(ProcessLookupError):
                 os.kill(pid, 0)
-        assert result["exit_code"] != 0
+        if parent_exits:
+            assert result["exit_code"] == 0 and result["lingering_killed"] is True
+        else:
+            assert result["exit_code"] != 0
         assert result["timed_out"] is not parent_exits
         assert result["cleanup_confirmed"] is True
     finally:

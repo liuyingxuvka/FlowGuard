@@ -273,6 +273,7 @@ def _run_process(
         "exit_code": int(exit_code),
         "timed_out": timed_out,
         "cleanup_confirmed": cleanup_confirmed,
+        "lingering_killed": bool(getattr(result, "lingering_killed", False)),
         "launch_error": "" if cleanup_confirmed else "cleanup_unconfirmed",
         "duration_seconds": time.time() - started,
     }
@@ -642,6 +643,7 @@ def _run_one_shard(
         "exit_code": shard_run["exit_code"],
         "timed_out": shard_run["timed_out"],
         "cleanup_confirmed": shard_run["cleanup_confirmed"],
+        "lingering_killed": shard_run.get("lingering_killed", False),
         "deadline_exhausted": _deadline_remaining(deadline) <= 0.0,
         "requested_count": len(shard_nodeids),
         "selected_count": len(selected_ids),

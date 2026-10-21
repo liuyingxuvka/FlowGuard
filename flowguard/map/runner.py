@@ -176,8 +176,10 @@ def run_isolated_process(command: list[str], *, cwd: Path, env: dict,
                 time.sleep(.01)
             cleanup = cleanup and not _group_active(group)
     cleanup = cleanup and process.poll() is not None
-    code = 124 if timed_out else (70 if lingering or not cleanup else process.returncode)
-    return subprocess.CompletedProcess(command, code, output or "", error or ""), timed_out, cleanup
+    code = 124 if timed_out else (70 if not cleanup else process.returncode)
+    completed = subprocess.CompletedProcess(command, code, output or "", error or "")
+    completed.lingering_killed = bool(lingering)      # leftover background processes were killed; not a failure
+    return completed, timed_out, cleanup
 
 
 def _ok(item: Any) -> bool:
