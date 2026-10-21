@@ -2,7 +2,7 @@
 
 ## v0.70.7 - 2026-10-20 - Models bound to the real code; slim/2026-10
 
-- Done: FG-01, FG-02, FG-03, FG-04, FG-05, FG-06, FG-07, FG-08, FG-09, FG-10, FG-11, FG-12, FG-13, FG-14, FG-15, FG-16, FG-17, FG-18, FG-19, FG-20, FG-21, FG-22, FG-23, FG-24, FG-25, FG-26, FG-27, FG-28, FG-29, FG-30, FG-31, FG-32, FG-33, FG-34, FG-35, FG-36, FG-37, FG-38, FG-39, FG-40, FG-41, FG-42, FG-43, FG-44, FG-45, FG-46, FG-47, FG-48, FG-49, FG-50, FG-51, FG-52, FG-53, FG-54, FG-55, FG-56, FG-57, FG-58, FG-59, FG-60, FG-61, FG-62, FG-63, FG-64, FG-65, FG-66, FG-67, FG-68, FG-69, FG-70, FG-71, FG-72, FG-73, FG-74, FG-75, FG-76, FG-77, FG-78, FG-79, FG-80, FG-81, FG-82, FG-83, FG-84, FG-85, FG-86, FG-87, FG-88, FG-89, FG-90.
+- Done: FG-01, FG-02, FG-03, FG-04, FG-05, FG-06, FG-07, FG-08, FG-09, FG-10, FG-11, FG-12, FG-13, FG-14, FG-15, FG-16, FG-17, FG-18, FG-19, FG-20, FG-21, FG-22, FG-23, FG-24, FG-25, FG-26, FG-27, FG-28, FG-29, FG-30, FG-31, FG-32, FG-33, FG-34, FG-35, FG-36, FG-37, FG-38, FG-39, FG-40, FG-41, FG-42, FG-43, FG-44, FG-45, FG-46, FG-47, FG-48, FG-49, FG-50, FG-51, FG-52, FG-53, FG-54, FG-55, FG-56, FG-57, FG-58, FG-59, FG-60, FG-61, FG-62, FG-63, FG-64, FG-65, FG-66, FG-67, FG-68, FG-69, FG-70, FG-71, FG-72, FG-73, FG-74, FG-75, FG-76, FG-77, FG-78, FG-79, FG-80, FG-81, FG-82, FG-83, FG-84, FG-85, FG-86, FG-87, FG-88, FG-89, FG-90, FG-91, FG-92.
 - Skipped: none.
 - Every model, contract file or runner, names the real code it is about (`IMPLEMENTED_BY`, plus `TESTED_BY`)
   and consults it while it runs (called, or read as code facts). Missing, unresolved or `REPLACE_ME` anchors
@@ -21,6 +21,13 @@
   traces. The contract-exhaustion kit and the self-models use it; it found two masking bugs, now fixed:
   model-test hid an internal-path-only test that was not bound to a code contract, and a topology plan that
   listed only an unanchored warning got no generated hazards.
+- Code-structure and architecture-reduction kits: the `code-structure` and `architecture-reduction` templates
+  write one contract model (the `code-structure-recommendation` runner template is gone). A module plan or a
+  reduction plan grows by named edits with the existing reviews as invariants (a split also passes
+  `review_structure_mesh`); a responsibility with two owners, a split that drops an entrypoint and deleting a
+  symbol that another file still imports or names are counterexamples. Code facts compare the target plan with
+  the code: module files, split children and entrypoints exist, owner files belong to the named map component,
+  removed code is unreferenced (`CodeFacts.symbol_references`).
 - Removed SkillGuard-era proof machinery (development-process engine, TestMesh plans and reuse tickets,
   receipts, proof artifacts, evidence ladders, assumption cards, shard result reuse) and the existing-model,
   model-miss, structure-mesh and development-process entries; their functions live in `read --find`,

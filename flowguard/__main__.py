@@ -61,9 +61,6 @@ def _template(ns: argparse.Namespace) -> int:
         "model-test": "model-test-alignment",
         "ui-flow": "ui-flow-structure",
     }
-    if ns.name == "architecture-reduction":
-        print("architecture-reduction uses the runnable snippet in references/domains/architecture-reduction/protocol.md")
-        return 2
     factory = factories.get(aliases.get(ns.name, ns.name))
     if factory is None:
         print(f"unknown template {ns.name!r}; run 'python -m flowguard template --list'", file=sys.stderr)

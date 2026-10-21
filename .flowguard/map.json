@@ -158,7 +158,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4339274500fad4dd263c0e767da8dc32ad143774cbc07a14bcc1c5aa06d6e4de"
+      "fingerprint": "sha256:5531fde483e3a2a325dd35e146710d53371685ed0e9eb588bb33bbd5d9b4b3f3"
     },
     {
       "id": "public-api",
@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7951646b6fe9cfe23834eca5a836e291c245262f1bb9810cf7d74df07c88a8ac"
+      "fingerprint": "sha256:529cf669998a304a64e030caad287f9c1d7d5ab44806144b9e90b216bfb45c62"
     },
     {
       "id": "templates",
@@ -231,7 +231,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:81d2d4fc52704d78c6078019ddb3c90dd40fe01acb7ebff813e1e854f393261f"
+      "fingerprint": "sha256:f6fc85d3802da7397ba14e9e86db727cd0dff1c84512bdc26ab71f96cea8dab1"
     },
     {
       "id": "behavior-commitment",
@@ -289,7 +289,8 @@
       "summary": "Checks whether code can shrink without changing behavior.",
       "responsibilities": [
         "gate merging or removing code on proven unchanged behaviour",
-        "check that each candidate names real code when given the project root"
+        "check that each candidate names real code when given the project root",
+        "model kit: explore added candidates with the review and a static reference scan as invariants (deleting a symbol that another file still imports or names is a counterexample) and compare the target plan with the code"
       ],
       "files": [
         "flowguard/architecture_reduction.py"
@@ -303,7 +304,9 @@
         "code-structure",
         "engine-core",
         "map-analysis",
-        "shared-vocabulary"
+        "shared-vocabulary",
+        "engine-conformance",
+        "map-proof"
       ],
       "tests": [
         "tests/test_architecture_reduction.py",
@@ -311,7 +314,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f58cbf0c55b06a7bc76a783a41a24a0bbdbde388b724332084859148ecd72c63"
+      "fingerprint": "sha256:5258f7bedef47e12f546d3f73b33d038e818f31323214b0594597b13511b4970"
     },
     {
       "id": "code-structure",
@@ -755,7 +758,7 @@
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
         "run models and their known-bad and conformance checks",
-        "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader and load the code an anchor names",
+        "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
       "files": [
@@ -784,7 +787,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0a24b08a423a4a4d112b0f68792512e57a2bb9e6a5276481f0690b023028cb69"
+      "fingerprint": "sha256:3afbc0e67e982856e0477fb32243261393a084a8802b11c77866e6b7a9788823"
     },
     {
       "id": "engine-explore",

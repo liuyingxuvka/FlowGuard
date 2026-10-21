@@ -99,6 +99,9 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "TARGET_ACTION_REMOVE",
         "TARGET_ACTION_RETIRE_BEHAVIOR",
         "TargetArchitectureAction",
+        "add_reduction_candidate",
+        "architecture_reduction_code_facts",
+        "architecture_reduction_explorer",
         "review_architecture_reduction",
     ),
     "flowguard.audit": (
@@ -1088,6 +1091,7 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
     "flowguard.templates": (
         "TemplateFile",
         "adoption_template_files",
+        "architecture_reduction_template_files",
         "behavior_commitment_ledger_template_files",
         "code_structure_template_files",
         "contract_exhaustion_template_files",

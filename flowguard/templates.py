@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+from .template_text.architecture_reduction import (
+    ARCHITECTURE_REDUCTION_MODEL_TEMPLATE,
+)
 from .template_text.code_structure import (
     CODE_STRUCTURE_MODEL_TEMPLATE,
 )
@@ -104,6 +107,12 @@ def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE),
         TemplateFile(".flowguard/verification/owners/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE),
+    )
+
+
+def architecture_reduction_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/models/architecture_reduction.py", ARCHITECTURE_REDUCTION_MODEL_TEMPLATE),
     )
 
 
@@ -209,6 +218,7 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
+    "ARCHITECTURE_REDUCTION_MODEL_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_NOTES_TEMPLATE",
@@ -233,6 +243,7 @@ __all__ = [
     "UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE",
     "UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE",
     "adoption_template_files",
+    "architecture_reduction_template_files",
     "behavior_commitment_ledger_template_files",
     "code_structure_template_files",
     "contract_exhaustion_template_files",

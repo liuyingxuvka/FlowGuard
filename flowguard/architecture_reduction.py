@@ -5,12 +5,17 @@ structure. Ordinary contraction must preserve declared observable behavior;
 intentional retirement may change behavior only through one complete current
 retirement proof. The review reports actions and handoff requirements; it does
 not rewrite production code.
+
+Model kit: ``add_reduction_candidate`` is the plan edit,
+``architecture_reduction_explorer`` explores it with the review and a static
+reference scan of the real code as invariants, and
+``architecture_reduction_code_facts`` compares the target plan with the code.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
@@ -1317,6 +1322,86 @@ def review_architecture_reduction(
     )
 
 
+# Model kit: the plan grows by candidates; the review and a reference scan of the real code are the invariants.
+_REMOVING_ACTIONS = (TARGET_ACTION_REMOVE, TARGET_ACTION_MERGE, TARGET_ACTION_COLLAPSE)
+
+
+def add_reduction_candidate(plan: ArchitectureReductionPlan,
+                            candidate: ArchitectureReductionCandidate) -> ArchitectureReductionPlan:
+    """Plan edit for an architecture-reduction model: add a candidate (or replace the one with the same id)."""
+    kept = tuple(c for c in plan.candidates if c.candidate_id != candidate.candidate_id)
+    return replace(plan, candidates=kept + (candidate,))
+
+
+def _removes_code(candidate: ArchitectureReductionCandidate) -> bool:
+    return (candidate.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE
+            and candidate.target_action in _REMOVING_ACTIONS and ":" in candidate.code_node_id)
+
+
+def _removal_report(plan: ArchitectureReductionPlan, references) -> ArchitectureReductionReport:
+    findings = [ArchitectureReductionFinding(
+        "removed_code_still_referenced", f"{c.code_node_id} is still referenced at {', '.join(hits[:3])}",
+        candidate_id=c.candidate_id, item_id=c.code_node_id)
+        for c in plan.candidates if _removes_code(c) and (hits := references(c.code_node_id))]
+    return ArchitectureReductionReport(ok=not findings, reduction_id=plan.reduction_id,
+                                       decision="removed_code_still_referenced" if findings else "removed_code_unreferenced",
+                                       findings=tuple(findings))
+
+
+def architecture_reduction_explorer(initial, edits, *, explore=None, max_sequence_length: int = 2, root=None):
+    """Architecture-reduction model: named edits add candidates; every plan reached must pass two invariants.
+
+    ``architecture_reduction_review_accepts`` (``review_architecture_reduction``) and
+    ``removed_code_unreferenced``: an active candidate that removes, merges or collapses code names a symbol
+    that nothing outside its own file imports or references (a static scan of the real code under ``root``,
+    default the current directory), so deleting a symbol that is still called is a counterexample.
+    """
+    from .kit import plan_explorer
+    from .map.facts import CodeFacts
+
+    facts, seen = CodeFacts(root), {}
+
+    def references(anchor: str) -> list[str]:
+        if anchor not in seen:
+            seen[anchor] = facts.symbol_references(anchor)
+        return seen[anchor]
+
+    return plan_explorer(initial, edits, review_architecture_reduction, explore=explore,
+                         invariant_name="architecture_reduction_review_accepts", max_sequence_length=max_sequence_length,
+                         extra_reviews={"removed_code_unreferenced": lambda plan: _removal_report(plan, references)})
+
+
+def architecture_reduction_code_facts(plan: ArchitectureReductionPlan, *, anchors=(), root=None):
+    """Compare a reduction plan with the real code (static code facts, nothing is executed).
+
+    * every anchor exists;
+    * every active candidate's ``code_node_id`` names real code ('path:Symbol');
+    * an active candidate that removes, merges or collapses code names a symbol with no import or reference
+      outside its own file;
+    * a completed candidate that removed, merged or collapsed code names code that is gone.
+    """
+    from .map.check import anchor_problems
+    from .map.facts import CodeFacts
+
+    facts = CodeFacts(root)
+    if anchors:
+        facts.anchors_exist(anchors)
+    problems = anchor_problems(facts.root, [c.code_node_id for c in plan.candidates if c.code_node_id])
+    for c in plan.candidates:
+        if not c.code_node_id:
+            continue
+        if c.lifecycle_disposition == CANDIDATE_DISPOSITION_ACTIVE:
+            exists = facts.check(f"{c.candidate_id}: {c.code_node_id} exists", c.code_node_id not in problems,
+                                 problems.get(c.code_node_id, ""))
+            if exists and _removes_code(c):
+                facts.unreferenced(c.code_node_id, f"{c.candidate_id}: {c.code_node_id} has no reference outside "
+                                                   f"{c.code_node_id.partition(':')[0]}")
+        elif c.lifecycle_disposition == CANDIDATE_DISPOSITION_COMPLETED and c.target_action in _REMOVING_ACTIONS:
+            facts.check(f"{c.candidate_id}: {c.code_node_id} is gone", c.code_node_id in problems,
+                        f"{c.code_node_id} still exists")
+    return facts.report()
+
+
 __all__ = [
     "ARCHITECTURE_REDUCTION_CANDIDATE_TYPES",
     "ARCHITECTURE_REDUCTION_CANDIDATE_DISPOSITIONS",
@@ -1381,5 +1466,8 @@ __all__ = [
     "CompatibilitySurfaceClassification",
     "ObservableArchitectureContract",
     "TargetArchitectureAction",
+    "add_reduction_candidate",
+    "architecture_reduction_code_facts",
+    "architecture_reduction_explorer",
     "review_architecture_reduction",
 ]

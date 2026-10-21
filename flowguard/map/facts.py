@@ -12,7 +12,8 @@ Two cheap facts bind the model to that code:
 
 ``CodeFacts`` is the small static reader a model's ``conformance()`` uses to
 compare the model with the code: anchors exist, a word is present in or absent
-from files.  Words match whole identifiers; comments and strings count.
+from files, a symbol is (not) imported or referenced outside its own file.
+Words match whole identifiers; comments and strings count.
 """
 
 from __future__ import annotations
@@ -175,6 +176,59 @@ class CodeFacts:
             if (self.root / path).is_file():
                 hits += [f"{path}:{n}" for n, line in enumerate(self.text(path).splitlines(), 1) if pattern.search(line)]
         return hits
+
+    def _sources(self) -> list[str]:
+        """Every source file of the project (git ls-files, minus the map's ignore patterns)."""
+        if not hasattr(self, "_source_files"):
+            from .common import SOURCE_EXTS, matches_any
+            from .inventory import list_files
+            from .mapfile import MapError, ignore_patterns, load_map, map_path
+
+            try:
+                ignore = ignore_patterns(load_map(self.root) if map_path(self.root).is_file() else None)
+            except MapError:
+                ignore = ignore_patterns(None)
+            self._source_files = [f for f in list_files(self.root)
+                                  if Path(f).suffix in SOURCE_EXTS and not matches_any(f, ignore)]
+        return self._source_files
+
+    def symbol_references(self, anchor: str, paths: Iterable[str] | None = None) -> list[str]:
+        """'path:line' of every import of or reference to an anchor's symbol outside the anchor's own file.
+
+        ``anchor`` is 'path:Symbol'.  A Python file counts when it imports the symbol's module (any form,
+        relative imports included) or names '<module>:<symbol>' / '<module>.<symbol>' in a string, and the
+        name occurs in it; any other source file counts when the name occurs as a whole identifier.
+        ``paths`` defaults to every source file of the project.  Imports by computed names are not seen.
+        """
+        from .inventory import module_name, parse_python, python_roots
+
+        own, _, symbol = anchor.partition(":")
+        name = symbol.split(".")[-1]
+        sources = self._sources()
+        roots = python_roots([f for f in sources if f.endswith(".py")])
+        module = module_name(own, roots) if own.endswith(".py") else ""
+        parent, _, leaf = module.rpartition(".")
+        pattern, hits = _word(name), []
+        for path in (sources if paths is None else paths):
+            if path == own or not (self.root / path).is_file():
+                continue
+            found = [n for n, line in enumerate(self.text(path).splitlines(), 1) if pattern.search(line)]
+            if found and module and path.endswith(".py"):
+                info = parse_python(self.root, path, module_name(path, roots), collect_bodies=False)
+                sibling = Path(path).parent == Path(own).parent and Path(own).stem
+                imports_module = any(
+                    imp == module or imp.startswith((module + ":", module + ".")) or (parent and imp == f"{parent}:{leaf}")
+                    or (sibling and imp.split(":")[0].split(".")[0] == sibling) for imp in info.imports)
+                named = any(f"{module}:{symbol}" in s or f"{module}.{symbol}" in s for s in info.string_literals)
+                found = found if imports_module or named else []
+            hits += [f"{path}:{n}" for n in found]
+        return hits
+
+    def unreferenced(self, anchor: str, name: str = "", paths: Iterable[str] | None = None) -> bool:
+        """Nothing outside the anchor's own file imports or references its symbol (for example deleted code)."""
+        hits = self.symbol_references(anchor, paths)
+        return self.check(name or f"{anchor} has no reference outside {anchor.partition(':')[0]}", not hits,
+                          f"still referenced at {', '.join(hits[:5])}")
 
     def check(self, name: str, ok: bool, detail: str = "") -> bool:
         self.facts.append(Fact(name, bool(ok), "" if ok else detail))

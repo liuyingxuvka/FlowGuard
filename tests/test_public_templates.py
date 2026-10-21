@@ -14,6 +14,7 @@ from flowguard import (
 )
 from flowguard.__main__ import main as flowguard_cli_main
 from flowguard.templates import (
+    architecture_reduction_template_files,
     behavior_commitment_ledger_template_files,
     code_structure_template_files,
     contract_exhaustion_template_files,
@@ -38,6 +39,7 @@ from flowguard.risk_templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
+    architecture_reduction_template_files,
     behavior_commitment_ledger_template_files,
     primary_path_authority_template_files,
     model_test_alignment_template_files,
@@ -50,6 +52,7 @@ PUBLIC_TEMPLATE_FACTORIES = (
 )
 
 TEMPLATE_CLI_COMMANDS = {
+    "architecture-reduction-template": "architecture_reduction",
     "behavior-commitment-ledger-template": "behavior_commitment_ledger",
     "primary-path-authority-template": "primary_path_authority",
     "model-test-alignment-template": "model_test_alignment",
@@ -318,6 +321,24 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("IMPLEMENTED_BY PriceOrder -> anchor file missing: shop/pricing.py",
                       self.run_kit_template(files, "code_structure", renamed, fill="shop", components=split,
                                             expected_returncode=1))
+
+    def test_architecture_reduction_template_fails_when_removed_code_is_still_referenced(self):
+        files = architecture_reduction_template_files()
+        code = {"shop/orders.py": "def validate(order):\n    return bool(order)\n\n\ndef validate_v2(order):\n"
+                                  "    return bool(order)\n\n\ndef place_order(order):\n    return validate(order)\n",
+                "shop/api.py": "from shop.orders import validate\n\n\ndef create(order):\n    return validate(order)\n"}
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "architecture_reduction", code,
+                                                                  expected_returncode=1))
+        self.assertIn("PASS  architecture_reduction", self.run_kit_template(files, "architecture_reduction", code,
+                                                                            fill="shop", expected_returncode=0))
+        caller = dict(code, **{"shop/api.py": code["shop/api.py"] + "\n\nLEGACY = validate_v2\n"})
+        caller["shop/api.py"] = caller["shop/api.py"].replace("import validate\n", "import validate, validate_v2\n")
+        output = self.run_kit_template(files, "architecture_reduction", caller, fill="shop", expected_returncode=1)
+        self.assertIn("invariant: removed_code_unreferenced", output)
+        self.assertIn("shop/orders.py:validate_v2 is still referenced at shop/api.py:1, shop/api.py:8", output)
+        unused = dict(code, **{"shop/api.py": "def create(order):\n    return bool(order)\n"})
+        self.assertIn("known-bad variant 'remove_validate_still_called' passed",
+                      self.run_kit_template(files, "architecture_reduction", unused, fill="shop", expected_returncode=1))
 
     def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
         files = ui_flow_structure_template_files()

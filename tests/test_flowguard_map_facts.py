@@ -40,6 +40,29 @@ def test_code_facts_compare_words_and_anchors_with_the_code(tmp_path):
     assert not CodeFacts(root).report().ok
 
 
+def test_symbol_references_follow_imports_and_strings_outside_the_own_file(tmp_path):
+    files = {"shop/__init__.py": "",
+             "shop/orders.py": "def validate(order):\n    return order\n\n\ndef place(order):\n    return validate(order)\n",
+             "shop/api.py": "from shop.orders import validate\n\n\ndef create(order):\n    return validate(order)\n",
+             "shop/relative.py": "from . import orders\n\n\ndef check(order):\n    return orders.validate(order)\n",
+             "shop/other.py": "def validate(value):\n    return value\n",
+             "shop/registry.py": "HANDLERS = {'place': 'shop.orders:place'}\n",
+             "tests/test_orders.py": "import shop.orders as o\n\n\ndef test_validate():\n    assert o.validate(1)\n"}
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    facts = CodeFacts(tmp_path)
+    assert facts.symbol_references("shop/orders.py:validate") == [
+        "shop/api.py:1", "shop/api.py:5", "shop/relative.py:5", "tests/test_orders.py:5"]   # not shop/other.py
+    assert facts.symbol_references("shop/orders.py:place") == ["shop/registry.py:1"]
+    assert facts.symbol_references("shop/orders.py:validate", ["tests/test_orders.py"]) == ["tests/test_orders.py:5"]
+    assert not facts.unreferenced("shop/orders.py:validate")
+    (tmp_path / "shop/registry.py").unlink()
+    assert facts.unreferenced("shop/orders.py:place")
+    assert "- shop/orders.py:validate has no reference outside shop/orders.py: still referenced at shop/api.py:1" in \
+        facts.report().format_text()
+
+
 def test_anchor_watch_counts_calls_and_reads_but_not_imports(tmp_path):
     root = _project(tmp_path)
     sys.path.insert(0, str(root))

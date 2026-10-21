@@ -52,37 +52,22 @@ the same. It never deletes code on a guess.
 3. Gather proof. Equivalence means: the component's tests pass before and after, every dependent component from
    `map impact` is updated, and no output, state field or side effect disappears. Put test paths in `evidence_refs`.
    If only some properties are shown, use `property_only_safe`; if traces must be replayed, `needs_conformance_replay`.
-4. Reuse the owner model; write a new runner only for a reusable reduction boundary. Pass `project_root="."`
-   so every `code_node_id` must name real code (`path.py:Symbol`).
-   ```python
-   # .flowguard/verification/owners/<reduction_id>/run_checks.py
-   from dataclasses import replace
-   from flowguard import (ArchitectureReductionCandidate, ArchitectureReductionPlan,
-       ArchitectureReductionTrigger, ObservableArchitectureContract, review_architecture_reduction)
-   from flowguard.map.runner import run_owner
-   IMPLEMENTED_BY = {"Validate": "app/orders.py:validate_v2"}      # the code this reduction is about
-   contract = ObservableArchitectureContract(source_model_id="orders", source_code_boundary_id="orders",
-       public_entrypoints=("app/api.py:create_order",), observable_outputs=("order_created",),
-       observable_state=("orders.status",), observable_side_effects=("db.write_order",),
-       validation_boundaries=("validate_order",), rationale="create order")
-   cand = ArchitectureReductionCandidate(candidate_id="merge-validate", candidate_type="merge_handlers",
-       code_node_id="app/orders.py:validate_v2", source_model_element="Validate", target_action="merge",
-       proof_status="safe_by_equivalence", required_next_route="",
-       rationale="map lint duplicate_code", evidence_refs=("tests/test_orders.py",))
-   def plan(*cands): return ArchitectureReductionPlan(reduction_id="orders-cleanup", observable_contract=contract,
-       candidates=cands, rationale="lint cleanup", companion_route_triggers=())
-   def main():
-       good = review_architecture_reduction(plan(cand), project_root="."); print(good.format_text())
-       bad = review_architecture_reduction(plan(replace(cand, target_action="remove", affected_state=("orders.status",))),
-                                           project_root=".")
-       return good.ok and not bad.ok
-   if __name__ == "__main__": raise SystemExit(run_owner(main))
-   ```
-5. For a persistent runner created or changed in step 4, register it in the owner's `models`
-   and run `python -m flowguard map models <reduction_id>` once; otherwise use the direct native review result.
+4. Reuse the owner model. Only for a new reusable reduction boundary, run
+   `python -m flowguard template architecture-reduction --write .`: one contract model,
+   `.flowguard/models/architecture_reduction.py`, whose `REPLACE_ME` anchors fail until they name your code.
+   Write each candidate as a plan edit (`add_reduction_candidate`); `build_explorer()` returns
+   `architecture_reduction_explorer(plan, EDITS, explore=[...])`: `review_architecture_reduction` must accept
+   every plan reached, and an active remove/merge/collapse candidate must name a `path.py:Symbol` that nothing
+   outside its own file imports or references (a static scan of the real code). `broken_variants()` explores a
+   wrong edit (removing a symbol that is still called). `conformance()` returns
+   `architecture_reduction_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: anchors and active candidates name
+   real code, removed code is unreferenced, a completed removal's code is gone. A one-off direct check:
+   `review_architecture_reduction(plan, project_root=".")` (every `code_node_id` must name real code).
+5. List the model in the owner's `models`; run `python -m flowguard map models architecture_reduction` once.
 6. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
    still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.
-7. After the code change: rerun `map lint` (the finding should be gone), update the map descriptions,
+7. After the code change: mark the candidate `lifecycle_disposition="completed"` with `completion_evidence_refs`,
+   rerun `map lint` (the finding should be gone), update the map descriptions,
    `python -m flowguard map confirm <ids>`, then `python -m flowguard change`.
 
 ## What blocks
@@ -99,6 +84,7 @@ the same. It never deletes code on a guess.
 | `conformance_replay_required` | Candidate needs trace replay against real code before it can be ready. |
 | `incomplete_candidate` / `missing_observable_contract` | Required fields are empty. |
 | `candidate_anchor_missing` | With `project_root`: a candidate's `code_node_id` names no real `path.py:Symbol`. |
+| `removed_code_still_referenced` | Model kit: another file still imports or names the code a candidate removes. |
 
 `risky_candidate_kept` and `property_only_reduction` are warnings: the candidate is kept, not ready.
 
@@ -112,7 +98,7 @@ the same. It never deletes code on a guess.
 
 - [ ] Every acted-on lint finding is a candidate or has a reason in `scoped_candidate_reasons`.
 - [ ] The selected direct review or existing-owner check passes; relevant broken cases return `ok=False`.
-- [ ] Any persistent runner is registered; the component's `tests` list the equivalence tests.
+- [ ] Any new or changed model is listed in `models`; the component's `tests` list the equivalence tests.
 - [ ] Those tests pass before and after the change.
 - [ ] `python -m flowguard change` is clean; resolved findings disappear, while kept/blocked candidates stay visible.
 - [ ] The report says which candidates ran, which stayed `risky_keep` or blocked, and what was skipped.
@@ -120,6 +106,7 @@ the same. It never deletes code on a guess.
 ## Limits
 
 - The review checks the rows you declared; with `project_root` it also checks that each `code_node_id` exists.
-  It does not read what the code does; a wrong `affected_state` gives a wrong pass. Pair it with real tests.
+  The kit's scan sees static imports and names, not what the code does; imports by computed names are missed,
+  and a wrong `affected_state` gives a wrong pass. Pair it with real tests.
 - `map lint` finds candidates by word overlap in `responsibilities` and identical AST bodies. Near-duplicates with different code are missed.
 - `never_imported` cannot see dynamic imports or plugin loading. Treat it as a hint, not proof of dead code.

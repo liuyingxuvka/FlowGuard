@@ -36,6 +36,9 @@ from flowguard import (
     CompatibilitySurfaceClassification,
     ObservableArchitectureContract,
     TargetModuleRecommendation,
+    add_reduction_candidate,
+    architecture_reduction_code_facts,
+    architecture_reduction_explorer,
     review_architecture_reduction,
 )
 
@@ -694,6 +697,63 @@ class ArchitectureReductionTests(unittest.TestCase):
             "retirement_compatibility_surface_retained",
             {finding.code for finding in report.findings},
         )
+
+
+def _kit_project(tmp_path):
+    (tmp_path / "router").mkdir()
+    (tmp_path / "router/__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "router/adapter.py").write_text(
+        "def normalize(value):\n    return value\n\n\ndef normalize_v2(value):\n    return value\n", encoding="utf-8")
+    (tmp_path / "router/cli.py").write_text("from router.adapter import normalize\n\n\ndef main(value):\n"
+                                            "    return normalize(value)\n", encoding="utf-8")
+    return tmp_path
+
+
+def _kit_plan():
+    return ArchitectureReductionPlan("router-reduction", observable_contract=contract(), rationale="one duplicate")
+
+
+_KIT_EDITS = {
+    "merge_v2": lambda plan: add_reduction_candidate(plan, candidate(
+        candidate_id="merge-v2", candidate_type=CANDIDATE_MERGE_HANDLERS, code_node_id="router/adapter.py:normalize_v2",
+        target_action=TARGET_ACTION_MERGE, required_next_route="")),
+    "remove_normalize": lambda plan: add_reduction_candidate(plan, candidate(
+        candidate_id="remove-normalize", candidate_type=CANDIDATE_MERGE_HANDLERS, code_node_id="router/adapter.py:normalize",
+        target_action=TARGET_ACTION_REMOVE, required_next_route="")),
+}
+
+
+def test_architecture_reduction_kit_rejects_deleting_a_symbol_that_is_still_referenced(tmp_path):
+    root = _kit_project(tmp_path)
+    design = architecture_reduction_explorer(_kit_plan, _KIT_EDITS, explore=["merge_v2"], root=root)
+    assert [i.name for i in design.invariants] == ["architecture_reduction_review_accepts", "removed_code_unreferenced"]
+    assert design.explore().ok
+    bad = architecture_reduction_explorer(_kit_plan, _KIT_EDITS, explore=["remove_normalize"], root=root).explore()
+    assert {v.invariant_name for v in bad.violations} == {"removed_code_unreferenced"}
+    assert "removed_code_still_referenced (router/adapter.py:normalize is still referenced at router/cli.py:1, " \
+           "router/cli.py:5)" in bad.violations[0].message
+    assert len(add_reduction_candidate(_KIT_EDITS["merge_v2"](_kit_plan()), candidate(candidate_id="merge-v2")).candidates) == 1
+
+
+def test_architecture_reduction_code_facts_compare_the_plan_with_the_code(tmp_path):
+    from dataclasses import replace
+
+    root = _kit_project(tmp_path)
+    target = _KIT_EDITS["merge_v2"](_kit_plan())
+    anchors = {"Normalize": "router/adapter.py:normalize"}
+    assert architecture_reduction_code_facts(target, anchors=anchors, root=root).ok
+    (root / "router/api.py").write_text("from router import adapter\n\nHANDLER = adapter.normalize_v2\n", encoding="utf-8")
+    text = architecture_reduction_code_facts(target, root=root).format_text()
+    assert "- merge-v2: router/adapter.py:normalize_v2 has no reference outside router/adapter.py: " \
+           "still referenced at router/api.py:3" in text
+    (root / "router/api.py").unlink()
+    (root / "router/adapter.py").write_text("def normalize(value):\n    return value\n", encoding="utf-8")
+    text = architecture_reduction_code_facts(target, root=root).format_text()
+    assert "- merge-v2: router/adapter.py:normalize_v2 exists: symbol 'normalize_v2' not found in router/adapter.py" in text
+    done = replace(target, candidates=(replace(target.candidates[0], lifecycle_disposition=CANDIDATE_DISPOSITION_COMPLETED,
+                                               completion_evidence_refs=("tests/test_router.py",)),))
+    assert architecture_reduction_code_facts(done, root=root).format_text() == "code facts: 1 of 1 hold"
+
 
 if __name__ == "__main__":
     unittest.main()
