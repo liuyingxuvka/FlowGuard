@@ -36,7 +36,8 @@ same rule; a test covers an obligation id that no longer exists.
    `.flowguard/verification/owners/model_test_alignment/run_checks.py`. Rename `model_test_alignment` to your component id
    and replace the runner's `REPLACE_ME` anchor with the code the alignment is about.
    The template uses the native API with explicit `not_run` target evidence.
-   A scaffold run checks design readiness, not target test execution.
+   A scaffold run checks design readiness, not target test execution; its runner also checks that the
+   owner code each code contract names exists (code facts), so it fails until the plan names real code.
    `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.
 2. Reuse/update the owner's native alignment plan (`model.py` only if persisted), using the real API:
    ```python

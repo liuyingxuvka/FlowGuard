@@ -848,7 +848,7 @@ def alignment_plan() -> ModelTestAlignmentPlan:
     return ModelTestAlignmentPlan(
         "request-boundary",
         obligations=(ModelObligation("reject-missing-field", required_test_kinds=("failure_path",)),),
-        code_contracts=(CodeContract("parse-request", path="app/request.py", symbol="parse_request",
+        code_contracts=(CodeContract("parse-request", path="REPLACE_ME/request.py", symbol="parse_request",
                                     implements_obligations=("reject-missing-field",)),),
         test_evidence=(TestEvidence("test-missing-field", path="tests/test_request.py",
                                    test_name="test_missing_field_is_rejected",
@@ -868,7 +868,7 @@ def run_checks():
 
 MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE = '''"""Run the native FlowGuard teaching scaffold; no target execution is claimed."""
 
-from model import run_checks
+from model import alignment_plan, run_checks
 
 
 def main() -> int:
@@ -876,9 +876,25 @@ def main() -> int:
     print(design.format_text())
     print(missing_owner.format_text())
     print("design-ready scaffold; target execution: not_run")
-    return 0 if (design.pre_code_status == "ready"
+    bound = plan_names_real_code()
+    return 0 if (bound and design.pre_code_status == "ready"
                  and design.executed_evidence_status == "not_run"
                  and missing_owner.pre_code_status != "ready") else 1
+
+
+def plan_names_real_code() -> bool:
+    """Code facts: the owner code of each code contract, and each test that reports a result, exist."""
+    from pathlib import Path
+
+    from flowguard.map.facts import CodeFacts
+
+    plan = alignment_plan()
+    facts = CodeFacts(Path(__file__).resolve().parents[4])
+    facts.anchors_exist([f"{c.path}:{c.symbol}" for c in plan.code_contracts if c.path]
+                        + [f"{e.path}:{e.test_name}" for e in plan.test_evidence
+                           if e.path and e.result_status != "not_run"])     # a planned test may be unwritten
+    print(facts.report().format_text())
+    return facts.report().ok
 
 # The real code this review is about: the placeholder fails until you name it ('path:Symbol').
 # Add TESTED_BY = {"<check>": ["tests/test_x.py:test_name"]} for the tests that guard it.

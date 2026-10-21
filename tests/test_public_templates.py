@@ -81,6 +81,7 @@ class PublicTemplateTests(unittest.TestCase):
                         path.write_text(path.read_text(encoding="utf-8").replace("REPLACE_ME", "app"), encoding="utf-8")
                 (root / "app").mkdir()
                 (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")
+                (root / "app/request.py").write_text("def parse_request(data):\n    return data\n", encoding="utf-8")
                 (root / "app/workflow.py").write_text("def run_primary_workflow():\n    return 'done'\n", encoding="utf-8")
                 (root / "app/test_workflow.py").write_text("def test_primary_workflow():\n    assert True\n",
                                                            encoding="utf-8")
@@ -235,6 +236,20 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("design-ready scaffold; target execution: not_run", output)
         self.assertIn("test_evidence_not_passing", output)
 
+
+    def test_model_test_alignment_template_fails_when_its_plan_names_missing_code(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_template_files(root, model_test_alignment_template_files())
+            for path in root.rglob("*.py"):
+                path.write_text(path.read_text(encoding="utf-8").replace("REPLACE_ME", "app"), encoding="utf-8")
+            (root / "app").mkdir()
+            (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")   # no app/request.py
+            result = subprocess.run([sys.executable, "run_checks.py"], env=_template_env(), text=True,
+                                    cwd=root / ".flowguard" / "verification" / "owners" / "model_test_alignment",
+                                    capture_output=True, check=False)
+        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
+        self.assertIn("anchor app/request.py:parse_request exists: anchor file missing: app/request.py", result.stdout)
 
     def test_model_test_alignment_full_template_executes_all_six_reports(self):
         with tempfile.TemporaryDirectory() as directory:
