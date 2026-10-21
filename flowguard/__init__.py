@@ -138,12 +138,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "TargetArchitectureAction",
         "review_architecture_reduction",
     ),
-    "flowguard.assumptions": (
-        "AssumptionCard",
-        "ConditionalAssumption",
-        "assumption_card",
-        "conditional_assumption",
-    ),
     "flowguard.audit": (
         "ModelQualityAuditReport",
         "ModelQualityFinding",

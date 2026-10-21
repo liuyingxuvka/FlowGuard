@@ -127,7 +127,6 @@ class Explorer:
     success_predicate: ReachabilityPredicate | None = None
     required_labels: tuple[str, ...] = ()
     required_reachable: tuple[ReachabilityCondition, ...] = ()
-    assumption_card: Any = None
     progress_steps: int = 10
     max_failures: int | None = None
     failure_witness_limit: int | None = None
@@ -145,7 +144,6 @@ class Explorer:
         success_predicate: ReachabilityPredicate | None = None,
         required_labels: Sequence[str] = (),
         required_reachable: Sequence[ReachabilityCondition] = (),
-        assumption_card: Any = None,
         progress_steps: int = 10,
         max_failures: int | None = None,
         failure_witness_limit: int | None = None,
@@ -161,7 +159,6 @@ class Explorer:
         object.__setattr__(self, "success_predicate", success_predicate)
         object.__setattr__(self, "required_labels", tuple(required_labels))
         object.__setattr__(self, "required_reachable", tuple(required_reachable))
-        object.__setattr__(self, "assumption_card", assumption_card)
         object.__setattr__(self, "progress_steps", int(progress_steps))
         if max_failures is not None and int(max_failures) < 1:
             raise ValueError("max_failures must be at least 1 when provided")
@@ -402,7 +399,6 @@ class Explorer:
             exception_branches=tuple(exception_branches),
             reachability_failures=tuple(reachability_failures),
             explored_sequences=() if compact_trace_storage else tuple(observed_sequences),
-            assumption_card=self.assumption_card,
             exploration_complete=exploration_complete,
             termination_reason=termination_reason,
             explored_sequence_count=sequence_started_count,

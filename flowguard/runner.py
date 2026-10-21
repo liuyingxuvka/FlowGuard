@@ -77,9 +77,6 @@ def run_model_first_checks(
     if plan.step_contracts:
         artifacts["step_contracts"] = plan.step_contracts
         artifacts["step_contract_invariants"] = step_contract_invariants
-    if plan.assumption_card is not None:
-        artifacts["assumption_card"] = plan.assumption_card
-        _append_assumption_card_section(sections, plan.assumption_card)
     _append_minimum_model_section(sections, artifacts, plan)
     _append_model_path_quality_section(sections, artifacts, plan)
     skipped_steps = tuple(
@@ -139,7 +136,6 @@ def run_model_first_checks(
                 max_sequence_length=plan.max_sequence_length,
                 terminal_predicate=plan.terminal_predicate,
                 required_labels=plan.required_labels,
-                assumption_card=plan.assumption_card,
                 max_failures=plan.max_failures,
                 max_transitions=plan.max_transitions,
                 deadline=plan.deadline,
@@ -255,30 +251,6 @@ def run_model_first_checks(
     return FlowGuardSummaryReport.from_sections(
         sections,
         metadata=artifacts,
-    )
-
-
-def _append_assumption_card_section(
-    sections: list[FlowGuardSection],
-    assumption_card: Any,
-) -> None:
-    formatter = getattr(assumption_card, "format_text", None)
-    rendered = formatter() if callable(formatter) else str(assumption_card)
-    assumptions = tuple(getattr(assumption_card, "assumptions", ()) or ())
-    sections.append(
-        FlowGuardSection(
-            name="assumption_card",
-            status="pass_with_gaps",
-            summary=(
-                f"conditional assumptions={len(assumptions)}; "
-                "visible boundary, not model pass/fail evidence"
-            ),
-            findings=tuple(rendered.splitlines()),
-            metadata={
-                "assumption_card": assumption_card,
-                "always_show_findings": True,
-            },
-        )
     )
 
 

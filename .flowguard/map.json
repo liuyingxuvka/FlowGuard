@@ -41,7 +41,6 @@
         "problem-corpus"
       ],
       "tests": [
-        "tests/test_assumption_card_safety.py",
         "tests/test_benchmark_hardening.py",
         "tests/test_conformance_replay_duplicate_record_failure.py",
         "tests/test_conformance_replay_repeated_scoring_failure.py",
@@ -61,7 +60,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:242bee741232f1e5a344b791db0335529b8f99f496db0b4fb3a8881267d2ea5f"
+      "fingerprint": "sha256:81e73f649f4d270c2634957bf5728aa9441bb2308e1454b9f936a10dece6a464"
     },
     {
       "id": "tooling",
@@ -203,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fedfaf57dc4522e99aa6b4a29ef8a71ff241f88b712c00e76919b8b93babda60"
+      "fingerprint": "sha256:76110b000e71b459dd468cd56dc5e5399aa05818b5d75901e7669f154a022f13"
     },
     {
       "id": "templates",
@@ -797,7 +796,6 @@
         "engine-core"
       ],
       "tests": [
-        "tests/test_assumptions.py",
         "tests/test_budgeted_graph_runner.py",
         "tests/test_counterexample_trace.py",
         "tests/test_explorer_progress.py",
@@ -810,7 +808,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:79f39152cc291f01cd43eb4b1ff5a359091035682a959060ecd3f5b09daa2647"
+      "fingerprint": "sha256:d5595928df4da85591124a94decc6a12e3dff3338c079c2a591ee0dfade8b7e5"
     },
     {
       "id": "engine-properties",
@@ -822,7 +820,6 @@
       "files": [
         "flowguard/checks.py",
         "flowguard/packs/*.py",
-        "flowguard/assumptions.py",
         "flowguard/state_closure.py",
         "flowguard/contract.py",
         "flowguard/step_contracts.py"
@@ -840,7 +837,6 @@
         "model-test"
       ],
       "tests": [
-        "tests/test_assumptions.py",
         "tests/test_audit.py",
         "tests/test_contract_core.py",
         "tests/test_packs.py",
@@ -853,7 +849,7 @@
         ".flowguard/verification/owners/state_closure_gate/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:55e1cb531b6197371bf21a58a570db21dfc54deb489445971ee2f6c592ac4348"
+      "fingerprint": "sha256:168f8a165764bd4b9d6e4dd821da83576a118b9b37a795bb227c1591cbe2d9f3"
     },
     {
       "id": "engine-scenarios",
@@ -965,7 +961,7 @@
         ".flowguard/verification/owners/maintenance_obligation_memory/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:da55b89dda9579a554d4fb7e930d4a8cdad2330a589a99b8c986730a8b5a76af"
+      "fingerprint": "sha256:89d1514c6a3f83f378a6536907960e242a13d4109c9f3c5db6762b4fff4dd66f"
     },
     {
       "id": "engine-path-quality",
@@ -1060,7 +1056,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6b14658d07b60a39703cc35f5d4c58d0facc3d1f413349d6753d2f9b2a521311"
+      "fingerprint": "sha256:05c8de2e2f964b4d14795c05e048e34c90b24fe7b595bd666b9bcd7a01c89a68"
     },
     {
       "id": "shared-vocabulary",

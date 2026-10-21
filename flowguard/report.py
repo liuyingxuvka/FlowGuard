@@ -78,7 +78,6 @@ class CheckReport:
     exception_branches: tuple[ExceptionBranch, ...] = ()
     reachability_failures: tuple[ReachabilityFailure, ...] = ()
     explored_sequences: tuple[tuple[Any, ...], ...] = ()
-    assumption_card: Any = None
     exploration_complete: bool = True
     termination_reason: str = "completed"
     explored_sequence_count: int = 0
@@ -96,11 +95,6 @@ class CheckReport:
             f"exceptions: {len(self.exception_branches)}",
             f"reachability_failures: {len(self.reachability_failures)}",
         ]
-
-        if self.assumption_card is not None:
-            formatter = getattr(self.assumption_card, "format_text", None)
-            rendered = formatter() if callable(formatter) else str(self.assumption_card)
-            lines.extend(["", rendered])
 
         if not self.exploration_complete:
             lines.append(

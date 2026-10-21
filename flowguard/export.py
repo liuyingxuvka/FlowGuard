@@ -155,10 +155,6 @@ def check_report_to_dict(report: Any) -> JsonDict:
         "remaining_scope": str(getattr(report, "remaining_scope", "")),
         "exploration_status": str(getattr(report, "exploration_status", "complete")),
     }
-    assumption_card = getattr(report, "assumption_card", None)
-    if assumption_card is not None:
-        to_dict = getattr(assumption_card, "to_dict", None)
-        exported["assumption_card"] = to_dict() if callable(to_dict) else to_jsonable(assumption_card)
     return exported
 
 

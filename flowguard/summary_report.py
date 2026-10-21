@@ -309,9 +309,7 @@ def _summary_for_sections(sections: tuple[FlowGuardSection, ...]) -> str:
 
 
 def _section_always_shows_findings(section: FlowGuardSection) -> bool:
-    return section.name == "assumption_card" or (
-        ("always_show_findings", True) in section.metadata
-    )
+    return ("always_show_findings", True) in section.metadata
 
 
 def _ledger_summary(entries: tuple[FlowGuardFindingLedgerEntry, ...]) -> str:

@@ -83,7 +83,6 @@ class FlowGuardCheckPlan:
     conformance_status: str | None = None
     conformance_report: Any = None
     scenario_matrix_config: ScenarioMatrixConfig | None = None
-    assumption_card: Any = None
     state_closure_plan: Any = None
     topology_hazard_plan: Any = None
     usage_intent: Any = None
@@ -114,7 +113,6 @@ class FlowGuardCheckPlan:
         conformance_status: str | None = None,
         conformance_report: Any = None,
         scenario_matrix_config: ScenarioMatrixConfig | Mapping[str, Any] | None = None,
-        assumption_card: Any = None,
         state_closure_plan: Any = None,
         topology_hazard_plan: Any = None,
         usage_intent: Any = None,
@@ -150,7 +148,6 @@ class FlowGuardCheckPlan:
             "scenario_matrix_config",
             _coerce_scenario_matrix_config(scenario_matrix_config),
         )
-        object.__setattr__(self, "assumption_card", assumption_card)
         object.__setattr__(self, "state_closure_plan", state_closure_plan)
         object.__setattr__(self, "topology_hazard_plan", topology_hazard_plan)
         object.__setattr__(self, "usage_intent", usage_intent)
@@ -185,7 +182,6 @@ class FlowGuardCheckPlan:
             f"step_contracts: {len(self.step_contracts)}",
             f"progress_config: {'provided' if self.progress_config is not None else 'not_provided'}",
             f"conformance_status: {self.conformance_status or 'not_provided'}",
-            f"assumption_card: {'provided' if self.assumption_card is not None else 'not_provided'}",
             f"state_closure_plan: {'provided' if self.state_closure_plan is not None else 'auto'}",
             f"topology_hazard_plan: {'provided' if self.topology_hazard_plan is not None else 'auto'}",
             f"minimum_model_contract: {'provided' if self.minimum_model_contract is not None else 'not_provided'}",
@@ -237,7 +233,6 @@ class FlowGuardCheckPlan:
                 if self.scenario_matrix_config is not None
                 else None
             ),
-            "assumption_card": _assumption_card_to_jsonable(self.assumption_card),
             "state_closure_plan": to_jsonable(self.state_closure_plan),
             "topology_hazard_plan": to_jsonable(self.topology_hazard_plan),
             "usage_intent": to_jsonable(self.usage_intent),
@@ -321,15 +316,6 @@ def _coerce_known_bad_proofs(
         else:
             raise TypeError("known_bad_proofs must contain KnownBadProof or mapping items")
     return tuple(proofs)
-
-
-def _assumption_card_to_jsonable(value: Any) -> Any:
-    if value is None:
-        return None
-    to_dict = getattr(value, "to_dict", None)
-    if callable(to_dict):
-        return to_dict()
-    return to_jsonable(value)
 
 
 __all__ = ["FlowGuardCheckPlan", "ScenarioMatrixConfig"]
