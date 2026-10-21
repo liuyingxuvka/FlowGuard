@@ -327,6 +327,10 @@ from flowguard.kit import Feature, feature_conformance  # noqa: E402
 MODEL_ID = "maintenance_obligation_memory"
 COMPONENTS = ["engine-runner"]
 IMPLEMENTED_BY = {"BuildReport": "flowguard/maintenance_obligation.py:build_maintenance_obligation_report"}
+TESTED_BY = {"anchored_obligation_routes_owner": [
+    "tests/test_summary_report.py:test_maintenance_obligation_report_keeps_only_anchored_required_obligations_open"],
+    "unanchored_observation_is_not_hard_gate": [
+    "tests/test_summary_report.py:test_maintenance_obligation_report_keeps_only_anchored_required_obligations_open"]}
 REQUIRED_LABELS = ("anchored_obligation_recorded", "unanchored_observation_recorded", "anchor_touched",
                    "owner_evidence_recorded", "scoped_claim_only", "full_claim_accepted")
 BROKEN_LENGTH = {"maintenance_obligation_missing_owner_route": 1, "maintenance_obligation_hard_gated_observation": 1,

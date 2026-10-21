@@ -170,5 +170,21 @@ class SummaryReportTests(unittest.TestCase):
         self.assertIn("scenario_or_invariant", model_gap.required_input_kinds)
         self.assertIn("owner_route", model_gap.to_dict())
 
+    def test_maintenance_obligation_report_keeps_only_anchored_required_obligations_open(self):
+        from flowguard import (OBLIGATION_STATUS_OBSERVATION, OBLIGATION_STATUS_RESOLVED,
+                               OBLIGATION_STRENGTH_SUGGESTED, MaintenanceObligation,
+                               build_maintenance_obligation_report)
+
+        common = {"owner_route": "structure_mesh_maintenance", "reason_code": "large_module"}
+        report = build_maintenance_obligation_report("memory", (
+            MaintenanceObligation("structure:checkout", anchor_paths=("flowguard/checkout.py",), **common),
+            MaintenanceObligation("structure:orders", status=OBLIGATION_STATUS_RESOLVED,
+                                  evidence_ids=("structuremesh:passed",), **common),
+            MaintenanceObligation("observation:naming", status=OBLIGATION_STATUS_OBSERVATION, **common),
+            MaintenanceObligation("structure:reports", strength=OBLIGATION_STRENGTH_SUGGESTED, **common),
+        ))
+        self.assertEqual(("structure:checkout",), report.open_required_obligation_ids)
+        self.assertIn("open_required=1", report.summary)
+
 if __name__ == "__main__":
     unittest.main()
