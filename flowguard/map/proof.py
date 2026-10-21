@@ -317,8 +317,10 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
     except MapError:
         data = {}
     registry = model_registry(root, data)
-    errors = [ModelResult(model=issue.code, file=issue.path, status="error", problems=[issue.message])
+    issues = [ModelResult(model="registry", file=issue.path, status="error",
+                          problems=[f"{issue.code} {issue.path}: {issue.message}"])
               for issue in registry.issues]
+    errors = []
     available = {entry.id for entry in registry.entries}
     for mid in sorted(set(ids) - available):
         message = f"unknown model id {mid!r}"
@@ -328,7 +330,7 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
             message += f"; {mid!r} is a component id; registered model ids: {', '.join(bound) or '(none)'}"
         errors.append(ModelResult(model=mid, file="", status="error", problems=[message]))
     if errors:
-        return errors
+        return errors + issues
     results = []
     own_files = {}
     if any(entry.kind == "runner" for entry in registry.entries):
@@ -346,7 +348,7 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
             continue
         path = root / entry.path
         results.append(run_runner(root, path, timeout, own_files.get(entry.path)) if entry.kind == "runner" else run_model(root, path, timeout))
-    return results
+    return results + issues
 
 
 def render_results(results: list[ModelResult]) -> str:

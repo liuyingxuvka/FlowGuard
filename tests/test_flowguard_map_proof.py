@@ -199,6 +199,14 @@ def test_registry_errors_block_check_and_model_execution(shop, capsys, invalid):
     assert code == 1 and expected in output
 
 
+def test_registry_issue_does_not_block_the_requested_model(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, ".flowguard/verification/owners/stray/run_checks.py", "raise SystemExit(0)\n")
+    code, output = models(shop, capsys, "order_placement")
+    assert code == 1
+    assert "PASS  order_placement" in output and "model_unbound" in output
+
+
 _MINIMAL_MODEL = MODEL_SOURCE.read_text(encoding="utf-8").replace(
     'MODEL_ID = "order_placement"', 'MODEL_ID = "minimal"').replace(
     'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', 'IMPLEMENTED_BY = {}').replace(
