@@ -599,6 +599,17 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "review_mesh_closure_model",
         "summarize_child_boundary_change",
     ),
+    "flowguard.kit": (
+        "Case",
+        "CaseResult",
+        "CaseTableReport",
+        "PlanState",
+        "case_table_conformance",
+        "case_table_explorer",
+        "case_table_variants",
+        "plan_explorer",
+        "review_invariant",
+    ),
     "flowguard.loop": (
         "GraphEdge",
         "LoopCheckConfig",

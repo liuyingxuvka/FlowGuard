@@ -202,7 +202,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:45794f59bdf6d533d08d5dd0184520bc58cadb645b7a242bddbce4b06ea198b8"
+      "fingerprint": "sha256:a0215fa1879eb78fe81402fdac25d224bd1c6fee5f4cf021e863e9c9af14570d"
     },
     {
       "id": "templates",
@@ -883,13 +883,15 @@
     {
       "id": "engine-conformance",
       "layer": "engine",
-      "summary": "Replays modeled traces against real implementations.",
+      "summary": "Replays modeled traces and case tables against real implementations.",
       "responsibilities": [
-        "replay model traces on the real code"
+        "replay model traces on the real code",
+        "build complete models from a case table or from plan edits checked by an existing review (model kits)"
       ],
       "files": [
         "flowguard/conformance.py",
-        "flowguard/replay.py"
+        "flowguard/replay.py",
+        "flowguard/kit.py"
       ],
       "entrypoints": [
         "flowguard/conformance.py:replay_trace"
@@ -897,16 +899,18 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-core"
+        "engine-core",
+        "engine-explore"
       ],
       "tests": [
         "tests/test_conformance_replay_duplicate_record_failure.py",
         "tests/test_conformance_replay_repeated_scoring_failure.py",
-        "tests/test_conformance_replay_success.py"
+        "tests/test_conformance_replay_success.py",
+        "tests/test_model_kit.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fa536aed44c6a072217728a886f3217972845492a3d05eae51e00d48d518964d"
+      "fingerprint": "sha256:5600c12e39edc320e6a76ba26ded85c32af1a7ddb4236c2b3c23e98a38c6d428"
     },
     {
       "id": "engine-runner",
