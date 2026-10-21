@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+RISK_INTENT_CHECK_PLAN_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Models a sample item-acceptance workflow with an explicit Risk Intent before
@@ -21,7 +18,7 @@ acceptance, deduplication, idempotency, side-effect, or confidence-reporting
 logic.
 
 Run:
-python .flowguard/verification/owners/risk_intent_check_plan/run_checks.py
+python -m flowguard map models risk_intent_check_plan
 
 Replace this sample item workflow with the current behavior under review.
 """

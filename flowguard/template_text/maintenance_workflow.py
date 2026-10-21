@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-MAINTENANCE_WORKFLOW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+MAINTENANCE_WORKFLOW_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Models a recurring multi-role maintenance workflow for agent systems before
@@ -21,7 +18,7 @@ Sleep/Dream/Architect/Installer/Reviewer-style maintenance, automation,
 publication, adoption-log, or sync workflows.
 
 Run:
-python .flowguard/verification/owners/maintenance_workflow/run_checks.py
+python -m flowguard map models maintenance_workflow
 
 Rename the roles and state fields to match the project under review.
 """

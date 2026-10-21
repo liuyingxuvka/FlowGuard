@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-PLAN_DETAILING_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+PLAN_DETAILING_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Compile a rough feature/change idea into structured plan-detail rows before
@@ -28,7 +25,7 @@ any non-trivial work that starts from a vague idea, short plan, or AI-generated
 workflow outline.
 
 Run:
-python .flowguard/verification/owners/plan_detailing/run_checks.py
+python -m flowguard map models plan_detailing
 """
 
 from __future__ import annotations

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+WORKFLOW_STEP_CONTRACTS_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Declare workflow steps as receipt-producing contracts so later steps and done/release claims cannot skip required work.
 Guards against: skipped mandatory steps, wrong step order, premature completion claims, stale receipts after invalidation, and progress-only evidence being treated as completion.
 Use before editing: Update this workflow step contract model when adding, removing, reordering, or renaming required process steps, receipts, claims, or validation evidence.
-Run: python .flowguard/verification/owners/workflow_step_contracts/run_checks.py
+Run: python -m flowguard map models workflow_step_contracts
 """
 
 from __future__ import annotations
@@ -115,13 +114,12 @@ if __name__ == "__main__":
 
 WORKFLOW_STEP_CONTRACTS_NOTES_TEMPLATE = """# FlowGuard workflow step contracts
 
-## FlowGuard Risk Purpose Header
+## FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Make required workflow steps explicit as receipts that later steps and claims must consume.
 Guards against: skipped mandatory steps, premature done/release claims, stale receipts after invalidation, and hidden workflow shortcuts.
 Use before editing: Update these contracts whenever the project changes required steps, evidence receipts, claim labels, or validation scope.
-Run: python .flowguard/verification/owners/workflow_step_contracts/run_checks.py
+Run: python -m flowguard map models workflow_step_contracts
 
 ## How to read this template
 

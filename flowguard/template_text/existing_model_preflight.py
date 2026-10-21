@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+EXISTING_MODEL_PREFLIGHT_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether an agent grounded an existing-system change in the FlowGuard models that already exist.
 Guards against: proposing new modules, rules, workflows, or ownership boundaries before checking existing FunctionBlocks, state owners, side-effect owners, public entrypoints, and model responsibilities.
 Growth observation: preserve unknown, deleted and renamed task paths as exact model_growth_unbound gaps until current independent inventory and binding proof covers them; no observation means NOT_OBSERVED.
 Use before editing: Run this before implementation, OpenSpec proposals, major architecture changes, or risky behavior changes in an existing modeled system.
-Run: python .flowguard/verification/owners/existing_model_preflight/run_checks.py
+Run: python -m flowguard map models existing_model_preflight
 """
 
 from __future__ import annotations

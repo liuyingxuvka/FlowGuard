@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+CODE_STRUCTURE_RECOMMENDATION_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Recommend an implementation structure from a FlowGuard functional model before production code is written.
 Guards against: monolithic implementation plans, unclear state ownership, mixed side effects, missing facades, and test boundaries that do not map back to the model.
 Architecture direction: compare only authenticated related contexts, retain hard semantic differences and partial remainders, and point to required goals not satisfied by actual observed behavior.
 Use before editing: Ask for this recommendation when a model-first feature needs a code architecture plan before implementation.
-Run: python .flowguard/verification/owners/code_structure_recommendation/run_checks.py
+Run: python -m flowguard map models code_structure_recommendation
 """
 
 from __future__ import annotations

@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Reviews whether explicit FlowGuard model obligations, owner code external
@@ -37,7 +34,7 @@ test coverage claims, model confidence reports, model-backed feature work, or
 release notes that claim model and test coverage agree.
 
 Run:
-python .flowguard/verification/owners/model_test_alignment/run_checks.py
+python -m flowguard map models model_test_alignment
 
 This template does not use TestMesh, StructureMesh, or ModelMesh. It compares
 plain model obligations, required owner code external contracts, and plain test
@@ -878,13 +875,12 @@ MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE = MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE
 MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE = MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE
 MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE = MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE
 
-MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE = '''"""FlowGuard model.
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: bind one obligation to its owner code and planned test.
 Guards against: missing owner or test bindings; planned evidence promoted to a pass.
 Use before editing: update this declaration when the modeled boundary changes.
-Run: python .flowguard/verification/owners/model_test_alignment/run_checks.py
+Run: python -m flowguard map models model_test_alignment
 Modeled block shape: Input x State -> Set(Output x State).
 """
 

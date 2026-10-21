@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-STRUCTURE_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+STRUCTURE_MESH_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review whether a large script or module can be split into owned child modules while preserving public behavior.
 Guards against: missing child ownership, removed public entrypoints, missing facades, duplicate state or side-effect owners, unsafe dependency cycles, config drift, and overclaimed parity evidence.
 Use before editing: Update this StructureMesh before splitting large scripts, moving module boundaries, extracting services, or changing public imports and CLI/API surfaces.
-Run: python .flowguard/verification/owners/structure_mesh/run_checks.py
+Run: python -m flowguard map models structure_mesh
 """
 
 from __future__ import annotations

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-CONTRACT_EXHAUSTION_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+CONTRACT_EXHAUSTION_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review a finite denominator, oracle, and shard-owned contract-exhaustion boundary.
 Guards against: observed-only coverage, missing oracles, duplicate case IDs, hidden reject cases, and unbounded products.
 Use before editing: Update this ContractExhaustion model when a finite dimension, member universe, oracle, or shard changes.
-Run: python .flowguard/verification/owners/contract_exhaustion/run_checks.py
+Run: python -m flowguard map models contract_exhaustion
 """
 
 from __future__ import annotations

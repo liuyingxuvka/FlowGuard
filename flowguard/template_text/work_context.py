@@ -1,9 +1,6 @@
 """Template text for provider-neutral read-only WorkContext."""
 
-WORK_CONTEXT_MODEL_TEMPLATE = r'''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+WORK_CONTEXT_MODEL_TEMPLATE = r'''"""FlowGuard model.
 
 Purpose:
 Read one declared external planning/work source as content-addressed context.

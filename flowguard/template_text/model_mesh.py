@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-MODEL_MESH_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+MODEL_MESH_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Review parent/child topology and evidence reattachment with one owner per child.
 Guards against: missing partitions, overlapping siblings, stale child evidence, and parent receipts impersonating children.
 Use before editing: Update this ModelMesh when models are split, reattached, retried, or partially activated.
-Run: python .flowguard/verification/owners/model_mesh/run_checks.py
+Run: python -m flowguard map models model_mesh
 This scaffold is a target-owned topology declaration.  Model count alone is
 not a mesh: fill parent/child ownership, reattachment, and current receipts.
 """

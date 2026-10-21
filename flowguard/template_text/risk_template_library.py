@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+RISK_TEMPLATE_LIBRARY_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Shows how to search packaged public risk templates, record template reuse, and
@@ -21,7 +18,7 @@ model-first entry prompts, local risk template library behavior, template
 harvest rules, or public starter examples.
 
 Run:
-python .flowguard/verification/owners/risk_template_library/run_checks.py
+python -m flowguard map models risk_template_library
 
 Replace this sample risk with the workflow under review.
 """

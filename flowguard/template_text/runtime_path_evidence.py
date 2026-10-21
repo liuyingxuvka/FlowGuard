@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+RUNTIME_PATH_EVIDENCE_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Models runtime path evidence for real code nodes that should line up with a
@@ -24,7 +21,7 @@ boundary matrices, parent/child reattachment, runtime gateway bindings, or
 closure evidence.
 
 Run:
-python .flowguard/verification/owners/runtime_path_evidence/run_checks.py
+python -m flowguard map models runtime_path_evidence
 """
 
 from __future__ import annotations

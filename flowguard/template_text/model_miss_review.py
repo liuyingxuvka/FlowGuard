@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Models the review loop required for a non-trivial bug repair, or when a
@@ -38,7 +35,7 @@ non-trivial bug-fix, model-miss, runtime-validation, replay, or completion-gate
 logic.
 
 Run:
-python .flowguard/verification/owners/model_miss_review/run_checks.py
+python -m flowguard map models model_miss_review
 
 Replace the event names and obligations with the bug class under review.
 """
@@ -1177,13 +1174,12 @@ MODEL_MISS_REVIEW_FULL_MODEL_TEMPLATE = MODEL_MISS_REVIEW_MODEL_TEMPLATE
 MODEL_MISS_REVIEW_FULL_RUN_CHECKS_TEMPLATE = MODEL_MISS_REVIEW_RUN_CHECKS_TEMPLATE
 MODEL_MISS_REVIEW_FULL_NOTES_TEMPLATE = MODEL_MISS_REVIEW_NOTES_TEMPLATE
 
-MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+MODEL_MISS_REVIEW_MODEL_TEMPLATE = '''"""FlowGuard model.
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: backpropagate one observed miss into a model obligation.
 Guards against: closing a point fix without a condition that would have failed and repair evidence.
 Use before editing: update this declaration when the modeled boundary changes.
-Run: python .flowguard/verification/owners/model_miss_review/run_checks.py
+Run: python -m flowguard map models model_miss_review
 Modeled block shape: Input x State -> Set(Output x State).
 """
 

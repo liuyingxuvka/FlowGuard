@@ -113,15 +113,6 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
-    def assert_risk_purpose_header(self, text):
-        self.assertIn("FlowGuard Risk Purpose Header", text)
-        self.assertIn("Created with FlowGuard:", text)
-        self.assertIn("https://github.com/liuyingxuvka/FlowGuard", text)
-        self.assertIn("Purpose:", text)
-        self.assertIn("Guards against:", text)
-        self.assertIn("Use before editing:", text)
-        self.assertIn("Run:", text)
-
     def run_written_template(self, files, run_dir_parts, expected_returncode=0):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -246,7 +237,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("PlanDetailFailureBranch", combined)
         self.assertIn("plan_detail_to_development_process", combined)
         self.assertIn("plan_detail_to_step_contracts", combined)
-        self.assertIn("FlowGuard Risk Purpose Header", combined)
 
     def test_behavior_commitment_ledger_template_executes(self):
         output = self.run_written_template(
@@ -600,7 +590,6 @@ def build_review():
         self.assertIn("safe_parallel", combined)
         self.assertIn("Ordinary single-route work needs no optimization records", combined)
         self.assertIn("never a global\noptimum", combined)
-        self.assertIn("FlowGuard Risk Purpose Header", combined)
 
     def test_workflow_step_contracts_template_executes(self):
         output = self.run_written_template(
@@ -623,7 +612,6 @@ def build_review():
         self.assertIn("required_for_claims", combined)
         self.assertIn("step_contracts_to_validation_requirements", combined)
         self.assertIn("step_contracts_to_model_obligations", combined)
-        self.assertIn("FlowGuard Risk Purpose Header", combined)
 
     def test_existing_model_preflight_template_executes(self):
         output = self.run_written_template(
@@ -678,12 +666,6 @@ def build_review():
         self.assertIn("Child reattachment", combined)
         self.assertIn("Leaf boundary matrix", combined)
         self.assertIn("Input x State", combined)
-
-    def test_public_model_templates_include_risk_purpose_headers(self):
-        for factory in PUBLIC_TEMPLATE_FACTORIES:
-            with self.subTest(factory=factory.__name__):
-                model_file = next(file for file in factory() if file.path.endswith("model.py"))
-                self.assert_risk_purpose_header(model_file.content)
 
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header
+UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: Model UI-level interaction behavior first, derive parent/child UI structure and text hierarchy from that model, then project transitions into coverage cells when test coverage is claimed.
 Guards against: layout-only UI plans, unmodeled controls, missing recovery actions, internal or unclassified content on ordinary UI, on-demand details visible before reveal, drifting menu levels, duplicate information, ad hoc headings, untested transition cells, and hierarchy recommendations that are not tied to UI state.
 Use before editing: Ask for this route before visual design or frontend implementation when UI controls, states, navigation, panels, menus, overlays, or parent/child UI topology matter.
-Run: python .flowguard/verification/owners/ui_flow_structure/run_checks.py
+Run: python -m flowguard map models ui_flow_structure
 """
 
 from __future__ import annotations
@@ -2067,13 +2066,12 @@ UI_FLOW_STRUCTURE_FULL_MODEL_TEMPLATE = UI_FLOW_STRUCTURE_MODEL_TEMPLATE
 UI_FLOW_STRUCTURE_FULL_RUN_CHECKS_TEMPLATE = UI_FLOW_STRUCTURE_RUN_CHECKS_TEMPLATE
 UI_FLOW_STRUCTURE_FULL_NOTES_TEMPLATE = UI_FLOW_STRUCTURE_NOTES_TEMPLATE
 
-UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
+UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''"""FlowGuard model.
 
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
 Purpose: review a small native UI interaction model.
 Guards against: a visible control without an event and a transition to an unknown state.
 Use before editing: update this declaration when the modeled boundary changes.
-Run: python .flowguard/verification/owners/ui_flow_structure/run_checks.py
+Run: python -m flowguard map models ui_flow_structure
 Modeled block shape: Input x State -> Set(Output x State).
 """
 

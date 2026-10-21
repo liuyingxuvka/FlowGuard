@@ -191,14 +191,13 @@ BEHAVIOR_COMMITMENT_LEDGER_LEDGER_TEMPLATE = r'''{
 
 BEHAVIOR_COMMITMENT_LEDGER_MODEL_TEMPLATE = r'''"""Thin adapter for the canonical FlowGuard behavior commitment ledger.
 
-FlowGuard Risk Purpose Header
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+FlowGuard model
 Purpose: Load the full external behavior promise set before broad work claims.
 Guards against: duplicate authorities, mixed execution planes, stale evidence,
 and Python-embedded inventory drifting from the machine-readable ledger.
 Use before editing: non-trivial product behavior, UI/API/CLI changes, release,
 archive, publish, or any broad external-behavior coverage claim.
-Run: python .flowguard/verification/owners/behavior_commitment_ledger/run_checks.py
+Run: python -m flowguard map models behavior_commitment_ledger
 """
 
 from pathlib import Path

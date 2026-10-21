@@ -2,8 +2,7 @@
 
 TOPOLOGY_HAZARD_MODEL_TEMPLATE = '''"""FlowGuard model-topology hazard review template.
 
-FlowGuard Risk Purpose Header
-Created with FlowGuard: https://github.com/liuyingxuvka/FlowGuard
+FlowGuard model
 Purpose: review model topology for future-use hazards before broad confidence.
 Guards against: generic AI risk checklists, unanchored future-risk warnings,
 old/new path disposition gaps, coarse terminal states, and local green evidence
@@ -11,7 +10,7 @@ being overclaimed for future use, duplicate business paths, and wrong-path
 runtime proof.
 Use before editing: when local FlowGuard evidence passes but topology shape may
 still imply future-use hazards.
-Run: python .flowguard/verification/owners/model_topology_hazard_review/run_checks.py
+Run: python -m flowguard map models model_topology_hazard_review
 """
 
 from __future__ import annotations

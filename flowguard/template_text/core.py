@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-MODEL_TEMPLATE = '''"""FlowGuard Risk Purpose Header.
-
-Created with FlowGuard:
-https://github.com/liuyingxuvka/FlowGuard
+MODEL_TEMPLATE = '''"""FlowGuard model.
 
 Purpose:
 Models a sample validate-and-store workflow before related production changes.
