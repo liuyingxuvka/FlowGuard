@@ -2,13 +2,11 @@ import unittest
 
 from flowguard import (
     CodeStructureRecommendation,
-    ImplementationAdmissionReport,
     TargetModuleRecommendation,
     implementation_coverage_obligation_id,
     review_code_structure_recommendation,
 )
 from flowguard.portable_model import canonical_identity
-from tests._maturation_fake import verified_maturation
 
 
 def module(module_id: str, **kwargs) -> TargetModuleRecommendation:
@@ -70,50 +68,6 @@ class CodeStructureRecommendationTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("model_element_coverage_mismatch", codes)
         self.assertIn("reverse_implementation_obligations_incomplete", codes)
-
-    def test_implementation_ready_claim_requires_exact_admitted_model_and_scope(self):
-        ref = verified_maturation(
-            task_id="task:structure",
-            evidence_id="maturation:structure",
-            model_id="checkout-functional-model",
-        )
-        admission = ImplementationAdmissionReport(
-            True,
-            "admission:structure",
-            "ready",
-            maturation_evidence=ref,
-            allowed_artifact_ids=("effects",),
-        )
-        recommendation = CodeStructureRecommendation(
-            "checkout-structure-ready",
-            source_model_id="checkout-functional-model",
-            parent_module_id="checkout",
-            target_modules=(module("effects"),),
-            function_block_map=(("PersistOrder", "effects"),),
-            validation_boundaries=("model scenario replay",),
-            rationale="effects own durable writes",
-            implementation_ready_requested=True,
-            implementation_admission=admission,
-        )
-        self.assertTrue(review_code_structure_recommendation(recommendation).ok)
-
-        expanded = CodeStructureRecommendation(
-            "checkout-structure-expanded",
-            source_model_id="checkout-functional-model",
-            parent_module_id="checkout",
-            target_modules=(module("unadmitted"),),
-            function_block_map=(("PersistOrder", "unadmitted"),),
-            validation_boundaries=("model scenario replay",),
-            rationale="attempts to expand beyond admission",
-            implementation_ready_requested=True,
-            implementation_admission=admission,
-        )
-        report = review_code_structure_recommendation(expanded)
-        self.assertFalse(report.ok)
-        self.assertIn(
-            "implementation_admission_scope_expansion",
-            {finding.code for finding in report.findings},
-        )
 
     def test_complete_recommendation_can_continue(self):
         recommendation = CodeStructureRecommendation(

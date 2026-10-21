@@ -75,8 +75,6 @@ to disk.
 - `compile_step_contract_invariants(...)` feeds the formal model check and
   `run_model_first_checks(...)`.
 - `review_step_contract_trace(...)` explains one concrete trace.
-- `step_contracts_to_validation_requirements(...)` feeds
-  DevelopmentProcessFlow.
 - `step_contracts_to_model_obligations(...)` feeds Model-Test Alignment.
 - `step_contract_metadata_matches_rule(...)` lets conformance replay compare
   the step metadata the model expects with the metadata the real code emits.

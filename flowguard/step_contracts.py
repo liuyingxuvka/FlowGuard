@@ -434,44 +434,6 @@ def compile_step_contract_invariants(
     )
 
 
-def step_contracts_to_validation_requirements(
-    contracts: Sequence[WorkflowStepContract],
-    *,
-    requirement_prefix: str = "workflow_step",
-    default_scope: str = "routine",
-) -> tuple[Any, ...]:
-    """Project step contracts into DevelopmentProcessFlow validation requirements."""
-
-    from .development_process_flow import PROCESS_SCOPE_RELEASE, ValidationRequirement
-
-    requirements = []
-    for contract in contracts:
-        claim_labels = contract.required_for_claims or ("step_complete",)
-        for claim_label in claim_labels:
-            scope = (
-                PROCESS_SCOPE_RELEASE
-                if contract.release_required or "release" in claim_label
-                else default_scope
-            )
-            for receipt_id in contract.completion_receipts:
-                requirements.append(
-                    ValidationRequirement(
-                        requirement_id=(
-                            f"{requirement_prefix}:{contract.step_id}:{receipt_id}:{claim_label}"
-                        ),
-                        required_artifact_ids=contract.artifact_ids,
-                        required_evidence_kinds=(contract.evidence_kind,),
-                        scope=scope,
-                        release_required=contract.release_required,
-                        description=(
-                            f"Workflow step {contract.step_id!r} must produce current "
-                            f"receipt {receipt_id!r} before claim {claim_label!r}."
-                        ),
-                    )
-                )
-    return tuple(requirements)
-
-
 def step_contracts_to_model_obligations(
     contracts: Sequence[WorkflowStepContract],
     *,
@@ -549,5 +511,4 @@ __all__ = [
     "step_contract_metadata",
     "step_contract_metadata_matches_rule",
     "step_contracts_to_model_obligations",
-    "step_contracts_to_validation_requirements",
 ]

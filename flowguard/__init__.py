@@ -1527,7 +1527,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "step_contract_metadata",
         "step_contract_metadata_matches_rule",
         "step_contracts_to_model_obligations",
-        "step_contracts_to_validation_requirements",
     ),
     "flowguard.structuremesh": (
         "ModuleStructureEvidence",

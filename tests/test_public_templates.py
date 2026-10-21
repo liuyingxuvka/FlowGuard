@@ -425,7 +425,6 @@ def build_review():
         )
         self.assertIn("flowguard workflow step contracts", output)
         self.assertIn("missing_claim_receipt", output)
-        self.assertIn("process_requirements", output)
         self.assertIn("model_obligations", output)
 
     def test_existing_model_preflight_template_executes(self):

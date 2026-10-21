@@ -6,8 +6,6 @@ from flowguard import (
     KnownBadProof,
     MinimumModelContract,
     ModelTestAlignmentPlan,
-    ProcessArtifact,
-    ProcessEvidence,
     RiskIntent,
     RiskProfile,
     Trace,
@@ -16,12 +14,6 @@ from flowguard import (
     WorkflowStepContract,
     step_contract_metadata,
     step_contract_metadata_matches_rule,
-)
-from flowguard.development_process_flow import (
-    PROCESS_ARTIFACT_CODE,
-    PROCESS_EVIDENCE_PASSED,
-    DevelopmentProcessPlan,
-    review_development_process_flow,
 )
 from flowguard.model_test_alignment import (
     CodeContract,
@@ -40,7 +32,6 @@ from flowguard.step_contracts import (
     extract_step_contract_metadata,
     review_step_contract_trace,
     step_contracts_to_model_obligations,
-    step_contracts_to_validation_requirements,
 )
 from flowguard.conformance import replay_trace
 
@@ -244,29 +235,6 @@ class WorkflowStepContractTests(unittest.TestCase):
         self.assertEqual("failed", sections["model_check"].status)
         self.assertEqual("failed", sections["workflow_step_contracts"].status)
         self.assertIn("step_contracts: 3", dict(summary.metadata)["plan"].format_text())
-
-    def test_projection_to_development_process_flow_requirements(self):
-        requirements = step_contracts_to_validation_requirements(_contracts())
-        requirement = next(item for item in requirements if "coverage" in item.requirement_id)
-        plan = DevelopmentProcessPlan(
-            "step-contract-process",
-            artifacts=(ProcessArtifact("code.checkout", PROCESS_ARTIFACT_CODE, "1"),),
-            evidence=(
-                ProcessEvidence(
-                    "coverage-evidence",
-                    evidence_kind="workflow_step",
-                    status=PROCESS_EVIDENCE_PASSED,
-                    covers_artifacts=("code.checkout",),
-                    covered_versions={"code.checkout": "1"},
-                    validation_requirement_ids=(requirement.requirement_id,),
-                ),
-            ),
-            validation_requirements=(requirement,),
-        )
-
-        report = review_development_process_flow(plan)
-
-        self.assertTrue(report.ok, report.format_text())
 
     def test_projection_to_model_test_alignment_obligations(self):
         obligations = step_contracts_to_model_obligations(_contracts())

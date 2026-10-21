@@ -221,7 +221,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:689bc3825a878f369949ae63187be6a2294ab814dd92b618489f540d90c1b4bb"
+      "fingerprint": "sha256:267fb152cfa4626f863fe1bf8d777f4979a489606c6fc7d20564f7a716f04803"
     },
     {
       "id": "templates",
@@ -250,7 +250,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f127e690e5f95560c9832db7f227116fc5fb6317c1a19e1e1770c52b9b06d9ad"
+      "fingerprint": "sha256:9cd19824e62aab968987d4643086cde9e2887019ec70402807e625d2db530be6"
     },
     {
       "id": "existing-model",
@@ -401,7 +401,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c58081b39689bd23a2da78a1432fac1499d9c728b489d5aef2b4d493f47f17a5"
+      "fingerprint": "sha256:227c4222472a002d6c0db8cdd2c5042e080defa75c6f518da4574c6249aca99c"
     },
     {
       "id": "contract-exhaustion",
@@ -1026,7 +1026,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "development-process",
         "engine-conformance",
         "engine-core",
         "engine-explore",
@@ -1047,7 +1046,7 @@
         ".flowguard/verification/owners/state_closure_gate/run_checks.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2a940e69c8d60d0c0fa2df0b55310615cb83b8d1663062f99f56bd7eeb7ece93"
+      "fingerprint": "sha256:55e1cb531b6197371bf21a58a570db21dfc54deb489445971ee2f6c592ac4348"
     },
     {
       "id": "engine-scenarios",
@@ -1333,12 +1332,6 @@
     {
       "code": "layer_violation",
       "component": "engine-properties",
-      "contains": "(development-process)",
-      "reason": "step_contracts projects step contracts into DevelopmentProcessFlow requirements through a function-local import; move the projection into development-process when it is next changed"
-    },
-    {
-      "code": "layer_violation",
-      "component": "engine-properties",
       "contains": "(model-test)",
       "reason": "step_contracts projects step contracts into ModelTestAlignment obligations through a function-local import; move the projection into model-test when it is next changed"
     },
@@ -1347,11 +1340,6 @@
       "component": "engine-runner",
       "contains": "(topology-hazard)",
       "reason": "the model-first runner adds an optional topology-hazard section; invert it into a section plug-in when the runner is next changed"
-    },
-    {
-      "code": "dependency_cycle",
-      "component": "development-process",
-      "reason": "same step_contracts projection as the engine-properties layer debt"
     }
   ]
 }

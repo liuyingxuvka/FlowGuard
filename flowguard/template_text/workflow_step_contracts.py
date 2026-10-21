@@ -18,7 +18,6 @@ from flowguard import (
     WorkflowStepContract,
     review_step_contract_trace,
     step_contracts_to_model_obligations,
-    step_contracts_to_validation_requirements,
 )
 
 
@@ -84,9 +83,8 @@ def broken_trace() -> Trace:
 def run_checks():
     good = review_step_contract_trace(good_trace(), CONTRACTS)
     broken = review_step_contract_trace(broken_trace(), CONTRACTS)
-    process_requirements = step_contracts_to_validation_requirements(CONTRACTS)
     model_obligations = step_contracts_to_model_obligations(CONTRACTS)
-    return good, broken, process_requirements, model_obligations
+    return good, broken, model_obligations
 '''
 
 WORKFLOW_STEP_CONTRACTS_RUN_CHECKS_TEMPLATE = '''"""Run the workflow step contracts template checks."""
@@ -97,14 +95,13 @@ from model import run_checks
 
 
 def main() -> int:
-    good, broken, process_requirements, model_obligations = run_checks()
+    good, broken, model_obligations = run_checks()
     print("=== flowguard workflow step contracts ===")
     print(good.format_text())
     print()
     print(broken.format_text())
-    print(f"process_requirements: {len(process_requirements)}")
     print(f"model_obligations: {len(model_obligations)}")
-    return 0 if good.ok and not broken.ok and process_requirements and model_obligations else 1
+    return 0 if good.ok and not broken.ok and model_obligations else 1
 
 
 if __name__ == "__main__":
