@@ -30,7 +30,7 @@ Accepting a debt on purpose (it becomes `info` with your reason):
 
 ```json
 "accepted_debts": [
-  {"code": "dependency_cycle", "component": "app", "contains": "cli", "reason": "Flask-style app object; planned split in v2"}
+  {"code": "dependency_cycle", "members": ["app", "cli"], "reason": "Flask-style app object; planned split in v2"}
 ]
 ```
 
@@ -38,3 +38,5 @@ Accepting a debt on purpose (it becomes `info` with your reason):
 Review accepted debts at every release; delete the ones that are fixed.
 
 `flow_step_unreached` is an INFO hint from the static call graph. Higher-order calls and dynamic receivers can be unresolved; verify or reorder the declared journey. It does not block release.
+
+A cycle debt covers only its members; a grown cycle stays an ERROR and names the new members.

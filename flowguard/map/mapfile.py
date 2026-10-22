@@ -79,6 +79,9 @@ def validate_map(data: object) -> list[str]:
     for i, debt in enumerate(data.get("accepted_debts", [])):
         if not isinstance(debt, dict) or not debt.get("code") or not debt.get("reason"):
             errors.append(f"accepted_debts[{i}] needs at least 'code' and 'reason'")
+        if isinstance(debt, dict) and "members" in debt and (
+                not isinstance(debt["members"], list) or not all(isinstance(x, str) for x in debt["members"])):
+            errors.append(f"accepted_debts[{i}].members must be a list of strings")
     return errors
 
 

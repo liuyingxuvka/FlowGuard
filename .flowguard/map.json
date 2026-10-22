@@ -685,7 +685,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:0dd9d4b7d6dd8b0190b34f05e214631dadb0426bc666c96f9c35922a75dd284b"
+      "fingerprint": "sha256:1680cb3c17abe722550e9e84bd332adade6d8bcf37fdee4d8bc8aab218613051"
     },
     {
       "id": "map-discover",
@@ -723,7 +723,7 @@
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY",
         "impact selection: retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
-        "review architecture"
+        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -755,7 +755,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:a81d2630587299bef03e6e4fef9d56561db788ab9f95fc31ead55a091a100571"
+      "fingerprint": "sha256:b739576ff2fdffa2f2b66c22b66570a26be269a5e6f6c6af898859dae0d787ab"
     },
     {
       "id": "map-proof",

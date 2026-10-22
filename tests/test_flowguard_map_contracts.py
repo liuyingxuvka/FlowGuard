@@ -234,3 +234,53 @@ def test_find_and_check_point_at_the_existing_owner(tmp_path, capsys):
     assert [f.message for f in findings(tmp_path) if f.code == "file_unmapped"] == [
         "shop/refunds.py has no owning component; the files next to it belong to billing, orders: "
         "add it to the one that owns its responsibility"]
+
+
+def test_cycle_debt_covers_only_its_members(tmp_path):
+    from flowguard.map.common import Finding
+    from flowguard.map.lint import apply_accepted_debts
+    from flowguard.map.mapfile import validate_map
+
+    data = project(tmp_path)
+    data["components"] = [{"id": cid, "summary": cid, "responsibilities": [],
+                           "files": [cid + ".py"], "tests": [], "depends_on": [], "models": [], "status": "draft"}
+                          for cid in ("a", "b", "c")]
+    write(tmp_path, "a.py", "import b\n")
+    write(tmp_path, "b.py", "import a\n")
+    write(tmp_path, "c.py", "VALUE = 1\n")
+    data["accepted_debts"] = [{"code": "dependency_cycle", "members": ["a", "b"], "reason": "existing pair"}]
+
+    def lint():
+        save(tmp_path, data)
+        current, inv = _context(tmp_path)
+        return run_lint(tmp_path, current, inv)
+
+    assert next(f for f in lint() if f.code == "dependency_cycle").level == "info"
+    write(tmp_path, "b.py", "import a\nimport c\n")
+    write(tmp_path, "c.py", "import a\n")
+    grown = lint()
+    cycle = next(f for f in grown if f.code == "dependency_cycle")
+    assert cycle.level == "error" and "new members c" in cycle.message
+    assert not any(f.code == "debt_stale" for f in grown)
+    write(tmp_path, "b.py", "import a\n")
+    write(tmp_path, "c.py", "VALUE = 1\n")
+    for debt in ({"component": "a", "contains": "b"},
+                 {"component": "a", "contains": "a <-> b; imports:"},
+                 {"members": ["a", "b", "c"]}):
+        data["accepted_debts"] = [{"code": "dependency_cycle", "reason": "compatible debt", **debt}]
+        found = lint()
+        cycle = next(f for f in found if f.code == "dependency_cycle")
+        assert cycle.level == "info"
+        assert not any(f.code == "debt_stale" for f in found)
+        if "members" in debt:
+            assert "cycle shrank" in cycle.message
+    write(tmp_path, "b.py", "VALUE = 2\n")
+    assert any(f.code == "debt_stale" for f in lint())
+    merged, used = apply_accepted_debts(
+        [Finding("error", "dependency_cycle", "a", "a <-> b <-> c <-> d")],
+        [{"code": "dependency_cycle", "members": ["a", "b"], "reason": "left"},
+         {"code": "dependency_cycle", "members": ["b", "c", "d"], "reason": "right"}])
+    assert used == {0, 1}
+    assert merged[0].level == "error" and "new members a" in merged[0].message
+    data["accepted_debts"][0]["members"] = "a,b"
+    assert any("members" in error for error in validate_map(data))

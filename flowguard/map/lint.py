@@ -66,9 +66,45 @@ def find_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
     return sccs
 
 
+def _cycle_members(message: str) -> set[str]:
+    return {part.strip() for part in message.split(";", 1)[0].split(" <-> ") if part.strip()}
+
+
+def _debt_members(debt: dict, component_ids: set[str]) -> set[str]:
+    if "members" in debt:
+        return set(debt["members"])
+    contains = debt.get("contains", "")
+    if " <-> " in contains:
+        return _cycle_members(contains)
+    members = {debt["component"]} if debt.get("component") else set()
+    return members | (set(re.findall(r"[a-z0-9][a-z0-9_.-]*", contains)) & component_ids)
+
+
 def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[list[Finding], set[int]]:
     used = set()
+    component_ids = {f.component for f in findings}
+    for finding in findings:
+        if finding.code == "dependency_cycle":
+            component_ids.update(_cycle_members(finding.message))
     for f in findings:
+        if f.code == "dependency_cycle":
+            members = _cycle_members(f.message)
+            matches = [(index, _debt_members(debt, component_ids)) for index, debt in enumerate(debts)
+                       if debt.get("code") == f.code]
+            matches = [(index, group) for index, group in matches
+                       if group and (members <= group or group <= members)]
+            used.update(index for index, _ in matches)
+            accepted = [(index, group) for index, group in matches if members <= group]
+            if accepted:
+                index, group = min(accepted, key=lambda pair: (len(pair[1]), pair[0]))
+                if members < group:
+                    f.message += f"; cycle shrank; update the debt's members to {sorted(members)}"
+                f.level, f.message = "info", f"{f.message} (accepted debt: {debts[index]['reason']})"
+            elif matches:
+                _, group = max(matches, key=lambda pair: (len(pair[1]), -pair[0]))
+                f.message += (f"; grew beyond accepted debt [{', '.join(sorted(group))}]: "
+                              f"new members {', '.join(sorted(members - group))}")
+            continue
         for index, debt in enumerate(debts):
             if f.code == debt["code"] and debt.get("component", f.component) == f.component \
                     and debt.get("contains", "") in f.message:
@@ -172,7 +208,12 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     covered_by_model, not_modeled = model_coverage(root, data)
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled))
     out.extend(model_binding_notes(root, data))
-    debts = data.get("accepted_debts", [])
+    # Legacy substring debts have no members field. Resolve their words against
+    # the whole map, including components that have no finding of their own.
+    component_ids = {c["id"] for c in comps}
+    debts = [{**debt, "members": sorted(_debt_members(debt, component_ids))}
+             if debt.get("code") == "dependency_cycle" else debt
+             for debt in data.get("accepted_debts", [])]
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
     bare = dependency_evidence({**data, "accepted_debts": []}, inv)

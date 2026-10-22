@@ -29,7 +29,7 @@
      "model": ".flowguard/models/order_placement.py"}
   ],
   "accepted_debts": [
-    {"code": "dependency_cycle", "component": "orders", "contains": "payments", "reason": "split planned"}
+    {"code": "dependency_cycle", "members": ["orders", "payments"], "reason": "split planned"}
   ]
 }
 ```
@@ -60,3 +60,5 @@ Exact non-ignored schema/config/resource paths in `files` join the owner fingerp
 and normal change selection. Non-code globs do not broaden the default code inventory.
 A changed resource makes the owner stale; deletion/rename leaves a dead path until
 the map and its code/model/test bindings are updated. Ignore rules still apply.
+
+A cycle debt covers only its members; a grown cycle stays an ERROR and names the new members.
