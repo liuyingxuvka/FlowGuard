@@ -273,6 +273,11 @@ class _FileVisitor(ast.NodeVisitor):
         self._write_target(node.target)
         self.generic_visit(node)
 
+    def visit_Delete(self, node: ast.Delete) -> None:
+        for target in node.targets:
+            self._write_target(target)
+        self.generic_visit(node)
+
     def visit_Global(self, node: ast.Global) -> None:
         fn = self._fn()
         if fn is not None:
@@ -426,6 +431,12 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) 
             pass
     raw["incoming"] = dict(incoming)
     return raw
+
+
+def anchor_state_writes(raw: dict, anchor: str) -> set[str]:
+    """The exact function anchor's known state writes, without cross-file or alias inference."""
+    path, _, symbol = anchor.partition(":")
+    return set(raw["files"].get(path, {}).get("functions", {}).get(symbol, {}).get("writes", []))
 
 
 def reachable_effects(raw: dict, start: str, limit: int = 2000) -> dict[str, set[str]]:

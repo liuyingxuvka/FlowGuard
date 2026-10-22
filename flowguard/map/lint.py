@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .common import Finding, read_source, tokens
-from .discover import discover_inventory, reachable_effects
+from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
 from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract
@@ -230,7 +230,8 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     imported = {t for deps in inv.file_deps.values() for t in deps}
     modules = {info.module: path for path, info in inv.py.items()}
     # Registered executable models/runners are real importers even though they are outside source ownership.
-    for entry in model_registry(root, data).entries:
+    registry = model_registry(root, data)
+    for entry in registry.entries:
         info = parse_python(root, entry.path, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False)
         imported.update(target for imp in info.imports if (target := resolve_import(imp, modules)))
     entry_files = {a.split(":", 1)[0] for c in comps for a in c.get("entrypoints", [])}
@@ -241,10 +242,11 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                 and not any(symbol.startswith("pytest_") and "." not in symbol for symbol in inv.py[f].symbols):
             out.append(Finding("info", "never_imported", owner.get(f, ""), f"{f} is not imported by any repo file (dead code or an entrypoint?)"))
     out.extend(discovery_findings(raw, data, inv))
-    covered_by_model, not_modeled = model_coverage(root, data)
+    covered_by_model, not_modeled = model_coverage(root, data, registry)
     tree = build_tree(root, data, inv)
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
+    out.extend(model_writer_findings(raw, data, root, inv, registry))
     out.extend(model_binding_notes(root, data, inv))
     debts = normalized_debts(data)
     out, used = apply_accepted_debts(out, debts)
@@ -423,6 +425,43 @@ def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
             and (finding.component in selected or
                  any(re.search(rf"(?<![\w.-]){re.escape(component)}(?![\w.-])", finding.message) for component in selected)
                  and finding.code in {"dependency_cycle", "duplicate_code", "duplicate_owner", "possible_duplicate"})]
+
+
+def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None) -> list[Finding]:
+    """Other exact functions in an anchor's own file that write its modeled state."""
+    contracts = []
+    excluded = set()
+    for entry in (registry or model_registry(root, data)).entries:
+        try:
+            contract = read_model_contract(root / entry.path)
+        except (OSError, SyntaxError, ValueError):
+            continue
+        contracts.append((entry, contract))
+        excluded.update(contract.get("IMPLEMENTED_BY", {}).values())
+        excluded.update(contract.get("NOT_MODELED", {}))
+    owner, _ = owner_index(data, inv)
+    out = []
+    for entry, contract in contracts:
+        if contract.get("DESIGN_ONLY"):
+            continue
+        by_file = defaultdict(list)
+        for anchor in sorted(contract.get("IMPLEMENTED_BY", {}).values()):
+            writes = anchor_state_writes(raw, anchor)
+            if writes:
+                by_file[anchor.split(":", 1)[0]].append((anchor, writes))
+        for path, anchors in sorted(by_file.items()):
+            for symbol, function in sorted(raw["files"][path].get("functions", {}).items()):
+                writer = f"{path}:{symbol}"
+                if symbol.rsplit(".", 1)[-1] == "__init__" or writer in excluded:
+                    continue
+                overlap = sorted((state, anchor) for anchor, writes in anchors
+                                 for state in writes.intersection(function.get("writes", [])))
+                if overlap:
+                    state, anchor = overlap[0]
+                    out.append(Finding("warn", "model_writer_unbound", owner.get(path, ""),
+                        f"{writer} writes {state}, which model {entry.id} covers through {anchor}; "
+                        "add it to IMPLEMENTED_BY, or to NOT_MODELED with a reason"))
+    return out
 
 
 def entrypoint_coverage_findings(raw: dict, data: dict, inv: Inventory,

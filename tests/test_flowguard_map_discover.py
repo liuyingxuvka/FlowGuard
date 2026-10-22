@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import pytest
+
 from flowguard.map.discover import component_summary, console_scripts, discover, discover_inventory, file_facts
 from flowguard.map.common import DEFAULT_IGNORE
 from flowguard.map.inventory import build_inventory
@@ -309,3 +311,110 @@ def test_unlisted_entrypoints_group_by_component_and_strength(tmp_path):
     findings = [f for f in discovery_findings(raw, data, inv) if f.code == "entrypoint_unlisted"]
     assert len(findings) == 3
     assert all(f.level == "warn" for f in findings)
+
+
+@pytest.mark.parametrize('operation', ['self.value = 1', 'self.value[0] = 1', 'self.value[0] += 1',
+                                      'self.value += 1', 'del self.value[0]', 'del self.value',
+                                      'self.value.append(1)'])
+def test_state_writes_include_delete_and_existing_assignment_forms(operation):
+    source = ('class Proxy:\n    def __init__(self):\n        self.value = []\n        self.label = "only init"\n'
+              '    def write(self):\n        ' + operation + '\n')
+    facts = file_facts(source, 'proxy', '', 'proxy.py')
+    assert facts['functions']['Proxy.write']['writes'] == ['Proxy.value']
+    assert facts['state']['Proxy.value'] == ['Proxy.__init__', 'Proxy.write']
+    assert 'Proxy.label' not in facts['state']
+    assert 'Proxy.label' not in facts['functions']['Proxy.__init__']['writes']
+
+
+@pytest.mark.parametrize('design_only', [False, True])
+def test_new_writer_of_modeled_state_is_reported(tmp_path, monkeypatch, design_only):
+    from flowguard.map import discover as discovery
+    from flowguard.map.check import run_check
+    from flowguard.map.cli import _context
+
+    def write(path, text):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text, encoding='utf-8')
+
+    write('pkg/__init__.py', '')
+    write('pkg/proxy.py', '''class Proxy:
+    def __init__(self):
+        self._parts = []
+        self._map = {}
+        self.label = 'only init'
+    def __setitem__(self, key, value):
+        self._parts[0] = value
+        self._map[key] = 0
+    def move_to_end(self, key):
+        self._parts.append(key)
+        self._map[key] = 1
+    def __delitem__(self, key):
+        del self._map[key]
+
+class Other:
+    def __init__(self):
+        self._map = {}
+    def clear(self, key):
+        del self._map[key]
+''')
+    write('other.py', 'class Proxy:\n    def __delitem__(self, key):\n        del self._map[key]\n')
+    model = ('MODEL_ID="proxy_model"\nCOMPONENTS=["proxy"]\n'
+             'IMPLEMENTED_BY={"Set":"pkg/proxy.py:Proxy.__setitem__"}\n'
+             'def build_explorer(): pass\n'
+             'def conformance():\n    from pkg.proxy import Proxy\n    return Proxy()\n')
+    if design_only:
+        model += 'DESIGN_ONLY="Planned state boundary"\n'
+    write('.flowguard/models/proxy.py', model)
+    data = dict(schema='flowguard.map.v1', components=[
+        dict(id='proxy', files=['pkg/*.py'], summary='Proxy ordering', responsibilities=['order parts'],
+             tests=[], models=[], depends_on=[], status='draft'),
+        dict(id='other', files=['other.py'], summary='Other', responsibilities=['unrelated state'],
+             tests=[], models=[], depends_on=[], status='draft')])
+    write('.flowguard/map.json', json.dumps(data))
+    current, inv = _context(tmp_path)
+    raw = discover_inventory(tmp_path, inv)
+    assert 'Proxy.__delitem__' in raw['files']['pkg/proxy.py']['state']['Proxy._map']
+    original = discovery.discover_inventory
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(discovery, 'discover_inventory', counted)
+        warnings = [f for f in run_check(tmp_path, current, inv) if f.code == 'model_writer_unbound']
+    assert len(calls) == 1
+    if design_only:
+        assert not warnings
+        return
+    assert len(warnings) == 2
+    assert all(f.level == 'warn' and f.component == 'proxy' for f in warnings)
+    assert all('model proxy_model' in f.message and 'pkg/proxy.py:Proxy.__setitem__' in f.message for f in warnings)
+    assert any('pkg/proxy.py:Proxy.move_to_end' in f.message for f in warnings)
+    assert any('pkg/proxy.py:Proxy.__delitem__' in f.message for f in warnings)
+    assert map_cli(tmp_path, 'check').returncode == 0
+    assert len([f for f in run_lint(tmp_path, current, inv) if f.code == 'model_writer_unbound']) == 2
+
+    data['accepted_debts'] = [dict(code='model_writer_unbound', component='proxy', contains=symbol,
+                                    reason='An existing ordering path awaits model extension')
+                              for symbol in ['Proxy.move_to_end', 'Proxy.__delitem__']]
+    write('.flowguard/map.json', json.dumps(data))
+    current, inv = _context(tmp_path)
+    assert [f.level for f in run_check(tmp_path, current, inv) if f.code == 'model_writer_unbound'] == ['info', 'info']
+    lint = run_lint(tmp_path, current, inv)
+    assert len([f for f in lint if f.code == 'model_writer_unbound' and f.level == 'info']) == 2
+    assert not any(f.code == 'debt_stale' for f in lint)
+
+    # Exclusions come from every registered model, including a separate runner.
+    data.pop('accepted_debts')
+    runner = '.flowguard/verification/owners/proxy_writer/run_checks.py'
+    data['components'][0]['models'] = [runner]
+    write(runner, 'from flowguard.map.runner import run_owner\n'
+          'IMPLEMENTED_BY={"Delete":"pkg/proxy.py:Proxy.__delitem__"}\n'
+          'NOT_MODELED={"pkg/proxy.py:Proxy.move_to_end":"Ordering is covered by its direct test"}\n'
+          'raise SystemExit(run_owner(lambda:0))\n')
+    write('.flowguard/map.json', json.dumps(data))
+    current, inv = _context(tmp_path)
+    assert not any(f.code == 'model_writer_unbound' for f in run_check(tmp_path, current, inv))
