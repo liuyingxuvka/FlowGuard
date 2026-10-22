@@ -28,7 +28,7 @@ class UnderstandingPlumbingReductionTests(unittest.TestCase):
                 "maturation",
                 path="flowguard/model_maturation.py",
                 owns_function_blocks=("ReviewModelMaturation",),
-                validation_boundaries=("maturation and receipt identity tests",),
+                validation_boundaries=("maturation and record identity tests",),
                 rationale="maturation consumes rather than recreates owner resolutions",
             ),
             TargetModuleRecommendation(
@@ -68,7 +68,7 @@ class UnderstandingPlumbingReductionTests(unittest.TestCase):
             validation_boundaries=(
                 "public route/API facade parity",
                 "owner resolution identity continuity",
-                "receipt verification",
+                "record verification",
                 "read-only status side-effect boundary",
                 "closure terminal-pair projection",
             ),

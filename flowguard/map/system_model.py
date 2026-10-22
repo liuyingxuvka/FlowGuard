@@ -82,7 +82,7 @@ def _variants(data, graph):
 
 
 def run_system_model(root, data, inv):
-    """Run every time in-process; no user model imports, result cache or receipt."""
+    """Run every time in-process; no user model imports, result cache or record."""
     from .proof import ModelResult
 
     started = time.monotonic()

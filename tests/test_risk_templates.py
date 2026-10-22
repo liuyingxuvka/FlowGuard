@@ -28,12 +28,12 @@ from flowguard.risk_templates import (
 
 def known_bad_proof(**kwargs):
     defaults = {
-        "case_id": "ack_without_receipt",
+        "case_id": "ack_without_record",
         "protected_error_class": "premature_completion",
         "method": "broken_workflow",
         "expected_failure": "failed",
         "observed_status": "failed",
-        "observed_failure": "completion_without_receipt invariant failed",
+        "observed_failure": "completion_without_record invariant failed",
         "evidence_id": "model:known-bad",
     }
     defaults.update(kwargs)
@@ -64,7 +64,7 @@ class RiskTemplateTests(unittest.TestCase):
                     workflow_families=("task",),
                     protected_error_classes=("premature_completion",),
                     required_state=("completed",),
-                    required_evidence=("local_receipt",),
+                    required_evidence=("local_record",),
                     known_bad_cases=("local_ack_only",),
                     source="local",
                     status="candidate",
@@ -103,8 +103,8 @@ class RiskTemplateTests(unittest.TestCase):
                 title="Completion proof",
                 protected_error_classes=("premature_completion",),
                 required_state=("completed",),
-                required_evidence=("receipt",),
-                known_bad_cases=("ack_without_receipt",),
+                required_evidence=("record",),
+                known_bad_cases=("ack_without_record",),
                 known_bad_proofs=(known_bad_proof(),),
                 local_root=directory,
             )
@@ -131,8 +131,8 @@ class RiskTemplateTests(unittest.TestCase):
                 protected_error_classes=("premature_completion",),
                 modeled_state=("completed",),
                 modeled_side_effects=("write",),
-                completion_evidence=("receipt",),
-                known_bad_cases=("ack_without_receipt",),
+                completion_evidence=("record",),
+                known_bad_cases=("ack_without_record",),
             ),
         )
 
@@ -144,8 +144,8 @@ class RiskTemplateTests(unittest.TestCase):
             protected_error_classes=("premature_completion",),
             modeled_state=("completed",),
             modeled_side_effects=("write",),
-            completion_evidence=("receipt",),
-            known_bad_cases=("ack_without_receipt",),
+            completion_evidence=("record",),
+            known_bad_cases=("ack_without_record",),
         )
 
         with patch("flowguard.risk_templates.search_risk_templates") as search:
@@ -169,8 +169,8 @@ class RiskTemplateTests(unittest.TestCase):
         report = review_known_bad_proofs(
             MinimumModelContract(
                 protected_error_classes=("premature_completion",),
-                completion_evidence=("receipt",),
-                known_bad_cases=("ack_without_receipt",),
+                completion_evidence=("record",),
+                known_bad_cases=("ack_without_record",),
             ),
             (known_bad_proof(),),
         )
@@ -182,7 +182,7 @@ class RiskTemplateTests(unittest.TestCase):
         report = review_known_bad_proofs(
             MinimumModelContract(
                 protected_error_classes=("premature_completion",),
-                known_bad_cases=("ack_without_receipt",),
+                known_bad_cases=("ack_without_record",),
             ),
             (),
         )
@@ -195,7 +195,7 @@ class RiskTemplateTests(unittest.TestCase):
         report = review_known_bad_proofs(
             MinimumModelContract(
                 protected_error_classes=("premature_completion",),
-                known_bad_cases=("ack_without_receipt",),
+                known_bad_cases=("ack_without_record",),
             ),
             (known_bad_proof(observed_status="passed"),),
         )
@@ -208,7 +208,7 @@ class RiskTemplateTests(unittest.TestCase):
         report = review_known_bad_proofs(
             MinimumModelContract(
                 protected_error_classes=("premature_completion",),
-                known_bad_cases=("ack_without_receipt",),
+                known_bad_cases=("ack_without_record",),
             ),
             (known_bad_proof(current=False),),
         )
@@ -221,7 +221,7 @@ class RiskTemplateTests(unittest.TestCase):
         report = review_known_bad_proofs(
             MinimumModelContract(
                 protected_error_classes=("duplicate_side_effect",),
-                known_bad_cases=("ack_without_receipt",),
+                known_bad_cases=("ack_without_record",),
             ),
             (known_bad_proof(),),
         )
@@ -276,7 +276,7 @@ class RiskTemplateTests(unittest.TestCase):
             "Left",
             protected_error_classes=("premature_completion",),
             required_state=("completed",),
-            required_evidence=("receipt",),
+            required_evidence=("record",),
             known_bad_cases=("ack_only",),
             merge_keys=("completion",),
         )
@@ -326,8 +326,8 @@ class RiskTemplateTests(unittest.TestCase):
                 title="Completion proof",
                 protected_error_classes=("premature_completion",),
                 required_state=("completed",),
-                required_evidence=("receipt",),
-                known_bad_cases=("ack_without_receipt",),
+                required_evidence=("record",),
+                known_bad_cases=("ack_without_record",),
                 known_bad_proofs=(known_bad_proof(),),
                 local_root=directory,
             )
@@ -336,8 +336,8 @@ class RiskTemplateTests(unittest.TestCase):
                 title="Completion proof",
                 protected_error_classes=("premature_completion",),
                 required_state=("completed",),
-                required_evidence=("receipt",),
-                known_bad_cases=("ack_without_receipt",),
+                required_evidence=("record",),
+                known_bad_cases=("ack_without_record",),
                 known_bad_proofs=(known_bad_proof(),),
                 local_root=directory,
             )

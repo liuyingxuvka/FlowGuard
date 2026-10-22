@@ -1,4 +1,4 @@
-"""Workflow step contracts for receipt-gated FlowGuard traces."""
+"""Workflow step contracts for token-gated FlowGuard traces."""
 
 from __future__ import annotations
 
@@ -24,16 +24,16 @@ STEP_SKIP_POLICIES = (
 )
 
 STEP_METADATA_STEP_IDS = "step_contract_ids"
-STEP_METADATA_PRODUCED_RECEIPTS = "step_contract_produced_receipts"
-STEP_METADATA_INVALIDATED_RECEIPTS = "step_contract_invalidated_receipts"
+STEP_METADATA_PRODUCED_TOKENS = "step_contract_produced_tokens"
+STEP_METADATA_INVALIDATED_TOKENS = "step_contract_invalidated_tokens"
 STEP_METADATA_SKIPPED_STEP_IDS = "step_contract_skipped_step_ids"
 STEP_METADATA_CLAIM_LABELS = "step_contract_claim_labels"
 STEP_METADATA_RUNTIME_NODE_IDS = "runtime_node_ids"
 
 STEP_CONTRACT_METADATA_KEYS = (
     STEP_METADATA_STEP_IDS,
-    STEP_METADATA_PRODUCED_RECEIPTS,
-    STEP_METADATA_INVALIDATED_RECEIPTS,
+    STEP_METADATA_PRODUCED_TOKENS,
+    STEP_METADATA_INVALIDATED_TOKENS,
     STEP_METADATA_SKIPPED_STEP_IDS,
     STEP_METADATA_CLAIM_LABELS,
     STEP_METADATA_RUNTIME_NODE_IDS,
@@ -63,13 +63,13 @@ def _metadata_values(metadata: Mapping[str, Any], key: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True)
 class WorkflowStepContract:
-    """One required workflow step and the receipts it needs or produces."""
+    """One required workflow step and the tokens it needs or produces."""
 
     step_id: str
     completion_labels: tuple[str, ...] = ()
-    requires_receipts: tuple[str, ...] = ()
-    produces_receipts: tuple[str, ...] = ()
-    invalidates_receipts: tuple[str, ...] = ()
+    requires_tokens: tuple[str, ...] = ()
+    produces_tokens: tuple[str, ...] = ()
+    invalidates_tokens: tuple[str, ...] = ()
     required_for_claims: tuple[str, ...] = ()
     skip_policy: str = STEP_SKIP_FORBIDDEN
     description: str = ""
@@ -91,9 +91,9 @@ class WorkflowStepContract:
             raise ValueError(f"skip_policy must be one of {STEP_SKIP_POLICIES!r}")
         object.__setattr__(self, "step_id", step_id)
         object.__setattr__(self, "completion_labels", completion_labels)
-        object.__setattr__(self, "requires_receipts", _as_tuple(self.requires_receipts))
-        object.__setattr__(self, "produces_receipts", _as_tuple(self.produces_receipts))
-        object.__setattr__(self, "invalidates_receipts", _as_tuple(self.invalidates_receipts))
+        object.__setattr__(self, "requires_tokens", _as_tuple(self.requires_tokens))
+        object.__setattr__(self, "produces_tokens", _as_tuple(self.produces_tokens))
+        object.__setattr__(self, "invalidates_tokens", _as_tuple(self.invalidates_tokens))
         object.__setattr__(self, "required_for_claims", _as_tuple(self.required_for_claims))
         object.__setattr__(self, "skip_policy", skip_policy)
         object.__setattr__(self, "description", str(self.description))
@@ -106,10 +106,10 @@ class WorkflowStepContract:
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
     @property
-    def completion_receipts(self) -> tuple[str, ...]:
-        """Receipts that prove this contract's step is complete."""
+    def completion_tokens(self) -> tuple[str, ...]:
+        """Tokens that prove this contract's step is complete."""
 
-        return self.produces_receipts or (self.step_id,)
+        return self.produces_tokens or (self.step_id,)
 
     def matches_step(self, step: TraceStep) -> bool:
         metadata = _metadata_map(step.metadata)
@@ -122,10 +122,10 @@ class WorkflowStepContract:
         return {
             "step_id": self.step_id,
             "completion_labels": list(self.completion_labels),
-            "requires_receipts": list(self.requires_receipts),
-            "produces_receipts": list(self.produces_receipts),
-            "completion_receipts": list(self.completion_receipts),
-            "invalidates_receipts": list(self.invalidates_receipts),
+            "requires_tokens": list(self.requires_tokens),
+            "produces_tokens": list(self.produces_tokens),
+            "completion_tokens": list(self.completion_tokens),
+            "invalidates_tokens": list(self.invalidates_tokens),
             "required_for_claims": list(self.required_for_claims),
             "skip_policy": self.skip_policy,
             "description": self.description,
@@ -150,7 +150,7 @@ class StepContractFinding:
     message: str
     step_index: int = 0
     step_id: str = ""
-    receipt_id: str = ""
+    token_id: str = ""
     claim_label: str = ""
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
@@ -159,7 +159,7 @@ class StepContractFinding:
         object.__setattr__(self, "message", str(self.message))
         object.__setattr__(self, "step_index", int(self.step_index))
         object.__setattr__(self, "step_id", str(self.step_id))
-        object.__setattr__(self, "receipt_id", str(self.receipt_id))
+        object.__setattr__(self, "token_id", str(self.token_id))
         object.__setattr__(self, "claim_label", str(self.claim_label))
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
 
@@ -169,7 +169,7 @@ class StepContractFinding:
             "message": self.message,
             "step_index": self.step_index,
             "step_id": self.step_id,
-            "receipt_id": self.receipt_id,
+            "token_id": self.token_id,
             "claim_label": self.claim_label,
             "metadata": to_jsonable(self.metadata),
         }
@@ -184,8 +184,8 @@ class StepContractReport:
 
     ok: bool
     findings: tuple[StepContractFinding, ...] = ()
-    current_receipts: tuple[str, ...] = ()
-    stale_receipts: tuple[str, ...] = ()
+    current_tokens: tuple[str, ...] = ()
+    stale_tokens: tuple[str, ...] = ()
     skipped_step_ids: tuple[str, ...] = ()
     first_failed_step_index: int | None = None
     summary: str = ""
@@ -194,8 +194,8 @@ class StepContractReport:
         findings = tuple(self.findings)
         object.__setattr__(self, "ok", bool(self.ok))
         object.__setattr__(self, "findings", findings)
-        object.__setattr__(self, "current_receipts", _unique(sorted(self.current_receipts)))
-        object.__setattr__(self, "stale_receipts", _unique(sorted(self.stale_receipts)))
+        object.__setattr__(self, "current_tokens", _unique(sorted(self.current_tokens)))
+        object.__setattr__(self, "stale_tokens", _unique(sorted(self.stale_tokens)))
         object.__setattr__(self, "skipped_step_ids", _unique(self.skipped_step_ids))
         if self.first_failed_step_index is None:
             first_failed = next((finding.step_index for finding in findings), None)
@@ -206,10 +206,10 @@ class StepContractReport:
         lines = [
             f"status: {'OK' if self.ok else 'VIOLATION'}",
             self.summary,
-            f"current_receipts: {self.current_receipts!r}",
+            f"current_tokens: {self.current_tokens!r}",
         ]
-        if self.stale_receipts:
-            lines.append(f"stale_receipts: {self.stale_receipts!r}")
+        if self.stale_tokens:
+            lines.append(f"stale_tokens: {self.stale_tokens!r}")
         if self.skipped_step_ids:
             lines.append(f"skipped_step_ids: {self.skipped_step_ids!r}")
         for finding in self.findings[:max_findings]:
@@ -223,8 +223,8 @@ class StepContractReport:
             "ok": self.ok,
             "summary": self.summary,
             "findings": [finding.to_dict() for finding in self.findings],
-            "current_receipts": list(self.current_receipts),
-            "stale_receipts": list(self.stale_receipts),
+            "current_tokens": list(self.current_tokens),
+            "stale_tokens": list(self.stale_tokens),
             "skipped_step_ids": list(self.skipped_step_ids),
             "first_failed_step_index": self.first_failed_step_index,
         }
@@ -237,8 +237,8 @@ def _step_contract_summary(report: StepContractReport) -> str:
     status = "ok" if report.ok else "violations"
     return (
         f"{status}: findings={len(report.findings)} "
-        f"current_receipts={len(report.current_receipts)} "
-        f"stale_receipts={len(report.stale_receipts)}"
+        f"current_tokens={len(report.current_tokens)} "
+        f"stale_tokens={len(report.stale_tokens)}"
     )
 
 
@@ -246,8 +246,8 @@ def step_contract_metadata(
     step_contract_id: str | None = None,
     *,
     step_ids: Sequence[str] = (),
-    produced_receipts: Sequence[str] = (),
-    invalidated_receipts: Sequence[str] = (),
+    produced_tokens: Sequence[str] = (),
+    invalidated_tokens: Sequence[str] = (),
     skipped_step_ids: Sequence[str] = (),
     claim_labels: Sequence[str] = (),
     runtime_node_ids: Sequence[str] = (),
@@ -258,12 +258,12 @@ def step_contract_metadata(
     metadata: dict[str, tuple[str, ...]] = {}
     if ids:
         metadata[STEP_METADATA_STEP_IDS] = ids
-    produced = _unique(produced_receipts)
+    produced = _unique(produced_tokens)
     if produced:
-        metadata[STEP_METADATA_PRODUCED_RECEIPTS] = produced
-    invalidated = _unique(invalidated_receipts)
+        metadata[STEP_METADATA_PRODUCED_TOKENS] = produced
+    invalidated = _unique(invalidated_tokens)
     if invalidated:
-        metadata[STEP_METADATA_INVALIDATED_RECEIPTS] = invalidated
+        metadata[STEP_METADATA_INVALIDATED_TOKENS] = invalidated
     skipped = _unique(skipped_step_ids)
     if skipped:
         metadata[STEP_METADATA_SKIPPED_STEP_IDS] = skipped
@@ -300,8 +300,8 @@ def review_step_contract_trace(
         return StepContractReport(ok=True, summary="no workflow step contracts provided")
 
     contracts_by_id = {contract.step_id: contract for contract in active_contracts}
-    current_receipts: set[str] = set()
-    stale_receipts: set[str] = set()
+    current_tokens: set[str] = set()
+    stale_tokens: set[str] = set()
     skipped_step_ids: list[str] = []
     findings: list[StepContractFinding] = []
 
@@ -335,36 +335,36 @@ def review_step_contract_trace(
                 )
 
         for contract in completed:
-            for receipt_id in contract.requires_receipts:
-                if receipt_id in current_receipts:
+            for token_id in contract.requires_tokens:
+                if token_id in current_tokens:
                     continue
                 findings.append(
                     StepContractFinding(
-                        code="missing_prerequisite_receipt",
+                        code="missing_prerequisite_token",
                         message=(
-                            f"step {contract.step_id!r} requires current receipt "
-                            f"{receipt_id!r}"
+                            f"step {contract.step_id!r} requires current token "
+                            f"{token_id!r}"
                         ),
                         step_index=index,
                         step_id=contract.step_id,
-                        receipt_id=receipt_id,
+                        token_id=token_id,
                     )
                 )
 
-        invalidated = list(_metadata_values(metadata, STEP_METADATA_INVALIDATED_RECEIPTS))
+        invalidated = list(_metadata_values(metadata, STEP_METADATA_INVALIDATED_TOKENS))
         for contract in completed:
-            invalidated.extend(contract.invalidates_receipts)
-        for receipt_id in _unique(invalidated):
-            if receipt_id in current_receipts:
-                stale_receipts.add(receipt_id)
-            current_receipts.discard(receipt_id)
+            invalidated.extend(contract.invalidates_tokens)
+        for token_id in _unique(invalidated):
+            if token_id in current_tokens:
+                stale_tokens.add(token_id)
+            current_tokens.discard(token_id)
 
-        produced = list(_metadata_values(metadata, STEP_METADATA_PRODUCED_RECEIPTS))
+        produced = list(_metadata_values(metadata, STEP_METADATA_PRODUCED_TOKENS))
         for contract in completed:
-            produced.extend(contract.completion_receipts)
-        for receipt_id in _unique(produced):
-            current_receipts.add(receipt_id)
-            stale_receipts.discard(receipt_id)
+            produced.extend(contract.completion_tokens)
+        for token_id in _unique(produced):
+            current_tokens.add(token_id)
+            stale_tokens.discard(token_id)
 
         claim_labels = set(_metadata_values(metadata, STEP_METADATA_CLAIM_LABELS))
         if step.label:
@@ -373,19 +373,19 @@ def review_step_contract_trace(
             for contract in active_contracts:
                 if claim_label not in contract.required_for_claims:
                     continue
-                for receipt_id in contract.completion_receipts:
-                    if receipt_id in current_receipts:
+                for token_id in contract.completion_tokens:
+                    if token_id in current_tokens:
                         continue
                     findings.append(
                         StepContractFinding(
-                            code="missing_claim_receipt",
+                            code="missing_claim_token",
                             message=(
-                                f"claim {claim_label!r} requires current receipt "
-                                f"{receipt_id!r} from step {contract.step_id!r}"
+                                f"claim {claim_label!r} requires current token "
+                                f"{token_id!r} from step {contract.step_id!r}"
                             ),
                             step_index=index,
                             step_id=contract.step_id,
-                            receipt_id=receipt_id,
+                            token_id=token_id,
                             claim_label=claim_label,
                         )
                     )
@@ -393,8 +393,8 @@ def review_step_contract_trace(
     return StepContractReport(
         ok=not findings,
         findings=tuple(findings),
-        current_receipts=tuple(sorted(current_receipts)),
-        stale_receipts=tuple(sorted(stale_receipts)),
+        current_tokens=tuple(sorted(current_tokens)),
+        stale_tokens=tuple(sorted(stale_tokens)),
         skipped_step_ids=tuple(skipped_step_ids),
     )
 
@@ -420,7 +420,7 @@ def compile_step_contract_invariants(
             {
                 "finding_code": finding.code,
                 "step_contract_id": finding.step_id,
-                "receipt_id": finding.receipt_id,
+                "token_id": finding.token_id,
                 "claim_label": finding.claim_label,
             },
         )
@@ -428,7 +428,7 @@ def compile_step_contract_invariants(
     return (
         Invariant(
             name=name,
-            description="Workflow step contracts: prerequisite receipts, invalidation, skips, and claim gates.",
+            description="Workflow step contracts: prerequisite tokens, invalidation, skips, and claim gates.",
             predicate=predicate,
         ),
     )
@@ -450,12 +450,12 @@ def step_contracts_to_model_obligations(
                 obligation_id=f"{obligation_prefix}:{contract.step_id}",
                 obligation_type="workflow_step",
                 description=contract.description
-                or f"Workflow step {contract.step_id!r} satisfies step-contract receipts.",
+                or f"Workflow step {contract.step_id!r} satisfies step-contract tokens.",
                 required=True,
                 required_test_kinds=contract.required_test_kinds,
-                external_outputs=contract.completion_receipts,
-                state_reads=contract.requires_receipts,
-                state_writes=contract.completion_receipts,
+                external_outputs=contract.completion_tokens,
+                state_reads=contract.requires_tokens,
+                state_writes=contract.completion_tokens,
                 side_effects=contract.code_contract_ids,
             )
         )
@@ -463,7 +463,7 @@ def step_contracts_to_model_obligations(
 
 
 def step_contract_metadata_matches_rule():
-    """Return a conformance rule comparing expected and observed step receipts."""
+    """Return a conformance rule comparing expected and observed step tokens."""
 
     from .conformance import ConformanceRule
 
@@ -493,8 +493,8 @@ def step_contract_metadata_matches_rule():
 __all__ = [
     "STEP_CONTRACT_METADATA_KEYS",
     "STEP_METADATA_CLAIM_LABELS",
-    "STEP_METADATA_INVALIDATED_RECEIPTS",
-    "STEP_METADATA_PRODUCED_RECEIPTS",
+    "STEP_METADATA_INVALIDATED_TOKENS",
+    "STEP_METADATA_PRODUCED_TOKENS",
     "STEP_METADATA_RUNTIME_NODE_IDS",
     "STEP_METADATA_SKIPPED_STEP_IDS",
     "STEP_METADATA_STEP_IDS",

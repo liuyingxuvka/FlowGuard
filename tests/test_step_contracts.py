@@ -26,7 +26,7 @@ from flowguard.plan import FlowGuardCheckPlan
 from flowguard.replay import ReplayObservation
 from flowguard.runner import run_model_first_checks
 from flowguard.step_contracts import (
-    STEP_METADATA_PRODUCED_RECEIPTS,
+    STEP_METADATA_PRODUCED_TOKENS,
     STEP_METADATA_RUNTIME_NODE_IDS,
     compile_step_contract_invariants,
     extract_step_contract_metadata,
@@ -44,10 +44,10 @@ def formal_entry_kwargs():
             risk_intent=RiskIntent(
                 failure_modes=("done claimed without required inventory step",),
                 protected_error_classes=("premature_completion",),
-                protected_harms=("workflow is marked done before required receipts exist",),
-                must_model_state=("step_receipts",),
+                protected_harms=("workflow is marked done before required tokens exist",),
+                must_model_state=("step_tokens",),
                 must_model_side_effects=("done_claim",),
-                completion_evidence=("done_receipt",),
+                completion_evidence=("done_token",),
                 adversarial_inputs=("claim done before inventory",),
                 hard_invariants=("required steps precede done claim",),
                 known_bad_cases=("done_without_inventory",),
@@ -56,9 +56,9 @@ def formal_entry_kwargs():
         ),
         "minimum_model_contract": MinimumModelContract(
             protected_error_classes=("premature_completion",),
-            modeled_state=("step_receipts",),
+            modeled_state=("step_tokens",),
             modeled_side_effects=("done_claim",),
-            completion_evidence=("done_receipt",),
+            completion_evidence=("done_token",),
             known_bad_cases=("done_without_inventory",),
         ),
         "known_bad_proofs": (
@@ -93,21 +93,21 @@ def _contracts():
         WorkflowStepContract(
             "inventory",
             completion_labels=("inventory_done",),
-            produces_receipts=("inventory_receipt",),
+            produces_tokens=("inventory_token",),
         ),
         WorkflowStepContract(
             "coverage",
             completion_labels=("coverage_done",),
-            requires_receipts=("inventory_receipt",),
-            produces_receipts=("coverage_ready",),
+            requires_tokens=("inventory_token",),
+            produces_tokens=("coverage_ready",),
             required_for_claims=("done_claimed",),
             artifact_ids=("code.checkout",),
         ),
         WorkflowStepContract(
             "regression",
             completion_labels=("regression_done",),
-            requires_receipts=("coverage_ready",),
-            produces_receipts=("regression_receipt",),
+            requires_tokens=("coverage_ready",),
+            produces_tokens=("regression_token",),
             required_for_claims=("release_claimed",),
             required_test_kinds=(TEST_KIND_REPLAY,),
         ),
@@ -115,7 +115,7 @@ def _contracts():
 
 
 class WorkflowStepContractTests(unittest.TestCase):
-    def test_review_good_trace_tracks_current_receipts(self):
+    def test_review_good_trace_tracks_current_tokens(self):
         trace = Trace(
             steps=(
                 _step("inventory_done"),
@@ -129,26 +129,26 @@ class WorkflowStepContractTests(unittest.TestCase):
         report = review_step_contract_trace(trace, _contracts())
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn("coverage_ready", report.current_receipts)
-        self.assertIn("regression_receipt", report.current_receipts)
+        self.assertIn("coverage_ready", report.current_tokens)
+        self.assertIn("regression_token", report.current_tokens)
 
-    def test_review_reports_missing_prerequisite_receipt(self):
+    def test_review_reports_missing_prerequisite_token(self):
         trace = Trace(steps=(_step("coverage_done"),))
 
         report = review_step_contract_trace(trace, _contracts())
 
         self.assertFalse(report.ok)
-        self.assertEqual("missing_prerequisite_receipt", report.findings[0].code)
-        self.assertEqual("inventory_receipt", report.findings[0].receipt_id)
+        self.assertEqual("missing_prerequisite_token", report.findings[0].code)
+        self.assertEqual("inventory_token", report.findings[0].token_id)
 
-    def test_review_reports_stale_receipt_before_claim(self):
+    def test_review_reports_stale_token_before_claim(self):
         trace = Trace(
             steps=(
                 _step("inventory_done"),
                 _step("coverage_done"),
                 _step(
                     "edit_after_coverage",
-                    metadata=step_contract_metadata(invalidated_receipts=("coverage_ready",)),
+                    metadata=step_contract_metadata(invalidated_tokens=("coverage_ready",)),
                 ),
                 _step("done_claimed"),
             )
@@ -157,8 +157,8 @@ class WorkflowStepContractTests(unittest.TestCase):
         report = review_step_contract_trace(trace, _contracts())
 
         self.assertFalse(report.ok)
-        self.assertIn("coverage_ready", report.stale_receipts)
-        self.assertEqual("missing_claim_receipt", report.findings[0].code)
+        self.assertIn("coverage_ready", report.stale_tokens)
+        self.assertEqual("missing_claim_token", report.findings[0].code)
 
     def test_review_reports_forbidden_skipped_step(self):
         trace = Trace(
@@ -196,7 +196,7 @@ class WorkflowStepContractTests(unittest.TestCase):
         result = invariant.check((), trace)
 
         self.assertFalse(result.ok)
-        self.assertIn("requires current receipt", result.message)
+        self.assertIn("requires current token", result.message)
 
     def test_runner_integrates_step_contract_invariants(self):
         @dataclass(frozen=True)
@@ -267,14 +267,14 @@ class WorkflowStepContractTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("workflow_step", obligation.obligation_type)
 
-    def test_conformance_rule_reports_missing_observed_receipt_metadata(self):
+    def test_conformance_rule_reports_missing_observed_token_metadata(self):
         trace = Trace(
             steps=(
                 _step(
                     "coverage_done",
                     metadata=step_contract_metadata(
                         "coverage",
-                        produced_receipts=("coverage_ready",),
+                        produced_tokens=("coverage_ready",),
                     ),
                 ),
             )
@@ -290,7 +290,7 @@ class WorkflowStepContractTests(unittest.TestCase):
                     observed_output=step.function_input,
                     observed_state=(),
                     label=step.function_input,
-                    metadata={STEP_METADATA_PRODUCED_RECEIPTS: ()},
+                    metadata={STEP_METADATA_PRODUCED_TOKENS: ()},
                 )
 
         report = replay_trace(trace, Adapter(), rules=(step_contract_metadata_matches_rule(),))

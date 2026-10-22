@@ -289,7 +289,7 @@ from flowguard import (  # noqa: E402
     TOPOLOGY_CONFIDENCE_BLOCKED,
     TOPOLOGY_CONFIDENCE_FULL,
     TOPOLOGY_DISPOSITION_BLOCKED,
-    TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
+    TOPOLOGY_DISPOSITION_TEST_REQUIRED,
     TOPOLOGY_SEVERITY_BLOCKER,
     TopologyHazardCandidate,
     TopologyHazardReviewPlan,
@@ -348,7 +348,7 @@ def _clean_plan() -> TopologyHazardReviewPlan:
     edge = digest.edges[0].edge_id
     return TopologyHazardReviewPlan("release", digest=digest, candidates=(TopologyHazardCandidate(
         "hazard:ledger", "Repeated save is recorded in the ledger.", topology_anchor_ids=(edge,),
-        disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED, handled=True),))
+        disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED, handled=True),))
 
 
 def _candidate(hazard_id: str, description: str, *, anchored: bool = True, **values):
@@ -370,7 +370,7 @@ FEATURES = (
             lambda plan: replace(plan, candidates=()), exclusive=True),
     Feature("ledger_hazard_not_handled", True, ("unresolved:hazard:ledger",), _ledger_unhandled),
     Feature("retry_hazard_unhandled", True, ("unresolved:hazard:retry",),
-            _candidate("hazard:retry", "A retry may write twice.", disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED)),
+            _candidate("hazard:retry", "A retry may write twice.", disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED)),
     Feature("blocked_hazard", True, ("unresolved:hazard:blocked",),
             _candidate("hazard:blocked", "Release blocked until reviewed.", disposition=TOPOLOGY_DISPOSITION_BLOCKED,
                        severity=TOPOLOGY_SEVERITY_BLOCKER)),
@@ -379,7 +379,7 @@ FEATURES = (
                        disposition=TOPOLOGY_DISPOSITION_BLOCKED, confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED,
                        severity=TOPOLOGY_SEVERITY_BLOCKER)),
     Feature("second_handled_hazard", False, (),
-            _candidate("hazard:replay", "Replay is recorded.", disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
+            _candidate("hazard:replay", "Replay is recorded.", disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED,
                        handled=True)),
 )
 

@@ -1,4 +1,4 @@
-"""Pytest collection selector/receipt plugin used by the finite shard runner."""
+"""Pytest collection selector/result plugin used by the finite shard runner."""
 
 from __future__ import annotations
 

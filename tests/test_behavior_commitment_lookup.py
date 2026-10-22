@@ -109,10 +109,10 @@ def three_plane_ledger() -> BehaviorCommitmentLedger:
             BehaviorCommitmentRelation(
                 "commitment:agent-port-bridge",
                 BCL_RELATION_VALIDATES,
-                "The development process validates the AI-operation receipt.",
+                "The development process validates the AI-operation record.",
             ),
         ),
-        label="release process validates operational receipts",
+        label="release process validates operational records",
     )
     commitments = (product, agent, process)
     return BehaviorCommitmentLedger(

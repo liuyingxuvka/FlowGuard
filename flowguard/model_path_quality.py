@@ -98,7 +98,7 @@ NECESSITY_EVIDENCE_KINDS = frozenset(
         "executable_counterexample",
         "executable_oracle",
         "native_model_check",
-        "test_receipt",
+        "test_result",
         "external_observation",
     }
 )

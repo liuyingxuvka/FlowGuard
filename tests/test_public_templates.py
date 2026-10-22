@@ -490,7 +490,7 @@ class PublicTemplateTests(unittest.TestCase):
             summary="CLI sample.",
             protected_error_classes=("premature_completion",),
             required_state=("completed",),
-            required_evidence=("completion_receipt",),
+            required_evidence=("completion_record",),
             known_bad_cases=("ack_only",),
             known_bad_proofs=(
                 {

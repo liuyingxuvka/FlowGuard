@@ -27,7 +27,7 @@ class PrimaryPathAuthorityContractExhaustionTests(unittest.TestCase):
         self.assertIn("material_runtime_proof", group_ids)
         self.assertIn("parallel_success_and_omission", group_ids)
 
-    def test_default_universe_generates_cases_shards_and_receipts(self):
+    def test_default_universe_generates_cases_shards_and_records(self):
         report = review_contract_exhaustion(
             primary_path_authority_contract_exhaustion_plan(
                 max_combinations=50000,

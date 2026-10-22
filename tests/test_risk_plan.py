@@ -21,7 +21,7 @@ class RiskPlanTests(unittest.TestCase):
             protected_harms=("double user notification",),
             must_model_state=("sent_notifications",),
             must_model_side_effects=("send_notification",),
-            completion_evidence=("provider_receipt",),
+            completion_evidence=("provider_record",),
             adversarial_inputs=("same request twice",),
             hard_invariants=("at most one notification per request",),
             known_bad_cases=("retry_sends_twice",),
@@ -32,7 +32,7 @@ class RiskPlanTests(unittest.TestCase):
 
         self.assertEqual(["duplicate side effect"], payload["failure_modes"])
         self.assertEqual(["duplicate_side_effect"], payload["protected_error_classes"])
-        self.assertEqual(["provider_receipt"], payload["completion_evidence"])
+        self.assertEqual(["provider_record"], payload["completion_evidence"])
         self.assertEqual(["retry_sends_twice"], payload["known_bad_cases"])
         self.assertNotIn("used_template_ids", payload)
         self.assertNotIn("template_no_match_reason", payload)
@@ -113,7 +113,7 @@ class RiskPlanTests(unittest.TestCase):
                 "protected_error_classes": ("duplicate_side_effect",),
                 "modeled_state": ("records",),
                 "modeled_side_effects": ("write",),
-                "completion_evidence": ("receipt",),
+                "completion_evidence": ("record",),
                 "known_bad_cases": ("retry_writes_twice",),
             },
             known_bad_proofs=(

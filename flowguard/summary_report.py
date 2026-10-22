@@ -500,10 +500,10 @@ def _ledger_source_fields(finding: Any) -> tuple[str, tuple[str, ...], tuple[str
         evidence_values.append(str(direct_evidence))
     metadata = _finding_value(finding, "metadata", {})
     if isinstance(metadata, dict):
-        for name in ("evidence_id", "receipt_id"):
+        for name in ("evidence_id",):
             if metadata.get(name):
                 evidence_values.append(str(metadata[name]))
-        for name in ("evidence_ids", "receipt_ids"):
+        for name in ("evidence_ids",):
             values = metadata.get(name, ())
             if isinstance(values, (list, tuple, set)):
                 evidence_values.extend(str(value) for value in values if value)

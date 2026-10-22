@@ -33,8 +33,8 @@ def seed(*, template_id="mesh", promotion_status="promoted", closure_disposition
         predicates=(HardPredicate("route_id", "equals", "route:model-mesh"),),
         protected_error_classes=("mesh_missing_partition",),
         required_states=("declared", "closed"),
-        required_side_effects=("owner_receipt",),
-        completion_evidence=("current_target_receipt",),
+        required_side_effects=("owner_record",),
+        completion_evidence=("current_target_record",),
         positive_cases=("complete_partition",),
         known_bad_cases=("missing_partition",),
         false_friend_cases=("three_models_without_topology",),
@@ -98,7 +98,7 @@ class TemplateSeedTests(unittest.TestCase):
         self.assertEqual("blocked", close_template_seed(seed(), disposition="pending").status)
         self.assertEqual(
             "pass",
-            close_template_seed(seed(), disposition="modeled", proof_ref="receipt:target-current").status,
+            close_template_seed(seed(), disposition="modeled", proof_ref="record:target-current").status,
         )
         self.assertEqual(
             "pass",
@@ -106,7 +106,7 @@ class TemplateSeedTests(unittest.TestCase):
         )
 
     def test_non_current_closure_cannot_be_selected(self):
-        closed = replace(seed(), closure_disposition="modeled", closure_proof_ref="receipt:old")
+        closed = replace(seed(), closure_disposition="modeled", closure_proof_ref="record:old")
         selected = select_template_seeds((closed,), {"route_id": "route:model-mesh"})
         self.assertEqual("blocked", selected.status)
 
@@ -180,6 +180,58 @@ class TemplateSeedTests(unittest.TestCase):
         )
         self.assertEqual("blocked", report.status)
         self.assertIn("missing_positive_cases", report.findings)
+
+    def test_predicate_validation_is_bounded(self):
+        invalid = replace(seed(template_id="invalid"), predicates=(
+            HardPredicate("", "execute_python", {"code": "pass"}),
+            HardPredicate("tier", "one_of", []),
+            HardPredicate("optional", "exists", "false"),
+        ))
+        findings = validate_template_seed(invalid).findings
+        self.assertIn("predicate:invalid:0:missing_key", findings)
+        self.assertIn("predicate:invalid:0:unsupported_operator:execute_python", findings)
+        self.assertIn("predicate:invalid:1:one_of_expected_must_be_nonempty_array", findings)
+        self.assertIn("predicate:invalid:2:exists_expected_must_be_boolean", findings)
+        fallback = validate_template_seed(replace(invalid, template_id="")).findings
+        self.assertIn("predicate:seed:0:missing_key", fallback)
+
+    def test_all_bounded_predicate_operators_are_conjunctive_and_composable(self):
+        item = replace(seed(template_id="all-operators"), predicates=(
+            HardPredicate("kind", "equals", "doc"),
+            HardPredicate("tier", "one_of", ["pro", "enterprise"]),
+            HardPredicate("tags", "contains", "blue"),
+            HardPredicate("roles", "contains_all", ["author", "reviewer"]),
+            HardPredicate("optional", "exists", False),
+        ))
+        context = {"kind": "doc", "tier": "pro", "tags": ("green", "blue"),
+                   "roles": ("reviewer", "author", "reader")}
+        selected = select_template_seeds((item,), context)
+        self.assertEqual("selected", selected.status)
+        self.assertEqual(("all-operators",), selected.selected_template_ids)
+        # The live seed owner selects one branch by the conjunction, never pack composition.
+        for key, wrong in (("kind", "sheet"), ("tier", "basic"), ("tags", ("green",)),
+                           ("roles", ("author",)), ("optional", True)):
+            with self.subTest(predicate=key):
+                blocked = select_template_seeds((item,), dict(context, **{key: wrong}))
+                self.assertEqual("blocked", blocked.status)
+                self.assertEqual((), blocked.matched_template_ids)
+                self.assertIn("seed_no_exact_match", blocked.findings)
+
+    def test_failed_or_missing_predicate_excludes_entry(self):
+        items = tuple(replace(seed(template_id=name), predicates=(HardPredicate(key, "equals", value),))
+                      for name, key, value in (("matching", "kind", "document"),
+                                               ("failing", "kind", "spreadsheet"), ("missing", "tier", "pro")))
+        selected = select_template_seeds(items, {"kind": "document"})
+        self.assertEqual("selected", selected.status)
+        self.assertEqual(("matching",), selected.matched_template_ids)
+
+    def test_equals_and_one_of_use_strict_json_types(self):
+        equals_true = replace(seed(template_id="equals-true"), predicates=(HardPredicate("kind", "equals", True),))
+        one_of_true = replace(seed(template_id="one-of-true"), predicates=(HardPredicate("kind", "one_of", [True]),))
+        selected = select_template_seeds((equals_true, one_of_true), {"kind": 1})
+        self.assertEqual("blocked", selected.status)
+        self.assertEqual((), selected.matched_template_ids)
+        self.assertIn("seed_no_exact_match", selected.findings)
 
 
 if __name__ == "__main__":

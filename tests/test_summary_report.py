@@ -49,7 +49,7 @@ class SummaryReportTests(unittest.TestCase):
             "diagnostic_false_completeness",
             "not every planned test ran",
             "suite:diagnostic",
-            "receipt:diagnostic",
+            "record:diagnostic",
         )
         section = FlowGuardSection("test_mesh", "failed", findings=(finding,))
         first = build_finding_ledger((section,)).entries[0]
@@ -57,7 +57,7 @@ class SummaryReportTests(unittest.TestCase):
         self.assertEqual(first.finding_id, second.finding_id)
         self.assertEqual("diagnostic_false_completeness", first.source_finding_code)
         self.assertEqual(("suite:diagnostic",), first.source_subject_ids)
-        self.assertEqual(("receipt:diagnostic",), first.evidence_ids)
+        self.assertEqual(("record:diagnostic",), first.evidence_ids)
 
     def test_not_run_section_creates_pass_with_gaps_not_failure(self):
         report = FlowGuardSummaryReport.from_sections(

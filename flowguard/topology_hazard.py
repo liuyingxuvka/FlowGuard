@@ -64,7 +64,6 @@ TOPOLOGY_COMPAT_SCOPED_OUT = "scoped_out_with_reason"
 TOPOLOGY_DISPOSITION_OBSERVATION = "observation_only"
 TOPOLOGY_DISPOSITION_MODEL_PATCH = "model_patch_required"
 TOPOLOGY_DISPOSITION_TEST_REQUIRED = "test_required"
-TOPOLOGY_DISPOSITION_LEDGER_REQUIRED = "evidence_required"
 TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION = "compatibility_decision_required"
 TOPOLOGY_DISPOSITION_MODEL_MATURATION = "model_update_required"
 TOPOLOGY_DISPOSITION_DEVELOPMENT_PROCESS = "development_process_required"
@@ -93,7 +92,6 @@ TOPOLOGY_ROUTE_ARCHITECTURE_REDUCTION = "architecture_reduction"
 TOPOLOGY_HARD_DISPOSITIONS = {
     TOPOLOGY_DISPOSITION_MODEL_PATCH,
     TOPOLOGY_DISPOSITION_TEST_REQUIRED,
-    TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
     TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION,
     TOPOLOGY_DISPOSITION_MODEL_MATURATION,
     TOPOLOGY_DISPOSITION_DEVELOPMENT_PROCESS,
@@ -199,7 +197,6 @@ class BusinessPathIdentity:
     invoked_on_primary_failure: bool = False
     returns_success_after_primary_failure: bool = False
     fallback_disposition: str = ""
-    evidence_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -231,14 +228,13 @@ class BusinessPathIdentity:
             bool(self.returns_success_after_primary_failure),
         )
         object.__setattr__(self, "fallback_disposition", str(self.fallback_disposition))
-        object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def anchor_id(self) -> str:
         return f"business_path:{self.path_id}"
 
     def has_current_source(self) -> bool:
-        return bool(self.source_labels or self.evidence_ids)
+        return bool(self.source_labels)
 
     def identity_key(self) -> tuple[str, str, str]:
         return (
@@ -266,7 +262,6 @@ class BusinessPathIdentity:
             "invoked_on_primary_failure": self.invoked_on_primary_failure,
             "returns_success_after_primary_failure": self.returns_success_after_primary_failure,
             "fallback_disposition": self.fallback_disposition,
-            "evidence_ids": list(self.evidence_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -289,7 +284,6 @@ def _coerce_business_path(value: BusinessPathIdentity | Mapping[str, Any] | Any)
         exclusive_with=getattr(value, "exclusive_with", ()),
         supersedes=getattr(value, "supersedes", ()),
         compatibility_disposition=getattr(value, "compatibility_disposition", TOPOLOGY_COMPAT_UNKNOWN),
-        evidence_ids=getattr(value, "evidence_ids", ()),
         metadata=getattr(value, "metadata", {}) or {},
     )
 
@@ -498,7 +492,6 @@ class TopologyHazardCandidate:
     handled: bool = False
     scoped_reason: str = ""
     model_obligation_id: str = ""
-    proof_evidence_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -515,7 +508,6 @@ class TopologyHazardCandidate:
         object.__setattr__(self, "handled", bool(self.handled))
         object.__setattr__(self, "scoped_reason", str(self.scoped_reason))
         object.__setattr__(self, "model_obligation_id", str(self.model_obligation_id))
-        object.__setattr__(self, "proof_evidence_ids", _as_tuple(self.proof_evidence_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def anchored(self) -> bool:
@@ -539,7 +531,6 @@ class TopologyHazardCandidate:
             "handled": self.handled,
             "scoped_reason": self.scoped_reason,
             "model_obligation_id": self.model_obligation_id,
-            "proof_evidence_ids": list(self.proof_evidence_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -1045,7 +1036,7 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[TopologyH
                     future_failure_mode="Repeated use produces duplicate or stale side effects not represented by the proof boundary.",
                     topology_anchor_ids=landmark.anchor_ids,
                     source_landmark_ids=(landmark.landmark_id,),
-                    disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
+                    disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED,
                     required_routes=(TOPOLOGY_ROUTE_MODEL_TEST_ALIGNMENT,),
                     confidence_effect=TOPOLOGY_CONFIDENCE_BLOCKED if broad else TOPOLOGY_CONFIDENCE_SCOPED,
                     severity=TOPOLOGY_SEVERITY_BLOCKER if broad else TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
@@ -1060,7 +1051,7 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[TopologyH
                     future_failure_mode="The project reports success before external use, release, deployment, or callback evidence exists.",
                     topology_anchor_ids=landmark.anchor_ids,
                     source_landmark_ids=(landmark.landmark_id,),
-                    disposition=TOPOLOGY_DISPOSITION_LEDGER_REQUIRED,
+                    disposition=TOPOLOGY_DISPOSITION_TEST_REQUIRED,
                     required_routes=(),
                     confidence_effect=TOPOLOGY_CONFIDENCE_SCOPED,
                     severity=TOPOLOGY_SEVERITY_CONFIDENCE_GAP,
@@ -1355,7 +1346,6 @@ __all__ = [
     "TOPOLOGY_DISPOSITION_BLOCKED",
     "TOPOLOGY_DISPOSITION_COMPATIBILITY_DECISION",
     "TOPOLOGY_DISPOSITION_DEVELOPMENT_PROCESS",
-    "TOPOLOGY_DISPOSITION_LEDGER_REQUIRED",
     "TOPOLOGY_DISPOSITION_MODEL_MATURATION",
     "TOPOLOGY_DISPOSITION_MODEL_PATCH",
     "TOPOLOGY_DISPOSITION_OBSERVATION",

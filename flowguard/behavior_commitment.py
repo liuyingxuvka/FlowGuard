@@ -3230,7 +3230,7 @@ def behavior_commitment_contract_exhaustion_plan(
         metadata={
             # ContractExhaustionMesh owns finite matrix generation here.  The
             # acceptance ids remain required downstream obligations; terminal
-            # CompositeHandoffResult receipts are produced by the consuming
+            # CompositeHandoffResult records are produced by the consuming
             # route owners, not fabricated during matrix review.
             "composite_handoff_results_deferred": True,
         },

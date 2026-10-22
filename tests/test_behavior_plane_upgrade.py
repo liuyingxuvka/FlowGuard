@@ -131,7 +131,7 @@ class BehaviorPlaneUpgradeTests(unittest.TestCase):
                 BehaviorCommitmentRelation(
                     agent.commitment_id,
                     BCL_RELATION_VALIDATES,
-                    "Release validation consumes the AI-operation receipt.",
+                    "Release validation consumes the AI-operation record.",
                 ),
             ),
         )

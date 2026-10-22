@@ -1316,7 +1316,7 @@ def primary_path_authority_contract_exhaustion_plan(
         require_coverage_universe=True,
         metadata={
             # This route emits the finite PPA matrix and its downstream
-            # acceptance ids first.  Native terminal handoff receipts are
+            # acceptance ids first.  Native terminal handoff records are
             # owned by the consuming route checks and are never synthesized
             # by the matrix planner.
             "composite_handoff_results_deferred": True,

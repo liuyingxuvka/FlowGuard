@@ -197,7 +197,7 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertEqual(1, len(contract_exhaustion_to_model_obligations(report)))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
 
-    def test_model_local_cartesian_interaction_group_generates_receipt_and_route_obligations(self):
+    def test_model_local_cartesian_interaction_group_generates_record_and_route_obligations(self):
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
                 "model-cartesian",
@@ -508,7 +508,7 @@ class ContractExhaustionTests(unittest.TestCase):
                     CompositeHandoffResult(
                         result_id="composite-result:ghost",
                         acceptance_id="composite_handoff:ghost",
-                        evidence_ids=("receipt:ghost",),
+                        evidence_ids=("record:ghost",),
                     ),
                 ),
                 claim_scope="routine",
@@ -546,7 +546,7 @@ class ContractExhaustionTests(unittest.TestCase):
                         CONTRACT_ROUTE_TEST_MESH,
                         CONTRACT_ROUTE_MODEL_MESH,
                     ),
-                    evidence_ids=("receipt:cross-child",),
+                    evidence_ids=("record:cross-child",),
                 ),
             ),
         )
@@ -584,7 +584,7 @@ class ContractExhaustionTests(unittest.TestCase):
                 CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
                 CONTRACT_ROUTE_TEST_MESH,
             ),
-            evidence_ids=("receipt:cross-child",),
+            evidence_ids=("record:cross-child",),
         )
         report = review_contract_exhaustion(
             replace(base, composite_handoff_results=(result,))
@@ -787,7 +787,7 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertTrue(profiles[0].synthetic_only)
         self.assertFalse(profiles[0].live_completion_allowed)
 
-    def test_observed_problem_backfeed_requires_case_family_and_receipt_mapping(self):
+    def test_observed_problem_backfeed_requires_case_family_and_record_mapping(self):
         same_class = ContractMutationCase(
             "same_class:miss-a:packet-b:evidence-bind",
             mutation_type=CONTRACT_MUTATION_SAME_CLASS_CASE,

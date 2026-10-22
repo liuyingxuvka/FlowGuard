@@ -2541,7 +2541,7 @@ def _product_signatures_for_report(
         )
         # ``shard_plan_fingerprint`` is a plan identity, not the product hash
         # itself.  Rebuild the public signature without that self-reference so
-        # the value remains stable when the shard receipt is emitted.
+        # the value remains stable when the shard record is emitted.
         if shard is not None:
             signature = build_contract_product_signature(plan, group, axes=axes)
         signatures.append(signature)
@@ -2618,7 +2618,7 @@ def _composite_handoff_result_findings(
     # The canonical BCL/PPA plans are finite-matrix producers.  They publish
     # one acceptance id per generated multi-route case for downstream
     # Model-Test Alignment, TestMesh, ModelMesh, and RiskLedger consumers, but
-    # do not manufacture terminal route receipts while merely reviewing the
+    # do not manufacture terminal route records while merely reviewing the
     # matrix.  Their metadata is an explicit phase boundary, not an implicit
     # success path: once a caller supplies terminal results, those results are
     # still validated below (and any unbound obligation remains visible).

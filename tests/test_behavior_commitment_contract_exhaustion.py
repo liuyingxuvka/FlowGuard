@@ -13,7 +13,7 @@ from flowguard.behavior_commitment import BEHAVIOR_COMMITMENT_ROUTE_ID
 
 
 class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
-    def test_default_universe_generates_cases_shards_and_receipts(self):
+    def test_default_universe_generates_cases_shards_and_records(self):
         report = review_contract_exhaustion(
             behavior_commitment_contract_exhaustion_plan(
                 max_combinations=50000,
