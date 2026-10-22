@@ -145,9 +145,13 @@ need a new adapter. Report model-level confidence when no runtime replay was nee
 architecture-reduction | behavior-commitment --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
 code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
 each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
-explores every feature and every pair, generates the known-bad variants (`feature_variants`) and, in
+explores each allowed feature set once (up to `max_features=2` by default), generates the known-bad variants (`feature_variants`) and, in
 `feature_conformance(features, base, review)`, runs each combination on the real code and prints a
-counterexample (features, expected and observed verdict) for each one that disagrees. Only the meta-capabilities
+counterexample (features, expected and observed verdict) for each one that disagrees. `codes="all"` reports all defects;
+use `codes="first"` for a validator that stops at the first defect in declaration order. `requires=("other",)`
+requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
+`exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
+are omitted; conformance still checks the clean base against the design, including adapter errors. Only the meta-capabilities
 (`model-mesh`, `topology-hazard`, `model-test-alignment`, `model-test-alignment-full`) inspect other models and
 tests instead of a domain; their templates write `.flowguard/models/owners/<name>/model.py`
 and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and

@@ -72,7 +72,7 @@ def test_feature_design_explores_every_single_feature_and_pair_and_passes_the_ki
     assert [invariant.name for invariant in explorer.invariants] == [
         "clean_input_accepted", "each_defect_rejected", "every_defect_reported", "benign_features_neutral"]
     report = explorer.explore()
-    assert report.ok and report.explored_sequence_count == 12
+    assert report.ok and report.explored_sequence_count == 6
     reached = {path.final_state.features for path in report.traces}
     assert {("empty_id",), ("gift_note",), ("empty_id", "negative_amount"), ("negative_amount", "gift_note")} <= reached
 
@@ -84,7 +84,7 @@ def test_generated_known_bad_variants_fail_the_kit_invariants():
     assert "each_defect_rejected" in caught["ignores_empty_id"]
     assert caught["reports_first_defect_only"] == {"every_defect_reported"}
     assert {"clean_input_accepted", "benign_features_neutral"} <= caught["rejects_gift_note"]
-    assert list(feature_variants(FEATURES[:1])) == ["ignores_empty_id"]       # a single defect cannot hide a later code
+    assert list(feature_variants(FEATURES[:1])) == ["ignores_empty_id", "drops_codes_of_empty_id"]
 
 
 @pytest.mark.parametrize(
@@ -234,3 +234,118 @@ def test_reachable_states_keeps_unprojected_none_states(initial, following, expe
                         max_sequence_length=1, progress_steps=0)
     assert reachable_states(explorer) == expected
     assert reachable_states(explorer, lambda state: state) == (0,)
+
+
+def test_feature_model_explores_each_combination_once():
+    import time
+    features = tuple(Feature(f"f{i}", i < 4, (f"C{i}",) if i < 4 else ()) for i in range(8))
+    start = time.monotonic()
+    report = feature_explorer(features, max_features=4).explore()
+    assert report.ok and len(report.traces) == report.explored_sequence_count == 162
+    reached = [trace.final_state.features for trace in report.traces]
+    assert len(set(reached)) == 162
+    for variant in feature_variants(features, max_features=4).values():
+        bad = variant.explore()
+        assert not bad.ok and not bad.exception_branches
+        assert len(bad.traces) == 162
+    elapsed = time.monotonic() - start
+    print(f"feature design plus variants: {elapsed:.6f}s")
+    assert elapsed < 5
+
+
+def test_first_error_validator_fits_codes_first(tmp_path):
+    design = feature_explorer(FEATURES, codes="first")
+    assert "first_defect_reported" in [rule.name for rule in design.invariants]
+    assert "every_defect_reported" not in [rule.name for rule in design.invariants]
+    assert feature_conformance(FEATURES, clean_order, stops_at_first_defect, codes="first").ok
+    assert any(v.rule_name == "every_defect_reported" for v in
+               feature_conformance(FEATURES, clean_order, stops_at_first_defect).violations)
+    reports = [variant.explore() for variant in feature_variants(FEATURES, codes="first").values()]
+    assert reports and all(not report.ok and not report.exception_branches for report in reports)
+    assert {rule.name for rule in design.invariants} <= {
+        v.invariant_name for report in reports for v in report.violations}
+
+    from flowguard.map.proof import run_model
+    model_path = tmp_path / "first_model.py"
+    model_path.write_text(FEATURE_MODEL.replace("feature_explorer(FEATURES)", 'feature_explorer(FEATURES, codes="first")')
+        .replace("feature_variants(FEATURES)", 'feature_variants(FEATURES, codes="first")')
+        .replace("lambda order: place(**order))", 'lambda order: place(**order), codes="first")'))
+    (tmp_path / "shop.py").write_text("def place(id, amount):\n    if not id:\n        return False, ['missing_id']\n"
+        "    return amount >= 0, ['bad_amount'] * (amount < 0)\n")
+    result = run_model(tmp_path, model_path)
+    assert result.status == "pass" and not result.warnings, (result.problems, result.warnings)
+
+
+def test_requires_and_conflicts_limit_the_combinations():
+    features = (Feature("a", True, ("A",), requires=("b",)), Feature("b", False),
+                Feature("c", False, conflicts=("d",)), Feature("d", False))
+    seen = []
+    built = tuple(__import__('dataclasses').replace(f, apply=lambda names, n=f.name: names + (n,)) for f in features)
+    report = feature_conformance(built, tuple,
+        lambda names: seen.append(names) or ("a" not in names, ("A",) if "a" in names else ()), max_features=3)
+    assert report.ok, report.format_text()
+    assert () in seen and ("b",) in seen and ("a", "b") in seen and ("a",) not in seen
+    assert len(seen) == len(set(seen))
+    assert all(not ({"c", "d"} <= set(names)) for names in seen)
+    # Removing a required benign feature is not a legal control input.
+    assert all("a" not in names or "b" in names for names in seen)
+    for variant in feature_variants(features, max_features=3).values():
+        assert not variant.explore().ok
+
+
+@pytest.mark.parametrize("features,bound,match", [
+    (lambda: (Feature("a", True, requires=("typo",)),), 2, "a"),
+    (lambda: (Feature("a", True, conflicts=("typo",)),), 2, "a"),
+    (lambda: (Feature("a", True, requires=("b",)), Feature("b", False, requires=("typo",))), 2, "b"),
+    (lambda: (Feature("a", True, requires=("b",)), Feature("b", False, requires=("c",)), Feature("c", False)), 2, "a"),
+    (lambda: (Feature("a", True, requires=("b",), exclusive=True), Feature("b", False)), 2, "a"),
+])
+def test_feature_constraints_reject_unreachable_or_unknown_dependencies(features, bound, match):
+    with pytest.raises(ValueError, match=match):
+        feature_explorer(features(), max_features=bound)
+
+
+@pytest.mark.parametrize("codes", ["all", "first"])
+def test_single_coded_defect_has_a_real_reporting_witness(codes):
+    features = (Feature("defect", True, ("BROKEN",)),)
+    design = feature_explorer(features, codes=codes)
+    variants = feature_variants(features, codes=codes)
+    assert "drops_codes_of_defect" in variants
+    hits = {v.invariant_name for bad in variants.values() for v in bad.explore().violations}
+    assert {rule.name for rule in design.invariants} <= hits
+    assert all(not bad.explore().ok for bad in variants.values())
+
+
+def test_feature_models_without_codes_have_no_reporting_invariant():
+    features = (Feature("defect", True), Feature("note", False))
+    design = feature_explorer(features)
+    assert "every_defect_reported" not in [rule.name for rule in design.invariants]
+    assert design.explore().ok
+
+
+@pytest.mark.parametrize("features,codes", [
+    ((Feature("defect", True),), "all"),
+    ((Feature("note", False),), "all"),
+    ((Feature("uncoded", True), Feature("coded", True, ("C",), requires=("uncoded",))), "first"),
+    ((Feature("a", True, requires=("b",)), Feature("b", True, requires=("a",))), "all"),
+    ((Feature("a", True, requires=("b",)), Feature("b", False, requires=("a",))), "all"),
+])
+def test_degenerate_feature_universes_emit_only_real_witnesses(features, codes):
+    design = feature_explorer(features, codes=codes)
+    assert design.explore().ok
+    reports = [bad.explore() for bad in feature_variants(features, codes=codes).values()]
+    assert reports and all(not report.ok and not report.exception_branches for report in reports)
+    assert {i.name for i in design.invariants} <= {v.invariant_name for report in reports for v in report.violations}
+
+
+@pytest.mark.parametrize("crashes", [False, True])
+def test_reject_only_conformance_still_checks_the_clean_base(crashes):
+    feature = Feature("bad", True, apply=lambda value: True)
+    def review(bad):
+        if not bad and crashes:
+            raise ValueError("clean base crashed")
+        return False
+    report = feature_conformance((feature,), lambda: False, review)
+    assert not report.ok
+    assert any(not v.features and v.rule_name == ("adapter_exception" if crashes else "matches_design")
+               for v in report.violations), report.format_text()

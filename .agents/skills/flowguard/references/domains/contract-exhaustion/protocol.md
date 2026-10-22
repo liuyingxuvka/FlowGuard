@@ -55,7 +55,7 @@ rejected before any write happens.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
 5. In the model, `contract_exhaustion_features(plan(), mutate)` makes every generated bad case a feature
    that changes the valid call (`flowguard.kit`); `build_explorer()` and `broken_variants()` use
-   `feature_explorer` / `feature_variants`. `conformance()` runs every bad case and every pair against the
+   `feature_explorer` / `feature_variants`. `conformance()` runs every allowed set of bad cases once (singletons and pairs by default) against the
    real function: `execute_contract_features(features(), load_anchor(IMPLEMENTED_BY["place"]), VALID, rejected=...)`.
    A combination is rejected when the call raises or `rejected(result)` is true; the report says
    `executed against code: N of M feature combinations` and prints a counterexample for each one accepted.

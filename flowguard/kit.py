@@ -9,9 +9,9 @@ give a capability or a self-model all five with little code:
   rejecting feature is a defect the code must reject and report, a benign
   feature is a variation that must not change the verdict, and ``apply``
   changes a clean base input to have the property.  The state is the set of
-  applied features; exploration reaches every single feature and every pair
-  (``max_features=2``).  The design rejects exactly when a rejecting feature
-  is present and reports the codes of all of them.  The kit owns four
+  applied features; exploration reaches each allowed set once, up to
+  ``max_features=2`` by default.  The design rejects exactly when a rejecting feature
+  is present and reports all codes, or the first defect's codes with ``codes="first"``. The kit owns
   invariants (``clean_input_accepted``, ``each_defect_rejected``,
   ``every_defect_reported``, ``benign_features_neutral``) and generates the
   known-bad variants (``feature_variants``).  ``feature_conformance`` explores
@@ -28,6 +28,7 @@ give a capability or a self-model all five with little code:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from itertools import combinations
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
 from .core import FunctionResult, Invariant, InvariantResult
@@ -46,7 +47,8 @@ class Feature:
     ``rejects`` marks a defect the real code must reject, reporting ``codes``; a benign feature is a
     variation that must not change the verdict.  ``apply(plan)`` returns the clean base input changed to
     have this property.  An ``exclusive`` feature cannot be combined with the others (for example it
-    removes what they change); it is explored alone.  Use it rarely and say why.
+    removes what they change); it is explored alone. ``requires`` names features that must be present;
+    ``conflicts`` names features that cannot occur together (a symmetric restriction).
     """
 
     name: str
@@ -54,9 +56,13 @@ class Feature:
     codes: tuple[str, ...] = ()
     apply: Callable[[Any], Any] | None = field(default=None, compare=False)
     exclusive: bool = False
+    requires: tuple[str, ...] = ()
+    conflicts: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "codes", tuple(self.codes))
+        object.__setattr__(self, "requires", tuple(self.requires))
+        object.__setattr__(self, "conflicts", tuple(self.conflicts))
         if self.codes and not self.rejects:
             raise ValueError(f"benign feature {self.name!r} cannot report finding codes")
 
@@ -66,7 +72,7 @@ class FeatureState:
     """State of a feature model: the applied features (declaration order) and the verdict on that input.
 
     ``codes`` holds the reported codes that belong to the model's features; ``plain_*`` is the verdict on
-    the same input without its benign features (``benign_features_neutral`` compares the two).
+    the same input without its benign features, when that projection is legal.
     """
 
     features: tuple[str, ...] = ()
@@ -83,7 +89,7 @@ def _verdict(outcome: str, codes) -> str:
 class _Universe:
     """The features of one model, the design verdict and the kit's invariants."""
 
-    def __init__(self, features: Sequence[Feature], max_features: int) -> None:
+    def __init__(self, features: Sequence[Feature], max_features: int, codes: str = "all") -> None:
         self.features = tuple(features)
         names = [feature.name for feature in self.features]
         if not names or len(set(names)) != len(names):
@@ -93,31 +99,48 @@ class _Universe:
         self.by_name = {feature.name: feature for feature in self.features}
         self.order = {name: index for index, name in enumerate(names)}
         self.max_features = max_features
+        if codes not in ("all", "first"):
+            raise ValueError("codes must be 'all' or 'first'")
+        self.codes = codes
+        for feature in self.features:
+            unknown = set(feature.requires + feature.conflicts) - self.by_name.keys()
+            if unknown:
+                raise ValueError(f"feature {feature.name!r} names unknown features: {sorted(unknown)}")
+        for feature in self.features:
+            required = {feature.name}
+            pending = [feature.name]
+            while pending:
+                for name in self.by_name[pending.pop()].requires:
+                    if name not in required:
+                        required.add(name)
+                        pending.append(name)
+            if not self.allowed(required):
+                raise ValueError(f"feature {feature.name!r} requirements cannot fit a legal set within max_features={max_features}")
+        self.combinations = tuple(group for size in range(1, min(max_features, len(names)) + 1)
+                                  for group in combinations(names, size) if self.allowed(group))
         self.vocabulary = frozenset(code for feature in self.features for code in feature.codes)
-
-    def ordered(self, names: Iterable[str]) -> tuple[str, ...]:
-        return tuple(sorted(set(names), key=self.order.__getitem__))
 
     def rejecting(self, names: Iterable[str]) -> tuple[str, ...]:
         return tuple(name for name in names if self.by_name[name].rejects)
 
-    def expected(self, names: tuple[str, ...]) -> tuple[str, frozenset]:
-        """The design verdict: rejected iff a rejecting feature is present, with all of their codes."""
-        rejecting = self.rejecting(names)
-        return (REJECTED if rejecting else ACCEPTED), frozenset(c for n in rejecting for c in self.by_name[n].codes)
+    def allowed(self, names: Iterable[str]) -> bool:
+        names = frozenset(names)
+        return (len(names) <= self.max_features
+                and all(set(self.by_name[name].requires) <= names for name in names)
+                and all(not (self.by_name[left].exclusive or self.by_name[right].exclusive
+                             or right in self.by_name[left].conflicts or left in self.by_name[right].conflicts)
+                        for left, right in combinations(names, 2)))
 
-    def add(self, names: tuple[str, ...], name: str) -> tuple[str, ...] | None:
-        """The feature set after adding ``name``; None when it is present, exclusive or the bound is reached."""
-        if name in names or len(names) >= self.max_features:
-            return None
-        if names and (self.by_name[name].exclusive or any(self.by_name[n].exclusive for n in names)):
-            return None
-        return self.ordered(names + (name,))
+    def expected(self, names: tuple[str, ...]) -> tuple[str, frozenset]:
+        """Rejected iff a defect is present; report all defects or the first in declaration order."""
+        rejecting = self.rejecting(names)
+        reported = rejecting[:1] if self.codes == "first" else rejecting
+        return (REJECTED if rejecting else ACCEPTED), frozenset(c for n in reported for c in self.by_name[n].codes)
 
     def state(self, names: tuple[str, ...], judge: Callable[[tuple[str, ...]], tuple[str, frozenset]]) -> FeatureState:
         outcome, codes = judge(names)
         plain = self.rejecting(names)
-        plain_outcome, plain_codes = (outcome, codes) if plain == names else judge(plain)
+        plain_outcome, plain_codes = (outcome, codes) if plain == names or not self.allowed(plain) else judge(plain)
         return FeatureState(names, outcome, frozenset(codes), plain_outcome, frozenset(plain_codes))
 
     def invariants(self) -> tuple[Invariant, ...]:
@@ -152,21 +175,28 @@ class _Universe:
                                             f"{_verdict(state.outcome, state.codes)}")
             return InvariantResult.pass_()
 
-        checks = (clean_input_accepted, each_defect_rejected, every_defect_reported, benign_features_neutral)
-        descriptions = ("an input with no defect is accepted", "an input with any defect is rejected",
-                        "a rejection reports the codes of every defect present (no masking)",
-                        "removing the benign features does not change the verdict")
-        return tuple(Invariant(check.__name__, text, check) for check, text in zip(checks, descriptions))
+        checks = []
+        if any(not self.rejecting(names) for names in self.combinations):
+            checks.append(Invariant("clean_input_accepted", "an input with no defect is accepted", clean_input_accepted))
+        if any(feature.rejects for feature in self.features):
+            checks.append(Invariant("each_defect_rejected", "an input with any defect is rejected", each_defect_rejected))
+        if any(self.expected(names)[1] for names in self.combinations):
+            name = "first_defect_reported" if self.codes == "first" else "every_defect_reported"
+            checks.append(Invariant(name, "a rejection reports the declared codes of the expected defects", every_defect_reported))
+        if any(self.rejecting(names) != names and self.allowed(self.rejecting(names)) for names in self.combinations):
+            checks.append(Invariant("benign_features_neutral", "removing legal benign features does not change the verdict",
+                                    benign_features_neutral))
+        return tuple(checks)
 
     def explorer(self, judge, extra_invariants: Iterable[Invariant] = ()) -> Explorer:
         return Explorer(workflow=Workflow((_AddFeature(self, judge),)), initial_states=(self.state((), judge),),
-                        external_inputs=tuple(feature.name for feature in self.features),
+                        external_inputs=self.combinations,
                         invariants=self.invariants() + tuple(extra_invariants),
-                        max_sequence_length=self.max_features, progress_steps=0)
+                        max_sequence_length=1, progress_steps=0)
 
 
 class _AddFeature:
-    """Function block: add one feature to the input and give the verdict on the result."""
+    """Function block: apply one complete allowed feature set to the clean input."""
 
     name = "AddFeature"
     reads = ("features",)
@@ -176,50 +206,62 @@ class _AddFeature:
         self.universe = universe
         self.judge = judge
 
-    def apply(self, name: str, state: FeatureState):
-        names = self.universe.add(state.features, name)
-        if names is None:
-            return (FunctionResult("not combined", state, label=f"{name}:not combined"),)
+    def apply(self, names: tuple[str, ...], state: FeatureState):
         new = self.universe.state(names, self.judge)
-        return (FunctionResult(new.outcome, new, label=f"{name}:{new.outcome}"),)
+        return (FunctionResult(new.outcome, new, label=f"{' + '.join(names)}:{new.outcome}"),)
 
 
-def feature_explorer(features: Sequence[Feature], *, max_features: int = 2) -> Explorer:
-    """The intended design: explore every single feature and every pair (up to ``max_features``)."""
-    universe = _Universe(features, max_features)
+def feature_explorer(features: Sequence[Feature], *, max_features: int = 2, codes: str = "all") -> Explorer:
+    """The intended design: explore every allowed feature set once, up to ``max_features``."""
+    universe = _Universe(features, max_features, codes)
     return universe.explorer(universe.expected)
 
 
-def feature_variants(features: Sequence[Feature], *, max_features: int = 2) -> dict[str, Explorer]:
-    """Generated known-bad designs; each must fail the kit's invariants.
+def feature_variants(features: Sequence[Feature], *, max_features: int = 2, codes: str = "all") -> dict[str, Explorer]:
+    """Generate bad verdicts with real witnesses in the legal feature sets.
 
-    ``ignores_<first rejecting feature>`` accepts that defect. ``reports_first_defect_only`` needs a
-    reachable ordered defect pair whose later feature adds a code absent from the earlier one; only
-    then can reporting the first defect actually mask a code. ``rejects_<first benign feature>`` treats
-    that variation as a defect.
+    Code masking reports only the first defect in all-code mode, or the last in first-code mode.
+    If neither can mask an expected code, dropping codes supplies the reporting witness instead.
     """
-    universe = _Universe(features, max_features)
+    universe = _Universe(features, max_features, codes)
     rejecting = [feature for feature in universe.features if feature.rejects]
     benign = [feature for feature in universe.features if not feature.rejects]
     variants: dict[str, Explorer] = {}
     if rejecting:
         ignored = rejecting[0].name
-        variants[f"ignores_{ignored}"] = universe.explorer(
-            lambda names: universe.expected(tuple(name for name in names if name != ignored)))
-    if any(universe.add((earlier.name,), later.name) is not None
-           and bool(set(later.codes) - set(earlier.codes))
-           for index, earlier in enumerate(rejecting)
-           for later in rejecting[index + 1:]):
-        def first_only(names):
-            outcome, _codes = universe.expected(names)
-            first = next(iter(universe.rejecting(names)), None)
-            return outcome, frozenset(universe.by_name[first].codes) if first else frozenset()
+        def ignores(names):
+            remaining = tuple(name for name in names if name != ignored)
+            return universe.expected(remaining)
 
-        variants["reports_first_defect_only"] = universe.explorer(first_only)
-    if benign:
-        loud = benign[0].name
+        # Required co-defects can prevent removal of one defect from accepting an input.
+        # In that case an ignoring implementation accepts an input containing that defect.
+        if not any(universe.expected(names)[0] != ignores(names)[0] for names in universe.combinations):
+            variants[f"ignores_{ignored}"] = universe.explorer(
+                lambda names: (ACCEPTED, frozenset()) if ignored in names else universe.expected(names))
+        else:
+            variants[f"ignores_{ignored}"] = universe.explorer(ignores)
+    def limited(names):
+        outcome, _codes = universe.expected(names)
+        defects = universe.rejecting(names)
+        selected = defects[-1:] if codes == "first" else defects[:1]
+        return outcome, frozenset(code for name in selected for code in universe.by_name[name].codes)
+
+    if any(universe.expected(names)[1] - limited(names)[1] for names in universe.combinations):
+        key = "reports_last_defect_only" if codes == "first" else "reports_first_defect_only"
+        variants[key] = universe.explorer(limited)
+    elif any(universe.expected(names)[1] for names in universe.combinations):
+        coded = next(feature for feature in universe.features if feature.codes)
+        variants[f"drops_codes_of_{coded.name}"] = universe.explorer(
+            lambda names: (universe.expected(names)[0], frozenset()))
+    neutral = next((feature for feature in benign
+                    if any(feature.name in names and universe.allowed(universe.rejecting(names))
+                           for names in universe.combinations)), None)
+    if neutral is not None:
+        loud = neutral.name
+        has_clean_witness = any(loud in names and not universe.rejecting(names) for names in universe.combinations)
         variants[f"rejects_{loud}"] = universe.explorer(
-            lambda names: (REJECTED, universe.expected(names)[1]) if loud in names else universe.expected(names))
+            lambda names: ((REJECTED if has_clean_witness else ACCEPTED), universe.expected(names)[1])
+            if loud in names else universe.expected(names))
     return variants
 
 
@@ -269,16 +311,17 @@ class FeatureReport:
 
 
 def feature_conformance(features: Sequence[Feature], base: Callable[[], Any], review: Callable[[Any], Any],
-                        *, max_features: int = 2) -> FeatureReport:
+                        *, max_features: int = 2, codes: str = "all") -> FeatureReport:
     """Explore the feature universe on the real code.
 
     For every combination the kit builds the input (``base()``, then each present feature's ``apply`` in
     declaration order) and runs ``review(input)``, the adapter around the real code.  It returns ``True``
     (accepted), ``False`` (rejected) or ``(accepted, codes)``; ``None`` leaves the combination declared
     only, and an exception is an adapter error - both fail conformance.  The four invariants must hold
-    and every observed verdict must equal the design verdict (``matches_design``).
+    and every observed verdict, including the clean base, must equal the design verdict (``matches_design``).
+    The kit omits invariants that have no witness among the allowed nonempty feature sets.
     """
-    universe = _Universe(features, max_features)
+    universe = _Universe(features, max_features, codes)
     seen: dict[tuple[str, ...], tuple[str, frozenset, str]] = {}
 
     def observe(names: tuple[str, ...]) -> tuple[str, frozenset, str]:
@@ -305,7 +348,7 @@ def feature_conformance(features: Sequence[Feature], base: Callable[[], Any], re
     def record(rule: str, state: FeatureState, sequence: Sequence[str], message: str = "") -> None:
         key = (rule, frozenset(state.features))
         if key not in found:
-            order = [name for name in dict.fromkeys(sequence) if name in state.features]
+            order = list(state.features)
             found[key] = FeatureViolation(rule, tuple(order), _verdict(*universe.expected(state.features)),
                                           _verdict(state.outcome, state.codes), message)
 
@@ -322,7 +365,7 @@ def feature_conformance(features: Sequence[Feature], base: Callable[[], Any], re
             rule = "declared_only" if outcome == DECLARED_ONLY else "adapter_exception"
             record(rule, FeatureState(names, outcome, codes), names, note)
     explained = {combination for rule, combination in found if rule != "matches_design"}
-    rank = {name: index for index, name in enumerate(FEATURE_INVARIANTS + ("matches_design",))}
+    rank = {name: index for index, name in enumerate(FEATURE_INVARIANTS + ("first_defect_reported", "matches_design",))}
     violations = sorted((v for (rule, combination), v in found.items()      # matches_design only adds news
                          if rule != "matches_design" or combination not in explained),
                         key=lambda v: (len(v.features), [universe.order[n] for n in v.features],

@@ -359,7 +359,7 @@
       "responsibilities": [
         "generate every bad case and combination of a finite boundary",
         "require an oracle for every generated case",
-        "model kit: every generated bad case is a feature of the valid call; every bad case and pair runs against the real function and is reported executed against code versus declared only"
+        "model kit: generated bad cases form allowed feature sets explored once on the real function; codes all or first, requires and conflicts; report execution versus declaration"
       ],
       "files": [
         "flowguard/contract_exhaustion.py"
@@ -383,7 +383,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3afdfdaf72f03ef8ae1bd5c2e4024cee722753aa922dd2de6d0bffcacf26c7e6"
+      "fingerprint": "sha256:114743f0834e41f3779d17513effeb5f4bd83b5b0f75c3a6047311b814a088c5"
     },
     {
       "id": "field-lifecycle",
@@ -872,7 +872,7 @@
       "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
         "replay model traces on the real code",
-        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by existing reviews (model kits)",
+        "build complete models from each allowed feature set once (codes all or first; requires and conflicts), or from plan edits checked by existing reviews (model kits)",
         "collect first-seen projected initial and retained trace step states for a parent-child port"
       ],
       "files": [
@@ -897,7 +897,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:503614d8c86e4cbdf2b1619bd86fc2248efecf7a5ce692ded387347f6407ca8b"
+      "fingerprint": "sha256:551cc0619e1d5bec154be67601c95d7f58d51e2641c98367633f54ec787ff914"
     },
     {
       "id": "engine-runner",

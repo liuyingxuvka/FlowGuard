@@ -4144,7 +4144,7 @@ def contract_exhaustion_features(plan: ContractExhaustionPlan, mutate):
 
     The review must accept the plan (finite boundary, an oracle for every case).  Every generated bad case
     becomes a rejecting feature named by its case id whose ``apply`` is ``mutate(valid_input, case_id)``: the
-    valid input changed to carry that bad value.  The kit explores each bad case alone and every pair.
+    valid input changed to carry that bad value. The kit explores each allowed feature set once.
     """
     from .kit import Feature
 
@@ -4155,13 +4155,13 @@ def contract_exhaustion_features(plan: ContractExhaustionPlan, mutate):
                  for case in report.generated_cases)
 
 
-def execute_contract_features(features, call, valid, *, rejected=None, max_features: int = 2):
+def execute_contract_features(features, call, valid, *, rejected=None, max_features: int = 2, codes: str = "all"):
     """Replay conformance: run every feature combination against the real function.
 
     ``valid`` is the clean call (a tuple of positional arguments or a dict of keyword arguments); each
     feature changes it.  A combination counts as rejected when the call raises (an ImportError is an
     environment error, not a rejection) or when ``rejected(result)`` is true.  The report states how many
-    combinations were executed against the code.
+    combinations were executed against the code. ``codes`` forwards the kit reporting mode.
     """
     from .kit import feature_conformance
 
@@ -4175,7 +4175,7 @@ def execute_contract_features(features, call, valid, *, rejected=None, max_featu
         return not (rejected(result) if rejected else False)
 
     return feature_conformance(features, lambda: dict(valid) if isinstance(valid, Mapping) else tuple(valid), review,
-                               max_features=max_features)
+                               max_features=max_features, codes=codes)
 
 
 __all__ = (
