@@ -141,3 +141,13 @@ when any case disagrees with its expectation, and end with `raise SystemExit(run
 - `audit_model(...)` with `RiskProfile` (flowguard.audit): list gaps for the declared risks.
 - `mermaid_code_block(...)` / `loop_report_to_mermaid_text(...)`: render a model/report;
   see examples/mermaid_export_example.py.
+
+
+### Parent and child models
+
+`PARENT` may name a component, another model's `MODEL_ID`, or `"system"`.
+Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
+the first anchor's owner, a runner's first listed component, or `system`.
+Prefer a parent model importing its child's blocks to compose their behavior.
+FlowGuard adds `.flowguard/models` to `sys.path`; sibling imports need no path edits.
+Prefix helper files with `_` so they are not registered as executable models.

@@ -80,6 +80,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
     for issue in registry.issues:
         out.append(Finding("error", issue.code, "", f"{issue.path}: {issue.message}"))
 
+    from .tree import build_tree
+    out.extend(build_tree(root, data, inv).findings)
+
     for flow in data.get("flows", []):
         for step in flow.get("steps", []):
             comp_id, _, symbol = step.partition(":")

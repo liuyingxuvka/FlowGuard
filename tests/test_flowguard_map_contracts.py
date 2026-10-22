@@ -309,3 +309,104 @@ def test_cycle_debt_covers_only_its_members(tmp_path):
     assert merged[0].level == "error" and "new members a" in merged[0].message
     data["accepted_debts"][0]["members"] = "a,b"
     assert any("members" in error for error in validate_map(data))
+
+
+def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
+    from flowguard.map.mapfile import read_model_contract
+
+    data = project(tmp_path)
+    parent = CONTRACT.replace('"one"', '"parent"') + "\nimport child\nimport _shared\n"
+    child = CONTRACT.replace('"one"', '"child"') + "\nfrom _shared import VALUE\n"
+    write(tmp_path, ".flowguard/models/parent.py", parent)
+    write(tmp_path, ".flowguard/models/child.py", child)
+    write(tmp_path, ".flowguard/models/_shared.py", "import _leaf\nVALUE = 1\n")
+    write(tmp_path, ".flowguard/models/_leaf.py", "import _shared\n")
+    contract = read_model_contract(tmp_path / ".flowguard/models/parent.py")
+    assert contract.get("imports") == ["_shared", "child"]
+    from flowguard.map.tree import build_tree
+
+    def tree():
+        current, inv = _context(tmp_path)
+        return build_tree(tmp_path, current, inv)
+
+    current = tree()
+    assert (current.nodes["child"].parent, current.nodes["child"].source) == ("parent", "import")
+    assert (current.nodes["parent"].parent, current.nodes["parent"].source) == ("app", "COMPONENTS")
+    assert current.nodes["child"].home == "app"
+    assert current.importers(".flowguard/models/_shared.py") == {"parent", "child"}
+    assert current.importers(".flowguard/models/_leaf.py") == {"parent", "child"}
+    assert current.ancestors("child") == ["parent"]
+    assert [n.id for n in current.children("parent", "model")] == ["child"]
+    assert not current.findings
+
+    write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "nope"\n')
+    assert "parent_unknown" in {f.code for f in tree().findings}
+    assert tree().nodes["child"].parent == "parent"
+    write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "app"\n')
+    assert "parent_import_mismatch" in {f.code for f in tree().findings}
+    write(tmp_path, ".flowguard/models/parent.py", parent + '\nPARENT = "child"\n')
+    write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "parent"\n')
+    current = tree()
+    assert "parent_cycle" in {f.code for f in current.findings}
+    assert all(node.parent_kind != "model" for node in current.nodes.values())
+    assert not current.ancestors("child")
+
+    write(tmp_path, "other.py", "def run(): return False\n")
+    data["components"].append({"id": "other", "files": ["other.py"], "status": "draft"})
+    save(tmp_path, data)
+    write(tmp_path, ".flowguard/models/parent.py", parent)
+    write(tmp_path, ".flowguard/models/child.py", child.replace("app.py:run", "other.py:run"))
+    current = tree()
+    assert "child_outside_parent" in {f.code for f in current.findings}
+    assert all(f.level == "warn" for f in current.findings)
+    assert "child_outside_parent" in {f.code for f in findings(tmp_path)}
+    write(tmp_path, ".flowguard/models/child.py", child)
+    write(tmp_path, ".flowguard/models/second.py", child.replace('"child"', '"second"') + '\nPARENT = "parent"\n')
+    assert "duplicate_child_owner" in {f.code for f in tree().findings}
+    write(tmp_path, ".flowguard/models/second.py", child.replace('"child"', '"system"'))
+    assert "model_contract" in {f.code for f in findings(tmp_path)}
+
+
+def test_parent_literal_validation_and_sibling_loading(tmp_path):
+    import sys
+    import pytest
+    from flowguard.map.mapfile import model_registry, read_model_contract
+    from flowguard.map.proof import _load
+
+    project(tmp_path)
+    path = tmp_path / ".flowguard/models/one.py"
+    for invalid in ('""', 'None', '[]', '42'):
+        write(tmp_path, ".flowguard/models/one.py", CONTRACT + f"\nPARENT = {invalid}\n")
+        with pytest.raises(ValueError, match="PARENT"):
+            read_model_contract(path)
+        assert any(i.code == "model_contract" for i in model_registry(tmp_path).issues)
+    write(tmp_path, ".flowguard/models/one.py", CONTRACT + '\nPARENT = "system"\n')
+    assert read_model_contract(path)["PARENT"] == "system"
+    write(tmp_path, ".flowguard/models/sibling_for_load_probe.py", "VALUE = 73\n")
+    write(tmp_path, ".flowguard/models/load_probe.py", "import sibling_for_load_probe\nVALUE = sibling_for_load_probe.VALUE\n")
+    original = list(sys.path)
+    try:
+        assert _load(tmp_path, tmp_path / ".flowguard/models/load_probe.py").VALUE == 73
+        assert str(tmp_path / ".flowguard/models") in sys.path
+    finally:
+        sys.path[:] = original
+        sys.modules.pop("sibling_for_load_probe", None)
+        sys.modules.pop("_flowguard_model_load_probe", None)
+
+
+def test_model_tree_legacy_anchor_runner_and_root_defaults(tmp_path):
+    from flowguard.map.tree import build_tree
+
+    data = project(tmp_path)
+    write(tmp_path, ".flowguard/models/anchored.py", CONTRACT.replace('"one"', '"anchored"').replace('COMPONENTS = ["app"]', 'COMPONENTS = []'))
+    write(tmp_path, ".flowguard/models/rooted.py", 'MODEL_ID = "rooted"\nDESIGN_ONLY = "Abstract probe"\ndef build_explorer(): pass\n')
+    runner = ".flowguard/verification/owners/native/run_checks.py"
+    write(tmp_path, runner, "VALUE = 1\n")
+    data["components"][0]["models"] = [runner]
+    save(tmp_path, data)
+    current, inv = _context(tmp_path)
+    tree = build_tree(tmp_path, current, inv)
+    assert (tree.nodes["anchored"].parent, tree.nodes["anchored"].source) == ("app", "anchor")
+    assert (tree.nodes["native"].parent, tree.nodes["native"].source) == ("app", "listed")
+    assert (tree.nodes["rooted"].parent, tree.nodes["rooted"].source) == ("system", "default")
+    assert not tree.findings

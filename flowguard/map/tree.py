@@ -1,0 +1,159 @@
+"""One model tree derived from model literals, sibling imports and code ownership."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from .common import Finding
+from .inventory import Inventory
+from .mapfile import component_files, model_registry, owner_index, read_model_contract
+
+
+@dataclass
+class ModelNode:
+    id: str
+    path: str
+    kind: str
+    parent: str
+    parent_kind: str
+    source: str
+    home: str = "system"
+    import_files: set[str] = field(default_factory=set)
+    contract: dict = field(default_factory=dict)
+
+
+@dataclass
+class ModelTree:
+    nodes: dict[str, ModelNode]
+    imports: dict[str, set[str]]
+    findings: list[Finding] = field(default_factory=list)
+
+    def ancestors(self, model: str) -> list[str]:
+        result, seen = [], {model}
+        node = self.nodes.get(model)
+        while node and node.parent_kind == "model" and node.parent not in seen:
+            result.append(node.parent)
+            seen.add(node.parent)
+            node = self.nodes.get(node.parent)
+        return result
+
+    def children(self, parent: str, kind: str) -> list[ModelNode]:
+        return sorted((n for n in self.nodes.values() if (n.parent, n.parent_kind) == (parent, kind)),
+                      key=lambda n: n.id)
+
+    def importers(self, path: str) -> set[str]:
+        reverse: dict[str, set[str]] = defaultdict(set)
+        for source, targets in self.imports.items():
+            for target in targets:
+                reverse[target].add(source)
+        pending, reached = [path], set()
+        while pending:
+            for source in reverse.get(pending.pop(), ()):
+                if source not in reached:
+                    reached.add(source)
+                    pending.append(source)
+        return {n.id for n in self.nodes.values() if n.path in reached}
+
+
+def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
+    """Resolve each model's parent once; invalid nesting warns and falls back finitely."""
+    registry = model_registry(root, data)
+    components = {c["id"]: c for c in data["components"]}
+    owner, _ = owner_index(data, inv)
+    files = {p.stem: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")}
+    contracts, imports = {}, {}
+    for path in sorted(set(files.values()) | {e.path for e in registry.entries}):
+        try:
+            contract = read_model_contract(root / path)
+        except (OSError, SyntaxError, ValueError, TypeError):
+            contract = {}                 # the registry/check owner reports malformed contracts
+        contracts[path] = contract
+        imports[path] = {files[name] for name in contract.get("imports", []) if name in files}
+    nodes = {}
+    for entry in registry.entries:
+        nodes.setdefault(entry.id, ModelNode(entry.id, entry.path, entry.kind, "system", "system", "default",
+                                            import_files=imports.get(entry.path, set()), contract=contracts[entry.path]))
+    tree = ModelTree(nodes, imports)
+    pending_findings: list[tuple[str, str, str]] = []
+
+    def default_parent(node: ModelNode, *, allow_model: bool = True) -> tuple[str, str, str]:
+        importers = [n.id for n in nodes.values() if n.kind == "contract" and n.id != node.id
+                     and node.path in n.import_files]
+        if allow_model and len(importers) == 1:
+            return importers[0], "model", "import"
+        if node.contract.get("COMPONENTS"):
+            return node.contract["COMPONENTS"][0], "component", "COMPONENTS"
+        anchors = list(node.contract.get("IMPLEMENTED_BY", {}).values())
+        if anchors and (cid := owner.get(anchors[0].split(":", 1)[0])):
+            return cid, "component", "anchor"
+        if node.kind == "runner":
+            for cid, comp in components.items():
+                if node.path in comp.get("models", []):
+                    return cid, "component", "listed"
+        return "system", "system", "default"
+
+    for node in nodes.values():
+        parent = node.contract.get("PARENT")
+        node.parent, node.parent_kind, node.source = default_parent(node)
+        if parent is not None:
+            if parent == "system" or parent in components or parent in nodes:
+                node.parent = parent
+                node.parent_kind = "system" if parent == "system" else "component" if parent in components else "model"
+                node.source = "PARENT"
+            else:
+                pending_findings.append((node.id, "parent_unknown",
+                    f"{node.path}: PARENT {parent!r} names no component, model id or 'system'"))
+            importers = [n.id for n in nodes.values() if n.kind == "contract" and n.id != node.id
+                         and node.path in n.import_files]
+            if len(importers) == 1 and parent != importers[0]:
+                pending_findings.append((node.id, "parent_import_mismatch",
+                    f"{node.path}: imported only by model {importers[0]!r} but PARENT is {parent!r}"))
+
+    cycles: dict[str, str] = {}
+    for start in nodes:
+        chain, current = [], start
+        while current in nodes and nodes[current].parent_kind == "model":
+            if current in chain:
+                cycle = chain[chain.index(current):]
+                message = " -> ".join([*cycle, current])
+                for mid in cycle:
+                    cycles.setdefault(mid, message)
+                break
+            chain.append(current)
+            current = nodes[current].parent
+    for mid, chain in cycles.items():
+        node = nodes[mid]
+        pending_findings.append((mid, "parent_cycle", f"{node.path}: PARENT chain loops: {chain}"))
+        node.parent, node.parent_kind, node.source = default_parent(node, allow_model=False)
+    for node in nodes.values():
+        top = nodes[tree.ancestors(node.id)[-1]] if tree.ancestors(node.id) else node
+        node.home = top.parent if top.parent_kind == "component" and top.parent in components else "system"
+    for mid, code, message in pending_findings:
+        tree.findings.append(Finding("warn", code, nodes[mid].home if nodes[mid].home in components else "", message))
+
+    sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
+    for node in nodes.values():
+        if node.source not in {"PARENT", "import"} or node.parent_kind == "system":
+            continue
+        if node.parent_kind == "component":
+            allowed = set(component_files(components[node.parent], inv))
+        else:
+            parent = nodes[node.parent]
+            cids = set(parent.contract.get("COMPONENTS", []))
+            cids.update(owner.get(a.split(":", 1)[0]) for a in parent.contract.get("IMPLEMENTED_BY", {}).values())
+            allowed = {path for cid in cids if cid in components for path in component_files(components[cid], inv)}
+        for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
+            if anchor.split(":", 1)[0] not in allowed:
+                tree.findings.append(Finding("warn", "child_outside_parent", node.home if node.home in components else "",
+                    f"{node.path}: IMPLEMENTED_BY {anchor!r} is outside parent {node.parent!r}'s code"))
+            if node.parent_kind == "model":
+                sibling_anchors[(node.parent, anchor)].append(node)
+    for (parent, anchor), siblings in sorted(sibling_anchors.items()):
+        unique = {n.id: n for n in siblings}
+        if len(unique) > 1:
+            node = next(iter(unique.values()))
+            tree.findings.append(Finding("warn", "duplicate_child_owner", node.home if node.home in components else "",
+                f"model {parent!r}: children {', '.join(sorted(unique))} anchor the same IMPLEMENTED_BY {anchor!r}"))
+    return tree

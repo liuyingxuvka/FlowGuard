@@ -163,14 +163,21 @@ def component_graph(data: dict, inv: Inventory) -> dict[str, set[str]]:
 def read_model_contract(path: Path) -> dict:
     """MODEL_ID / COMPONENTS / IMPLEMENTED_BY literals and defined hooks of a model file, without importing it."""
     tree = ast.parse(read_source(path))
-    found: dict = {"functions": []}
+    found: dict = {"functions": [], "imports": []}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
-                                           "DESIGN_ONLY"}:
+                                           "DESIGN_ONLY", "PARENT"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
             found["functions"].append(node.name)
+        elif isinstance(node, ast.Import):
+            found["imports"].extend(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            found["imports"].append(node.module.split(".")[0])
+    found["imports"] = sorted(set(found["imports"]))
+    if "PARENT" in found and not (isinstance(found["PARENT"], str) and found["PARENT"].strip()):
+        raise ValueError("PARENT must be a nonempty string")
     for key in ("IMPLEMENTED_BY", "NOT_MODELED"):
         value = found.get(key, {})
         if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
@@ -281,6 +288,8 @@ def model_registry(root: Path, data: dict | None = None) -> ModelRegistry:
                 mid = contract.get("MODEL_ID")
                 if not isinstance(mid, str) or not mid or "build_explorer" not in contract["functions"]:
                     raise ValueError("needs a nonempty string MODEL_ID and def build_explorer()")
+                if mid == "system":
+                    raise ValueError("MODEL_ID 'system' is reserved for the root node")
                 if not isinstance(contract.get("COMPONENTS", []), list) or not all(
                         isinstance(c, str) for c in contract.get("COMPONENTS", [])):
                     raise ValueError("COMPONENTS must be a list of component ids")

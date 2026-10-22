@@ -656,12 +656,14 @@
       "responsibilities": [
         "validate, load and save the map, writing depends_on sorted and deduplicated",
         "compute component fingerprints that detect stale descriptions",
-        "read model literals (MODEL_ID, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
-        "count strings as dependency evidence only in import-like contexts"
+        "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
+        "count strings as dependency evidence only in import-like contexts",
+        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting"
       ],
       "files": [
         "flowguard/map/mapfile.py",
-        "flowguard/map/scan.py"
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -684,7 +686,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:a96258c7dd27353ba6f499c7a50703bc26ba5c53508ce720f035644972692404"
+      "fingerprint": "sha256:77815589be8371802b7dfb6d09757c90a68e60c33c23159924f388fc8fb18c2f"
     },
     {
       "id": "map-discover",
@@ -719,7 +721,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY",
+        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions"
@@ -754,14 +756,14 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:c7e08f00450a83b0142bb58b18ada92150f0ee000ead921d1479e6df0b582c77"
+      "fingerprint": "sha256:0db33e26c6bda7a9229f34bb3278843fedfe969803ca79dea9186a959408f0ef"
     },
     {
       "id": "map-proof",
       "layer": "map",
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
@@ -791,7 +793,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5d99a4f303a15dd8d939e66c2da3abf22b31cf1dd0a05fcc41db97769270d7f2"
+      "fingerprint": "sha256:22b40da22c4d09d913ffcf583b7d3fdf0a3ff84fb6e48c344695405fd7395b13"
     },
     {
       "id": "engine-explore",

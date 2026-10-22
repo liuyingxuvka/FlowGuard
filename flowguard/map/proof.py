@@ -56,6 +56,9 @@ def model_files(root: Path) -> list[Path]:
 def _load(root: Path, path: Path):
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
+    models_dir = str(root / ".flowguard/models")
+    if models_dir not in sys.path:
+        sys.path.append(models_dir)
     name = f"_flowguard_model_{path.stem}"
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
