@@ -104,6 +104,14 @@ def module_name(path: str, roots: list[str]) -> str:
     return path[:-3].replace("/", ".")
 
 
+def is_type_checking_guard(node: ast.AST) -> bool:
+    if not isinstance(node, ast.If):
+        return False
+    test = node.test
+    return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING"
+            or isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING")
+
+
 def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = True) -> PyInfo:
     info = PyInfo(module=module)
     try:
@@ -188,11 +196,9 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
     stack: list[ast.AST] = [tree]          # one traversal; "if TYPE_CHECKING:" imports are not runtime deps
     while stack:
         node = stack.pop()
-        if isinstance(node, ast.If):
-            test = node.test
-            if (test.attr if isinstance(test, ast.Attribute) else getattr(test, "id", "")) == "TYPE_CHECKING":
-                stack.extend(node.orelse)
-                continue
+        if is_type_checking_guard(node):
+            stack.extend(node.orelse)
+            continue
         if isinstance(node, ast.Import):
             info.imports.update(alias.name for alias in node.names)
             for alias in node.names:

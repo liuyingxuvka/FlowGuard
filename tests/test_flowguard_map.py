@@ -812,3 +812,18 @@ def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, ed
     else:
         assert imp.comment_only == [] and imp.dependents == ["api", "orders"]
         assert "tests/test_storage.py" in imp.tests and "orders" in imp.model_ids
+
+
+@pytest.mark.parametrize("guard", ["TYPE_CHECKING", "t.TYPE_CHECKING"])
+def test_import_sites_skip_type_checking_and_sort_by_line(tmp_path, guard):
+    from flowguard.map.lint import dependency_import_sites
+    write(tmp_path, "a.py", "from typing import TYPE_CHECKING\nif " + guard + ":\n"
+          "    from b import X\nelse:\n    from b import Y\n\n"
+          "def late():\n    pass\n    from b import Z\n    pass\n    from b import W\n")
+    write(tmp_path, "b.py", "X = Y = Z = W = 1\n")
+    data = {"components": [{"id": "a", "files": ["a.py"]}, {"id": "b", "files": ["b.py"]}]}
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    sites = dependency_import_sites(tmp_path, data, inv, "a", "b")
+    assert sites == ["a.py:5 from b import Y", "a.py:9 from b import Z", "a.py:11 from b import W"]
+    assert inv.py["a.py"].imports >= {"b:Y", "b:Z", "b:W"}
+    assert "b:X" not in inv.py["a.py"].imports

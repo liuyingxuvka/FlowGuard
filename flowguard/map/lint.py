@@ -19,7 +19,7 @@ from pathlib import Path
 
 from .common import Finding, read_source, tokens
 from .discover import discover_inventory, reachable_effects
-from .inventory import Inventory, parse_python, resolve_import
+from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract
 
 @dataclass
@@ -335,7 +335,13 @@ def dependency_import_sites(root: Path, data: dict, inv: Inventory, src: str, ds
             continue
         info = inv.py[path]
         package = info.module if path.endswith("__init__.py") else info.module.rpartition(".")[0]
-        for node in ast.walk(tree):
+        stack = [tree]
+        while stack:
+            node = stack.pop()
+            if is_type_checking_guard(node):
+                stack.extend(node.orelse)
+                continue
+            stack.extend(ast.iter_child_nodes(node))
             if isinstance(node, ast.Import):
                 imports = [alias.name for alias in node.names]
             elif isinstance(node, ast.ImportFrom):
@@ -349,8 +355,8 @@ def dependency_import_sites(root: Path, data: dict, inv: Inventory, src: str, ds
             else:
                 continue
             if any(resolve_import(imp, modules) in destination for imp in imports):
-                found.append(f"{path}:{node.lineno} {ast.unparse(node)}")
-    return sorted(found)
+                found.append((path, node.lineno, ast.unparse(node)))
+    return [f"{path}:{line} {text}" for path, line, text in sorted(found)]
 
 
 ARCHITECTURE_CODES = {"dependency_cycle", "layer_violation", "duplicate_owner", "possible_duplicate",
