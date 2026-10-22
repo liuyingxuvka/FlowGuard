@@ -10,8 +10,9 @@ UI_FLOW_STRUCTURE_MODEL_TEMPLATE = '''# FlowGuard model: UI journeys over states
 # Known-bad: "show" opens a state that does not exist.
 # Conformance (code facts): every declared control id is present in UI_FILES and every handler anchor exists.
 # Fill in: replace every REPLACE_ME path with your UI files and handlers, model your states, controls and
-# transitions, list this file in the owning component's models in .flowguard/map.json, then run:
-# python -m flowguard map models ui_flow_structure
+# transitions.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models ui_flow_structure
 
 from dataclasses import replace
 

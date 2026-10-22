@@ -1,4 +1,5 @@
 # Test Mesh
+Tree operation: Shard the root node's test binding so the complete suite runs once.
 Use this when the test suite is too large or slow to run in one command. FlowGuard's shard
 runner collects the whole suite once, splits the exact pytest node ids into disjoint shards,
 runs them in parallel with a time limit, and checks that every collected test ran exactly

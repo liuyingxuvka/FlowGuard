@@ -1,4 +1,5 @@
 # Code Structure Recommendation
+Tree operation: Split a component into child components, planning under DESIGN_ONLY and checking the implemented map.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 Use this before you write code for a new feature. You start from a functional
@@ -10,15 +11,12 @@ is not in the plan, a plan with no source model or no test boundaries, or a
 "shared kernel" built from two things that only look alike. After
 the code exists, each recommended module becomes one component in
 `.flowguard/map.json`.
-
 ## Use when
-
 - A model-first feature is ready and you must choose modules, files and facades before coding.
 - It is unclear which module should own a piece of state, a durable write or a field.
 - You plan a facade plus adapters, or a shared kernel plus variant adapters.
 - You want test boundaries per module that trace back to the model.
 - You split an existing large file or module and must keep its owners and public entrypoints (step 7).
-
 ## Do not use when
 
 - You do not yet know whether an owner already exists. Run `python -m flowguard read --find <words>` first.
@@ -68,7 +66,9 @@ the code exists, each recommended module becomes one component in
 4. `conformance()` returns `code_structure_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: named files, split
    children and `path:Symbol` entrypoints exist; with a map, each owner file is in its module's (or parent's) component.
    During planning, set `DESIGN_ONLY = "<reason>"` and pass `planned="DESIGN_ONLY" in globals()` to the code-facts helper; `IMPLEMENTED_BY` stays on today's real code and at least one real fact must hold. Planned failures require the marker and never include broken anchors; after the edit, update anchors and remove the marker.
-5. List the model in the parent's `models`; run `python -m flowguard map models code_structure` once.
+5. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models code_structure`.
+
 6. Write the code. Then turn each target module into a map component: `files` = `path`,
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,
    `state` and `side_effects` = owned items, `tests` = the real tests for its

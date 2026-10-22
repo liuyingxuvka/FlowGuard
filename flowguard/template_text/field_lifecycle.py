@@ -10,8 +10,9 @@ FIELD_LIFECYCLE_MODEL_TEMPLATE = '''# FlowGuard model: the lifecycle of the fiel
 # Conformance (code facts): the target plan matches the real code - a deleted field has no reference
 # left in OWNED_FILES, its replacement is present, and every declared location still holds its field.
 # While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
-# Fill in: replace every REPLACE_ME path and the example fields with yours, list this file in the
-# owning component's models in .flowguard/map.json, then run: python -m flowguard map models field_lifecycle
+# Fill in: replace every REPLACE_ME path and the example fields with yours.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models field_lifecycle
 
 from flowguard import (FIELD_DISPOSITION_DELETED, FIELD_IMPACT_ROUTING, FIELD_LIFECYCLE_REPLACED, FIELD_ROLE_ROUTING,
                        FieldLifecyclePlan, FieldLifecycleRow, FieldProjection, add_field_row,

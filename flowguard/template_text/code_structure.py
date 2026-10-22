@@ -15,8 +15,9 @@ CODE_STRUCTURE_MODEL_TEMPLATE = '''# FlowGuard model: one owner per responsibili
 # (or to the parent component when the map has no such component).
 # While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
 # Fill in: replace every REPLACE_ME path with yours, use your map component ids as module ids, model your
-# responsibilities, list this file in the owning component's models in .flowguard/map.json, then run:
-# python -m flowguard map models code_structure
+# responsibilities.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models code_structure
 
 from dataclasses import replace
 

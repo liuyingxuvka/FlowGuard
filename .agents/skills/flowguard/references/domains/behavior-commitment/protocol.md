@@ -1,4 +1,5 @@
 # Behavior Commitment and Primary Path
+Tree operation: Review external promises at component entrypoints and the tests that prove them.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 This capability catches two related bugs. First, an external promise (an API call, a CLI
@@ -73,7 +74,9 @@ the real bug in A stays hidden.
    A one-off direct check without a model:
    `review_behavior_commitment_ledger(load_behavior_commitment_ledger(path), project_root=".")` and
    `review_primary_path_authority(plan)`.
-6. List the model in the owner's `models`; run `python -m flowguard map models behavior_commitment` once.
+6. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models behavior_commitment`.
+
 7. After the code change, save the target ledger with `write_behavior_commitment_ledger(path, target_plan.ledger)`,
    update the map descriptions, `python -m flowguard map confirm <ids>`, then `python -m flowguard change`.
 

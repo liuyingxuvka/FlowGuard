@@ -23,6 +23,17 @@ SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## Wh
 
 
 class SkillPackageTests(unittest.TestCase):
+    def test_skill_entry_is_short_and_describes_the_tree(self) -> None:
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        self.assertLessEqual(len(text.splitlines()), 100)
+        self.assertEqual(1, text.splitlines().count("## The tree"))
+        for retired in ("## Binding", "L0 ", "L1:", "L2", "keep runners"):
+            self.assertNotIn(retired, text)
+        for name in CAPABILITIES:
+            with self.subTest(protocol=name):
+                lines = (SKILL / "references" / "domains" / name / "protocol.md").read_text(encoding="utf-8").splitlines()
+                self.assertTrue(any(line.startswith("Tree operation:") for line in lines[:3]))
+
     def test_model_recipes_have_short_grow_and_split_sections(self) -> None:
         text = (SKILL / "references" / "model_recipes.md").read_text(encoding="utf-8")
         for title in ("Grow a model", "Split a model"):

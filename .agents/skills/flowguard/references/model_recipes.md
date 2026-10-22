@@ -160,7 +160,7 @@ template writes one top-level `.flowguard/models/<name>.py` kit contract model. 
 model also retains its canonical auxiliary ledger. Existing user-written runners remain accepted;
 a runner declares `IMPLEMENTED_BY` (and `TESTED_BY`) at top level and follows the same anchor rule.
 Template code and test anchors contain `REPLACE_ME`
-and fail until you name your code and tests. Set COMPONENTS (and PARENT when refining a model) for contracts; list only runners in the owner's `models`. Run
+and fail until you name your code and tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. User-written runners remain registered through the component `models` field. Run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
 broken plans are rejected. A runner should print one line per case, return a non-zero exit code
 when any case disagrees with its expectation, and end with `raise SystemExit(run_owner(main))`

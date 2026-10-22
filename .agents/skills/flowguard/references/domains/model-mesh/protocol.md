@@ -1,4 +1,5 @@
 # Model Mesh
+Tree operation: Split a behavior node into children and check that partition using real child MODEL_IDs.
 
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
@@ -74,7 +75,8 @@ inputs; a retry loop with no progress rule.
    `reattach_only`, `parent_rerun_required`, `sibling_rerun_required` or
    `split_review_required`. Pass the result in `boundary_changes=(...)`.
 4. Keep relevant partition/reattachment regressions; the contract model explores a good mesh and bad variants.
-5. The top-level contract model is discovered automatically; run it once via `python -m flowguard map models <id>`.
+5. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models <id>`.
    Existing user runners stay registered in `models`; do not add a second direct run.
 6. After a child edit, `python -m flowguard change` selects the full caller closure. `map impact --depth 2` is only a truncated diagnostic, not complete coverage.
    Re-confirm the stale child (`map confirm ID`) and re-run the parent mesh.

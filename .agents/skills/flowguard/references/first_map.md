@@ -32,9 +32,9 @@ project and read components in batches. Default `read` targets 8,000 characters.
      imports (a re-export in `__init__.py`) fails with `anchor_broken`; point at the defining file.
    - `tests`: test files or globs (`tests/test_sessions*.py`). A component without tests is
      allowed; lint will warn `untested_component`.
-   - `layers`: top to bottom (e.g. `["entry", "app", "core", "support"]`). Pick each
-     component's layer by what it is, not by its current imports. Every import counts,
-     including imports inside functions; imports under `if TYPE_CHECKING:` do not.
+   - Write `layers` (top to bottom) and give every component a layer; without layers the root
+     model `system` warns `no layers in the map` and the layer rule never runs. Pick layers by
+     responsibility, not current imports; function-local imports count, `TYPE_CHECKING` imports do not.
    - Add 1-5 `flows` for the most important journeys. Each flow needs `"id"` (not `"name"`),
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and each responsibility under about 8 words, so that
@@ -56,6 +56,7 @@ project and read components in batches. Default `read` targets 8,000 characters.
    models), then commit. `.flowguard/cache/` ignores itself in git via its own `.gitignore`.
 9. Optional: write models for the 1-3 riskiest flows (`model_recipes.md`); entrypoints whose
    discovered reach includes `db`, `network` or `fs_write` are good candidates.
+   The result is a root plus N components; add behavior models for those 1-3 dangerous flows.
 
 ## Example (one component and one flow, valid as written)
 
@@ -91,6 +92,8 @@ project and read components in batches. Default `read` targets 8,000 characters.
 ```
 
 ## Quality bar
+
+- `layers` is set and every component has one.
 
 - Every source file belongs to exactly one component (check enforces this).
 - A newcomer reading `python -m flowguard read` can say where a new feature belongs.

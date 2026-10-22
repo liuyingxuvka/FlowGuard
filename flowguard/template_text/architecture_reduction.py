@@ -13,8 +13,9 @@ ARCHITECTURE_REDUCTION_MODEL_TEMPLATE = '''# FlowGuard model: code shrinks witho
 # plan removes is unreferenced. After the change, mark the candidate lifecycle_disposition="completed" (with
 # completion_evidence_refs) and drop its anchor: its code must then be gone.
 # While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
-# Fill in: replace every REPLACE_ME path with yours, write one edit per candidate, list this file in the owning
-# component's models in .flowguard/map.json, then run: python -m flowguard map models architecture_reduction
+# Fill in: replace every REPLACE_ME path with yours, write one edit per candidate.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models architecture_reduction
 
 from flowguard import (ArchitectureReductionCandidate, ArchitectureReductionPlan, ObservableArchitectureContract,
                        add_reduction_candidate, architecture_reduction_code_facts, architecture_reduction_explorer)

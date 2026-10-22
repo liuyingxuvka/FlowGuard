@@ -1,4 +1,5 @@
 # UI Flow
+Tree operation: Review a UI journey behavior node.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 Catches UI flows that look done but are not. A visible, enabled button with no
@@ -68,8 +69,8 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 
 4. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
    returns 0 only if good reports pass and relevant broken reports fail.
-5. List the model (or a persistent runner) in the owner's `models`; run it once via
-   `python -m flowguard map models <id>` (exit 0 = pass).
+5. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models ui_flow_structure`.
 6. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks

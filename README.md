@@ -26,6 +26,10 @@ things in the project:
    variants fail, and replays model traces against the real code (conformance).
 3. **Capability reviews** - 10 focused checks an agent picks when the task needs one (table below).
 
+The map and models form one tree. Root and component nodes come from the code and stay active;
+behavior models are added beneath components when a task needs them, with tests on the same nodes.
+`python -m flowguard read --mermaid` draws this tree.
+
 Map and code verify each other: every source file belongs to exactly one component; entrypoints,
 flow steps and model files must exist; every real import must be declared;
 confirming a component records a fingerprint of its files, so any code change marks it STALE until

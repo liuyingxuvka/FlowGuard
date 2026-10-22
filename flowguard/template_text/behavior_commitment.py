@@ -15,8 +15,9 @@ BEHAVIOR_COMMITMENT_MODEL_TEMPLATE = '''# FlowGuard model: external promises, th
 # Conformance (code facts): entrypoints and tests exist and touch each other, the primary entrypoint exists and
 # the v1 facade calls it. After the change, save the target ledger:
 # write_behavior_commitment_ledger(LEDGER, add_v1_api(plan()).ledger)
-# Fill in: replace every REPLACE_ME path here and in the ledger with yours, model your promises, list this file in
-# the owning component's models in .flowguard/map.json, then run: python -m flowguard map models behavior_commitment
+# Fill in: replace every REPLACE_ME path here and in the ledger with yours, model your promises.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models behavior_commitment
 
 from dataclasses import replace
 from pathlib import Path

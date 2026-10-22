@@ -1,4 +1,5 @@
 # Model-Test Alignment
+Tree operation: Examine a node's test binding in depth when TESTED_BY alone is insufficient.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 Use this to cross-check three lists row by row: what the model says must happen
@@ -50,7 +51,8 @@ same rule; a test covers an obligation id that no longer exists.
    `ObligationFamilyEvidence`, passed as `obligation_families` / `family_evidence`.
 5. Run the contract with `python -m flowguard map models model_test_alignment`; the intended
    design must pass and each generated bad variant must fail a real design property.
-6. Existing user-written runners remain supported and must be listed in their owner's models.
+6. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Existing user-written runners remain supported and listed in their owner's models.
    Templates create no runner; contract models are discovered automatically. Then use `change`.
 
 ## What blocks

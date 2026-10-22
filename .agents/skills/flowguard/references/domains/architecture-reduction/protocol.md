@@ -1,4 +1,5 @@
 # Architecture Reduction
+Tree operation: Remove or merge tree nodes while preserving behavior.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 
@@ -66,7 +67,9 @@ the same. It never deletes code on a guess.
    During planning, set `DESIGN_ONLY = "<reason>"` and pass `planned="DESIGN_ONLY" in globals()` to the code-facts helper.
    Keep `IMPLEMENTED_BY` on today's real code; at least one real fact must hold. Planned failures are explicit,
    never include broken anchors, and require `DESIGN_ONLY`. After the edit, update anchors and remove the marker.
-5. List the model in the owner's `models`; run `python -m flowguard map models architecture_reduction` once.
+5. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models architecture_reduction`.
+
 6. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
    still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.
 7. After the code change: mark the candidate `lifecycle_disposition="completed"` with `completion_evidence_refs`,
@@ -101,7 +104,7 @@ the same. It never deletes code on a guess.
 
 - [ ] Every acted-on lint finding is a candidate or has a reason in `scoped_candidate_reasons`.
 - [ ] The selected direct review or existing-owner check passes; relevant broken cases return `ok=False`.
-- [ ] Any new or changed model is listed in `models`; the component's `tests` list the equivalence tests.
+- [ ] Contract models are discovered from their anchors; the component's `tests` list the equivalence tests.
 - [ ] Those tests pass before and after the change.
 - [ ] `python -m flowguard change` is clean; resolved findings disappear, while kept/blocked candidates stay visible.
 - [ ] The report says which candidates ran, which stayed `risky_keep` or blocked, and what was skipped.

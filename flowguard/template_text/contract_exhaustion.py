@@ -12,8 +12,9 @@ CONTRACT_EXHAUSTION_MODEL_TEMPLATE = '''# FlowGuard model: every bad input of on
 # Conformance (replay): every combination runs against the real function; it counts as rejected when the
 # call raises or returns a rejection.  The report says how many combinations were executed against the code.
 # Fill in: replace REPLACE_ME with the module and function you protect, declare its arguments in VALID and
-# the bad values in BAD, list this file in the owning component's models in .flowguard/map.json, then run:
-# python -m flowguard map models contract_exhaustion
+# the bad values in BAD.
+# Its components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only to place it elsewhere.
+# Then run: python -m flowguard map models contract_exhaustion
 
 from flowguard import (ContractDimension, ContractExhaustionPlan, ContractOracle, contract_exhaustion_features,
                        execute_contract_features, feature_explorer, feature_variants)

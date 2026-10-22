@@ -1,4 +1,5 @@
 # Contract Exhaustion
+Tree operation: Check every bad input to a validator behavior node.
 Reuse the current owner model and tests. Create a persistent scaffold only for a new
 reusable boundary; apply the regression examples relevant to this change.
 Catches bad inputs and value combinations that nobody wrote a reaction for.
@@ -59,8 +60,8 @@ rejected before any write happens.
    real function: `execute_contract_features(features(), load_anchor(IMPLEMENTED_BY["place"]), VALID, rejected=...)`.
    A combination is rejected when the call raises or `rejected(result)` is true; the report says
    `executed against code: N of M feature combinations` and prints a counterexample for each one accepted.
-6. List the model in the owner's `models` in `.flowguard/map.json` and run
-   `python -m flowguard map models contract_exhaustion` (exit 0 = pass).
+6. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
+   Run `python -m flowguard map models contract_exhaustion`.
 7. Hand case ids to tests. `contract_exhaustion_to_test_mesh_cell_ids(report)` gives
    product ids (`cartesian:<model>:<group>:<n>`); it is empty for single-field cases.
    `contract_exhaustion_to_model_obligations(report)` covers every case

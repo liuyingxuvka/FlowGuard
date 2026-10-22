@@ -10,10 +10,8 @@ FlowGuard keeps, next to the code and committed to git:
 1. **The map** `.flowguard/map.json`: components, what each one owns (responsibilities, state, side
    effects), files, entrypoints, dependencies, tests and models. A confirmed component stores a
    fingerprint of its files; when the code changes it becomes STALE until it is re-read and confirmed.
-2. **Models**: executable `Input x State -> Set(Output x State)` models, either contract files
-   `.flowguard/models/<id>.py` linked by their literals, or runners `.../run_checks.py` registered in `models`.
-   A model must pass for the intended design, FAIL for its known-bad variants, and stay bound to the
-   real code (see Binding).
+2. **Models**: `.flowguard/models/<id>.py` contract files say where they belong in the tree.
+   User-written `.../run_checks.py` runners remain listed in their component's `models`.
 
 Commands: `python -m flowguard read | change | release | template` and `python -m flowguard map <command>`.
 Install the engine only from GitHub: `python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"`; the PyPI package named `flowguard` is a different project.
@@ -34,7 +32,7 @@ Install the engine only from GitHub: `python -m pip install "flowguard @ git+htt
    or drop the import), `dep_unused` (remove that `depends_on` entry), `test_missing` (fix the `tests`
    pattern), `model_unbound` (add the runner to the owning component's `models`), `anchor_broken` /
    `flow_step_broken` / `model_anchor_broken` (update the name), `model_anchor_missing` /
-   `model_conformance_missing` (bind the model, see Binding). BLOCKED lines name the missing binding.
+   `model_conformance_missing` (bind the model, see The tree). BLOCKED lines name the missing binding.
 3. Run exactly the tests and models it lists. Never claim a test passed unless you ran it.
 4. For each REVIEW component: read the change, update `summary`/`responsibilities`/`state`/
    `side_effects` if behavior changed, then `python -m flowguard map confirm <id>`.
@@ -65,21 +63,19 @@ Use `python -m flowguard read --mermaid` for the tree diagram; append `--compone
 ## Models for risky flows
 
 Retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions, multi-step
-flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), set its
-COMPONENTS (and PARENT when needed; register runners in `models`), run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
+flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), bind its code and tests,
+set COMPONENTS or PARENT only to change placement (register user runners in `models`), run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
 Component ids select `read --component`; model ids select `map models`. Unknown model ids fail.
-`change` follows the complete caller closure; explicit `map impact --depth N` is truncated.
-Static Python/relative JS/TS imports and literal lazy exports are supported.
-Each declared edge needs an import, module literal or explicit debt reason; unsupported edges fail check.
 
-## Binding
+## The tree
 
-Every model has five abilities: a state model of its concern, counterexamples, known-bad variants, code and test binding.
-Only the meta-capabilities (model-mesh, topology-hazard, model-test) inspect other models and tests and keep runners.
-L0 is the map (one owner per file, STALE when its code changes). L1: `IMPLEMENTED_BY` (`path:Symbol`) and
-`TESTED_BY` anchors resolve; `REPLACE_ME`, missing or renamed anchors are ERRORs, and `change` reselects the model and its tests.
-Conformance is required: replay the real code (L2, only for risky flows) or compare it as code facts.
-`DESIGN_ONLY = "<reason>"` only while the code does not exist. Build a model only when the task touches it.
+The map and models form one tree with five abilities at every node: structure, counterexamples,
+known-bad variants that must fail, code binding (`IMPLEMENTED_BY` + `conformance()`), and test binding
+(`TESTED_BY`; `release` runs tests and requires them to reach anchored code). Root `system` is the code-derived component graph: unaccepted cycles, upward layer imports and duplicate owners violate its invariants; `python -m flowguard map models system` generates bad edges, and `map check` is its conformance.
+Components have files, tests and STALE fingerprints. Behavior models sit under components through anchors/`COMPONENTS`, or models through `PARENT` or a parent importing their blocks; review models sit under the model they review.
+
+`read` shows the tree and `read --mermaid` draws it; `change` reselects changed models, importers, ancestors and review children.
+Use `DESIGN_ONLY = "<reason>"` only for code or planned changes that do not exist yet. Add behavior models only when the task needs them.
 
 ## First map of an existing project
 
