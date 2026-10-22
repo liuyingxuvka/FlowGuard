@@ -6,7 +6,7 @@
 | `duplicate_owner` | error | two components claim the same responsibility | pick one owner; the other delegates to it |
 | `possible_duplicate` | warn | two responsibilities are worded very similarly | check whether they are the same job; merge or reword |
 | `duplicate_code` | warn | identical function bodies in different components (info when all copies are in one component) | keep one implementation in the owner, call it from the other |
-| `dependency_cycle` | error | components import each other in a cycle | extract the shared part into a lower component, or merge |
+| `dependency_cycle` | error | components import each other; check and lint show the shortest closing import path and its file:line sites | extract the shared part into a lower component, merge, or record the existing cycle's members as accepted debt |
 | `large_file` / `large_component` | warn | above size limits (800 LOC per file, 3000 per component) | split along responsibilities |
 | `too_many_responsibilities` | warn | more than 7 responsibilities | split the component |
 | `high_fan_out` | warn | depends on more than 8 components | introduce a facade or split |

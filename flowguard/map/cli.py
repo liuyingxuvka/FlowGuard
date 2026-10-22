@@ -157,10 +157,10 @@ def cmd_change(root: Path, a) -> int:
     findings = run_check(root, data, inv)
     imp = compute_impact(root, data, inv, changes, base=a.base)
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)
-    # Info only for changed owners; a layer violation is shown once, as its ARCH line with import sites.
-    arch_layers = {f.component for f in architecture if f.code == "layer_violation"}
+    # Structural violations appear once, as ARCH lines with import paths.
+    arch_rules = {(f.code, f.component) for f in architecture if f.code in {"layer_violation", "dependency_cycle"}}
     shown = [f for f in findings if (f.level != "info" or f.component in imp.direct)
-             and not (f.code == "layer_violation" and f.component in arch_layers)]
+             and (f.code, f.component) not in arch_rules]
     counts = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
     print_findings(shown, "check", as_json=False, limit=80)
     if len(shown) < len(findings):

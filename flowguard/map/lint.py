@@ -13,7 +13,7 @@ from __future__ import annotations
 import ast
 import re
 import sys
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -123,20 +123,38 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
     return findings, used
 
 
+def structural_findings(data: dict, graph: dict[str, set[str]], *,
+                        root: Path | None = None, inv: Inventory | None = None) -> list[Finding]:
+    """The shared raw cycle/layer rules; callers apply accepted debts once."""
+    out = []
+    for cycle in find_cycles(graph):
+        start, members = cycle[0], set(cycle)
+        pending, seen, shortest = deque([[start]]), {start}, []
+        while pending and not shortest:
+            path = pending.popleft()
+            for destination in sorted(graph.get(path[-1], set()) & members):
+                if destination == start:
+                    shortest = path + [start]
+                    break
+                if destination not in seen:
+                    seen.add(destination)
+                    pending.append(path + [destination])
+        message = " <-> ".join(cycle) + "; shortest cycle: " + " -> ".join(shortest)
+        if root is not None and inv is not None:
+            for src, dst in zip(shortest, shortest[1:]):
+                sites = dependency_import_sites(root, data, inv, src, dst)
+                if sites:
+                    message += f"; {src} -> {dst}: {sites[0]}"
+        out.append(Finding("error", "dependency_cycle", cycle[0], message))
+    out.extend(layer_findings(data, graph, root=root, inv=inv))
+    return out
+
+
 def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None) -> list[Finding]:
     limits = limits or Limits()
-    out: list[Finding] = []
     comps = data["components"]
     graph = component_graph(data, inv)
-    for cycle in find_cycles(graph):
-        sites = [site for src in cycle for dst in sorted(graph[src] & set(cycle))
-                 for site in dependency_import_sites(root, data, inv, src, dst)]
-        evidence = "; imports: " + ", ".join(sites[:4]) if sites else ""
-        if len(sites) > 4:
-            evidence += f" ... +{len(sites) - 4} import sites"
-        out.append(Finding("error", "dependency_cycle", cycle[0], " <-> ".join(cycle) + evidence))
-
-    out.extend(layer_findings(data, graph, root=root, inv=inv))
+    out = structural_findings(data, graph, root=root, inv=inv)
 
     claims: dict[str, set[str]] = defaultdict(set)
     rows = []

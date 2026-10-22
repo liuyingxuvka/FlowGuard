@@ -909,3 +909,43 @@ def test_change_selects_importers_and_ancestors_of_a_changed_model(impact_projec
     assert impact.tests == tests  # added importers/ancestors do not add their TESTED_BY tests
     assert not impact.direct and not impact.dependents and not impact.blocked
     assert impact.no_checks == ([path] if changed == '_unused.py' else [])
+
+
+@pytest.mark.parametrize("debt_style", ["members", "legacy"])
+def test_check_and_lint_report_cycles_with_the_shortest_import_path(tmp_path, capsys, debt_style):
+    root = tmp_path / "cycle"
+    write(root, "a.py", "from b import value\nfrom c import value\nvalue = 1\n")
+    write(root, "b.py", "from c import value\nvalue = 2\n")
+    write(root, "c.py", "from a import value\nvalue = 3\n")
+    git(root, "init", "-q")
+    run(root, "scan", capsys=capsys)
+    data = load(root)
+    data["layers"] = []
+    data["components"] = [
+        {"id": cid, "layer": "", "summary": responsibility, "responsibilities": [responsibility],
+         "files": [cid + ".py"], "entrypoints": [], "state": [], "side_effects": [],
+         "depends_on": dependencies, "tests": [], "models": [], "status": "draft", "fingerprint": ""}
+        for cid, dependencies, responsibility in [("a", ["b", "c"], "alpha operation"),
+                                                   ("b", ["c"], "bravo persistence"),
+                                                   ("c", ["a"], "charlie rendering")]]
+    save(root, data)
+    run(root, "confirm", "all", capsys=capsys)
+    for command in ("check", "lint"):
+        code, out = run(root, command, capsys=capsys)
+        assert code == 1 and "ERROR dependency_cycle" in out
+        assert "a <-> b <-> c; shortest cycle: a -> c -> a" in out
+        assert "a -> c: a.py:2 from c import value" in out
+        assert "c -> a: c.py:1 from a import value" in out
+    from flowguard.__main__ import main
+    code = main(["change", "--root", str(root), "a.py"])
+    out = capsys.readouterr().out
+    assert code == 1 and out.count("dependency_cycle") == 1
+    assert "ARCH ERROR dependency_cycle" in out
+    debt = {"code": "dependency_cycle", "reason": "preserve this existing cycle"}
+    debt.update({"members": ["a", "b", "c"]} if debt_style == "members" else
+                {"component": "a", "contains": "a <-> b <-> c"})
+    data = load(root)
+    data["accepted_debts"] = [debt]
+    save(root, data)
+    code, out = run(root, "check", capsys=capsys)
+    assert code == 0 and "INFO  dependency_cycle" in out and "accepted debt" in out

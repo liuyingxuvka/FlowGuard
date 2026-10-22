@@ -145,8 +145,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             out.append(Finding("warn", "test_unbound", "", f"{test}: no component lists this test in tests"))
     graph = component_graph(data, inv)
     evidence_graph = dependency_evidence(data, inv)
-    from .lint import apply_accepted_debts, layer_findings
-    out.extend(apply_accepted_debts(layer_findings(data, graph), data.get("accepted_debts", []))[0])
+    from .lint import apply_accepted_debts, normalized_debts, structural_findings
+    out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv), normalized_debts(data))[0])
     stale_level = "error" if strict else "warn"
     for c in data["components"]:
         cid, files = c["id"], component_files(c, inv)

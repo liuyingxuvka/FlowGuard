@@ -10,21 +10,17 @@ from pathlib import Path
 from .common import Finding, read_source, tokens
 from .inventory import Inventory
 from .tree import build_tree
-from .lint import apply_accepted_debts, find_cycles, layer_findings, normalized_debts
+from .lint import apply_accepted_debts, normalized_debts, structural_findings
 from .mapfile import component_files, component_graph, is_stale, owner_index
 
 
 def _architecture(data: dict, graph: dict[str, set[str]]):
     """Only cheap cycle/layer rules; share full debt normalization with lint."""
-    findings, by_component = [], defaultdict(list)
-    for cycle in find_cycles(graph):
-        finding = Finding("error", "dependency_cycle", cycle[0], " <-> ".join(cycle))
-        findings.append(finding)
-        for cid in cycle:
+    findings, by_component = structural_findings(data, graph), defaultdict(list)
+    for finding in findings:
+        members = finding.message.split(";", 1)[0].split(" <-> ") if finding.code == "dependency_cycle" else [finding.component]
+        for cid in members:
             by_component[cid].append(finding)
-    for finding in layer_findings(data, graph):
-        findings.append(finding)
-        by_component[finding.component].append(finding)
     findings, used = apply_accepted_debts(findings, normalized_debts(data))
     return findings, used, by_component
 
