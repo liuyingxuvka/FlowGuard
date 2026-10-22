@@ -62,6 +62,9 @@ Example: after renaming `old_mode` to `mode`, `old_mode` needs a disposition.
    without disposition), and `conformance()` returns
    `field_lifecycle_code_facts(target_plan, OWNED_FILES, anchors=IMPLEMENTED_BY)`: a deleted field has no
    reference left in `OWNED_FILES`, its replacement is present, every declared location still holds its field.
+   During planning, set `DESIGN_ONLY = "<reason>"` and pass `planned="DESIGN_ONLY" in globals()` to the code-facts helper.
+   Keep `IMPLEMENTED_BY` on today's real code; at least one real fact must hold. Planned failures are explicit,
+   never include broken anchors, and require `DESIGN_ONLY`. After the edit, update anchors and remove the marker.
 9. List the model in the component's `models`; run `python -m flowguard map models field_lifecycle`.
 10. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 

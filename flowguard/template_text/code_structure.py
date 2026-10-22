@@ -13,6 +13,7 @@ CODE_STRUCTURE_MODEL_TEMPLATE = '''# FlowGuard model: one owner per responsibili
 # Conformance (code facts): every module file, split child and code entrypoint of the target plan exists, and
 # with .flowguard/map.json each responsibility's owner file belongs to the map component of that module id
 # (or to the parent component when the map has no such component).
+# While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
 # Fill in: replace every REPLACE_ME path with yours, use your map component ids as module ids, model your
 # responsibilities, list this file in the owning component's models in .flowguard/map.json, then run:
 # python -m flowguard map models code_structure
@@ -26,6 +27,7 @@ from flowguard import (CodeStructureRecommendation, ModuleStructureEvidence, Pub
 MODEL_ID = "code_structure"
 IMPLEMENTED_BY = {"PlaceOrder": "REPLACE_ME/orders.py:place_order",    # the code of each responsibility
                   "PriceOrder": "REPLACE_ME/pricing.py:price_order"}
+# DESIGN_ONLY = "<what is planned>"   # while the change is planned; delete after the edit
 TESTED_BY = {"structure_mesh_review_accepts": ["REPLACE_ME/test_orders.py:test_place_order"]}
 PLACE_ORDER = IMPLEMENTED_BY["PlaceOrder"]                            # the public entrypoint the split keeps
 
@@ -79,7 +81,7 @@ def broken_variants():
 
 
 def conformance():
-    return code_structure_code_facts(split_pricing(plan()), anchors=IMPLEMENTED_BY)
+    return code_structure_code_facts(split_pricing(plan()), anchors=IMPLEMENTED_BY, planned="DESIGN_ONLY" in globals())
 '''
 
 __all__ = ["CODE_STRUCTURE_MODEL_TEMPLATE"]

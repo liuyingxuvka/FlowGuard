@@ -205,7 +205,8 @@
       "responsibilities": [
         "provide starter files for each capability",
         "kit templates write one contract model whose placeholder code and test anchors fail until replaced with real ones",
-        "only the meta-capabilities (model-mesh, topology-hazard, model-test) keep runner templates: they inspect other models and tests"
+        "only the meta-capabilities (model-mesh, topology-hazard, model-test) keep runner templates: they inspect other models and tests",
+        "generate edit-plan examples forwarding the existing DESIGN_ONLY marker to code-facts helpers"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -226,7 +227,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6796cb23d7f8fbc0daf3a88cff86b2b2b5897e76fa096a05a31eb9628c36cad4"
+      "fingerprint": "sha256:34cf76e57bbbf820d3f553f201f6d7321d394cf4f75e53346d7c527be07597ac"
     },
     {
       "id": "behavior-commitment",
@@ -287,7 +288,8 @@
       "responsibilities": [
         "gate merging or removing code on proven unchanged behaviour",
         "check that each candidate names real code when given the project root (a completed removal names code that is gone and is not checked)",
-        "model kit: explore added candidates with the review and a static reference scan as invariants (deleting a symbol that another file still imports or names is a counterexample) and compare the target plan with the code"
+        "model kit: explore added candidates with the review and a static reference scan as invariants (deleting a symbol that another file still imports or names is a counterexample) and compare the target plan with the code",
+        "mark future candidate lifecycle facts planned without changing reduction reviews or reference scans"
       ],
       "files": [
         "flowguard/architecture_reduction.py"
@@ -311,7 +313,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:02a9acab82ae33332588657e1e92a517078819e65469af502ae4a1659fda6486"
+      "fingerprint": "sha256:40978034fc26abe91daa6ecac2e4d0c9016f11f7d26b57900ac6f471323499dc"
     },
     {
       "id": "code-structure",
@@ -320,7 +322,8 @@
       "responsibilities": [
         "recommend one owning module per model element",
         "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist",
-        "model kit: explore module-plan edits with the recommendation and split reviews as invariants and compare the target plan with the code and the map (module files, split children and entrypoints exist; each owner file belongs to the named component)"
+        "model kit: explore module-plan edits with the recommendation and split reviews as invariants and compare the target plan with the code and the map (module files, split children and entrypoints exist; each owner file belongs to the named component)",
+        "compare planned module and split target files with current source under DESIGN_ONLY"
       ],
       "files": [
         "flowguard/code_structure.py",
@@ -351,7 +354,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cfb69ec9f2589c756fff944c7d9c63a3d6a6f837a7e4915761262037bf0cab2a"
+      "fingerprint": "sha256:3d0ca2009dd2e7bc05a75ca557ef785fbc594915bb0236dc3cd4df0437c80702"
     },
     {
       "id": "contract-exhaustion",
@@ -393,7 +396,8 @@
       "responsibilities": [
         "reject unknown role, lifecycle and behavior-impact values with typed blockers",
         "account for field owners, readers, writers and replacements",
-        "model kit: explore field edits with the review as invariant and compare the plan with the code (deleted fields unreferenced, replacements and locations present)"
+        "model kit: explore field edits with the review as invariant and compare the plan with the code (deleted fields unreferenced, replacements and locations present)",
+        "compare planned field replacement and retirement targets while present code anchors remain required"
       ],
       "files": [
         "flowguard/field_lifecycle.py"
@@ -414,7 +418,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4b97725c942066896bb273cdccf9a84659b76ffb5e80228110246862e5c2fec1"
+      "fingerprint": "sha256:eec3d0346c5e9def0bd99b01409c481bb367da555c020b6fb1568939c409ca9c"
     },
     {
       "id": "model-mesh",
@@ -724,7 +728,8 @@
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system': architecture rules as invariants, generated known-bad edges and claims, map check as conformance",
-        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window"
+        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window",
+        "preserve real anchors and expose planned Fact reports with a DESIGN_ONLY conformance gate"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -756,7 +761,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5edd1984b38153443b8d6fdaa4cd4ab58ea9b4c2334e44bc407c8fa2feeffb65"
+      "fingerprint": "sha256:b1643bb5c7b82fda7a5e587f9964200b74655a3dd1c733153db9ca2491cb8aa5"
     },
     {
       "id": "engine-explore",

@@ -341,6 +341,12 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
                 conf = module.conformance()
             if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):
                 raise ValueError("conformance() must return a report with boolean .ok and format_text(); no real-code proof executed")
+            planned = getattr(conf, "planned", ())
+            if planned:
+                if contract.get("DESIGN_ONLY"):
+                    result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): {len(planned)} planned fact(s) still to make true; remove DESIGN_ONLY after the change")
+                else:
+                    _fail(result, "planned facts without DESIGN_ONLY: " + ", ".join(fact.name for fact in planned))
             if not conf.ok:
                 environment = [v for v in getattr(conf, "violations", ())
                                if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}

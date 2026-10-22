@@ -67,6 +67,7 @@ the code exists, each recommended module becomes one component in
    `review_structure_mesh` must accept every plan reached; `broken_variants()` explores wrong edits (below).
 4. `conformance()` returns `code_structure_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: named files, split
    children and `path:Symbol` entrypoints exist; with a map, each owner file is in its module's (or parent's) component.
+   During planning, set `DESIGN_ONLY = "<reason>"` and pass `planned="DESIGN_ONLY" in globals()` to the code-facts helper; `IMPLEMENTED_BY` stays on today's real code and at least one real fact must hold. Planned failures require the marker and never include broken anchors; after the edit, update anchors and remove the marker.
 5. List the model in the parent's `models`; run `python -m flowguard map models code_structure` once.
 6. Write the code. Then turn each target module into a map component: `files` = `path`,
    `responsibilities` = owned function blocks, `entrypoints` = `public_entrypoints`,

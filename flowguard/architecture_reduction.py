@@ -1380,7 +1380,7 @@ def architecture_reduction_explorer(initial, edits, *, explore=None, max_sequenc
                          extra_reviews={"removed_code_unreferenced": lambda plan: _removal_report(plan, references)})
 
 
-def architecture_reduction_code_facts(plan: ArchitectureReductionPlan, *, anchors=(), root=None):
+def architecture_reduction_code_facts(plan: ArchitectureReductionPlan, *, anchors=(), root=None, planned: bool = False):
     """Compare a reduction plan with the real code (static code facts, nothing is executed).
 
     * every anchor exists;
@@ -1392,7 +1392,7 @@ def architecture_reduction_code_facts(plan: ArchitectureReductionPlan, *, anchor
     from .map.check import anchor_problems
     from .map.facts import CodeFacts
 
-    facts = CodeFacts(root)
+    facts = CodeFacts(root, planned=planned)
     if anchors:
         facts.anchors_exist(anchors)
     problems = anchor_problems(facts.root, [c.code_node_id for c in plan.candidates if c.code_node_id])

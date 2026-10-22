@@ -1057,7 +1057,7 @@ def _code_name(row: FieldLifecycleRow) -> str:
     return row.field_name.split(":")[-1].split(".")[-1]
 
 
-def field_lifecycle_code_facts(plan: FieldLifecyclePlan, files: Sequence[str], *, anchors=(), root=None):
+def field_lifecycle_code_facts(plan: FieldLifecyclePlan, files: Sequence[str], *, anchors=(), root=None, planned: bool = False):
     """Compare a field-lifecycle plan with the real code (static code facts, nothing is executed).
 
     * a row closed as deleted has no reference left in ``files``;
@@ -1067,7 +1067,7 @@ def field_lifecycle_code_facts(plan: FieldLifecyclePlan, files: Sequence[str], *
     """
     from .map.facts import CodeFacts
 
-    facts = CodeFacts(root)
+    facts = CodeFacts(root, planned=planned)
     if anchors:
         facts.anchors_exist(anchors)
     files = list(files)

@@ -63,6 +63,9 @@ the same. It never deletes code on a guess.
    `architecture_reduction_code_facts(target_plan, anchors=IMPLEMENTED_BY)`: anchors and active candidates name
    real code, removed code is unreferenced, a completed removal's code is gone. A one-off direct check:
    `review_architecture_reduction(plan, project_root=".")` (every `code_node_id` must name real code).
+   During planning, set `DESIGN_ONLY = "<reason>"` and pass `planned="DESIGN_ONLY" in globals()` to the code-facts helper.
+   Keep `IMPLEMENTED_BY` on today's real code; at least one real fact must hold. Planned failures are explicit,
+   never include broken anchors, and require `DESIGN_ONLY`. After the edit, update anchors and remove the marker.
 5. List the model in the owner's `models`; run `python -m flowguard map models architecture_reduction` once.
 6. Act on `report.target_actions` only when `report.ok` is True. `ready_candidate_ids` and `target_actions` can
    still list a candidate that has a blocker, so never use them alone. Follow a non-empty `required_next_route` only when its specific risk needs that owner.

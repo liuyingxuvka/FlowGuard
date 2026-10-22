@@ -405,6 +405,53 @@ def build_review():
         self.assertIn("field:old_mode: deleted field has no reference left",
                       self.run_kit_template(files, "field_lifecycle", stale, fill="shop", expected_returncode=1))
 
+    def test_code_structure_template_runs_as_a_plan_before_the_split(self):
+        from dataclasses import replace
+        files = code_structure_template_files()
+        current = {"shop/orders.py": "def place_order(order):\n    return price_order(order)\n\ndef price_order(order):\n    return order['amount']\n"}
+        unsplit = tuple(replace(f, content=f.content.replace("REPLACE_ME/pricing.py:price_order", "REPLACE_ME/orders.py:price_order")) for f in files)
+        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "split pricing into its own module"\n') if f is unsplit[0] else f for f in unsplit)
+        components = {"orders": ["shop/orders.py"], "pricing": ["shop/pricing.py"]}
+        output = self.run_kit_template(planned, "code_structure", current, fill="shop", components=components, expected_returncode=0)
+        self.assertIn("PASS  code_structure", output)
+        self.assertIn("planned fact(s) still to make true", output)
+        output = self.run_kit_template(unsplit, "code_structure", current, fill="shop", components=components, expected_returncode=1)
+        self.assertIn("does not exist", output)
+        forced = tuple(replace(f, content=f.content.replace('planned="DESIGN_ONLY" in globals()', 'planned=True')) for f in unsplit)
+        output = self.run_kit_template(forced, "code_structure", current, fill="shop", components=components, expected_returncode=1)
+        self.assertIn("planned facts without DESIGN_ONLY:", output)
+        completed = {"shop/orders.py": "from shop.pricing import price_order\ndef place_order(order):\n    return price_order(order)\n",
+                     "shop/pricing.py": "def price_order(order):\n    return order['amount']\n"}
+        output = self.run_kit_template(files, "code_structure", completed, fill="shop", components=components, expected_returncode=0)
+        self.assertNotIn("planned fact(s)", output)
+
+    def test_architecture_reduction_future_completed_target_can_be_planned(self):
+        from dataclasses import replace
+        files = architecture_reduction_template_files()
+        # The stock design remains active. Only conformance describes the future completed merge:
+        # validate_v2 is still real today, so its target 'is gone' fact must remain planned.
+        target = "replace(merge_validate_v2(plan()), candidates=(replace(merge_validate_v2(plan()).candidates[0], lifecycle_disposition='completed'),))"
+        future = tuple(replace(f, content="from dataclasses import replace\n" + f.content.replace("merge_validate_v2(plan()), anchors=IMPLEMENTED_BY", target + ", anchors=IMPLEMENTED_BY")) if f is files[0] else f for f in files)
+        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "merge validate_v2 into validate"\n') if f is future[0] else f for f in future)
+        code = {"shop/orders.py": "def validate(order):\n    return bool(order)\ndef validate_v2(order):\n    return bool(order)\ndef place_order(order):\n    return validate(order)\n",
+                "shop/api.py": "from shop.orders import validate\ndef create(order):\n    return validate(order)\n"}
+        output = self.run_kit_template(planned, "architecture_reduction", code, fill="shop", expected_returncode=0)
+        self.assertIn("PASS  architecture_reduction", output)
+        self.assertIn("planned fact(s) still to make true", output)
+        output = self.run_kit_template(future, "architecture_reduction", code, fill="shop", expected_returncode=1)
+        self.assertIn("still exists", output)
+
+    def test_field_lifecycle_template_can_plan_a_replacement_not_yet_written(self):
+        from dataclasses import replace
+        files = field_lifecycle_template_files()
+        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "replace old_mode with mode"\n') if f is files[0] else f for f in files)
+        code = {"shop/orders.py": "class Order:\n    old_mode = 'fast'\n"}
+        output = self.run_kit_template(planned, "field_lifecycle", code, fill="shop", expected_returncode=0)
+        self.assertIn("PASS  field_lifecycle", output)
+        self.assertIn("planned fact(s) still to make true", output)
+        output = self.run_kit_template(files, "field_lifecycle", code, fill="shop", expected_returncode=1)
+        self.assertIn("replacement field:mode exists", output)
+
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {
             factory.__name__.removesuffix("_template_files"): factory

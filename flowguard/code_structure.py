@@ -635,7 +635,7 @@ def _code_entrypoint_problems(root: Path, targets: Sequence[str]) -> dict[str, s
     return found
 
 
-def code_structure_code_facts(plan: Any, *, anchors=(), root=None):
+def code_structure_code_facts(plan: Any, *, anchors=(), root=None, planned: bool = False):
     """Compare a module plan with the real code and the project map (static code facts, nothing is executed).
 
     * every target module path, split child path and source model path exists, and every public entrypoint
@@ -648,7 +648,7 @@ def code_structure_code_facts(plan: Any, *, anchors=(), root=None):
     from .map.facts import CodeFacts
     from .map.mapfile import MapError, load_map, map_path
 
-    facts = CodeFacts(root)
+    facts = CodeFacts(root, planned=planned)
     if anchors:
         facts.anchors_exist(anchors)
     recommendation = _recommendation_of(plan)

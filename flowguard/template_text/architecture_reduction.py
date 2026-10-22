@@ -12,6 +12,7 @@ ARCHITECTURE_REDUCTION_MODEL_TEMPLATE = '''# FlowGuard model: code shrinks witho
 # Conformance (code facts): every anchor and every active candidate names real code, and the code the target
 # plan removes is unreferenced. After the change, mark the candidate lifecycle_disposition="completed" (with
 # completion_evidence_refs) and drop its anchor: its code must then be gone.
+# While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
 # Fill in: replace every REPLACE_ME path with yours, write one edit per candidate, list this file in the owning
 # component's models in .flowguard/map.json, then run: python -m flowguard map models architecture_reduction
 
@@ -21,6 +22,7 @@ from flowguard import (ArchitectureReductionCandidate, ArchitectureReductionPlan
 MODEL_ID = "architecture_reduction"
 IMPLEMENTED_BY = {"Validate": "REPLACE_ME/orders.py:validate",        # the code the candidates name
                   "ValidateV2": "REPLACE_ME/orders.py:validate_v2"}
+# DESIGN_ONLY = "<what is planned>"   # while the change is planned; delete after the edit
 TESTED_BY = {"architecture_reduction_review_accepts": ["REPLACE_ME/test_orders.py:test_validate"]}
 CONTRACT = ObservableArchitectureContract(
     source_model_id="orders", source_code_boundary_id="orders", public_entrypoints=("REPLACE_ME/orders.py:place_order",),
@@ -61,7 +63,7 @@ def broken_variants():
 
 
 def conformance():
-    return architecture_reduction_code_facts(merge_validate_v2(plan()), anchors=IMPLEMENTED_BY)
+    return architecture_reduction_code_facts(merge_validate_v2(plan()), anchors=IMPLEMENTED_BY, planned="DESIGN_ONLY" in globals())
 '''
 
 __all__ = ["ARCHITECTURE_REDUCTION_MODEL_TEMPLATE"]

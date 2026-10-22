@@ -9,6 +9,7 @@ FIELD_LIFECYCLE_MODEL_TEMPLATE = '''# FlowGuard model: the lifecycle of the fiel
 # Known-bad: the old field is dropped without a closing disposition.
 # Conformance (code facts): the target plan matches the real code - a deleted field has no reference
 # left in OWNED_FILES, its replacement is present, and every declared location still holds its field.
+# While planning, IMPLEMENTED_BY names today's code; after the edit, update its locations and delete DESIGN_ONLY.
 # Fill in: replace every REPLACE_ME path and the example fields with yours, list this file in the
 # owning component's models in .flowguard/map.json, then run: python -m flowguard map models field_lifecycle
 
@@ -19,6 +20,7 @@ from flowguard import (FIELD_DISPOSITION_DELETED, FIELD_IMPACT_ROUTING, FIELD_LI
 MODEL_ID = "field_lifecycle"
 IMPLEMENTED_BY = {"Order": "REPLACE_ME/orders.py:Order"}     # the code that reads and writes these fields
 OWNED_FILES = ["REPLACE_ME/orders.py"]                      # files searched for the field names
+# DESIGN_ONLY = "<what is planned>"   # while the change is planned; delete after the edit
 TESTED_BY = {"field_lifecycle_review_accepts": ["REPLACE_ME/test_orders.py:test_old_mode_is_rejected"]}
 
 
@@ -72,7 +74,7 @@ def broken_variants():
 
 def conformance():
     target = retire_old_mode(introduce_mode(plan()))
-    return field_lifecycle_code_facts(target, OWNED_FILES, anchors=IMPLEMENTED_BY)
+    return field_lifecycle_code_facts(target, OWNED_FILES, anchors=IMPLEMENTED_BY, planned="DESIGN_ONLY" in globals())
 '''
 
 __all__ = ["FIELD_LIFECYCLE_MODEL_TEMPLATE"]

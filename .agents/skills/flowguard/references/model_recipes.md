@@ -9,7 +9,7 @@ IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}   # block -
 def build_explorer(): ...     # REQUIRED: Explorer of the intended design; must pass
 def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL, and together they should break every invariant (map models warns otherwise; release fails)
 def conformance(): ...        # REQUIRED: replay the real code, or compare it as code facts; .ok must be True
-# DESIGN_ONLY = "reason"      # only while the code does not exist yet: anchors and conformance come later
+# DESIGN_ONLY = "reason"      # while planning: anchors name current code; edit-plan conformance may report planned facts
 ```
 
 Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
