@@ -1094,7 +1094,8 @@
         "map-analysis:run_check",
         "cli:cmd_impact",
         "map-analysis:compute_impact"
-      ]
+      ],
+      "model": ".flowguard/models/change_selection.py"
     },
     {
       "id": "prove_models",
@@ -1104,7 +1105,8 @@
         "map-proof:run_models",
         "engine-explore:Explorer.explore",
         "engine-conformance:replay_trace"
-      ]
+      ],
+      "model": ".flowguard/models/model_proof.py"
     },
     {
       "id": "first_map",

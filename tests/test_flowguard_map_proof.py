@@ -79,6 +79,27 @@ def models(root: Path, capsys, *extra: str) -> tuple[int, str]:
     return code, capsys.readouterr().out
 
 
+def _native_model(root, path):
+    """Exercise the native API without lending another temporary shop its imports."""
+    import sys
+    from flowguard.map.proof import run_model_in_process
+
+    saved_path = sys.path[:]
+    model_name = "_flowguard_model_" + path.stem
+    saved = {name: module for name, module in sys.modules.items()
+             if name == "shop" or name.startswith("shop.") or name == model_name}
+    for name in saved:
+        sys.modules.pop(name)
+    try:
+        return run_model_in_process(root, path)
+    finally:
+        sys.path[:] = saved_path
+        for name in list(sys.modules):
+            if name == "shop" or name.startswith("shop.") or name == model_name:
+                sys.modules.pop(name)
+        sys.modules.update(saved)
+
+
 def test_unit_test_is_green_but_model_conformance_catches_double_charge(shop, capsys):
     code, out = models(shop, capsys)
     assert code == 1
@@ -242,9 +263,15 @@ def test_abstract_model_fails_and_design_only_is_the_one_exemption(tmp_path):
     assert result.status == "fail"
     assert any("abstract boundary only" in problem for problem in result.problems)
     assert any("declares no IMPLEMENTED_BY anchors" in problem for problem in result.problems)
+    native = _native_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
+    assert native.status == "fail"
+    assert any("abstract boundary only" in problem for problem in native.problems)
+    assert any("declares no IMPLEMENTED_BY anchors" in problem for problem in native.problems)
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL + '\nDESIGN_ONLY = "the order service is not written yet"\n')
     result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
     assert result.status == "pass" and any("design only" in warning for warning in result.warnings)
+    native = _native_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
+    assert native.status == "pass" and any("design only" in warning for warning in native.warnings)
 
 
 def test_no_models_output_is_explicitly_not_model_proof(tmp_path):
@@ -316,6 +343,8 @@ def test_model_that_never_runs_its_implemented_by_code_fails(shop, capsys, case)
         _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
     code, out = models(shop, capsys)
     assert code == 1 and "never ran" in out
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "fail" and "never ran" in " ".join(native.problems)
 
 
 def test_abstract_model_with_empty_implemented_by_fails(shop, capsys):
@@ -389,6 +418,11 @@ def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
     assert code == 1 and expected in out
     if case != "design_without_invariants":
         assert "invariant 'one_charge_per_order' is violated by no known-bad variant" in out
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "fail" and expected in " ".join(native.problems)
+    if case != "design_without_invariants":
+        assert any("invariant 'one_charge_per_order' is violated by no known-bad variant" in warning
+                   for warning in native.warnings)
 
 
 def test_plain_function_invariant_is_accepted(shop, capsys):
@@ -436,6 +470,8 @@ def test_tested_by_must_name_a_design_invariant(shop, capsys):
     write(shop, MODEL, source + '\nTESTED_BY = {"no_such_invariant": ["tests/test_orders.py:test_place_once"]}\n')
     code, out = models(shop, capsys)
     assert code == 1 and "no_such_invariant" in out
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "fail" and "no_such_invariant" in " ".join(native.problems)
 
 
 @pytest.mark.parametrize("location", ["hook", "adapter_reset", "adapter_step"])
