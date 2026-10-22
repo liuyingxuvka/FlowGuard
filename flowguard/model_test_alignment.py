@@ -3029,14 +3029,6 @@ def _canonical_relation_materialization_findings(
                     metadata={"relation_id": item_id},
                 )
             )
-    if not handoff.evidence_current:
-        findings.append(
-            ModelTestAlignmentFinding(
-                "stale_canonical_relation_handoff",
-                "canonical relation handoff evidence is stale",
-                metadata=handoff.to_dict(),
-            )
-        )
     if handoff.gap_ids:
         findings.append(
             ModelTestAlignmentFinding(

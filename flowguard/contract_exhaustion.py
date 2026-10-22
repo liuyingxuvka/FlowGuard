@@ -1899,15 +1899,6 @@ def _inventory_and_relation_cases(
 
     handoff = plan.canonical_relation_handoff
     if handoff is not None:
-        if not handoff.evidence_current:
-            findings.append(
-                _finding(
-                    "relation_materialization_evidence_stale",
-                    "canonical relation handoff changed or is stale relative to generated cases",
-                    action="refresh the canonical relation handoff and regenerate canonical cases",
-                    metadata=handoff.to_dict(),
-                )
-            )
         for gap_id in handoff.gap_ids:
             findings.append(
                 _finding(

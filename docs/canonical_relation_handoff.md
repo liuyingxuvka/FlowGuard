@@ -25,8 +25,8 @@ edges such as `contains`, `refines`, `depends_on`, `delegates_to`, `consumes`,
 `shares_kernel_with`, `implements`, `invokes`, and `affects`.
 
 The relation type is not proof. Every relation requires an exact
-`relation_id`, two distinct typed endpoints, and at least one current source
-identity. `evidence_current=False` remains a visible gap. The consuming owner
+`relation_id`, two distinct typed endpoints, and at least one exact source
+identity. The consuming owner
 decides what the relation means under its own contract.
 
 ## Current Use

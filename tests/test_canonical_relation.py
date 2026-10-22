@@ -29,22 +29,6 @@ def _relation(
 
 class CanonicalRelationHandoffTests(unittest.TestCase):
 
-    def test_evidence_current_rejects_truthy_non_boolean_values(self):
-        relation = {
-            "relation_id": "relation:strict-bool",
-            "relation_type": "shared_mechanism",
-            "source_endpoint_kind": "model",
-            "source_endpoint_id": "model:a",
-            "target_endpoint_kind": "model",
-            "target_endpoint_id": "model:b",
-        }
-        for value in ("false", "true", 0, 1, None, [], {}):
-            with self.subTest(value=value):
-                with self.assertRaises(TypeError):
-                    CanonicalRelationHandoff(
-                        relations=(relation,),
-                        evidence_current=value,
-                    )
     def test_keeps_only_exact_current_relation_inputs(self):
         relation = _relation()
         handoff = CanonicalRelationHandoff(
@@ -96,14 +80,12 @@ class CanonicalRelationHandoffTests(unittest.TestCase):
                     },
                 ),
                 "gap_ids": ("gap:missing-owner",),
-                "evidence_current": False,
             }
         )
 
         self.assertIsInstance(handoff, CanonicalRelationHandoff)
         self.assertEqual(("relation:cache-false-friend",), handoff.relation_ids)
         self.assertEqual(("gap:missing-owner",), handoff.gap_ids)
-        self.assertFalse(handoff.evidence_current)
 
     def test_rejects_relation_without_exact_source_identity(self):
         with self.assertRaisesRegex(ValueError, "at least one exact source identity"):

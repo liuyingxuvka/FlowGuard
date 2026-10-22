@@ -232,20 +232,6 @@ BCL_SOURCE_KINDS = (
     BCL_SOURCE_PROCESS,
 )
 
-BCL_EVIDENCE_CURRENT_PASS = "current_pass"
-BCL_EVIDENCE_MISSING = "missing"
-BCL_EVIDENCE_STALE = "stale"
-BCL_EVIDENCE_PROGRESS_ONLY = "progress_only"
-BCL_EVIDENCE_SKIPPED = "skipped"
-BCL_EVIDENCE_BLOCKED = "blocked"
-BCL_EVIDENCE_STATES = (
-    BCL_EVIDENCE_CURRENT_PASS,
-    BCL_EVIDENCE_MISSING,
-    BCL_EVIDENCE_STALE,
-    BCL_EVIDENCE_PROGRESS_ONLY,
-    BCL_EVIDENCE_SKIPPED,
-    BCL_EVIDENCE_BLOCKED,
-)
 
 BCL_CHANGE_BOOTSTRAP_LEDGER = "bootstrap_ledger"
 BCL_CHANGE_ADD_BEHAVIOR = "add_behavior"
@@ -345,18 +331,6 @@ BCL_MODEL_SYNC_STATES = (
     BCL_MODEL_SYNC_CHILD_NEEDED,
 )
 
-BCL_TEST_MESH_SHARD_CURRENT = "shard_current"
-BCL_TEST_MESH_SHARD_MISSING = "shard_missing"
-BCL_TEST_MESH_PROGRESS_ONLY = "progress_only"
-BCL_TEST_MESH_STALE = "stale"
-BCL_TEST_MESH_RELEASE_ONLY = "release_only"
-BCL_TEST_MESH_STATES = (
-    BCL_TEST_MESH_SHARD_CURRENT,
-    BCL_TEST_MESH_SHARD_MISSING,
-    BCL_TEST_MESH_PROGRESS_ONLY,
-    BCL_TEST_MESH_STALE,
-    BCL_TEST_MESH_RELEASE_ONLY,
-)
 
 BCL_MISS_ORIGIN_NONE = "no_miss"
 BCL_MISS_ORIGIN_OBSERVED = "observed_model_miss"
@@ -433,12 +407,6 @@ def _coerce_commitment(value: "BehaviorCommitment | Mapping[str, Any]") -> "Beha
     return BehaviorCommitment(**{k: v for k, v in dict(value).items() if k != "path_authority"})  # retired key
 
 
-def _coerce_evidence(value: "BehaviorEvidenceBinding | Mapping[str, Any] | None") -> "BehaviorEvidenceBinding":
-    if value is None:
-        return BehaviorEvidenceBinding()
-    if isinstance(value, BehaviorEvidenceBinding):
-        return value
-    return BehaviorEvidenceBinding(**dict(value))
 
 
 def _coerce_external_difference(
@@ -446,7 +414,9 @@ def _coerce_external_difference(
 ) -> "BehaviorExternalDifference":
     if isinstance(value, BehaviorExternalDifference):
         return value
-    return BehaviorExternalDifference(**dict(value))
+    data = dict(value)
+    data.pop("evidence_current", None)  # one retired nested mapping key
+    return BehaviorExternalDifference(**data)
 
 
 @dataclass(frozen=True)
@@ -618,7 +588,6 @@ class BehaviorExternalDifference:
     baseline_value: str = ""
     variant_value: str = ""
     evidence_ids: tuple[str, ...] = ()
-    evidence_current: bool = True
     rationale: str = ""
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
@@ -628,7 +597,6 @@ class BehaviorExternalDifference:
         object.__setattr__(self, "baseline_value", str(self.baseline_value))
         object.__setattr__(self, "variant_value", str(self.variant_value))
         object.__setattr__(self, "evidence_ids", _as_tuple(self.evidence_ids))
-        object.__setattr__(self, "evidence_current", bool(self.evidence_current))
         object.__setattr__(self, "rationale", str(self.rationale))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
 
@@ -640,7 +608,6 @@ class BehaviorExternalDifference:
             and self.variant_value
             and self.baseline_value != self.variant_value
             and self.evidence_ids
-            and self.evidence_current
             and self.rationale
         )
 
@@ -651,7 +618,6 @@ class BehaviorExternalDifference:
             "baseline_value": self.baseline_value,
             "variant_value": self.variant_value,
             "evidence_ids": list(self.evidence_ids),
-            "evidence_current": self.evidence_current,
             "rationale": self.rationale,
             "metadata": to_jsonable(dict(self.metadata)),
         }
@@ -967,55 +933,6 @@ class BehaviorInventoryReport:
         }
 
 
-@dataclass(frozen=True)
-class BehaviorEvidenceBinding:
-    """Evidence ids that prove one behavior commitment."""
-
-    model_obligation_ids: tuple[str, ...] = ()
-    code_contract_ids: tuple[str, ...] = ()
-    test_evidence_ids: tuple[str, ...] = ()
-    proof_artifact_ids: tuple[str, ...] = ()
-    risk_gate_ids: tuple[str, ...] = ()
-    coverage_case_ids: tuple[str, ...] = ()
-    coverage_shard_ids: tuple[str, ...] = ()
-    evidence_state: str = BCL_EVIDENCE_MISSING
-    test_mesh_state: str = BCL_TEST_MESH_SHARD_CURRENT
-    current: bool = False
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "model_obligation_ids", _as_tuple(self.model_obligation_ids))
-        object.__setattr__(self, "code_contract_ids", _as_tuple(self.code_contract_ids))
-        object.__setattr__(self, "test_evidence_ids", _as_tuple(self.test_evidence_ids))
-        object.__setattr__(self, "proof_artifact_ids", _as_tuple(self.proof_artifact_ids))
-        object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
-        object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
-        object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
-        object.__setattr__(self, "evidence_state", str(self.evidence_state or BCL_EVIDENCE_MISSING))
-        object.__setattr__(self, "test_mesh_state", str(self.test_mesh_state or BCL_TEST_MESH_SHARD_CURRENT))
-        object.__setattr__(self, "current", bool(self.current))
-        object.__setattr__(self, "metadata", _metadata(self.metadata))
-
-    def has_current_pass(self) -> bool:
-        return self.current and self.evidence_state == BCL_EVIDENCE_CURRENT_PASS
-
-    def has_required_links(self) -> bool:
-        return bool(self.model_obligation_ids and self.code_contract_ids and self.test_evidence_ids)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "model_obligation_ids": list(self.model_obligation_ids),
-            "code_contract_ids": list(self.code_contract_ids),
-            "test_evidence_ids": list(self.test_evidence_ids),
-            "proof_artifact_ids": list(self.proof_artifact_ids),
-            "risk_gate_ids": list(self.risk_gate_ids),
-            "coverage_case_ids": list(self.coverage_case_ids),
-            "coverage_shard_ids": list(self.coverage_shard_ids),
-            "evidence_state": self.evidence_state,
-            "test_mesh_state": self.test_mesh_state,
-            "current": self.current,
-            "metadata": to_jsonable(dict(self.metadata)),
-        }
 
 
 @dataclass(frozen=True)
@@ -1156,7 +1073,6 @@ class BehaviorCommitment:
     replacement_state: str = BCL_REPLACEMENT_ACTIVE
     model_sync_state: str = BCL_MODEL_SYNC_OWNER_CURRENT
     miss_origin_state: str = BCL_MISS_ORIGIN_NONE
-    evidence: BehaviorEvidenceBinding | Mapping[str, Any] | None = None
     in_scope: bool = True
     scoped_out_reason: str = ""
     owner: str = ""
@@ -1205,7 +1121,6 @@ class BehaviorCommitment:
         object.__setattr__(self, "replacement_state", str(self.replacement_state or BCL_REPLACEMENT_ACTIVE))
         object.__setattr__(self, "model_sync_state", str(self.model_sync_state or BCL_MODEL_SYNC_OWNER_CURRENT))
         object.__setattr__(self, "miss_origin_state", str(self.miss_origin_state or BCL_MISS_ORIGIN_NONE))
-        object.__setattr__(self, "evidence", _coerce_evidence(self.evidence))
         object.__setattr__(self, "in_scope", bool(self.in_scope))
         object.__setattr__(self, "scoped_out_reason", str(self.scoped_out_reason))
         object.__setattr__(self, "owner", str(self.owner))
@@ -1286,7 +1201,6 @@ class BehaviorCommitment:
             "replacement_state": self.replacement_state,
             "model_sync_state": self.model_sync_state,
             "miss_origin_state": self.miss_origin_state,
-            "evidence": self.evidence.to_dict(),
             "in_scope": self.in_scope,
             "scoped_out_reason": self.scoped_out_reason,
             "owner": self.owner,
@@ -1317,8 +1231,6 @@ class BehaviorCommitmentLedger:
     expected_business_intent_ids: tuple[str, ...] = ()
     claim_scope: str = BCL_SCOPE_ROUTINE
     change_mode: str = BCL_CHANGE_CHANGE_BEHAVIOR
-    require_current_evidence: bool = False
-    require_risk_gates_for_broad_claim: bool = True
     owner: str = ""
     validation_boundary: str = ""
     rationale: str = ""
@@ -1374,8 +1286,6 @@ class BehaviorCommitmentLedger:
             "change_mode",
             str(self.change_mode or BCL_CHANGE_CHANGE_BEHAVIOR),
         )
-        object.__setattr__(self, "require_current_evidence", bool(self.require_current_evidence))
-        object.__setattr__(self, "require_risk_gates_for_broad_claim", bool(self.require_risk_gates_for_broad_claim))
         object.__setattr__(self, "owner", str(self.owner))
         object.__setattr__(self, "validation_boundary", str(self.validation_boundary))
         object.__setattr__(self, "rationale", str(self.rationale))
@@ -1407,8 +1317,6 @@ class BehaviorCommitmentLedger:
             "expected_business_intent_ids": list(self.expected_business_intent_ids),
             "claim_scope": self.claim_scope,
             "change_mode": self.change_mode,
-            "require_current_evidence": self.require_current_evidence,
-            "require_risk_gates_for_broad_claim": self.require_risk_gates_for_broad_claim,
             "owner": self.owner,
             "validation_boundary": self.validation_boundary,
             "rationale": self.rationale,
@@ -1473,6 +1381,27 @@ def behavior_commitment_ledger_from_mapping(
         if not isinstance(payload, Mapping):
             raise ValueError("behavior commitment ledger envelope has no mapping payload")
         data = dict(payload)
+    # One-time removal of known retired fields; all other canonical checks stay strict.
+    for key in ("require_current_evidence", "require_risk_gates_for_broad_claim"):
+        data.pop(key, None)
+    if isinstance(data.get("commitments"), list):
+        commitments = []
+        for item in data["commitments"]:
+            if not isinstance(item, Mapping):
+                commitments.append(item)
+                continue
+            row = dict(item)
+            row.pop("evidence", None)
+            if isinstance(row.get("external_differences"), list):
+                differences = []
+                for difference in row["external_differences"]:
+                    if isinstance(difference, Mapping):
+                        difference = dict(difference)
+                        difference.pop("evidence_current", None)
+                    differences.append(difference)
+                row["external_differences"] = differences
+            commitments.append(row)
+        data["commitments"] = commitments
     normalized = BehaviorCommitmentLedger(**data)
     if normalized.to_dict() != data:
         source = "envelope payload" if is_envelope else "direct mapping"
@@ -2514,9 +2443,6 @@ def review_behavior_commitment_ledger(
 
     extra_commitment_ids: list[str] = []
     covered_commitment_ids: list[str] = []
-    required_risk_gate_ids: list[str] = []
-    coverage_case_ids: list[str] = []
-    coverage_shard_ids: list[str] = []
 
     for commitment in ledger.commitments:
         _review_commitment(
@@ -2526,9 +2452,6 @@ def review_behavior_commitment_ledger(
             ledger,
             findings,
             extra_commitment_ids,
-            required_risk_gate_ids,
-            coverage_case_ids,
-            coverage_shard_ids,
         )
     if project_root is not None:
         findings.extend(_commitment_anchor_findings(ledger, project_root))
@@ -2579,9 +2502,6 @@ def review_behavior_commitment_ledger(
         unexpected_source_surface_ids=unexpected_source_surface_ids,
         unmapped_surface_ids=tuple(dict.fromkeys(unmapped_surface_ids)),
         extra_commitment_ids=tuple(dict.fromkeys(extra_commitment_ids)),
-        required_risk_gate_ids=tuple(dict.fromkeys(required_risk_gate_ids)),
-        coverage_case_ids=tuple(dict.fromkeys(coverage_case_ids)),
-        coverage_shard_ids=tuple(dict.fromkeys(coverage_shard_ids)),
         behavior_inventory_id=(
             behavior_inventory_report.inventory_id
             if behavior_inventory_report is not None
@@ -2717,9 +2637,6 @@ def _review_commitment(
     ledger: BehaviorCommitmentLedger,
     findings: list[BehaviorCommitmentFinding],
     extra_commitment_ids: list[str],
-    required_risk_gate_ids: list[str],
-    coverage_case_ids: list[str],
-    coverage_shard_ids: list[str],
 ) -> None:
     if not commitment.in_scope:
         if not commitment.has_scoped_disposition():
@@ -2939,40 +2856,9 @@ def _review_commitment(
                     },
                 )
             )
-    if ledger.require_current_evidence or ledger.broad_claim():
-        if not commitment.evidence.has_current_pass():
-            findings.append(
-                _finding(
-                    "commitment_current_evidence_missing",
-                    "broad behavior claim requires current passing commitment evidence",
-                    commitment_id=commitment.commitment_id,
-                    metadata={"evidence": commitment.evidence.to_dict()},
-                )
-            )
-        if not commitment.evidence.has_required_links():
-            findings.append(
-                _finding(
-                    "commitment_evidence_links_missing",
-                    "commitment evidence must bind model obligation, code contract, and test evidence ids",
-                    commitment_id=commitment.commitment_id,
-                    metadata={"evidence": commitment.evidence.to_dict()},
-                )
-            )
-    if ledger.broad_claim() and ledger.require_risk_gates_for_broad_claim and not commitment.evidence.risk_gate_ids:
-        findings.append(
-            _finding(
-                "commitment_risk_gate_missing",
-                "broad behavior claim requires behavior commitment risk gate ids",
-                commitment_id=commitment.commitment_id,
-                metadata={"evidence": commitment.evidence.to_dict()},
-            )
-        )
     if ledger.broad_claim():
         _review_change_lifecycle(commitment, findings)
 
-    required_risk_gate_ids.extend(commitment.evidence.risk_gate_ids)
-    coverage_case_ids.extend(commitment.evidence.coverage_case_ids)
-    coverage_shard_ids.extend(commitment.evidence.coverage_shard_ids)
 
 
 def _review_change_lifecycle(
@@ -3020,32 +2906,14 @@ def _review_change_lifecycle(
                 metadata={"commitment": commitment.to_dict()},
             )
         )
-    if commitment.evidence.test_mesh_state not in BCL_TEST_MESH_STATES:
-        findings.append(
-            _finding(
-                "commitment_unknown_test_mesh_state",
-                "commitment evidence uses an unknown TestMesh state",
-                commitment_id=commitment.commitment_id,
-                metadata={"evidence": commitment.evidence.to_dict()},
-            )
-        )
-    elif commitment.evidence.test_mesh_state != BCL_TEST_MESH_SHARD_CURRENT:
-        findings.append(
-            _finding(
-                "commitment_test_mesh_not_current",
-                "broad behavior coverage requires current TestMesh shard evidence",
-                commitment_id=commitment.commitment_id,
-                metadata={"evidence": commitment.evidence.to_dict()},
-            )
-        )
     if commitment.miss_origin_state != BCL_MISS_ORIGIN_NONE:
-        if commitment.model_sync_state != BCL_MODEL_SYNC_OWNER_CURRENT or not commitment.evidence.coverage_case_ids:
+        if commitment.model_sync_state != BCL_MODEL_SYNC_OWNER_CURRENT:
             findings.append(
                 _finding(
                     "commitment_model_miss_backfeed_incomplete",
-                    "model-miss backfeed must map to the existing commitment, current owner model, and same-class/DCAR coverage",
+                    "model-miss backfeed must map to the existing commitment and current owner model",
                     commitment_id=commitment.commitment_id,
-                    metadata={"commitment": commitment.to_dict(), "evidence": commitment.evidence.to_dict()},
+                    metadata={"commitment": commitment.to_dict()},
                 )
             )
 
@@ -3085,7 +2953,6 @@ def default_behavior_commitment_axes(
             values=("primary_owner_present", "commitment_missing_primary_owner", "primary_owner_also_supporting"),
             source_route=BEHAVIOR_COMMITMENT_ROUTE_ID,
         ),
-        ContractAxis("evidence_state", model_id=model_id, values=BCL_EVIDENCE_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis("relation_type", model_id=model_id, values=BCL_RELATION_TYPES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis("relation_target_plane", model_id=model_id, values=BCL_BEHAVIOR_PLANES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis(
@@ -3128,7 +2995,6 @@ def default_behavior_commitment_axes(
         ),
         ContractAxis("replacement_state", model_id=model_id, values=BCL_REPLACEMENT_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
         ContractAxis("model_sync_state", model_id=model_id, values=BCL_MODEL_SYNC_STATES, source_route=BEHAVIOR_COMMITMENT_ROUTE_ID),
-        ContractAxis("test_mesh_state", model_id=model_id, values=BCL_TEST_MESH_STATES, source_route="test_mesh"),
         ContractAxis("miss_origin_state", model_id=model_id, values=BCL_MISS_ORIGIN_STATES, source_route="model_miss_review"),
         ContractAxis(
             "exact_intent_identity_state",
@@ -3197,7 +3063,7 @@ def default_behavior_commitment_interaction_groups(
         ContractInteractionGroup(
             "single_owner_evidence",
             model_id=model_id,
-            axis_ids=("commitment_kind", "owner_state", "evidence_state"),
+            axis_ids=("commitment_kind", "owner_state"),
             required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
@@ -3205,7 +3071,7 @@ def default_behavior_commitment_interaction_groups(
         ContractInteractionGroup(
             "relation_and_release_gate",
             model_id=model_id,
-            axis_ids=("relation_state", "evidence_state", "release_gate_state"),
+            axis_ids=("relation_state", "release_gate_state"),
             required_routes=routes,
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
@@ -3253,7 +3119,7 @@ def default_behavior_commitment_interaction_groups(
         ContractInteractionGroup(
             "model_miss_backfeed",
             model_id=model_id,
-            axis_ids=("miss_origin_state", "model_sync_state", "test_mesh_state"),
+            axis_ids=("miss_origin_state", "model_sync_state"),
             required_routes=routes + ("model_miss_review", "contract_exhaustion_mesh"),
             max_combinations=max_combinations,
             oracle_id=BEHAVIOR_COMMITMENT_ORACLE_ID,
@@ -3680,13 +3546,6 @@ __all__ = [
     "BCL_DISPOSITION_MODELED",
     "BCL_DISPOSITION_SCOPED",
     "BCL_COVERAGE_DISPOSITIONS",
-    "BCL_EVIDENCE_BLOCKED",
-    "BCL_EVIDENCE_CURRENT_PASS",
-    "BCL_EVIDENCE_MISSING",
-    "BCL_EVIDENCE_PROGRESS_ONLY",
-    "BCL_EVIDENCE_SKIPPED",
-    "BCL_EVIDENCE_STALE",
-    "BCL_EVIDENCE_STATES",
     "BCL_EXTERNAL_DIFFERENCE_FAILURE_BOUNDARY",
     "BCL_EXTERNAL_DIFFERENCE_KINDS",
     "BCL_EXTERNAL_DIFFERENCE_PRECONDITION",
@@ -3797,12 +3656,6 @@ __all__ = [
     "BCL_SOURCE_SKILL",
     "BCL_SOURCE_TEST",
     "BCL_SOURCE_UI",
-    "BCL_TEST_MESH_PROGRESS_ONLY",
-    "BCL_TEST_MESH_RELEASE_ONLY",
-    "BCL_TEST_MESH_SHARD_CURRENT",
-    "BCL_TEST_MESH_SHARD_MISSING",
-    "BCL_TEST_MESH_STALE",
-    "BCL_TEST_MESH_STATES",
     "BEHAVIOR_COMMITMENT_ORACLE_ID",
     "BEHAVIOR_COMMITMENT_ROUTE_ID",
     "BehaviorCommitment",
@@ -3813,7 +3666,6 @@ __all__ = [
     "BehaviorInventoryItem",
     "BehaviorInventory",
     "BehaviorInventoryReport",
-    "BehaviorEvidenceBinding",
     "BehaviorExternalDifference",
     "BehaviorLookupBinding",
     "BehaviorPlan",

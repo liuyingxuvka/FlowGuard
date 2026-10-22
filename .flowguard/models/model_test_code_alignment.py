@@ -184,7 +184,6 @@ def complete_plan() -> ModelTestAlignmentPlan:
             "affected_model_ids": ("checkout",),
             "test_obligation_ids": (RELATION_TEST,),
             "code_obligation_ids": (RELATION_CODE,),
-            "evidence_current": True,
         },
         require_behavior_plane_binding=True,
     )

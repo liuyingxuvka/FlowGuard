@@ -107,19 +107,6 @@ BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE = '''{
         "entrypoints": [
           "REPLACE_ME/orders.py:submit_order"
         ],
-        "evidence": {
-          "code_contract_ids": [],
-          "coverage_case_ids": [],
-          "coverage_shard_ids": [],
-          "current": false,
-          "evidence_state": "missing",
-          "metadata": {},
-          "model_obligation_ids": [],
-          "proof_artifact_ids": [],
-          "risk_gate_ids": [],
-          "test_evidence_ids": [],
-          "test_mesh_state": "shard_current"
-        },
         "excluded_behavior_ids": [],
         "expected_result": "the order is stored or a visible error is returned",
         "expected_terminal": "order stored or visible error",
@@ -176,8 +163,6 @@ BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE = '''{
     "rationale": "one promise per order intent, kept by one primary path",
     "require_complete_behavior_inventory": false,
     "require_complete_source_inventory": false,
-    "require_current_evidence": false,
-    "require_risk_gates_for_broad_claim": true,
     "source_inventory_evidence_ids": [],
     "source_inventory_fingerprint": "",
     "source_inventory_revision": "",

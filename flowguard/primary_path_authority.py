@@ -547,7 +547,6 @@ class PrimaryPathAuthorityReport:
     covered_surface_ids: tuple[str, ...] = ()
     missing_surface_ids: tuple[str, ...] = ()
     runtime_observation_ids: tuple[str, ...] = ()
-    evidence_current: bool = False
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
     risk_gate_ids: tuple[str, ...] = ()
@@ -572,7 +571,6 @@ class PrimaryPathAuthorityReport:
         object.__setattr__(self, "covered_surface_ids", _as_tuple(self.covered_surface_ids))
         object.__setattr__(self, "missing_surface_ids", _as_tuple(self.missing_surface_ids))
         object.__setattr__(self, "runtime_observation_ids", _as_tuple(self.runtime_observation_ids))
-        object.__setattr__(self, "evidence_current", bool(self.evidence_current))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
         object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
@@ -629,7 +627,6 @@ class PrimaryPathAuthorityReport:
             "covered_surface_ids": list(self.covered_surface_ids),
             "missing_surface_ids": list(self.missing_surface_ids),
             "runtime_observation_ids": list(self.runtime_observation_ids),
-            "evidence_current": self.evidence_current,
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
             "risk_gate_ids": list(self.risk_gate_ids),
@@ -959,7 +956,6 @@ def review_primary_path_authority(
                 for observation_id in path.runtime_observation_ids
             )
         ),
-        evidence_current=bool(material_required and not blockers),
         coverage_case_ids=plan.coverage_case_ids,
         coverage_shard_ids=plan.coverage_shard_ids,
         risk_gate_ids=plan.risk_gate_ids,

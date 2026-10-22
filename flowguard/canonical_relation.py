@@ -15,18 +15,6 @@ from typing import Any, Mapping, Sequence
 from .export import to_jsonable
 
 
-def _strict_bool(value: Any, field_name: str) -> bool:
-    """Accept only an actual JSON/Python boolean at evidence boundaries.
-
-    Truthiness coercion is unsafe here: ``bool("false")`` and ``bool(1)`` are
-    both true, which can turn stale or caller-authored relation evidence into
-    a current claim.  Keep this helper local to the canonical handoff rather
-    than changing unrelated historical model fields.
-    """
-
-    if type(value) is not bool:
-        raise TypeError(f"{field_name} must be a boolean, not {type(value).__name__}")
-    return value
 
 
 RELATION_SAME_INTENT = "same_intent"
@@ -169,7 +157,6 @@ class CanonicalRelationHandoff:
     test_obligation_ids: tuple[str, ...] = ()
     gap_ids: tuple[str, ...] = ()
     typed_commitment_relation_refs: tuple[str, ...] = ()
-    evidence_current: bool = True
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -209,11 +196,6 @@ class CanonicalRelationHandoff:
             "typed_commitment_relation_refs",
             tuple(dict.fromkeys((*explicit_commitment_refs, *relation_commitment_refs))),
         )
-        object.__setattr__(
-            self,
-            "evidence_current",
-            _strict_bool(self.evidence_current, "evidence_current"),
-        )
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     @property
@@ -242,7 +224,6 @@ class CanonicalRelationHandoff:
             "typed_commitment_relation_refs": list(
                 self.typed_commitment_relation_refs
             ),
-            "evidence_current": self.evidence_current,
             "metadata": to_jsonable(dict(self.metadata)),
         }
 

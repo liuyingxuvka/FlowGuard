@@ -36,7 +36,6 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         self.assertIn("source_freshness_state", axis_ids)
         self.assertIn("replacement_state", axis_ids)
         self.assertIn("model_sync_state", axis_ids)
-        self.assertIn("test_mesh_state", axis_ids)
         self.assertIn("miss_origin_state", axis_ids)
         self.assertIn("exact_intent_identity_state", axis_ids)
         self.assertIn("external_semantics_state", axis_ids)

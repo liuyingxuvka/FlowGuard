@@ -158,7 +158,7 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Declares engine identity and lazily exposes current owner APIs.",
+      "summary": "Declares engine identity and lazily exposes current owner APIs after evidence-block retirement.",
       "responsibilities": [
         "expose public names without importing their modules early"
       ],
@@ -196,12 +196,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c23fa0c05061c77460e3135ebb0f2fc0e46ba2c89e6c0bec283e562c79a6b47a"
+      "fingerprint": "sha256:ffdb719986af689cb24e7f475d1002e787e868160f1ea5b157064bdf166fbea5"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates kit contract models and current canonical ledger examples.",
+      "summary": "Generates kit contract models and the canonical behavior ledger without self-reported evidence blocks.",
       "responsibilities": [
         "every capability template writes one contract model built from a kit; retain adoption rules and the behavior model canonical auxiliary ledger",
         "generated placeholder code and test anchors fail cleanly until replaced with real ones",
@@ -226,12 +226,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2777164cec46ace311b6d753af04df0250f2e741860a790585256e6fc1e2cff7"
+      "fingerprint": "sha256:f8f8eefa315cb536f016d1a639e9db37410a9f0968951a93a8a5db1068c1bac4"
     },
     {
       "id": "behavior-commitment",
       "layer": "capabilities",
-      "summary": "Binds external promises to one owner and its tests, exposing finite case and shard facts.",
+      "summary": "Binds external promises to their code, tests, one owner and real source inventory.",
       "responsibilities": [
         "register each external promise with one owner and tests",
         "block silent fallback from a failed primary path",
@@ -278,12 +278,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:df813b6e59435328d91e3364c9f88ab3a0d9442f828cf79d735bf9828689afc6"
+      "fingerprint": "sha256:e22317366fd16a93d4861608e05bc8b12a71886ed234305025de54180cae86ef"
     },
     {
       "id": "architecture-reduction",
       "layer": "capabilities",
-      "summary": "Checks whether code can shrink without changing behavior.",
+      "summary": "Reviews architectural simplifications against real code and explicit relation identities.",
       "responsibilities": [
         "gate merging or removing code on proven unchanged behaviour",
         "check that each candidate names real code when given the project root (a completed removal names code that is gone and is not checked)",
@@ -312,12 +312,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:40978034fc26abe91daa6ecac2e4d0c9016f11f7d26b57900ac6f471323499dc"
+      "fingerprint": "sha256:4bd1960f5f087343440a986e8144ff10f228a1057af862bd623888394aa2da3c"
     },
     {
       "id": "code-structure",
       "layer": "capabilities",
-      "summary": "Assigns model functions, state and effects to modules and checks module splits.",
+      "summary": "Reviews structural changes with real facts and explicit relation obligations.",
       "responsibilities": [
         "recommend one owning module per model element",
         "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist",
@@ -353,12 +353,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3d0ca2009dd2e7bc05a75ca557ef785fbc594915bb0236dc3cd4df0437c80702"
+      "fingerprint": "sha256:0355e809b9cbdbd8c4d8f2801000ee9024267f90ea94be4318a6d669ed552897"
     },
     {
       "id": "contract-exhaustion",
       "layer": "capabilities",
-      "summary": "Enumerates finite contract boundaries, expected reactions and complete real shards.",
+      "summary": "Enumerates finite contract boundaries and reactions without trusting declared relation freshness.",
       "responsibilities": [
         "generate every bad case and combination of a finite boundary",
         "require an oracle for every generated case",
@@ -386,7 +386,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b79d264e2080f258c3e5362f0eac728f7ab6e5c2338e664b5b8cbeed0b33d6f5"
+      "fingerprint": "sha256:1829cf5564f8d2481017d4bff8173bd7f3ae832878166f30fe26f3db7cf1d32b"
     },
     {
       "id": "field-lifecycle",
@@ -457,7 +457,7 @@
     {
       "id": "model-test",
       "layer": "capabilities",
-      "summary": "Cross-checks obligations, code contracts and tests; derives literal model bindings and case-based family backpropagation.",
+      "summary": "Cross-checks obligations, code contracts and real test evidence while preserving native evidence guards.",
       "responsibilities": [
         "cross-check obligations, code contracts and tests",
         "derive unique test evidence and merged obligations from literal model bindings; distinguish design assumptions from actual execution statuses"
@@ -488,7 +488,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ab960ec8b556f4c797e837a8486096f48ae4bd3acf63a49081a42c6bc5a0a154"
+      "fingerprint": "sha256:f2e720c4cde2f4d49c9bb6a0c17dee4a95af0fdad59d25ed8e1bee9bec19e9da"
     },
     {
       "id": "topology-hazard",
@@ -1051,7 +1051,7 @@
     {
       "id": "shared-vocabulary",
       "layer": "foundation",
-      "summary": "Defines common evidence and relation terms.",
+      "summary": "Defines shared schema, behavior planes and exact canonical relation identities.",
       "responsibilities": [
         "hold vocabulary shared by several capabilities"
       ],
@@ -1072,7 +1072,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:55eccc9a42d4623faa8d0c25de8a06cc9cdabceb8ca9122275abbe24de59d2d2"
+      "fingerprint": "sha256:ffd50d3a8fd5ec0f73a7fdce065a25d485a8edf8a52b71f7473c189bc43fea35"
     }
   ],
   "flows": [

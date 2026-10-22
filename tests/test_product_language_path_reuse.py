@@ -5,7 +5,6 @@ from dataclasses import replace
 from flowguard import (
     BCL_ACTOR_END_USER,
     BCL_COMMITMENT_WORKFLOW,
-    BCL_EVIDENCE_CURRENT_PASS,
     BCL_PLANE_PRODUCT_RUNTIME,
     BCL_SCOPE_FULL,
     BCL_SOURCE_API,
@@ -20,7 +19,6 @@ from flowguard import (
     PPA_DISPOSITION_PRESERVE_FACADE,
     BehaviorCommitment,
     BehaviorCommitmentLedger,
-    BehaviorEvidenceBinding,
     BehaviorSourceSurface,
     CodeContract,
     FallbackPathCandidate,
@@ -85,17 +83,6 @@ def commitment(commitment_id: str = COMMITMENT_ID) -> BehaviorCommitment:
         failure_boundary="fail closed with a user-understandable recovery message",
         source_surface_ids=(UI_SURFACE_ID, API_SURFACE_ID),
         primary_owner_model_id="download-material-model",
-        evidence=BehaviorEvidenceBinding(
-            model_obligation_ids=(OBLIGATION_ID,),
-            code_contract_ids=(OWNER_CONTRACT_ID,),
-            test_evidence_ids=("test:download-material",),
-            proof_artifact_ids=("proof:download-material",),
-            risk_gate_ids=("risk_gate:behavior_commitment_coverage:download-material",),
-            coverage_case_ids=("bcl.download-material.same-intent",),
-            coverage_shard_ids=("contract_shard:behavior_commitment_ledger:download-material",),
-            evidence_state=BCL_EVIDENCE_CURRENT_PASS,
-            current=True,
-        ),
         validation_boundary="preflight, PPA, runtime, UI, and MTA share the same identity",
         rationale="This is the single external promise; the API is a delegating surface.",
     )

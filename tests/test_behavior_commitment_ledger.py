@@ -8,7 +8,6 @@ from flowguard import (
     BCL_CHANGE_BOOTSTRAP_LEDGER,
     BCL_CHANGE_CHANGE_BEHAVIOR,
     BCL_COMMITMENT_WORKFLOW,
-    BCL_EVIDENCE_CURRENT_PASS,
     BCL_MISS_ORIGIN_OBSERVED,
     BCL_MODEL_SYNC_OWNER_STALE,
     BCL_PLANE_PRODUCT_RUNTIME,
@@ -25,29 +24,14 @@ from flowguard import (
     BCL_SOURCE_CLASSIFICATION_TEST,
     BCL_SOURCE_DOC,
     BCL_SOURCE_FRESHNESS_CHANGED,
-    BCL_TEST_MESH_SHARD_MISSING,
     BehaviorCommitment,
     BehaviorCommitmentRelation,
     BehaviorCommitmentLedger,
-    BehaviorEvidenceBinding,
     BehaviorSourceSurface,
     review_behavior_commitment_ledger,
 )
 
 
-def evidence(**kwargs):
-    defaults = {
-        "model_obligation_ids": ("obligation:workflow",),
-        "code_contract_ids": ("contract:workflow",),
-        "test_evidence_ids": ("test:workflow",),
-        "risk_gate_ids": ("risk_gate:behavior_commitment_coverage:ledger",),
-        "coverage_case_ids": ("bcl.full_inventory_mapping.workflow.doc.mapped",),
-        "coverage_shard_ids": ("contract_shard:behavior_commitment_ledger:full_inventory_mapping",),
-        "evidence_state": BCL_EVIDENCE_CURRENT_PASS,
-        "current": True,
-    }
-    defaults.update(kwargs)
-    return BehaviorEvidenceBinding(**defaults)
 
 
 def surface(**kwargs):
@@ -93,7 +77,6 @@ def commitment(**kwargs):
         "primary_owner_model_id": "model:workflow",
         "validation_boundary": "model, contract, and smoke test",
         "rationale": "external behavior promise",
-        "evidence": evidence(),
     }
     defaults.update(kwargs)
     return BehaviorCommitment(**defaults)
@@ -170,7 +153,6 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual("behavior_commitment_coverage_green", report.decision)
         self.assertIn("commitment:workflow", report.covered_commitment_ids)
-        self.assertIn("risk_gate:behavior_commitment_coverage:ledger", report.required_risk_gate_ids)
 
     def test_only_external_normative_contract_can_license_a_broad_commitment(self):
         observed = review_behavior_commitment_ledger(
@@ -350,13 +332,6 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("commitment_model_sync_not_current", codes(report))
 
-    def test_missing_test_mesh_shard_blocks_broad_claim(self):
-        report = review_behavior_commitment_ledger(
-            ledger(commitments=(commitment(evidence=evidence(test_mesh_state=BCL_TEST_MESH_SHARD_MISSING)),))
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn("commitment_test_mesh_not_current", codes(report))
 
     def test_model_miss_backfeed_requires_existing_commitment_model_and_dcar_case(self):
         report = review_behavior_commitment_ledger(
@@ -365,7 +340,6 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
                     commitment(
                         miss_origin_state=BCL_MISS_ORIGIN_OBSERVED,
                         model_sync_state=BCL_MODEL_SYNC_OWNER_STALE,
-                        evidence=evidence(coverage_case_ids=()),
                     ),
                 )
             )
@@ -525,3 +499,63 @@ class BehaviorCommitmentKitTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_old_ledger_with_evidence_blocks_still_loads(tmp_path):
+    import copy
+    import json
+    import pytest
+    from flowguard.behavior_commitment import (
+        BehaviorExternalDifference, behavior_commitment_ledger_from_mapping,
+        write_behavior_commitment_ledger,
+    )
+    from flowguard.template_text.behavior_commitment import BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE
+
+    old = json.loads(BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE)
+    row = old["ledger"]["commitments"][0]
+    row["evidence"] = {"current": False, "evidence_state": "stale", "proof_artifact_ids": [],
+                       "coverage_receipt_ids": ["retired-number"]}
+    old["ledger"]["require_current_evidence"] = True
+    old["ledger"]["require_risk_gates_for_broad_claim"] = True
+    row["external_differences"] = [BehaviorExternalDifference(
+        "deadline", "terminal", baseline_value="later", variant_value="now",
+        evidence_ids=("declared source",), rationale="visible timing difference").to_dict()]
+    row["external_differences"][0]["evidence_current"] = False
+    original = copy.deepcopy(old)
+    clean = copy.deepcopy(old)
+    clean["ledger"].pop("require_current_evidence")
+    clean["ledger"].pop("require_risk_gates_for_broad_claim")
+    clean["ledger"]["commitments"][0].pop("evidence")
+    clean["ledger"]["commitments"][0]["external_differences"][0].pop("evidence_current")
+    migrated = behavior_commitment_ledger_from_mapping(old)
+    current = behavior_commitment_ledger_from_mapping(clean)
+    assert migrated == current
+    assert review_behavior_commitment_ledger(current).ok
+    from flowguard.behavior_commitment import BehaviorCommitment
+    direct_row = copy.deepcopy(clean["ledger"]["commitments"][0])
+    direct_row["external_differences"] = copy.deepcopy(original["ledger"]["commitments"][0]["external_differences"])
+    assert BehaviorCommitment(**direct_row) == migrated.commitments[0]
+    assert review_behavior_commitment_ledger(migrated).to_dict() == review_behavior_commitment_ledger(current).to_dict()
+    assert old == original
+    target = tmp_path / "ledger.json"
+    write_behavior_commitment_ledger(target, migrated)
+    assert json.loads(target.read_text()) == clean
+    for place in ("ledger", "commitment", "difference"):
+        unknown = copy.deepcopy(old)
+        item = unknown["ledger"]
+        if place != "ledger":
+            item = item["commitments"][0]
+        if place == "difference":
+            item = item["external_differences"][0]
+        item["unrecognized_native_key"] = True
+        with pytest.raises((TypeError, ValueError)):
+            behavior_commitment_ledger_from_mapping(unknown)
+    for place in ("commitments", "external_differences"):
+        noncanonical = copy.deepcopy(clean)
+        if place == "commitments":
+            noncanonical["ledger"]["commitments"] = tuple(noncanonical["ledger"]["commitments"])
+        else:
+            item = noncanonical["ledger"]["commitments"][0]
+            item["external_differences"] = tuple(item["external_differences"])
+        with pytest.raises((TypeError, ValueError)):
+            behavior_commitment_ledger_from_mapping(noncanonical)

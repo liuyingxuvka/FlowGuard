@@ -785,14 +785,6 @@ def _plan_canonical_relation_findings(
                     item_id=item_id,
                 )
             )
-    if not handoff.evidence_current:
-        findings.append(
-            ArchitectureReductionFinding(
-                "stale_canonical_relation_provenance",
-                "architecture-reduction canonical relation handoff evidence is stale",
-                metadata=handoff.to_dict(),
-            )
-        )
     for gap_id in handoff.gap_ids:
         findings.append(
             ArchitectureReductionFinding(
@@ -1057,15 +1049,6 @@ def review_architecture_reduction(
                     severity="warning",
                     candidate_id=candidate.candidate_id,
                     metadata={"relation_ids": list(relation_ids)},
-                )
-            )
-        if canonical_relation_handoff is not None and not canonical_relation_handoff.evidence_current:
-            findings.append(
-                ArchitectureReductionFinding(
-                    "candidate_relation_evidence_stale",
-                    "candidate canonical relation provenance is stale",
-                    candidate_id=candidate.candidate_id,
-                    metadata=canonical_relation_handoff.to_dict(),
                 )
             )
         for gap_id in canonical_relation_handoff.gap_ids if canonical_relation_handoff else ():

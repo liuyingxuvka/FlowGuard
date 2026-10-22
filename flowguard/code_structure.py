@@ -374,14 +374,6 @@ def review_code_structure_recommendation(
     relation_code_obligation_ids = canonical_relation_handoff.code_obligation_ids if canonical_relation_handoff else ()
     relation_group_ids = canonical_relation_handoff.relation_group_ids if canonical_relation_handoff else ()
 
-    if canonical_relation_handoff and not canonical_relation_handoff.evidence_current:
-        findings.append(
-            CodeStructureFinding(
-                "canonical_relation_evidence_stale",
-                "code structure cannot consume stale canonical relation evidence",
-                metadata=canonical_relation_handoff.to_dict(),
-            )
-        )
     for gap_id in canonical_relation_handoff.gap_ids if canonical_relation_handoff else ():
         findings.append(
             CodeStructureFinding(

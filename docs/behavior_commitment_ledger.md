@@ -76,7 +76,9 @@ the old fingerprint are stale and must be rerun.
 
 The bundled template emits the complete current ledger shape. The loader
 rejects omitted fields instead of filling them silently; update a producer
-directly whenever the shape changes.
+directly whenever the shape changes. The loader silently removes the known retired
+commitment evidence block, ledger flags and external-difference currentness key
+before this comparison; other unknown keys and noncanonical containers are rejected.
 
 Commitments connect through typed `BehaviorCommitmentRelation` rows:
 `depends_on`, `invokes`, `validates`, `governs`, or
@@ -100,14 +102,12 @@ It also checks:
 - one primary owner model per commitment;
 - stale owner-model/sibling/child-model review;
 - replaced or deprecated behavior without disposition;
-- TestMesh shards that are stale, missing, progress-only, or release-only;
-- model-miss backfeed that does not map to an existing commitment, owner model,
-  and same-class/DCAR coverage;
+- model-miss backfeed that does not map to an existing commitment and current owner model;
 - supporting or child models that accidentally overlap the primary owner;
 - unknown relation targets, invalid relation types, disallowed cross-plane
   relations, or cross-plane relations without a rationale;
 - scoped-out behavior without owner, reason, validation boundary, and rationale;
-- broad claims without current evidence or risk gates.
+- broad claims without the required source inventory and normative source bindings.
 
 The same exact external intent has one stable `business_intent_id` and one
 active commitment. Surface shape is not identity: a page button, menu item,
@@ -115,7 +115,7 @@ API, CLI, alias, adapter, wrapper, or compatibility facade maps to the same
 commitment when actor, preconditions, expected terminal, failure boundary,
 material state writes, and side effects are the same. A separate intent needs
 a typed external difference, owner, validation boundary, rationale, and
-current evidence. A thin delegating surface never receives a second
+source identities. A thin delegating surface never receives a second
 "delegate commitment."
 
 ## Lookup Binding And Read-Only Query
@@ -169,7 +169,6 @@ Core objects:
 - `BehaviorCommitmentLedger`
 - `BehaviorSourceSurface`
 - `BehaviorCommitment`
-- `BehaviorEvidenceBinding`
 - `BehaviorExternalDifference`
 - `BehaviorLookupBinding`
 - `BehaviorCommitmentRelation`
