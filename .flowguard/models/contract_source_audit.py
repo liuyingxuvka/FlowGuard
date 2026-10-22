@@ -65,7 +65,7 @@ def test_submit_order():
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "contract_source_audit"
-PARENT = "model_test_code_alignment"
+PARENT = "model-test"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"AuditCode": "flowguard/model_test_alignment_source.py:audit_python_code_contracts",
                   "AuditTests": "flowguard/model_test_alignment_source.py:audit_python_test_assertions",

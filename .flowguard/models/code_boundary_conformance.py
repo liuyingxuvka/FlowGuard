@@ -112,7 +112,7 @@ def alignment_plan(observations) -> ModelTestAlignmentPlan:
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "code_boundary_conformance"
-PARENT = "model_test_code_alignment"
+PARENT = "model-test"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"BoundaryReview": "flowguard/model_test_alignment.py:review_code_boundary_conformance",
                   "AlignmentReview": "flowguard/model_test_alignment.py:review_model_test_alignment"}
