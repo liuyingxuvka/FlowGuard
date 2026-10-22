@@ -20,7 +20,6 @@ from flowguard.templates import (
     contract_exhaustion_template_files,
     field_lifecycle_template_files,
     model_mesh_template_files,
-    model_test_alignment_full_template_files,
     model_test_alignment_template_files,
     topology_hazard_template_files,
     ui_flow_structure_template_files,
@@ -52,7 +51,6 @@ TEMPLATE_CLI_COMMANDS = {
     "architecture-reduction-template": "architecture_reduction",
     "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
-    "model-test-alignment-full-template": "model_test_alignment_full",
     "code-structure-template": "code_structure",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
@@ -182,14 +180,6 @@ class PublicTemplateTests(unittest.TestCase):
 
         self.assertEqual([], offenders)
 
-    def test_runner_templates_fail_until_their_anchors_name_real_code(self):
-        runners = {"model_test_alignment": model_test_alignment_template_files}
-        for directory, factory in runners.items():
-            with self.subTest(template=directory):
-                output = self.run_written_template(factory(), (".flowguard", "verification", "owners", directory),
-                                                   expected_returncode=1, fill=False)
-                self.assertIn("placeholder anchor 'REPLACE_ME/module.py:Owner'", output)
-
     def test_behavior_commitment_template_has_one_canonical_ledger_authority(self):
         files = behavior_commitment_template_files()
         by_path = {file.path: file.content for file in files}
@@ -225,44 +215,31 @@ class PublicTemplateTests(unittest.TestCase):
                       self.run_kit_template(files, "behavior_commitment", own_logic, fill="shop",
                                             expected_returncode=1))
 
-    def test_model_test_alignment_template_executes(self):
-        output = self.run_written_template(model_test_alignment_template_files(),
-            (".flowguard", "verification", "owners", "model_test_alignment"))
-        self.assertIn("flowguard model-test alignment", output)
-        self.assertIn("design-ready scaffold; target execution: not_run", output)
-        self.assertIn("test_evidence_not_passing", output)
+    def alignment_code(self):
+        return {"shop/module.py": "class Owner:\n    def __init__(self): self.ready = True\n",
+                "shop/test_module.py": "from shop.module import Owner\ndef test_owner():\n    assert isinstance(Owner(), Owner)\n",
+                ".flowguard/models/shop.py": 'MODEL_ID="shop"\nPARENT="system"\nIMPLEMENTED_BY={"Owner":"shop/module.py:Owner"}\nTESTED_BY={"owner":["shop/test_module.py:test_owner"]}\ndef build_explorer(): pass\n'}
 
+    def test_model_test_alignment_template_executes(self):
+        files = model_test_alignment_template_files()
+        self.assertEqual([".flowguard/models/model_test_alignment.py"], [f.path for f in files])
+        code = self.alignment_code()
+        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=0)
+        self.assertIn("PASS  model_test_alignment", output)
+        code["shop/test_module.py"] = "from shop.module import Owner\ndef test_owner():\n    Owner()\n    assert False, 'real failing bound test'\n"
+        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=1)
+        self.assertIn("tested_by_failed", output)
+        self.assertIn("real failing bound test", output)
+        code["shop/test_module.py"] = "def test_owner():\n    assert True\n"
+        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=1)
+        self.assertIn("tested_by_misses_anchor", output)
 
     def test_model_test_alignment_template_fails_when_its_plan_names_missing_code(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_template_files(root, model_test_alignment_template_files())
-            for path in root.rglob("*.py"):
-                path.write_text(path.read_text(encoding="utf-8").replace("REPLACE_ME", "app"), encoding="utf-8")
-            (root / "app").mkdir()
-            (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")   # no app/request.py
-            result = subprocess.run([sys.executable, "run_checks.py"], env=_template_env(), text=True,
-                                    cwd=root / ".flowguard" / "verification" / "owners" / "model_test_alignment",
-                                    capture_output=True, check=False)
-        self.assertEqual(1, result.returncode, result.stdout + result.stderr)
-        self.assertIn("anchor app/request.py:parse_request exists: anchor file missing: app/request.py", result.stdout)
-
-    def test_model_test_alignment_full_template_executes_all_six_reports(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_template_files(root, model_test_alignment_full_template_files())
-            result = subprocess.run(
-                [sys.executable, "-c", "import json, run_checks; "
-                 "print(json.dumps([report.ok for report in run_checks.run_checks()]))"],
-                cwd=root / ".flowguard" / "verification" / "owners" / "model_test_alignment",
-                env=_template_env(),
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
-        # Alignment, boundary conformance and source audit each reject their bad example.
-        self.assertEqual([True, False, True, False, True, False], json.loads(result.stdout))
+        code = self.alignment_code()
+        code[".flowguard/models/shop.py"] = code[".flowguard/models/shop.py"].replace("shop/module.py:Owner", "shop/request.py:parse_request")
+        output = self.run_kit_template(model_test_alignment_template_files(), "model_test_alignment", code,
+                                       fill="shop", expected_returncode=1)
+        self.assertIn("anchor file missing: shop/request.py", output)
 
     def test_model_mesh_template_executes_and_exposes_negative_fixture(self):
         files = model_mesh_template_files()
@@ -365,11 +342,32 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertTrue(contract["IMPLEMENTED_BY"] and contract["TESTED_BY"])
                 self.assertTrue(all(anchor.startswith("REPLACE_ME/") for anchor in anchors), anchors)
 
-    def test_only_the_meta_capabilities_write_runners(self):
-        # Mesh and topology now use contract models; the two alignment templates migrate next.
-        runners = sorted(name for name, factory in template_factories().items()
-                         if any(file.path.endswith("/run_checks.py") for file in factory()))
-        self.assertEqual(["model-test-alignment", "model-test-alignment-full"], runners)
+    def test_no_template_writes_a_runner(self):
+        for name, factory in template_factories().items():
+            paths = [file.path for file in factory()]
+            self.assertFalse(any(path.endswith("/run_checks.py") for path in paths), name)
+            if name == "adoption":
+                self.assertEqual(["docs/flowguard_agents_rules.md"], paths)
+            else:
+                models = [p for p in paths if p.startswith(".flowguard/models/") and p.count("/") == 2]
+                self.assertEqual(1, len(models), name)
+                self.assertEqual([".flowguard/behavior/inventory/ledger.json"] if name == "behavior-commitment" else [],
+                                 [p for p in paths if p not in models], name)
+        self.assertNotIn("model-test-alignment-full", template_factories())
+        self.assertEqual(10, len(template_factories()))
+
+    def test_every_template_fails_cleanly_before_it_is_filled(self):
+        from flowguard.map.mapfile import read_model_contract
+        for name, factory in template_factories().items():
+            if name == "adoption":
+                continue
+            with self.subTest(template=name), tempfile.TemporaryDirectory() as directory:
+                path = Path(directory) / "model.py"
+                path.write_text(factory()[0].content)
+                model_id = read_model_contract(path)["MODEL_ID"]
+                output = self.run_kit_template(factory(), model_id, {"shop/module.py": "class Owner: pass\n"}, expected_returncode=1)
+                self.assertIn("placeholder anchor", output)
+                self.assertNotIn("Traceback", output)
 
     def test_topology_hazard_template_executes(self):
         files = topology_hazard_template_files()
@@ -444,7 +442,6 @@ class PublicTemplateTests(unittest.TestCase):
             factory.__name__.removesuffix("_template_files"): factory
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
-        factories["model_test_alignment_full"] = model_test_alignment_full_template_files
         factories["model_topology_hazard_review"] = topology_hazard_template_files
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
             self.assertIn(template_name, factories, command)

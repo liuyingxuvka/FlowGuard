@@ -32,8 +32,8 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .check import anchor_problems
-from .facts import AnchorWatch
+from .check import PLACEHOLDER_ANCHOR, anchor_problems
+from .facts import AnchorWatch, PlaceholderAnchorError
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
 from .tree import build_tree
 from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
@@ -102,7 +102,7 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: 
     return result
 
 
-def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT) -> None:
+def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT, statuses: dict[str, str] | None = None) -> None:
     """Run a model's unique bound Python nodes once, then judge every actual item independently."""
     from .inventory import parse_python
 
@@ -110,6 +110,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
     try:
         contract = read_model_contract(path)
         bindings = [(invariant, anchor) for invariant, anchors in contract.get("TESTED_BY", {}).items() for anchor in anchors]
+        if statuses is not None:
+            statuses.update({anchor: "not_run" for _, anchor in bindings})
         if not bindings:
             return
         anchors = list(contract.get("IMPLEMENTED_BY", {}).values())
@@ -127,6 +129,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             info = parsed[rel]
             matches = [symbol] if symbol in info.symbols else sorted(s for s in info.symbols if s.endswith("." + symbol))
             if info.parse_error or len(matches) != 1:
+                if statuses is not None:
+                    statuses[anchor] = "failed"
                 _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable")
                 continue
             nodes[anchor] = rel + "::" + "::".join(matches[0].split("."))
@@ -156,10 +160,14 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             items = [item for item in payload["items"] if item["nodeid"] == selector or item["nodeid"].startswith(selector + "[")]
             failed = [item["nodeid"] for item in items if item["failed"] or not item["entered"] or not item["call_passed"]]
             if not items or failed:
+                if statuses is not None:
+                    statuses[anchor] = "failed"
                 _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}")
                 known_failure = True
                 continue
             missed = [item["nodeid"] for item in items if not (set(item["consulted"]) & set(anchors))]
+            if statuses is not None:
+                statuses[anchor] = "misses_anchor" if missed else "passed"
             if missed:
                 _fail(result, f"tested_by_misses_anchor {invariant} -> {anchor}: the test ran but called or read none of IMPLEMENTED_BY; "
                               + ", ".join(missed))
@@ -280,6 +288,9 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
     started = time.time()
     try:
         from flowguard.explorer import Explorer, _invariant_name
+        for anchor in contract.get("IMPLEMENTED_BY", {}).values():
+            if PLACEHOLDER_ANCHOR in anchor:
+                raise PlaceholderAnchorError(anchor_problems(root, [anchor])[anchor])
         module = _load(root, path)
         anchors = contract.get("IMPLEMENTED_BY", {})
         calls = AnchorWatch(root, anchors.values())
@@ -299,6 +310,9 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
         if not report.explored_sequence_count or not report.transition_count:
             result.status = "fail"
             result.problems.append("build_explorer() explored no input transitions; the design proves nothing")
+        for branch in report.exception_branches:
+            if branch.error_type == "PlaceholderAnchorError":
+                raise PlaceholderAnchorError(branch.message)
         if not report.ok:
             result.status = "fail"
             result.problems.append("the intended design violates its invariants:\n" + report.format_text(max_examples=1))
@@ -312,6 +326,9 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
                 if not isinstance(explorer, Explorer):
                     raise TypeError(f"broken variant {name!r} must be a flowguard.explorer.Explorer")
                 bad = explorer.explore()
+                for branch in bad.exception_branches:
+                    if branch.error_type == "PlaceholderAnchorError":
+                        raise PlaceholderAnchorError(branch.message)
                 if bad.ok:
                     result.status = "fail"
                     result.problems.append(f"known-bad variant {name!r} passed: the invariants do not catch it")
@@ -364,6 +381,8 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
             _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
                           "or mark DESIGN_ONLY = '<reason>'")
         _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
+    except PlaceholderAnchorError as exc:
+        _fail(result, str(exc))
     except (ImportError, ModuleNotFoundError) as exc:
         result.status = "error"
         result.problems.append(f"model environment/interpreter error: {exc}; interpreter={sys.executable}")

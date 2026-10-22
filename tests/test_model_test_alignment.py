@@ -1967,3 +1967,23 @@ def test_model_test_duplicate_code_contract_owner():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_alignment_plan_comes_from_the_model_file(tmp_path):
+    from flowguard.model_test_alignment import alignment_plan_from_model
+    path = tmp_path / "model.py"
+    path.write_text('MODEL_ID="orders"\nIMPLEMENTED_BY={"Owner":"shop/orders.py:place"}\n'
+                    'TESTED_BY={"a":["tests/test_orders.py:test_one"], '
+                    '"b":["tests/test_orders.py:test_one","tests/test_orders.py:test_two"]}\n')
+    plan = alignment_plan_from_model(path, root=tmp_path)
+    assert [o.obligation_id for o in plan.obligations] == ["a", "b"]
+    assert [(c.path, c.symbol) for c in plan.code_contracts] == [("shop/orders.py", "place")]
+    assert len(plan.test_evidence) == 2
+    one, two = plan.test_evidence
+    assert one.covered_obligations == ("a", "b") and two.covered_obligations == ("b",)
+    assert all(e.covered_code_contracts == (plan.code_contracts[0].code_contract_id,) for e in plan.test_evidence)
+    assert review_model_test_alignment(plan).ok
+    assert all(e.result_status == "not_run" for e in alignment_plan_from_model(path, root=tmp_path, statuses={}).test_evidence)
+    actual = alignment_plan_from_model(path, root=tmp_path, statuses={one.evidence_id: "passed", two.evidence_id: "misses_anchor"})
+    assert actual.test_evidence[1].covered_code_contracts == ()
+    assert not review_model_test_alignment(actual).ok

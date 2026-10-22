@@ -924,3 +924,19 @@ assert any('child_start_gap: 3 of 4' in warning for warning in child.warnings), 
     warning = next(w for w in result.warnings if 'child_start_gap not checked:' in w)
     assert "parent 'counter_parent' could not be explored (port unavailable)" in warning
     assert '\n' not in warning
+
+
+@pytest.mark.parametrize("location", ["conformance", "explore"])
+def test_placeholder_anchor_failures_are_clean_in_hooks_and_exploration(shop, capsys, location):
+    write(shop, "shop/orders.py", FIXED)
+    call = "    from flowguard.map.facts import load_anchor\n    load_anchor('REPLACE_ME/module.py:Owner')\n"
+    if location == "conformance":
+        _edit_model(shop, "def conformance():\n", "def conformance():\n" + call)
+    else:
+        _edit_model(shop, "    def apply(self, inp: Place, state: State):\n",
+                    "    def apply(self, inp: Place, state: State):\n" + "\n".join("    " + line for line in call.rstrip().split("\n")) + "\n")
+    code, output = models(shop, capsys, "order_placement")
+    assert code == 1 and "FAIL" in output and "ERROR" not in output
+    assert "placeholder anchor 'REPLACE_ME/module.py:Owner': replace it with the real 'path:Symbol' this model is about" in output
+    assert "Traceback" not in output
+    assert "explored no input transitions" not in output

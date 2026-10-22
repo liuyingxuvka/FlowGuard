@@ -155,11 +155,11 @@ counterexample (features, expected and observed verdict) for each one that disag
 use `codes="first"` for a validator that stops at the first defect in declaration order. `requires=("other",)`
 requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
 `exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
-are omitted; conformance still checks the clean base against the design, including adapter errors. Only the meta-capabilities
-(`model-test-alignment`, `model-test-alignment-full`) still write runners to inspect models and
-tests instead of a domain; their templates write `.flowguard/models/owners/<name>/model.py`
-and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and
-`TESTED_BY`) at top level and follows the same anchor rule. Template code and test anchors contain `REPLACE_ME`
+are omitted; conformance still checks the clean base against the design, including adapter errors. Every capability
+template writes one top-level `.flowguard/models/<name>.py` kit contract model. The behavior-commitment
+model also retains its canonical auxiliary ledger. Existing user-written runners remain accepted;
+a runner declares `IMPLEMENTED_BY` (and `TESTED_BY`) at top level and follows the same anchor rule.
+Template code and test anchors contain `REPLACE_ME`
 and fail until you name your code and tests. Set COMPONENTS (and PARENT when refining a model) for contracts; list only runners in the owner's `models`. Run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
 broken plans are rejected. A runner should print one line per case, return a non-zero exit code

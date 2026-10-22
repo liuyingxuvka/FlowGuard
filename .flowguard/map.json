@@ -116,7 +116,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Daily commands, model execution and template dispatch.",
+      "summary": "Dispatches daily map, proof and single-contract template commands.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids"
@@ -153,12 +153,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5457cc454c6df1c886cc0994d6d74c8c2fb8c4a9fee126ccb2ba1fd7a3bbe4e4"
+      "fingerprint": "sha256:bcb2e9736fd0172cf5df7f3781b9cd8650306620178fd995abec0e1311aaa37d"
     },
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Declares engine identity and loads public names from their owner on first use.",
+      "summary": "Declares engine identity and lazily exposes current owner APIs, without the retired full alignment template.",
       "responsibilities": [
         "expose public names without importing their modules early"
       ],
@@ -196,16 +196,15 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f6241f7281b65767e761851c35f9d1d194ae00a845cd45361541fd3c9a7a2840"
+      "fingerprint": "sha256:46d49dbb087707b95920005ded95442a851dcc3ee55f31d2f1217c0259c5e210"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates starter contract models, and check runners for the meta-capabilities.",
+      "summary": "Generates one kit contract model for each capability.",
       "responsibilities": [
-        "provide starter files for each capability",
-        "kit templates write one contract model whose placeholder code and test anchors fail until replaced with real ones",
-        "model-mesh and topology-hazard templates write kit contract models; only alignment templates still generate runners",
+        "every capability template writes one contract model built from a kit; retain adoption rules and the behavior model canonical auxiliary ledger",
+        "generated placeholder code and test anchors fail cleanly until replaced with real ones",
         "generate edit-plan examples forwarding the existing DESIGN_ONLY marker to code-facts helpers"
       ],
       "files": [
@@ -227,7 +226,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3d35f19a4c6b4c35c08593ab92412220697e47b58b5c3f104cc1f2511fb6aeff"
+      "fingerprint": "sha256:ac2e0a68df6281481ce77ebb05b55e0036ff9f30e5efb1f74d5809396db981ae"
     },
     {
       "id": "behavior-commitment",
@@ -458,9 +457,10 @@
     {
       "id": "model-test",
       "layer": "capabilities",
-      "summary": "Cross-checks obligations, code contracts and tests.",
+      "summary": "Cross-checks obligations, code contracts and tests; derives literal model bindings.",
       "responsibilities": [
-        "cross-check obligations, code contracts and tests"
+        "cross-check obligations, code contracts and tests",
+        "derive unique test evidence and merged obligations from literal model bindings; distinguish design assumptions from actual execution statuses"
       ],
       "files": [
         "flowguard/model_test_alignment.py",
@@ -474,6 +474,7 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
+        "map-file",
         "shared-vocabulary"
       ],
       "tests": [
@@ -487,7 +488,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b000b82722699e7dc13cbb94c7a54f6f119edfa4890630411dfb318e23a9b11b"
+      "fingerprint": "sha256:3e304a3634f5182b7a20b54283cf80a77fe55fccc2a8af28385125ad1db09268"
     },
     {
       "id": "topology-hazard",
@@ -722,14 +723,15 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Runs real model checks with finite process ownership and implementation anchors.",
+      "summary": "Runs model proofs, precise placeholder failures and individual bound-test reach.",
       "responsibilities": [
         "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; warn about model-child start gaps against the actual parent port without lending parent-check calls to child anchors",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system': architecture rules as invariants, generated known-bad edges and claims, map check as conformance",
         "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window",
-        "preserve real anchors and expose planned Fact reports with a DESIGN_ONLY conformance gate"
+        "preserve real anchors and expose planned Fact reports with a DESIGN_ONLY conformance gate",
+        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -761,7 +763,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b1643bb5c7b82fda7a5e587f9964200b74655a3dd1c733153db9ca2491cb8aa5"
+      "fingerprint": "sha256:d133d819081a16073635a44600e26d3ef8eb273a806ba6a94ced804cdafa66a8"
     },
     {
       "id": "engine-explore",

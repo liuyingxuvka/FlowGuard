@@ -31,44 +31,27 @@ same rule; a test covers an obligation id that no longer exists.
 
 ## Steps
 
-1. For a new reusable boundary, `python -m flowguard template model-test-alignment --write .` writes
-   `.flowguard/models/owners/model_test_alignment/model.py` and
-   `.flowguard/verification/owners/model_test_alignment/run_checks.py`. Rename `model_test_alignment` to your component id
-   and replace the runner's `REPLACE_ME` anchor with the code the alignment is about.
-   The template uses the native API with explicit `not_run` target evidence.
-   A scaffold run checks design readiness, not target test execution; its runner also checks that the
-   owner code each code contract names exists (code facts), so it fails until the plan names real code.
-   `model-test-alignment-full` is a runnable teaching example; its sample statuses are not project execution evidence.
-2. Reuse/update the owner's native alignment plan (`model.py` only if persisted), using the real API:
-   ```python
-   from flowguard import (ModelObligation, CodeContract, TestEvidence, ModelTestAlignmentPlan,
-       review_model_test_alignment, audit_python_code_contracts, audit_python_test_assertions,
-       review_python_contract_source_audit)
-   ob = ModelObligation("reject_duplicate_order", required_test_kinds=("happy_path", "failure_path"),
-       external_inputs=("order",), external_outputs=("result",), state_writes=("orders",))
-   cc = CodeContract("orders.place", path="shop/orders.py", symbol="place_order",   # = map entrypoint
-       implements_obligations=("reject_duplicate_order",), external_inputs=("order",),
-       external_outputs=("result",), state_writes=("orders",))
-   t = TestEvidence("t_dup", test_name="test_duplicate_rejected", path="tests/test_orders.py",
-       result_status="passed",   # what your pytest run of this test showed
-       test_kind="failure_path", covered_obligations=("reject_duplicate_order",),
-       covered_code_contracts=("orders.place",))
-   src = {p: open(p).read() for p in ("shop/orders.py", "tests/test_orders.py")}
-   audit = review_python_contract_source_audit((cc,), (t, ...),
-       audit_python_code_contracts((cc,), src), audit_python_test_assertions((t, ...), (cc,), src))
-   report = review_model_test_alignment(ModelTestAlignmentPlan("orders", obligations=(ob,),
-       code_contracts=(cc,), test_evidence=(t, ...), source_audit_reports=(audit,),
-       require_source_audit=True))
-   # report.ok, report.decision, report.findings[i].code, report.binding_rows
-   ```
+1. For a new reusable review, `python -m flowguard template model-test-alignment --write .`
+   writes `.flowguard/models/model_test_alignment.py`, one feature-kit contract model.
+   Set PARENT to the reviewed model's actual MODEL_ID and REVIEWED to its file;
+   add a top-level import of that parent file. Replace all code and test anchors.
+2. `alignment_plan_from_model(REVIEWED, root=ROOT)` reads literal TESTED_BY and IMPLEMENTED_BY:
+   one obligation per rule, one contract per code anchor, one evidence row per unique test anchor.
+   Shared tests retain every bound obligation. Its default passing statuses are design assumptions.
+   The generated conformance uses `run_bound_tests` once, checks its complete ModelResult,
+   and rebuilds the plan with actual statuses: missing results are not_run; a passing test that
+   touched none of the model's implementation anchors is unbound. Each actual parameter case
+   must independently pass and touch at least one anchor. Failed tests cannot be promoted.
+   Native `ModelObligation`, `CodeContract`, `TestEvidence` and source-audit APIs remain available
+   for deeper input/output/state/effect contracts; literal bindings do not infer assertion strength.
 3. A facade: `CodeContract(..., role=CODE_CONTRACT_ROLE_FACADE, delegates_to_code_contract_id="orders.place",
    delegation_only=True, delegation_evidence_id=..., delegation_evidence_current=True)`.
 4. Optional families (one rule over many members, e.g. every export format): `ObligationFamily`,
    `ObligationFamilyEvidence`, passed as `obligation_families` / `family_evidence`.
-5. If persisting a runner, return 0 only when the good plan is `ok` and relevant broken variants are not;
-   direct native alignment review or an existing-owner test update requires no new scaffold.
-6. Register any new/changed persistent runner in the owner's `models`; execute the selected registered
-   runner once via `python -m flowguard map models <MODEL_ID>`, without a second direct run; then use `change`.
+5. Run the contract with `python -m flowguard map models model_test_alignment`; the intended
+   design must pass and each generated bad variant must fail a real design property.
+6. Existing user-written runners remain supported and must be listed in their owner's models.
+   Templates create no runner; contract models are discovered automatically. Then use `change`.
 
 ## What blocks
 
@@ -105,7 +88,7 @@ Green decision: `model_test_alignment_green`.
 
 ## Limits
 
-- Declared rows are not execution evidence: `result_status` is what you report from your own pytest run.
+- Declared rows are not execution evidence; the generated conformance obtains statuses from real bound tests.
   `require_source_audit=True` makes the review read the code and the tests (AST audit).
 - The AST audit checks simple imports/aliases and direct call-result assertions. Unknown receivers,
   constants-only assertions and complex dataflow cannot close an execution claim. State writes are
@@ -114,4 +97,4 @@ Green decision: `model_test_alignment_green`.
 - It is not conformance replay. A contract model's `conformance()` (run by `map models`) replays model
   traces on the real code; this review checks bindings. Add conformance when order,
   state, side effects or another externally visible contract requires replay.
-- Obligations are not derived from your model's explorer; you write them by hand, so a rule you forget is not checked.
+- Literal TESTED_BY keys supply obligations, not every explorer rule. An unlisted rule remains outside this review.

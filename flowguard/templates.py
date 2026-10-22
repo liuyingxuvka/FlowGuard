@@ -23,14 +23,7 @@ from .template_text.core import (
 from .template_text.field_lifecycle import (
     FIELD_LIFECYCLE_MODEL_TEMPLATE,
 )
-from .template_text.model_test_alignment import (
-    MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE,
-    MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE,
-    MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE,
-    MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE,
-    MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE,
-    MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE,
-)
+from .template_text.model_test_alignment import MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE
 from .template_text.model_mesh import (
     MODEL_MESH_MODEL_TEMPLATE,
 )
@@ -68,17 +61,7 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 
 
 def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE),
-    )
-
-
-def model_test_alignment_full_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/owners/model_test_alignment/model.py", MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/verification/owners/model_test_alignment/run_checks.py", MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE),
-    )
+    return (TemplateFile(".flowguard/models/model_test_alignment.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),)
 
 
 def architecture_reduction_template_files() -> tuple[TemplateFile, ...]:
@@ -136,43 +119,6 @@ def write_template_files(
     *,
     overwrite: bool = False,
 ) -> tuple[Path, ...]:
-    def prepare_current_runner(file: TemplateFile) -> str:
-        """Make a v2 verification runner import its paired current model.
-
-        v2 deliberately keeps model authority and executable verification in
-        separate role roots.  Public templates are still authored as compact
-        ``from model import ...`` or ``import model`` snippets, so the writer
-        adds one explicit current model root to ``sys.path`` at materialization
-        time.  It never searches legacy locations or accepts an alternate copy.
-        """
-
-        parts = Path(file.path).parts
-        import_marker = (
-            "from model import"
-            if "from model import" in file.content
-            else "import model"
-            if "import model" in file.content
-            else None
-        )
-        if (
-            len(parts) == 5
-            and parts[:3] == (".flowguard", "verification", "owners")
-            and parts[-1] == "run_checks.py"
-            and import_marker is not None
-            and "_FLOWGUARD_MODEL_ROOT" not in file.content
-            and "_MODEL_DIR" not in file.content
-        ):
-            owner = parts[3]
-            preamble = (
-                "from pathlib import Path\n"
-                "import sys\n\n"
-                f"_MODEL_DIR = Path(__file__).resolve().parents[4] / \".flowguard\" / \"models\" / \"owners\" / \"{owner}\"\n"
-                "if str(_MODEL_DIR) not in sys.path:\n"
-                "    sys.path.insert(0, str(_MODEL_DIR))\n\n"
-            )
-            return file.content.replace(import_marker, preamble + import_marker, 1)
-        return file.content
-
     target_root = Path(root)
     written: list[Path] = []
     for file in files:
@@ -180,7 +126,7 @@ def write_template_files(
         if target.exists() and not overwrite:
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text(prepare_current_runner(file), encoding="utf-8")
+        target.write_text(file.content, encoding="utf-8")
         written.append(target)
     return tuple(written)
 
@@ -193,11 +139,6 @@ __all__ = [
     "CODE_STRUCTURE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_NOTES_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_RUN_CHECKS_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_FULL_MODEL_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_FULL_NOTES_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_FULL_RUN_CHECKS_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TemplateFile",
@@ -208,7 +149,6 @@ __all__ = [
     "contract_exhaustion_template_files",
     "field_lifecycle_template_files",
     "model_mesh_template_files",
-    "model_test_alignment_full_template_files",
     "model_test_alignment_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_template_files",

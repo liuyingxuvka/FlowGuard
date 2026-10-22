@@ -305,6 +305,10 @@ class CodeFacts:
         return CodeFactsReport(tuple(self.facts))
 
 
+class PlaceholderAnchorError(ValueError):
+    """A generated anchor still needs the user's real code binding."""
+
+
 def load_anchor(anchor: str, root: str | Path | None = None):
     """Import the object an anchor names ('path/to/module.py:Name' or ':Class.method') for replay."""
     import importlib
@@ -313,9 +317,10 @@ def load_anchor(anchor: str, root: str | Path | None = None):
     from .check import PLACEHOLDER_ANCHOR
 
     path, _, symbol = anchor.partition(":")
-    if PLACEHOLDER_ANCHOR in anchor or not path.endswith(".py") or not symbol:
-        raise ValueError(f"placeholder anchor {anchor!r}: replace it with the real 'path:Symbol' this model is about"
-                         if PLACEHOLDER_ANCHOR in anchor else f"anchor {anchor!r} must look like 'path/to/module.py:Name'")
+    if PLACEHOLDER_ANCHOR in anchor:
+        raise PlaceholderAnchorError(f"placeholder anchor {anchor!r}: replace it with the real 'path:Symbol' this model is about")
+    if not path.endswith(".py") or not symbol:
+        raise ValueError(f"anchor {anchor!r} must look like 'path/to/module.py:Name'")
     dotted = path[:-3].replace("/", ".").removesuffix(".__init__")
     module = None
     for name in (dotted, dotted.removeprefix("src.")):
@@ -335,4 +340,4 @@ def load_anchor(anchor: str, root: str | Path | None = None):
     return value
 
 
-__all__ = ["AnchorWatch", "CodeFacts", "CodeFactsReport", "Fact", "load_anchor"]
+__all__ = ["AnchorWatch", "CodeFacts", "CodeFactsReport", "Fact", "PlaceholderAnchorError", "load_anchor"]

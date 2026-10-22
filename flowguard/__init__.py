@@ -1073,7 +1073,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "contract_exhaustion_template_files",
         "field_lifecycle_template_files",
         "model_mesh_template_files",
-        "model_test_alignment_full_template_files",
         "model_test_alignment_template_files",
         "topology_hazard_template_files",
         "ui_flow_structure_template_files",

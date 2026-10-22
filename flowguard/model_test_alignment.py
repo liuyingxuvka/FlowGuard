@@ -4121,7 +4121,43 @@ def review_python_contract_source_audit(
     return _review(code_contracts, test_evidence, code_evidence, test_assertions)
 
 
+
+def alignment_plan_from_model(path, *, root=None, statuses=None) -> ModelTestAlignmentPlan:
+    """Read literal bindings; absent statuses are design assumptions, never execution evidence.
+
+    Provided statuses use the unique test anchor as key. Missing entries are not_run;
+    misses_anchor means the test passed but touched none of the model's code anchors.
+    """
+    from .map.mapfile import read_model_contract
+
+    path = Path(path)
+    if root is not None and not path.is_absolute():
+        path = Path(root) / path
+    contract = read_model_contract(path)
+    rules = tuple(contract.get("TESTED_BY", {}))
+    anchors = tuple(dict.fromkeys(contract.get("IMPLEMENTED_BY", {}).values()))
+    tests = {}
+    for rule, bindings in contract.get("TESTED_BY", {}).items():
+        for anchor in bindings:
+            tests.setdefault(anchor, [])
+            if rule not in tests[anchor]:
+                tests[anchor].append(rule)
+    contracts = tuple(CodeContract(anchor, path=anchor.partition(":")[0], symbol=anchor.partition(":")[2],
+                                   implements_obligations=rules) for anchor in anchors)
+    evidence = []
+    for anchor, obligations in tests.items():
+        status = TEST_STATUS_PASSED if statuses is None else statuses.get(anchor, TEST_STATUS_NOT_RUN)
+        evidence.append(TestEvidence(anchor, test_name=anchor.partition(":")[2], path=anchor.partition(":")[0],
+            result_status=TEST_STATUS_PASSED if status == "misses_anchor" else status,
+            covered_obligations=tuple(obligations),
+            covered_code_contracts=() if status == "misses_anchor" else anchors))
+    return ModelTestAlignmentPlan(contract.get("MODEL_ID", path.stem),
+        obligations=tuple(ModelObligation(rule, obligation_type="invariant", allow_shared_evidence=True,
+                                         allow_shared_implementation=len(anchors) > 1) for rule in rules),
+        code_contracts=contracts, test_evidence=tuple(evidence), require_executed_evidence=statuses is not None)
+
 __all__ = [
+    "alignment_plan_from_model",
     "ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST",
     "ARTIFACT_PAYLOAD_METHOD_BROWSER",
     "ARTIFACT_PAYLOAD_METHOD_DESKTOP",
