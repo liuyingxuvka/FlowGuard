@@ -62,3 +62,13 @@ except ImportError:
     assert 'VERSION = 3' in output
     assert 'guarded(value)' in output and 'class Service' in output and 'fallback(value)' in output
     assert 'secret_body' not in output and 'return value' not in output
+
+
+def test_find_ranks_the_component_that_defines_an_exact_symbol_first(tmp_path):
+    inv = Inventory(tmp_path, ['owner.py'], ['owner.py'], [],
+                    {'owner.py': PyInfo('owner', {'anchor_problems', 'Thing.anchor_problems'})}, {}, {})
+    data = dict(components=[_component('descriptions', summary='anchor problems',
+                                       responsibilities=['anchor problems']),
+                            dict(_component('implementation'), files=['owner.py'])])
+    for words in (['anchor_problems'], ['ANCHOR_PROBLEMS'], ['Thing.anchor_problems']):
+        assert find_owners(data, inv, words)[0][1] == 'implementation'

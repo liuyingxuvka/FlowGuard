@@ -32,7 +32,7 @@ from .lint import Limits, run_lint
 from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import render_results, run_models
 from .scan import new_map
-from .views import find_owners, render_digest, render_show
+from .views import defined_symbols, find_owners, render_digest, render_show
 
 
 def _context(root: Path, with_bodies: bool = True):
@@ -109,6 +109,8 @@ def cmd_find(root: Path, a) -> int:
     by_id = {c["id"]: c for c in data["components"]}
     for score, cid, owned in hits:
         print(f"{score:3}  {cid}" + (f"  owns: {'; '.join(owned)}" if owned else ""))
+        for symbol, path in defined_symbols(by_id[cid], inv, a.words)[:3]:
+            print(f"     defines: {symbol} ({path})")
         print(f"     files: {', '.join(by_id[cid].get('files', []))}")
         for label, key in (("state", "state"), ("effects", "side_effects")):
             if by_id[cid].get(key):

@@ -120,7 +120,7 @@
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands",
-        "show the existing owner of a behavior with its files, state and side effects (read --find)"
+        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find)"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -156,7 +156,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:587c5be6201e8a5eafbb11f504f0bfa61e48397bd605253d9af3a779fdc4f0fa"
+      "fingerprint": "sha256:28304cab7f1241c17ca47adbed3f2e267749e43d17e4b15ab6e7e354686e70f0"
     },
     {
       "id": "public-api",
@@ -721,7 +721,8 @@
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY",
         "impact selection: retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
-        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error"
+        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error",
+        "rank behavior owners, prioritizing exact symbol definitions"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -753,7 +754,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:647221e22983aca2969f2ed817072e435f3e29ba0313596ee4247b4fd1815d22"
+      "fingerprint": "sha256:298cc4a4573904c87a16b78b66f3594b44365640395bc604c07387f463fa010a"
     },
     {
       "id": "map-proof",

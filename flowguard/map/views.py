@@ -75,6 +75,14 @@ def _find_words(words: set[str]) -> set[str]:
     return words | {w[:-1] for w in words if len(w) > 3 and w.endswith("s")}
 
 
+def defined_symbols(component: dict, inv: Inventory, words: list[str]) -> list[tuple[str, str]]:
+    """Exact raw-name matches, including the final name of a class member."""
+    raw = {word.lower() for word in words}
+    return sorted((symbol, path) for path in component_files(component, inv) if path in inv.py
+                  for symbol in inv.py[path].symbols
+                  if symbol.lower() in raw or symbol.rsplit(".", 1)[-1].lower() in raw)
+
+
 def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) -> list[tuple[int, str, list[str]]]:
     """Rank components by how well they already own the described responsibility."""
     query = _find_words(tokens(" ".join(words)))
@@ -86,6 +94,8 @@ def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) ->
                                     for s in inv.py[f].symbols
                                     for w in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z0-9]+", s)})
         score = 3 * len(query & text) + len(query & symbol_words)
+        if defined_symbols(c, inv, words):
+            score += 4 * len(query) + 1  # greater than every possible pure word-bag score
         if score:
             scored.append((score, c["id"], [r for r in c.get("responsibilities", []) if _find_words(tokens(r)) & query]))
     scored.sort(key=lambda x: (-x[0], -sum(len(_find_words(tokens(r)) & query) for r in x[2]), x[1]))
