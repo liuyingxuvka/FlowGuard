@@ -423,7 +423,8 @@
       "layer": "capabilities",
       "summary": "Checks child models, reattachment and joint closure.",
       "responsibilities": [
-        "review declared partitions, boundary changes, reattachment contracts and joint closure"
+        "review declared partitions, boundary changes, reattachment contracts and joint closure",
+        "require registered model-tree parent and child ids when a root is supplied; derive child facts statically from model files"
       ],
       "files": [
         "flowguard/hierarchy.py",
@@ -437,6 +438,9 @@
       "side_effects": [],
       "depends_on": [
         "engine-core",
+        "map-discover",
+        "map-file",
+        "map-inventory",
         "model-test",
         "shared-vocabulary"
       ],
@@ -447,7 +451,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:81ce11e5df38917b905aa8985b2a1da7046f44875cae24724fa4d8f3e8dbc312"
+      "fingerprint": "sha256:eb7ae7b5f8974354de76e47a76d8194a5b49749f6534a19c6c7da7ca1fa3ad67"
     },
     {
       "id": "portable-models",

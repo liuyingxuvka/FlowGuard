@@ -41,26 +41,32 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
    To rename `model_mesh`, rename both owner folders and `_MODEL_DIR` in `run_checks.py`.
 2. In the selected owner plan (`model.py` only if persisted), describe children and parent (API from `flowguard`):
    ```python
-   from flowguard import (ChildModelEvidence, ChildReattachmentContract, HierarchyCoverageItem,
+   from dataclasses import replace
+   from flowguard.hierarchy import child_evidence_from_model
+   from flowguard import (ChildReattachmentContract, HierarchyCoverageItem,
        HierarchyPartitionMap, ModelTargetSplitDerivation, MeshClosureModel, MeshClosureTransition,
        MeshClosureTerminal, review_hierarchical_mesh)
-   pay = ChildModelEvidence("payment", inputs_accepted=("order:placed",),
-       outputs_emitted=("payment:settled",), state_owned=("payment.status",),
+   pay = replace(child_evidence_from_model(".flowguard/models/payment.py", root="."),
+       inputs_accepted=("order:placed",), outputs_emitted=("payment:settled",),
        side_effects_owned=("charge_card",))
+   ship = replace(child_evidence_from_model(".flowguard/models/shipping.py", root="."),
+       inputs_accepted=("payment:settled",), outputs_emitted=("shipment:sent",))
    closure = MeshClosureModel("checkout", root_entries=("order:placed",),
        transitions=(MeshClosureTransition("pay", consumes=("order:placed",),
-           emits=("payment:settled",), consumer_model_id="payment"), ...),
-       terminals=(MeshClosureTerminal("done", consumes=("shipment:sent",)),),
-       required_outputs=("shipment:sent",))
+           emits=("payment:settled",), consumer_model_id="payment"),
+           MeshClosureTransition("ship", consumes=("payment:settled",),
+               emits=("shipment:sent",), consumer_model_id="shipping")),
+       terminals=(MeshClosureTerminal("done", consumes=("shipment:sent",)),))
    report = review_hierarchical_mesh(HierarchyPartitionMap("checkout",
-       coverage_items=(HierarchyCoverageItem("charge", owner_model_id="payment"), ...),
+       coverage_items=(HierarchyCoverageItem("charge", owner_model_id="payment"),),
        child_models=(pay, ship), target_split_derivation=ModelTargetSplitDerivation("checkout",
-           target_child_model_ids=("payment", "shipping"), covered_partition_item_ids=("charge", "ship"),
-           state_owner_fields=("payment.status",), side_effect_owner_fields=("charge_card",), rationale="..."),
+           target_child_model_ids=(pay.model_id, ship.model_id), covered_partition_item_ids=("charge",),
+           state_owner_fields=pay.state_owned + ship.state_owned,
+           side_effect_owner_fields=("charge_card",), rationale="Derived from checkout's model blocks"),
        reattachment_contracts=(ChildReattachmentContract("payment",
-           expected_inputs=("order:placed",), expected_outputs=("payment:settled",),
-           expected_state_owned=("payment.status",)),),
-       closure_model=closure))   # report.ok, report.decision, report.findings
+           expected_inputs=pay.inputs_accepted, expected_outputs=pay.outputs_emitted,
+           expected_state_owned=pay.state_owned, expected_side_effects_owned=pay.side_effects_owned),),
+       closure_model=closure), root=".")   # report.ok, report.decision, report.findings
    ```
    A contract must list the child's inputs and outputs (or set
    `allow_extra_inputs` / `allow_extra_outputs`). Mark loops `loop=True` and give them a `progress_rule` or `max_iterations`.
@@ -83,12 +89,14 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 
 | Code | Meaning |
 |---|---|
+| `unknown_child_model` | A child ID is not a registered contract MODEL_ID (also `unknown_parent_model`). |
+| `child_not_under_parent` | The real model-tree parent is not this parent model. |
 | `coverage_gap` | A parent coverage item has no owner. |
 | `duplicate_state_owner` | Two children own the same state field (also `duplicate_side_effect_owner`, `duplicate_function_owner`). |
 | `missing_target_split_derivation` | Children exist but no `ModelTargetSplitDerivation` explains the split. |
 | `child_reattachment_missing_output` | A child no longer emits an output the parent expects (also `_missing_input`, `_missing_state_owner`, `_missing_side_effect_owner`, `_missing_contract`, `_extra_input`, `_extra_output`). |
 | `boundary_change_parent_rerun_required` | A child changed its handoff; rerun the parent (also `_sibling_rerun_required`: rerun siblings; `_reattachment_required`: parent has no reattachment contract for the changed child). |
-| `mesh_closure_required` | Children hand off outputs but the parent has no closure model. |
+| `mesh_closure_required` | An output is another child's input, but the parent has no closure model. |
 | `unconsumed_child_output` | A child output is consumed by no transition, join or terminal. |
 | `missing_join_point` | A join never receives all its required inputs. |
 | `terminal_leak` | A terminal is reached while a required or child output is still unconsumed. |
@@ -114,7 +122,7 @@ Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement
 
 ## Limits
 
-- It checks the boundaries you declare. It does not read code; a child that lies about its
-  outputs passes. Pair it with each child's own model and real tests.
+- With `root`, IDs come from the model tree and static anchored writes come from code.
+  Inputs, outputs and effects remain declarations; run each child's own model and real tests.
 - The closure model checks handoff tokens only, not what a child does with them.
 - A green mesh says nothing about one child's internal paths. Check each child separately.

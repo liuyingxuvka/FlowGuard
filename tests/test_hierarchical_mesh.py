@@ -190,7 +190,7 @@ class HierarchicalMeshTests(unittest.TestCase):
         self.assertIn("flowguard hierarchical mesh", report.format_text())
 
 
-    def test_child_output_without_closure_model_blocks_parent_green(self):
+    def test_child_output_without_handoff_needs_no_closure_model(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",
             coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
@@ -200,11 +200,11 @@ class HierarchicalMeshTests(unittest.TestCase):
 
         report = review_hierarchical_mesh(partition)
 
-        self.assertFalse(report.ok)
-        self.assertEqual("mesh_closure_required", report.decision)
-        self.assertIn("mesh_closure_required", [finding.code for finding in report.findings])
+        self.assertTrue(report.ok)
+        self.assertEqual("mesh_green_can_continue", report.decision)
+        self.assertNotIn("mesh_closure_required", [finding.code for finding in report.findings])
 
-    def test_reattachment_without_closure_model_blocks_parent_green(self):
+    def test_reattachment_without_handoff_needs_no_closure_model(self):
         partition = HierarchyPartitionMap(
             parent_model_id="checkout",
             coverage_items=(HierarchyCoverageItem("payment", owner_model_id="payment"),),
@@ -215,8 +215,8 @@ class HierarchicalMeshTests(unittest.TestCase):
 
         report = review_hierarchical_mesh(partition)
 
-        self.assertFalse(report.ok)
-        self.assertEqual("mesh_closure_required", report.decision)
+        self.assertTrue(report.ok)
+        self.assertEqual("mesh_green_can_continue", report.decision)
 
     def test_mesh_closure_complete_model_can_continue(self):
         report = review_mesh_closure_model(
@@ -968,6 +968,84 @@ def test_non_boundary_count_change_is_unaffected():
     summary = summarize_child_boundary_change(previous, current)
     assert summary.changed_fields == ()
     assert summary.propagation == "unaffected"
+
+
+def test_mesh_child_ids_must_be_registered_models(tmp_path, monkeypatch):
+    from dataclasses import replace
+    from flowguard.hierarchy import child_evidence_from_model
+
+    models = tmp_path / '.flowguard/models'
+    models.mkdir(parents=True)
+    (tmp_path / 'counter.py').write_text('class Counter:\n    def tick(self):\n        self.value += 1\n    def reset(self):\n        self.other = 0\n')
+    literals = '''COMPONENTS = ["counter"]
+IMPLEMENTED_BY = {"Tick": "counter.py:Counter.tick"}
+TESTED_BY = {"non_negative": ["tests/test_counter.py:test_tick"]}
+def build_explorer(): raise AssertionError("static lookup must not execute models")
+raise AssertionError("static lookup must not import models")
+'''
+    (models / 'parent.py').write_text('import child_a\nMODEL_ID = "parent"\n' + literals)
+    (models / 'child_a.py').write_text('MODEL_ID = "child_a"\n' + literals)
+    child_b = models / 'child_b.py'
+    child_b.write_text('MODEL_ID = "child_b"\nPARENT = "parent"\n' +
+                       literals.replace('Counter.tick', 'Counter.reset').replace('non_negative', 'reset_rule'))
+    runner = tmp_path / '.flowguard/verification/owners/runner/run_checks.py'
+    runner.parent.mkdir(parents=True)
+    runner.write_text('raise AssertionError("runner must not execute")\n')
+    data = dict(schema='flowguard.map.v1', components=[dict(id='counter', files=['counter.py'],
+        tests=[], models=['.flowguard/verification/owners/runner/run_checks.py'], depends_on=[],
+        status='draft', summary='Counter', responsibilities=['count'])])
+    map_path = tmp_path / '.flowguard/map.json'
+    map_path.write_text(json.dumps(data))
+    a = child_evidence_from_model('.flowguard/models/child_a.py', root=tmp_path)
+    b = child_evidence_from_model(child_b, root=tmp_path)
+    assert a.model_id == 'child_a' and a.parent_model_id == 'parent' and a.owner_id == 'counter'
+    assert a.functions_owned == ('counter.py:Counter.tick',)
+    assert a.invariants_owned == ('non_negative',) and a.state_owned == ('Counter.value',)
+    assert a.inputs_accepted == a.outputs_emitted == a.side_effects_owned == ()
+    bare = child_evidence_from_model(models / 'child_a.py')
+    assert bare.parent_model_id == bare.owner_id == '' and bare.state_owned == ()
+    partition = HierarchyPartitionMap('parent', child_models=(a, b),
+        target_split_derivation=target('parent', ('child_a', 'child_b'), (), state=True))
+    report = review_hierarchical_mesh(partition, root=tmp_path)
+    assert report.ok, report.format_text()
+    typo = review_hierarchical_mesh(replace(partition, child_models=(replace(a, model_id='child_aa'),)), root=tmp_path)
+    assert typo.decision == 'model_ids_unresolved'
+    assert any(f.code == 'unknown_child_model' and 'child_a' in f.message for f in typo.findings)
+    for invalid_parent in ('counter', 'system', 'runner'):
+        unknown = review_hierarchical_mesh(replace(partition, parent_model_id=invalid_parent), root=tmp_path)
+        assert unknown.decision == 'model_ids_unresolved'
+        assert any(f.code == 'unknown_parent_model' for f in unknown.findings)
+    child_b.write_text(child_b.read_text().replace('PARENT = "parent"', 'PARENT = "counter"'))
+    moved = review_hierarchical_mesh(partition, root=tmp_path)
+    assert any(f.code == 'child_not_under_parent' and "parent 'counter'" in f.message for f in moved.findings)
+    # An equal parent string naming a component is still not a model-parent edge.
+    data['components'].append(dict(id='parent', files=[], tests=[], models=[], depends_on=[],
+        status='draft', summary='Other component', responsibilities=['other']))
+    map_path.write_text(json.dumps(data))
+    child_b.write_text(child_b.read_text().replace('PARENT = "counter"', 'PARENT = "parent"'))
+    assert any(f.code == 'child_not_under_parent' for f in review_hierarchical_mesh(partition, root=tmp_path).findings)
+    monkeypatch.chdir(tmp_path)
+    pure = replace(partition, parent_model_id='not_registered')
+    assert review_hierarchical_mesh(pure).ok
+
+
+def test_single_child_mesh_needs_no_closure_model():
+    from dataclasses import replace
+
+    producer = child('producer', outputs_emitted=('handoff',), inputs_accepted=('handoff',))
+    partition = HierarchyPartitionMap('parent', child_models=(producer,),
+        target_split_derivation=target('parent', ('producer',), ()))
+    assert review_hierarchical_mesh(partition).ok
+    independent = child('independent', inputs_accepted=('other',))
+    pair = replace(partition, child_models=(producer, independent),
+        target_split_derivation=target('parent', ('producer', 'independent'), ()))
+    assert review_hierarchical_mesh(pair).ok
+    handoff = replace(pair, child_models=(producer, replace(independent, inputs_accepted=('handoff',))))
+    report = review_hierarchical_mesh(handoff)
+    assert not report.ok and report.decision == 'mesh_closure_required'
+    # An explicit closure is always checked, even when no inter-child handoff requires one.
+    invalid = replace(partition, closure_model=MeshClosureModel('parent', root_entries=('start',)))
+    assert not review_hierarchical_mesh(invalid).ok
 
 
 def test_reattach_only_change_needs_a_reattachment_contract():

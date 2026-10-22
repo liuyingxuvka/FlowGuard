@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from ._normalization import string_sequence as _as_tuple
@@ -1142,15 +1143,55 @@ def _has_sibling_boundary_overlap(
     return False
 
 
+def _mesh_model_tree(root):
+    from .map.mapfile import ignore_patterns, load_map
+    from .map.inventory import build_inventory
+    from .map.tree import build_tree
+
+    root = Path(root).resolve()
+    data = load_map(root)
+    inv = build_inventory(root, ignore_patterns(data))
+    return root, inv, build_tree(root, data, inv)
+
+
+def child_evidence_from_model(path, *, root=None) -> ChildModelEvidence:
+    """Read model literals and available static context; never import or execute the model.
+
+    Without an explicit root, parent, owner and implementation writes remain unknown.
+    Inputs, outputs and side effects require the caller's declared boundary in either case.
+    """
+    from .map.mapfile import read_model_contract
+
+    path = Path(path)
+    context = _mesh_model_tree(root) if root is not None else None
+    if context is not None and not path.is_absolute():
+        path = context[0] / path
+    contract = read_model_contract(path)
+    model_id = contract["MODEL_ID"]
+    anchors = tuple(contract.get("IMPLEMENTED_BY", {}).values())
+    parent, owner, writes = "", "", set()
+    if context is not None:
+        from .map.discover import anchor_state_writes, discover
+
+        root, inv, tree = context
+        node = tree.nodes.get(model_id)
+        if node is not None and node.kind == "contract" and (root / node.path).resolve() == path.resolve():
+            parent = node.parent if node.parent_kind == "model" else ""
+            owner = node.home if node.home_kind == "component" else ""
+        raw = discover(root, {name: info.module for name, info in inv.py.items()}, write_cache=False)
+        for anchor in anchors:
+            writes.update(anchor_state_writes(raw, anchor))
+    return ChildModelEvidence(model_id, parent_model_id=parent, owner_id=owner,
+        functions_owned=anchors, invariants_owned=tuple(contract.get("TESTED_BY", {})),
+        state_owned=tuple(sorted(writes)))
+
+
 def _partition_requires_closure_model(partition_map: HierarchyPartitionMap) -> bool:
     """Return whether this mesh has concrete parent/child handoffs to close."""
 
-    if partition_map.reattachment_contracts:
-        return True
-    for child in partition_map.child_models:
-        if child.outputs_emitted:
-            return True
-    return False
+    return any(left.model_id != right.model_id
+               and set(left.outputs_emitted) & set(right.inputs_accepted)
+               for left in partition_map.child_models for right in partition_map.child_models)
 
 
 def summarize_child_boundary_change(
@@ -1544,12 +1585,36 @@ def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
     large_model_threshold: int = DEFAULT_LARGE_MODEL_STATE_THRESHOLD,
+    root=None,
 ) -> HierarchyMeshReport:
     """Review one parent boundary without expanding child state graphs."""
 
     findings: list[HierarchyMeshFinding] = []
     activation_reasons: list[str] = []
     child_ids = {child.model_id for child in partition_map.child_models}
+
+    if root is not None:
+        from difflib import get_close_matches
+
+        _, _, tree = _mesh_model_tree(root)
+        registered = {mid: node for mid, node in tree.nodes.items()
+                      if node.kind == "contract" and node.contract.get("MODEL_ID") == mid}
+        if partition_map.parent_model_id not in registered:
+            findings.append(HierarchyMeshFinding("unknown_parent_model",
+                f"parent {partition_map.parent_model_id!r} is not a registered model MODEL_ID",
+                model_id=partition_map.parent_model_id))
+        for child in partition_map.child_models:
+            node = registered.get(child.model_id)
+            if node is None:
+                closest = get_close_matches(child.model_id, sorted(registered), n=1)
+                suggestion = f"; did you mean {closest[0]!r}?" if closest else ""
+                findings.append(HierarchyMeshFinding("unknown_child_model",
+                    f"child {child.model_id!r} is not a registered model MODEL_ID{suggestion}", model_id=child.model_id))
+            elif node.parent_kind != "model" or node.parent != partition_map.parent_model_id:
+                findings.append(HierarchyMeshFinding("child_not_under_parent",
+                    f"{child.model_id} has parent {node.parent!r} in the model tree; "
+                    f'set PARENT = "{partition_map.parent_model_id}" or import its blocks from the parent',
+                    model_id=child.model_id))
 
     for child in partition_map.child_models:
         if _is_large_child(child, large_model_threshold):
@@ -1566,7 +1631,7 @@ def review_hierarchical_mesh(
         findings.append(
             HierarchyMeshFinding(
                 "mesh_closure_required",
-                "parent mesh has child handoff outputs or reattachment contracts but no closure model",
+                "children hand outputs to other children but the parent has no closure model",
                 model_id=partition_map.parent_model_id,
                 metadata={
                     "child_outputs": {
@@ -1722,6 +1787,9 @@ def review_hierarchical_mesh(
     blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
     if not blocking:
         decision = "mesh_green_can_continue"
+    elif any(finding.code in {"unknown_parent_model", "unknown_child_model", "child_not_under_parent"}
+             for finding in blocking):
+        decision = "model_ids_unresolved"
     elif any(finding.code in {
         "missing_target_split_derivation",
         "invalid_target_split_derivation",
@@ -1827,6 +1895,7 @@ __all__ = [
     "HierarchyPartitionMap",
     "ChildReattachmentContract",
     "ChildModelEvidence",
+    "child_evidence_from_model",
     "MeshClosureFinding",
     "MeshClosureJoin",
     "MeshClosureModel",
