@@ -180,7 +180,8 @@ def read_model_contract(path: Path) -> dict:
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
                                            "DESIGN_ONLY", "PARENT"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
-        elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
+        elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance",
+                                                               "project_parent_state"}:
             found["functions"].append(node.name)
     if "PARENT" in found and not (isinstance(found["PARENT"], str) and found["PARENT"].strip()):
         raise ValueError("PARENT must be a nonempty string")

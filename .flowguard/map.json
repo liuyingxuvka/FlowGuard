@@ -645,9 +645,9 @@
       "responsibilities": [
         "validate, load and save the map, writing depends_on sorted and deduplicated",
         "compute component fingerprints that detect stale descriptions",
-        "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
+        "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model; recognize the optional project_parent_state hook",
         "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns"
+        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -673,7 +673,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:805c81de28c66f5e30b4e6893bf1a20453bd0526e7be9eb3538da6afdab686e0"
+      "fingerprint": "sha256:09afb11f018fab1a5a111d071d52601dc19bc6f51d6e5dde1f063721c9a6dc8a"
     },
     {
       "id": "map-discover",
@@ -749,7 +749,7 @@
       "layer": "map",
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; warn about model-child start gaps against the actual parent port without lending parent-check calls to child anchors",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system': architecture rules as invariants, generated known-bad edges and claims, map check as conformance",
@@ -772,6 +772,7 @@
         "runs one isolated pytest process per model when bound-test checking is requested"
       ],
       "depends_on": [
+        "engine-conformance",
         "engine-explore",
         "map-analysis",
         "map-file",
@@ -784,7 +785,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:32b279011a4be6432ba2a077d7ab6b383d94f63ba14283c3426d6cc769db1dbc"
+      "fingerprint": "sha256:acc580f70f4324587dc927691dabb3b44110bc7db26115229fd758ba47996065"
     },
     {
       "id": "engine-explore",
@@ -902,7 +903,8 @@
       "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
         "replay model traces on the real code",
-        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by existing reviews (model kits)"
+        "build complete models from features (every single feature and pair, explored on the design and on the real code) or from plan edits checked by existing reviews (model kits)",
+        "collect first-seen projected initial and retained trace step states for a parent-child port"
       ],
       "files": [
         "flowguard/conformance.py",
@@ -926,7 +928,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4f638a01b612472b454e5bcd4cf90636c3134ffd0a7a722422fbab7297cc56f7"
+      "fingerprint": "sha256:7b859f5d0404a07d8e33edd8bf5271d95a7b5af5101a037210f117d49ae62467"
     },
     {
       "id": "engine-runner",

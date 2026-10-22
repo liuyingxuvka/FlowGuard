@@ -485,3 +485,30 @@ def test_review_and_find_name_the_owning_models(tmp_path, capsys):
     assert main(['map', '--root', str(tmp_path), 'impact', 'app.py', '--json']) == 0
     result = json.loads(capsys.readouterr().out)
     assert result['review_models'] == {'app': ['one']}
+
+
+def test_child_import_of_its_explicit_parent_preserves_tree_and_impact(tmp_path, capsys):
+    from flowguard.map.tree import build_tree
+    from flowguard.map.impact import compute_impact
+
+    data = project(tmp_path)
+    parent = CONTRACT.replace('MODEL_ID = "one"', 'MODEL_ID = "parent"')
+    parent += '\ndef conformance():\n    from app import run\n    return run()\n'
+    child = parent.replace('MODEL_ID = "parent"', 'MODEL_ID = "child"') + '\nPARENT="parent"\nimport parent\n'
+    write(tmp_path, '.flowguard/models/parent.py', parent)
+    write(tmp_path, '.flowguard/models/child.py', child)
+    current, inv = _context(tmp_path)
+    tree = build_tree(tmp_path, current, inv)
+    assert tree.nodes['parent'].parent_kind == 'component'
+    assert (tree.nodes['child'].parent, tree.nodes['child'].parent_kind) == ('parent', 'model')
+    assert not {'parent_cycle', 'parent_import_mismatch'} & {f.code for f in tree.findings}
+    assert tree.imports['.flowguard/models/child.py'] == {'.flowguard/models/parent.py'}
+    impact = compute_impact(tmp_path, current, inv, ['.flowguard/models/parent.py'])
+    assert {'parent', 'child'} <= set(impact.model_ids)
+    assert main(['read', '--root', str(tmp_path), '--component', 'app']) == 0
+    lines = capsys.readouterr().out.splitlines()
+    p = next(line for line in lines if 'model parent ' in line)
+    c = next(line for line in lines if 'model child ' in line)
+    assert len(c) - len(c.lstrip()) == len(p) - len(p.lstrip()) + 2
+    write(tmp_path, '.flowguard/models/parent.py', parent + '\nPARENT="child"\n')
+    assert 'parent_cycle' in {f.code for f in findings(tmp_path)}

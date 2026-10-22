@@ -91,9 +91,15 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
     tree = ModelTree(nodes, imports)
     pending_findings: list[tuple[str, str, str]] = []
 
+    def parent_importers(node: ModelNode) -> list[str]:
+        # A child may import its explicit model parent's state/blocks. Keep the real
+        # imports graph for impact, but do not invert that declared tree relation.
+        return [n.id for n in nodes.values() if n.kind == "contract" and n.id != node.id
+                and node.path in n.import_files
+                and not (n.contract.get("PARENT") == node.id and node.id not in components and node.id != "system")]
+
     def default_parent(node: ModelNode, *, allow_model: bool = True) -> tuple[str, str, str]:
-        importers = [n.id for n in nodes.values() if n.kind == "contract" and n.id != node.id
-                     and node.path in n.import_files]
+        importers = parent_importers(node)
         if allow_model and len(importers) == 1:
             return importers[0], "model", "import"
         if node.contract.get("COMPONENTS"):
@@ -118,8 +124,7 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
             else:
                 pending_findings.append((node.id, "parent_unknown",
                     f"{node.path}: PARENT {parent!r} names no component, model id or 'system'"))
-            importers = [n.id for n in nodes.values() if n.kind == "contract" and n.id != node.id
-                         and node.path in n.import_files]
+            importers = parent_importers(node)
             if len(importers) == 1 and parent != importers[0]:
                 pending_findings.append((node.id, "parent_import_mismatch",
                     f"{node.path}: imported only by model {importers[0]!r} but PARENT is {parent!r}"))

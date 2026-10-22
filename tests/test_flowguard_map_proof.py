@@ -813,3 +813,89 @@ def test_bound_test_method_cannot_impersonate_a_top_level_anchor(shop, capsys):
     code, output = models(shop, capsys, "order_placement", "--tests")
     assert code == 1, output
     assert "tested_by_misses_anchor one_charge_per_order" in output
+
+
+@pytest.mark.parametrize('with_map', [True, False])
+def test_child_start_gap_warns_when_the_child_misses_parent_states(tmp_path, capsys, with_map):
+    from flowguard.map.proof import run_model
+
+    write(tmp_path, 'counter.py', 'def increment(value):\n    return value + 1\n')
+    write(tmp_path, 'tests/test_counter.py', 'def test_increment():\n    from counter import increment\n    assert increment(0) == 1\n')
+    parent = '''from dataclasses import dataclass
+from types import SimpleNamespace
+from flowguard.core import FunctionResult, Invariant
+from flowguard.explorer import Explorer
+from flowguard.workflow import Workflow
+MODEL_ID = "counter_parent"
+COMPONENTS = ["counter"]
+IMPLEMENTED_BY = {"Increment": "counter.py:increment"}
+TESTED_BY = {"non_negative": ["tests/test_counter.py:test_increment"]}
+@dataclass(frozen=True)
+class State:
+    value: int = 0
+class Tick:
+    name = "tick"
+    def __init__(self, delta=1): self.delta = delta
+    def apply(self, inp, state):
+        return [FunctionResult(inp, State(state.value + self.delta))]
+def make_explorer(starts=None, delta=1):
+    return Explorer(Workflow((Tick(delta),)), initial_states=(State(),) if starts is None else starts,
+                    external_inputs=(1,), max_sequence_length=3, progress_steps=0,
+                    invariants=(Invariant("non_negative", "counter is nonnegative", lambda s, t: s.value >= 0),))
+def build_explorer(): return make_explorer()
+def broken_variants(): return {"decrements": make_explorer(delta=-1)}
+def conformance():
+    from counter import increment
+    ok = all(increment(n) == n + 1 for n in range(6))
+    return SimpleNamespace(ok=ok, format_text=lambda **kwargs: "counter increment replay")
+'''
+    child = '''import parent
+MODEL_ID = "counter_child"
+PARENT = "counter_parent"
+COMPONENTS = ["counter"]
+IMPLEMENTED_BY = {"Increment": "counter.py:increment"}
+TESTED_BY = {"non_negative": ["tests/test_counter.py:test_increment"]}
+STARTS = (parent.State(),)
+def build_explorer(): return parent.make_explorer(STARTS)
+def broken_variants(): return parent.broken_variants()
+def conformance(): return parent.conformance()
+'''
+    write(tmp_path, '.flowguard/models/parent.py', parent)
+    path = tmp_path / '.flowguard/models/child.py'
+    write(tmp_path, '.flowguard/models/child.py', child)
+    if with_map:
+        write(tmp_path, '.flowguard/map.json', json.dumps(dict(schema='flowguard.map.v1', components=[
+            dict(id='counter', files=['counter.py'], tests=['tests/test_counter.py'], models=[], depends_on=[],
+                 status='draft', summary='Counter', responsibilities=['increment a counter'])])))
+    code, output = models(tmp_path, capsys, 'counter_child')
+    assert code == 0, output
+    assert "child_start_gap: 3 of 4 states the parent 'counter_parent' reaches" in output
+    if with_map:
+        from flowguard.map.cli import _context
+        from flowguard.map.check import run_check
+        data, inv = _context(tmp_path)
+        assert not {'parent_cycle', 'parent_import_mismatch'} & {f.code for f in run_check(tmp_path, data, inv)}
+    seeded = child.replace('STARTS = (parent.State(),)',
+                           'from flowguard.kit import reachable_states\nSTARTS = reachable_states(parent.build_explorer())')
+    path.write_text(seeded)
+    code, output = models(tmp_path, capsys, 'counter_child')
+    assert code == 0 and 'child_start_gap' not in output, output
+
+    local = child.replace('STARTS = (parent.State(),)',
+        'from dataclasses import dataclass\n@dataclass(frozen=True)\nclass LocalState:\n    value: int = 0\nSTARTS = (LocalState(),)')
+    path.write_text(local)
+    result = run_model(tmp_path, path)
+    assert result.status == 'pass' and not any('child_start_gap' in w for w in result.warnings), result
+    path.write_text(local + '\ndef project_parent_state(state): return LocalState(state.value)\n')
+    result = run_model(tmp_path, path)
+    assert result.status == 'pass' and any('child_start_gap: 3 of 4' in w for w in result.warnings), result
+
+    path.write_text(child)
+    write(tmp_path, '.flowguard/models/parent.py', parent.replace(
+        'def build_explorer(): return make_explorer()',
+        'def build_explorer(): raise RuntimeError("port unavailable\\nextra detail")'))
+    result = run_model(tmp_path, path)
+    assert result.status == 'pass', result
+    warning = next(w for w in result.warnings if 'child_start_gap not checked:' in w)
+    assert "parent 'counter_parent' could not be explored (port unavailable)" in warning
+    assert '\n' not in warning

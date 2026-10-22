@@ -222,6 +222,53 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
                                    "execution not verified")
 
 
+def _child_start_check(root: Path, path: Path, contract: dict, module, design, result: ModelResult) -> None:
+    """Warn about the actual model-parent port, without lending its calls to the child proof."""
+    parent_id = contract.get("PARENT", "?")
+    try:
+        from .inventory import build_inventory
+        from .mapfile import ignore_patterns
+        from flowguard.kit import reachable_states
+        from types import ModuleType
+
+        try:
+            data = load_map(root)
+        except MapError:
+            data = {"components": []}
+        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data)))
+        node = tree.nodes.get(result.model)
+        if node is None or node.parent_kind != "model" or tree.nodes[node.parent].kind != "contract":
+            return
+        parent_id = node.parent
+        parent_path = (root / tree.nodes[parent_id].path).resolve()
+        # Reuse only this check's already-imported same-file parent module. _load
+        # itself still executes fresh, and no Explorer or reachable set is cached.
+        candidates = [*vars(module).values(), *list(sys.modules.values())]
+        parent = next((m for m in candidates if isinstance(m, ModuleType)
+                       and isinstance(filename := getattr(m, "__file__", None), str)
+                       and Path(filename).resolve() == parent_path), None)
+        if parent is None:
+            parent = _load(root, parent_path)
+        parent_design = parent.build_explorer()
+        project = None
+        if "project_parent_state" in contract["functions"]:
+            project = module.project_parent_state
+            if not callable(project):
+                raise TypeError("project_parent_state must be callable")
+        elif not parent_design.initial_states or not design.initial_states \
+                or type(parent_design.initial_states[0]) is not type(design.initial_states[0]):
+            return
+        states = reachable_states(parent_design, project)
+        missing = [state for state in states if state not in design.initial_states]
+        if missing:
+            result.warnings.append(f"child_start_gap: {len(missing)} of {len(states)} states the parent '{parent_id}' reaches "
+                "are not start states of this child; start it from "
+                "flowguard.kit.reachable_states(<parent>.build_explorer(), project_parent_state)")
+    except Exception as exc:
+        detail = str(exc).splitlines()[0] if str(exc).splitlines() else type(exc).__name__
+        result.warnings.append(f"child_start_gap not checked: parent '{parent_id}' could not be explored ({detail})")
+
+
 def run_model_in_process(root: Path, path: Path) -> ModelResult:
     contract = read_model_contract(path)
     result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
@@ -254,6 +301,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
         if not report.ok:
             result.status = "fail"
             result.problems.append("the intended design violates its invariants:\n" + report.format_text(max_examples=1))
+        _child_start_check(root, path, contract, module, design, result)
         if "broken_variants" in contract["functions"]:
             variants = module.broken_variants()
             if not isinstance(variants, dict) or not variants:

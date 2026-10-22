@@ -196,3 +196,26 @@ def test_feature_model_runs_under_the_proof_runner(tmp_path):
     result = run_model(tmp_path, path)
     assert result.status == "fail" and ("every_defect_reported: empty_id + negative_amount: expected rejected "
                                         "[bad_amount, missing_id], observed rejected [missing_id]") in result.problems[0]
+
+
+def test_reachable_states_collects_every_state_once(monkeypatch):
+    from dataclasses import replace
+    from types import SimpleNamespace
+    from flowguard.core import FunctionResult
+    from flowguard.explorer import Explorer
+    from flowguard.workflow import Workflow
+    from flowguard.kit import reachable_states
+    import flowguard
+
+    block = SimpleNamespace(name='increment', apply=lambda inp, state: [FunctionResult(inp, state + 1)])
+    explorer = Explorer(Workflow((block,)), initial_states=(0,), external_inputs=(1,),
+                        max_sequence_length=3, progress_steps=0)
+    report = explorer.explore()
+    # Retain one real long path: final-state-only collection would lose 1 and 2.
+    longest = max(report.traces, key=lambda trace: len(trace.steps))
+    monkeypatch.setattr(Explorer, 'explore', lambda self: replace(report, traces=(longest,)))
+    assert reachable_states(explorer) == (0, 1, 2, 3)
+    assert reachable_states(explorer, lambda state: state % 2) == (0, 1)
+    assert reachable_states(explorer, lambda state: state if state % 2 == 0 else None) == (0, 2)
+    assert reachable_states(explorer, lambda state: [state % 2]) == ([0], [1])
+    assert 'reachable_states' not in flowguard.__all__

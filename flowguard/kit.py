@@ -414,5 +414,21 @@ def plan_explorer(initial: Callable[[], Any], edits: Mapping[str, Callable[[Any]
                     invariants=invariants, max_sequence_length=max_sequence_length, progress_steps=0)
 
 
+def reachable_states(explorer: Explorer, project=None) -> tuple:
+    """Initial states and every step state in the report's retained traces, in first-seen order.
+
+    Compact or incomplete reports bound what can be collected; this does not expand their traces.
+    """
+    report = explorer.explore()
+    candidates = [*explorer.initial_states, *(step.new_state for trace in report.traces for step in trace.steps)]
+    states = []
+    for state in candidates:
+        value = project(state) if project is not None else state
+        if value is not None and value not in states:
+            states.append(value)
+    return tuple(states)
+
+
 __all__ = ["FEATURE_INVARIANTS", "Feature", "FeatureReport", "FeatureState", "FeatureViolation", "PlanState",
-           "feature_conformance", "feature_explorer", "feature_variants", "plan_explorer", "review_invariant"]
+           "feature_conformance", "feature_explorer", "feature_variants", "plan_explorer", "review_invariant",
+           "reachable_states"]
