@@ -26,3 +26,4 @@ env/
 kb/
 docs/flowguard_adoption_log.md
 docs/adoption_review_*.md
+/SLIM_LOG.md

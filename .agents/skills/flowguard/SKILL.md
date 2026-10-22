@@ -16,6 +16,7 @@ FlowGuard keeps, next to the code and committed to git:
    real code (see Binding).
 
 Commands: `python -m flowguard read | change | release | template` and `python -m flowguard map <command>`.
+Install the engine only from GitHub: `python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"`; the PyPI package named `flowguard` is a different project.
 
 ## Every session
 

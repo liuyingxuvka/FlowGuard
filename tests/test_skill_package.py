@@ -23,6 +23,14 @@ SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## Wh
 
 
 class SkillPackageTests(unittest.TestCase):
+    def test_installation_docs_use_the_owner_github_only(self) -> None:
+        for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
+            self.assertIn("git+https://github.com/liuyingxuvka/FlowGuard.git", path.read_text(encoding="utf-8"))
+        markdown = subprocess.check_output(["git", "ls-files", "-z", "--", "*.md"], cwd=ROOT).decode("utf-8")
+        for relative in filter(None, markdown.split("\0")):
+            self.assertIsNone(re.search(r"\bpip\s+install\s+flowguard(?=\s|$)",
+                                        (ROOT / relative).read_text(encoding="utf-8"), re.M), relative)
+
     def test_entry_lists_every_capability_once(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
         for name in CAPABILITIES:
