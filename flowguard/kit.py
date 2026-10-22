@@ -424,7 +424,7 @@ def reachable_states(explorer: Explorer, project=None) -> tuple:
     states = []
     for state in candidates:
         value = project(state) if project is not None else state
-        if value is not None and value not in states:
+        if (project is None or value is not None) and value not in states:
             states.append(value)
     return tuple(states)
 

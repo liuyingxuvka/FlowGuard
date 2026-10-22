@@ -928,7 +928,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7b859f5d0404a07d8e33edd8bf5271d95a7b5af5101a037210f117d49ae62467"
+      "fingerprint": "sha256:503614d8c86e4cbdf2b1619bd86fc2248efecf7a5ce692ded387347f6407ca8b"
     },
     {
       "id": "engine-runner",

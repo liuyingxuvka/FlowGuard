@@ -219,3 +219,18 @@ def test_reachable_states_collects_every_state_once(monkeypatch):
     assert reachable_states(explorer, lambda state: state if state % 2 == 0 else None) == (0, 2)
     assert reachable_states(explorer, lambda state: [state % 2]) == ([0], [1])
     assert 'reachable_states' not in flowguard.__all__
+
+
+@pytest.mark.parametrize('initial,following,expected', [(None, 0, (None, 0)), (0, None, (0, None))])
+def test_reachable_states_keeps_unprojected_none_states(initial, following, expected):
+    from types import SimpleNamespace
+    from flowguard.core import FunctionResult
+    from flowguard.explorer import Explorer
+    from flowguard.workflow import Workflow
+    from flowguard.kit import reachable_states
+
+    block = SimpleNamespace(name='step', apply=lambda inp, state: [FunctionResult(inp, following)])
+    explorer = Explorer(Workflow((block,)), initial_states=(initial,), external_inputs=('step',),
+                        max_sequence_length=1, progress_steps=0)
+    assert reachable_states(explorer) == expected
+    assert reachable_states(explorer, lambda state: state) == (0,)
