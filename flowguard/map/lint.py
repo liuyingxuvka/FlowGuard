@@ -81,6 +81,14 @@ def _debt_members(debt: dict, component_ids: set[str]) -> set[str]:
     return members | (set(re.findall(r"[a-z0-9][a-z0-9_.-]*", contains)) & component_ids)
 
 
+def normalized_debts(data: dict) -> list[dict]:
+    """Resolve legacy cycle-debt words against all mapped component ids."""
+    component_ids = {c["id"] for c in data["components"]}
+    return [{**debt, "members": sorted(_debt_members(debt, component_ids))}
+            if debt.get("code") == "dependency_cycle" else debt
+            for debt in data.get("accepted_debts", [])]
+
+
 def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[list[Finding], set[int]]:
     used = set()
     component_ids = {f.component for f in findings}
@@ -211,12 +219,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
     out.extend(model_binding_notes(root, data, inv))
-    # Legacy substring debts have no members field. Resolve their words against
-    # the whole map, including components that have no finding of their own.
-    component_ids = {c["id"] for c in comps}
-    debts = [{**debt, "members": sorted(_debt_members(debt, component_ids))}
-             if debt.get("code") == "dependency_cycle" else debt
-             for debt in data.get("accepted_debts", [])]
+    debts = normalized_debts(data)
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
     bare = dependency_evidence({**data, "accepted_debts": []}, inv)

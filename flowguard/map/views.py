@@ -7,10 +7,42 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from .common import read_source, tokens
+from .common import Finding, read_source, tokens
 from .inventory import Inventory
 from .tree import build_tree
+from .lint import apply_accepted_debts, find_cycles, layer_findings, normalized_debts
 from .mapfile import component_files, component_graph, is_stale, owner_index
+
+
+def _architecture(data: dict, graph: dict[str, set[str]]):
+    """Only cheap cycle/layer rules; share full debt normalization with lint."""
+    findings, by_component = [], defaultdict(list)
+    for cycle in find_cycles(graph):
+        finding = Finding("error", "dependency_cycle", cycle[0], " <-> ".join(cycle))
+        findings.append(finding)
+        for cid in cycle:
+            by_component[cid].append(finding)
+    for finding in layer_findings(data, graph):
+        findings.append(finding)
+        by_component[finding.component].append(finding)
+    findings, used = apply_accepted_debts(findings, normalized_debts(data))
+    return findings, used, by_component
+
+
+def _model_lines(tree, ids: set[str], *, component: str | None = None, bindings: bool = False) -> list[str]:
+    roots = sorted((tree.nodes[mid] for mid in ids if tree.nodes[mid].parent_kind != "model"
+                    or tree.nodes[mid].parent not in ids), key=lambda n: n.id)
+    pending, lines = [(node, 1) for node in reversed(roots)], []
+    while pending:
+        node, depth = pending.pop()
+        count = sum(len(anchors) for anchors in node.contract.get("TESTED_BY", {}).values())
+        home = f" (home {node.home})" if component and node.home != component else ""
+        lines.append("  " * depth + f"model {node.id} [{node.kind}] tests: {count} bound{home}")
+        if bindings:
+            for invariant, anchors in sorted(node.contract.get("TESTED_BY", {}).items()):
+                lines.extend("  " * (depth + 1) + f"{invariant} -> {anchor}" for anchor in anchors)
+        pending.extend((child, depth + 1) for child in reversed(tree.children(node.id, "model")) if child.id in ids)
+    return lines
 
 
 def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int) -> str:
@@ -22,13 +54,21 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         comps = [c for c in comps if c["id"] == component or c["id"].startswith(component + ".")]
         if not comps:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
-    head = f"# {data.get('project', '')}: {len(data['components'])} components"
+    architecture, debts, problems = _architecture(data, graph)
+    head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
     if data.get("layers"):
         head += ", layers (top > bottom) " + " > ".join(data["layers"])
+    else:
+        head += ", layers: none"
+    head += f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
+    model_ids = {node.path: node.id for node in tree.nodes.values()}
     flows = [] if component else [
         f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
+        + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else "")
         for flow in data.get("flows", [])]
-    top = "\n".join([head, *flows])
+    essential = "\n".join([head, *flows])
+    root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home == "system"})
+    top = "\n".join([essential, *root_models])
     blocks: list[tuple[str, str]] = []
     for c in comps:
         files = component_files(c, inv)
@@ -48,18 +88,28 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests")):
                 if c.get(key):
                     lines.append(f"  {label}: " + ", ".join(c[key]))
-            models = [n.path for n in tree.models_for_component(c["id"])]
-            if models:
-                lines.append("  models: " + ", ".join(models))
             users = sorted(k for k, v in graph.items() if c["id"] in v)
             if users:
                 lines.append("  used by: " + ", ".join(users))
+        if problems.get(c["id"]):
+            lines.append("  problems: " + "; ".join(
+                ("cycle" if f.code == "dependency_cycle" else f.code) + (" (debt)" if f.level == "info" else "")
+                + ": " + f.message.partition(" (accepted debt:")[0] for f in problems[c["id"]]))
+        models = {n.id for n in tree.models_for_component(c["id"])} if component or detail else {
+            n.id for n in tree.nodes.values() if n.home == c["id"]}
+        lines.extend(_model_lines(tree, models, component=c["id"] if component or detail else None,
+                                  bindings=bool(component or detail)))
         blocks.append((c["id"], "\n".join(lines)))
     text = top + "\n" + "\n".join(b for _, b in blocks)
     if len(text) <= budget:
         return text
-    reserve = min(160, budget)
-    shown = top if len(top) <= budget - reserve else top[:max(0, budget - reserve)].rsplit("\n", 1)[0]
+    reserve = min(160, max(0, budget - len(essential)))
+    shown = ""
+    for line in top.splitlines():
+        candidate = shown + ("\n" if shown else "") + line
+        if len(candidate) > budget - reserve:
+            break
+        shown = candidate
     hidden: list[str] = []
     for cid, block in blocks:
         if not hidden and len(shown) + 1 + len(block) <= budget - reserve:

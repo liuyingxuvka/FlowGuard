@@ -38,7 +38,7 @@ project and read components in batches. Default `read` targets 8,000 characters.
    - Add 1-5 `flows` for the most important journeys. Each flow needs `"id"` (not `"name"`),
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and each responsibility under about 8 words, so that
-     `python -m flowguard read` stays near 300 characters per component (about 8,000 for 25 components).
+     `python -m flowguard read` stays within its 8,000-character default budget, including structure problems and model subtrees.
 4. `python -m flowguard map deps --write` writes dependencies supported by imports, lazy exports, literal import calls, entrypoint or defined-symbol literals, or justified accepted debts; ordinary string values are not dependency evidence; unsupported declarations are removed.
 5. `python -m flowguard map check` and fix until it reports 0 errors (`draft` warnings are expected now).
 6. `python -m flowguard map confirm all`, then `python -m flowguard map check` must show 0 errors; review test/model bindings and scoped warnings.
