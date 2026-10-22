@@ -104,8 +104,7 @@ class AnchorWatch:
         if symbols:
             qualname = code.co_qualname
             for symbol, anchor in symbols.items():
-                if (qualname == symbol or ("." not in symbol and qualname.startswith(symbol + "."))
-                        or (self.test_call and "." not in symbol and qualname.endswith("." + symbol))):
+                if qualname == symbol or ("." not in symbol and qualname.startswith(symbol + ".")):
                     self.called.add(anchor)
 
     def _trace(self, frame, event, arg):

@@ -790,3 +790,19 @@ def test_bound_tests_without_pytest_are_an_environment_error(shop, monkeypatch):
     result = proof.run_model(shop, path, tests=True)
     assert result.status == "error", result.problems
     assert any("pytest is required to check TESTED_BY" in p for p in result.problems)
+
+
+def test_bound_test_method_cannot_impersonate_a_top_level_anchor(shop, capsys):
+    write(shop, "shop/orders.py", FIXED +
+          "\ndef run():\n    return 'top'\n\nclass Other:\n    def run(self):\n        return 'other'\n")
+    path = shop / ".flowguard/models/order_placement.py"
+    source = MODEL_SOURCE.read_text().replace("shop/orders.py:OrderService.place", "shop/orders.py:run")
+    source += ("\n_base_conformance = conformance\ndef conformance():\n"
+               "    from shop.orders import run\n    assert run() == 'top'\n    return _base_conformance()\n"
+               "TESTED_BY = {'one_charge_per_order': ['tests/test_orders.py:test_bound']}\n")
+    path.write_text(source)
+    write(shop, "tests/test_orders.py",
+          "def test_bound():\n    from shop.orders import Other\n    assert Other().run() == 'other'\n")
+    code, output = models(shop, capsys, "order_placement", "--tests")
+    assert code == 1, output
+    assert "tested_by_misses_anchor one_charge_per_order" in output
