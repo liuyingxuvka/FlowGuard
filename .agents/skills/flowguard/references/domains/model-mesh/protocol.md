@@ -8,8 +8,7 @@ The review catches gaps between the models, not bugs inside one model. Examples:
 child models both write `payment.status`; a parent item that no child owns; the payment
 child renames its output `payment:settled` to `payment:captured` while the parent still
 waits for the old name; a child output nobody consumes; a join that never gets all its
-inputs; a retry loop with no progress rule. It also has a small explicit-table checker
-(portable models) for state graphs, parent/child refinement and composition.
+inputs; a retry loop with no progress rule.
 
 ## Use when
 
@@ -74,15 +73,11 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
    parent_contract=..., sibling_models=...)`. Its `propagation` is `unaffected`,
    `reattach_only`, `parent_rerun_required`, `sibling_rerun_required` or
    `split_review_required`. Pass the result in `boundary_changes=(...)`.
-4. For an explicit state graph use the portable checker: `load_portable_model(path)` then
-   `check_portable_model(model)`; parent/child with `check_refinement(parent, child,
-   RefinementBinding(...))`; several models with `check_composition(models)`, or a joint
-   system with `check_system_composition(system, request, models)`. `report.ok` means `status == "pass"`.
-5. Keep relevant partition/reattachment regressions. A persistent runner, if needed, returns 0 only
+4. Keep relevant partition/reattachment regressions. A persistent runner, if needed, returns 0 only
    when the good mesh passes and relevant broken variants fail.
-6. If a persistent runner was created or changed, register it in the parent's `models`; execute
+5. If a persistent runner was created or changed, register it in the parent's `models`; execute
    the selected registered runner once via `python -m flowguard map models <id>`, without a second direct run.
-7. After a child edit, `python -m flowguard change` selects the full caller closure. `map impact --depth 2` is only a truncated diagnostic, not complete coverage.
+6. After a child edit, `python -m flowguard change` selects the full caller closure. `map impact --depth 2` is only a truncated diagnostic, not complete coverage.
    Re-confirm the stale child (`map confirm ID`) and re-run the parent mesh.
 
 ## What blocks
@@ -101,9 +96,6 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 | `missing_join_point` | A join never receives all its required inputs. |
 | `terminal_leak` | A terminal is reached while a required or child output is still unconsumed. |
 | `loop_progress_required` | A `loop=True` transition has no `progress_rule`, `max_iterations`, `progress_tokens` or `blocker_tokens`. |
-
-Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement_state_unmapped`,
-`refinement_transition_unmapped`, `refinement_child_stale`, `composition_guarantee_conflict`.
 
 ## Risk-specific regression examples
 

@@ -9,7 +9,7 @@ from .contract import check_trace_contracts
 from .explorer import Explorer
 from .minimize import minimize_report_counterexample
 from .plan import FlowGuardCheckPlan, ScenarioMatrixConfig
-from .portable_path_quality import path_quality_binding_errors
+from .model_path_quality import path_quality_binding_errors
 from .progress import check_progress
 from .review import review_scenarios
 from .risk_templates import (

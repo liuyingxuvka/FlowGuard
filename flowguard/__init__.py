@@ -796,30 +796,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "FlowGuardCheckPlan",
         "ScenarioMatrixConfig",
     ),
-    "flowguard.portable_checker": (
-        "check_composition",
-        "check_portable_model",
-        "check_refinement",
-        "execute_portable_model",
-    ),
-    "flowguard.portable_model": (
-        "PORTABLE_MODEL_SCHEMA_VERSION",
-        "PORTABLE_REFINEMENT_SCHEMA_VERSION",
-        "PortableModel",
-        "RefinementBinding",
-        "load_portable_model",
-        "validate_portable_model",
-    ),
-    "flowguard.portable_system": (
-        "PORTABLE_SYSTEM_REQUEST_SCHEMA_VERSION",
-        "PORTABLE_SYSTEM_SCHEMA_VERSION",
-        "PortableSystemDefinition",
-        "PortableSystemSlice",
-        "SystemCompositionRequest",
-        "derive_system_slice",
-        "load_portable_system",
-        "load_system_composition_request",
-    ),
     "flowguard.primary_path_authority": (
         "FallbackPathCandidate",
         "PPA_AUTHORITY_EXTERNAL_FACADE",
@@ -1074,10 +1050,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "section_from_check_report",
         "section_from_ok_report",
         "section_from_scenario_report",
-    ),
-    "flowguard.system_composition": (
-        "SystemCompositionReport",
-        "check_system_composition",
     ),
     "flowguard.template_packs": (
         "TEMPLATE_SEED_CLOSURE_DISPOSITIONS",

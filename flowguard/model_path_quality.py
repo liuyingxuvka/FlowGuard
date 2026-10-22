@@ -2557,3 +2557,38 @@ class PathQualityArchitectureDetail(_CanonicalRecord):
 
     def identity_payload(self):
         return {"schema": self.schema, "body": self.body}
+
+
+def path_quality_binding_errors(
+    subject: PathQualitySubject | None,
+    result: PathQualityResult | None,
+) -> tuple[str, ...]:
+    """Return exact intake binding errors without rejudging path quality."""
+
+    errors: set[str] = set()
+    if subject is None and result is None:
+        return ()
+    if subject is None:
+        errors.add("path_quality_subject_missing")
+    elif not isinstance(subject, PathQualitySubject):
+        errors.add("path_quality_subject_type_invalid")
+    if result is None:
+        errors.add("path_quality_result_missing")
+    elif not isinstance(result, PathQualityResult):
+        errors.add("path_quality_result_type_invalid")
+    if errors:
+        return tuple(sorted(errors))
+
+    assert subject is not None and result is not None
+    if result.subject_fingerprint != subject.fingerprint:
+        errors.add("path_quality_result_subject_mismatch")
+    if result.currentness_id != subject.currentness_id:
+        errors.add("path_quality_result_currentness_mismatch")
+    if set(result.observation_gap_ids) | set(result.improvement_gap_ids) != set(result.finding_ids) | set(result.unresolved_ids):
+        errors.add("path_quality_gap_classification_mismatch")
+    if not result.current:
+        errors.add("path_quality_result_stale")
+    if result.producer_id != "model_maturation":
+        errors.add("path_quality_result_producer_mismatch")
+
+    return tuple(sorted(errors))

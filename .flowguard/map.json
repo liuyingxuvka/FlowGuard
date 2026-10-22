@@ -37,7 +37,6 @@
         "engine-properties",
         "engine-scenarios",
         "model-mesh",
-        "portable-models",
         "problem-corpus"
       ],
       "tests": [
@@ -55,12 +54,11 @@
         "tests/test_problem_corpus.py",
         "tests/test_real_model_corpus.py",
         "tests/test_repeated_scoring_detection.py",
-        "tests/test_system_composition_benchmark.py",
         "tests/test_trace_export.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:449612e971249eec81a3b1844f67bd4e96b6412212dea2d8ce3e9eafc12f55c0"
+      "fingerprint": "sha256:38468dec0a99877d2028ebd18b1502ded450de06d9eeaf1ad81c0df5a050abc0"
     },
     {
       "id": "tooling",
@@ -186,7 +184,6 @@
         "field-lifecycle",
         "model-mesh",
         "model-test",
-        "portable-models",
         "problem-corpus",
         "shared-vocabulary",
         "templates",
@@ -198,7 +195,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4895bea4ae58bf93625a41098059a968e36d1624ff9b972da720e0518a656ecb"
+      "fingerprint": "sha256:c18f3557a802c77eb0238b4a5aaaf3bac3ade68f9b68cf936e48355bd9101228"
     },
     {
       "id": "templates",
@@ -452,38 +449,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:eb7ae7b5f8974354de76e47a76d8194a5b49749f6534a19c6c7da7ca1fa3ad67"
-    },
-    {
-      "id": "portable-models",
-      "layer": "engine",
-      "summary": "Checks explicit models, refinement and composition.",
-      "responsibilities": [
-        "check explicit-table models, refinement and composition"
-      ],
-      "files": [
-        "flowguard/portable_model.py",
-        "flowguard/portable_checker.py",
-        "flowguard/portable_system.py",
-        "flowguard/system_composition.py"
-      ],
-      "entrypoints": [
-        "flowguard/portable_checker.py:check_portable_model"
-      ],
-      "state": [],
-      "side_effects": [
-        "writes portable model or system files when requested"
-      ],
-      "depends_on": [],
-      "tests": [
-        "tests/test_compositional_verification.py",
-        "tests/test_portable_checker.py",
-        "tests/test_portable_model.py",
-        "tests/test_portable_model_cli.py",
-        "tests/test_portable_system.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:f0e65ec158075721f29aa2c8eb169990ea7f3a48e4473d2486d3457c4a8dce2f"
     },
     {
       "id": "model-test",
@@ -982,36 +947,32 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:68f5dd686c2f3c1b34dfffbb1da02f689b4f9a108a1a66be9881b6dc45fcd756"
+      "fingerprint": "sha256:71bb216bf351a7754bfa4b8d756a05d2b79eee58fd4abcd5d54be050b142f421"
     },
     {
       "id": "engine-path-quality",
       "layer": "engine",
       "summary": "Finds unreachable, repeated and no-progress model paths.",
       "responsibilities": [
-        "find structural path defects in models"
+        "find structural path defects in models",
+        "validate native model path-quality intake bindings"
       ],
       "files": [
-        "flowguard/model_path_quality.py",
-        "flowguard/portable_path_quality.py"
+        "flowguard/model_path_quality.py"
       ],
       "entrypoints": [
         "flowguard/model_path_quality.py:find_lightweight_findings"
       ],
       "state": [],
       "side_effects": [],
-      "depends_on": [
-        "portable-models"
-      ],
+      "depends_on": [],
       "tests": [
         "tests/test_model_path_quality.py",
-        "tests/test_portable_checker.py",
-        "tests/test_portable_model.py",
         "tests/test_runner.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:abbaa5431c393682cb4a8d70dc280f0b4db7133e51bca0c24d3a0fd26273bb5e"
+      "fingerprint": "sha256:4fa3682ca10eafea53b73c57ba5d3b22329f521db347d2e4cb87b888a446bb7b"
     },
     {
       "id": "problem-corpus",
