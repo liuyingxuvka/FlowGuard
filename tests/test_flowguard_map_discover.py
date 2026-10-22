@@ -288,3 +288,24 @@ class DiscoveryBoundaryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_unlisted_entrypoints_group_by_component_and_strength(tmp_path):
+    from flowguard.map.lint import discovery_findings
+
+    source = tmp_path / "commands.py"
+    source.write_text("import click\n" + "\n".join(
+        f"@click.command()\ndef command_{i}(): pass\n" for i in range(5)))
+    data = {"components": [{"id": "commands", "files": ["commands.py"], "entrypoints": []}]}
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    raw = discover_inventory(tmp_path, inv)
+    findings = [f for f in discovery_findings(raw, data, inv) if f.code == "entrypoint_unlisted"]
+    assert len(findings) == 1
+    assert findings[0].level == "warn"
+    assert "5 entrypoints" in findings[0].message
+    assert "full list: python -m flowguard map discover --component commands" in findings[0].message
+    # At the threshold the individual anchors remain visible, with unchanged severity.
+    raw["files"]["commands.py"]["entrypoints"] = raw["files"]["commands.py"]["entrypoints"][:3]
+    findings = [f for f in discovery_findings(raw, data, inv) if f.code == "entrypoint_unlisted"]
+    assert len(findings) == 3
+    assert all(f.level == "warn" for f in findings)

@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import ast
+import json
+import subprocess
+import sys
+
+import pytest
 from pathlib import Path
 import tomllib
 
@@ -38,3 +43,25 @@ def test_wheel_configuration_includes_every_console_example_package() -> None:
 
     discovered = set(find_packages(where=str(ROOT), include=include))
     assert _console_example_packages() <= discovered
+
+
+@pytest.mark.parametrize("command", [("read",), ("change",), ("release",), ("map", "show")])
+@pytest.mark.parametrize("read_first", [False, True])
+def test_cli_closed_output_pipe_is_quiet(tmp_path, command, read_first):
+    directory = tmp_path / ".flowguard"
+    directory.mkdir()
+    (directory / "map.json").write_text(json.dumps({
+        "schema": "flowguard.map.v1", "project": "empty", "components": []}))
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(tmp_path), "-c", "user.name=Test", "-c", "user.email=test@example.invalid",
+                    "commit", "-qm", "fixture"], check=True)
+    args = [command[0], "--root", str(tmp_path), *command[1:]]
+    proc = subprocess.Popen([sys.executable, "-m", "flowguard", *args], cwd=ROOT,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if read_first:
+        proc.stdout.readline()
+    proc.stdout.close()
+    stderr = proc.stderr.read().decode()
+    assert proc.wait(timeout=30) == 0, stderr
+    assert "BrokenPipeError" not in stderr

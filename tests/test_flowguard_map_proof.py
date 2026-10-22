@@ -573,3 +573,10 @@ def test_unbound_models_are_errors_in_check(shop, capsys):
     assert "model_anchor_missing" not in out and "model_conformance_missing" not in out
     cli.main(["--root", str(shop), "lint"])
     assert "model_design_only" in capsys.readouterr().out
+
+
+def test_verify_no_models_prints_one_explicit_summary(tmp_path, capsys):
+    write(tmp_path, ".flowguard/map.json", json.dumps({
+        "schema": "flowguard.map.v1", "project": "empty", "components": []}))
+    assert cli.main(["--root", str(tmp_path), "verify"]) == 0
+    assert capsys.readouterr().out.count("no model proof") == 1

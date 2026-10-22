@@ -20,12 +20,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 
 from .check import run_check
-from .common import MAP_RELPATH, print_findings, safe_stdio
+from .common import MAP_RELPATH, print_findings, quiet_broken_pipe, safe_stdio
 from .impact import changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
@@ -55,10 +54,6 @@ def cmd_scan(root: Path, a) -> int:
     inv = build_inventory(root, ignore_patterns(None))
     data = new_map(root, inv, max_components=a.max_components)
     save_map(root, data)
-    ignore = root / ".gitignore"
-    text = ignore.read_text(encoding="utf-8-sig") if ignore.is_file() else ""
-    if ".flowguard/cache/" not in text.splitlines():
-        ignore.write_text(text.rstrip("\n") + ("\n" if text else "") + ".flowguard/cache/\n", encoding="utf-8")
     print(f"created {MAP_RELPATH}: {len(data['components'])} draft components from "
           f"{len(inv.source) - len(inv.tests)} source files and {len(inv.tests)} test files")
     print("next: digest all -> merge/describe components -> deps --write -> check -> confirm")
@@ -240,7 +235,8 @@ def cmd_verify(root: Path, a) -> int:
         print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
     registry = model_registry(root, data)
     results = run_models(root, [])
-    print(render_results(results))
+    if results:
+        print(render_results(results))
     expected = {(entry.id, entry.path) for entry in registry.entries}
     executed = [(result.model, result.file) for result in results]
     complete = len(executed) == len(set(executed)) and set(executed) == expected
@@ -299,6 +295,7 @@ HANDLERS = {"discover": cmd_discover, "scan": cmd_scan, "show": cmd_show, "find"
             "models": cmd_models, "verify": cmd_verify}
 
 
+@quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
     args = build_parser().parse_args(argv)
@@ -308,9 +305,3 @@ def main(argv: list[str] | None = None) -> int:
     except (MapError, RuntimeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
-    except BrokenPipeError:                     # e.g. "... | head": stop quietly
-        try:
-            sys.stdout = open(os.devnull, "w")  # noqa: SIM115 - avoid a second error at interpreter exit
-        except OSError:
-            pass
-        return 0

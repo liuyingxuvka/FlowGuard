@@ -282,10 +282,21 @@ def discovery_findings(raw: dict, data: dict, inv) -> list:
                 continue
             precise = ep["kind"] in PRECISE_ENTRY_KINDS and ep.get("via") != "argparse"
             missing[(comp, anchor, precise)].append(f"{ep['kind']} {ep['name']}")
+    groups: dict[tuple[str, bool], list[tuple[str, list[str]]]] = defaultdict(list)
     for (comp, anchor, precise), names in sorted(missing.items()):
-        shown = ", ".join(names[:6]) + (f" ... +{len(names) - 6}" if len(names) > 6 else "")
-        out.append(Finding("warn" if precise else "info", "entrypoint_unlisted", comp,
-                           f"{shown} -> {anchor} is not in any component's entrypoints"))
+        groups[(comp, precise)].append((anchor, names))
+    for (comp, precise), entries in sorted(groups.items()):
+        level = "warn" if precise else "info"
+        if len(entries) > 3:
+            sample = ", ".join(anchor for anchor, _ in entries[:3])
+            out.append(Finding(level, "entrypoint_unlisted", comp,
+                               f"{len(entries)} entrypoints (e.g. {sample}) are not in any component's entrypoints; "
+                               f"full list: python -m flowguard map discover --component {comp}"))
+        else:
+            for anchor, names in entries:
+                shown = ", ".join(names[:6]) + (f" ... +{len(names) - 6}" if len(names) > 6 else "")
+                out.append(Finding(level, "entrypoint_unlisted", comp,
+                                   f"{shown} -> {anchor} is not in any component's entrypoints"))
     for c in data["components"]:
         if c.get("side_effects"):
             continue

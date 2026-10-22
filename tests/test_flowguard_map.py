@@ -872,3 +872,12 @@ def test_normalize_newlines_handles_crlf_and_lone_cr(tmp_path):
     assert normalize_newlines(lf.read_bytes()) == lf.read_bytes()
     lf.write_bytes(b"a\nb\nchanged\n")
     assert content_digest(mixed) != content_digest(lf)
+
+
+def test_scan_preserves_project_gitignore(project, capsys):
+    ignore = project / ".gitignore"
+    original = b"build/\r\n# project-owned rules\r\n"
+    ignore.write_bytes(original)
+    assert run(project, "scan", capsys=capsys)[0] == 0
+    assert ignore.read_bytes() == original
+    assert (project / ".flowguard/cache/.gitignore").read_text() == "*\n"

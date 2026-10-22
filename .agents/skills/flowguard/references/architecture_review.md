@@ -11,7 +11,7 @@
 | `too_many_responsibilities` | warn | more than 7 responsibilities | split the component |
 | `high_fan_out` | warn | depends on more than 8 components | introduce a facade or split |
 | `untested_component` | warn | no tests mapped | add tests or map existing ones |
-| `entrypoint_unlisted` | warn | discovery found a route, CLI command or handler that no component lists in `entrypoints` | add it to the owning component's `entrypoints` (or remove the dead route) |
+| `entrypoint_unlisted` | warn | discovery found a route, CLI command or handler that no component lists in `entrypoints` | add it to the owning component's `entrypoints` (or remove the dead route); more than three anchors per component and strength are grouped, with three examples and a full-discovery command |
 | `entrypoint_unlisted` | info | the same for weaker signals (argparse registration, `__main__` calls) | list the real entrypoint if it is one |
 | `effects_undeclared` | info | the code writes files, runs subprocesses, calls the network or a database, but `side_effects` is empty | describe the effects in `side_effects` |
 | `never_imported` | info | a module nobody imports and that has no discovered entrypoint | delete dead code, or list it as an entrypoint |

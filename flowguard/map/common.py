@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tokenize
 from dataclasses import asdict, dataclass
-from functools import lru_cache
+from functools import lru_cache, wraps
 from pathlib import Path
 
 SCHEMA = "flowguard.map.v1"
@@ -73,6 +73,22 @@ def safe_stdio() -> None:
             stream.reconfigure(errors="backslashreplace")
         except (AttributeError, ValueError):
             pass
+
+
+def quiet_broken_pipe(command):
+    """Exit quietly when a consumer closes stdout, including buffered final output."""
+    @wraps(command)
+    def run(*args, **kwargs):
+        try:
+            try:
+                return command(*args, **kwargs)
+            finally:
+                sys.stdout.flush()
+        except BrokenPipeError:
+            # Prevent another buffered write during interpreter shutdown.
+            sys.stdout = open(os.devnull, "w")
+            return 0
+    return run
 
 
 def cache_dir(root: Path) -> Path:

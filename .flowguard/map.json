@@ -119,7 +119,7 @@
       "layer": "interface",
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find)"
       ],
       "files": [
@@ -156,7 +156,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:28304cab7f1241c17ca47adbed3f2e267749e43d17e4b15ab6e7e354686e70f0"
+      "fingerprint": "sha256:72a865dde27d153a11c1e19eed88d7f6a7a29858db9837e84311e29bdb667338"
     },
     {
       "id": "public-api",
@@ -625,7 +625,7 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports, including literal import calls"
+        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -647,7 +647,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:49bfb46e9adcabd6de279cf405456a9b1afb5ced28de954f5b024d4eb089f4a6"
+      "fingerprint": "sha256:3aca60fc53b4ce3ea34adc293f0f8d227f429456af0e51a199586aa82b8ada93"
     },
     {
       "id": "map-file",
@@ -721,7 +721,7 @@
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
-        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error",
+        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions"
       ],
       "files": [
@@ -754,7 +754,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b8dc65688835a852e691caec289ff7e688b463dd558219218acb268ba59070a0"
+      "fingerprint": "sha256:c7e08f00450a83b0142bb58b18ada92150f0ee000ead921d1479e6df0b582c77"
     },
     {
       "id": "map-proof",

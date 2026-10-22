@@ -15,7 +15,7 @@ from pathlib import Path
 
 from . import __version__
 from .map.cli import main as map_main
-from .map.common import safe_stdio
+from .map.common import quiet_broken_pipe, safe_stdio
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
@@ -91,6 +91,7 @@ def _template(ns: argparse.Namespace) -> int:
     return 0
 
 
+@quiet_broken_pipe
 def main(argv: list[str] | None = None) -> int:
     safe_stdio()
     args = list(sys.argv[1:] if argv is None else argv)
