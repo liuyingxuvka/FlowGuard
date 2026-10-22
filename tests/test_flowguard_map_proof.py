@@ -690,6 +690,7 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
 @pytest.mark.parametrize("mode,problem", [
     ("call", None), ("empty", "tested_by_misses_anchor"), ("fail", "tested_by_failed"),
     ("default", None), ("import_only", "tested_by_misses_anchor"), ("read_after_import", None),
+    ("os_read_without_accmode", None),
     ("subprocess", "tested_by_misses_anchor"), ("mixed", "tested_by_misses_anchor"),
     ("parameter_miss", "tested_by_misses_anchor"), ("parameter_fail", "tested_by_failed"),
     ("nested_conformance", None), ("initializer_body", None), ("initializer_read", None),
@@ -715,6 +716,12 @@ def test_tested_by_must_reach_the_anchored_code(shop, capsys, mode, problem):
         body = "def test_bound():\n    import shop.orders\n    assert shop.orders.__name__ == 'shop.orders'\n"
     elif mode == "read_after_import":
         body = "def test_bound():\n    import shop.orders\n    assert 'def place' in (Path(__file__).parents[1] / 'shop/orders.py').read_text()\n"
+    elif mode == "os_read_without_accmode":
+        body = ("def test_bound(monkeypatch):\n    import os\n"
+                "    monkeypatch.delattr(os, 'O_ACCMODE', raising=False)\n"
+                "    fd = os.open(Path(__file__).parents[1] / 'shop/orders.py', os.O_RDONLY)\n"
+                "    try:\n        assert b'def place' in os.read(fd, 4096)\n"
+                "    finally:\n        os.close(fd)\n")
     elif mode == "subprocess":
         body = "def test_bound():\n    import subprocess, sys\n    p = subprocess.run([sys.executable, '-c', \"from shop.orders import OrderService; print(OrderService().place('x',1))\"], capture_output=True, text=True, check=True)\n    assert p.stdout.strip() == 'placed'\n"
     elif mode == "mixed":

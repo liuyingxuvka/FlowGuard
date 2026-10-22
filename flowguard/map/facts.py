@@ -80,7 +80,7 @@ class AnchorWatch:
         flags = args[2] if len(args) > 2 else 0
         if isinstance(mode, str) and "r" not in mode and "+" not in mode:
             return False
-        if mode is None and isinstance(flags, int) and flags & os.O_ACCMODE == os.O_WRONLY:
+        if mode is None and isinstance(flags, int) and flags & getattr(os, "O_ACCMODE", os.O_WRONLY | os.O_RDWR) == os.O_WRONLY:
             return False
         frame = sys._getframe(1)
         while frame is not None:
