@@ -89,6 +89,39 @@ def test_deleted_or_renamed_test_breaks_declared_model_test_link(tmp_path):
     assert "model_test_broken" in {f.code for f in findings(tmp_path)}
 
 
+def test_tested_by_outside_the_component_tests_is_not_nested(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "lib.py", "def helper(): return True\n")
+    write(tmp_path, "tests/test_lib.py", "def test_x():\n    assert True\n")
+    data["components"].append(dict(id="lib", files=["lib.py"], tests=["tests/test_lib.py"],
+                                   status="draft", summary="Library", responsibilities=["help"], depends_on=[]))
+    save(tmp_path, data)
+    path = ".flowguard/models/one.py"
+    contract = CONTRACT + "\ndef conformance():\n    from app import run\n    return run()\n"
+    foreign = '\nTESTED_BY = {"returns_true": ["tests/test_lib.py:test_x"]}\n'
+    write(tmp_path, path, contract + foreign)
+    warnings = [f for f in findings(tmp_path) if f.code == "test_not_nested"]
+    assert len(warnings) == 1 and warnings[0].level == "warn" and warnings[0].component == "app"
+    assert "one binds tests/test_lib.py" in warnings[0].message
+    assert main(["map", "check", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()
+    assert main(["read", "--root", str(tmp_path), "--component", "app"]) == 0
+    assert "returns_true -> tests/test_lib.py:test_x (not nested)" in capsys.readouterr().out
+
+    write(tmp_path, path, contract + '\nTESTED_BY = {"returns_true": ["tests/test_app.py:test_run"]}\n')
+    assert not any(f.code == "test_not_nested" for f in findings(tmp_path))
+    assert main(["read", "--root", str(tmp_path), "--component", "app"]) == 0
+    assert "(not nested)" not in capsys.readouterr().out
+
+    # Any real component in the model's component set can own the binding.
+    write(tmp_path, path, contract.replace('["app"]', '["app", "lib"]') + foreign)
+    assert not any(f.code == "test_not_nested" for f in findings(tmp_path))
+    write(tmp_path, path, contract + foreign)
+    data["components"][0]["tests"] = ["tests/test_*.py"]
+    save(tmp_path, data)
+    assert not any(f.code == "test_not_nested" for f in findings(tmp_path))
+
+
 def test_dangerous_unmodeled_entry_and_invalid_negative_scope_are_visible(tmp_path):
     data = project(tmp_path)
     write(tmp_path, "app.py", "def run():\n    open('out.txt', 'w').write('x')\n    return True\n")

@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import Finding, read_source
+from .common import Finding, matches_any, read_source
 from .inventory import Inventory
 from .mapfile import component_files, model_registry, owner_index, read_model_contract, top_level_imports
 
@@ -25,6 +25,7 @@ class ModelNode:
     contract: dict = field(default_factory=dict)
     components: set[str] = field(default_factory=set)
     home_kind: str = "system"
+    nonnested_tests: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -150,6 +151,14 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
             node.components.add(node.home)
         if node.kind == "runner":
             node.components.update(cid for cid, comp in components.items() if node.path in comp.get("models", []))
+        cids = sorted(cid for cid in node.components if cid in components)
+        tests = {anchor.split(":", 1)[0] for anchors in node.contract.get("TESTED_BY", {}).values() for anchor in anchors}
+        for path in sorted(tests):
+            if not any(matches_any(path, components[cid].get("tests", [])) for cid in cids):
+                node.nonnested_tests.add(path)
+                tree.findings.append(Finding("warn", "test_not_nested", node.home if node.home_kind == "component" else "",
+                    f"{node.id} binds {path}, which is not in the tests of {', '.join(cids) or '(no components)'}; "
+                    "list it there or bind a test that belongs to them"))
     for mid, code, message in pending_findings:
         tree.findings.append(Finding("warn", code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 

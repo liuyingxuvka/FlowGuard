@@ -36,7 +36,9 @@ def _model_lines(tree, ids: set[str], *, component: str | None = None, bindings:
         lines.append("  " * depth + f"model {node.id} [{node.kind}] tests: {count} bound{home}")
         if bindings:
             for invariant, anchors in sorted(node.contract.get("TESTED_BY", {}).items()):
-                lines.extend("  " * (depth + 1) + f"{invariant} -> {anchor}" for anchor in anchors)
+                lines.extend("  " * (depth + 1) + f"{invariant} -> {anchor}"
+                             + (" (not nested)" if anchor.split(":", 1)[0] in node.nonnested_tests else "")
+                             for anchor in anchors)
         pending.extend((child, depth + 1) for child in reversed(tree.children(node.id, "model")) if child.id in ids)
     return lines
 
