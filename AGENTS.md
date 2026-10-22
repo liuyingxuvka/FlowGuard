@@ -29,3 +29,5 @@ FlowGuard on itself.
 - Report exactly which commands you ran and their results; never mark unrun checks as passed.
 - Installing the skill (`python scripts/install_skill.py --target <skills dir>`), tagging and
   publishing are separate steps that need the maintainer's explicit request.
+
+- Source-equivalence and fingerprint byte comparisons must use `flowguard/map/common.py:normalize_newlines`, with LF and CRLF coverage.

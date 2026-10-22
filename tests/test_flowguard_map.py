@@ -858,3 +858,17 @@ def test_depends_on_order_is_not_a_verification_change(impact_project):
     data["components"][0]["depends_on"].append("web")
     save(root, data)
     assert "api" in impact_of(root, data, [".flowguard/map.json"], base="HEAD").direct
+
+
+def test_normalize_newlines_handles_crlf_and_lone_cr(tmp_path):
+    from flowguard.map.common import content_digest
+    mixed = tmp_path / "mixed.py"
+    lf = tmp_path / "lf.py"
+    mixed.write_bytes(b"a\r\nb\rc\n")
+    lf.write_bytes(b"a\nb\nc\n")
+    assert content_digest(mixed) == content_digest(lf)
+    from flowguard.map.common import normalize_newlines
+    assert normalize_newlines(mixed.read_bytes()) == lf.read_bytes()
+    assert normalize_newlines(lf.read_bytes()) == lf.read_bytes()
+    lf.write_bytes(b"a\nb\nchanged\n")
+    assert content_digest(mixed) != content_digest(lf)

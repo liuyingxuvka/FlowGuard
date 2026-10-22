@@ -33,9 +33,14 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def normalize_newlines(data: bytes) -> bytes:
+    """Canonical physical source newlines for fingerprints and equivalence checks."""
+    return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def content_digest(path: Path) -> str:
-    """sha256 of a file with CRLF normalized to LF, so Windows and Linux checkouts agree."""
-    return sha256_bytes(path.read_bytes().replace(b"\r\n", b"\n"))
+    """sha256 with physical newlines normalized, so platform checkouts agree."""
+    return sha256_bytes(normalize_newlines(path.read_bytes()))
 
 
 def read_source(path: Path) -> str:

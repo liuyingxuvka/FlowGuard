@@ -10,7 +10,7 @@ from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, read_source
+from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract
 
@@ -94,8 +94,8 @@ def _comment_only(root: Path, base: str | None, path: str) -> bool:
         return False
     old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
     try:
-        previous = old.stdout.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-        new = (root / path).read_bytes().replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+        previous = normalize_newlines(old.stdout)
+        new = normalize_newlines((root / path).read_bytes())
         return old.returncode == 0 and previous != new and ast.dump(ast.parse(previous)) == ast.dump(ast.parse(new))
     except (OSError, SyntaxError, ValueError):
         return False
