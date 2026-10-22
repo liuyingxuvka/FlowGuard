@@ -183,9 +183,7 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual([], offenders)
 
     def test_runner_templates_fail_until_their_anchors_name_real_code(self):
-        runners = {"model_test_alignment": model_test_alignment_template_files,
-                   "model_mesh": model_mesh_template_files,
-                   "model_topology_hazard_review": topology_hazard_template_files}
+        runners = {"model_test_alignment": model_test_alignment_template_files}
         for directory, factory in runners.items():
             with self.subTest(template=directory):
                 output = self.run_written_template(factory(), (".flowguard", "verification", "owners", directory),
@@ -267,14 +265,24 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertEqual([True, False, True, False, True, False], json.loads(result.stdout))
 
     def test_model_mesh_template_executes_and_exposes_negative_fixture(self):
-        output = self.run_written_template(
-            model_mesh_template_files(),
-            (".flowguard", "verification", "owners", "model_mesh"),
-        )
-        self.assertIn("flowguard hierarchical mesh", output)
-        self.assertIn("decision:", output)
-        self.assertIn("missing", output.lower())
-        self.assertNotIn("negative-case matrix: PASS", output)
+        files = model_mesh_template_files()
+        self.assertEqual([".flowguard/models/model_mesh.py"], [f.path for f in files])
+        code = {"shop/module.py": "class Owner: pass\nclass Other: pass\n"}
+        for file, mid, anchors, parent in (("parent", "shop", '{"A":"shop/module.py:Owner","B":"shop/module.py:Other"}', "system"),
+                                           ("shop", "first", '{"A":"shop/module.py:Owner"}', "shop"),
+                                           ("shop_other", "second", '{"B":"shop/module.py:Other"}', "shop")):
+            code[f".flowguard/models/{file}.py"] = (f'MODEL_ID={mid!r}\nPARENT={parent!r}\nIMPLEMENTED_BY={anchors}\n'
+                'DESIGN_ONLY="fixture declarations"\ndef build_explorer(): pass\n')
+        components = {"domain": ["shop/module.py"]}
+        output = self.run_kit_template(files, "model_mesh", code, components=components, expected_returncode=1)
+        self.assertIn("placeholder anchor", output)
+        output = self.run_kit_template(files, "model_mesh", code, fill="shop", components=components, expected_returncode=0)
+        self.assertIn("PASS  model_mesh", output)
+        from dataclasses import replace
+        wrong = tuple(replace(f, content=f.content.replace(
+            'coverage = tuple(', 'children = (replace(children[0], model_id=children[0].model_id + "x"),) + children[1:]\n    coverage = tuple(')) for f in files)
+        output = self.run_kit_template(wrong, "model_mesh", code, fill="shop", components=components, expected_returncode=1)
+        self.assertIn("unknown_child_model", output)
 
     def test_contract_exhaustion_template_runs_the_bad_cases_against_the_real_function(self):
         files = contract_exhaustion_template_files()
@@ -358,42 +366,21 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertTrue(all(anchor.startswith("REPLACE_ME/") for anchor in anchors), anchors)
 
     def test_only_the_meta_capabilities_write_runners(self):
-        # Domain capabilities write one contract model built from a kit; model-mesh, topology-hazard and model-test
-        # inspect other models and tests, so their templates keep a runner.
+        # Mesh and topology now use contract models; the two alignment templates migrate next.
         runners = sorted(name for name, factory in template_factories().items()
                          if any(file.path.endswith("/run_checks.py") for file in factory()))
-        self.assertEqual(["model-mesh", "model-test-alignment", "model-test-alignment-full", "topology-hazard"], runners)
+        self.assertEqual(["model-test-alignment", "model-test-alignment-full"], runners)
 
     def test_topology_hazard_template_executes(self):
-        output = self.run_written_template(
-            topology_hazard_template_files(),
-            (".flowguard", "verification", "owners", "model_topology_hazard_review"),
-            expected_returncode=1,
-        )
-        self.assertIn("flowguard topology hazard review", output)
-        self.assertIn("topology_hazard_blocked", output)
-        self.assertIn("unresolved_hazard_ids", output)
+        files = topology_hazard_template_files()
+        self.assertEqual([".flowguard/models/topology_hazard.py"], [f.path for f in files])
+        output = self.run_kit_template(files, "topology_hazard", {"shop/module.py": "class Owner: pass\n"}, expected_returncode=1)
+        self.assertIn("placeholder anchor", output)
 
     def test_topology_hazard_template_good_review_exits_zero(self):
-        from dataclasses import replace
-
-        files = topology_hazard_template_files()
-        good_review = """
-def build_review():
-    from flowguard import TOPOLOGY_USAGE_LOCAL
-    plan = infer_topology_hazard_plan(
-        workflow=Workflow((SaveRecord(),), name="save-record"),
-        initial_states=(State(),), external_inputs=(),
-        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_LOCAL,), final_claim="local"),
-    )
-    return review_topology_hazards(plan)
-"""
-        files = tuple(replace(file, content=file.content + good_review)
-                      if file.path.endswith("model.py") else file for file in files)
-        output = self.run_written_template(
-            files, (".flowguard", "verification", "owners", "model_topology_hazard_review"),
-        )
-        self.assertIn("topology_hazard_pass", output)
+        output = self.run_kit_template(topology_hazard_template_files(), "topology_hazard",
+                                      {"shop/module.py": "class Owner: pass\n"}, fill="shop", expected_returncode=0)
+        self.assertIn("PASS  topology_hazard", output)
 
     def test_field_lifecycle_template_fails_until_bound_to_real_code(self):
         files = field_lifecycle_template_files()
@@ -481,7 +468,8 @@ def build_review():
         with tempfile.TemporaryDirectory() as directory:
             code, stdout, _stderr = self.run_cli(["template", "model-mesh", "--write", directory])
             self.assertEqual(0, code)
-            self.assertTrue(any(Path(directory).rglob("run_checks.py")))
+            self.assertEqual([".flowguard/models/model_mesh.py"],
+                             sorted(p.relative_to(directory).as_posix() for p in Path(directory).rglob("*") if p.is_file()))
             code, _stdout, stderr = self.run_cli(["template", "model-mesh", "--write", directory])
             self.assertEqual(1, code)
             self.assertIn("--force", stderr)

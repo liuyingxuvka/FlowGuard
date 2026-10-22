@@ -36,8 +36,8 @@ inputs; a retry loop with no progress rule.
 ## Steps
 
 1. Reuse or update the owner's native mesh/review. Only for a missing reusable composition boundary,
-   `python -m flowguard template model-mesh --write .` writes its model and runner (replace its `REPLACE_ME` anchor).
-   To rename `model_mesh`, rename both owner folders and `_MODEL_DIR` in `run_checks.py`.
+   `python -m flowguard template model-mesh --write .` writes `.flowguard/models/model_mesh.py`.
+   Fill PARENT, CHILD_FILES and code/test anchors; import the reviewed parent at top level, not the children.
 2. In the selected owner plan (`model.py` only if persisted), describe children and parent (API from `flowguard`):
    ```python
    from dataclasses import replace
@@ -73,10 +73,9 @@ inputs; a retry loop with no progress rule.
    parent_contract=..., sibling_models=...)`. Its `propagation` is `unaffected`,
    `reattach_only`, `parent_rerun_required`, `sibling_rerun_required` or
    `split_review_required`. Pass the result in `boundary_changes=(...)`.
-4. Keep relevant partition/reattachment regressions. A persistent runner, if needed, returns 0 only
-   when the good mesh passes and relevant broken variants fail.
-5. If a persistent runner was created or changed, register it in the parent's `models`; execute
-   the selected registered runner once via `python -m flowguard map models <id>`, without a second direct run.
+4. Keep relevant partition/reattachment regressions; the contract model explores a good mesh and bad variants.
+5. The top-level contract model is discovered automatically; run it once via `python -m flowguard map models <id>`.
+   Existing user runners stay registered in `models`; do not add a second direct run.
 6. After a child edit, `python -m flowguard change` selects the full caller closure. `map impact --depth 2` is only a truncated diagnostic, not complete coverage.
    Re-confirm the stale child (`map confirm ID`) and re-run the parent mesh.
 
@@ -107,7 +106,7 @@ inputs; a retry loop with no progress rule.
 ## Done when
 
 - [ ] The selected direct native mesh review or existing-owner check passes; relevant broken cases fail.
-- [ ] Any new/changed persistent runner is registered and has one current `map models <id>` result.
+- [ ] Any new/changed contract model or existing runner is registered and has one current `map models <id>` result.
 - [ ] Each child component lists its real tests in `tests`; no child is `stale` in `map check`.
 - [ ] `python -m flowguard change` is clean, and the parent and affected siblings were re-run.
 - [ ] Your report names what ran, what was skipped, and which children were not re-checked.

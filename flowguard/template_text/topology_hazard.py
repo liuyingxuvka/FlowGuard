@@ -1,31 +1,25 @@
-"""Template text for model-topology hazard review."""
+"""Contract-model template built from the existing review kit."""
 
-TOPOLOGY_HAZARD_MODEL_TEMPLATE = '''"""FlowGuard model-topology hazard review template.
-
-FlowGuard model
-Purpose: review model topology for future-use hazards before broad confidence.
-Guards against: generic AI risk checklists, unanchored future-risk warnings,
-old/new path disposition gaps, coarse terminal states, and local green evidence
-being overclaimed for future use, duplicate business paths, and wrong-path
-runtime proof.
-Use before editing: when local FlowGuard evidence passes but topology shape may
-still imply future-use hazards.
-Run: python -m flowguard map models model_topology_hazard_review
+TOPOLOGY_HAZARD_MODEL_TEMPLATE = '''"""Review a behavior model's topology, with explicit old/new path dispositions.
+Replace the example: import the behavior model at top level, set PARENT to its MODEL_ID,
+and use its build_explorer().workflow, initial_states and external_inputs in plan().
+This example makes a local in-memory claim. Use the real UsageIntent and external effects
+of the reviewed model, then resolve the resulting hazards without inventing external proof.
+Fill current code/test anchors before running map models topology_hazard.
 """
+from dataclasses import dataclass, replace
+from pathlib import Path
+from flowguard import (BusinessPathIdentity, FunctionResult, TOPOLOGY_USAGE_LOCAL, UsageIntent,
+                       Workflow, infer_topology_hazard_plan, review_topology_hazards)
+from flowguard.kit import plan_explorer
+from flowguard.map.facts import CodeFacts
 
-from __future__ import annotations
-
-from dataclasses import dataclass
-
-from flowguard import (
-    BusinessPathIdentity,
-    FunctionResult,
-    TOPOLOGY_USAGE_RELEASE,
-    UsageIntent,
-    Workflow,
-    infer_topology_hazard_plan,
-    review_topology_hazards,
-)
+MODEL_ID = "topology_hazard"
+IMPLEMENTED_BY = {"Owner": "REPLACE_ME/module.py:Owner"}
+TESTED_BY = {"topology_review_accepts": ["REPLACE_ME/test_x.py:test_name"]}
+ROOT = Path(__file__).resolve().parents[2]
+# import behavior_model
+# PARENT = "<behavior model MODEL_ID>"
 
 
 @dataclass(frozen=True)
@@ -35,100 +29,64 @@ class Event:
 
 @dataclass(frozen=True)
 class State:
-    phase: str = "idle"
-    saved_record: str = ""
+    record: str = ""
 
 
 class SaveRecord:
     name = "SaveRecord"
-    reads = ("phase",)
-    writes = ("saved_record", "phase")
-    side_effects = ("database_write",)
-
-    def apply(self, input_obj, state):
-        return (FunctionResult(input_obj, State("done", "saved"), label="saved"),)
-
-
-def build_review():
-    plan = infer_topology_hazard_plan(
-        workflow=Workflow((SaveRecord(),), name="save-record"),
-        initial_states=(State(),),
-        external_inputs=(Event(),),
-        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release"),
-        business_paths=(
-            BusinessPathIdentity(
-                "submit_order",
-                business_intent="submit order",
-                trigger="submit",
-                expected_terminal="saved",
-                state_writes=("saved_record", "phase"),
-                side_effects=("database_write",),
-                evidence_ids=("runtime-path:submit-order:v1",),
-            ),
-            BusinessPathIdentity(
-                "submit_order_legacy",
-                business_intent="submit order",
-                trigger="submit",
-                expected_terminal="saved",
-                state_writes=("saved_record", "phase"),
-                side_effects=("database_write",),
-                source_labels=("legacy adapter still reachable",),
-            ),
-        ),
-    )
-    return review_topology_hazards(plan)
-'''
-
-TOPOLOGY_HAZARD_RUN_CHECKS_TEMPLATE = '''"""Run the model-topology hazard review template."""
-
-from __future__ import annotations
-
-import model
+    reads = ()
+    writes = ("record",)
+    side_effects = ()  # This example updates memory; declare actual external effects in your model.
+    def apply(self, inp, state):
+        return (FunctionResult(inp, State("saved"), label="saved"),)
 
 
-def main() -> int:
-    report = model.build_review()
-    print(report.format_text())
-    return 0 if report.ok else 1
+def plan():
+    paths = (BusinessPathIdentity("current", business_intent="save record", trigger="submit",
+                 expected_terminal="saved", source_labels=(IMPLEMENTED_BY["Owner"],),
+                 supersedes=("previous",), compatibility_disposition="preserve_compatibility",
+                 exclusive_with=("previous",)),
+             BusinessPathIdentity("previous", business_intent="save record", trigger="submit",
+                 expected_terminal="saved", source_labels=(IMPLEMENTED_BY["Owner"],), exclusive_with=("current",)))
+    return _with_paths(paths)
 
 
-# The real code this review is about: the placeholder fails until you name it ('path:Symbol').
-# Add TESTED_BY = {"<check>": ["tests/test_x.py:test_name"]} for the tests that guard it.
-IMPLEMENTED_BY = {"Owner": "REPLACE_ME/module.py:Owner"}
+def _with_paths(paths):
+    result = infer_topology_hazard_plan(workflow=Workflow((SaveRecord(),)), initial_states=(State(),),
+        external_inputs=(Event(),), business_paths=paths,
+        usage_intent=UsageIntent(usage_modes=(TOPOLOGY_USAGE_LOCAL,), final_claim="local"))
+    # This review model requires explicit dispositions rather than scoped unresolved hazards.
+    return replace(result, allow_scoped_confidence=False)
 
 
-def bound_main() -> int:
-    """Run the review, then check that IMPLEMENTED_BY names real code."""
-    from pathlib import Path
+def duplicate_paths(value):
+    return _with_paths(tuple(replace(path, exclusive_with=(), supersedes=(), compatibility_disposition="unknown") for path in value.digest.business_paths))
 
-    from flowguard.map.facts import CodeFacts
 
-    code = main() or 0
-    facts = CodeFacts(Path(__file__).resolve().parents[4])
+def old_path_without_disposition(value):
+    current, previous = value.digest.business_paths
+    return _with_paths((replace(current, compatibility_disposition="unknown"), previous))
+
+
+EDITS = {"declare_paths": lambda value: value, "duplicate_paths": duplicate_paths,
+         "old_path_without_disposition": old_path_without_disposition}
+
+
+def build_explorer():
+    return plan_explorer(plan, EDITS, review_topology_hazards, explore=["declare_paths"],
+                         invariant_name="topology_review_accepts")
+
+
+def broken_variants():
+    return {name: plan_explorer(plan, EDITS, review_topology_hazards, explore=[name],
+                               invariant_name="topology_review_accepts")
+            for name in ("duplicate_paths", "old_path_without_disposition")}
+
+
+def conformance():
+    facts = CodeFacts(ROOT)
     facts.anchors_exist(IMPLEMENTED_BY)
-    print(facts.report().format_text())
-    return code if facts.report().ok else 1
-
-
-if __name__ == "__main__":
-    from flowguard.map.runner import run_owner
-    raise SystemExit(run_owner(bound_main))
+    return facts.report()
 '''
 
-TOPOLOGY_HAZARD_NOTES_TEMPLATE = """# FlowGuard Model Topology Hazard Review Notes
-
-This review is not a generic risk checklist. It starts from the model topology:
-states, edges, side effects, terminal states, old/new paths, external
-boundaries, parent/child compression, and business-path identity. Future-use
-hazards should be promoted only when they name a concrete topology anchor.
-
-Important business paths should name a stable path id, business intent, trigger,
-expected terminal, state writes, side effects, equivalent paths, exclusive
-paths, superseded old paths, compatibility disposition, and source/runtime
-evidence ids when those affect confidence.
-
-Use this route before broad done/release/publish confidence when model shape and
-usage intent suggest hidden future-use risk. Unanchored AI concerns remain
-observations. Anchored unresolved hazards route to Model Miss Review, Model-Test
-Alignment, DevelopmentProcessFlow, or Architecture Reduction.
-"""
+__all__ = ["TOPOLOGY_HAZARD_MODEL_TEMPLATE"]

@@ -320,9 +320,15 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     while True:
         ancestors = {tree.nodes[mid].path for path in selected_model_paths if path in registered
                      for mid in tree.ancestors(registered[path].id)}
-        if ancestors <= selected_model_paths:
+        selected_ids = {registered[path].id for path in selected_model_paths if path in registered}
+        review_children = {node.path for node in tree.nodes.values()
+                           if node.kind == "contract" and node.source == "PARENT" and node.parent_kind == "model"
+                           and node.parent in selected_ids and node.parent in tree.nodes
+                           and tree.nodes[node.parent].path in node.import_files}
+        expanded = ancestors | review_children
+        if expanded <= selected_model_paths:
             break
-        selected_model_paths.update(ancestors)
+        selected_model_paths.update(expanded)
     models = []
     id_counts: dict[str, int] = defaultdict(int)
     for entry in registry.entries:

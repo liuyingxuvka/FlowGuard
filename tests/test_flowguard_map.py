@@ -949,3 +949,21 @@ def test_check_and_lint_report_cycles_with_the_shortest_import_path(tmp_path, ca
     save(root, data)
     code, out = run(root, "check", capsys=capsys)
     assert code == 0 and "INFO  dependency_cycle" in out and "accepted debt" in out
+
+
+def test_change_selects_the_review_children_of_a_selected_model(impact_project):
+    root, data = impact_project
+    for mid, parent, imports in (("target", "system", ""), ("review", "target", "import target\n"),
+                                 ("second_review", "review", "import review\n"),
+                                 ("child", "target", "")):
+        text = f'MODEL_ID = {mid!r}\nCOMPONENTS = []\n'
+        if parent:
+            text += f'PARENT = {parent!r}\n'
+        text += imports + 'DESIGN_ONLY = "selection only"\ndef build_explorer(): pass\n'
+        if mid == "target":
+            text += 'IMPLEMENTED_BY = {"save": "shop/storage.py:save"}\n'
+        write(root, f'.flowguard/models/{mid}.py', text)
+    impact = impact_of(root, data, ["shop/storage.py"])
+    assert {"target", "review", "second_review"} <= set(impact.model_ids)
+    assert "child" not in impact.model_ids
+    assert not impact.blocked

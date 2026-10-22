@@ -156,7 +156,7 @@ use `codes="first"` for a validator that stops at the first defect in declaratio
 requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
 `exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
 are omitted; conformance still checks the clean base against the design, including adapter errors. Only the meta-capabilities
-(`model-mesh`, `topology-hazard`, `model-test-alignment`, `model-test-alignment-full`) inspect other models and
+(`model-test-alignment`, `model-test-alignment-full`) still write runners to inspect models and
 tests instead of a domain; their templates write `.flowguard/models/owners/<name>/model.py`
 and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and
 `TESTED_BY`) at top level and follows the same anchor rule. Template code and test anchors contain `REPLACE_ME`

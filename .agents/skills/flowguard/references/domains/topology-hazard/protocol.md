@@ -42,8 +42,8 @@ no anchor stays an observation and never blocks.
 
 1. Reuse the owner's native hazard review/model; only a missing reusable boundary needs
    `python -m flowguard template topology-hazard --write .`, which writes
-   owner `model.py` and `.flowguard/verification/owners/model_topology_hazard_review/run_checks.py` (replace its `REPLACE_ME` anchor).
-   Its blocked demo exits 1; a passing real review exits 0. Keep per-case asserts (step 6).
+   `.flowguard/models/topology_hazard.py`; fill its code/test anchors and adapt the example workflow.
+   Import the reviewed model at top level and set PARENT to its MODEL_ID. Keep per-case asserts (step 6).
 2. Build the usage intent: `UsageIntent(usage_modes=(TOPOLOGY_USAGE_RELEASE,), final_claim="release",
    compatibility_policy=TOPOLOGY_COMPAT_UNKNOWN, persistent_history_possible=...)`.
    `infer_usage_intent(goal=, final_claim=, project_kind=)` guesses one from text; check it.
@@ -72,8 +72,8 @@ print(report.format_text())   # decision, confidence, findings, unresolved_hazar
    `model_miss_review` = the "When a green model missed a bug" recipe in model recipes).
 6. Review the intended plan and relevant broken cases directly or in the existing owner; assert the intended
    one gives `report.ok` and that relevant broken plans give their expected codes. A persistent runner returns 0 only then.
-7. If a persistent runner was created or changed, register it in the owner's `models`; run the
-   selected registered owner once with `python -m flowguard map models <id>`. Direct review needs no runner.
+7. The top-level contract model is discovered automatically; run it once with `python -m flowguard map models <id>`.
+   Existing user runners stay registered in `models`. Direct review needs no runner.
    Then use `python -m flowguard change` and execute affected checks not already current.
 
 ## What blocks
@@ -107,7 +107,7 @@ Decision values: `topology_hazard_pass`, `topology_hazard_scoped_confidence`, `t
 ## Done when
 
 - [ ] The selected direct native review or existing-owner model passes; relevant broken plans give
-      their expected codes. Any new/changed persistent runner is registered and run once through `map models`.
+      their expected codes. Any new/changed contract model or existing runner is registered and run once through `map models`.
 - [ ] Every remaining hazard is handled with a named test, or scoped with a written reason.
 - [ ] Scoped confidence is reported as scoped, never as a clean pass.
 - [ ] The tests that cover handled hazards pass and are listed in the component's `tests`.

@@ -205,7 +205,7 @@
       "responsibilities": [
         "provide starter files for each capability",
         "kit templates write one contract model whose placeholder code and test anchors fail until replaced with real ones",
-        "only the meta-capabilities (model-mesh, topology-hazard, model-test) keep runner templates: they inspect other models and tests",
+        "model-mesh and topology-hazard templates write kit contract models; only alignment templates still generate runners",
         "generate edit-plan examples forwarding the existing DESIGN_ONLY marker to code-facts helpers"
       ],
       "files": [
@@ -227,7 +227,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:34cf76e57bbbf820d3f553f201f6d7321d394cf4f75e53346d7c527be07597ac"
+      "fingerprint": "sha256:3d35f19a4c6b4c35c08593ab92412220697e47b58b5c3f104cc1f2511fb6aeff"
     },
     {
       "id": "behavior-commitment",
@@ -685,7 +685,7 @@
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share exact responsibility-token duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope",
-        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON",
+        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions; show the map as one tree: system, components, their problems and model subtrees; export the same tree as Mermaid; mark nonnested model test bindings in component details"
       ],
@@ -717,7 +717,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bf7e87fa6c1d58064efd822bab1a32a207b80d9b26967f30d6791c05e4033b14"
+      "fingerprint": "sha256:3a2b432a69bea73c323cc75ecb03e65b5489d54bd2b27c332c33d9b9eb8f2abb"
     },
     {
       "id": "map-proof",
