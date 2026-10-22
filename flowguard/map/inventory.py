@@ -22,7 +22,7 @@ from pathlib import Path
 
 from .common import cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
 
-CACHE_SCHEMA = "flowguard.map.inventory_cache.v4"
+CACHE_SCHEMA = "flowguard.map.inventory_cache.v5"
 # A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
 PARSER_ID = sha256_bytes(Path(__file__).read_bytes() + (Path(__file__).parent / "common.py").read_bytes()
                          + sys.version.encode())[:16]   # ast results differ between Python versions
@@ -43,6 +43,7 @@ class PyInfo:
     string_literals: set[str] = field(default_factory=set)
     dynamic_imports: bool = False
     import_lines: dict[str, int] = field(default_factory=dict)
+    import_literals: set[str] = field(default_factory=set)
 
 
 @dataclass
@@ -222,6 +223,8 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
             info.string_literals.add(node.value)
         if isinstance(node, ast.Call) and (getattr(node.func, "id", "") or getattr(node.func, "attr", "")) in {"__import__", "import_module"}:
             info.dynamic_imports = True
+            if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+                info.import_literals.add(node.args[0].value)
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name) and node.value.id in module_aliases:
             info.imports.add(f"{module_aliases[node.value.id]}:{node.attr}")
@@ -295,7 +298,8 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True) -> 
         hit = old.get(f)
         if key is not None and hit and hit.get("key") == key and (hit.get("bodies") is not None or not with_bodies):
             info = PyInfo(module, set(hit["symbols"]), set(hit["imports"]), hit["loc"], hit["parse_error"], hit["bodies"] or [],
-                          hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"])
+                          hit["lazy_exports"], set(hit["string_literals"]), hit["dynamic_imports"], hit["import_lines"],
+                          set(hit["import_literals"]))
             bodies_known = hit.get("bodies") is not None
         else:
             info = parse_python(root, f, module, collect_bodies=with_bodies)
@@ -304,7 +308,8 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True) -> 
             new[f] = {"key": key, "symbols": sorted(info.symbols), "imports": sorted(info.imports),
                       "loc": info.loc, "parse_error": info.parse_error, "bodies": info.bodies if bodies_known else None,
                       "lazy_exports": info.lazy_exports, "string_literals": sorted(info.string_literals),
-                      "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines}
+                      "dynamic_imports": info.dynamic_imports, "import_lines": info.import_lines,
+                      "import_literals": sorted(info.import_literals)}
         py[f] = info
         mod_to_path[module] = f
     if new != old or not cache_path.is_file():

@@ -77,9 +77,7 @@
       "side_effects": [
         "copies the skill files into the target skills directory"
       ],
-      "depends_on": [
-        "public-api"
-      ],
+      "depends_on": [],
       "tests": [
         "tests/test_readme_mirror.py",
         "tests/test_skill_package.py"
@@ -158,7 +156,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:45767167642c1f4c113f3cef3a1700fa25eacfa9e5948d33c8cd99e0b25f6d5d"
+      "fingerprint": "sha256:587c5be6201e8a5eafbb11f504f0bfa61e48397bd605253d9af3a779fdc4f0fa"
     },
     {
       "id": "public-api",
@@ -261,12 +259,12 @@
       ],
       "depends_on": [
         "contract-exhaustion",
-        "engine-core",
-        "shared-vocabulary",
-        "map-analysis",
         "engine-conformance",
+        "engine-core",
+        "map-analysis",
         "map-inventory",
-        "map-proof"
+        "map-proof",
+        "shared-vocabulary"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
@@ -307,11 +305,11 @@
       "side_effects": [],
       "depends_on": [
         "code-structure",
+        "engine-conformance",
         "engine-core",
         "map-analysis",
-        "shared-vocabulary",
-        "engine-conformance",
-        "map-proof"
+        "map-proof",
+        "shared-vocabulary"
       ],
       "tests": [
         "tests/test_architecture_reduction.py",
@@ -341,13 +339,13 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-core",
-        "shared-vocabulary",
-        "map-analysis",
         "engine-conformance",
+        "engine-core",
+        "map-analysis",
         "map-file",
         "map-inventory",
-        "map-proof"
+        "map-proof",
+        "shared-vocabulary"
       ],
       "tests": [
         "tests/test_architecture_reduction.py",
@@ -379,10 +377,10 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
+        "engine-conformance",
         "engine-core",
         "model-test",
-        "shared-vocabulary",
-        "engine-conformance"
+        "shared-vocabulary"
       ],
       "tests": [
         "tests/test_behavior_commitment_contract_exhaustion.py",
@@ -412,10 +410,10 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-core",
-        "model-test",
         "engine-conformance",
-        "map-proof"
+        "engine-core",
+        "map-proof",
+        "model-test"
       ],
       "tests": [
         "tests/test_field_lifecycle.py"
@@ -627,7 +625,7 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports"
+        "inventory files, symbols and imports, including literal import calls"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -649,7 +647,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bc59796f16b5f9cfe9b9320a93a455099ecf86deb06d0751fe9980819ad76118"
+      "fingerprint": "sha256:47517cc69cca0949cadf516581c5fb0caf9aec6528bc49c81c0b3cdc8842d4b9"
     },
     {
       "id": "map-file",
@@ -658,7 +656,8 @@
       "responsibilities": [
         "validate, load and save the map",
         "compute component fingerprints that detect stale descriptions",
-        "read model literals (MODEL_ID, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model"
+        "read model literals (MODEL_ID, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
+        "count strings as dependency evidence only in import-like contexts"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -685,7 +684,7 @@
         ".flowguard/models/component_pointer.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:1680cb3c17abe722550e9e84bd332adade6d8bcf37fdee4d8bc8aab218613051"
+      "fingerprint": "sha256:b35a88e5f5c605f53351a675f61481975323b54c508555c5439fb9042307f702"
     },
     {
       "id": "map-discover",
@@ -706,8 +705,7 @@
         "writes .flowguard/cache/discover.json"
       ],
       "depends_on": [
-        "map-inventory",
-        "tooling"
+        "map-inventory"
       ],
       "tests": [
         "tests/test_flowguard_map_discover.py"
@@ -781,9 +779,9 @@
       ],
       "depends_on": [
         "engine-explore",
+        "map-analysis",
         "map-file",
-        "map-inventory",
-        "map-analysis"
+        "map-inventory"
       ],
       "tests": [
         "tests/test_flowguard_map_contracts.py",
@@ -975,7 +973,6 @@
         "engine-path-quality",
         "engine-properties",
         "engine-scenarios",
-        "public-api",
         "topology-hazard"
       ],
       "tests": [
@@ -1080,9 +1077,7 @@
       ],
       "state": [],
       "side_effects": [],
-      "depends_on": [
-        "public-api"
-      ],
+      "depends_on": [],
       "tests": [
         "tests/test_core_abstractions.py",
         "tests/test_python_function_state_verification_owner.py",

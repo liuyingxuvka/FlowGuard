@@ -168,10 +168,35 @@ def test_string_literals_are_dependency_evidence_only_for_exact_modules_or_symbo
     write(tmp_path, "pkg/a.py", 'import logging\nSCHEMA = "pkg.b.v1"\nLOG = logging.getLogger("pkg.b.events")\n')
     data, inv = _context(tmp_path)
     assert "b" not in dependency_evidence(data, inv)["a"]
+    for condition in ('x != "pkg.b"', 'module != "pkg"'):
+        write(tmp_path, "pkg/a.py", f"if {condition}:\n    pass\n")
+        data, inv = _context(tmp_path)
+        assert "b" not in dependency_evidence(data, inv)["a"], condition
     for literal in ('"pkg.b"', '"pkg.b:func"', '"pkg.b.func"'):
         write(tmp_path, "pkg/a.py", f"import importlib\nTARGET = importlib.import_module({literal})\n")
         data, inv = _context(tmp_path)
         assert "b" in dependency_evidence(data, inv)["a"], literal
+    for text in ('_EXPORTS = {"pkg.b": ("func",)}\ndef __getattr__(name):\n    pass\n',
+                 'TARGET = __import__("pkg")\n',
+                 'TARGET = "pkg.b:func"\n',
+                 'TARGET = "pkg.b.func"\n'):
+        write(tmp_path, "pkg/a.py", text)
+        data, inv = _context(tmp_path)
+        assert "b" in dependency_evidence(data, inv)["a"], text
+
+
+def test_import_literals_survive_inventory_cache(tmp_path):
+    import os
+    from flowguard.map.inventory import CACHE_SCHEMA, build_inventory
+    from flowguard.map.common import DEFAULT_IGNORE
+    write(tmp_path, "a.py", 'TARGET = __import__("pkg")\n')
+    os.utime(tmp_path / "a.py", (1, 1))
+    first = build_inventory(tmp_path, DEFAULT_IGNORE)
+    cached = json.loads((tmp_path / ".flowguard/cache/inventory.json").read_text())
+    assert cached["schema"] == CACHE_SCHEMA == "flowguard.map.inventory_cache.v5"
+    assert cached["files"]["a.py"]["import_literals"] == ["pkg"]
+    second = build_inventory(tmp_path, DEFAULT_IGNORE)
+    assert first.py["a.py"].import_literals == second.py["a.py"].import_literals == {"pkg"}
 
 
 def test_read_unknown_component_fails_and_names_the_read_command(tmp_path, capsys):

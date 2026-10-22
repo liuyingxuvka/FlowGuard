@@ -192,7 +192,7 @@ def cmd_deps(root: Path, a) -> int:
             c["depends_on"], changed = retained, changed + 1
     if a.write:
         save_map(root, data)
-        print(f"updated depends_on of {changed} component(s); kept only dependencies supported by imports, module literals or accepted debts")
+        print(f"updated depends_on of {changed} component(s); kept only dependencies supported by imports, import-like literals or accepted debts")
     return 0
 
 

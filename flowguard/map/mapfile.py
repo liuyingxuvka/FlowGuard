@@ -183,7 +183,7 @@ def read_model_contract(path: Path) -> dict:
 
 
 def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
-    """Actual imports plus named module literals and explicitly justified debts.
+    """Actual imports plus import-like literals and explicitly justified debts.
 
     Literal evidence validates declarations; it is not itself a caller edge.
     """
@@ -195,9 +195,10 @@ def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
         cid = owner.get(path)
         if cid is None:
             continue
-        for literal in getattr(info, "string_literals", set()):
-            # Exact module ("pkg.mod" or "pkg.mod:name") or "pkg.mod.symbol"; never truncate further.
-            target = modules.get(literal.split(":", 1)[0])
+        import_literals = getattr(info, "import_literals", set()) | set(info.lazy_exports.values())
+        for literal in import_literals | getattr(info, "string_literals", set()):
+            # Bare module names count only in import calls or a lazy export table.
+            target = modules.get(literal.split(":", 1)[0]) if literal in import_literals or ":" in literal else None
             if target is None and ":" not in literal:
                 base, _, name = literal.rpartition(".")
                 if name in symbols.get(base, ()):
