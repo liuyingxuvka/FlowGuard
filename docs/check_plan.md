@@ -153,12 +153,10 @@ examples are neither the coverage universe nor proof.
 
 For broad/full coverage claims, also declare a `ContractCoverageUniverse`.
 That universe lists the dimensions, axes, interaction groups, payload
-contracts, code boundaries, case ids, and coverage result ids
-(`required_coverage_receipt_ids`: ids of the test or shard results that cover
-the cases) that are in scope.
+contracts, code boundaries and case ids that are in scope.
 If a real observed problem is discovered later, backfeed it as
-`ObservedProblemBackfeed`; it must map to generated cases, same-class cases,
-and coverage result ids, or FlowGuard should report a model/coverage gap. Reject,
+`ObservedProblemBackfeed`; it must map to generated cases and same-class cases,
+or FlowGuard should report a model/coverage gap. Reject,
 block, reissue, retry, or repair cases also need actionable oracle feedback
 fields so the report proves the receiver can fix the bad submission, not only
 that the bad submission is rejected.
