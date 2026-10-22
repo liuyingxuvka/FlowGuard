@@ -827,3 +827,34 @@ def test_import_sites_skip_type_checking_and_sort_by_line(tmp_path, guard):
     assert sites == ["a.py:5 from b import Y", "a.py:9 from b import Z", "a.py:11 from b import W"]
     assert inv.py["a.py"].imports >= {"b:Y", "b:Z", "b:W"}
     assert "b:X" not in inv.py["a.py"].imports
+
+
+def test_save_map_sorts_only_depends_on(project, capsys):
+    from flowguard.map.mapfile import save_map
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    comp = data["components"][0]
+    comp["depends_on"] = ["storage", "orders", "storage"]
+    comp["files"] = ["shop/__init__.py", "shop/api.py"]
+    comp["tests"] = ["tests/test_storage.py", "tests/test_orders.py"]
+    save_map(project, data)
+    saved = load(project)["components"][0]
+    assert saved["depends_on"] == ["orders", "storage"]
+    assert saved["files"] == ["shop/__init__.py", "shop/api.py"]
+    assert saved["tests"] == ["tests/test_storage.py", "tests/test_orders.py"]
+
+
+def test_depends_on_order_is_not_a_verification_change(impact_project):
+    root, data = impact_project
+    data["components"][0]["depends_on"] = ["orders", "storage"]
+    save(root, data)
+    git(root, "add", ".flowguard/map.json")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "baseline dependencies")
+    data["components"][0]["depends_on"] = ["storage", "orders", "orders"]
+    save(root, data)
+    impact = impact_of(root, data, [".flowguard/map.json"], base="HEAD")
+    assert "api" not in impact.direct
+    assert "api" not in impact.map_review
+    data["components"][0]["depends_on"].append("web")
+    save(root, data)
+    assert "api" in impact_of(root, data, [".flowguard/map.json"], base="HEAD").direct

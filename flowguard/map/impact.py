@@ -262,6 +262,10 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         else:
             for cid in set(by_id) | set(old_by_id):
                 now, old = by_id.get(cid), old_by_id.get(cid)
+                if now is not None:
+                    now = {**now, "depends_on": sorted(set(now.get("depends_on", [])))}
+                if old is not None:
+                    old = {**old, "depends_on": sorted(set(old.get("depends_on", [])))}
                 if now is None or old is None or any(now.get(k, []) != old.get(k, []) for k in VERIFICATION_FIELDS):
                     direct.add(cid)
                     seeds.add(cid)

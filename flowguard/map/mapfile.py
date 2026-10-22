@@ -105,7 +105,10 @@ def save_map(root: Path, data: dict) -> None:
         raise MapError("refusing to save an invalid map:\n  " + "\n  ".join(errors))
     path = map_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    normalized = {**data, "components": [
+        {**c, "depends_on": sorted(set(c["depends_on"]))} if "depends_on" in c else c
+        for c in data["components"]]}
+    path.write_text(json.dumps(normalized, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def ignore_patterns(data: dict | None) -> list[str]:
