@@ -39,6 +39,7 @@ class Impact:
     test_commands: dict[str, str] = field(default_factory=dict)
     no_checks: list[str] = field(default_factory=list)
     comment_only: list[str] = field(default_factory=list)
+    review_models: dict[str, list[str]] = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -362,13 +363,15 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                       f in importers and Path(f).name.startswith("_") and not importers[f]) and not any(
                      f in read_source(root / t) or Path(f).name in read_source(root / t)
                      for t in tests if (root / t).is_file())]
+    needs_review = [cid for cid in sorted(direct) if cid in by_id and is_stale(root, by_id[cid], inv)]
     return Impact(
         changed=changed, direct=sorted(direct), dependents=sorted(affected - direct),
         unmapped=[f for f in changed if f not in matched and not inv.is_test(f)
                   and (f in inv.source or Path(f).suffix in SOURCE_EXTS)
                   and not matches_any(f, ignore_patterns(data))],
         tests=sorted(tests), models=models,
-        needs_review=[cid for cid in sorted(direct) if cid in by_id and is_stale(root, by_id[cid], inv)],
+        needs_review=needs_review,
+        review_models={cid: [n.id for n in tree.models_for_component(cid)] for cid in needs_review},
         test_command=data.get("test_command") or DEFAULT_TEST_COMMAND,
         total_tests=sum(is_collectable_test(t) for t in inv.tests),
         map_changed=".flowguard/map.json" in changed, depth=depth,
@@ -418,7 +421,11 @@ def render_impact(imp: Impact) -> str:
     if imp.models:
         lines.append("run: python -m flowguard map models " + " ".join(imp.model_ids))
     for cid in imp.needs_review:
-        lines.append(f"REVIEW {cid}: its files changed; update its description if behavior changed, then confirm {cid}")
+        message = f"REVIEW {cid}: its files changed; update its description if behavior changed, then confirm {cid}"
+        if imp.review_models.get(cid):
+            message += (f"; models to re-read: {', '.join(imp.review_models[cid])} "
+                        "(does the change need a new input, state or invariant?)")
+        lines.append(message)
     for cid in imp.map_review:
         lines.append(f"NOTE {cid}: map description changed; no verification fields changed")
     return "\n".join(lines)

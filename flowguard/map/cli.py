@@ -31,6 +31,7 @@ from .lint import Limits, run_lint
 from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import render_results, run_models
 from .scan import new_map
+from .tree import build_tree
 from .views import defined_symbols, find_owners, render_digest, render_mermaid, render_show
 
 
@@ -98,6 +99,7 @@ def cmd_show(root: Path, a) -> int:
 
 def cmd_find(root: Path, a) -> int:
     data, inv = _context(root, with_bodies=False)
+    tree = build_tree(root, data, inv)
     hits = find_owners(data, inv, a.words)
     if not hits:
         print("no existing owner found; decide which component should own this before writing code")
@@ -108,6 +110,9 @@ def cmd_find(root: Path, a) -> int:
         for symbol, path in defined_symbols(by_id[cid], inv, a.words)[:3]:
             print(f"     defines: {symbol} ({path})")
         print(f"     files: {', '.join(by_id[cid].get('files', []))}")
+        models = [node.id for node in tree.models_for_component(cid)]
+        if models:
+            print(f"     models: {', '.join(models)}")
         for label, key in (("state", "state"), ("effects", "side_effects")):
             if by_id[cid].get(key):
                 print(f"     {label}: {'; '.join(by_id[cid][key])}")

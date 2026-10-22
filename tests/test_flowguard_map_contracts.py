@@ -422,3 +422,33 @@ def test_model_tree_legacy_anchor_runner_and_root_defaults(tmp_path):
     assert (tree.nodes["native"].parent, tree.nodes["native"].source) == ("app", "listed")
     assert (tree.nodes["rooted"].parent, tree.nodes["rooted"].source) == ("system", "default")
     assert not tree.findings
+
+
+def test_review_and_find_name_the_owning_models(tmp_path, capsys):
+    data = project(tmp_path)
+    # This map-view fixture's hooks are inspected, never executed as model proof.
+    write(tmp_path, '.flowguard/models/one.py', CONTRACT + '\ndef conformance(): pass\n')
+    write(tmp_path, 'other.py', 'def idle(): return 0\n')
+    data['components'].append(dict(id='other', files=['other.py'], status='draft', summary='Independent work',
+                                   responsibilities=['idle'], depends_on=[]))
+    save(tmp_path, data)
+    assert main(['map', '--root', str(tmp_path), 'confirm', 'app', 'other']) == 0
+    subprocess.run(['git', 'init', '-q', str(tmp_path)], check=True)
+    subprocess.run(['git', '-C', str(tmp_path), 'add', '.'], check=True)
+    subprocess.run(['git', '-C', str(tmp_path), '-c', 'user.name=fixture', '-c', 'user.email=fixture@example.invalid',
+                    'commit', '-qm', 'initial'], check=True)
+    capsys.readouterr()
+    write(tmp_path, 'app.py', 'def run():\n    return bool(1)\n')
+    write(tmp_path, 'other.py', 'def idle(): return int(0)\n')
+    assert main(['change', '--root', str(tmp_path), 'app.py', 'other.py']) == 0
+    output = capsys.readouterr().out
+    review = next(line for line in output.splitlines() if line.startswith('REVIEW app:'))
+    assert 'models to re-read: one' in review
+    assert '(does the change need a new input, state or invariant?)' in review
+    assert next(line for line in output.splitlines() if line.startswith('REVIEW other:')) == (
+        'REVIEW other: its files changed; update its description if behavior changed, then confirm other')
+    assert main(['read', '--root', str(tmp_path), '--find', 'run']) == 0
+    assert '     models: one' in capsys.readouterr().out
+    assert main(['map', '--root', str(tmp_path), 'impact', 'app.py', '--json']) == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result['review_models'] == {'app': ['one']}
