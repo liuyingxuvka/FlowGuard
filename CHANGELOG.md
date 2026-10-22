@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.70.9 - 2026-10-22 - Check real model boundaries and bound tests
+
+- `map check` reports dependency cycles with their full members and shortest real import paths, using the same rules and accepted debts as `read` and `map lint`.
+- The built-in `system` model checks actual source ownership, dependencies, layers and accepted debts. Run it with `map models system`; `release` includes it.
+- `release` runs each model's `TESTED_BY` tests. Each test call, including each parameter case, must pass and call an anchored Python body or explicitly read an anchored file. `map models --tests` provides the same check.
+- New warnings identify tests outside their component (`test_not_nested`), unanchored writers of modeled state (`model_writer_unbound`), and child start states that miss the parent's bounded reachable states (`child_start_gap`).
+- `flowguard.kit.reachable_states` collects initial and retained trace states, with optional projection. Short grow-a-model and split-a-model recipes explain how to extend existing models.
+- Model-mesh can resolve real model IDs and derive static child facts from model files. Closure is required for actual handoffs between children. Receipt fields, evidence IDs, self-reported freshness and legacy classification were removed, including `LegacyModelRecord`, `LegacyModelClassification` and `classify_legacy_model`.
+- Removed the unused portable state-table/refinement and system-composition API: `PORTABLE_MODEL_SCHEMA_VERSION`, `PORTABLE_REFINEMENT_SCHEMA_VERSION`, `PORTABLE_SYSTEM_REQUEST_SCHEMA_VERSION`, `PORTABLE_SYSTEM_SCHEMA_VERSION`, `PortableModel`, `PortableSystemDefinition`, `PortableSystemSlice`, `RefinementBinding`, `SystemCompositionReport`, `SystemCompositionRequest`, `check_composition`, `check_portable_model`, `check_refinement`, `check_system_composition`, `derive_system_slice`, `execute_portable_model`, `load_portable_model`, `load_portable_system`, `load_system_composition_request` and `validate_portable_model`.
+
 ## v0.70.8 - 2026-10-22 - Read and validate the model tree
 
 - `scripts/install_skill.py --check` compares installed files byte by byte (changed in 0.70.7, not listed there).
