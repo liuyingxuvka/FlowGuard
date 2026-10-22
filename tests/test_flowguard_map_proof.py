@@ -580,3 +580,31 @@ def test_verify_no_models_prints_one_explicit_summary(tmp_path, capsys):
         "schema": "flowguard.map.v1", "project": "empty", "components": []}))
     assert cli.main(["--root", str(tmp_path), "verify"]) == 0
     assert capsys.readouterr().out.count("no model proof") == 1
+
+
+def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, monkeypatch):
+    from flowguard.map.proof import ModelResult
+
+    write(shop, 'shop/orders.py', FIXED)
+    _edit_model(shop, 'INVARIANTS = (at_most_once_by(',
+                'def orders_are_unique(state, trace):\n    return len(set(state.orders)) == len(state.orders)\n\n\n'
+                'INVARIANTS = (orders_are_unique, at_most_once_by(')
+    assert cli.main(['--root', str(shop), 'confirm', 'orders']) == 0
+    capsys.readouterr()
+    captured = []
+    actual_run_models = cli.run_models
+
+    def capture(*args, **kwargs):
+        results = actual_run_models(*args, **kwargs)  # real subprocess transport, no fabricated results
+        captured.extend(results)
+        return results
+
+    monkeypatch.setattr(cli, 'run_models', capture)
+    code, output = models(shop, capsys)
+    assert code == 0 and "invariant 'orders_are_unique' is violated by no known-bad variant" in output
+    assert cli.main(['--root', str(shop), 'verify']) == 1
+    output = capsys.readouterr().out
+    assert 'models: 1 invariant(s) violated by no known-bad variant: order_placement:orders_are_unique' in output
+    assert 'verify: FAIL' in output
+    assert captured[0].status == 'pass' and captured[0].uncovered_invariants == ['orders_are_unique']
+    assert ModelResult(**{'model': 'legacy', 'file': 'legacy.py'}).uncovered_invariants == []

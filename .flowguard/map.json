@@ -119,7 +119,7 @@
       "layer": "interface",
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids"
       ],
       "files": [
@@ -154,7 +154,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:60c208e6a569303a32634fbaced059688d8b067ce540344a6af98272069d615e"
+      "fingerprint": "sha256:553c37bcda20efc45e13195d526b788854fbab41afb283be69e784c3568a8a47"
     },
     {
       "id": "public-api",
@@ -747,7 +747,7 @@
       "layer": "map",
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
@@ -777,7 +777,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cd11ea238f364bd1f1dbcf12f1781a492b03ed3fb198c2fa2f923aa5ffc29e51"
+      "fingerprint": "sha256:b2a129246fbb79b539724dcb6d5be0dec02a13f752c8b5e544e204445bef59ae"
     },
     {
       "id": "engine-explore",

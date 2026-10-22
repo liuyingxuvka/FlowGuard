@@ -7,7 +7,7 @@ MODEL_ID = "order_placement"                                  # unique id, also 
 COMPONENTS = ["orders"]                                       # map components this model protects
 IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}   # block -> real code (checked by `check`)
 def build_explorer(): ...     # REQUIRED: Explorer of the intended design; must pass
-def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL, and together they should break every invariant (map models warns otherwise)
+def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL, and together they should break every invariant (map models warns otherwise; release fails)
 def conformance(): ...        # REQUIRED: replay the real code, or compare it as code facts; .ok must be True
 # DESIGN_ONLY = "reason"      # only while the code does not exist yet: anchors and conformance come later
 ```

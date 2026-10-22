@@ -48,6 +48,7 @@ class ModelResult:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
+    uncovered_invariants: list[str] = field(default_factory=list)
 
 
 def model_files(root: Path) -> list[Path]:
@@ -204,6 +205,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
                     result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
                                            "crashes, unrelated rules and budget exhaustion prove nothing")
             for name in sorted(invariant_names - covered):
+                result.uncovered_invariants.append(name)
                 result.warnings.append(f"invariant {name!r} is violated by no known-bad variant; "
                                        "add a variant that breaks it, or say why it cannot be broken")
         else:
