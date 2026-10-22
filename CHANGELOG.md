@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.70.10 - 2026-10-22 - One model tree, real proof flows and simpler contracts
+
+- Feature kits explore allowed feature sets, support `codes="first"`, and validate `requires` and `conflicts`. Clean inputs still receive a real conformance check when a feature universe has no clean-input invariant.
+- `Workflow(..., mode="choice")` dispatches each input to its accepting block and preserves terminal, error and trace behavior. The default remains sequence composition.
+- Code-structure, architecture-reduction and field-lifecycle plans can report future changes under `DESIGN_ONLY`. Current anchors and at least one real fact remain required; planned facts cannot silently pass as implemented code.
+- Every capability starter writes one flat contract model with real known-bad variants and conformance. Starters create no `run_checks.py`; existing user-written runners remain supported. `model-test-alignment-full` and `model_test_alignment_full_template_files` were removed. `alignment_plan_from_model` derives declared code/test links and can consume real per-test statuses.
+- Removed self-reported coverage links, including `ModelContractCoverageReceipt`, `contract_exhaustion_to_coverage_receipt_ids` and `FAMILY_EVIDENCE_PROVENANCE_CONTROLLER_RECEIPT_FOLDED`. Real finite case generation, execution limits and shard-completeness checks remain.
+- Removed `BehaviorEvidenceBinding`, the `BCL_EVIDENCE_*` and `BCL_TEST_MESH_*` states, and the selected relation/path `evidence_current` flags. Old behavior ledgers still load after only known retired keys are ignored; unknown keys and noncanonical shapes still fail. Native test, source and artifact evidence checks remain active.
+- Workflow step contracts now use `requires_tokens`, `produces_tokens`, `invalidates_tokens` and the `completion_tokens` property. `STEP_METADATA_PRODUCED_RECEIPTS` and `STEP_METADATA_INVALIDATED_RECEIPTS` became `STEP_METADATA_PRODUCED_TOKENS` and `STEP_METADATA_INVALIDATED_TOKENS`; finding/report fields use token names. No old aliases remain.
+- Removed template-pack manifest sealing, selection/instance receipts and their registry. Bounded predicates and route-scoped seed validation, selection and closure remain. Topology review uses source labels and `TOPOLOGY_DISPOSITION_TEST_REQUIRED`, replacing `TOPOLOGY_DISPOSITION_LEDGER_REQUIRED`; `BusinessPathIdentity.evidence_ids` and `TopologyHazardCandidate.proof_evidence_ids` were removed.
+- The skill, protocols and README describe one tree with five abilities. FlowGuard's own tree includes the real state-closure refinement and models of after-edit selection and native proof; independent review state domains remain component peers.
+- An unknown `PARENT` or a parent loop is now an error. Other nesting findings stay warnings, and invalid parent declarations still have a readable default placement.
+
 ## v0.70.9 - 2026-10-22 - Check real model boundaries and bound tests
 
 - `map check` reports dependency cycles with their full members and shortest real import paths, using the same rules and accepted debts as `read` and `map lint`.
