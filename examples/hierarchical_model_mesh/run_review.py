@@ -7,13 +7,11 @@ from flowguard import (
     ChildReattachmentContract,
     HierarchyCoverageItem,
     HierarchyPartitionMap,
-    LegacyModelRecord,
     MeshClosureJoin,
     MeshClosureModel,
     MeshClosureTerminal,
     MeshClosureTransition,
     ModelTargetSplitDerivation,
-    classify_legacy_model,
     review_hierarchical_mesh,
 )
 
@@ -50,7 +48,6 @@ def build_root_partition() -> HierarchyPartitionMap:
         child_models=(
             _child(
                 "payment",
-                evidence_id="payment:model-check:v1",
                 inputs_accepted=("payment_request",),
                 outputs_emitted=("payment_result",),
                 side_effects_owned=("charge_card",),
@@ -67,7 +64,6 @@ def build_root_partition() -> HierarchyPartitionMap:
         reattachment_contracts=(
             ChildReattachmentContract(
                 "payment",
-                consumed_evidence_id="payment:model-check:v1",
                 expected_inputs=("payment_request",),
                 expected_outputs=("payment_result",),
                 expected_state_owned=("payment_state",),
@@ -156,21 +152,12 @@ def build_bad_partition() -> HierarchyPartitionMap:
     )
 
 
-def build_large_legacy_record() -> LegacyModelRecord:
-    return LegacyModelRecord(
-        "legacy_checkout_model",
-        model_file=".flowguard/checkout/model.py",
-        observed_state_count=25_000,
-        functional_area_count=3,
-        has_compatibility_contract=False,
-    )
 
 
 def main() -> int:
     root = review_hierarchical_mesh(build_root_partition())
     nested = review_hierarchical_mesh(build_nested_fulfillment_partition())
     bad = review_hierarchical_mesh(build_bad_partition())
-    legacy = classify_legacy_model(build_large_legacy_record())
 
     print(root.format_text())
     print()
@@ -178,13 +165,10 @@ def main() -> int:
     print()
     print(bad.format_text())
     print()
-    print(legacy.to_dict())
 
     if not root.ok or not nested.ok:
         return 1
     if bad.ok:
-        return 1
-    if not legacy.requires_split_review or legacy.can_be_strong_evidence:
         return 1
     return 0
 

@@ -57,7 +57,6 @@ _BOUNDARY_SEQUENCE_FIELDS = (
     "contracts_out",
     "depends_on",
     "risk_classes",
-    "validation_evidence",
 )
 _PARENT_RERUN_FIELDS = {
     "functions_owned",
@@ -68,7 +67,6 @@ _PARENT_RERUN_FIELDS = {
     "depends_on",
     "risk_boundary",
     "risk_classes",
-    "validation_evidence",
 }
 _SIBLING_RERUN_FIELDS = {
     "functions_owned",
@@ -122,11 +120,9 @@ class HierarchyCoverageItem:
 
 @dataclass(frozen=True)
 class ChildModelEvidence:
-    """Contract and evidence summary for one child model."""
+    """Declared boundary facts for one child model."""
 
     model_id: str
-    model_fingerprint: str = ""
-    evidence_id: str = ""
     risk_boundary: str = ""
     inputs_accepted: tuple[str, ...] = ()
     outputs_emitted: tuple[str, ...] = ()
@@ -136,33 +132,22 @@ class ChildModelEvidence:
     contracts_in: tuple[str, ...] = ()
     contracts_out: tuple[str, ...] = ()
     depends_on: tuple[str, ...] = ()
-    evidence_current: bool = True
-    skipped_checks: tuple[str, ...] = ()
-    not_run_checks: tuple[str, ...] = ()
     estimated_state_count: int | None = None
     observed_state_count: int | None = None
     budgeted_incomplete: bool = False
     unrelated_functional_areas: bool = False
     structurally_cohesive: bool = True
-    is_legacy: bool = False
-    has_compatibility_contract: bool = True
     overlaps_existing_model: str = ""
     functions_owned: tuple[str, ...] = ()
     invariants_owned: tuple[str, ...] = ()
     risk_classes: tuple[str, ...] = ()
-    validation_evidence: tuple[str, ...] = ()
     owner_id: str = ""
     parent_model_id: str = ""
-    claim_scope: str = ""
-    subtree_receipt_id: str = ""
-    subtree_receipt_fingerprint: str = ""
     is_leaf: bool = True
     child_model_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "model_id", str(self.model_id))
-        object.__setattr__(self, "model_fingerprint", str(self.model_fingerprint))
-        object.__setattr__(self, "evidence_id", str(self.evidence_id))
         object.__setattr__(self, "risk_boundary", str(self.risk_boundary))
         object.__setattr__(self, "functions_owned", _as_tuple(self.functions_owned))
         object.__setattr__(self, "inputs_accepted", _as_tuple(self.inputs_accepted))
@@ -175,16 +160,10 @@ class ChildModelEvidence:
         object.__setattr__(self, "contracts_out", _as_tuple(self.contracts_out))
         object.__setattr__(self, "depends_on", _as_tuple(self.depends_on))
         object.__setattr__(self, "risk_classes", _as_tuple(self.risk_classes))
-        object.__setattr__(self, "validation_evidence", _as_tuple(self.validation_evidence))
         object.__setattr__(self, "owner_id", str(self.owner_id))
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
-        object.__setattr__(self, "claim_scope", str(self.claim_scope))
-        object.__setattr__(self, "subtree_receipt_id", str(self.subtree_receipt_id))
-        object.__setattr__(self, "subtree_receipt_fingerprint", str(self.subtree_receipt_fingerprint))
         object.__setattr__(self, "is_leaf", bool(self.is_leaf))
         object.__setattr__(self, "child_model_ids", _as_tuple(self.child_model_ids))
-        object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
-        object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
         object.__setattr__(self, "overlaps_existing_model", str(self.overlaps_existing_model))
 
     def largest_state_count(self) -> int:
@@ -205,8 +184,6 @@ class ChildModelEvidence:
     def to_dict(self) -> dict[str, Any]:
         return {
             "model_id": self.model_id,
-            "model_fingerprint": self.model_fingerprint,
-            "evidence_id": self.evidence_id,
             "risk_boundary": self.risk_boundary,
             "functions_owned": list(self.functions_owned),
             "inputs_accepted": list(self.inputs_accepted),
@@ -219,23 +196,14 @@ class ChildModelEvidence:
             "contracts_out": list(self.contracts_out),
             "depends_on": list(self.depends_on),
             "risk_classes": list(self.risk_classes),
-            "validation_evidence": list(self.validation_evidence),
-            "evidence_current": self.evidence_current,
-            "skipped_checks": list(self.skipped_checks),
-            "not_run_checks": list(self.not_run_checks),
             "estimated_state_count": self.estimated_state_count,
             "observed_state_count": self.observed_state_count,
             "budgeted_incomplete": self.budgeted_incomplete,
             "unrelated_functional_areas": self.unrelated_functional_areas,
             "structurally_cohesive": self.structurally_cohesive,
-            "is_legacy": self.is_legacy,
-            "has_compatibility_contract": self.has_compatibility_contract,
             "overlaps_existing_model": self.overlaps_existing_model,
             "owner_id": self.owner_id,
             "parent_model_id": self.parent_model_id,
-            "claim_scope": self.claim_scope,
-            "subtree_receipt_id": self.subtree_receipt_id,
-            "subtree_receipt_fingerprint": self.subtree_receipt_fingerprint,
             "is_leaf": self.is_leaf,
             "child_model_ids": list(self.child_model_ids),
         }
@@ -247,8 +215,6 @@ class ChildBoundaryChangeSummary:
 
     child_model_id: str
     propagation: str = BOUNDARY_PROPAGATION_UNAFFECTED
-    previous_evidence_id: str = ""
-    current_evidence_id: str = ""
     changed_fields: tuple[str, ...] = ()
     added_by_field: Mapping[str, Sequence[str]] = field(default_factory=dict)
     removed_by_field: Mapping[str, Sequence[str]] = field(default_factory=dict)
@@ -263,8 +229,6 @@ class ChildBoundaryChangeSummary:
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
         object.__setattr__(self, "propagation", str(self.propagation))
-        object.__setattr__(self, "previous_evidence_id", str(self.previous_evidence_id))
-        object.__setattr__(self, "current_evidence_id", str(self.current_evidence_id))
         object.__setattr__(self, "changed_fields", _as_tuple(self.changed_fields))
         object.__setattr__(self, "added_by_field", _as_tuple_mapping(self.added_by_field))
         object.__setattr__(self, "removed_by_field", _as_tuple_mapping(self.removed_by_field))
@@ -284,8 +248,6 @@ class ChildBoundaryChangeSummary:
         return {
             "child_model_id": self.child_model_id,
             "propagation": self.propagation,
-            "previous_evidence_id": self.previous_evidence_id,
-            "current_evidence_id": self.current_evidence_id,
             "changed_fields": list(self.changed_fields),
             "added_by_field": {
                 key: list(values) for key, values in self.added_by_field.items()
@@ -343,7 +305,6 @@ class ChildReattachmentContract:
     """Parent expectations for one child model's handoff back into the mesh."""
 
     child_model_id: str
-    consumed_evidence_id: str = ""
     expected_inputs: tuple[str, ...] = ()
     expected_outputs: tuple[str, ...] = ()
     expected_state_owned: tuple[str, ...] = ()
@@ -355,7 +316,6 @@ class ChildReattachmentContract:
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "child_model_id", str(self.child_model_id))
-        object.__setattr__(self, "consumed_evidence_id", str(self.consumed_evidence_id))
         object.__setattr__(self, "expected_inputs", _as_tuple(self.expected_inputs))
         object.__setattr__(self, "expected_outputs", _as_tuple(self.expected_outputs))
         object.__setattr__(self, "expected_state_owned", _as_tuple(self.expected_state_owned))
@@ -366,7 +326,6 @@ class ChildReattachmentContract:
     def to_dict(self) -> dict[str, Any]:
         return {
             "child_model_id": self.child_model_id,
-            "consumed_evidence_id": self.consumed_evidence_id,
             "expected_inputs": list(self.expected_inputs),
             "expected_outputs": list(self.expected_outputs),
             "expected_state_owned": list(self.expected_state_owned),
@@ -629,10 +588,6 @@ class HierarchyPartitionMap:
     allowed_shared_areas: tuple[str, ...] = ()
     boundary_changes: tuple[ChildBoundaryChangeSummary, ...] = ()
     closure_model: MeshClosureModel | None = None
-    coverage_receipts: tuple[Any, ...] = ()
-    required_coverage_receipt_ids: tuple[str, ...] = ()
-    claim_scope: str = "routine"
-    strict: bool | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
@@ -641,11 +596,6 @@ class HierarchyPartitionMap:
         object.__setattr__(self, "reattachment_contracts", tuple(self.reattachment_contracts))
         object.__setattr__(self, "allowed_shared_areas", _as_tuple(self.allowed_shared_areas))
         object.__setattr__(self, "boundary_changes", tuple(self.boundary_changes))
-        object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
-        object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
-        object.__setattr__(self, "claim_scope", str(self.claim_scope))
-        if self.strict is not None:
-            object.__setattr__(self, "strict", bool(self.strict))
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -665,25 +615,6 @@ class HierarchyPartitionMap:
             "closure_model": (
                 self.closure_model.to_dict() if self.closure_model is not None else None
             ),
-            "coverage_receipts": [
-                receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
-                for receipt in self.coverage_receipts
-            ],
-            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
-            "claim_scope": self.claim_scope,
-            "strict": self.is_strict(),
-        }
-
-    def is_strict(self) -> bool:
-        if self.strict is not None:
-            return bool(self.strict)
-        return self.claim_scope in {
-            "full",
-            "release",
-            "whole_domain",
-            "whole-domain",
-            "whole_system",
-            "whole-system",
         }
 
 
@@ -795,50 +726,6 @@ class HierarchyMeshReport:
 
     def to_json_text(self, indent: int = 2) -> str:
         return json.dumps(to_jsonable(self.to_dict()), indent=indent, sort_keys=True)
-
-
-@dataclass(frozen=True)
-class LegacyModelRecord:
-    """Discovery-time facts about an existing FlowGuard model."""
-
-    model_id: str
-    model_file: str = ""
-    has_compatibility_contract: bool = False
-    estimated_state_count: int | None = None
-    observed_state_count: int | None = None
-    budgeted_incomplete: bool = False
-    functional_area_count: int = 1
-    evidence_current: bool = True
-    skipped_checks: tuple[str, ...] = ()
-    not_run_checks: tuple[str, ...] = ()
-    overlaps_existing_model: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "model_id", str(self.model_id))
-        object.__setattr__(self, "model_file", str(self.model_file))
-        object.__setattr__(self, "skipped_checks", _as_tuple(self.skipped_checks))
-        object.__setattr__(self, "not_run_checks", _as_tuple(self.not_run_checks))
-        object.__setattr__(self, "overlaps_existing_model", str(self.overlaps_existing_model))
-
-
-@dataclass(frozen=True)
-class LegacyModelClassification:
-    """Compatibility classification for a legacy model."""
-
-    model_id: str
-    labels: tuple[str, ...]
-    requires_split_review: bool = False
-    can_be_strong_evidence: bool = False
-    reason: str = ""
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "model_id": self.model_id,
-            "labels": list(self.labels),
-            "requires_split_review": self.requires_split_review,
-            "can_be_strong_evidence": self.can_be_strong_evidence,
-            "reason": self.reason,
-        }
 
 
 def _is_large_child(child: ChildModelEvidence, threshold: int) -> bool:
@@ -1297,8 +1184,6 @@ def summarize_child_boundary_change(
 
     if previous_child.risk_boundary != current_child.risk_boundary:
         changed_fields.append("risk_boundary")
-    if previous_child.evidence_id != current_child.evidence_id:
-        changed_fields.append("evidence_id")
 
     current_bug_text = str(current_bug_id)
     generalized_target_text = str(generalized_target)
@@ -1320,22 +1205,20 @@ def summarize_child_boundary_change(
         sibling_models,
     )
 
-    if _is_large_child(current_child, large_model_threshold):
+    if not changed_fields:
+        propagation = BOUNDARY_PROPAGATION_UNAFFECTED
+    elif _is_large_child(current_child, large_model_threshold):
         propagation = BOUNDARY_PROPAGATION_SPLIT_REVIEW_REQUIRED
     elif current_bug_is_only_target or parent_handoff_changed:
         propagation = BOUNDARY_PROPAGATION_PARENT_RERUN_REQUIRED
     elif sibling_boundary_changed:
         propagation = BOUNDARY_PROPAGATION_SIBLING_RERUN_REQUIRED
-    elif previous_child.evidence_id != current_child.evidence_id:
-        propagation = BOUNDARY_PROPAGATION_REATTACH_ONLY
     else:
         propagation = BOUNDARY_PROPAGATION_UNAFFECTED
 
     return ChildBoundaryChangeSummary(
         child_model_id=current_child.model_id,
         propagation=propagation,
-        previous_evidence_id=previous_child.evidence_id,
-        current_evidence_id=current_child.evidence_id,
         changed_fields=tuple(sorted(set(changed_fields))),
         added_by_field=added_by_field,
         removed_by_field=removed_by_field,
@@ -1346,50 +1229,6 @@ def summarize_child_boundary_change(
         generalized_target=generalized_target_text,
         current_bug_is_only_model_target=current_bug_is_only_target,
         rationale=rationale,
-    )
-
-
-def classify_legacy_model(
-    record: LegacyModelRecord,
-    *,
-    large_model_threshold: int = DEFAULT_LARGE_MODEL_STATE_THRESHOLD,
-) -> LegacyModelClassification:
-    """Classify one discovered legacy model without rewriting it."""
-
-    labels: list[str] = ["standalone_legacy"]
-    counts = [
-        count
-        for count in (record.estimated_state_count, record.observed_state_count)
-        if count is not None
-    ]
-    large = bool(counts and max(counts) > large_model_threshold) or record.budgeted_incomplete
-    if large or record.functional_area_count > 1:
-        labels.append("legacy_large_review_needed")
-    if record.functional_area_count > 1:
-        labels.append("legacy_candidate_parent")
-    elif record.has_compatibility_contract:
-        labels.append("legacy_candidate_child")
-    if record.overlaps_existing_model:
-        labels.append("legacy_overlaps_existing")
-    if not record.evidence_current or record.skipped_checks or record.not_run_checks:
-        labels.append("legacy_stale_or_partial")
-    if not record.has_compatibility_contract:
-        labels.append("legacy_without_contract")
-
-    can_be_strong = (
-        record.has_compatibility_contract
-        and not large
-        and record.evidence_current
-        and not record.skipped_checks
-        and not record.not_run_checks
-    )
-    reason = "strong child evidence allowed" if can_be_strong else "compatibility review required"
-    return LegacyModelClassification(
-        model_id=record.model_id,
-        labels=tuple(labels),
-        requires_split_review=large or record.functional_area_count > 1,
-        can_be_strong_evidence=can_be_strong,
-        reason=reason,
     )
 
 
@@ -1542,38 +1381,6 @@ def _child_reattachment_findings(partition_map: HierarchyPartitionMap) -> list[H
             )
             continue
 
-        if not contract.consumed_evidence_id and not child.evidence_id:
-            pass  # evidence ids are optional; the map's STALE fingerprint tracks a changed child
-        elif not contract.consumed_evidence_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "child_reattachment_missing_parent_consumption",
-                    "parent mesh does not record the child evidence id it consumed",
-                    model_id=child.model_id,
-                    metadata={"child": child.to_dict(), "reattachment_contract": contract.to_dict()},
-                )
-            )
-        elif not child.evidence_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "child_reattachment_missing_child_evidence_id",
-                    "child model evidence has no current evidence id for parent consumption",
-                    model_id=child.model_id,
-                    metadata={"child": child.to_dict(), "reattachment_contract": contract.to_dict()},
-                )
-            )
-        elif child.evidence_id != contract.consumed_evidence_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "child_reattachment_stale_evidence",
-                    "parent mesh consumed a stale child evidence id",
-                    model_id=child.model_id,
-                    metadata={
-                        "child_evidence_id": child.evidence_id,
-                        "consumed_evidence_id": contract.consumed_evidence_id,
-                    },
-                )
-            )
 
         _add_reattachment_set_finding(
             findings,
@@ -1689,11 +1496,11 @@ def _boundary_change_findings(
 
         if propagation == BOUNDARY_PROPAGATION_REATTACH_ONLY:
             contract = contracts.get(change.child_model_id)
-            if contract is None or contract.consumed_evidence_id != change.current_evidence_id:
+            if contract is None:
                 findings.append(
                     HierarchyMeshFinding(
                         "boundary_change_reattachment_required",
-                        "child boundary change only needs reattachment, but the parent has not consumed the current evidence id",
+                        "the parent has no reattachment contract for this changed child",
                         model_id=change.child_model_id,
                         metadata={
                             "boundary_change": change.to_dict(),
@@ -1733,127 +1540,6 @@ def _boundary_change_findings(
     return findings, decisions
 
 
-def _receipt_attr(receipt: Any, name: str, default: Any = "") -> Any:
-    if isinstance(receipt, Mapping):
-        return receipt.get(name, default)
-    return getattr(receipt, name, default)
-
-
-def _coverage_receipt_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
-    findings: list[HierarchyMeshFinding] = []
-    receipts_by_id: dict[str, Any] = {}
-    for receipt in partition_map.coverage_receipts:
-        receipt_id = str(_receipt_attr(receipt, "receipt_id", ""))
-        model_id = str(_receipt_attr(receipt, "model_id", ""))
-        if not receipt_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_coverage_receipt_id_missing",
-                    "model coverage receipt has no receipt_id",
-                    model_id=model_id,
-                    metadata={
-                        "receipt": receipt.to_dict() if hasattr(receipt, "to_dict") else to_jsonable(receipt)
-                    },
-                )
-            )
-            continue
-        if receipt_id in receipts_by_id:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_coverage_receipt_duplicate",
-                    "model coverage receipt id appears more than once",
-                    model_id=model_id,
-                    item_id=receipt_id,
-                )
-            )
-        receipts_by_id[receipt_id] = receipt
-
-    for receipt_id in partition_map.required_coverage_receipt_ids:
-        receipt = receipts_by_id.get(receipt_id)
-        if receipt is None:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_coverage_receipt_missing",
-                    "parent ModelMesh requires a model coverage receipt that is absent",
-                    item_id=receipt_id,
-                    metadata={"required_coverage_receipt_id": receipt_id},
-                )
-            )
-            continue
-        current = bool(_receipt_attr(receipt, "current", False))
-        confidence = str(_receipt_attr(receipt, "confidence", ""))
-        status = str(_receipt_attr(receipt, "status", ""))
-        missing_case_ids = _as_tuple(_receipt_attr(receipt, "missing_case_ids", ()))
-        blocked_case_ids = _as_tuple(_receipt_attr(receipt, "blocked_case_ids", ()))
-        if not current:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_coverage_receipt_stale",
-                    "required model coverage receipt is stale",
-                    model_id=str(_receipt_attr(receipt, "model_id", "")),
-                    item_id=receipt_id,
-                    metadata={"receipt_id": receipt_id},
-                )
-            )
-        if confidence != "full" or status != "covered" or missing_case_ids or blocked_case_ids:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_coverage_receipt_incomplete",
-                    "required model coverage receipt is not full covered confidence",
-                    model_id=str(_receipt_attr(receipt, "model_id", "")),
-                    item_id=receipt_id,
-                    metadata={
-                        "receipt_id": receipt_id,
-                        "status": status,
-                        "confidence": confidence,
-                        "missing_case_ids": list(missing_case_ids),
-                        "blocked_case_ids": list(blocked_case_ids),
-                    },
-                )
-            )
-
-    for receipt in partition_map.coverage_receipts:
-        receipt_id = str(_receipt_attr(receipt, "receipt_id", ""))
-        model_id = str(_receipt_attr(receipt, "model_id", ""))
-        required_child_ids = _as_tuple(_receipt_attr(receipt, "required_child_receipt_ids", ()))
-        consumed_child_ids = set(_as_tuple(_receipt_attr(receipt, "consumed_child_receipt_ids", ())))
-        missing_child_ids = tuple(receipt_id for receipt_id in required_child_ids if receipt_id not in consumed_child_ids)
-        if missing_child_ids:
-            findings.append(
-                HierarchyMeshFinding(
-                    "model_child_coverage_receipt_unconsumed",
-                    "parent model coverage receipt does not consume every required child coverage receipt",
-                    model_id=model_id,
-                    item_id=receipt_id,
-                    metadata={
-                        "receipt_id": receipt_id,
-                        "missing_child_receipt_ids": list(missing_child_ids),
-                    },
-                )
-            )
-    return findings
-
-
-def _strict_child_identity_findings(partition_map: HierarchyPartitionMap) -> list[HierarchyMeshFinding]:
-    """Strict (full/release) parents: each child must name this parent and its claim scope."""
-
-    if not partition_map.is_strict():
-        return []
-    findings: list[HierarchyMeshFinding] = []
-    for child in partition_map.child_models:
-        if child.parent_model_id and child.parent_model_id != partition_map.parent_model_id:
-            findings.append(HierarchyMeshFinding(
-                "model_child_parent_mismatch", "strict ModelMesh child names a different parent model",
-                model_id=child.model_id,
-                metadata={"expected": partition_map.parent_model_id, "actual": child.parent_model_id}))
-        if child.claim_scope and child.claim_scope != partition_map.claim_scope:
-            findings.append(HierarchyMeshFinding(
-                "model_child_scope_mismatch", "strict ModelMesh child claim scope differs from its parent",
-                model_id=child.model_id,
-                metadata={"expected": partition_map.claim_scope, "actual": child.claim_scope}))
-    return findings
-
-
 def review_hierarchical_mesh(
     partition_map: HierarchyPartitionMap,
     *,
@@ -1871,15 +1557,10 @@ def review_hierarchical_mesh(
 
     findings.extend(_target_split_derivation_findings(partition_map))
     findings.extend(_child_reattachment_findings(partition_map))
-    findings.extend(_strict_child_identity_findings(partition_map))
     boundary_change_findings, boundary_change_decisions = _boundary_change_findings(partition_map)
     if boundary_change_decisions:
         activation_reasons.append("boundary_change")
     findings.extend(boundary_change_findings)
-    coverage_receipt_findings = _coverage_receipt_findings(partition_map)
-    if partition_map.coverage_receipts or partition_map.required_coverage_receipt_ids:
-        activation_reasons.append("model_coverage_receipts")
-    findings.extend(coverage_receipt_findings)
     closure_report = None
     if partition_map.closure_model is None and _partition_requires_closure_model(partition_map):
         findings.append(
@@ -2037,34 +1718,6 @@ def review_hierarchical_mesh(
                         metadata={"decision": decision, "state_count": child.largest_state_count()},
                     )
                 )
-        if not child.evidence_current:
-            findings.append(
-                HierarchyMeshFinding(
-                    "stale_child_evidence",
-                    "child evidence is stale",
-                    model_id=child.model_id,
-                )
-            )
-        if child.skipped_checks or child.not_run_checks:
-            findings.append(
-                HierarchyMeshFinding(
-                    "missing_or_skipped_child_check",
-                    "child has skipped or not-run checks",
-                    model_id=child.model_id,
-                    metadata={
-                        "skipped_checks": child.skipped_checks,
-                        "not_run_checks": child.not_run_checks,
-                    },
-                )
-            )
-        if child.is_legacy and not child.has_compatibility_contract:
-            findings.append(
-                HierarchyMeshFinding(
-                    "legacy_without_contract",
-                    "legacy model cannot be strong child evidence before compatibility wrapping",
-                    model_id=child.model_id,
-                )
-            )
 
     blocking = [finding for finding in findings if finding.severity in {"blocker", "refactor"}]
     if not blocking:
@@ -2097,15 +1750,6 @@ def review_hierarchical_mesh(
         decision = BOUNDARY_PROPAGATION_REATTACH_ONLY
     elif any(finding.code == "mesh_closure_required" for finding in blocking):
         decision = "mesh_closure_required"
-    elif any(finding.code in {
-        "model_coverage_receipt_missing",
-        "model_coverage_receipt_id_missing",
-        "model_coverage_receipt_duplicate",
-        "model_coverage_receipt_stale",
-        "model_coverage_receipt_incomplete",
-        "model_child_coverage_receipt_unconsumed",
-    } for finding in blocking):
-        decision = "model_coverage_receipt_required"
     elif any(finding.code == "coverage_gap" for finding in blocking):
         decision = "coverage_gap_blocked"
     elif any(finding.code == "excessive_functional_overlap" for finding in blocking):
@@ -2120,10 +1764,6 @@ def review_hierarchical_mesh(
         decision = "ownership_conflict"
     elif any(finding.code == "large_model_split_review" for finding in blocking):
         decision = "large_model_split_review_required"
-    elif any(finding.code == "legacy_without_contract" for finding in blocking):
-        decision = "legacy_compatibility_required"
-    elif any(finding.code == "stale_child_evidence" for finding in blocking):
-        decision = "blocked_by_stale_evidence"
     elif closure_report is not None and not closure_report.ok:
         decision = closure_report.decision
     else:
@@ -2187,8 +1827,6 @@ __all__ = [
     "HierarchyPartitionMap",
     "ChildReattachmentContract",
     "ChildModelEvidence",
-    "LegacyModelClassification",
-    "LegacyModelRecord",
     "MeshClosureFinding",
     "MeshClosureJoin",
     "MeshClosureModel",
@@ -2200,7 +1838,6 @@ __all__ = [
     "OWNERSHIP_PARENT",
     "OWNERSHIP_READ_ONLY",
     "OWNERSHIP_SHARED_KERNEL",
-    "classify_legacy_model",
     "review_hierarchical_mesh",
     "review_mesh_closure_model",
     "summarize_child_boundary_change",

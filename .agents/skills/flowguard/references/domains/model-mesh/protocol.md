@@ -87,7 +87,7 @@ inputs; a retry loop with no progress rule. It also has a small explicit-table c
 | `duplicate_state_owner` | Two children own the same state field (also `duplicate_side_effect_owner`, `duplicate_function_owner`). |
 | `missing_target_split_derivation` | Children exist but no `ModelTargetSplitDerivation` explains the split. |
 | `child_reattachment_missing_output` | A child no longer emits an output the parent expects (also `_missing_input`, `_missing_state_owner`, `_missing_side_effect_owner`, `_missing_contract`, `_extra_input`, `_extra_output`). |
-| `boundary_change_parent_rerun_required` | A child changed its handoff; rerun the parent (also `_sibling_rerun_required`: rerun siblings; `_reattachment_required`: parent did not consume the new evidence id). |
+| `boundary_change_parent_rerun_required` | A child changed its handoff; rerun the parent (also `_sibling_rerun_required`: rerun siblings; `_reattachment_required`: parent has no reattachment contract for the changed child). |
 | `mesh_closure_required` | Children hand off outputs but the parent has no closure model. |
 | `unconsumed_child_output` | A child output is consumed by no transition, join or terminal. |
 | `missing_join_point` | A join never receives all its required inputs. |
@@ -113,8 +113,6 @@ Portable checker finding ids: `invariant_forbidden_state_reachable`, `refinement
 - [ ] Your report names what ran, what was skipped, and which children were not re-checked.
 
 ## Limits
-
-- `strict=True` or full/release rejects explicit child parent/scope values that disagree with the parent; empty optional values are allowed.
 
 - It checks the boundaries you declare. It does not read code; a child that lies about its
   outputs passes. Pair it with each child's own model and real tests.

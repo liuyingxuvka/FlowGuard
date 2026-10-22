@@ -60,7 +60,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4fbf19044a09da7a823852ec7b91d54bb67d692dcaeefaf8dcdbd541f41bec92"
+      "fingerprint": "sha256:449612e971249eec81a3b1844f67bd4e96b6412212dea2d8ce3e9eafc12f55c0"
     },
     {
       "id": "tooling",
@@ -198,7 +198,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9945d20e526fbc54163b5ae1f8c041cb3a8a55992273de82c9a913cf56c2266d"
+      "fingerprint": "sha256:4895bea4ae58bf93625a41098059a968e36d1624ff9b972da720e0518a656ecb"
     },
     {
       "id": "templates",
@@ -228,7 +228,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ca847790a555e2204199fe676fe1ef5606bfa00e2bc466b7e5eaf4776c4be550"
+      "fingerprint": "sha256:6796cb23d7f8fbc0daf3a88cff86b2b2b5897e76fa096a05a31eb9628c36cad4"
     },
     {
       "id": "behavior-commitment",
@@ -423,7 +423,7 @@
       "layer": "capabilities",
       "summary": "Checks child models, reattachment and joint closure.",
       "responsibilities": [
-        "review partitions, reattachment and closure across models"
+        "review declared partitions, boundary changes, reattachment contracts and joint closure"
       ],
       "files": [
         "flowguard/hierarchy.py",
@@ -447,7 +447,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c0402528f480c1ffd418f70c137e78ed70c92f32f034ac9943f238593b34e340"
+      "fingerprint": "sha256:81ce11e5df38917b905aa8985b2a1da7046f44875cae24724fa4d8f3e8dbc312"
     },
     {
       "id": "portable-models",

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 MODEL_MESH_MODEL_TEMPLATE = '''"""FlowGuard model
 
-Purpose: Review parent/child topology and evidence reattachment with one owner per child.
-Guards against: missing partitions, overlapping siblings, stale child evidence, and parent receipts impersonating children.
+Purpose: Review parent/child topology and boundary reattachment with one owner per child.
+Guards against: missing partitions, overlapping siblings, and changed child boundaries that no longer fit the parent.
 Use before editing: Update this ModelMesh when models are split, reattached, retried, or partially activated.
 Run: python -m flowguard map models model_mesh
 This scaffold is a target-owned topology declaration.  Model count alone is
-not a mesh: fill parent/child ownership, reattachment, and current receipts.
+not a mesh: fill parent/child ownership, reattachment, and actual boundaries.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from flowguard import (ChildModelEvidence, HierarchyCoverageItem, HierarchyParti
 
 
 def target_mesh() -> HierarchyPartitionMap:
-    # Abstract sample evidence, not a current target execution receipt.
+    # Abstract sample boundary; replace it with the target model structure.
     return HierarchyPartitionMap(
         "target-parent-model",
         coverage_items=(HierarchyCoverageItem("parse-request", owner_model_id="request-child"),),
@@ -82,18 +82,17 @@ if __name__ == "__main__":
 MODEL_MESH_NOTES_TEMPLATE = """# FlowGuard ModelMesh Notes
 
 Use this route when a model is oversized, partitioned, reattached, or has
-parent/child evidence that needs independent ownership.  Fill the target
+parent/child boundaries that need independent ownership.  Fill the target
 parent partition, one owner per child, structural versus shared-kernel
 relations, changed-child boundary, input/output/state/effect/guarantee
-reattachment, joins, terminals, loops, retries, partial activation, and
-stale/not-run child evidence.  Three models by itself is not a trigger and a
-parent receipt never proves a child.
+reattachment, joins, terminals, loops, retries, and partial activation.
+Three models by itself is not a trigger; review the actual child boundaries.
 
 The generated model is a scaffold only.  The target author must replace the
 example IDs with current target identities and run the existing hierarchy
 review. Add ChildReattachmentContract and a closure model when the child has
-outputs/state/effects consumed by the parent; consume the current child evidence
-ID and explicitly compare the expected boundary after a change. This template
+outputs/state/effects consumed by the parent; explicitly compare the expected
+boundary after a change. This template
 does not copy or replace the ModelMesh engine.
 """
 
