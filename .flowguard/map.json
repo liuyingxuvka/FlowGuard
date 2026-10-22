@@ -158,7 +158,7 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Declares engine identity and lazily exposes current owner APIs, without the retired full alignment template.",
+      "summary": "Declares engine identity and lazily exposes current owner APIs.",
       "responsibilities": [
         "expose public names without importing their modules early"
       ],
@@ -196,12 +196,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:46d49dbb087707b95920005ded95442a851dcc3ee55f31d2f1217c0259c5e210"
+      "fingerprint": "sha256:c23fa0c05061c77460e3135ebb0f2fc0e46ba2c89e6c0bec283e562c79a6b47a"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates one kit contract model for each capability.",
+      "summary": "Generates kit contract models and current canonical ledger examples.",
       "responsibilities": [
         "every capability template writes one contract model built from a kit; retain adoption rules and the behavior model canonical auxiliary ledger",
         "generated placeholder code and test anchors fail cleanly until replaced with real ones",
@@ -226,12 +226,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ac2e0a68df6281481ce77ebb05b55e0036ff9f30e5efb1f74d5809396db981ae"
+      "fingerprint": "sha256:2777164cec46ace311b6d753af04df0250f2e741860a790585256e6fc1e2cff7"
     },
     {
       "id": "behavior-commitment",
       "layer": "capabilities",
-      "summary": "Binds external promises to one owner and its tests.",
+      "summary": "Binds external promises to one owner and its tests, exposing finite case and shard facts.",
       "responsibilities": [
         "register each external promise with one owner and tests",
         "block silent fallback from a failed primary path",
@@ -278,7 +278,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:743f580f7ccc31455dca9afad8e7a22c1c986c1a1b97576e481f476de8605847"
+      "fingerprint": "sha256:df813b6e59435328d91e3364c9f88ab3a0d9442f828cf79d735bf9828689afc6"
     },
     {
       "id": "architecture-reduction",
@@ -358,7 +358,7 @@
     {
       "id": "contract-exhaustion",
       "layer": "capabilities",
-      "summary": "Enumerates a finite contract boundary and its expected reactions.",
+      "summary": "Enumerates finite contract boundaries, expected reactions and complete real shards.",
       "responsibilities": [
         "generate every bad case and combination of a finite boundary",
         "require an oracle for every generated case",
@@ -386,7 +386,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:114743f0834e41f3779d17513effeb5f4bd83b5b0f75c3a6047311b814a088c5"
+      "fingerprint": "sha256:b79d264e2080f258c3e5362f0eac728f7ab6e5c2338e664b5b8cbeed0b33d6f5"
     },
     {
       "id": "field-lifecycle",
@@ -457,7 +457,7 @@
     {
       "id": "model-test",
       "layer": "capabilities",
-      "summary": "Cross-checks obligations, code contracts and tests; derives literal model bindings.",
+      "summary": "Cross-checks obligations, code contracts and tests; derives literal model bindings and case-based family backpropagation.",
       "responsibilities": [
         "cross-check obligations, code contracts and tests",
         "derive unique test evidence and merged obligations from literal model bindings; distinguish design assumptions from actual execution statuses"
@@ -488,7 +488,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3e304a3634f5182b7a20b54283cf80a77fe55fccc2a8af28385125ad1db09268"
+      "fingerprint": "sha256:ab960ec8b556f4c797e837a8486096f48ae4bd3acf63a49081a42c6bc5a0a154"
     },
     {
       "id": "topology-hazard",
@@ -911,7 +911,7 @@
     {
       "id": "engine-runner",
       "layer": "engine",
-      "summary": "Runs check plans and summarizes model-first reports.",
+      "summary": "Runs check plans and summarizes model-first reports; template completion labels remain domain specific.",
       "responsibilities": [
         "run model-first check plans",
         "summarise check results"
@@ -956,7 +956,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:71bb216bf351a7754bfa4b8d756a05d2b79eee58fd4abcd5d54be050b142f421"
+      "fingerprint": "sha256:9d7d81f34985e96b7f36c56323024c04653f33d7bfe1fae7f80a7ab9c3a77047"
     },
     {
       "id": "engine-path-quality",

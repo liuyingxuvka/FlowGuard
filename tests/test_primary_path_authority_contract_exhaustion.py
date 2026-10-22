@@ -1,7 +1,6 @@
 import unittest
 
 from flowguard import (
-    contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
     PPA_CONTRACT_ORACLE_PRIMARY_FAILURE,
     default_primary_path_authority_axes,
@@ -36,7 +35,6 @@ class PrimaryPathAuthorityContractExhaustionTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn("contract_coverage:primary_path_authority", contract_exhaustion_to_coverage_receipt_ids(report))
         self.assertIn(
             "contract_shard:primary_path_authority:core_no_fallback",
             contract_exhaustion_to_test_mesh_shard_ids(report),

@@ -43,7 +43,6 @@ def evidence(**kwargs):
         "risk_gate_ids": ("risk_gate:behavior_commitment_coverage:ledger",),
         "coverage_case_ids": ("bcl.full_inventory_mapping.workflow.doc.mapped",),
         "coverage_shard_ids": ("contract_shard:behavior_commitment_ledger:full_inventory_mapping",),
-        "coverage_receipt_ids": ("contract_coverage:behavior_commitment_ledger",),
         "evidence_state": BCL_EVIDENCE_CURRENT_PASS,
         "current": True,
     }
@@ -172,7 +171,6 @@ class BehaviorCommitmentLedgerTests(unittest.TestCase):
         self.assertEqual("behavior_commitment_coverage_green", report.decision)
         self.assertIn("commitment:workflow", report.covered_commitment_ids)
         self.assertIn("risk_gate:behavior_commitment_coverage:ledger", report.required_risk_gate_ids)
-        self.assertIn("contract_coverage:behavior_commitment_ledger", report.coverage_receipt_ids)
 
     def test_only_external_normative_contract_can_license_a_broad_commitment(self):
         observed = review_behavior_commitment_ledger(

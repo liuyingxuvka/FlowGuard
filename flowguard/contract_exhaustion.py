@@ -1019,79 +1019,6 @@ class ContractCombinationCase:
 
 
 
-@dataclass(frozen=True)
-class ModelContractCoverageReceipt:
-    """Receipt proving one model's generated contract combinations were closed."""
-
-    receipt_id: str
-    model_id: str
-    parent_model_id: str = ""
-    status: str = CONTRACT_COVERAGE_STATUS_COVERED
-    confidence: str = CONTRACT_EXHAUSTION_CONFIDENCE_FULL
-    current: bool = True
-    covered_case_ids: tuple[str, ...] = ()
-    shard_ids: tuple[str, ...] = ()
-    interaction_group_ids: tuple[str, ...] = ()
-    required_child_receipt_ids: tuple[str, ...] = ()
-    consumed_child_receipt_ids: tuple[str, ...] = ()
-    missing_case_ids: tuple[str, ...] = ()
-    blocked_case_ids: tuple[str, ...] = ()
-    finding_codes: tuple[str, ...] = ()
-    metadata: Mapping[str, Any] = field(default_factory=dict)
-    product_signature: str = ""
-    owner_id: str = ""
-    claim_scope: str = ""
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "receipt_id", str(self.receipt_id))
-        object.__setattr__(self, "model_id", str(self.model_id))
-        object.__setattr__(self, "parent_model_id", str(self.parent_model_id))
-        object.__setattr__(self, "status", str(self.status))
-        object.__setattr__(self, "confidence", str(self.confidence))
-        object.__setattr__(self, "current", bool(self.current))
-        object.__setattr__(self, "covered_case_ids", _as_tuple(self.covered_case_ids))
-        object.__setattr__(self, "shard_ids", _as_tuple(self.shard_ids))
-        object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
-        object.__setattr__(self, "required_child_receipt_ids", _as_tuple(self.required_child_receipt_ids))
-        object.__setattr__(self, "consumed_child_receipt_ids", _as_tuple(self.consumed_child_receipt_ids))
-        object.__setattr__(self, "missing_case_ids", _as_tuple(self.missing_case_ids))
-        object.__setattr__(self, "blocked_case_ids", _as_tuple(self.blocked_case_ids))
-        object.__setattr__(self, "finding_codes", _as_tuple(self.finding_codes))
-        object.__setattr__(self, "product_signature", str(self.product_signature))
-        object.__setattr__(self, "owner_id", str(self.owner_id))
-        object.__setattr__(self, "claim_scope", str(self.claim_scope))
-        object.__setattr__(self, "metadata", _metadata(self.metadata))
-
-    def complete(self) -> bool:
-        return (
-            self.status == CONTRACT_COVERAGE_STATUS_COVERED
-            and self.confidence == CONTRACT_EXHAUSTION_CONFIDENCE_FULL
-            and self.current
-            and not self.missing_case_ids
-            and not self.blocked_case_ids
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "receipt_id": self.receipt_id,
-            "model_id": self.model_id,
-            "parent_model_id": self.parent_model_id,
-            "status": self.status,
-            "confidence": self.confidence,
-            "current": self.current,
-            "covered_case_ids": list(self.covered_case_ids),
-            "shard_ids": list(self.shard_ids),
-            "interaction_group_ids": list(self.interaction_group_ids),
-            "required_child_receipt_ids": list(self.required_child_receipt_ids),
-            "consumed_child_receipt_ids": list(self.consumed_child_receipt_ids),
-            "missing_case_ids": list(self.missing_case_ids),
-            "blocked_case_ids": list(self.blocked_case_ids),
-            "finding_codes": list(self.finding_codes),
-            "product_signature": self.product_signature,
-            "owner_id": self.owner_id,
-            "claim_scope": self.claim_scope,
-            "metadata": to_jsonable(dict(self.metadata)),
-        }
 
 
 @dataclass(frozen=True)
@@ -1143,7 +1070,6 @@ class ContractCoverageUniverse:
     required_payload_contract_ids: tuple[str, ...] = ()
     required_boundary_ids: tuple[str, ...] = ()
     required_case_ids: tuple[str, ...] = ()
-    required_coverage_receipt_ids: tuple[str, ...] = ()
     required_product_signature_ids: tuple[str, ...] = ()
     required_family_member_ids: tuple[str, ...] = ()
     required_reduction_candidate_ids: tuple[str, ...] = ()
@@ -1177,11 +1103,6 @@ class ContractCoverageUniverse:
         )
         object.__setattr__(self, "required_boundary_ids", _as_tuple(self.required_boundary_ids))
         object.__setattr__(self, "required_case_ids", _as_tuple(self.required_case_ids))
-        object.__setattr__(
-            self,
-            "required_coverage_receipt_ids",
-            _as_tuple(self.required_coverage_receipt_ids),
-        )
         object.__setattr__(
             self,
             "required_product_signature_ids",
@@ -1218,7 +1139,6 @@ class ContractCoverageUniverse:
             "required_payload_contract_ids": list(self.required_payload_contract_ids),
             "required_boundary_ids": list(self.required_boundary_ids),
             "required_case_ids": list(self.required_case_ids),
-            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
             "required_product_signature_ids": list(self.required_product_signature_ids),
             "required_family_member_ids": list(self.required_family_member_ids),
             "required_reduction_candidate_ids": list(self.required_reduction_candidate_ids),
@@ -1236,52 +1156,6 @@ class ContractCoverageUniverse:
 
 
 
-def _partitioned_product_findings(
-    plan: "ContractExhaustionPlan",
-    combination_cases: Sequence[ContractCombinationCase],
-    coverage_receipts: Sequence[ModelContractCoverageReceipt],
-) -> tuple[ContractExhaustionFinding, ...]:
-    """Every required partition group must have one exact, complete cell receipt.
-
-    The denominator is the plan's own declared groups/axes, i.e. the committed
-    model source.  Git history, not a separate authority store, tracks changes.
-    """
-
-    universe = plan.coverage_universe
-    if universe is None or not universe.allow_partitioned_product:
-        return ()
-    findings: list[ContractExhaustionFinding] = []
-    declared = {group.group_id: group for group in plan.interaction_groups}
-    all_case_ids = {c.case_id for c in combination_cases}
-    for group_id in universe.required_interaction_group_ids:
-        if group_id not in declared or universe.excluded("interaction_group", group_id):
-            continue
-        expected = {c.case_id for c in combination_cases if c.interaction_group_id == group_id}
-        receipts = [r for r in coverage_receipts if group_id in r.interaction_group_ids]
-        covered = [
-            case_id
-            for r in receipts
-            for case_id in r.covered_case_ids
-            if case_id in expected or case_id not in all_case_ids
-        ]
-        missing = sorted(expected - set(covered))
-        foreign = sorted(set(covered) - expected)
-        duplicate = sorted(k for k, n in Counter(covered).items() if n > 1)
-        if not receipts or any(not r.complete() for r in receipts) or missing or foreign or duplicate:
-            findings.append(
-                _finding(
-                    "partition_group_coverage_incomplete",
-                    "partition interaction group lacks a current complete finite coverage receipt",
-                    action="execute every required finite cell and bind the parent receipt",
-                    metadata={
-                        "group_id": group_id,
-                        "missing_case_ids": missing,
-                        "foreign_case_ids": foreign,
-                        "duplicate_case_ids": duplicate,
-                    },
-                )
-            )
-    return tuple(findings)
 
 
 @dataclass(frozen=True)
@@ -1343,7 +1217,6 @@ class ObservedProblemBackfeed:
     affected_boundary_ids: tuple[str, ...] = ()
     matched_case_ids: tuple[str, ...] = ()
     matched_combination_case_ids: tuple[str, ...] = ()
-    matched_coverage_receipt_ids: tuple[str, ...] = ()
     same_class_case_ids: tuple[str, ...] = ()
     source_refs: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
@@ -1371,11 +1244,6 @@ class ObservedProblemBackfeed:
             "matched_combination_case_ids",
             _as_tuple(self.matched_combination_case_ids),
         )
-        object.__setattr__(
-            self,
-            "matched_coverage_receipt_ids",
-            _as_tuple(self.matched_coverage_receipt_ids),
-        )
         object.__setattr__(self, "same_class_case_ids", _as_tuple(self.same_class_case_ids))
         object.__setattr__(self, "source_refs", _as_tuple(self.source_refs))
         object.__setattr__(self, "metadata", _metadata(self.metadata))
@@ -1392,7 +1260,6 @@ class ObservedProblemBackfeed:
             "affected_boundary_ids": list(self.affected_boundary_ids),
             "matched_case_ids": list(self.matched_case_ids),
             "matched_combination_case_ids": list(self.matched_combination_case_ids),
-            "matched_coverage_receipt_ids": list(self.matched_coverage_receipt_ids),
             "same_class_case_ids": list(self.same_class_case_ids),
             "source_refs": list(self.source_refs),
             "metadata": to_jsonable(dict(self.metadata)),
@@ -1457,12 +1324,7 @@ class ContractExhaustionPlan:
     axes: tuple[ContractAxis, ...] = ()
     interaction_groups: tuple[ContractInteractionGroup, ...] = ()
     coverage_shards: tuple[ContractCoverageShard, ...] = ()
-    coverage_receipts: tuple[ModelContractCoverageReceipt, ...] = ()
-    required_coverage_receipt_ids: tuple[str, ...] = ()
-    required_child_receipt_ids: tuple[str, ...] = ()
-    consumed_child_receipt_ids: tuple[str, ...] = ()
     composite_handoff_results: tuple[CompositeHandoffResult | Mapping[str, Any], ...] = ()
-    require_model_coverage_receipt: bool = False
     cartesian_case_limit: int = DEFAULT_CARTESIAN_CASE_LIMIT
     coverage_universe: ContractCoverageUniverse | None = None
     require_coverage_universe: bool = False
@@ -1513,10 +1375,6 @@ class ContractExhaustionPlan:
         object.__setattr__(self, "axes", tuple(self.axes))
         object.__setattr__(self, "interaction_groups", tuple(self.interaction_groups))
         object.__setattr__(self, "coverage_shards", tuple(self.coverage_shards))
-        object.__setattr__(self, "coverage_receipts", tuple(self.coverage_receipts))
-        object.__setattr__(self, "required_coverage_receipt_ids", _as_tuple(self.required_coverage_receipt_ids))
-        object.__setattr__(self, "required_child_receipt_ids", _as_tuple(self.required_child_receipt_ids))
-        object.__setattr__(self, "consumed_child_receipt_ids", _as_tuple(self.consumed_child_receipt_ids))
         object.__setattr__(
             self,
             "composite_handoff_results",
@@ -1536,7 +1394,6 @@ class ContractExhaustionPlan:
                 for result in self.composite_handoff_results
             ),
         )
-        object.__setattr__(self, "require_model_coverage_receipt", bool(self.require_model_coverage_receipt))
         object.__setattr__(self, "cartesian_case_limit", int(self.cartesian_case_limit))
         object.__setattr__(self, "coverage_universe", self.coverage_universe)
         object.__setattr__(self, "require_coverage_universe", bool(self.require_coverage_universe))
@@ -1621,14 +1478,9 @@ class ContractExhaustionPlan:
             "axes": [axis.to_dict() for axis in self.axes],
             "interaction_groups": [group.to_dict() for group in self.interaction_groups],
             "coverage_shards": [shard.to_dict() for shard in self.coverage_shards],
-            "coverage_receipts": [receipt.to_dict() for receipt in self.coverage_receipts],
-            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
-            "required_child_receipt_ids": list(self.required_child_receipt_ids),
-            "consumed_child_receipt_ids": list(self.consumed_child_receipt_ids),
             "composite_handoff_results": [
                 result.to_dict() for result in self.composite_handoff_results
             ],
-            "require_model_coverage_receipt": self.require_model_coverage_receipt,
             "cartesian_case_limit": self.cartesian_case_limit,
             "coverage_universe": (
                 self.coverage_universe.to_dict()
@@ -1680,8 +1532,6 @@ class ContractExhaustionReport:
     combination_cases: tuple[ContractCombinationCase, ...] = ()
     coverage_shards: tuple[ContractCoverageShard, ...] = ()
     product_signatures: tuple[ContractProductSignature, ...] = ()
-    coverage_receipts: tuple[ModelContractCoverageReceipt, ...] = ()
-    required_coverage_receipt_ids: tuple[str, ...] = ()
     coverage_universe: ContractCoverageUniverse | None = None
     contract_fault_profiles: tuple[ContractFaultProfile, ...] = ()
     observed_problem_backfeed_report: ObservedProblemBackfeedReport | None = None
@@ -1754,8 +1604,6 @@ class ContractExhaustionReport:
             "product_signatures": [
                 signature.to_dict() for signature in self.product_signatures
             ],
-            "coverage_receipts": [receipt.to_dict() for receipt in self.coverage_receipts],
-            "required_coverage_receipt_ids": list(self.required_coverage_receipt_ids),
             "required_combination_case_ids": list(self.required_combination_case_ids),
             "required_coverage_shard_ids": list(self.required_coverage_shard_ids),
             "coverage_universe": (
@@ -1795,12 +1643,6 @@ class ContractExhaustionReport:
         ]
         if self.summary:
             lines.append(f"summary: {self.summary}")
-        for receipt in self.coverage_receipts:
-            lines.append(
-                "coverage_receipt "
-                f"{receipt.receipt_id}: model={receipt.model_id} "
-                f"status={receipt.status} cases={len(receipt.covered_case_ids)}"
-            )
         for shard in self.coverage_shards:
             lines.append(
                 "coverage_shard "
@@ -2680,96 +2522,6 @@ def _generated_cases_for_interaction_group(
     return tuple(mutation_cases), tuple(combination_cases), shard, tuple(findings)
 
 
-def _coverage_receipts_for_report(
-    plan: ContractExhaustionPlan,
-    generated_cases: Sequence[ContractMutationCase],
-    findings: Sequence[ContractExhaustionFinding],
-    shards: Sequence[ContractCoverageShard],
-) -> tuple[ModelContractCoverageReceipt, ...]:
-    receipts = list(plan.coverage_receipts)
-    if not (plan.require_model_coverage_receipt or plan.interaction_groups or plan.required_child_receipt_ids):
-        return tuple(receipts)
-
-    model_id = plan.model_id
-    if not model_id and plan.interaction_groups:
-        model_ids = _unique(group.model_id for group in plan.interaction_groups)
-        model_id = model_ids[0] if len(model_ids) == 1 else ""
-    case_ids = tuple(
-        case.case_id
-        for case in generated_cases
-        if case.generation_kind
-        in {CONTRACT_GENERATION_LOCAL_CARTESIAN, CONTRACT_GENERATION_PARENT_INTERFACE}
-    )
-    finding_codes = _unique(finding.code for finding in findings)
-    blocking_case_ids = _unique(
-        finding.case_id
-        for finding in findings
-        if finding.case_id and finding.severity == CONTRACT_EXHAUSTION_FINDING_BLOCKER
-    )
-    missing_case_ids = _unique(
-        case.case_id
-        for shard in shards
-        if not shard.complete
-        for case in generated_cases
-        if case.coverage_shard_id == shard.shard_id
-    )
-    status = CONTRACT_COVERAGE_STATUS_COVERED
-    confidence = CONTRACT_EXHAUSTION_CONFIDENCE_FULL
-    if any(finding.severity == CONTRACT_EXHAUSTION_FINDING_BLOCKER for finding in findings):
-        status = CONTRACT_COVERAGE_STATUS_BLOCKED
-        confidence = CONTRACT_EXHAUSTION_CONFIDENCE_BLOCKED
-    elif any(not shard.complete for shard in shards) or any(
-        finding.severity == CONTRACT_EXHAUSTION_FINDING_GAP for finding in findings
-    ):
-        status = CONTRACT_COVERAGE_STATUS_SCOPED
-        confidence = CONTRACT_EXHAUSTION_CONFIDENCE_SCOPED
-    receipt_id = _case_id("contract_coverage", model_id or plan.plan_id)
-    product_signatures = tuple(
-        sorted(
-            {
-                shard.product_signature
-                for shard in shards
-                if shard.product_signature
-            }
-        )
-    )
-    receipt_product_signature = (
-        product_signatures[0]
-        if len(product_signatures) == 1
-        else canonical_fingerprint(product_signatures)
-        if product_signatures
-        else ""
-    )
-    receipts.append(
-        ModelContractCoverageReceipt(
-            receipt_id=receipt_id,
-            model_id=model_id,
-            parent_model_id=plan.parent_model_id,
-            status=status,
-            confidence=confidence,
-            current=True,
-            covered_case_ids=case_ids,
-            shard_ids=tuple(shard.shard_id for shard in shards),
-            interaction_group_ids=tuple(group.group_id for group in plan.interaction_groups),
-            required_child_receipt_ids=plan.required_child_receipt_ids,
-            consumed_child_receipt_ids=plan.consumed_child_receipt_ids,
-            missing_case_ids=missing_case_ids,
-            blocked_case_ids=blocking_case_ids,
-            finding_codes=finding_codes,
-            product_signature=receipt_product_signature,
-            owner_id=str(plan.metadata.get("owner_id", model_id))
-            if isinstance(plan.metadata, Mapping)
-            else model_id,
-            claim_scope=plan.claim_scope,
-            metadata={
-                "plan_id": plan.plan_id,
-                "model_level": plan.model_level,
-                "product_signatures": list(product_signatures),
-                "required_coverage_receipt_ids": list(plan.required_coverage_receipt_ids),
-            },
-        )
-    )
-    return tuple(receipts)
 
 
 def _product_signatures_for_report(
@@ -2809,73 +2561,8 @@ def _product_signatures_for_report(
 
 
 
-def _coverage_receipt_findings(
-    plan: ContractExhaustionPlan,
-    receipts: Sequence[ModelContractCoverageReceipt],
-    shards: Sequence[ContractCoverageShard],
-) -> tuple[ContractExhaustionFinding, ...]:
+def _coverage_shard_findings(shards: Sequence[ContractCoverageShard]) -> tuple[ContractExhaustionFinding, ...]:
     findings: list[ContractExhaustionFinding] = []
-    receipts_by_id = {receipt.receipt_id: receipt for receipt in receipts}
-    if (plan.require_model_coverage_receipt or plan.interaction_groups) and not plan.model_id and not any(
-        receipt.model_id for receipt in receipts
-    ):
-        findings.append(
-            _finding(
-                "contract_coverage_model_id_missing",
-                "model-scoped Cartesian coverage needs a model id before it can be consumed by ModelMesh",
-                action="set the owning model_id on the plan, group, or receipt",
-            )
-        )
-    for receipt_id in plan.required_coverage_receipt_ids:
-        receipt = receipts_by_id.get(receipt_id)
-        if receipt is None:
-            findings.append(
-                _finding(
-                    "contract_coverage_receipt_missing",
-                    "required model coverage receipt was not supplied or generated",
-                    action="run the model-local Cartesian matrix and provide its receipt",
-                    metadata={"receipt_id": receipt_id},
-                )
-            )
-            continue
-        if not receipt.complete():
-            findings.append(
-                _finding(
-                    "contract_coverage_receipt_incomplete",
-                    "model coverage receipt is not current, full-confidence, and complete",
-                    severity=CONTRACT_EXHAUSTION_FINDING_BLOCKER,
-                    action="close missing/blocked cases or scope out the broad claim",
-                    metadata={"receipt": receipt.to_dict()},
-                )
-            )
-    for receipt in receipts:
-        missing_child_receipts = tuple(
-            receipt_id
-            for receipt_id in receipt.required_child_receipt_ids
-            if receipt_id not in receipt.consumed_child_receipt_ids
-        )
-        if missing_child_receipts:
-            findings.append(
-                _finding(
-                    "contract_child_receipt_unconsumed",
-                    "parent model coverage receipt does not consume every required child coverage receipt",
-                    action="attach the latest child receipt ids to the parent coverage run",
-                    metadata={
-                        "receipt_id": receipt.receipt_id,
-                        "model_id": receipt.model_id,
-                        "missing_child_receipt_ids": list(missing_child_receipts),
-                    },
-                )
-            )
-        if not receipt.current:
-            findings.append(
-                _finding(
-                    "contract_coverage_receipt_stale",
-                    "model coverage receipt is stale",
-                    action="rerun the model-local Cartesian matrix",
-                    metadata={"receipt": receipt.to_dict()},
-                )
-            )
     for shard in shards:
         if not shard.complete:
             findings.append(
@@ -3163,7 +2850,6 @@ def _coverage_universe_available_ids(
     plan: ContractExhaustionPlan,
     generated_cases: Sequence[ContractMutationCase],
     combination_cases: Sequence[ContractCombinationCase],
-    coverage_receipts: Sequence[ModelContractCoverageReceipt],
 ) -> dict[str, set[str]]:
     payload_contract_ids: set[str] = set()
     boundary_ids: set[str] = set()
@@ -3201,7 +2887,6 @@ def _coverage_universe_available_ids(
         "payload_contract": payload_contract_ids,
         "boundary": boundary_ids,
         "case": {case.case_id for case in generated_cases} | {case.case_id for case in combination_cases},
-        "coverage_receipt": {receipt.receipt_id for receipt in coverage_receipts},
         "product_signature": {signature.signature_id for signature in product_signatures},
         "family_member": set(plan.materialized_family_member_ids),
         "reduction_candidate": set(plan.materialized_reduction_candidate_ids),
@@ -3217,7 +2902,6 @@ def _coverage_universe_findings(
     plan: ContractExhaustionPlan,
     generated_cases: Sequence[ContractMutationCase],
     combination_cases: Sequence[ContractCombinationCase],
-    coverage_receipts: Sequence[ModelContractCoverageReceipt],
 ) -> tuple[ContractExhaustionFinding, ...]:
     findings: list[ContractExhaustionFinding] = []
     universe = plan.coverage_universe
@@ -3249,7 +2933,6 @@ def _coverage_universe_findings(
         plan,
         generated_cases,
         combination_cases,
-        coverage_receipts,
     )
     required_by_kind = {
         "dimension": universe.required_dimension_ids,
@@ -3258,7 +2941,6 @@ def _coverage_universe_findings(
         "payload_contract": universe.required_payload_contract_ids,
         "boundary": universe.required_boundary_ids,
         "case": universe.required_case_ids,
-        "coverage_receipt": universe.required_coverage_receipt_ids,
         "product_signature": universe.required_product_signature_ids,
         "family_member": universe.required_family_member_ids,
         "reduction_candidate": universe.required_reduction_candidate_ids,
@@ -3420,14 +3102,12 @@ def _observed_problem_backfeed_report(
     problems: Sequence[ObservedProblemBackfeed],
     generated_cases: Sequence[ContractMutationCase],
     combination_cases: Sequence[ContractCombinationCase],
-    coverage_receipts: Sequence[ModelContractCoverageReceipt],
     coverage_universe: ContractCoverageUniverse | None,
 ) -> ObservedProblemBackfeedReport | None:
     if not problems:
         return None
     generated_case_ids = {case.case_id for case in generated_cases}
     combination_case_ids = {case.case_id for case in combination_cases}
-    coverage_receipt_ids = {receipt.receipt_id for receipt in coverage_receipts}
     same_class_case_ids = {
         case.case_id
         for case in generated_cases
@@ -3492,25 +3172,6 @@ def _observed_problem_backfeed_report(
                         case_id=case_id,
                         action="generate the same-class case or update the backfeed row",
                         metadata={"problem_id": problem.problem_id},
-                    )
-                )
-        if not problem.matched_coverage_receipt_ids:
-            findings.append(
-                _finding(
-                    "observed_problem_receipt_missing",
-                    "observed problem is not tied to a model coverage receipt",
-                    action="run or attach the coverage receipt that now covers this miss",
-                    metadata={"problem_id": problem.problem_id},
-                )
-            )
-        for receipt_id in problem.matched_coverage_receipt_ids:
-            if receipt_id not in coverage_receipt_ids:
-                findings.append(
-                    _finding(
-                        "observed_problem_receipt_unknown",
-                        "observed problem references a coverage receipt that is not present in this report",
-                        action="attach the current receipt or rerun the coverage matrix",
-                        metadata={"problem_id": problem.problem_id, "receipt_id": receipt_id},
                     )
                 )
         for dimension_id in problem.affected_dimension_ids:
@@ -3639,32 +3300,18 @@ def review_contract_exhaustion(
                 )
             )
 
-    coverage_receipts = _coverage_receipts_for_report(
-        plan,
-        generated_cases_tuple,
-        findings,
-        coverage_shards_tuple,
-    )
     product_signatures = _product_signatures_for_report(
         plan,
         coverage_shards_tuple,
     )
-    coverage_findings = _coverage_receipt_findings(plan, coverage_receipts, coverage_shards_tuple)
+    coverage_findings = _coverage_shard_findings(coverage_shards_tuple)
     findings.extend(coverage_findings)
     universe_findings = _coverage_universe_findings(
         plan,
         generated_cases_tuple,
         combination_cases_tuple,
-        coverage_receipts,
     )
     findings.extend(universe_findings)
-    findings.extend(
-        _partitioned_product_findings(
-            plan,
-            combination_cases_tuple,
-            coverage_receipts,
-        )
-    )
     actionable_findings = _actionable_oracle_feedback_findings(plan, generated_cases_tuple)
     findings.extend(actionable_findings)
     contract_fault_profiles = _contract_fault_profiles_from_cases(generated_cases_tuple, plan.oracles)
@@ -3672,7 +3319,6 @@ def review_contract_exhaustion(
         plan.observed_problem_backfeed,
         generated_cases_tuple,
         combination_cases_tuple,
-        coverage_receipts,
         plan.coverage_universe,
     )
     if backfeed_report is not None:
@@ -3730,16 +3376,6 @@ def review_contract_exhaustion(
         combination_cases=combination_cases_tuple,
         coverage_shards=coverage_shards_tuple,
         product_signatures=product_signatures,
-        coverage_receipts=coverage_receipts,
-        required_coverage_receipt_ids=(
-            plan.required_coverage_receipt_ids
-            or (
-                plan.coverage_universe.required_coverage_receipt_ids
-                if plan.coverage_universe is not None
-                else ()
-            )
-            or tuple(receipt.receipt_id for receipt in coverage_receipts)
-        ),
         coverage_universe=plan.coverage_universe,
         contract_fault_profiles=contract_fault_profiles,
         observed_problem_backfeed_report=backfeed_report,
@@ -3787,7 +3423,6 @@ def review_observed_problem_backfeed(
         observed_problems,
         report.generated_cases,
         report.combination_cases,
-        report.coverage_receipts,
         report.coverage_universe,
     )
     if backfeed_report is None:
@@ -3899,7 +3534,6 @@ def family_bad_case_seed_to_contract_cases(
                     "interaction_group_ids": list(getattr(case, "interaction_group_ids", ())),
                     "observed_combination_case_id": str(getattr(case, "observed_combination_case_id", "")),
                     "generated_combination_case_ids": list(getattr(case, "generated_combination_case_ids", ())),
-                    "coverage_receipt_ids": list(getattr(case, "coverage_receipt_ids", ())),
                     **dict(case.metadata),
                 },
             )
@@ -4133,10 +3767,6 @@ def contract_exhaustion_to_composite_handoff_acceptance_ids(
     return report.required_composite_handoff_acceptance_ids
 
 
-def contract_exhaustion_to_coverage_receipt_ids(report: ContractExhaustionReport) -> tuple[str, ...]:
-    """Return model coverage receipt ids that parent ModelMesh/RiskLedger gates consume."""
-
-    return _unique(receipt.receipt_id for receipt in report.coverage_receipts if receipt.receipt_id)
 
 
 def contract_exhaustion_features(plan: ContractExhaustionPlan, mutate):
@@ -4263,7 +3893,6 @@ __all__ = (
     "ContractMutationCase",
     "ContractOracle",
     "ContractProductSignature",
-    "ModelContractCoverageReceipt",
     "ObservedProblemBackfeed",
     "ObservedProblemBackfeedReport",
     "artifact_payload_cases_to_contract_cases",
@@ -4271,7 +3900,6 @@ __all__ = (
     "contract_fault_profiles_from_report",
     "contract_exhaustion_features",
     "contract_exhaustion_to_composite_handoff_acceptance_ids",
-    "contract_exhaustion_to_coverage_receipt_ids",
     "contract_exhaustion_to_model_obligations",
     "contract_exhaustion_to_risk_gate_ids",
     "contract_exhaustion_to_test_mesh_cell_ids",

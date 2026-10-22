@@ -99,14 +99,14 @@ def _contracts():
             "coverage",
             completion_labels=("coverage_done",),
             requires_receipts=("inventory_receipt",),
-            produces_receipts=("coverage_receipt",),
+            produces_receipts=("coverage_ready",),
             required_for_claims=("done_claimed",),
             artifact_ids=("code.checkout",),
         ),
         WorkflowStepContract(
             "regression",
             completion_labels=("regression_done",),
-            requires_receipts=("coverage_receipt",),
+            requires_receipts=("coverage_ready",),
             produces_receipts=("regression_receipt",),
             required_for_claims=("release_claimed",),
             required_test_kinds=(TEST_KIND_REPLAY,),
@@ -129,7 +129,7 @@ class WorkflowStepContractTests(unittest.TestCase):
         report = review_step_contract_trace(trace, _contracts())
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn("coverage_receipt", report.current_receipts)
+        self.assertIn("coverage_ready", report.current_receipts)
         self.assertIn("regression_receipt", report.current_receipts)
 
     def test_review_reports_missing_prerequisite_receipt(self):
@@ -148,7 +148,7 @@ class WorkflowStepContractTests(unittest.TestCase):
                 _step("coverage_done"),
                 _step(
                     "edit_after_coverage",
-                    metadata=step_contract_metadata(invalidated_receipts=("coverage_receipt",)),
+                    metadata=step_contract_metadata(invalidated_receipts=("coverage_ready",)),
                 ),
                 _step("done_claimed"),
             )
@@ -157,7 +157,7 @@ class WorkflowStepContractTests(unittest.TestCase):
         report = review_step_contract_trace(trace, _contracts())
 
         self.assertFalse(report.ok)
-        self.assertIn("coverage_receipt", report.stale_receipts)
+        self.assertIn("coverage_ready", report.stale_receipts)
         self.assertEqual("missing_claim_receipt", report.findings[0].code)
 
     def test_review_reports_forbidden_skipped_step(self):
@@ -274,7 +274,7 @@ class WorkflowStepContractTests(unittest.TestCase):
                     "coverage_done",
                     metadata=step_contract_metadata(
                         "coverage",
-                        produced_receipts=("coverage_receipt",),
+                        produced_receipts=("coverage_ready",),
                     ),
                 ),
             )

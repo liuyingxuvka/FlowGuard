@@ -5,7 +5,6 @@ from flowguard import (
     behavior_commitment_contract_exhaustion_plan,
     default_behavior_commitment_axes,
     default_behavior_commitment_interaction_groups,
-    contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
     review_contract_exhaustion,
 )
@@ -22,7 +21,6 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         )
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn("contract_coverage:behavior_commitment_ledger", contract_exhaustion_to_coverage_receipt_ids(report))
         self.assertIn(
             "contract_shard:behavior_commitment_ledger:full_inventory_mapping",
             contract_exhaustion_to_test_mesh_shard_ids(report),
@@ -87,10 +85,6 @@ class BehaviorCommitmentContractExhaustionTests(unittest.TestCase):
         self.assertIn(
             "contract_shard:behavior_commitment_ledger:plane_kind_actor",
             contract_exhaustion_to_test_mesh_shard_ids(report),
-        )
-        self.assertIn(
-            "contract_coverage:behavior_commitment_ledger",
-            contract_exhaustion_to_coverage_receipt_ids(report),
         )
 
 

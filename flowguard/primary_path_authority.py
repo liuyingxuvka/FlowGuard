@@ -402,7 +402,6 @@ class PrimaryPathAuthorityPlan:
     require_cartesian_coverage: bool = False
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     risk_gate_ids: tuple[str, ...] = ()
     expected_business_intents: tuple[str, ...] = ()
     expected_business_intent_ids: tuple[str, ...] = ()
@@ -436,7 +435,6 @@ class PrimaryPathAuthorityPlan:
         object.__setattr__(self, "require_cartesian_coverage", bool(self.require_cartesian_coverage))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
         object.__setattr__(self, "expected_business_intents", _as_tuple(self.expected_business_intents))
         object.__setattr__(self, "expected_business_intent_ids", _as_tuple(self.expected_business_intent_ids))
@@ -483,7 +481,6 @@ class PrimaryPathAuthorityPlan:
             "require_cartesian_coverage": self.require_cartesian_coverage,
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "risk_gate_ids": list(self.risk_gate_ids),
             "expected_business_intents": list(self.expected_business_intents),
             "expected_business_intent_ids": list(self.expected_business_intent_ids),
@@ -553,7 +550,6 @@ class PrimaryPathAuthorityReport:
     evidence_current: bool = False
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     risk_gate_ids: tuple[str, ...] = ()
     summary: str = ""
 
@@ -579,7 +575,6 @@ class PrimaryPathAuthorityReport:
         object.__setattr__(self, "evidence_current", bool(self.evidence_current))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
         if not self.summary:
             status = "OK" if self.ok else "BLOCKED"
@@ -601,7 +596,6 @@ class PrimaryPathAuthorityReport:
             f"confidence: {self.confidence}",
             f"primary_paths: {len(self.primary_path_ids)}",
             f"fallback_candidates: {len(self.fallback_candidate_ids)}",
-            f"coverage_receipts: {len(self.coverage_receipt_ids)}",
             f"findings: {len(self.findings)}",
         ]
         for finding in self.findings[:max_findings]:
@@ -638,7 +632,6 @@ class PrimaryPathAuthorityReport:
             "evidence_current": self.evidence_current,
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "risk_gate_ids": list(self.risk_gate_ids),
             "summary": self.summary,
         }
@@ -913,13 +906,6 @@ def review_primary_path_authority(
                 )
 
     if plan.coverage_required():
-        if not plan.coverage_receipt_ids:
-            findings.append(
-                _finding(
-                    "primary_path_cartesian_coverage_missing",
-                    "broad primary-path authority claim requires current Cartesian coverage receipt ids",
-                )
-            )
         if not plan.coverage_shard_ids:
             findings.append(
                 _finding(
@@ -976,7 +962,6 @@ def review_primary_path_authority(
         evidence_current=bool(material_required and not blockers),
         coverage_case_ids=plan.coverage_case_ids,
         coverage_shard_ids=plan.coverage_shard_ids,
-        coverage_receipt_ids=plan.coverage_receipt_ids,
         risk_gate_ids=plan.risk_gate_ids,
     )
 
@@ -1285,7 +1270,6 @@ def default_primary_path_authority_coverage_universe(
         claim_scope=claim_scope,
         required_axis_ids=tuple(axis.axis_id for axis in axes),
         required_interaction_group_ids=tuple(group.group_id for group in groups),
-        required_coverage_receipt_ids=(f"contract_coverage:{model_id}",),
         require_full_product=True,
         allow_partitioned_product=True,
         metadata={"owner_route": PRIMARY_PATH_ROUTE_ID},
@@ -1333,7 +1317,6 @@ def primary_path_authority_contract_exhaustion_plan(
         ),
         claim_scope=claim_scope,
         required_route_ids=("model_test_alignment", "test_mesh"),
-        require_model_coverage_receipt=True,
         require_coverage_universe=True,
         metadata={
             # This route emits the finite PPA matrix and its downstream

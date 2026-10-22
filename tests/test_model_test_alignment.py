@@ -736,7 +736,6 @@ class ModelTestAlignmentTests(unittest.TestCase):
                         axis_ids=("packet_status", "evidence_path"),
                     ),
                 ),
-                require_model_coverage_receipt=True,
             )
         )
         obligations = flowguard.contract_exhaustion_to_model_obligations(exhaustion)

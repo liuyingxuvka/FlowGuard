@@ -72,7 +72,6 @@ class PrimaryPathAuthorityTests(unittest.TestCase):
                 claim_scope=PPA_CLAIM_SCOPE_FULL,
                 coverage_case_ids=("ppa.core_no_fallback.submit_order.exception.legacy.primary_failure.return_success",),
                 coverage_shard_ids=("contract_shard:primary_path_authority:core_no_fallback",),
-                coverage_receipt_ids=("contract_coverage:primary_path_authority",),
                 risk_gate_ids=("risk_gate:primary_path_authority", "risk_gate:primary_path_authority_cartesian"),
                 expected_business_intent_ids=(INTENT_ID,),
                 expected_candidate_ids=("orders.submit.v1",),
@@ -125,7 +124,6 @@ class PrimaryPathAuthorityTests(unittest.TestCase):
 
         codes = finding_codes(report)
         self.assertFalse(report.ok)
-        self.assertIn("primary_path_cartesian_coverage_missing", codes)
         self.assertIn("primary_path_coverage_shards_missing", codes)
         self.assertIn("primary_path_risk_gate_missing", codes)
 

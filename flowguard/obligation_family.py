@@ -41,7 +41,6 @@ FAMILY_EVIDENCE_SCOPE_UNKNOWN = "unknown"
 
 FAMILY_EVIDENCE_PROVENANCE_UNSPECIFIED = ""
 FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION = "durable_reconciliation"
-FAMILY_EVIDENCE_PROVENANCE_CONTROLLER_RECEIPT_FOLDED = "controller_receipt_folded"
 FAMILY_EVIDENCE_PROVENANCE_RUNTIME_OBSERVED = "runtime_observed"
 FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT = "manual_event"
 FAMILY_EVIDENCE_PROVENANCE_TEST_INJECTED = "test_injected"
@@ -259,7 +258,6 @@ class FamilyBadCaseSeed:
     interaction_group_ids: tuple[str, ...] = ()
     observed_combination_case_id: str = ""
     generated_combination_case_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -276,7 +274,6 @@ class FamilyBadCaseSeed:
         object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
         object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
         object.__setattr__(self, "generated_combination_case_ids", _as_tuple(self.generated_combination_case_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -294,7 +291,6 @@ class FamilyBadCaseSeed:
             "interaction_group_ids": list(self.interaction_group_ids),
             "observed_combination_case_id": self.observed_combination_case_id,
             "generated_combination_case_ids": list(self.generated_combination_case_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -317,7 +313,6 @@ class DerivedFamilyBadCase:
     interaction_group_ids: tuple[str, ...] = ()
     observed_combination_case_id: str = ""
     generated_combination_case_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     metadata: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -335,7 +330,6 @@ class DerivedFamilyBadCase:
         object.__setattr__(self, "interaction_group_ids", _as_tuple(self.interaction_group_ids))
         object.__setattr__(self, "observed_combination_case_id", str(self.observed_combination_case_id))
         object.__setattr__(self, "generated_combination_case_ids", _as_tuple(self.generated_combination_case_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "metadata", dict(self.metadata))
 
     def to_dict(self) -> dict[str, Any]:
@@ -354,7 +348,6 @@ class DerivedFamilyBadCase:
             "interaction_group_ids": list(self.interaction_group_ids),
             "observed_combination_case_id": self.observed_combination_case_id,
             "generated_combination_case_ids": list(self.generated_combination_case_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "metadata": to_jsonable(dict(self.metadata)),
         }
 
@@ -564,7 +557,6 @@ def derive_same_class_bad_cases(
                 interaction_group_ids=seed.interaction_group_ids,
                 observed_combination_case_id=seed.observed_combination_case_id,
                 generated_combination_case_ids=seed.generated_combination_case_ids,
-                coverage_receipt_ids=seed.coverage_receipt_ids,
                 metadata={"seed_id": seed.seed_id, **dict(seed.metadata)},
             )
         )
@@ -1175,7 +1167,6 @@ __all__ = [
     "FAMILY_CONFIDENCE_BLOCKED",
     "FAMILY_CONFIDENCE_FULL",
     "FAMILY_CONFIDENCE_SCOPED",
-    "FAMILY_EVIDENCE_PROVENANCE_CONTROLLER_RECEIPT_FOLDED",
     "FAMILY_EVIDENCE_PROVENANCE_DERIVED_FROM_CACHE",
     "FAMILY_EVIDENCE_PROVENANCE_DURABLE_RECONCILIATION",
     "FAMILY_EVIDENCE_PROVENANCE_MANUAL_EVENT",

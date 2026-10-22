@@ -110,7 +110,6 @@ BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE = '''{
         "evidence": {
           "code_contract_ids": [],
           "coverage_case_ids": [],
-          "coverage_receipt_ids": [],
           "coverage_shard_ids": [],
           "current": false,
           "evidence_state": "missing",

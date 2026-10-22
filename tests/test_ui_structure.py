@@ -4218,7 +4218,6 @@ class UIContentVisibilityTests(unittest.TestCase):
                         oracle_status=CONTRACT_ORACLE_NEEDS_HUMAN_REVIEW,
                     ),
                 ),
-                require_model_coverage_receipt=True,
                 coverage_universe=ContractCoverageUniverse(
                     "ui-content-admission-universe",
                     claim_scope="finite-matrix",
@@ -4228,7 +4227,6 @@ class UIContentVisibilityTests(unittest.TestCase):
                     ),
                     required_axis_ids=axis_ids,
                     required_interaction_group_ids=("content-admission",),
-                    required_coverage_receipt_ids=("contract_coverage:ui_flow_structure_skill",),
                 ),
                 require_coverage_universe=True,
             )
@@ -4239,10 +4237,6 @@ class UIContentVisibilityTests(unittest.TestCase):
         self.assertEqual(
             ("contract_shard:ui_flow_structure_skill:content-admission",),
             contract_exhaustion_to_test_mesh_shard_ids(report),
-        )
-        self.assertEqual(
-            ("contract_coverage:ui_flow_structure_skill",),
-            tuple(receipt.receipt_id for receipt in report.coverage_receipts),
         )
 
     def test_content_visibility_matrix_executes_all_80_combinations(self):

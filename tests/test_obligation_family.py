@@ -270,7 +270,6 @@ class ObligationFamilyParityTests(unittest.TestCase):
                     "cartesian:packet-router:packet-evidence-contract:1",
                     "cartesian:packet-router:packet-evidence-contract:2",
                 ),
-                coverage_receipt_ids=("contract_coverage:packet-router",),
             ),
         )
 
@@ -280,7 +279,6 @@ class ObligationFamilyParityTests(unittest.TestCase):
             "cartesian:packet-router:packet-evidence-contract:1",
             cases[0].observed_combination_case_id,
         )
-        self.assertEqual(("contract_coverage:packet-router",), cases[0].coverage_receipt_ids)
 
 if __name__ == "__main__":
     unittest.main()

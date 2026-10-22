@@ -51,7 +51,6 @@ from flowguard import (
     artifact_payload_cases_to_contract_cases,
     contract_fault_profiles_from_report,
     contract_exhaustion_to_composite_handoff_acceptance_ids,
-    contract_exhaustion_to_coverage_receipt_ids,
     contract_exhaustion_to_model_obligations,
     contract_exhaustion_to_test_mesh_cell_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
@@ -214,14 +213,12 @@ class ContractExhaustionTests(unittest.TestCase):
                         axis_ids=("packet_status", "evidence_path"),
                     ),
                 ),
-                require_model_coverage_receipt=True,
             )
         )
 
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(4, len(report.combination_cases))
         self.assertEqual(4, len([case for case in report.generated_cases if case.mutation_type == CONTRACT_MUTATION_CARTESIAN_COMBINATION]))
-        self.assertEqual(("contract_coverage:packet-router",), contract_exhaustion_to_coverage_receipt_ids(report))
         self.assertEqual(("contract_shard:packet-router:packet-evidence-contract",), contract_exhaustion_to_test_mesh_shard_ids(report))
         self.assertTrue(all(case.model_id == "packet-router" for case in report.combination_cases))
         self.assertTrue(set(report.required_combination_case_ids).issubset(set(contract_exhaustion_to_test_mesh_cell_ids(report))))
@@ -250,7 +247,6 @@ class ContractExhaustionTests(unittest.TestCase):
                     ),
                 ),
                 cartesian_case_limit=5,
-                require_model_coverage_receipt=True,
             )
         )
 
@@ -344,29 +340,6 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertIn("contract_parent_interface_typed_contract_missing", finding_codes)
         self.assertIn("contract_parent_interface_axis_model_unbound", finding_codes)
 
-    def test_parent_receipt_blocks_when_required_child_receipt_is_not_consumed(self):
-        report = review_contract_exhaustion(
-            ContractExhaustionPlan(
-                "parent-receipt",
-                model_id="parent",
-                axes=(
-                    ContractAxis("child_summary", values=("pass",)),
-                    ContractAxis("parent_handoff", values=("consume",)),
-                ),
-                interaction_groups=(
-                    ContractInteractionGroup(
-                        "parent-consumes-child",
-                        axis_ids=("child_summary", "parent_handoff"),
-                    ),
-                ),
-                required_child_receipt_ids=("contract_coverage:child-a",),
-                consumed_child_receipt_ids=(),
-                require_model_coverage_receipt=True,
-            )
-        )
-
-        self.assertFalse(report.ok)
-        self.assertIn("contract_child_receipt_unconsumed", {finding.code for finding in report.findings})
 
     def test_unknown_oracle_blocks_required_case(self):
         report = review_contract_exhaustion(
@@ -756,7 +729,6 @@ class ContractExhaustionTests(unittest.TestCase):
             {finding.code for finding in partitioned.findings},
         )
         self.assertTrue(partitioned.ok, partitioned.format_text())
-        self.assertNotIn("partition_group_coverage_incomplete", {f.code for f in partitioned.findings})
 
     def test_actionable_oracle_feedback_requires_message_and_repair_fields(self):
         report = review_contract_exhaustion(
@@ -837,14 +809,12 @@ class ContractExhaustionTests(unittest.TestCase):
                         axis_ids=("packet_status", "evidence_path"),
                     ),
                 ),
-                require_model_coverage_receipt=True,
                 coverage_universe=ContractCoverageUniverse(
                     "packet-universe",
                     required_dimension_ids=(),
                     required_axis_ids=("packet_status", "evidence_path"),
                     required_interaction_group_ids=("packet-evidence-contract",),
                     required_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
-                    required_coverage_receipt_ids=("contract_coverage:packet-router",),
                 ),
             )
         )
@@ -856,7 +826,6 @@ class ContractExhaustionTests(unittest.TestCase):
                     "real-miss-a",
                     matched_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
                     same_class_case_ids=("same_class:miss-a:packet-b:evidence-bind",),
-                    matched_coverage_receipt_ids=("contract_coverage:packet-router",),
                 ),
             ),
         )
@@ -878,7 +847,6 @@ class ContractExhaustionTests(unittest.TestCase):
         finding_codes = {finding.code for finding in blocked.findings}
         self.assertIn("observed_problem_case_missing", finding_codes)
         self.assertIn("observed_problem_same_class_case_missing", finding_codes)
-        self.assertIn("observed_problem_receipt_missing", finding_codes)
 
     def test_state_closure_and_scenario_matrix_feed_common_cases(self):
         state_cases = state_closure_cases_to_contract_cases(

@@ -78,7 +78,6 @@ def complete_plan():
         require_cartesian_coverage=True,
         coverage_case_ids=("ppa.core_no_fallback.submit_order.exception.legacy.primary_failure.return_success",),
         coverage_shard_ids=("contract_shard:primary_path_authority:core_no_fallback",),
-        coverage_receipt_ids=("contract_coverage:primary_path_authority",),
         risk_gate_ids=("risk_gate:primary_path_authority", "risk_gate:primary_path_authority_cartesian_coverage"),
         expected_business_intent_ids=(INTENT_ID,),
         expected_candidate_ids=("orders.submit.v1",),

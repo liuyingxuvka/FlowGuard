@@ -978,7 +978,6 @@ class BehaviorEvidenceBinding:
     risk_gate_ids: tuple[str, ...] = ()
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     evidence_state: str = BCL_EVIDENCE_MISSING
     test_mesh_state: str = BCL_TEST_MESH_SHARD_CURRENT
     current: bool = False
@@ -992,7 +991,6 @@ class BehaviorEvidenceBinding:
         object.__setattr__(self, "risk_gate_ids", _as_tuple(self.risk_gate_ids))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "evidence_state", str(self.evidence_state or BCL_EVIDENCE_MISSING))
         object.__setattr__(self, "test_mesh_state", str(self.test_mesh_state or BCL_TEST_MESH_SHARD_CURRENT))
         object.__setattr__(self, "current", bool(self.current))
@@ -1013,7 +1011,6 @@ class BehaviorEvidenceBinding:
             "risk_gate_ids": list(self.risk_gate_ids),
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "evidence_state": self.evidence_state,
             "test_mesh_state": self.test_mesh_state,
             "current": self.current,
@@ -1570,7 +1567,6 @@ class BehaviorCommitmentCoverageReport:
     required_risk_gate_ids: tuple[str, ...] = ()
     coverage_case_ids: tuple[str, ...] = ()
     coverage_shard_ids: tuple[str, ...] = ()
-    coverage_receipt_ids: tuple[str, ...] = ()
     behavior_inventory_id: str = ""
     behavior_inventory_fingerprint: str = ""
     missing_behavior_ids: tuple[str, ...] = ()
@@ -1597,7 +1593,6 @@ class BehaviorCommitmentCoverageReport:
         object.__setattr__(self, "required_risk_gate_ids", _as_tuple(self.required_risk_gate_ids))
         object.__setattr__(self, "coverage_case_ids", _as_tuple(self.coverage_case_ids))
         object.__setattr__(self, "coverage_shard_ids", _as_tuple(self.coverage_shard_ids))
-        object.__setattr__(self, "coverage_receipt_ids", _as_tuple(self.coverage_receipt_ids))
         object.__setattr__(self, "behavior_inventory_id", str(self.behavior_inventory_id))
         object.__setattr__(
             self,
@@ -1663,7 +1658,6 @@ class BehaviorCommitmentCoverageReport:
             "required_risk_gate_ids": list(self.required_risk_gate_ids),
             "coverage_case_ids": list(self.coverage_case_ids),
             "coverage_shard_ids": list(self.coverage_shard_ids),
-            "coverage_receipt_ids": list(self.coverage_receipt_ids),
             "behavior_inventory_id": self.behavior_inventory_id,
             "behavior_inventory_fingerprint": self.behavior_inventory_fingerprint,
             "missing_behavior_ids": list(self.missing_behavior_ids),
@@ -2523,7 +2517,6 @@ def review_behavior_commitment_ledger(
     required_risk_gate_ids: list[str] = []
     coverage_case_ids: list[str] = []
     coverage_shard_ids: list[str] = []
-    coverage_receipt_ids: list[str] = []
 
     for commitment in ledger.commitments:
         _review_commitment(
@@ -2536,7 +2529,6 @@ def review_behavior_commitment_ledger(
             required_risk_gate_ids,
             coverage_case_ids,
             coverage_shard_ids,
-            coverage_receipt_ids,
         )
     if project_root is not None:
         findings.extend(_commitment_anchor_findings(ledger, project_root))
@@ -2590,7 +2582,6 @@ def review_behavior_commitment_ledger(
         required_risk_gate_ids=tuple(dict.fromkeys(required_risk_gate_ids)),
         coverage_case_ids=tuple(dict.fromkeys(coverage_case_ids)),
         coverage_shard_ids=tuple(dict.fromkeys(coverage_shard_ids)),
-        coverage_receipt_ids=tuple(dict.fromkeys(coverage_receipt_ids)),
         behavior_inventory_id=(
             behavior_inventory_report.inventory_id
             if behavior_inventory_report is not None
@@ -2729,7 +2720,6 @@ def _review_commitment(
     required_risk_gate_ids: list[str],
     coverage_case_ids: list[str],
     coverage_shard_ids: list[str],
-    coverage_receipt_ids: list[str],
 ) -> None:
     if not commitment.in_scope:
         if not commitment.has_scoped_disposition():
@@ -2983,7 +2973,6 @@ def _review_commitment(
     required_risk_gate_ids.extend(commitment.evidence.risk_gate_ids)
     coverage_case_ids.extend(commitment.evidence.coverage_case_ids)
     coverage_shard_ids.extend(commitment.evidence.coverage_shard_ids)
-    coverage_receipt_ids.extend(commitment.evidence.coverage_receipt_ids)
 
 
 def _review_change_lifecycle(
@@ -3318,7 +3307,6 @@ def default_behavior_commitment_coverage_universe(
         claim_scope=claim_scope,
         required_axis_ids=tuple(axis.axis_id for axis in axes),
         required_interaction_group_ids=tuple(group.group_id for group in groups),
-        required_coverage_receipt_ids=(f"contract_coverage:{model_id}",),
         require_full_product=True,
         allow_partitioned_product=True,
         metadata={
@@ -3372,7 +3360,6 @@ def behavior_commitment_contract_exhaustion_plan(
         ),
         claim_scope=claim_scope,
         required_route_ids=("model_test_alignment", "test_mesh", PRIMARY_PATH_ROUTE_ID),
-        require_model_coverage_receipt=True,
         require_coverage_universe=True,
         metadata={
             # ContractExhaustionMesh owns finite matrix generation here.  The
