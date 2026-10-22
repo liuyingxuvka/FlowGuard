@@ -621,8 +621,9 @@ def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, m
 @pytest.mark.parametrize("mode,expected", [("clean", None), ("layer", "layer_violation"),
     ("cycle", "shortest cycle:"), ("no_layers", "no layers in the map"),
     ("duplicate", "duplicate_owner"), ("reserved", "reserved for the root node"),
-    ("broken_anchor", "the map does not match the code:")])
-def test_builtin_system_model(shop, capsys, mode, expected):
+    ("broken_anchor", "the map does not match the code:"),
+    ("uncaught_variant", "passed: the architecture rules do not catch it")])
+def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
     write(shop, "shop/orders.py", FIXED)
     write(shop, "shop/api.py", "from shop.orders import OrderService\ndef handle():\n    return OrderService()\n")
     data_path = shop / ".flowguard/map.json"
@@ -650,6 +651,9 @@ def test_builtin_system_model(shop, capsys, mode, expected):
     data_path.write_text(json.dumps(data))
     cli.main(["--root", str(shop), "confirm", "all"])
     capsys.readouterr()
+    if mode == "uncaught_variant":
+        from flowguard.map import system_model
+        monkeypatch.setattr(system_model, "structural_findings", lambda *args, **kwargs: [])
     code, output = models(shop, capsys, "system")
     assert code == (0 if mode in {"clean", "no_layers"} else 1)
     if code == 0:
