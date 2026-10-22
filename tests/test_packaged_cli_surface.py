@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import ast
 import json
+import errno
+import io
 import subprocess
 import sys
 
@@ -65,3 +67,37 @@ def test_cli_closed_output_pipe_is_quiet(tmp_path, command, read_first):
     stderr = proc.stderr.read().decode()
     assert proc.wait(timeout=30) == 0, stderr
     assert "BrokenPipeError" not in stderr
+
+
+@pytest.mark.parametrize("operation", ["write", "flush"])
+def test_windows_stdout_einval_is_a_closed_pipe(monkeypatch, operation):
+    from flowguard.map.common import quiet_broken_pipe
+
+    class ClosedOutput(io.StringIO):
+        def write(self, text):
+            if operation == "write":
+                raise OSError(errno.EINVAL, "closed Windows pipe")
+            return super().write(text)
+
+        def flush(self):
+            if operation == "flush":
+                raise OSError(errno.EINVAL, "closed Windows pipe")
+            return super().flush()
+
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "platform", "win32")
+        patch.setattr(sys, "stdout", ClosedOutput())
+        assert quiet_broken_pipe(lambda: print("output"))() == 0
+
+
+def test_quiet_pipe_does_not_swallow_command_einval(monkeypatch):
+    from flowguard.map.common import quiet_broken_pipe
+
+    def command():
+        raise OSError(errno.EINVAL, "invalid filesystem operation")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(sys, "platform", "win32")
+        patch.setattr(sys, "stdout", io.StringIO())
+        with pytest.raises(OSError, match="invalid filesystem"):
+            quiet_broken_pipe(command)()

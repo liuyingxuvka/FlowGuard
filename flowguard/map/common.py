@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import json
@@ -75,19 +76,50 @@ def safe_stdio() -> None:
             pass
 
 
+class _PipeOutput:
+    """Translate the Windows closed-pipe spelling only at stdout operations."""
+    def __init__(self, stream):
+        self.stream = stream
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
+
+    def _output(self, operation, *args):
+        try:
+            return getattr(self.stream, operation)(*args)
+        except OSError as exc:
+            if sys.platform == "win32" and exc.errno == errno.EINVAL:
+                raise BrokenPipeError("closed stdout pipe") from exc
+            raise
+
+    def write(self, text):
+        return self._output("write", text)
+
+    def flush(self):
+        return self._output("flush")
+
+
 def quiet_broken_pipe(command):
     """Exit quietly when a consumer closes stdout, including buffered final output."""
     @wraps(command)
     def run(*args, **kwargs):
+        original = sys.stdout
+        if sys.platform == "win32" and not isinstance(original, _PipeOutput):
+            sys.stdout = _PipeOutput(original)
+        output = sys.stdout
         try:
             try:
-                return command(*args, **kwargs)
-            finally:
-                sys.stdout.flush()
-        except BrokenPipeError:
-            # Prevent another buffered write during interpreter shutdown.
-            sys.stdout = open(os.devnull, "w")
-            return 0
+                try:
+                    return command(*args, **kwargs)
+                finally:
+                    sys.stdout.flush()
+            except BrokenPipeError:
+                # Prevent another buffered write during interpreter shutdown.
+                sys.stdout = open(os.devnull, "w")
+                return 0
+        finally:
+            if sys.stdout is output:
+                sys.stdout = original
     return run
 
 
