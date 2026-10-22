@@ -31,3 +31,4 @@ FlowGuard on itself.
   publishing are separate steps that need the maintainer's explicit request.
 
 - Source-equivalence and fingerprint byte comparisons must use `flowguard/map/common.py:normalize_newlines`, with LF and CRLF coverage.
+- CHANGELOG entries must describe user-visible changes in plain language, use the actual release date, and omit internal action IDs and branch names.
