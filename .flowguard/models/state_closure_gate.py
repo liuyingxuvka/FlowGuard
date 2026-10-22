@@ -127,6 +127,21 @@ class BrokenFullWithoutSafeHandling(CorrectStateClosureGate):
         yield from super().apply(input_obj, state)
 
 
+class BrokenFullWithoutGeneration(CorrectStateClosureGate):
+    name = "BrokenFullWithoutGeneration"
+
+    def apply(self, input_obj: StateClosureInput, state: StateClosureState) -> Iterable[FunctionResult]:
+        if (input_obj.action_type == "claim_full_confidence"
+                and state.safe_handling_declared and not state.side_effect_before_resolution):
+            yield FunctionResult(
+                StateClosureOutput("full_claim_accepted"),
+                replace(state, final_claim="full"),
+                label="full_claim_accepted",
+            )
+            return
+        yield from super().apply(input_obj, state)
+
+
 class BrokenSideEffectAccepted(CorrectStateClosureGate):
     name = "BrokenSideEffectAccepted"
 
@@ -217,10 +232,12 @@ def build_broken_workflows() -> tuple[Workflow, ...]:
         Workflow((BrokenMissingGeneration(),), name="state_closure_missing_generation"),
         Workflow((BrokenFullWithoutSafeHandling(),), name="state_closure_full_without_handling"),
         Workflow((BrokenSideEffectAccepted(),), name="state_closure_side_effect_accepted"),
+        Workflow((BrokenFullWithoutGeneration(),), name="state_closure_full_without_generation"),
     )
 
 
 __all__ = [
+    "BrokenFullWithoutGeneration",
     "EXTERNAL_INPUTS",
     "INVARIANTS",
     "MAX_SEQUENCE_LENGTH",
@@ -258,6 +275,8 @@ MODEL_ID = "state_closure_gate"
 COMPONENTS = ["engine-properties"]
 IMPLEMENTED_BY = {"Review": "flowguard/state_closure.py:review_state_closure"}
 TESTED_BY = {
+    "unknown_generates_representative_case": [
+        "tests/test_state_closure.py:test_inference_generates_unknown_cases_for_external_and_status_fields"],
     "full_claim_requires_safe_handling": [
         "tests/test_state_closure.py:test_explicit_open_boundary_with_safe_handling_passes"],
     "side_effect_blocks_full_claim": [
@@ -278,10 +297,11 @@ def build_explorer() -> Explorer:
 
 
 def broken_variants() -> dict:
-    missing_generation, without_handling, side_effect = build_broken_workflows()
+    missing_generation, without_handling, side_effect, without_generation = build_broken_workflows()
     return {missing_generation.name: _explorer(missing_generation, 2, ("unknown_case_generated",)),
             without_handling.name: _explorer(without_handling, 1),
-            side_effect.name: _explorer(side_effect, 1)}
+            side_effect.name: _explorer(side_effect, 1),
+            without_generation.name: _explorer(without_generation, 3)}
 
 
 def _clean_plan() -> StateClosurePlan:
