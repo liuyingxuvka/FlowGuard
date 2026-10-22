@@ -34,6 +34,7 @@ from pathlib import Path
 from .check import anchor_problems
 from .facts import AnchorWatch
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
+from .tree import build_tree
 from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
 
 DEFAULT_TIMEOUT = 300          # seconds per model
@@ -309,8 +310,12 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
     try:
         data = load_map(root)
     except MapError:
-        data = {}
+        data = {"components": []}
     registry = model_registry(root, data)
+    from .inventory import build_inventory
+    from .mapfile import ignore_patterns
+    inv = build_inventory(root, ignore_patterns(data))
+    tree = build_tree(root, data, inv)
     issues = [ModelResult(model="registry", file=issue.path, status="error",
                           problems=[f"{issue.code} {issue.path}: {issue.message}"])
               for issue in registry.issues]
@@ -320,23 +325,17 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
         message = f"unknown model id {mid!r}"
         component = next((c for c in data.get("components", []) if c["id"] == mid), None)
         if component:
-            bound = sorted(entry.id for entry in registry.entries if entry.path in component.get("models", []))
+            bound = [n.id for n in tree.models_for_component(mid)]
             message += f"; {mid!r} is a component id; registered model ids: {', '.join(bound) or '(none)'}"
         errors.append(ModelResult(model=mid, file="", status="error", problems=[message]))
     if errors:
         return errors + issues
     results = []
     own_files = {}
-    if any(entry.kind == "runner" for entry in registry.entries):
-        from .common import DEFAULT_IGNORE
-        from .inventory import build_inventory
-        from .mapfile import ignore_patterns
-        inv = build_inventory(root, ignore_patterns(data))
-        inv.set_explicit_sources([pattern for comp in data.get("components", []) for pattern in comp.get("files", [])])
-        for entry in registry.entries:
-            if entry.kind == "runner":
-                own_files[entry.path] = {f for c in data.get("components", [])
-                                        if entry.path in c.get("models", []) for f in component_files(c, inv)}
+    for entry in registry.entries:
+        if entry.kind == "runner":
+            own_files[entry.path] = {f for c in data.get("components", [])
+                                    if c["id"] in tree.nodes[entry.id].components for f in component_files(c, inv)}
     for entry in registry.entries:
         if ids and entry.id not in ids:
             continue

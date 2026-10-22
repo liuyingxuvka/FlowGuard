@@ -56,14 +56,26 @@ def build_explorer():
 '''
 
 
-def test_model_binding_is_required_for_components_and_implementation_owners(tmp_path):
+def test_model_components_come_from_the_model_file(tmp_path):
+    from flowguard.map.impact import compute_impact
+    from flowguard.map.tree import build_tree
+
     data = project(tmp_path)
     path = ".flowguard/models/one.py"
     write(tmp_path, path, CONTRACT)
-    assert "model_binding_missing" in {f.code for f in findings(tmp_path)}
-    data["components"][0]["models"] = [path]
+    assert not {"model_binding_missing", "model_unreferenced"} & {f.code for f in findings(tmp_path)}
+    write(tmp_path, "other.py", "def unrelated(): return 0\n")
+    data["components"].append({"id": "other", "files": ["other.py"], "models": [path], "status": "draft"})
     save(tmp_path, data)
-    assert "model_binding_missing" not in {f.code for f in findings(tmp_path)}
+    current, inv = _context(tmp_path)
+    tree = build_tree(tmp_path, current, inv)
+    assert tree.nodes["one"].components == {"app"}
+    assert [n.id for n in tree.models_for_component("app")] == ["one"]
+    assert tree.models_for_component("other") == []
+    listed = [f for f in findings(tmp_path) if f.code == "model_listed_unrelated"]
+    assert len(listed) == 1 and listed[0].level == "warn" and listed[0].component == "other"
+    assert "one" not in compute_impact(tmp_path, current, inv, ["other.py"]).model_ids
+    assert "one" in compute_impact(tmp_path, current, inv, ["app.py"]).model_ids
 
 
 def test_deleted_or_renamed_test_breaks_declared_model_test_link(tmp_path):

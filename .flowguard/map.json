@@ -119,7 +119,7 @@
       "layer": "interface",
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find)"
       ],
       "files": [
@@ -152,11 +152,9 @@
         "tests/test_packaged_cli_surface.py",
         "tests/test_public_templates.py"
       ],
-      "models": [
-        ".flowguard/models/component_pointer.py"
-      ],
+      "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:72a865dde27d153a11c1e19eed88d7f6a7a29858db9837e84311e29bdb667338"
+      "fingerprint": "sha256:3311651a2225d94190eaa3d06a681fd1b699621b7a8853bfc6cd82050ef5e494"
     },
     {
       "id": "public-api",
@@ -280,9 +278,7 @@
         "tests/test_primary_path_authority_field_matrix.py",
         "tests/test_product_language_path_reuse.py"
       ],
-      "models": [
-        ".flowguard/models/primary_path_authority.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:743f580f7ccc31455dca9afad8e7a22c1c986c1a1b97576e481f476de8605847"
     },
@@ -418,9 +414,7 @@
       "tests": [
         "tests/test_field_lifecycle.py"
       ],
-      "models": [
-        ".flowguard/models/check_plan_field_lifecycle.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:4b97725c942066896bb273cdccf9a84659b76ffb5e80228110246862e5c2fec1"
     },
@@ -516,11 +510,7 @@
         "tests/test_product_language_path_reuse.py",
         "tests/test_step_contracts.py"
       ],
-      "models": [
-        ".flowguard/models/code_boundary_conformance.py",
-        ".flowguard/models/contract_source_audit.py",
-        ".flowguard/models/model_test_code_alignment.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:b000b82722699e7dc13cbb94c7a54f6f119edfa4890630411dfb318e23a9b11b"
     },
@@ -546,9 +536,7 @@
       "tests": [
         "tests/test_topology_hazard.py"
       ],
-      "models": [
-        ".flowguard/models/model_topology_hazard_review.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:aaba10a6050abef10bea2244353b1f5b3629a50bc229cc45cb617a62d6757dcf"
     },
@@ -658,7 +646,7 @@
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
         "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting"
+        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings)"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -682,11 +670,9 @@
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_contracts.py"
       ],
-      "models": [
-        ".flowguard/models/component_pointer.py"
-      ],
+      "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:614656db80a2e2fb877455e75443ef6f399d6e17bb3550055447c115c8a8dcec"
+      "fingerprint": "sha256:eecf7eee2a4bb840348ba8f63e58e730cfaa39d62b5d5c90d445939c7dec816c"
     },
     {
       "id": "map-discover",
@@ -721,7 +707,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings",
+        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions"
@@ -752,18 +738,16 @@
         "tests/test_flowguard_map_discover.py",
         "tests/test_map_views.py"
       ],
-      "models": [
-        ".flowguard/models/component_pointer.py"
-      ],
+      "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0db33e26c6bda7a9229f34bb3278843fedfe969803ca79dea9186a959408f0ef"
+      "fingerprint": "sha256:4e57942c66d3128f7f89d5c946722502989a00200a2ad24d3f303afbad86c4cf"
     },
     {
       "id": "map-proof",
       "layer": "map",
       "summary": "Runs real model checks with finite process ownership and implementation anchors.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session"
       ],
@@ -793,7 +777,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:22b40da22c4d09d913ffcf583b7d3fdf0a3ff84fb6e48c344695405fd7395b13"
+      "fingerprint": "sha256:cd11ea238f364bd1f1dbcf12f1781a492b03ed3fb198c2fa2f923aa5ffc29e51"
     },
     {
       "id": "engine-explore",
@@ -832,9 +816,7 @@
         "tests/test_progress_core.py",
         "tests/test_scenario_matrix.py"
       ],
-      "models": [
-        ".flowguard/models/python_function_state_verification.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:d5595928df4da85591124a94decc6a12e3dff3338c079c2a591ee0dfade8b7e5"
     },
@@ -872,10 +854,7 @@
         "tests/test_runner.py",
         "tests/test_state_closure.py"
       ],
-      "models": [
-        ".flowguard/models/python_function_state_verification.py",
-        ".flowguard/models/state_closure_gate.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:168f8a165764bd4b9d6e4dd821da83576a118b9b37a795bb227c1591cbe2d9f3"
     },
@@ -938,9 +917,7 @@
         "tests/test_conformance_replay_success.py",
         "tests/test_model_kit.py"
       ],
-      "models": [
-        ".flowguard/models/python_function_state_verification.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:4f638a01b612472b454e5bcd4cf90636c3134ffd0a7a722422fbab7297cc56f7"
     },
@@ -990,11 +967,7 @@
         "tests/test_summary_report.py",
         "tests/test_template_packs.py"
       ],
-      "models": [
-        ".flowguard/models/check_plan_field_lifecycle.py",
-        ".flowguard/models/maintenance_obligation_memory.py",
-        ".flowguard/models/python_function_state_verification.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:68f5dd686c2f3c1b34dfffbb1da02f689b4f9a108a1a66be9881b6dc45fcd756"
     },
@@ -1087,9 +1060,7 @@
         "tests/test_shared_normalization.py",
         "tests/test_workflow_execution.py"
       ],
-      "models": [
-        ".flowguard/models/python_function_state_verification.py"
-      ],
+      "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:05c8de2e2f964b4d14795c05e048e34c90b24fe7b595bd666b9bcd7a01c89a68"
     },

@@ -11,7 +11,7 @@ FlowGuard keeps, next to the code and committed to git:
    effects), files, entrypoints, dependencies, tests and models. A confirmed component stores a
    fingerprint of its files; when the code changes it becomes STALE until it is re-read and confirmed.
 2. **Models**: executable `Input x State -> Set(Output x State)` models, either contract files
-   `.flowguard/models/<id>.py` or model runners `.../run_checks.py` listed in a component's `models`.
+   `.flowguard/models/<id>.py` linked by their literals, or runners `.../run_checks.py` registered in `models`.
    A model must pass for the intended design, FAIL for its known-bad variants, and stay bound to the
    real code (see Binding).
 
@@ -63,8 +63,8 @@ missed a bug" in `references/model_recipes.md`.
 ## Models for risky flows
 
 Retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions, multi-step
-flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), list it in
-the component's `models`, run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
+flows: write or update a model (`assets/model_template.py`, `references/model_recipes.md`), set its
+COMPONENTS (and PARENT when needed; register runners in `models`), run `python -m flowguard map models <MODEL_ID>` (runner: its directory id).
 Component ids select `read --component`; model ids select `map models`. Unknown model ids fail.
 `change` follows the complete caller closure; explicit `map impact --depth N` is truncated.
 Static Python/relative JS/TS imports and literal lazy exports are supported.

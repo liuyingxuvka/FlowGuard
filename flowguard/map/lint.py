@@ -20,6 +20,7 @@ from pathlib import Path
 from .common import Finding, read_source, tokens
 from .discover import discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
+from .tree import build_tree
 from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract
 
 @dataclass
@@ -206,8 +207,10 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
             out.append(Finding("info", "never_imported", owner.get(f, ""), f"{f} is not imported by any repo file (dead code or an entrypoint?)"))
     out.extend(discovery_findings(raw, data, inv))
     covered_by_model, not_modeled = model_coverage(root, data)
-    out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled))
-    out.extend(model_binding_notes(root, data))
+    tree = build_tree(root, data, inv)
+    out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
+        models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
+    out.extend(model_binding_notes(root, data, inv))
     # Legacy substring debts have no members field. Resolve their words against
     # the whole map, including components that have no finding of their own.
     component_ids = {c["id"] for c in comps}
@@ -228,10 +231,15 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     return out
 
 
-def model_binding_notes(root: Path, data: dict) -> list[Finding]:
+def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None) -> list[Finding]:
     """Non-gating binding notes: design-only models still to bind; models whose guarding tests are not named."""
     out: list[Finding] = []
-    tested = {m for c in data.get("components", []) if c.get("tests") for m in c.get("models", [])}
+    if inv is None:
+        from .inventory import build_inventory
+        from .mapfile import ignore_patterns
+        inv = build_inventory(root, ignore_patterns(data))
+    tree = build_tree(root, data, inv)
+    tested = {n.path for c in data.get("components", []) if c.get("tests") for n in tree.models_for_component(c["id"])}
     for entry in model_registry(root, data).entries:
         try:
             contract = read_model_contract(root / entry.path)
@@ -388,12 +396,14 @@ def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
 
 
 def entrypoint_coverage_findings(raw: dict, data: dict, inv: Inventory,
-                                 covered_by_model: dict[str, set[str]], *, not_modeled: set[str] | None = None) -> list[Finding]:
+                                 covered_by_model: dict[str, set[str]], *, not_modeled: set[str] | None = None,
+                                 models_by_component: dict[str, list[str]] | None = None) -> list[Finding]:
     """Reverse check dangerous declared entries against their existing model anchors or explicit reasons."""
     out = []
     dangerous = {"db", "network", "fs_write", "fs_delete"}
     for comp in data["components"]:
-        covered = set().union(*(covered_by_model.get(model, set()) for model in comp.get("models", [])))
+        paths = models_by_component.get(comp["id"], []) if models_by_component is not None else comp.get("models", [])
+        covered = set().union(*(covered_by_model.get(model, set()) for model in paths))
         for anchor in comp.get("entrypoints", []):
             if anchor in covered or anchor in (not_modeled or set()):
                 continue

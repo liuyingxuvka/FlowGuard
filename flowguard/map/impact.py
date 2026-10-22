@@ -14,6 +14,8 @@ from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract
 
+from .tree import build_tree
+
 VERIFICATION_FIELDS = ("files", "entrypoints", "depends_on", "tests", "models", "state", "side_effects")
 
 
@@ -101,13 +103,14 @@ def _comment_only(root: Path, base: str | None, path: str) -> bool:
         return False
 
 
-def _binding_indexes(data: dict) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
+def _binding_indexes(data: dict, tree=None) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     tests: dict[str, set[str]] = defaultdict(set)
     models: dict[str, set[str]] = defaultdict(set)
     for comp in data.get("components", []):
         for pat in comp.get("tests", []):
             tests[pat].add(comp["id"])
-        for path in comp.get("models", []):
+        paths = [n.path for n in tree.models_for_component(comp["id"])] if tree is not None else comp.get("models", [])
+        for path in paths:
             models[path].add(comp["id"])
     return tests, models
 
@@ -186,7 +189,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             reverse[dst].add(src)
     for src, dst in terminal:
         reverse_terminal[dst].add(src)
-    test_bindings, model_bindings = _binding_indexes(data)
+    tree = build_tree(root, data, inv)
+    test_bindings, model_bindings = _binding_indexes(data, tree)
     old_tests, old_models = _binding_indexes(previous or {})
     registry = model_registry(root, data)
     registered = {entry.path: entry for entry in registry.entries}
@@ -293,8 +297,10 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 continue
             owner_tests[cid].update(f for f in inv.tests
                                     if any(glob_match(f, pat) for pat in comp.get("tests", [])))
-            owner_models[cid].update(path for path in comp.get("models", [])
-                                     if comp is by_id.get(cid) or (root / path).is_file())
+            if comp is by_id.get(cid):
+                owner_models[cid].update(n.path for n in tree.models_for_component(cid))
+            else:
+                owner_models[cid].update(path for path in comp.get("models", []) if (root / path).is_file())
         tests.update(owner_tests[cid])
         selected_model_paths.update(owner_models[cid])
     for model in selected_model_paths:
@@ -304,9 +310,11 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     id_counts: dict[str, int] = defaultdict(int)
     for entry in registry.entries:
         id_counts[entry.id] += 1
+    duplicate_ids = {mid for mid, count in id_counts.items() if count > 1}
+    blocked.extend(f"executable model id {mid!r} is duplicated; resolve its binding" for mid in sorted(duplicate_ids))
     for model in sorted(selected_model_paths):
-        if model in registered and id_counts[registered[model].id] > 1:
-            blocked.append(f"{model}: executable model id {registered[model].id!r} is duplicated; resolve its binding")
+        if model in registered and registered[model].id in duplicate_ids:
+            continue
         elif model not in registered:
             details = [issue.message for issue in registry.issues if issue.path == model]
             blocked.append(f"{model}: " + ("; ".join(details) or "selected model is missing or is not an executable registered model"))

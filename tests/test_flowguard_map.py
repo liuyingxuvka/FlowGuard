@@ -288,7 +288,7 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
         changed = changed_files(root, "HEAD")
         assert {"shop/storage.py", "shop/persist.py"} <= set(changed)
     elif change == "mapping":
-        write(root, ".flowguard/models/new_storage.py", "MODEL_ID = 'new-storage-proof'\ndef build_explorer():\n    pass\n")
+        write(root, ".flowguard/models/new_storage.py", "MODEL_ID = 'new-storage-proof'\nCOMPONENTS = ['storage']\ndef build_explorer():\n    pass\n")
         data["components"][2]["models"] = [".flowguard/models/new_storage.py"]
         save(root, data)
         changed = [".flowguard/map.json"]

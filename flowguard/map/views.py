@@ -9,12 +9,14 @@ from pathlib import Path
 
 from .common import read_source, tokens
 from .inventory import Inventory
+from .tree import build_tree
 from .mapfile import component_files, component_graph, is_stale, owner_index
 
 
 def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int) -> str:
     budget = max(0, budget)
     graph = component_graph(data, inv)
+    tree = build_tree(root, data, inv)
     comps = data["components"]
     if component:
         comps = [c for c in comps if c["id"] == component or c["id"].startswith(component + ".")]
@@ -43,9 +45,12 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))
         if component or detail:
-            for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests"), ("models", "models")):
+            for key, label in (("entrypoints", "entry"), ("files", "files"), ("tests", "tests")):
                 if c.get(key):
                     lines.append(f"  {label}: " + ", ".join(c[key]))
+            models = [n.path for n in tree.models_for_component(c["id"])]
+            if models:
+                lines.append("  models: " + ", ".join(models))
             users = sorted(k for k, v in graph.items() if c["id"] in v)
             if users:
                 lines.append("  used by: " + ", ".join(users))

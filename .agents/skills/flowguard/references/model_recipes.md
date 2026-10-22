@@ -129,7 +129,7 @@ counterexample (features, expected and observed verdict) for each one that disag
 tests instead of a domain; their templates write `.flowguard/models/owners/<name>/model.py`
 and `.flowguard/verification/owners/<name>/run_checks.py`; a runner declares `IMPLEMENTED_BY` (and
 `TESTED_BY`) at top level and follows the same anchor rule. Template code and test anchors contain `REPLACE_ME`
-and fail until you name your code and tests. List the model or runner in the owning component's `models` and run
+and fail until you name your code and tests. Set COMPONENTS (and PARENT when refining a model) for contracts; list only runners in the owner's `models`. Run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
 broken plans are rejected. A runner should print one line per case, return a non-zero exit code
 when any case disagrees with its expectation, and end with `raise SystemExit(run_owner(main))`

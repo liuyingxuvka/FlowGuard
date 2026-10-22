@@ -81,7 +81,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         out.append(Finding("error", issue.code, "", f"{issue.path}: {issue.message}"))
 
     from .tree import build_tree
-    out.extend(build_tree(root, data, inv).findings)
+    tree = build_tree(root, data, inv)
+    out.extend(tree.findings)
 
     for flow in data.get("flows", []):
         for step in flow.get("steps", []):
@@ -97,8 +98,6 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         if flow.get("model") and not (root / flow["model"]).is_file():
             out.append(Finding("error", "model_missing", "", f"flow {flow['id']}: model file {flow['model']} missing"))
 
-    referenced = {m for c in data["components"] for m in c.get("models", [])}
-    referenced |= {f["model"] for f in data.get("flows", []) if f.get("model")}
     for entry in registry.entries:              # contract models and runners: one binding rule
         rel = entry.path
         path = root / rel
@@ -110,8 +109,6 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         if entry.kind == "contract":
             if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
                 out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
-            if rel not in referenced:
-                out.append(Finding("warn", "model_unreferenced", "", f"{rel} is not listed in any component's models"))
         if not contract.get("DESIGN_ONLY"):
             if not contract.get("IMPLEMENTED_BY"):
                 out.append(Finding("error", "model_anchor_missing", "",
@@ -124,13 +121,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         for comp_id in contract.get("COMPONENTS", []):
             if comp_id not in by_id:
                 out.append(Finding("error", "model_component_unknown", "", f"{rel}: COMPONENTS names unknown {comp_id!r}"))
-        required_owners = set(contract.get("COMPONENTS", []))
-        required_owners.update(owner.get(anchor.split(":", 1)[0])
-                              for anchor in contract.get("IMPLEMENTED_BY", {}).values())
-        for cid in sorted(required_owners - {None}):
-            if cid in by_id and rel not in by_id[cid].get("models", []):
-                out.append(Finding("error", "model_binding_missing", cid,
-                                   f"{rel}: add this model to models of its COMPONENTS/IMPLEMENTED_BY owner {cid}"))
+        node = tree.nodes.get(entry.id)
+        if entry.kind == "contract" and node:
+            for cid, comp in by_id.items():
+                if rel in comp.get("models", []) and cid not in node.components:
+                    out.append(Finding("warn", "model_listed_unrelated", cid,
+                                       f"{rel} is listed here but its COMPONENTS, IMPLEMENTED_BY and PARENT "
+                                       "do not place it here; remove it from models"))
         for invariant, anchors in contract.get("TESTED_BY", {}).items():
             for anchor in anchors:
                 problem = anchor_problem(root, inv, anchor)
@@ -186,6 +183,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
     from .discover import discover_inventory
     from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage
     covered, not_modeled = model_coverage(root, data, registry)
-    entry_findings = entrypoint_coverage_findings(discover_inventory(root, inv), data, inv, covered, not_modeled=not_modeled)
+    entry_findings = entrypoint_coverage_findings(discover_inventory(root, inv), data, inv, covered, not_modeled=not_modeled,
+        models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
     return out
