@@ -60,6 +60,8 @@ missed a bug" in `references/model_recipes.md`.
 | test-mesh | the whole test suite is too slow to run in one command (shard runner) |
 | ui-flow | UI states, journeys, controls, cancel/recover, operability |
 
+Use `python -m flowguard read --mermaid` for the tree diagram; append `--component ID` to focus it.
+
 ## Models for risky flows
 
 Retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions, multi-step

@@ -119,7 +119,7 @@
       "layer": "interface",
       "summary": "Daily commands, model execution and template dispatch.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find)"
       ],
       "files": [
@@ -154,7 +154,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3311651a2225d94190eaa3d06a681fd1b699621b7a8853bfc6cd82050ef5e494"
+      "fingerprint": "sha256:8c55efe03a08d09ed84c136adb1c5c1820cf933e1cf7a9114ab66cb97a61df2f"
     },
     {
       "id": "public-api",
@@ -646,7 +646,7 @@
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model",
         "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings)"
+        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -672,7 +672,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:eecf7eee2a4bb840348ba8f63e58e730cfaa39d62b5d5c90d445939c7dec816c"
+      "fingerprint": "sha256:a9d2584447104deb9039a2d2b1af672067c5f946f1fc088e25cc1ce88789725d"
     },
     {
       "id": "map-discover",
@@ -710,7 +710,7 @@
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show the map as one tree: system, components, their problems and model subtrees"
+        "rank behavior owners, prioritizing exact symbol definitions; show the map as one tree: system, components, their problems and model subtrees; export the same tree as Mermaid"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -740,7 +740,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0c83d89104590e9a92e6e317afb9c956f93e4368b516b8121a9c9a1517c26f86"
+      "fingerprint": "sha256:9bdbd8dab9b4c7d00f9a84fd1ab0751dec55866d00b2a3fdac51f5b75236e703"
     },
     {
       "id": "map-proof",

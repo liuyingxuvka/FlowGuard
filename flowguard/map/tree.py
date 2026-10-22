@@ -24,6 +24,7 @@ class ModelNode:
     import_files: set[str] = field(default_factory=set)
     contract: dict = field(default_factory=dict)
     components: set[str] = field(default_factory=set)
+    home_kind: str = "system"
 
 
 @dataclass
@@ -140,16 +141,17 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
         node.parent, node.parent_kind, node.source = default_parent(node, allow_model=False)
     for node in nodes.values():
         top = nodes[tree.ancestors(node.id)[-1]] if tree.ancestors(node.id) else node
-        node.home = top.parent if top.parent_kind == "component" and top.parent in components else "system"
+        node.home_kind = "component" if top.parent_kind == "component" and top.parent in components else "system"
+        node.home = top.parent if node.home_kind == "component" else "system"
         node.components = set(node.contract.get("COMPONENTS", []))
         node.components.update(owner[a.split(":", 1)[0]] for a in node.contract.get("IMPLEMENTED_BY", {}).values()
                                if a.split(":", 1)[0] in owner)
-        if node.home in components:
+        if node.home_kind == "component":
             node.components.add(node.home)
         if node.kind == "runner":
             node.components.update(cid for cid, comp in components.items() if node.path in comp.get("models", []))
     for mid, code, message in pending_findings:
-        tree.findings.append(Finding("warn", code, nodes[mid].home if nodes[mid].home in components else "", message))
+        tree.findings.append(Finding("warn", code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 
     sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
     for node in nodes.values():
@@ -164,7 +166,7 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
             allowed = {path for cid in cids if cid in components for path in component_files(components[cid], inv)}
         for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
             if anchor.split(":", 1)[0] not in allowed:
-                tree.findings.append(Finding("warn", "child_outside_parent", node.home if node.home in components else "",
+                tree.findings.append(Finding("warn", "child_outside_parent", node.home if node.home_kind == "component" else "",
                     f"{node.path}: IMPLEMENTED_BY {anchor!r} is outside parent {node.parent!r}'s code"))
             if node.parent_kind == "model":
                 sibling_anchors[(node.parent, anchor)].append(node)
@@ -172,6 +174,6 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
         unique = {n.id: n for n in siblings}
         if len(unique) > 1:
             node = next(iter(unique.values()))
-            tree.findings.append(Finding("warn", "duplicate_child_owner", node.home if node.home in components else "",
+            tree.findings.append(Finding("warn", "duplicate_child_owner", node.home if node.home_kind == "component" else "",
                 f"model {parent!r}: children {', '.join(sorted(unique))} anchor the same IMPLEMENTED_BY {anchor!r}"))
     return tree

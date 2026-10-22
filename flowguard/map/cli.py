@@ -31,7 +31,7 @@ from .lint import Limits, run_lint
 from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
 from .proof import render_results, run_models
 from .scan import new_map
-from .views import defined_symbols, find_owners, render_digest, render_show
+from .views import defined_symbols, find_owners, render_digest, render_mermaid, render_show
 
 
 def _context(root: Path, with_bodies: bool = True):
@@ -90,7 +90,8 @@ def cmd_discover(root: Path, a) -> int:
 
 def cmd_show(root: Path, a) -> int:
     data, inv = _context(root, with_bodies=False)
-    text = render_show(root, data, inv, component=a.component, detail=a.detail, budget=a.budget)
+    text = render_mermaid(root, data, inv, component=a.component) if getattr(a, "mermaid", False) else render_show(
+        root, data, inv, component=a.component, detail=a.detail, budget=a.budget)
     print(text)
     return 1 if text.startswith("no component") else 0
 
@@ -267,6 +268,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("discover"); s.add_argument("--component"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("show"); s.add_argument("--component"); s.add_argument("--detail", action="store_true")
     s.add_argument("--budget", type=int, default=8000, help="max characters printed")
+    s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s.add_argument("--max-lines", type=int, default=60, help="max outline lines per file")

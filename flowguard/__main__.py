@@ -31,6 +31,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         group = p.add_mutually_exclusive_group()
         group.add_argument("--component", help="show one component in detail")
         group.add_argument("--find", nargs="+", metavar="WORD", help="which component owns this responsibility")
+        p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
     elif verb == "change":
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
@@ -110,7 +111,10 @@ def main(argv: list[str] | None = None) -> int:
     if any(flag in rest for flag in ("--request", "--contract", "--owner-current")):
         print("This 0.69 workflow interface retired in 0.70.0; see references/upgrade_from_0_69.md", file=sys.stderr)
         return 2
-    ns = _verb_parser(verb).parse_args(rest)
+    parser = _verb_parser(verb)
+    ns = parser.parse_args(rest)
+    if verb == "read" and ns.mermaid and ns.find:
+        parser.error("--mermaid cannot be used with --find")
     if verb == "template":
         return _template(ns)
     root = ["--root", ns.root]
@@ -122,7 +126,8 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         if ns.find:
             return map_main([*root, "find", *ns.find])
-        return map_main([*root, "show", *(["--component", ns.component] if ns.component else [])])
+        return map_main([*root, "show", *(["--component", ns.component] if ns.component else []),
+                         *(["--mermaid"] if ns.mermaid else [])])
     if verb == "change":
         from .map.cli import cmd_change
         from .map.mapfile import MapError

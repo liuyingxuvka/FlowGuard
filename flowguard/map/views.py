@@ -36,7 +36,7 @@ def _model_lines(tree, ids: set[str], *, component: str | None = None, bindings:
     while pending:
         node, depth = pending.pop()
         count = sum(len(anchors) for anchors in node.contract.get("TESTED_BY", {}).values())
-        home = f" (home {node.home})" if component and node.home != component else ""
+        home = f" (home {node.home})" if component and (node.home_kind != "component" or node.home != component) else ""
         lines.append("  " * depth + f"model {node.id} [{node.kind}] tests: {count} bound{home}")
         if bindings:
             for invariant, anchors in sorted(node.contract.get("TESTED_BY", {}).items()):
@@ -67,7 +67,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else "")
         for flow in data.get("flows", [])]
     essential = "\n".join([head, *flows])
-    root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home == "system"})
+    root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"})
     top = "\n".join([essential, *root_models])
     blocks: list[tuple[str, str]] = []
     for c in comps:
@@ -96,7 +96,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                 ("cycle" if f.code == "dependency_cycle" else f.code) + (" (debt)" if f.level == "info" else "")
                 + ": " + f.message.partition(" (accepted debt:")[0] for f in problems[c["id"]]))
         models = {n.id for n in tree.models_for_component(c["id"])} if component or detail else {
-            n.id for n in tree.nodes.values() if n.home == c["id"]}
+            n.id for n in tree.nodes.values() if n.home_kind == "component" and n.home == c["id"]}
         lines.extend(_model_lines(tree, models, component=c["id"] if component or detail else None,
                                   bindings=bool(component or detail)))
         blocks.append((c["id"], "\n".join(lines)))
@@ -123,6 +123,58 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         named.append(cid)
     names = ", ".join(named) + (f" +{len(hidden) - len(named)} more" if len(named) < len(hidden) else "")
     return (shown + f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID")[:budget]
+
+
+def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | None = None) -> str:
+    """Export the same home/parent tree, with no dependency hairball or text budget."""
+    comps = [c for c in data["components"] if component is None or c["id"] == component]
+    if component and not comps:
+        return f"no component {component!r}; run 'python -m flowguard read' to list components"
+    tree = build_tree(root, data, inv)
+    _, _, problems = _architecture(data, component_graph(data, inv))
+    homes = {c["id"] for c in comps}
+    models = [node for node in tree.nodes.values() if
+              (node.home_kind == "component" and node.home in homes) or
+              (component is None and node.home_kind == "system")]
+    used = set()
+
+    def identifier(prefix, name):
+        base = prefix + re.sub(r"[^A-Za-z0-9_]", "_", name)
+        candidate, number = base, 1
+        while candidate in used:
+            number += 1
+            candidate = f"{base}_{number}"
+        used.add(candidate)
+        return candidate
+
+    def label(text):
+        return str(text).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "'").replace("\r", "").replace("\n", "<br/>")
+
+    components = {c["id"]: identifier("c_", c["id"]) for c in comps}
+    model_ids = {node.id: identifier("m_", node.id) for node in sorted(models, key=lambda n: n.id)}
+    lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {len(comps)} components"]']
+    groups = list(dict.fromkeys([*data.get("layers", []), *[c.get("layer", "") for c in comps]]))
+    for index, layer in enumerate(groups):
+        members = [c for c in comps if c.get("layer", "") == layer]
+        lines.append(f'  subgraph l_{index}["{label(layer or "unlayered")}"]')
+        for comp in members:
+            codes = sorted({("cycle" if f.code == "dependency_cycle" else f.code)
+                            + (" (debt)" if f.level == "info" else "") for f in problems.get(comp["id"], [])})
+            title = label(comp["id"]) + ("<br/>" + ", ".join(codes) if codes else "")
+            lines.append(f'    {components[comp["id"]]}["{title}"]')
+        lines.append("  end")
+    for node in sorted(models, key=lambda n: n.id):
+        lines.append(f'  {model_ids[node.id]}(["model {label(node.id)}"])')
+    lines.extend(f"  root_system --> {components[c['id']]}" for c in comps)
+    for node in sorted(models, key=lambda n: n.id):
+        if node.parent_kind == "model" and node.parent in model_ids:
+            parent = model_ids[node.parent]
+        elif node.parent_kind == "component" and node.parent in components:
+            parent = components[node.parent]
+        else:
+            parent = "root_system"
+        lines.append(f"  {parent} --> {model_ids[node.id]}")
+    return "\n".join(lines)
 
 
 def _find_words(words: set[str]) -> set[str]:
