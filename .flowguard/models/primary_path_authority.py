@@ -99,6 +99,7 @@ from flowguard import review_primary_path_authority  # noqa: E402
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "primary_path_authority"
+PARENT = "behavior-commitment"
 COMPONENTS = ["behavior-commitment"]
 IMPLEMENTED_BY = {"Review": "flowguard/primary_path_authority.py:review_primary_path_authority"}
 TESTED_BY = {"each_defect_rejected": [

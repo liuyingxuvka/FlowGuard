@@ -24,6 +24,7 @@ from flowguard.conformance import projected_output_matches, projected_state_matc
 from flowguard.explorer import Explorer
 
 MODEL_ID = "component_pointer"
+PARENT = "system"
 COMPONENTS = ["map-file", "map-analysis", "cli"]
 IMPLEMENTED_BY = {
     "Confirm": "flowguard/map/cli.py:cmd_confirm",

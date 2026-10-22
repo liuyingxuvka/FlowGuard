@@ -1,6 +1,6 @@
-"""FlowGuard rollout model for model/test/code contract alignment.
+"""Feature model of model/test/code contract alignment.
 
-Purpose: review the Model-Test Alignment upgrade that binds model obligations,
+Purpose: bind model obligations,
 owner code contracts, source audit, closure targets, and test evidence.
 Guards against: green alignment claims when a model obligation has no code
 contract, a code contract misses or adds external behavior, a test does not
@@ -10,6 +10,8 @@ owner-code replay evidence. It also keeps pre-code design separate from
 executed evidence and preserves bidirectional model/implementation
 traceability. Plane-aware obligations also block when
 product runtime, AI operation, and development-process evidence are mixed.
+Known-bad variants must violate these rules; conformance runs the real review
+on every allowed feature combination.
 
 Run:
 python -m flowguard map models model_test_code_alignment
@@ -198,6 +200,7 @@ __all__ = ["complete_plan"]
 # combination with the real model-test alignment review.  "pre_code_status=incomplete" is reported as a
 # code, so a defect that must not block the pre-code design (tests not run) is checked too.
 MODEL_ID = "model_test_code_alignment"
+PARENT = "model-test"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"Review": "flowguard/model_test_alignment.py:review_model_test_alignment"}
 TESTED_BY = {"each_defect_rejected": [

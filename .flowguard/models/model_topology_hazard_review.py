@@ -301,6 +301,7 @@ from flowguard.explorer import Explorer  # noqa: E402
 from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "model_topology_hazard_review"
+PARENT = "topology-hazard"
 COMPONENTS = ["topology-hazard"]
 IMPLEMENTED_BY = {"Digest": "flowguard/topology_hazard.py:infer_topology_digest",
                   "Review": "flowguard/topology_hazard.py:review_topology_hazards"}

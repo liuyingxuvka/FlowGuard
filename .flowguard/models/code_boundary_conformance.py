@@ -1,11 +1,13 @@
-"""FlowGuard rollout model for code boundary conformance.
+"""Feature model of code boundary conformance.
 
-Purpose: review the Model-Test Alignment upgrade that checks whether real code
+Purpose: check whether real code
 stays inside model-declared input/output boundaries.
 Guards against: accepting forbidden inputs, producing undeclared outputs,
 writing undeclared state, emitting undeclared side effects, trusting stale or
 internal-path-only boundary evidence, and claiming alignment without runtime
 boundary observations.
+Known-bad variants must violate these rules; conformance runs the real review
+on every allowed feature combination.
 
 Run:
 python -m flowguard map models code_boundary_conformance
@@ -110,6 +112,7 @@ def alignment_plan(observations) -> ModelTestAlignmentPlan:
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "code_boundary_conformance"
+PARENT = "model_test_code_alignment"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"BoundaryReview": "flowguard/model_test_alignment.py:review_code_boundary_conformance",
                   "AlignmentReview": "flowguard/model_test_alignment.py:review_model_test_alignment"}

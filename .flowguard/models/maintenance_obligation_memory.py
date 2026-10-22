@@ -325,6 +325,7 @@ from flowguard.explorer import Explorer  # noqa: E402
 from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "maintenance_obligation_memory"
+PARENT = "engine-runner"
 COMPONENTS = ["engine-runner"]
 IMPLEMENTED_BY = {"BuildReport": "flowguard/maintenance_obligation.py:build_maintenance_obligation_report"}
 TESTED_BY = {"anchored_obligation_routes_owner": [

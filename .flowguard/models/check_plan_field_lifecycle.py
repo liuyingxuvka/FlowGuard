@@ -14,6 +14,7 @@ from flowguard import (FIELD_DISPOSITION_DELETED, FIELD_IMPACT_STATE, FIELD_LIFE
                        field_lifecycle_code_facts, field_lifecycle_explorer, replace_field_row)
 
 MODEL_ID = "check_plan_field_lifecycle"
+PARENT = "system"
 COMPONENTS = ["engine-runner", "field-lifecycle"]
 IMPLEMENTED_BY = {"CheckPlan": "flowguard/plan.py:FlowGuardCheckPlan",
                   "Review": "flowguard/field_lifecycle.py:review_field_lifecycle"}

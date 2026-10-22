@@ -34,6 +34,7 @@ from flowguard.runner import run_model_first_checks
 from flowguard.workflow import Workflow
 
 MODEL_ID = "python_function_state_verification"
+PARENT = "system"
 COMPONENTS = ["engine-properties"]
 IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
                   "Replay": "flowguard/conformance.py:replay_trace",

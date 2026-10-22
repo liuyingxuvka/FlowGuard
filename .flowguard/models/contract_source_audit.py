@@ -1,10 +1,12 @@
-"""FlowGuard rollout model for Python contract source audit.
+"""Feature model of Python contract source audit.
 
 Purpose: review the source-audit layer that checks whether real Python code
 and real Python tests support declared model/test/code external contracts.
 Guards against: trusting declared CodeContract/TestEvidence rows when the code
 symbol is missing, inputs/outputs/state writes/side effects disagree, tests do
 not call the target code surface, or tests have no external assertion.
+Known-bad variants must violate these rules; conformance runs the real review
+on every allowed feature combination.
 
 Run:
 python -m flowguard map models contract_source_audit
@@ -63,6 +65,7 @@ def test_submit_order():
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants  # noqa: E402
 
 MODEL_ID = "contract_source_audit"
+PARENT = "model_test_code_alignment"
 COMPONENTS = ["model-test"]
 IMPLEMENTED_BY = {"AuditCode": "flowguard/model_test_alignment_source.py:audit_python_code_contracts",
                   "AuditTests": "flowguard/model_test_alignment_source.py:audit_python_test_assertions",

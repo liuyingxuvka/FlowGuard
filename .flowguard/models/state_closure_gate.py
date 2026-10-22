@@ -272,6 +272,7 @@ from flowguard.explorer import Explorer  # noqa: E402
 from flowguard.kit import Feature, feature_conformance  # noqa: E402
 
 MODEL_ID = "state_closure_gate"
+PARENT = "python_function_state_verification"
 COMPONENTS = ["engine-properties"]
 IMPLEMENTED_BY = {"Review": "flowguard/state_closure.py:review_state_closure"}
 TESTED_BY = {
