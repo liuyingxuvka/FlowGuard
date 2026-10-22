@@ -165,7 +165,8 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
                     f"{node.id} binds {path}, which is not in the tests of {', '.join(cids) or '(no components)'}; "
                     "list it there or bind a test that belongs to them"))
     for mid, code, message in pending_findings:
-        tree.findings.append(Finding("warn", code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
+        level = "error" if code in {"parent_unknown", "parent_cycle"} else "warn"
+        tree.findings.append(Finding(level, code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 
     sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
     for node in nodes.values():

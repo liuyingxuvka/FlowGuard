@@ -385,14 +385,20 @@ def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     assert not current.findings
 
     write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "nope"\n')
-    assert "parent_unknown" in {f.code for f in tree().findings}
+    assert next(f.level for f in tree().findings if f.code == "parent_unknown") == "error"
+    assert main(["map", "--root", str(tmp_path), "check"]) == 1
+    assert main(["release", "--root", str(tmp_path)]) == 1
+    assert main(["read", "--root", str(tmp_path)]) == 0
     assert tree().nodes["child"].parent == "parent"
     write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "app"\n')
     assert "parent_import_mismatch" in {f.code for f in tree().findings}
     write(tmp_path, ".flowguard/models/parent.py", parent + '\nPARENT = "child"\n')
     write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "parent"\n')
     current = tree()
-    assert "parent_cycle" in {f.code for f in current.findings}
+    assert next(f.level for f in current.findings if f.code == "parent_cycle") == "error"
+    assert main(["map", "--root", str(tmp_path), "check"]) == 1
+    assert main(["release", "--root", str(tmp_path)]) == 1
+    assert main(["read", "--root", str(tmp_path)]) == 0
     assert all(node.parent_kind != "model" for node in current.nodes.values())
     assert not current.ancestors("child")
 

@@ -177,6 +177,7 @@ when any case disagrees with its expectation, and end with `raise SystemExit(run
 ### Parent and child models
 
 `PARENT` may name a component, another model's `MODEL_ID`, or `"system"`.
+An unknown PARENT or a PARENT loop is an error; other nesting findings remain warnings.
 Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
 the first anchor's owner, a runner's first listed component, or `system`.
 Prefer a parent model importing its child's blocks to compose their behavior.
