@@ -243,7 +243,8 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
         parent_path = (root / tree.nodes[parent_id].path).resolve()
         # Reuse only this check's already-imported same-file parent module. _load
         # itself still executes fresh, and no Explorer or reachable set is cached.
-        candidates = [*vars(module).values(), *list(sys.modules.values())]
+        state_module = sys.modules.get(type(design.initial_states[0]).__module__) if design.initial_states else None
+        candidates = [state_module, *vars(module).values(), *list(sys.modules.values())]
         parent = next((m for m in candidates if isinstance(m, ModuleType)
                        and isinstance(filename := getattr(m, "__file__", None), str)
                        and Path(filename).resolve() == parent_path), None)

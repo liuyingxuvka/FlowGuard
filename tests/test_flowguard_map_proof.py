@@ -815,8 +815,9 @@ def test_bound_test_method_cannot_impersonate_a_top_level_anchor(shop, capsys):
     assert "tested_by_misses_anchor one_charge_per_order" in output
 
 
-@pytest.mark.parametrize('with_map', [True, False])
-def test_child_start_gap_warns_when_the_child_misses_parent_states(tmp_path, capsys, with_map):
+@pytest.mark.parametrize('with_map,parent_first', [(True, False), (False, False), (True, True)],
+                         ids=['map', 'no_map', 'from_import_after_parent'])
+def test_child_start_gap_warns_when_the_child_misses_parent_states(tmp_path, capsys, with_map, parent_first):
     from flowguard.map.proof import run_model
 
     write(tmp_path, 'counter.py', 'def increment(value):\n    return value + 1\n')
@@ -867,6 +868,30 @@ def conformance(): return parent.conformance()
         write(tmp_path, '.flowguard/map.json', json.dumps(dict(schema='flowguard.map.v1', components=[
             dict(id='counter', files=['counter.py'], tests=['tests/test_counter.py'], models=[], depends_on=[],
                  status='draft', summary='Counter', responsibilities=['increment a counter'])])))
+    if parent_first:
+        import sys
+
+        path.write_text(child.replace('import parent',
+            'from parent import State, make_explorer, broken_variants as parent_variants, conformance as parent_conformance')
+            .replace('parent.State()', 'State()').replace('parent.make_explorer(', 'make_explorer(')
+            .replace('parent.broken_variants()', 'parent_variants()')
+            .replace('parent.conformance()', 'parent_conformance()'))
+        script = '''import json, sys
+from dataclasses import asdict
+from pathlib import Path
+from flowguard.map.proof import run_model_in_process
+root = Path(sys.argv[1])
+parent = run_model_in_process(root, root / '.flowguard/models/parent.py')
+print(json.dumps(asdict(parent)), flush=True)
+child = run_model_in_process(root, root / '.flowguard/models/child.py')
+print(json.dumps(asdict(child)), flush=True)
+assert parent.status == child.status == 'pass', (parent, child)
+assert any('child_start_gap: 3 of 4' in warning for warning in child.warnings), child
+'''
+        result = subprocess.run([sys.executable, '-c', script, str(tmp_path)], cwd=tmp_path,
+                                capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        return
     code, output = models(tmp_path, capsys, 'counter_child')
     assert code == 0, output
     assert "child_start_gap: 3 of 4 states the parent 'counter_parent' reaches" in output
