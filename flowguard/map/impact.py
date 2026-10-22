@@ -242,8 +242,9 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 tests.update(linked_tests)
         if f.startswith((".flowguard/models/", ".flowguard/verification/")) and f.endswith(".py") \
                 and not bound_models and not old_bound_models:
-            if Path(f).parent.as_posix() == ".flowguard/models" and not Path(f).name.startswith("_"):
-                selected_model_paths.add(f)
+            if Path(f).parent.as_posix() == ".flowguard/models":
+                if not Path(f).name.startswith("_"):
+                    selected_model_paths.add(f)
             else:
                 blocked.append(f"{f}: no registered executable model/runner binding; declare its owner runner")
         if f not in inv.source and not f.startswith(".flowguard/models/") and f != ".flowguard/map.json":
@@ -258,6 +259,15 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 if f in text or Path(f).name in text:
                     referenced.add(t)
             tests.update(referenced)
+    top_model_files = [f for f in changed if Path(f).parent.as_posix() == ".flowguard/models" and f.endswith(".py")]
+    importers = {f: tree.importers(f) for f in top_model_files}
+    for f in top_model_files:
+        if f not in comment_only:
+            selected_model_paths.update(tree.nodes[mid].path for mid in importers[f])
+            if f in registered:
+                selected_model_paths.add(f)
+            if importers[f] or f in registered:
+                matched.add(f)
     if ".flowguard/map.json" in changed:
         if previous is None:
             if base is not None and subprocess.run(["git", "-C", str(root), "ls-files", "--error-unmatch", ".flowguard/map.json"],
@@ -306,6 +316,12 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     for model in selected_model_paths:
         if model in changed:
             tests.update(contract_tests.get(model, ()))
+    while True:
+        ancestors = {tree.nodes[mid].path for path in selected_model_paths if path in registered
+                     for mid in tree.ancestors(registered[path].id)}
+        if ancestors <= selected_model_paths:
+            break
+        selected_model_paths.update(ancestors)
     models = []
     id_counts: dict[str, int] = defaultdict(int)
     for entry in registry.entries:
@@ -342,7 +358,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     covered = {f for f, cids in matched_owners.items()
                if any(owner_tests[cid] & tests or owner_models[cid] & set(models) for cid in cids)}
     no_checks = [f for f in changed if f not in inv.source and f not in covered and f != ".flowguard/map.json"
-                 and not f.startswith(".flowguard/") and not any(
+                 and (not f.startswith(".flowguard/") or
+                      f in importers and Path(f).name.startswith("_") and not importers[f]) and not any(
                      f in read_source(root / t) or Path(f).name in read_source(root / t)
                      for t in tests if (root / t).is_file())]
     return Impact(

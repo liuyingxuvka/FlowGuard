@@ -708,7 +708,7 @@
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection",
-        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests",
+        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed model or model helper also selects every importing model and every ancestor model, without adding their tests",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions; show the map as one tree: system, components, their problems and model subtrees; export the same tree as Mermaid"
       ],
@@ -740,7 +740,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9bdbd8dab9b4c7d00f9a84fd1ab0751dec55866d00b2a3fdac51f5b75236e703"
+      "fingerprint": "sha256:33dfb640abea6fa377b21bfc1bffb0123a028447111375b3f205abc66bd9fec5"
     },
     {
       "id": "map-proof",
