@@ -319,7 +319,7 @@ def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     child = CONTRACT.replace('"one"', '"child"') + "\nfrom _shared import VALUE\n"
     write(tmp_path, ".flowguard/models/parent.py", parent)
     write(tmp_path, ".flowguard/models/child.py", child)
-    write(tmp_path, ".flowguard/models/_shared.py", "import _leaf\nVALUE = 1\n")
+    write(tmp_path, ".flowguard/models/_shared.py", "PARENT = None\nimport _leaf\nVALUE = 1\n")
     write(tmp_path, ".flowguard/models/_leaf.py", "import _shared\n")
     contract = read_model_contract(tmp_path / ".flowguard/models/parent.py")
     assert contract.get("imports") == ["_shared", "child"]

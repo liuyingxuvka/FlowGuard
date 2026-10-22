@@ -160,10 +160,21 @@ def component_graph(data: dict, inv: Inventory) -> dict[str, set[str]]:
     return graph
 
 
+def top_level_imports(tree: ast.Module) -> list[str]:
+    """First module segments of ordinary, absolute imports at module scope."""
+    names = []
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            names.extend(alias.name.split(".")[0] for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            names.append(node.module.split(".")[0])
+    return sorted(set(names))
+
+
 def read_model_contract(path: Path) -> dict:
     """MODEL_ID / COMPONENTS / IMPLEMENTED_BY literals and defined hooks of a model file, without importing it."""
     tree = ast.parse(read_source(path))
-    found: dict = {"functions": [], "imports": []}
+    found: dict = {"functions": [], "imports": top_level_imports(tree)}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
@@ -171,11 +182,6 @@ def read_model_contract(path: Path) -> dict:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance"}:
             found["functions"].append(node.name)
-        elif isinstance(node, ast.Import):
-            found["imports"].extend(alias.name.split(".")[0] for alias in node.names)
-        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-            found["imports"].append(node.module.split(".")[0])
-    found["imports"] = sorted(set(found["imports"]))
     if "PARENT" in found and not (isinstance(found["PARENT"], str) and found["PARENT"].strip()):
         raise ValueError("PARENT must be a nonempty string")
     for key in ("IMPLEMENTED_BY", "NOT_MODELED"):

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import ast
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import Finding
+from .common import Finding, read_source
 from .inventory import Inventory
-from .mapfile import component_files, model_registry, owner_index, read_model_contract
+from .mapfile import component_files, model_registry, owner_index, read_model_contract, top_level_imports
 
 
 @dataclass
@@ -64,13 +65,19 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
     owner, _ = owner_index(data, inv)
     files = {p.stem: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")}
     contracts, imports = {}, {}
+    registered_paths = {entry.path for entry in registry.entries}
     for path in sorted(set(files.values()) | {e.path for e in registry.entries}):
         try:
-            contract = read_model_contract(root / path)
+            if path in registered_paths:
+                contract = read_model_contract(root / path)
+                names = contract["imports"]
+            else:
+                contract = {}
+                names = top_level_imports(ast.parse(read_source(root / path)))
         except (OSError, SyntaxError, ValueError, TypeError):
-            contract = {}                 # the registry/check owner reports malformed contracts
+            contract, names = {}, []      # the registry/check owner reports malformed contracts
         contracts[path] = contract
-        imports[path] = {files[name] for name in contract.get("imports", []) if name in files}
+        imports[path] = {files[name] for name in names if name in files}
     nodes = {}
     for entry in registry.entries:
         nodes.setdefault(entry.id, ModelNode(entry.id, entry.path, entry.kind, "system", "system", "default",
