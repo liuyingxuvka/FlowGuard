@@ -159,6 +159,8 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     assert f"{model_ids['audit.current']} --> {model_ids['audit-current']}" in text
     limited = render_mermaid(tmp_path, data, inv, component='a-b')
     assert 'a.b' not in limited and 'audit.current' in limited and 'audit-current' in limited
+    assert limited.count('subgraph ') == 1
+    assert 'empty layer' not in limited and 'unlayered' not in limited
     assert cli.main(['--root', str(tmp_path), 'show', '--mermaid', '--budget', '1']) == 0
     assert capsys.readouterr().out.startswith('flowchart TD\n')
     assert main(['read', '--root', str(tmp_path), '--mermaid', '--component', 'a-b']) == 0

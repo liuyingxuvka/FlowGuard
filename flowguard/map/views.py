@@ -153,7 +153,8 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     components = {c["id"]: identifier("c_", c["id"]) for c in comps}
     model_ids = {node.id: identifier("m_", node.id) for node in sorted(models, key=lambda n: n.id)}
     lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {len(comps)} components"]']
-    groups = list(dict.fromkeys([*data.get("layers", []), *[c.get("layer", "") for c in comps]]))
+    declared_layers = data.get("layers", []) if component is None else []
+    groups = list(dict.fromkeys([*declared_layers, *[c.get("layer", "") for c in comps]]))
     for index, layer in enumerate(groups):
         members = [c for c in comps if c.get("layer", "") == layer]
         lines.append(f'  subgraph l_{index}["{label(layer or "unlayered")}"]')
