@@ -25,6 +25,7 @@ file read as code facts (`flowguard.map.facts.CodeFacts`), during exploration or
 variant must violate the intended design's property. `map lint` warns when a model names no tests.
 
 Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
+Models import project code; for a src layout, first run `python -m pip install -e .` or set `PYTHONPATH`.
 
 ## Five steps
 
@@ -33,6 +34,7 @@ Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py
 3. State: a frozen dataclass with only the facts that affect future behavior or the invariant.
 4. Blocks: classes with `apply(input, state)` returning `FunctionResult(output, new_state, label=...)`
    for every possible branch (return more than one result for nondeterministic outcomes).
+   For an input invalid in this state, return an explicit ignored result such as `FunctionResult("ignored", state, label="ignored")`; `[]` is a dead branch.
    Never call network, clock, random or databases inside a model.
 5. Invariants that must hold in every reachable state, one broken variant per protected
    failure, and a conformance adapter.
@@ -89,6 +91,25 @@ model reject the escaped case and keep one real regression test:
 6. Add or update one regression test for the observed failure and list it in the owner's `tests`;
    fix the code; run `python -m flowguard change` and the tests and models it lists.
 
+## Grow a model
+
+Use this when `change` names a model in REVIEW, reports `model_writer_unbound`, or a task adds behavior to an already modeled component.
+
+1. **Reuse** when existing invariants already cover the new behavior: add its real tests to `TESTED_BY`.
+2. **Extend** for a new input or rule over the same state: add inputs, state fields or invariants to the existing model, plus a known-bad variant that violates the new rule.
+3. **Add a child** for an independent operation over the same state: write a child model and import its blocks into the parent; imports infer the parent.
+4. **New model** for a different boundary and state: follow Five steps above.
+5. After any choice, bind the new code in `IMPLEMENTED_BY`, cover its path in `conformance()`, and run `python -m flowguard change` and the listed models; importers and ancestors are selected too.
+
+## Split a model
+
+1. Move shared `State`, inputs, invariants and adapter into `_<name>_common.py`; underscore helpers are not models, and editing one reruns its importers.
+2. Give each operation a child model with its own blocks, anchors, known-bad variants and replay.
+3. Import child blocks into the parent and compose them sequentially. A block passes other operations' inputs through unchanged: `FunctionResult(inp, state, label="pass")`.
+4. Start children from the parent's bounded reachable states with `flowguard.kit.reachable_states(parent.build_explorer())`; use `project_parent_state` when state representations differ.
+5. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
+6. Run `python -m flowguard map models` so parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
+
 ## Conformance (model <-> code)
 
 When the changed contract depends on order, repeated inputs, state or side effects,
@@ -96,6 +117,8 @@ write an adapter with `reset(initial_state)`, `apply_step(step) -> ReplayObserva
 `observe_state()`, `observe_output()`. It calls the real code for `step.function_input` and
 projects the real state into the model's `State`. Replay only the traces that cover every
 modeled transition:
+
+If real code ends in an error, return an explicit observation such as `ReplayObservation(name, observed_output="error:<type>", observed_state=State(error="<type>"))`; model that error state and let invariants handle it, rather than returning a sentinel that breaks invariant unpacking.
 
 ```python
 from flowguard import replay_trace, select_covering_traces

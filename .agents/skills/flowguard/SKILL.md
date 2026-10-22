@@ -23,7 +23,7 @@ Install the engine only from GitHub: `python -m pip install "flowguard @ git+htt
 1. `python -m flowguard read` - the whole map (a few thousand tokens). Read it before opening source files. Business data stays read-only; disposable caches may update.
 2. Before adding behavior: `python -m flowguard read --find <words>`; extend the owner it names (it lists
    that owner's files, state and side effects). Create a new component only when nothing owns the
-   responsibility; for a new file, `change` names the component that owns the files next to it.
+   responsibility; for a new file, `read --find <words>` names candidate owners; add it to exactly one component's `files`.
 3. Open only the files of the components you touch: `python -m flowguard read --component <id>`.
 
 ## After editing code

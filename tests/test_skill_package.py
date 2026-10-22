@@ -23,6 +23,16 @@ SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## Wh
 
 
 class SkillPackageTests(unittest.TestCase):
+    def test_model_recipes_have_short_grow_and_split_sections(self) -> None:
+        text = (SKILL / "references" / "model_recipes.md").read_text(encoding="utf-8")
+        for title in ("Grow a model", "Split a model"):
+            heading = "## " + title
+            self.assertEqual(1, text.splitlines().count(heading))
+            section = text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
+            self.assertLessEqual(len(section.splitlines()), 30)
+        self.assertNotIn("names the component that owns the files next to it",
+                         (SKILL / "SKILL.md").read_text(encoding="utf-8"))
+
     def test_installation_docs_use_the_owner_github_only(self) -> None:
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
             self.assertIn("git+https://github.com/liuyingxuvka/FlowGuard.git", path.read_text(encoding="utf-8"))
