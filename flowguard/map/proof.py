@@ -309,9 +309,11 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
 
 
 def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) -> list[ModelResult]:
+    has_map = True
     try:
         data = load_map(root)
     except MapError:
+        has_map = False
         data = {"components": []}
     registry = model_registry(root, data)
     from .inventory import build_inventory
@@ -323,6 +325,8 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
               for issue in registry.issues]
     errors = []
     available = {entry.id for entry in registry.entries}
+    if has_map:
+        available.add("system")
     for mid in sorted(set(ids) - available):
         message = f"unknown model id {mid!r}"
         component = next((c for c in data.get("components", []) if c["id"] == mid), None)
@@ -343,6 +347,9 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
             continue
         path = root / entry.path
         results.append(run_runner(root, path, timeout, own_files.get(entry.path)) if entry.kind == "runner" else run_model(root, path, timeout))
+    if has_map and (not ids or "system" in ids):
+        from .system_model import run_system_model
+        results.append(run_system_model(root, data, inv))
     return results + issues
 
 

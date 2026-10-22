@@ -329,6 +329,11 @@ def test_abstract_model_with_empty_implemented_by_fails(shop, capsys):
 def test_non_python_anchor_is_a_warning_not_a_failure(shop, capsys):
     write(shop, "shop/orders.py", FIXED)
     write(shop, "web/cart.ts", "export function addItem(c, i) { return [...c, i]; }\n")
+    map_path = shop / ".flowguard/map.json"
+    data = json.loads(map_path.read_text())
+    data["components"].append(dict(data["components"][0], id="ui", summary="Cart interface",
+        responsibilities=["render shopping cart"], files=["web/cart.ts"], entrypoints=[], tests=[], models=[]))
+    map_path.write_text(json.dumps(data))
     _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
           'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Ui": "web/cart.ts:addItem"}')
     code, out = models(shop, capsys)
@@ -575,11 +580,14 @@ def test_unbound_models_are_errors_in_check(shop, capsys):
     assert "model_design_only" in capsys.readouterr().out
 
 
-def test_verify_no_models_prints_one_explicit_summary(tmp_path, capsys):
+def test_verify_without_user_models_runs_the_builtin_system(tmp_path, capsys):
     write(tmp_path, ".flowguard/map.json", json.dumps({
         "schema": "flowguard.map.v1", "project": "empty", "components": []}))
     assert cli.main(["--root", str(tmp_path), "verify"]) == 0
-    assert capsys.readouterr().out.count("no model proof") == 1
+    output = capsys.readouterr().out
+    assert output.count("models: 1 declared, 1 executed") == 1
+    assert "PASS  system" in output and "no model proof" not in output
+    assert "no known-bad variants could be generated" in output
 
 
 def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, monkeypatch):
@@ -608,3 +616,68 @@ def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, m
     assert 'verify: FAIL' in output
     assert captured[0].status == 'pass' and captured[0].uncovered_invariants == ['orders_are_unique']
     assert ModelResult(**{'model': 'legacy', 'file': 'legacy.py'}).uncovered_invariants == []
+
+
+@pytest.mark.parametrize("mode,expected", [("clean", None), ("layer", "layer_violation"),
+    ("cycle", "shortest cycle:"), ("no_layers", "no layers in the map"),
+    ("duplicate", "duplicate_owner"), ("reserved", "reserved for the root node"),
+    ("broken_anchor", "the map does not match the code:")])
+def test_builtin_system_model(shop, capsys, mode, expected):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, "shop/api.py", "from shop.orders import OrderService\ndef handle():\n    return OrderService()\n")
+    data_path = shop / ".flowguard/map.json"
+    data = json.loads(data_path.read_text())
+    data["layers"] = ["interface", "engine"]
+    orders = data["components"][0]
+    orders.update(files=["shop/orders.py", "shop/__init__.py"], layer="engine")
+    data["components"].append(dict(orders, id="api", layer="interface", summary="HTTP entry",
+        responsibilities=["receive checkout requests"], files=["shop/api.py"], depends_on=["orders"],
+        entrypoints=["shop/api.py:handle"], tests=[], models=[]))
+    # The root checks static consistency; it must never execute a registered user model.
+    model_path = shop / ".flowguard/models/order_placement.py"
+    model_path.write_text("raise AssertionError('system imported user model')\n" + MODEL_SOURCE.read_text())
+    if mode in {"layer", "cycle"}:
+        write(shop, "shop/orders.py", "from shop.api import handle\n" + FIXED)
+        orders["depends_on"] = ["api"]
+    if mode in {"cycle", "no_layers"}:
+        data["layers"] = []
+    if mode == "duplicate":
+        data["components"][1]["responsibilities"] = list(orders["responsibilities"])
+    if mode == "reserved":
+        model_path.write_text(model_path.read_text().replace('MODEL_ID = "order_placement"', 'MODEL_ID = "system"'))
+    if mode == "broken_anchor":
+        orders["entrypoints"] = ["shop/orders.py:absent"]
+    data_path.write_text(json.dumps(data))
+    cli.main(["--root", str(shop), "confirm", "all"])
+    capsys.readouterr()
+    code, output = models(shop, capsys, "system")
+    assert code == (0 if mode in {"clean", "no_layers"} else 1)
+    if code == 0:
+        assert "PASS  system" in output and "generated known-bad variant" not in output
+    if expected:
+        assert expected in output
+    if mode == "layer":
+        assert "shop/orders.py:1" in output
+
+
+def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
+    from flowguard.map import system_model
+    data = {"layers": ["top", "low"], "components": [
+        {"id": "a", "layer": "top", "responsibilities": ["receive requests"]},
+        {"id": "b", "layer": "low", "responsibilities": ["persist records"]}]}
+    graph = {"a": {"b"}, "b": set()}
+    variants = list(system_model._variants(data, graph))
+    assert {name for name, _, _ in variants} == {
+        "a_closes_cycle_with_b", "a_duplicates_b", "b_imports_a", "b_duplicates_a"}
+    assert all(any(f.level == "error" for f in system_model._rules(changed, edges))
+               for _, changed, edges in variants)
+    accepted = {**data, "accepted_debts": [
+        {"code": "dependency_cycle", "members": ["a", "b"], "reason": "existing cycle policy"},
+        {"code": "layer_violation", "reason": "existing boundary policy"},
+        {"code": "duplicate_owner", "reason": "existing shared responsibility"}]}
+    assert list(system_model._variants(accepted, graph)) == []
+    # A missing architecture rule is not evidence that a mutation was debt-accepted.
+    monkeypatch.setattr(system_model, "structural_findings", lambda *args, **kwargs: [])
+    remaining = list(system_model._variants(data, graph))
+    assert {name for name, _, _ in remaining} >= {"a_closes_cycle_with_b", "b_imports_a"}
+    assert any(not system_model._rules(changed, edges) for _, changed, edges in remaining)

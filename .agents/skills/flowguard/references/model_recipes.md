@@ -151,3 +151,6 @@ the first anchor's owner, a runner's first listed component, or `system`.
 Prefer a parent model importing its child's blocks to compose their behavior.
 FlowGuard adds `.flowguard/models` to `sys.path`; sibling imports need no path edits.
 Prefix helper files with `_` so they are not registered as executable models.
+
+`PARENT = "system"` places a cross-component model directly under the built-in system root.
+The root lives in the map, not in a user model file; its reserved id is `system`.

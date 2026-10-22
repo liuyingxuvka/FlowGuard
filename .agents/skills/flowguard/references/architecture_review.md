@@ -40,3 +40,8 @@ Review accepted debts at every release; delete the ones that are fixed.
 `flow_step_unreached` is an INFO hint from the static call graph. Higher-order calls and dynamic receivers can be unresolved; verify or reorder the declared journey. It does not block release.
 
 A cycle debt covers only its members; a grown cycle stays an ERROR and names the new members.
+
+`python -m flowguard map models system` runs the built-in root model without importing user models.
+Its invariants are cycle, layer and duplicate-owner rules; generated bad edges and claims must fail.
+It checks the map against code and reports unbound tests. Missing layers or unavailable variants warn.
+`release` includes this root model alongside the registered behavior models.

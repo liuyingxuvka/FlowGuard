@@ -150,23 +150,32 @@ def structural_findings(data: dict, graph: dict[str, set[str]], *,
     return out
 
 
+def duplicate_owner_findings(data: dict) -> list[Finding]:
+    """Exact responsibility-token claims, shared with the built-in root model."""
+    claims: dict[str, set[str]] = defaultdict(set)
+    for component in data["components"]:
+        for responsibility in component.get("responsibilities", []):
+            words = tokens(responsibility)
+            if words:
+                claims[" ".join(sorted(words))].add(component["id"])
+    return [Finding("error", "duplicate_owner", sorted(owners)[0],
+                    f"responsibility {key!r} is claimed by {sorted(owners)}")
+            for key, owners in sorted(claims.items()) if len(owners) > 1]
+
+
 def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None) -> list[Finding]:
     limits = limits or Limits()
     comps = data["components"]
     graph = component_graph(data, inv)
     out = structural_findings(data, graph, root=root, inv=inv)
 
-    claims: dict[str, set[str]] = defaultdict(set)
     rows = []
     for c in comps:
         for r in c.get("responsibilities", []):
             tok = tokens(r)
             if tok:
-                claims[" ".join(sorted(tok))].add(c["id"])
                 rows.append((c["id"], r, tok))
-    for key, owners in sorted(claims.items()):
-        if len(owners) > 1:
-            out.append(Finding("error", "duplicate_owner", sorted(owners)[0], f"responsibility {key!r} is claimed by {sorted(owners)}"))
+    out.extend(duplicate_owner_findings(data))
     for i, (ca, ra, ta) in enumerate(rows):
         for cb, rb, tb in rows[i + 1:]:
             if ca != cb:

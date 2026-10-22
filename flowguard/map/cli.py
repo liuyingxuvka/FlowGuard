@@ -251,6 +251,7 @@ def cmd_verify(root: Path, a) -> int:
               + ", ".join(f"{model}:{invariant}" for model, invariant in uncovered)
               + " (release needs a known-bad variant that breaks each invariant)")
     expected = {(entry.id, entry.path) for entry in registry.entries}
+    expected.add(("system", ".flowguard/map.json"))
     executed = [(result.model, result.file) for result in results]
     complete = len(executed) == len(set(executed)) and set(executed) == expected
     print(f"models: {len(expected)} declared, {len(executed)} executed" +
