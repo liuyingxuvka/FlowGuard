@@ -19,7 +19,7 @@ IMPLEMENTED_BY = {"CheckPlan": "flowguard/plan.py:FlowGuardCheckPlan",
                   "Review": "flowguard/field_lifecycle.py:review_field_lifecycle"}
 TESTED_BY = {"field_lifecycle_review_accepts": [
     "tests/test_field_lifecycle.py:test_old_field_unknown_disposition_blocks",
-    "tests/test_field_lifecycle.py:test_field_lifecycle_code_facts_compare_the_plan_with_the_code"]}
+    "tests/test_field_lifecycle.py:test_field_lifecycle_kit_explores_edits_with_the_review_as_invariant"]}
 OWNED_FILES = ["flowguard/explorer.py", "flowguard/report.py", "flowguard/plan.py", "flowguard/runner.py",
                "flowguard/export.py", "flowguard/summary_report.py"]
 

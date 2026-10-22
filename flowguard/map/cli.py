@@ -221,7 +221,7 @@ def cmd_confirm(root: Path, a) -> int:
 
 
 def cmd_models(root: Path, a) -> int:
-    results = run_models(root, a.ids, timeout=a.timeout)
+    results = run_models(root, a.ids, timeout=a.timeout, tests=a.tests)
     print(render_results(results))
     return 1 if any(r.status != "pass" for r in results) else 0
 
@@ -240,7 +240,7 @@ def cmd_verify(root: Path, a) -> int:
     for debt in debts:
         print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
     registry = model_registry(root, data)
-    results = run_models(root, [])
+    results = run_models(root, [], tests=True)
     if results:
         print(render_results(results))
     contracts = {(entry.id, entry.path) for entry in registry.entries if entry.kind == "contract"}
@@ -260,7 +260,7 @@ def cmd_verify(root: Path, a) -> int:
         print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete) + int(bool(uncovered))
     print(f"verify: {'PASS' if not failed else 'FAIL'}"
-          f" (map, lint and models only; tests not run; run {data.get('test_command') or 'python -m pytest -q'} separately)")
+           f" (only TESTED_BY tests ran; run {data.get('test_command') or 'python -m pytest -q'} separately for the full suite)")
     return 1 if failed else 0
 
 
@@ -298,6 +298,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
+    s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
     s.add_argument("--timeout", type=int, default=300, help="seconds per model")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
     for command in sub.choices.values():   # --root is accepted before or after the command

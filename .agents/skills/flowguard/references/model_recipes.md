@@ -154,3 +154,19 @@ Prefix helper files with `_` so they are not registered as executable models.
 
 `PARENT = "system"` places a cross-component model directly under the built-in system root.
 The root lives in the map, not in a user model file; its reserved id is `system`.
+
+### Run the bound tests
+
+`python -m flowguard map models --tests` checks each model's `TESTED_BY` tests;
+`python -m flowguard release` always includes this check. Without `--tests`,
+`map models` does not run tests. Each model uses one fresh pytest process.
+Every bound test, including each parameter case, must pass and call a Python
+`IMPLEMENTED_BY` body or explicitly read at least one anchored file during its
+own test call. Another test's calls, collection imports and import-loader reads
+do not supply that reach. A real body call or explicit read through a helper or
+conformance check in that same window does count.
+
+Only calls and reads in the same process are visible: subprocess-only tests miss
+the anchors. A weaker assertion that still calls the code cannot be detected.
+Non-Python test bindings and design-only models are warned about, not executed.
+Checking Python bindings requires pytest in the environment (`.[dev]` provides it).

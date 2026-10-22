@@ -685,3 +685,108 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
     remaining = list(system_model._variants(data, graph))
     assert {name for name, _, _ in remaining} >= {"a_closes_cycle_with_b", "b_imports_a"}
     assert any(not system_model._rules(changed, edges) for _, changed, edges in remaining)
+
+
+@pytest.mark.parametrize("mode,problem", [
+    ("call", None), ("empty", "tested_by_misses_anchor"), ("fail", "tested_by_failed"),
+    ("default", None), ("import_only", "tested_by_misses_anchor"), ("read_after_import", None),
+    ("subprocess", "tested_by_misses_anchor"), ("mixed", "tested_by_misses_anchor"),
+    ("parameter_miss", "tested_by_misses_anchor"), ("parameter_fail", "tested_by_failed"),
+    ("nested_conformance", None), ("initializer_body", None), ("initializer_read", None),
+    ("write_only", "tested_by_misses_anchor"),
+    ("class_method", None), ("subtest_fail", "tested_by_failed")])
+def test_tested_by_must_reach_the_anchored_code(shop, capsys, mode, problem):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, "shop/other.py", "def marker():\n    return 1\n")
+    model_path = shop / ".flowguard/models/order_placement.py"
+    source = MODEL_SOURCE.read_text().replace(
+        'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
+        'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Other": "shop/other.py:marker"}')
+    source += "\n_base_conformance = conformance\ndef conformance():\n    from shop.other import marker\n    assert marker() == 1\n    return _base_conformance()\n"
+    anchors = ["tests/test_orders.py:test_bound"]
+    call = "    from shop.orders import OrderService\n    assert OrderService().place('x', 1) == 'placed'\n"
+    header = "from pathlib import Path\nimport pytest\n"
+    body = "def test_bound():\n" + call
+    if mode in {"empty", "default"}:
+        body = "def test_bound():\n    assert True\n"
+    elif mode == "fail":
+        body += "    assert False, 'real pytest failure after actual anchor call'\n"
+    elif mode == "import_only":
+        body = "def test_bound():\n    import shop.orders\n    assert shop.orders.__name__ == 'shop.orders'\n"
+    elif mode == "read_after_import":
+        body = "def test_bound():\n    import shop.orders\n    assert 'def place' in (Path(__file__).parents[1] / 'shop/orders.py').read_text()\n"
+    elif mode == "subprocess":
+        body = "def test_bound():\n    import subprocess, sys\n    p = subprocess.run([sys.executable, '-c', \"from shop.orders import OrderService; print(OrderService().place('x',1))\"], capture_output=True, text=True, check=True)\n    assert p.stdout.strip() == 'placed'\n"
+    elif mode == "mixed":
+        body += "def test_empty():\n    assert True\n"
+        anchors.append("tests/test_orders.py:test_empty")
+    elif mode in {"parameter_miss", "parameter_fail"}:
+        body = "@pytest.mark.parametrize('hit', [True, False])\ndef test_bound(hit):\n"
+        body += ("    if hit:\n" + "\n".join("    " + line for line in call.rstrip().splitlines()) + "\n" if mode == "parameter_miss" else call + "    assert hit\n")
+    elif mode == "nested_conformance":
+        body = "def test_bound():\n    from flowguard.map.proof import run_model_in_process\n    root = Path(__file__).parents[1]\n    assert run_model_in_process(root, root / '.flowguard/models/order_placement.py').status == 'pass'\n"
+    elif mode == "initializer_body":
+        write(shop, "shop/__init__.py", "from .orders import OrderService\nassert OrderService().place('init',1) == 'placed'\n")
+        body = "def test_bound():\n    import shop\n    assert shop.__name__ == 'shop'\n"
+    elif mode == "initializer_read":
+        write(shop, "shop/__init__.py", "from pathlib import Path\nassert 'def place' in (Path(__file__).parent / 'orders.py').read_text()\n")
+        body = "def test_bound():\n    import shop\n    assert shop.__name__ == 'shop'\n"
+    elif mode == "write_only":
+        body = "def test_bound():\n    with (Path(__file__).parents[1] / 'shop/orders.py').open('a') as stream:\n        stream.write('\\n')\n    assert True\n"
+    elif mode == "class_method":
+        body = "class TestOrders:\n    def test_bound(self):\n" + "\n".join("    " + line for line in call.rstrip().splitlines()) + "\n"
+    elif mode == "subtest_fail":
+        body = "def test_bound(subtests):\n" + call + "    with subtests.test('real failure'):\n        assert False\n"
+    write(shop, "tests/test_orders.py", header + body)
+    model_path.write_text(source + "\nTESTED_BY = " + repr({"one_charge_per_order": anchors}) + "\n")
+    options = [] if mode == "default" else ["--tests"]
+    code, output = models(shop, capsys, "order_placement", *options)
+    assert code == (1 if problem else 0), output
+    if problem:
+        assert problem in output and "one_charge_per_order -> tests/test_orders.py:" in output
+    if mode == "parameter_miss":
+        assert "[False]" in output
+
+
+@pytest.mark.parametrize("hit", [True, False])
+def test_runner_bound_tests_observe_their_own_call(tmp_path, hit):
+    from flowguard.map.proof import run_runner
+
+    write(tmp_path, "app.py", "def run():\n    return 1\n")
+    write(tmp_path, "tests/test_app.py", "def test_app():\n" + (
+        "    import app\n    assert app.run() == 1\n" if hit else "    assert True\n"))
+    runner = tmp_path / ".flowguard/verification/owners/app/run_checks.py"
+    write(tmp_path, runner.relative_to(tmp_path).as_posix(),
+          "from flowguard.map.runner import run_owner\nimport app\n"
+          "from flowguard.explorer import Explorer\nfrom flowguard.workflow import Workflow\n"
+          "IMPLEMENTED_BY = {'App': 'app.py:run'}\n"
+          "TESTED_BY = {'app_result': ['tests/test_app.py:test_app']}\n"
+          "def main():\n    assert app.run() == 1\n"
+          "    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
+          "raise SystemExit(run_owner(main))\n")
+    result = run_runner(tmp_path, runner, tests=True)
+    assert result.status == ("pass" if hit else "fail"), result.problems
+    if not hit:
+        assert any("tested_by_misses_anchor app_result" in p for p in result.problems)
+
+
+def test_bound_tests_without_pytest_are_an_environment_error(shop, monkeypatch):
+    from flowguard.map import proof
+
+    write(shop, "shop/orders.py", FIXED)
+    path = shop / ".flowguard/models/order_placement.py"
+    path.write_text(MODEL_SOURCE.read_text() +
+                    "\nTESTED_BY = {'one_charge_per_order': ['tests/test_orders.py:test_bound']}\n")
+    write(shop, "tests/test_orders.py", "def test_bound():\n    assert True\n")
+    original = proof.run_isolated_process
+
+    def without_site(argv, **kwargs):
+        # The real child cannot import site-packages; do not fabricate its result.
+        if "flowguard.map.testreach" in argv:
+            argv = [argv[0], "-S", *argv[1:]]
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(proof, "run_isolated_process", without_site)
+    result = proof.run_model(shop, path, tests=True)
+    assert result.status == "error", result.problems
+    assert any("pytest is required to check TESTED_BY" in p for p in result.problems)

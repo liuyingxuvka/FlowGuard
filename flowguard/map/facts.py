@@ -40,22 +40,25 @@ def _module_files() -> set[str]:
 def _on_audit(event: str, args: tuple) -> None:
     if event != "open" or not _ACTIVE or not args or not isinstance(args[0], (str, bytes, os.PathLike)):
         return
-    watch = _ACTIVE[-1]
-    if watch._busy:
-        return
-    watch._busy = True
-    try:
-        real = os.path.realpath(os.fsdecode(args[0]))
-        if real in watch._files:
-            watch._opened.add(real)
-    finally:
-        watch._busy = False
+    for watch in list(_ACTIVE):
+        if watch is not _ACTIVE[-1] and not watch.test_call:
+            continue
+        if watch._busy:
+            continue
+        watch._busy = True
+        try:
+            real = os.path.realpath(os.fsdecode(args[0]))
+            if real in watch._files and (not watch.test_call or watch._explicit_read(args)):
+                watch._opened.add(real)
+        finally:
+            watch._busy = False
 
 
 class AnchorWatch:
     """Which IMPLEMENTED_BY anchors a model consulted while it ran: called (Python) or read (any file)."""
 
-    def __init__(self, root: str | Path, anchors: Iterable[str]) -> None:
+    def __init__(self, root: str | Path, anchors: Iterable[str], *, test_call: bool = False) -> None:
+        self.test_call = test_call
         self.anchors = sorted(set(anchors))
         self._symbols: dict[str, dict[str, str]] = {}    # real path -> {symbol: anchor}, Python only
         self._files: dict[str, set[str]] = {}            # real path -> anchors in that file
@@ -71,9 +74,29 @@ class AnchorWatch:
         self._by_code: dict[str, dict[str, str]] = {}
         self._busy = False
 
-    def _trace(self, frame, event, arg):
-        if event != "call":
-            return None
+    @staticmethod
+    def _explicit_read(args) -> bool:
+        mode = args[1] if len(args) > 1 else None
+        flags = args[2] if len(args) > 2 else 0
+        if isinstance(mode, str) and "r" not in mode and "+" not in mode:
+            return False
+        if mode is None and isinstance(flags, int) and flags & os.O_ACCMODE == os.O_WRONLY:
+            return False
+        frame = sys._getframe(1)
+        while frame is not None:
+            module = frame.f_globals.get("__name__", "")
+            if (module == __name__ and frame.f_code.co_name in {"_on_audit", "_explicit_read"}) \
+                    or module in {"io", "_io", "codecs"} or module.startswith("pathlib"):
+                frame = frame.f_back
+                continue
+            if module.startswith(("importlib._bootstrap", "_frozen_importlib", "_pytest.assertion.rewrite", "_pytest._code")) \
+                    or module == "linecache":
+                return False
+            # A user/helper body doing the read wins over a distant importer.
+            return True
+        return False
+
+    def _record_call(self, frame) -> None:
         code = frame.f_code
         symbols = self._by_code.get(code.co_filename)
         if symbols is None:
@@ -81,8 +104,18 @@ class AnchorWatch:
         if symbols:
             qualname = code.co_qualname
             for symbol, anchor in symbols.items():
-                if qualname == symbol or ("." not in symbol and qualname.startswith(symbol + ".")):
+                if (qualname == symbol or ("." not in symbol and qualname.startswith(symbol + "."))
+                        or (self.test_call and "." not in symbol and qualname.endswith("." + symbol))):
                     self.called.add(anchor)
+
+    def _trace(self, frame, event, arg):
+        if event != "call":
+            return None
+        self._record_call(frame)
+        if self in _ACTIVE:
+            for watch in _ACTIVE:
+                if watch is not self and watch.test_call:
+                    watch._record_call(frame)
         return None                       # never trace lines
 
     def __enter__(self) -> "AnchorWatch":
@@ -109,7 +142,7 @@ class AnchorWatch:
             sys.settrace(self._previous)
             threading.settrace(self._previous_thread)
         _ACTIVE.remove(self)
-        imported = _module_files() - self._before         # opened only to be imported: not a read
+        imported = set() if self.test_call else _module_files() - self._before
         self.read_files |= {f for f in self._opened if f not in imported}
 
     def consulted(self) -> set[str]:

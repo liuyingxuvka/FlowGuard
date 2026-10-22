@@ -26,6 +26,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -69,7 +70,7 @@ def _load(root: Path, path: Path):
     return module
 
 
-def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelResult:
+def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: bool = False) -> ModelResult:
     """Run one model in a fresh subprocess so imports and module state never leak between models."""
     package_parent = Path(__file__).resolve().parents[2]          # directory that contains 'flowguard/'
     env = dict(os.environ)
@@ -91,11 +92,87 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT) -> ModelRe
                            seconds=round(time.time() - started, 3))
     lines = [line for line in proc.stdout.splitlines() if line.startswith("{")]
     try:
-        return ModelResult(**json.loads(lines[-1]))
+        result = ModelResult(**json.loads(lines[-1]))
     except (IndexError, ValueError, TypeError):
         tail = (proc.stderr or proc.stdout)[-2000:]
         return ModelResult(model=path.stem, file=rel, status="error", problems=[f"model process crashed:\n{tail}"],
                            seconds=round(time.time() - started, 3))
+    if tests:
+        run_bound_tests(root, path, result, timeout=timeout)
+    return result
+
+
+def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT) -> None:
+    """Run a model's unique bound Python nodes once, then judge every actual item independently."""
+    from .inventory import parse_python
+
+    started = time.monotonic()
+    try:
+        contract = read_model_contract(path)
+        bindings = [(invariant, anchor) for invariant, anchors in contract.get("TESTED_BY", {}).items() for anchor in anchors]
+        if not bindings:
+            return
+        anchors = list(contract.get("IMPLEMENTED_BY", {}).values())
+        if contract.get("DESIGN_ONLY") or not anchors:
+            result.warnings.append("TESTED_BY reach not checked: DESIGN_ONLY or no IMPLEMENTED_BY anchors")
+            return
+        nodes, parsed = {}, {}
+        for invariant, anchor in bindings:
+            rel, _, symbol = anchor.partition(":")
+            if not rel.endswith(".py"):
+                result.warnings.append(f"TESTED_BY {anchor} is not a Python test: reach not checked")
+                continue
+            if rel not in parsed:
+                parsed[rel] = parse_python(root, rel, rel[:-3].replace("/", "."), collect_bodies=False)
+            info = parsed[rel]
+            matches = [symbol] if symbol in info.symbols else sorted(s for s in info.symbols if s.endswith("." + symbol))
+            if info.parse_error or len(matches) != 1:
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable")
+                continue
+            nodes[anchor] = rel + "::" + "::".join(matches[0].split("."))
+        if not nodes:
+            return
+        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
+        package_parent = Path(__file__).resolve().parents[2]
+        env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
+        with tempfile.TemporaryDirectory(prefix="flowguard-tested-by-") as folder:
+            request, output = Path(folder) / "request.json", Path(folder) / "result.json"
+            request.write_text(json.dumps({"anchors": anchors, "nodes": sorted(set(nodes.values()))}), encoding="utf-8")
+            proc, timed_out, cleaned = run_isolated_process(
+                [sys.executable, "-m", "flowguard.map.testreach", str(root), str(request), str(output)],
+                cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+            if timed_out or not cleaned or not output.is_file():
+                raise RuntimeError(f"TESTED_BY process exit={proc.returncode}; timeout={timed_out}; cleanup_confirmed={cleaned}; "
+                                   + (proc.stderr or proc.stdout)[-1000:])
+            payload = json.loads(output.read_text(encoding="utf-8"))
+        diagnostic = ((proc.stdout or "") + "\n" + (proc.stderr or ""))[-2000:]
+        if payload.get("error") or not payload.get("complete"):
+            raise RuntimeError(payload.get("error") or "TESTED_BY result was incomplete")
+        known_failure = False
+        for invariant, anchor in bindings:
+            if anchor not in nodes:
+                continue
+            selector = nodes[anchor]
+            items = [item for item in payload["items"] if item["nodeid"] == selector or item["nodeid"].startswith(selector + "[")]
+            failed = [item["nodeid"] for item in items if item["failed"] or not item["entered"] or not item["call_passed"]]
+            if not items or failed:
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}")
+                known_failure = True
+                continue
+            missed = [item["nodeid"] for item in items if not (set(item["consulted"]) & set(anchors))]
+            if missed:
+                _fail(result, f"tested_by_misses_anchor {invariant} -> {anchor}: the test ran but called or read none of IMPLEMENTED_BY; "
+                              + ", ".join(missed))
+        if proc.returncode != 0:
+            if known_failure:
+                result.problems.append("TESTED_BY pytest output: " + diagnostic)
+            else:
+                _fail(result, f"TESTED_BY pytest process exited {proc.returncode}: " + diagnostic)
+    except Exception as exc:
+        result.status = "error"
+        result.problems.append(f"TESTED_BY environment/execution error: {exc}")
+    finally:
+        result.seconds = round(result.seconds + time.monotonic() - started, 3)
 
 
 def _design_checks(explorer) -> set[str]:
@@ -252,7 +329,7 @@ def runner_files(root: Path) -> list[Path]:
     return [root / e.path for e in model_registry(root).entries if e.kind == "runner"]
 
 
-def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files: set[str] | None = None) -> ModelResult:
+def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files: set[str] | None = None, *, tests: bool = False) -> ModelResult:
     package_parent = Path(__file__).resolve().parents[2]
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
@@ -305,10 +382,12 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
         result.status = "error"
         result.problems.append(f"timed out after {timeout}s")
     result.seconds = round(time.time() - started, 3)
+    if tests:
+        run_bound_tests(root, path, result, timeout=timeout)
     return result
 
 
-def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) -> list[ModelResult]:
+def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False) -> list[ModelResult]:
     has_map = True
     try:
         data = load_map(root)
@@ -346,7 +425,8 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT) ->
         if ids and entry.id not in ids:
             continue
         path = root / entry.path
-        results.append(run_runner(root, path, timeout, own_files.get(entry.path)) if entry.kind == "runner" else run_model(root, path, timeout))
+        results.append(run_runner(root, path, timeout, own_files.get(entry.path), tests=tests) if entry.kind == "runner"
+                       else run_model(root, path, timeout, tests=tests))
     if has_map and (not ids or "system" in ids):
         from .system_model import run_system_model
         results.append(run_system_model(root, data, inv))
