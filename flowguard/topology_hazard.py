@@ -784,7 +784,9 @@ def infer_topology_digest(
     edges: list[TopologyEdge] = []
     for index, block in enumerate(blocks):
         name = _block_name(block, index)
-        source = "usage:intent" if index == 0 else f"block:{index - 1}:{_block_name(blocks[index - 1], index - 1)}"
+        source = "usage:intent"
+        if index and getattr(workflow, "mode", "sequence") != "choice":
+            source = f"block:{index - 1}:{_block_name(blocks[index - 1], index - 1)}"
         target = f"block:{index}:{name}"
         reads = _block_tuple(block, "reads")
         writes = _block_tuple(block, "writes")

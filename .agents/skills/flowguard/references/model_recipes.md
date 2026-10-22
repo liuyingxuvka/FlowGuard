@@ -59,6 +59,10 @@ Packs bundle invariants and scenarios: `RetryPack`, `DeduplicationPack`, `CacheP
 
 ## Recipes
 
+- **API with several operations**: use `Workflow((SetBlock(), DelBlock()), mode="choice")`; each
+  block declares `accepted_input_type`. Each input runs exactly one accepting block; no match is
+  a dead branch and multiple matches are an `AmbiguousChoice` exception branch.
+
 - **Retry / idempotency**: inputs `Request(id)` with repeated ids; state holds processed ids and
   effects; invariant `at_most_once_by` on effects; broken variant = handler without the "already
   processed" branch.
@@ -105,7 +109,7 @@ Use this when `change` names a model in REVIEW, reports `model_writer_unbound`, 
 
 1. Move shared `State`, inputs, invariants and adapter into `_<name>_common.py`; underscore helpers are not models, and editing one reruns its importers.
 2. Give each operation a child model with its own blocks, anchors, known-bad variants and replay.
-3. Import child blocks into the parent and compose them sequentially. A block passes other operations' inputs through unchanged: `FunctionResult(inp, state, label="pass")`.
+3. Import child blocks into the parent with `Workflow((SetBlock(), DelBlock()), mode="choice")`; each declares `accepted_input_type`, so no pass-through steps are needed.
 4. Start children from the parent's bounded reachable states with `flowguard.kit.reachable_states(parent.build_explorer())`; use `project_parent_state` when state representations differ.
 5. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
 6. Run `python -m flowguard map models` so parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.

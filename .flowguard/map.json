@@ -89,7 +89,8 @@
       "layer": "examples",
       "summary": "Copyable model starters for target projects.",
       "responsibilities": [
-        "ship copyable model files with the skill"
+        "ship copyable model files with the skill",
+        "teach choice composition for independent operation blocks with accepted input types"
       ],
       "files": [
         ".agents/skills/flowguard/assets/**/*.py",
@@ -110,7 +111,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f72df033c2b5b814570c5fd883b7626c736cc5356bcaded55a4af0f65693fce4"
+      "fingerprint": "sha256:2de31c820c02fd81f3ead055a73c41d456b52601f947f93599590235429dac37"
     },
     {
       "id": "cli",
@@ -490,7 +491,8 @@
       "summary": "Reviews shared writers, repeat effects and fallback paths.",
       "responsibilities": [
         "flag hazards implied by the shape of the model",
-        "generate hazards from the topology unless the plan lists anchored ones; an unanchored warning never switches generation off"
+        "generate hazards from the topology unless the plan lists anchored ones; an unanchored warning never switches generation off",
+        "retain each choice block without inventing sequential block-to-block workflow edges"
       ],
       "files": [
         "flowguard/topology_hazard.py"
@@ -508,7 +510,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:aaba10a6050abef10bea2244353b1f5b3629a50bc229cc45cb617a62d6757dcf"
+      "fingerprint": "sha256:688b7e86258995bf490d7a308825210603965593166e21cfe7982d97227c04e8"
     },
     {
       "id": "test-mesh",
@@ -1008,7 +1010,8 @@
       "layer": "foundation",
       "summary": "Defines function blocks, workflows, traces and reports.",
       "responsibilities": [
-        "define function blocks, workflows and traces"
+        "define function blocks, workflows and traces",
+        "compose a sequence of blocks or a choice of blocks by accepted input type"
       ],
       "files": [
         "flowguard/core.py",
@@ -1036,7 +1039,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:05c8de2e2f964b4d14795c05e048e34c90b24fe7b595bd666b9bcd7a01c89a68"
+      "fingerprint": "sha256:15003c3829f80a384ed2689b97779a2b70642e3504d0f6057e710b515b27de82"
     },
     {
       "id": "shared-vocabulary",

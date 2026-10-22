@@ -346,3 +346,11 @@ def test_two_distinct_state_writers_are_still_shared():
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_topology_review_reads_a_choice_workflow():
+    workflow = Workflow((SaveRecord(), SaveRecord()), name="operations", mode="choice")
+    plan = infer_topology_hazard_plan(workflow=workflow, initial_states=(State(),), external_inputs=())
+    edges = [edge for edge in plan.digest.edges if edge.edge_kind == "workflow_edge"]
+    assert len(edges) == 2 and {edge.source_id for edge in edges} == {"usage:intent"}
+    assert {edge.target_id for edge in edges} == {"block:0:SaveRecord", "block:1:SaveRecord"}

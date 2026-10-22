@@ -59,6 +59,7 @@ INPUTS = (Place("o1"), Place("o2"))
 
 
 def _explorer(block) -> Explorer:
+    # Several operations: Workflow((SetBlock(), DelBlock()), mode="choice"); each declares accepted_input_type.
     return Explorer(workflow=Workflow((block,)), initial_states=(State(),), external_inputs=INPUTS,
                     invariants=INVARIANTS, max_sequence_length=3, progress_steps=0)
 

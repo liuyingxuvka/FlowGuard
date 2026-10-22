@@ -33,12 +33,16 @@ class WorkflowRun:
 
 @dataclass(frozen=True)
 class Workflow:
-    """Ordered composition of function blocks."""
+    """A sequence of blocks, or a choice of the block accepting each external input."""
 
     blocks: tuple[Any, ...]
     name: str = "workflow"
+    mode: str = "sequence"
 
-    def __init__(self, blocks: Sequence[Any], name: str = "workflow") -> None:
+    def __init__(self, blocks: Sequence[Any], name: str = "workflow", mode: str = "sequence") -> None:
+        if mode not in ("sequence", "choice"):
+            raise ValueError("mode must be 'sequence' or 'choice'")
+        object.__setattr__(self, "mode", mode)
         object.__setattr__(self, "blocks", tuple(blocks))
         object.__setattr__(self, "name", name)
 
@@ -49,7 +53,7 @@ class Workflow:
         trace: Trace | None = None,
         terminal_predicate: TerminalPredicate | None = None,
     ) -> WorkflowRun:
-        """Execute one external input through the ordered function blocks."""
+        """Execute one external input through the sequence or its unique accepting block."""
 
         initial_trace = trace or Trace(initial_state=initial_state, external_inputs=(external_input,))
         active = (
@@ -63,9 +67,9 @@ class Workflow:
         dead_branches: list[DeadBranch] = []
         exception_branches: list[ExceptionBranch] = []
 
-        for block in self.blocks:
+        for block in self.blocks if self.mode == "sequence" else (None,):
             next_active: list[WorkflowPath] = []
-            name = block_name(block)
+            name = block_name(block) if self.mode == "sequence" else self.name
 
             for path in active:
                 if terminal_predicate is not None:
@@ -87,7 +91,30 @@ class Workflow:
                         continue
 
                 try:
-                    accepts = block_accepts_input(block, path.current_input, path.state)
+                    if self.mode == "choice":
+                        accepted = []
+                        for candidate in self.blocks:
+                            name = block_name(candidate)
+                            if block_accepts_input(candidate, path.current_input, path.state):
+                                accepted.append(candidate)
+                        if not accepted:
+                            dead_branches.append(DeadBranch(
+                                reason=f"no block accepts {type(path.current_input).__name__}",
+                                trace=path.trace, function_name=self.name,
+                                function_input=path.current_input, state=path.state))
+                            continue
+                        if len(accepted) > 1:
+                            exception_branches.append(ExceptionBranch(
+                                error_type="AmbiguousChoice",
+                                message="multiple blocks accept input: " + ", ".join(block_name(item) for item in accepted),
+                                trace=path.trace, function_name=self.name,
+                                function_input=path.current_input, state=path.state))
+                            continue
+                        block = accepted[0]
+                        name = block_name(block)
+                        accepts = True
+                    else:
+                        accepts = block_accepts_input(block, path.current_input, path.state)
                 except Exception as exc:
                     exception_branches.append(
                         ExceptionBranch(
