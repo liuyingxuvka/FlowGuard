@@ -51,8 +51,7 @@ rejected before any write happens.
    - `ContractExhaustionPlan(plan_id, dimensions=, axes=, interaction_groups=, oracles=, model_id=, claim_scope="routine")`.
 3. Optional feeders turn other findings into seed cases (`seed_cases=`):
    `scenario_matrix_to_contract_cases` (from `flowguard.contract_exhaustion`),
-   `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
-   `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
+   `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
 5. In the model, `contract_exhaustion_features(plan(), mutate)` makes every generated bad case a feature
    that changes the valid call (`flowguard.kit`); `build_explorer()` and `broken_variants()` use

@@ -34,7 +34,6 @@ PENDING = {
     "tests/test_code_boundary_conformance.py": "FG-221",
     "tests/test_model_test_alignment.py": "FG-221",
     "tests/test_obligation_family.py": "FG-221",
-    "tests/test_transition_coverage.py": "FG-220",
     "tests/test_ui_structure.py": "FG-225",
 }
 

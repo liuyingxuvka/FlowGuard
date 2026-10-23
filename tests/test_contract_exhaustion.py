@@ -16,7 +16,6 @@ from flowguard import (
     CONTRACT_MUTATION_MISSING_REQUIRED_FIELD,
     CONTRACT_MUTATION_SAME_CLASS_CASE,
     CONTRACT_MUTATION_CARTESIAN_COMBINATION,
-    CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
     CONTRACT_MUTATION_UNKNOWN_ENUM,
     CONTRACT_ORACLE_PASS_ALLOWED,
     CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT,
@@ -38,14 +37,10 @@ from flowguard import (
     ContractOracle,
     CompositeHandoffResult,
     ObservedProblemBackfeed,
-    MeshClosureModel,
-    MeshClosureTransition,
     ObligationFamily,
     ObligationFamilyMember,
     Scenario,
     ScenarioExpectation,
-    TransitionCoverageCell,
-    TransitionCoverageMatrix,
     TEST_KIND_REPLAY,
     artifact_payload_cases_to_contract_cases,
     contract_fault_profiles_from_report,
@@ -54,11 +49,9 @@ from flowguard import (
     contract_exhaustion_to_test_mesh_cell_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
     family_bad_case_seed_to_contract_cases,
-    model_mesh_closure_to_contract_cases,
     review_contract_exhaustion,
     review_observed_problem_backfeed,
     scenario_matrix_to_contract_cases,
-    transition_coverage_to_contract_cases,
 )
 from flowguard.obligation_family import FamilyBadCaseSeed
 
@@ -912,34 +905,6 @@ class ContractExhaustionTests(unittest.TestCase):
                 ),
             )
         )
-        transition_cases = transition_coverage_to_contract_cases(
-            TransitionCoverageMatrix(
-                "packet-transitions",
-                cells=(
-                    TransitionCoverageCell(
-                        "submit-review",
-                        "packet_ready",
-                        "submit",
-                        "reviewer_waiting",
-                        runtime_node_id="router.submit",
-                    ),
-                ),
-            )
-        )
-        closure_cases = model_mesh_closure_to_contract_cases(
-            MeshClosureModel(
-                "parent",
-                transitions=(
-                    MeshClosureTransition(
-                        "retry-without-new-evidence",
-                        consumes=("blocked",),
-                        emits=("blocked",),
-                        loop=True,
-                        repeat_input_tokens=("blocked",),
-                    ),
-                ),
-            )
-        )
         report = review_contract_exhaustion(
             ContractExhaustionPlan(
                 "combined",
@@ -951,21 +916,12 @@ class ContractExhaustionTests(unittest.TestCase):
                         metadata={"risk_gate_id": "artifact-proof-gate"},
                     ),
                 ),
-                seed_cases=payload_cases + transition_cases + closure_cases,
+                seed_cases=payload_cases,
             )
         )
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertIn(CONTRACT_ROUTE_MODEL_MESH, report.required_route_case_ids)
         self.assertIn(CONTRACT_ROUTE_TEST_MESH, report.required_route_case_ids)
-        self.assertIn(
-            "mesh_closure:parent:retry-without-new-evidence",
-            report.required_route_case_ids[CONTRACT_ROUTE_MODEL_MESH],
-        )
-        self.assertEqual(
-            CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA,
-            closure_cases[0].mutation_type,
-        )
         self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
 
 

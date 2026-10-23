@@ -174,7 +174,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     for name in ("contract-exhaustion",
-                 "model-mesh", "model-test",
+                 "model-test",
                  "topology-hazard", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
@@ -183,6 +183,7 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     assert main(["template", "code-structure", "--write", str(tmp_path / "code-structure")]) == 2
     assert main(["template", "field-lifecycle", "--write", str(tmp_path / "field-lifecycle")]) == 2
     assert main(["template", "behavior-commitment", "--write", str(tmp_path / "behavior-commitment")]) == 2
+    assert main(["template", "model-mesh", "--write", str(tmp_path / "model-mesh")]) == 2
 
 
 def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys):
@@ -613,3 +614,56 @@ def test_old_behavior_ledger_is_reported(tmp_path, capsys):
     assert "move each promise" in retired[0].message and "delete the file" in retired[0].message
     assert main(["map", "check", "--root", str(tmp_path)]) == 0
     assert "retired_file" in capsys.readouterr().out
+
+
+def test_old_mesh_mistakes_are_tree_errors(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "app.py", "def run():\n    return True\n\ndef finish():\n    return False\n")
+    write(tmp_path, "tests/test_app.py", "from app import run, finish\n\ndef test_run():\n    assert run() is True\n    assert finish() is False\n")
+    source = '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+COMPONENTS = ["app"]
+TESTED_BY = {"boolean_result": ["tests/test_app.py:test_run"]}
+class Result:
+    name = "Result"
+    def __init__(self, bad=False): self.bad = bad
+    def apply(self, inp, state):
+        value = not EXPECTED if self.bad else EXPECTED
+        return [FunctionResult(value, value)]
+def explorer(bad=False):
+    return Explorer(Workflow((Result(bad),)), initial_states=(EXPECTED,), external_inputs=(0,),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("boolean_result", "preserve the promised result", lambda s, t: s == EXPECTED),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"wrong_result": explorer(True)}
+def conformance():
+    from app import run, finish
+    return CodeFactsReport((Fact("run", run() is True), Fact("finish", finish() is False)))
+'''
+    def model(mid, anchors, expected, parent=None):
+        contract = f"MODEL_ID = {mid!r}\nIMPLEMENTED_BY = {anchors!r}\nEXPECTED = {expected!r}\n"
+        if parent is not None:
+            contract += f"PARENT = {parent!r}\n"
+        write(tmp_path, f".flowguard/models/{mid}.py", contract + source)
+
+    model("lending", {"Run": "app.py:run", "Finish": "app.py:finish"}, True)
+    model("borrow", {"Run": "app.py:run"}, True, "lending")
+    model("returning", {"Run": "app.py:run"}, True, "lending")
+    data["components"][0]["models"] = [f".flowguard/models/{mid}.py" for mid in ("lending", "borrow", "returning")]
+    save(tmp_path, data)
+    errors = [f for f in findings(tmp_path) if f.code == "duplicate_child_owner"]
+    assert errors and all(f.level == "error" for f in errors)
+    assert main(["map", "check", "--root", str(tmp_path)]) == 1
+    capsys.readouterr()
+    model("returning", {"Finish": "app.py:finish"}, False, "lendng")
+    current = findings(tmp_path)
+    assert not any(f.code == "duplicate_child_owner" for f in current)
+    errors = [f for f in current if f.code == "parent_unknown"]
+    assert len(errors) == 1 and errors[0].level == "error" and "lendng" in errors[0].message
+    assert main(["map", "check", "--root", str(tmp_path)]) == 1
+    capsys.readouterr()
+    model("returning", {"Finish": "app.py:finish"}, False, "lending")
+    assert not any(f.code in {"duplicate_child_owner", "parent_unknown"} for f in findings(tmp_path))
+    assert main(["map", "check", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()

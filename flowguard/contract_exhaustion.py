@@ -3555,92 +3555,8 @@ def artifact_payload_cases_to_contract_cases(
     return tuple(result)
 
 
-def transition_coverage_to_contract_cases(
-    matrix: Any,
-    *,
-    source_route: str = "transition_coverage",
-) -> tuple[ContractMutationCase, ...]:
-    """Project TransitionCoverageMatrix cells into ContractExhaustion cases."""
-
-    cells = matrix.required_cells() if hasattr(matrix, "required_cells") else getattr(matrix, "cells", ())
-    result: list[ContractMutationCase] = []
-    for cell in cells:
-        result.append(
-            ContractMutationCase(
-                case_id=_case_id("transition", getattr(matrix, "matrix_id", ""), getattr(cell, "cell_id", "")),
-                dimension_id=str(getattr(cell, "cell_id", "")),
-                mutation_type=CONTRACT_MUTATION_TRANSITION_REPLAY,
-                source_route=source_route,
-                source_case_id=str(getattr(cell, "cell_id", "")),
-                input_delta={
-                    "source_state": str(getattr(cell, "source_state", "")),
-                    "trigger": str(getattr(cell, "trigger", "")),
-                    "target_state": str(getattr(cell, "target_state", "")),
-                    "expected_output": str(getattr(cell, "expected_output", "")),
-                },
-                required_routes=(
-                    CONTRACT_ROUTE_MODEL_MESH,
-                    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                    CONTRACT_ROUTE_TEST_MESH,
-                ),
-                required_test_cell_id=str(getattr(cell, "cell_id", "")),
-                description=str(getattr(cell, "rationale", "")),
-                metadata={
-                    "matrix_id": str(getattr(matrix, "matrix_id", "")),
-                    "model_id": str(getattr(matrix, "model_id", "")),
-                    "code_contract_id": str(getattr(cell, "code_contract_id", "")),
-                    "runtime_node_id": str(getattr(cell, "runtime_node_id", "")),
-                    "required_test_kinds": list(getattr(cell, "required_test_kinds", ())),
-                },
-            )
-        )
-    return tuple(result)
 
 
-def model_mesh_closure_to_contract_cases(
-    closure_model: Any,
-    *,
-    source_route: str = "model_mesh",
-) -> tuple[ContractMutationCase, ...]:
-    """Project parent/child closure handoffs into ContractExhaustion cases."""
-
-    result: list[ContractMutationCase] = []
-    parent_model_id = str(getattr(closure_model, "parent_model_id", ""))
-    for transition in getattr(closure_model, "transitions", ()):
-        mutation_type = (
-            CONTRACT_MUTATION_REPEAT_WITHOUT_DELTA
-            if bool(getattr(transition, "loop", False))
-            or tuple(getattr(transition, "repeat_input_tokens", ()))
-            else CONTRACT_MUTATION_UNCONSUMED_CHILD_EVIDENCE
-        )
-        result.append(
-            ContractMutationCase(
-                case_id=_case_id("mesh_closure", parent_model_id, getattr(transition, "transition_id", "")),
-                dimension_id=str(getattr(transition, "transition_id", "")),
-                mutation_type=mutation_type,
-                source_route=source_route,
-                source_case_id=str(getattr(transition, "transition_id", "")),
-                input_delta={
-                    "consumes": list(getattr(transition, "consumes", ())),
-                    "emits": list(getattr(transition, "emits", ())),
-                    "repeat_input_tokens": list(getattr(transition, "repeat_input_tokens", ())),
-                },
-                required_routes=(
-                    CONTRACT_ROUTE_MODEL_MESH,
-                    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                    CONTRACT_ROUTE_TEST_MESH,
-                ),
-                freshness_scope="latest_child_evidence",
-                description=str(getattr(transition, "rationale", "")),
-                metadata={
-                    "parent_model_id": parent_model_id,
-                    "consumer_model_id": str(getattr(transition, "consumer_model_id", "")),
-                    "code_contract_id": str(getattr(transition, "code_contract_id", "")),
-                    "runtime_node_id": str(getattr(transition, "runtime_node_id", "")),
-                },
-            )
-        )
-    return tuple(result)
 
 
 def contract_exhaustion_to_model_obligations(report: ContractExhaustionReport) -> tuple[Any, ...]:
@@ -3871,9 +3787,7 @@ __all__ = (
     "contract_exhaustion_to_test_mesh_shard_ids",
     "execute_contract_features",
     "family_bad_case_seed_to_contract_cases",
-    "model_mesh_closure_to_contract_cases",
     "review_contract_exhaustion",
     "review_observed_problem_backfeed",
     "scenario_matrix_to_contract_cases",
-    "transition_coverage_to_contract_cases",
 )

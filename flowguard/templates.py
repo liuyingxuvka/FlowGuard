@@ -11,9 +11,6 @@ from .template_text.core import (
     MODEL_NOTES_TEMPLATE,
 )
 from .template_text.model_test_alignment import MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE
-from .template_text.model_mesh import (
-    MODEL_MESH_MODEL_TEMPLATE,
-)
 from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
 )
@@ -63,12 +60,6 @@ def topology_hazard_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def model_mesh_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/model_mesh.py", MODEL_MESH_MODEL_TEMPLATE),
-    )
-
-
 def contract_exhaustion_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/contract_exhaustion.py", CONTRACT_EXHAUSTION_MODEL_TEMPLATE),
@@ -101,7 +92,6 @@ __all__ = [
     "TemplateFile",
     "adoption_template_files",
     "contract_exhaustion_template_files",
-    "model_mesh_template_files",
     "model_test_alignment_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_template_files",

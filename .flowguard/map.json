@@ -36,7 +36,6 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "model-mesh",
         "problem-corpus"
       ],
       "tests": [
@@ -58,7 +57,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:38468dec0a99877d2028ebd18b1502ded450de06d9eeaf1ad81c0df5a050abc0"
+      "fingerprint": "sha256:dee0474eac937c564f7bdda1d5a5ac0bbecfafc81cc1d3702e01d813b938abb7"
     },
     {
       "id": "tooling",
@@ -181,7 +180,6 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "model-mesh",
         "model-test",
         "problem-corpus",
         "shared-vocabulary",
@@ -194,7 +192,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:db20e529ed52486b856dc1134c0e979224bb10985d376318a184fee6430cce0b"
+      "fingerprint": "sha256:8fc43b82407a42c58b0f0df06c9bbe87dad618197494c775d8101ca12e338001"
     },
     {
       "id": "templates",
@@ -224,7 +222,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9712928faff1e0f248984dbb105d3f2c79312950ca905a52934d18018eefe8d8"
+      "fingerprint": "sha256:99cc5b0e4dcece728cd944f2cf097e6bf3775ecc4db42ae4fcbc729f17c925c3"
     },
     {
       "id": "contract-exhaustion",
@@ -250,47 +248,11 @@
         "shared-vocabulary"
       ],
       "tests": [
-        "tests/test_contract_exhaustion.py",
-        "tests/test_hierarchical_mesh.py"
+        "tests/test_contract_exhaustion.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:22080340d543dbadf742cc49e2b9c1364c8e833834a1023984fdd42299a9335a"
-    },
-    {
-      "id": "model-mesh",
-      "layer": "capabilities",
-      "summary": "Checks child models, reattachment and joint closure.",
-      "responsibilities": [
-        "review declared partitions, boundary changes, reattachment contracts and joint closure",
-        "require registered model-tree parent and child ids when a root is supplied; derive child facts statically from model files"
-      ],
-      "files": [
-        "flowguard/hierarchy.py",
-        "flowguard/transition_coverage.py"
-      ],
-      "entrypoints": [
-        "flowguard/hierarchy.py:review_hierarchical_mesh",
-        "flowguard/hierarchy.py:review_mesh_closure_model"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core",
-        "map-discover",
-        "map-file",
-        "map-inventory",
-        "model-test",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_contract_exhaustion.py",
-        "tests/test_hierarchical_mesh.py",
-        "tests/test_transition_coverage.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:eb7ae7b5f8974354de76e47a76d8194a5b49749f6534a19c6c7da7ca1fa3ad67"
+      "fingerprint": "sha256:46e2a3431593e8e8b913ef22a57d5b9560638163c8a917a14aee74cb546e9bb6"
     },
     {
       "id": "model-test",
@@ -383,8 +345,7 @@
       ],
       "tests": [
         "tests/test_pytest_shard_runner.py",
-        "tests/test_pytest_shards.py",
-        "tests/test_transition_coverage.py"
+        "tests/test_pytest_shards.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -691,15 +652,19 @@
       "layer": "engine",
       "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
       "responsibilities": [
-        "provide reusable invariants and contracts"
+        "provide reusable invariants and contracts",
+        "check that handoffs between child models close"
       ],
       "files": [
         "flowguard/checks.py",
         "flowguard/packs/*.py",
-        "flowguard/contract.py"
+        "flowguard/contract.py",
+        "flowguard/closure.py"
       ],
       "entrypoints": [
-        "flowguard/checks.py:at_most_once_by"
+        "flowguard/checks.py:at_most_once_by",
+        "flowguard/closure.py:review_mesh_closure_model",
+        "flowguard/closure.py:closure_invariant"
       ],
       "state": [],
       "side_effects": [],
@@ -711,11 +676,12 @@
       "tests": [
         "tests/test_contract_core.py",
         "tests/test_packs.py",
-        "tests/test_property_factories.py"
+        "tests/test_property_factories.py",
+        "tests/test_closure.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:34d88b3651eeddfd0423d8e182cea0dd189bed7e95f4964dbef262681373fef4"
+      "fingerprint": "sha256:6e4fcfc03fd10a4224fbfbd595ed53db0716744c879973fd2714c4428e794e59"
     },
     {
       "id": "engine-scenarios",
@@ -855,7 +821,6 @@
       ],
       "files": [
         "flowguard/canonical_relation.py",
-        "flowguard/_mesh_vocab.py",
         "flowguard/behavior_plane.py"
       ],
       "entrypoints": [],
@@ -869,7 +834,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a1da0da6d8e014955e656a3a74857bd34d0456aeb983d95f80c395240008edf7"
+      "fingerprint": "sha256:af3d86443059b7cd9632804ebab9eec97e389c17beff643c439b6761c250fe8a"
     }
   ],
   "flows": [

@@ -114,8 +114,15 @@ Apply this split through SKILL.md's target-first flow.
 4. A child that slices parent state declares `project_parent_state(state)` (`return state` when reusing the parent's `State`) and starts from `flowguard.kit.reachable_states(parent.build_explorer(), project_parent_state)`; `map models` warns with `child_start_gap` when it misses parent states. An independent sub-check grouped under a parent needs neither projection nor reachable-state starts.
 In this split, the parent imports its children. A child that imports its parent (for `reachable_states`) must import it inside a function; a top-level import is circular.
 
-5. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
-6. Run `python -m flowguard target check` until clean, then `python -m flowguard target promote` and confirm its listed components. Run `python -m flowguard map models` so the now-current parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
+`python -m flowguard map check` reports ERROR for `parent_unknown`, `duplicate_child_owner`
+and `child_outside_parent`: unknown parents, two child owners of the same code, or child anchors outside the parent's code.
+
+5. When children hand off outputs, describe their real outputs, consumers, joins and exits as a
+   `flowguard.closure.MeshClosureModel` named `MESH` in the parent. Import `MeshClosureModel`
+   and `closure_invariant` from `flowguard.closure`, then add `closure_invariant(MESH)` to the
+   parent's invariants. Add a `broken_variants()` entry that leaves a required output unconsumed.
+6. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
+7. Run `python -m flowguard target check` until clean, then `python -m flowguard target promote` and confirm its listed components. Run `python -m flowguard map models` so the now-current parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
 
 ## Conformance (model <-> code)
 

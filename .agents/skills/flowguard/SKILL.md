@@ -60,7 +60,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | code-structure | placing new code or splitting a module with its public surface intact | tree operation `references/tree_operations.md#Add or split a component` (target components; `duplicate_owner` and `owner_dropped` keep one owner and every public entrypoint) |
 | contract-exhaustion | enumerating every bad case or combination in a finite universe | `references/domains/contract-exhaustion/protocol.md` |
 | field-lifecycle | changing fields, schemas, defaults, aliases or replacements | tree operation `references/tree_operations.md#Rename or retire a field` (target model state + `CodeFacts.absent` / `present`) |
-| model-mesh | fitting parent/child or producer/consumer models together | `references/domains/model-mesh/protocol.md` |
+| model-mesh | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `child_outside_parent`; `flowguard.closure` for handoffs between children) |
 | model-test | checking rules, code and tests against one another | `references/domains/model-test/protocol.md` |
 | topology-hazard | reviewing shared writers, repeated effects and future-use hazards | `references/domains/topology-hazard/protocol.md` |
 | test-mesh | sharding a suite too slow for one command | `references/domains/test-mesh/protocol.md` |

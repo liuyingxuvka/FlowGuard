@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Model nesting now uses the map tree, and child handoff closure lives in `flowguard.closure` with a parent-model `closure_invariant`. Token consumption, complete joins, reachable normal exits and loop-progress guards remain. Duplicate partition-map reviews and the rationale-only gate for out-of-scope terminals are removed.
+
 - Duplicate or wrong-file-owner entrypoint declarations now fail `map check` with `entrypoint_owner` errors. Declared route, command, console-script and handler entrypoints, excluding argparse-derived subcommands, warn when no model anchor or reasoned `NOT_MODELED` covers them (`entrypoint_unmodeled`); existing dangerous-effect checks remain. The former FlowGuard behavior ledger is no longer read and its presence produces a `retired_file` warning. Existing ResearchGuard projects are expected to gain one additional warning on FlowGuard reference upgrade; record and resolve it through native model bindings or a reasoned exclusion.
 
 - Behavior-changing field edits now use target model state and real `CodeFacts.absent` / `CodeFacts.present` checks in `conformance()`; the former field-lifecycle engine and starter are removed. The rename-or-retire recipe covers deletion, migration, rejection or reassignment, missing/null values, persisted readers and privacy.
