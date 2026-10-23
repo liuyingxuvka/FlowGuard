@@ -161,17 +161,11 @@ block, reissue, retry, or repair cases also need actionable oracle feedback
 fields so the report proves the receiver can fix the bad submission, not only
 that the bad submission is rejected.
 
-Every `FlowGuardSummaryReport` also exposes `finding_ledger` and
-`maintenance_obligations`, and `to_dict()` includes both as machine-readable
-output. The ledger flattens model check failures, audit warnings,
-scenario/live-audit gaps, progress findings, contract findings, conformance
-findings, and skipped/not-run sections into one coverage-first list. The
-maintenance obligations preserve non-pass gaps under the route that should
-handle them; DevelopmentProcessFlow consumes the touched obligations and freshness
-signals directly when deciding what must rerun. Use them before FlowGuard or
-LiveFlowGuard framework upgrades and non-trivial bug/model-miss repairs so the
-next action is chosen deliberately: fix the real system, adjust the check flow,
-extend the model, or record a boundary as out of scope. For in-scope
+Every `FlowGuardSummaryReport.to_dict()` includes the overall status, summary,
+section results and metadata. Each section retains its status, findings and
+metadata, including skipped/not-run checks. Use those results to decide whether
+to fix the real system, adjust the check flow, extend the model, or record a
+boundary as out of scope. For in-scope
 bug/model-miss repairs, the next action also includes root-cause
 backpropagation, projecting the same-class or finite-boundary surface through
 ContractExhaustionMesh, binding the code contract that owns the fix, and rerunning

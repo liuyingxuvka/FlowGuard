@@ -241,10 +241,11 @@ class RunnerTests(unittest.TestCase):
         self.assertTrue(
             any("production confidence goal" in finding for finding in sections["model_quality_audit"].findings)
         )
-        ledger = summary.finding_ledger
-        self.assertTrue(ledger.entries)
-        self.assertIn("conformance_gap", {entry.category for entry in ledger.entries})
-        self.assertIn("finding_ledger", summary.to_dict())
+        serialized = {section["name"]: section for section in summary.to_dict()["sections"]}
+        self.assertEqual(list(sections), list(serialized))
+        self.assertEqual("skipped_with_reason", serialized["conformance_replay"]["status"])
+        self.assertEqual("conformance_status=skipped_with_reason", serialized["conformance_replay"]["summary"])
+        self.assertIn("conformance status was recorded without a replay report", serialized["conformance_replay"]["findings"])
 
     def test_status_only_passing_conformance_is_blocked(self):
         plan = FlowGuardCheckPlan(

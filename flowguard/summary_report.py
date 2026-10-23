@@ -3,17 +3,11 @@
 from __future__ import annotations
 
 import json
-import hashlib
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_jsonable
-from .maintenance_obligation import (
-    MaintenanceObligationReport,
-    build_maintenance_obligation_report,
-    obligations_from_finding_ledger,
-)
 
 
 SECTION_STATUSES = (
@@ -24,15 +18,6 @@ SECTION_STATUSES = (
     "skipped_with_reason",
     "blocked",
     "needs_human_review",
-)
-
-LEDGER_SEVERITIES = (
-    "failure",
-    "blocker",
-    "coverage_gap",
-    "confidence_gap",
-    "human_review",
-    "info",
 )
 
 
@@ -64,140 +49,6 @@ class FlowGuardSection:
             "findings": to_jsonable(self.findings),
             "metadata": to_jsonable(self.metadata),
         }
-
-
-@dataclass(frozen=True)
-class FlowGuardFindingLedgerEntry:
-    """One flattened finding from a summary section."""
-
-    section_name: str
-    section_status: str
-    severity: str
-    category: str
-    message: str
-    finding_index: int | None = None
-    finding_id: str = ""
-    source_finding_code: str = ""
-    source_subject_ids: tuple[str, ...] = ()
-    evidence_ids: tuple[str, ...] = ()
-    section_summary: str = ""
-    next_step: str = ""
-    owner_route: str = ""
-    action_kind: str = ""
-    required_input_kinds: tuple[str, ...] = ()
-    proof_gap_codes: tuple[str, ...] = ()
-    claim_effect: str = ""
-    suggested_commands: tuple[str, ...] = ()
-    metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
-
-    def __post_init__(self) -> None:
-        severity = str(self.severity).lower()
-        if severity not in LEDGER_SEVERITIES:
-            raise ValueError(f"severity must be one of {LEDGER_SEVERITIES!r}")
-        status = str(self.section_status).lower()
-        if status not in SECTION_STATUSES:
-            raise ValueError(f"section_status must be one of {SECTION_STATUSES!r}")
-        object.__setattr__(self, "section_name", str(self.section_name))
-        object.__setattr__(self, "section_status", status)
-        object.__setattr__(self, "severity", severity)
-        object.__setattr__(self, "category", str(self.category))
-        object.__setattr__(self, "message", str(self.message))
-        object.__setattr__(self, "finding_id", str(self.finding_id))
-        object.__setattr__(self, "source_finding_code", str(self.source_finding_code))
-        object.__setattr__(
-            self,
-            "source_subject_ids",
-            tuple(str(value) for value in self.source_subject_ids if str(value)),
-        )
-        object.__setattr__(
-            self,
-            "evidence_ids",
-            tuple(str(value) for value in self.evidence_ids if str(value)),
-        )
-        object.__setattr__(self, "section_summary", str(self.section_summary or ""))
-        object.__setattr__(self, "next_step", str(self.next_step or ""))
-        object.__setattr__(self, "owner_route", str(self.owner_route or ""))
-        object.__setattr__(self, "action_kind", str(self.action_kind or ""))
-        object.__setattr__(
-            self,
-            "required_input_kinds",
-            tuple(str(value) for value in self.required_input_kinds if str(value)),
-        )
-        object.__setattr__(
-            self,
-            "proof_gap_codes",
-            tuple(str(value) for value in self.proof_gap_codes if str(value)),
-        )
-        object.__setattr__(self, "claim_effect", str(self.claim_effect or ""))
-        object.__setattr__(
-            self,
-            "suggested_commands",
-            tuple(str(value) for value in self.suggested_commands if str(value)),
-        )
-        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "section_name": self.section_name,
-            "section_status": self.section_status,
-            "severity": self.severity,
-            "category": self.category,
-            "message": self.message,
-            "finding_index": self.finding_index,
-            "finding_id": self.finding_id,
-            "source_finding_code": self.source_finding_code,
-            "source_subject_ids": list(self.source_subject_ids),
-            "evidence_ids": list(self.evidence_ids),
-            "section_summary": self.section_summary,
-            "next_step": self.next_step,
-            "owner_route": self.owner_route,
-            "action_kind": self.action_kind,
-            "required_input_kinds": list(self.required_input_kinds),
-            "proof_gap_codes": list(self.proof_gap_codes),
-            "claim_effect": self.claim_effect,
-            "suggested_commands": list(self.suggested_commands),
-            "metadata": to_jsonable(self.metadata),
-        }
-
-
-@dataclass(frozen=True)
-class FlowGuardFindingLedger:
-    """Coverage-first ledger for choosing the next repair path."""
-
-    entries: tuple[FlowGuardFindingLedgerEntry, ...] = ()
-    summary: str = ""
-
-    def __post_init__(self) -> None:
-        entries = tuple(self.entries)
-        object.__setattr__(self, "entries", entries)
-        object.__setattr__(self, "summary", self.summary or _ledger_summary(entries))
-
-    def by_severity(self, severity: str) -> tuple[FlowGuardFindingLedgerEntry, ...]:
-        value = str(severity).lower()
-        return tuple(entry for entry in self.entries if entry.severity == value)
-
-    def format_text(self, max_entries: int = 12) -> str:
-        lines = [
-            "=== flowguard finding ledger ===",
-            self.summary,
-        ]
-        for entry in self.entries[:max_entries]:
-            lines.append(
-                f"- {entry.severity}: {entry.section_name}: "
-                f"{entry.category}: {entry.message}"
-            )
-        if len(self.entries) > max_entries:
-            lines.append(f"- ... {len(self.entries) - max_entries} more")
-        return "\n".join(lines)
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "summary": self.summary,
-            "entries": [entry.to_dict() for entry in self.entries],
-        }
-
-    def to_json_text(self, indent: int = 2) -> str:
-        return json.dumps(self.to_dict(), indent=indent, sort_keys=True)
 
 
 @dataclass(frozen=True)
@@ -233,21 +84,6 @@ class FlowGuardSummaryReport:
             metadata=metadata,
         )
 
-    @property
-    def finding_ledger(self) -> FlowGuardFindingLedger:
-        """Return a flattened coverage-first ledger for all section findings."""
-
-        return build_finding_ledger(self.sections)
-
-    @property
-    def maintenance_obligations(self) -> MaintenanceObligationReport:
-        """Return route-owned obligations derived from anchored non-pass gaps."""
-
-        return build_maintenance_obligation_report(
-            "summary_report",
-            obligations_from_finding_ledger(self.finding_ledger),
-        )
-
     def format_text(self, verbose: bool = False) -> str:
         lines = [
             "=== flowguard summary ===",
@@ -255,12 +91,6 @@ class FlowGuardSummaryReport:
         ]
         if self.summary:
             lines.append(f"summary: {self.summary}")
-        ledger = self.finding_ledger
-        if ledger.entries:
-            lines.append(f"finding_ledger: {ledger.summary}")
-        obligations = self.maintenance_obligations
-        if obligations.obligations:
-            lines.append(f"maintenance_obligations: {obligations.summary}")
         for section in self.sections:
             suffix = f" - {section.summary}" if section.summary else ""
             lines.append(f"- {section.name}: {section.status}{suffix}")
@@ -276,8 +106,6 @@ class FlowGuardSummaryReport:
             "overall_status": self.overall_status,
             "summary": self.summary,
             "sections": [section.to_dict() for section in self.sections],
-            "finding_ledger": self.finding_ledger.to_dict(),
-            "maintenance_obligations": self.maintenance_obligations.to_dict(),
             "metadata": to_jsonable(self.metadata),
         }
 
@@ -310,264 +138,6 @@ def _summary_for_sections(sections: tuple[FlowGuardSection, ...]) -> str:
 
 def _section_always_shows_findings(section: FlowGuardSection) -> bool:
     return ("always_show_findings", True) in section.metadata
-
-
-def _ledger_summary(entries: tuple[FlowGuardFindingLedgerEntry, ...]) -> str:
-    counts = {severity: 0 for severity in LEDGER_SEVERITIES}
-    for entry in entries:
-        counts[entry.severity] += 1
-    nonzero = tuple(f"{severity}={count}" for severity, count in counts.items() if count)
-    return f"entries={len(entries)} " + " ".join(nonzero) if entries else "entries=0"
-
-
-def _ledger_severity(section: FlowGuardSection) -> str:
-    if section.status == "failed":
-        return "failure"
-    if section.status == "blocked":
-        return "blocker"
-    if section.status in {"not_run", "skipped_with_reason"}:
-        return "coverage_gap"
-    if section.status == "needs_human_review":
-        return "human_review"
-    if section.status == "pass_with_gaps":
-        return "confidence_gap"
-    return "info"
-
-
-def _ledger_category(section: FlowGuardSection, message: str) -> str:
-    text = f"{section.name} {section.status} {message}".lower()
-    if "needs_human_review" in text or section.status == "needs_human_review":
-        return "human_review"
-    if "missing_conformance" in text or "conformance" in text and "not provided" in text:
-        return "conformance_gap"
-    if section.status in {"not_run", "skipped_with_reason"} or "not_run" in text or "skipped" in text:
-        return "missing_or_skipped_check"
-    if section.status == "blocked":
-        return "blocked_check"
-    if "missing_invariant" in text or "missing_scenario" in text or "missing_progress" in text:
-        return "model_coverage_gap"
-    if "state_closure" in text or "topology_hazard" in text:
-        return "model_coverage_gap"
-    if section.status == "failed" or "violation" in text or "exception" in text:
-        return "failure"
-    if section.status == "pass_with_gaps":
-        return "confidence_gap"
-    return "finding"
-
-
-def _ledger_next_step(section: FlowGuardSection, category: str) -> str:
-    if section.status == "failed":
-        return "Inspect the counterexample or violation, then decide whether to fix the real system, adjust the check flow, or extend the model."
-    if category == "model_coverage_gap":
-        return "Extend the model, invariant set, scenario oracle, or progress configuration before treating this as covered."
-    if category == "conformance_gap":
-        return "Run conformance replay or record why only model-level confidence is being claimed."
-    if section.status in {"not_run", "skipped_with_reason", "blocked"}:
-        return "Run the missing check when relevant, or keep the skip/blocker visible as a confidence gap."
-    if section.status == "needs_human_review":
-        return "Supply the missing policy expectation or oracle before promoting this to pass."
-    if section.status == "pass_with_gaps":
-        return "Review the confidence gap before treating the run as a clean pass."
-    return "No action required unless this finding affects the current risk boundary."
-
-
-def _ledger_owner_route(section: FlowGuardSection, category: str) -> str:
-    text = f"{section.name} {category}".lower()
-    if "human_review" in text:
-        return "agent_workflow_rehearsal"
-    if "model_test" in text or "alignment" in text:
-        return "model_test_alignment"
-    if "conformance" in text:
-        return "model_test_alignment"
-    if "state_closure" in text or "topology_hazard" in text:
-        return "model_miss_review"
-    if any(token in text for token in ("model", "scenario", "contract", "progress")):
-        return "model_miss_review"
-    return "change"
-
-
-def _ledger_action_kind(section: FlowGuardSection, category: str) -> str:
-    if section.status == "failed":
-        return "inspect_failure"
-    if category == "model_coverage_gap":
-        return "extend_model_coverage"
-    if category == "conformance_gap":
-        return "run_conformance_or_scope_claim"
-    if category == "missing_or_skipped_check":
-        return "run_missing_check_or_record_skip"
-    if category == "blocked_check":
-        return "resolve_blocker"
-    if category == "human_review":
-        return "supply_policy_or_oracle"
-    if category == "confidence_gap":
-        return "review_confidence_gap"
-    return "review_finding"
-
-
-def _ledger_required_input_kinds(section: FlowGuardSection, category: str) -> tuple[str, ...]:
-    if section.status == "failed":
-        return ("counterexample", "owner_route_decision")
-    if category == "model_coverage_gap":
-        return ("model_update", "scenario_or_invariant")
-    if category == "conformance_gap":
-        return ("conformance_report", "check_result")
-    if category == "missing_or_skipped_check":
-        return ("check_result", "skip_reason")
-    if category == "blocked_check":
-        return ("blocker_resolution", "check_result")
-    if category == "human_review":
-        return ("policy_expectation", "oracle")
-    if category == "confidence_gap":
-        return ("owner_route_evidence",)
-    return ()
-
-
-def _ledger_proof_gap_codes(section: FlowGuardSection, category: str) -> tuple[str, ...]:
-    if section.status == "failed":
-        return ("failing_evidence_requires_triage",)
-    if category == "conformance_gap":
-        return ("missing_conformance_proof",)
-    if category == "missing_or_skipped_check":
-        return ("missing_or_skipped_proof",)
-    if category == "blocked_check":
-        return ("blocked_check_result",)
-    if category in {"model_coverage_gap", "confidence_gap", "human_review"}:
-        return ("route_gap_visible",)
-    return ()
-
-
-def _ledger_claim_effect(section: FlowGuardSection, category: str) -> str:
-    if section.status in {"failed", "blocked"}:
-        return "blocked_until_resolved"
-    if category in {"conformance_gap", "model_coverage_gap", "missing_or_skipped_check", "confidence_gap", "human_review"}:
-        return "scoped_until_resolved"
-    return "no_claim_effect"
-
-
-def _ledger_suggested_commands(section: FlowGuardSection, category: str) -> tuple[str, ...]:
-    if category == "conformance_gap":
-        return ("run conformance replay or attach a current conformance proof artifact",)
-    if category == "model_coverage_gap":
-        return ("extend the model/scenario/invariant and rerun the owning FlowGuard check",)
-    if category == "missing_or_skipped_check":
-        return ("run the missing check or record an accepted scoped skip",)
-    if section.status == "failed":
-        return ("inspect the counterexample and rerun after repair",)
-    return ()
-
-
-def _format_ledger_message(finding: Any) -> str:
-    if isinstance(finding, str):
-        return finding
-    return repr(finding)
-
-
-def _finding_value(finding: Any, name: str, default: Any = "") -> Any:
-    if isinstance(finding, dict):
-        return finding.get(name, default)
-    return getattr(finding, name, default)
-
-
-def _ledger_source_fields(finding: Any) -> tuple[str, tuple[str, ...], tuple[str, ...]]:
-    code = str(
-        _finding_value(finding, "code")
-        or _finding_value(finding, "category")
-        or type(finding).__name__
-    )
-    subject_fields = (
-        "action_id",
-        "artifact_id",
-        "requirement_id",
-        "suite_id",
-        "item_id",
-        "candidate_id",
-        "campaign_id",
-        "observation_id",
-        "cluster_id",
-        "hypothesis_id",
-        "batch_id",
-    )
-    subjects = tuple(
-        dict.fromkeys(
-            str(_finding_value(finding, field_name))
-            for field_name in subject_fields
-            if _finding_value(finding, field_name)
-        )
-    )
-    evidence_values: list[str] = []
-    direct_evidence = _finding_value(finding, "evidence_id")
-    if direct_evidence:
-        evidence_values.append(str(direct_evidence))
-    metadata = _finding_value(finding, "metadata", {})
-    if isinstance(metadata, dict):
-        for name in ("evidence_id",):
-            if metadata.get(name):
-                evidence_values.append(str(metadata[name]))
-        for name in ("evidence_ids",):
-            values = metadata.get(name, ())
-            if isinstance(values, (list, tuple, set)):
-                evidence_values.extend(str(value) for value in values if value)
-    return code, subjects, tuple(dict.fromkeys(evidence_values))
-
-
-def _ledger_entry(
-    section: FlowGuardSection,
-    finding: Any,
-    finding_index: int | None,
-) -> FlowGuardFindingLedgerEntry:
-    message = _format_ledger_message(finding)
-    category = _ledger_category(section, message)
-    source_code, subject_ids, evidence_ids = _ledger_source_fields(finding)
-    identity_payload = json.dumps(
-        {
-            "section": section.name,
-            "status": section.status,
-            "source_finding_code": source_code,
-            "source_subject_ids": subject_ids,
-            "evidence_ids": evidence_ids,
-            "message": message,
-        },
-        sort_keys=True,
-        ensure_ascii=True,
-        separators=(",", ":"),
-    )
-    finding_id = "finding:" + hashlib.sha256(identity_payload.encode("utf-8")).hexdigest()[:24]
-    return FlowGuardFindingLedgerEntry(
-        section_name=section.name,
-        section_status=section.status,
-        severity=_ledger_severity(section),
-        category=category,
-        message=message,
-        finding_index=finding_index,
-        finding_id=finding_id,
-        source_finding_code=source_code,
-        source_subject_ids=subject_ids,
-        evidence_ids=evidence_ids,
-        section_summary=section.summary,
-        next_step=_ledger_next_step(section, category),
-        owner_route=_ledger_owner_route(section, category),
-        action_kind=_ledger_action_kind(section, category),
-        required_input_kinds=_ledger_required_input_kinds(section, category),
-        proof_gap_codes=_ledger_proof_gap_codes(section, category),
-        claim_effect=_ledger_claim_effect(section, category),
-        suggested_commands=_ledger_suggested_commands(section, category),
-    )
-
-
-def build_finding_ledger(
-    sections: Iterable[FlowGuardSection],
-) -> FlowGuardFindingLedger:
-    """Flatten section findings into a coverage-first repair ledger."""
-
-    entries: list[FlowGuardFindingLedgerEntry] = []
-    for section in tuple(sections):
-        if section.findings:
-            for index, finding in enumerate(section.findings, start=1):
-                entries.append(_ledger_entry(section, finding, index))
-        elif section.status != "pass":
-            message = section.summary or f"{section.name} reported {section.status}"
-            entries.append(_ledger_entry(section, message, None))
-    return FlowGuardFindingLedger(tuple(entries))
 
 
 def _check_report_findings(report: Any) -> tuple[str, ...]:
@@ -728,13 +298,8 @@ def build_flowguard_summary_report(
 
 __all__ = [
     "FlowGuardSection",
-    "FlowGuardFindingLedger",
-    "FlowGuardFindingLedgerEntry",
     "FlowGuardSummaryReport",
-    "MaintenanceObligationReport",
     "SECTION_STATUSES",
-    "LEDGER_SEVERITIES",
-    "build_finding_ledger",
     "build_flowguard_summary_report",
     "section_from_audit_report",
     "section_from_check_report",

@@ -8,7 +8,6 @@ from flowguard.report import CheckReport
 from flowguard.summary_report import (
     FlowGuardSection,
     FlowGuardSummaryReport,
-    build_finding_ledger,
     build_flowguard_summary_report,
 )
 
@@ -29,14 +28,6 @@ class Violation:
 
 
 @dataclass(frozen=True)
-class StructuredFinding:
-    code: str
-    message: str
-    suite_id: str
-    evidence_id: str
-
-
-@dataclass(frozen=True)
 class GenericReport:
     ok: bool
     summary: str
@@ -44,21 +35,6 @@ class GenericReport:
 
 
 class SummaryReportTests(unittest.TestCase):
-    def test_finding_ledger_preserves_stable_raw_finding_links(self):
-        finding = StructuredFinding(
-            "diagnostic_false_completeness",
-            "not every planned test ran",
-            "suite:diagnostic",
-            "record:diagnostic",
-        )
-        section = FlowGuardSection("test_mesh", "failed", findings=(finding,))
-        first = build_finding_ledger((section,)).entries[0]
-        second = build_finding_ledger((section,)).entries[0]
-        self.assertEqual(first.finding_id, second.finding_id)
-        self.assertEqual("diagnostic_false_completeness", first.source_finding_code)
-        self.assertEqual(("suite:diagnostic",), first.source_subject_ids)
-        self.assertEqual(("record:diagnostic",), first.evidence_ids)
-
     def test_not_run_section_creates_pass_with_gaps_not_failure(self):
         report = FlowGuardSummaryReport.from_sections(
             (
@@ -80,8 +56,9 @@ class SummaryReportTests(unittest.TestCase):
 
         self.assertEqual("failed", report.overall_status)
         self.assertEqual("failed", json.loads(report.to_json_text())["overall_status"])
-        self.assertEqual("failure", report.finding_ledger.entries[0].severity)
-        self.assertEqual("coverage_gap", report.finding_ledger.entries[1].severity)
+        expected = [("model_check", "failed"), ("conformance", "not_run")]
+        self.assertEqual(expected, [(section.name, section.status) for section in report.sections])
+        self.assertEqual(expected, [(section["name"], section["status"]) for section in report.to_dict()["sections"]])
 
     def test_builder_combines_explorer_pass_with_audit_warnings(self):
         model_report = CheckReport(ok=True, summary="sequences=1 traces=1")
@@ -102,7 +79,11 @@ class SummaryReportTests(unittest.TestCase):
         self.assertEqual("pass_with_gaps", summary.overall_status)
         self.assertEqual(["model_check", "model_quality_audit", "conformance_replay"], [s.name for s in summary.sections])
         self.assertIn("findings:", summary.format_text())
-        self.assertIn("finding_ledger:", summary.format_text())
+        self.assertEqual(["pass", "pass_with_gaps", "not_run"], [section.status for section in summary.sections])
+        serialized = summary.to_dict()
+        self.assertEqual({"overall_status", "summary", "sections", "metadata"}, set(serialized))
+        self.assertTrue(serialized["sections"][1]["findings"])
+        self.assertIs(audit_report, dict(summary.sections[1].metadata)["report"])
         self.assertIn("missing_repeated_input", summary.format_text(verbose=True))
 
     def test_empty_summary_is_not_run(self):
@@ -124,67 +105,6 @@ class SummaryReportTests(unittest.TestCase):
         self.assertIn("forbidden_write: changed records", summary.format_text(verbose=True))
         self.assertIn("metadata", json.loads(summary.to_json_text())["sections"][0])
 
-    def test_finding_ledger_flattens_findings_and_section_gaps(self):
-        ledger = build_finding_ledger(
-            (
-                FlowGuardSection("model_quality_audit", "pass_with_gaps", "warnings=1", ("warning: missing_invariant: add hard rule",)),
-                FlowGuardSection("progress_check", "not_run", "progress_config not provided"),
-                FlowGuardSection("model_check", "pass", "ok"),
-            )
-        )
-
-        self.assertEqual(2, len(ledger.entries))
-        self.assertEqual(
-            ["model_coverage_gap", "missing_or_skipped_check"],
-            [entry.category for entry in ledger.entries],
-        )
-        self.assertIn("entries=2", ledger.summary)
-        self.assertIn("finding_ledger", FlowGuardSummaryReport.from_sections(()).to_dict())
-
-    def test_finding_ledger_entries_include_structured_ai_handoff_fields(self):
-        ledger = build_finding_ledger(
-            (
-                FlowGuardSection(
-                    "conformance",
-                    "not_run",
-                    "conformance_status not provided",
-                ),
-                FlowGuardSection(
-                    "model_quality_audit",
-                    "pass_with_gaps",
-                    "warnings=1",
-                    ("warning: missing_invariant: add hard rule",),
-                ),
-            )
-        )
-
-        conformance, model_gap = ledger.entries
-        self.assertEqual("model_test_alignment", conformance.owner_route)
-        self.assertEqual("run_conformance_or_scope_claim", conformance.action_kind)
-        self.assertIn("check_result", conformance.required_input_kinds)
-        self.assertEqual("scoped_until_resolved", conformance.claim_effect)
-        self.assertIn("missing_conformance_proof", conformance.proof_gap_codes)
-
-        self.assertEqual("model_miss_review", model_gap.owner_route)
-        self.assertEqual("extend_model_coverage", model_gap.action_kind)
-        self.assertIn("scenario_or_invariant", model_gap.required_input_kinds)
-        self.assertIn("owner_route", model_gap.to_dict())
-
-    def test_maintenance_obligation_report_keeps_only_anchored_required_obligations_open(self):
-        from flowguard import (OBLIGATION_STATUS_OBSERVATION, OBLIGATION_STATUS_RESOLVED,
-                               OBLIGATION_STRENGTH_SUGGESTED, MaintenanceObligation,
-                               build_maintenance_obligation_report)
-
-        common = {"owner_route": "structure_mesh_maintenance", "reason_code": "large_module"}
-        report = build_maintenance_obligation_report("memory", (
-            MaintenanceObligation("structure:checkout", anchor_paths=("flowguard/checkout.py",), **common),
-            MaintenanceObligation("structure:orders", status=OBLIGATION_STATUS_RESOLVED,
-                                  evidence_ids=("structuremesh:passed",), **common),
-            MaintenanceObligation("observation:naming", status=OBLIGATION_STATUS_OBSERVATION, **common),
-            MaintenanceObligation("structure:reports", strength=OBLIGATION_STRENGTH_SUGGESTED, **common),
-        ))
-        self.assertEqual(("structure:checkout",), report.open_required_obligation_ids)
-        self.assertIn("open_required=1", report.summary)
 
 if __name__ == "__main__":
     unittest.main()
