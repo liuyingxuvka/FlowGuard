@@ -688,8 +688,8 @@ def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
     cli.main(["--root", str(shop), "confirm", "all"])
     capsys.readouterr()
     if mode == "uncaught_variant":
-        from flowguard.map import system_model
-        monkeypatch.setattr(system_model, "structural_findings", lambda *args, **kwargs: [])
+        from flowguard.map import lint
+        monkeypatch.setattr(lint, "structural_findings", lambda *args, **kwargs: [])
     code, output = models(shop, capsys, "system")
     assert code == (0 if mode in {"clean", "no_layers"} else 1)
     if code == 0:
@@ -701,7 +701,7 @@ def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
 
 
 def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
-    from flowguard.map import system_model
+    from flowguard.map import lint, system_model
     data = {"layers": ["top", "low"], "components": [
         {"id": "a", "layer": "top", "responsibilities": ["receive requests"]},
         {"id": "b", "layer": "low", "responsibilities": ["persist records"]}]}
@@ -717,7 +717,7 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
         {"code": "duplicate_owner", "reason": "existing shared responsibility"}]}
     assert list(system_model._variants(accepted, graph)) == []
     # A missing architecture rule is not evidence that a mutation was debt-accepted.
-    monkeypatch.setattr(system_model, "structural_findings", lambda *args, **kwargs: [])
+    monkeypatch.setattr(lint, "structural_findings", lambda *args, **kwargs: [])
     remaining = list(system_model._variants(data, graph))
     assert {name for name, _, _ in remaining} >= {"a_closes_cycle_with_b", "b_imports_a"}
     assert any(not system_model._rules(changed, edges) for _, changed, edges in remaining)

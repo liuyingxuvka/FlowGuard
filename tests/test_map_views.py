@@ -109,14 +109,14 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
     text = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert text.startswith('# demo: system, 3 components, layers (top > bottom) entry > domain; architecture: 1 error(s), 1 accepted debt(s)')
     lines = text.splitlines()
-    parent = next(line for line in lines if 'model parent ' in line)
-    child = next(line for line in lines if 'model child ' in line)
+    parent = next(line for line in lines if 'model parent:' in line)
+    child = next(line for line in lines if 'model child:' in line)
     assert len(child) - len(child.lstrip()) == len(parent) - len(parent.lstrip()) + 2
-    assert text.index('model rooted ') < text.index('## app')
+    assert text.index('model rooted:') < text.index('## app')
     assert 'cycle (debt)' in text and 'cycle shrank' in text and 'layer_violation' in text
     assert '> flow request:' in text and 'model: parent' in text
     detail = render_show(tmp_path, data, inv, component='store', detail=False, budget=8000)
-    assert 'model parent ' in detail and '(home app)' in detail
+    assert 'model parent:' in detail and '(home app)' in detail
     assert 'works -> tests/test_app.py:test_run' in detail
     data['accepted_debts'].append(dict(code='dependency_cycle', members=['app', 'store'], reason='Exact scope'))
     assert '1 error(s), 2 accepted debt(s)' in render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
@@ -154,7 +154,7 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     assert 'unlayered' in text
     assert 'audit.current' in text and 'audit-current' in text
     # Sanitized-name collisions cannot merge component or model nodes.
-    models = re.findall(r'^\s*(m_\w+)\(\["model ([^"]+)"\]\)', text, re.M)
+    models = re.findall(r'^\s*(m_\w+)\(\["model ([^"]+)<br/>[^\"]+"\]\)', text, re.M)
     model_ids = {label: node for node, label in models}
     assert f"{model_ids['audit.current']} --> {model_ids['audit-current']}" in text
     limited = render_mermaid(tmp_path, data, inv, component='a-b')
@@ -180,6 +180,85 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     tree = build_tree(tmp_path, data, inv)
     assert {n.id for n in tree.models_for_component('system')} == {'local'}
     full = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    assert full.count('model local ') == full.count('model rooted ') == 1
+    assert full.count('model local:') == full.count('model rooted:') == 1
     focused = render_mermaid(tmp_path, data, inv, component='system')
     assert 'model local' in focused and 'model rooted' not in focused
+
+
+def test_read_component_prints_five_facets_for_component_and_models(tmp_path):
+    import sys
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.views import render_mermaid
+
+    def write(path, text):
+        target = tmp_path / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(text)
+
+    write('facet_app.py', 'raise RuntimeError("user code must not import")\ndef run(): return True\ndef side(): pass\n')
+    write('store.py', 'def save(): pass\n')
+    write('tests/test_app.py', '''test_not_a_function = True
+def test_run(): pass
+def test_extra(): pass
+class A:
+    def test_same(self): pass
+class B:
+    def test_same(self): pass
+''')
+    parent = '''"""Protect app behavior.
+The second purpose line is not the purpose summary.
+"""
+raise RuntimeError("model must not import")
+import facet_child
+MODEL_ID = "parent"
+COMPONENTS = ["app"]
+IMPLEMENTED_BY = {"Run": "facet_app.py:run"}
+NOT_MODELED = {"facet_app.py:side": "Separate integration check"}
+TESTED_BY = {"a": ["tests/test_app.py:test_run", "tests/test_app.py:A.test_same"]}
+RULES = [Invariant("a", "rule a", None), Invariant(name="b", description="rule b", predicate=None)]
+def build_explorer(): raise RuntimeError("no exploration in read")
+def broken_variants():
+    metadata = {"not_a_variant": 1}
+    return {"x": metadata, "y": {"also_not_a_variant": 2}}
+'''
+    child = '''raise RuntimeError("child must not import")
+MODEL_ID = "child"
+COMPONENTS = ["app"]
+IMPLEMENTED_BY = {"Run": "facet_app.py:run"}
+TESTED_BY = {"child_rule": ["tests/test_app.py:test_extra"], "ambiguous": ["tests/test_app.py:test_same"]}
+def build_explorer(): raise RuntimeError("no exploration in read")
+def broken_variants():
+    metadata = {"not_a_variant": 1}
+    return {name: metadata for name in ("dynamic",)}
+'''
+    write('.flowguard/models/facet_parent.py', parent)
+    write('.flowguard/models/facet_child.py', child)
+    data = dict(project='facets', layers=['entry', 'domain'], components=[
+        dict(_component('app', summary='Handle app requests', responsibilities=['handle requests']),
+             files=['facet_app.py'], tests=['tests/test_app.py'], layer='domain'),
+        dict(_component('store', summary='Save data', responsibilities=['save data']), files=['store.py'], layer='entry')])
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    detail = render_show(tmp_path, data, inv, component='app', detail=False, budget=8000)
+    for label in ('purpose:', 'rules:', 'known-bad:', 'code:', 'tests:'):
+        assert sum(line.lstrip().startswith(label) for line in detail.splitlines()) == 3
+    assert 'rules: a, b' in detail and 'known-bad: x, y' in detail and 'untested: b' in detail
+    assert 'rules: ambiguous, child_rule (from TESTED_BY)' in detail
+    assert 'known-bad: built at run time' in detail and 'not_a_variant' not in detail
+    assert '4 functions, 3 bound' in detail and 'B.test_same' in detail
+    assert 'test_not_a_function' not in detail
+    assert 'not modeled: 1' in detail and 'Run -> facet_app.py:run' in detail
+    assert 'app_imports_store' in detail and '(generated by the system model)' in detail
+    assert 'test_run (not nested)' not in detail
+    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert ', 1 rules' in overview and 'model parent: Protect app behavior. (2 rules, 2 known-bad, 2 tests)' in overview
+    diagram = render_mermaid(tmp_path, data, inv)
+    assert 'app<br/>1 rules' in diagram and 'model parent<br/>2 rules, 2 known-bad' in diagram
+    root = render_show(tmp_path, data, inv, component='system', detail=False, budget=8000)
+    assert 'purpose: facets: 2 components' in root and 'no unaccepted dependency cycle' in root
+    assert '4 functions, 3 bound' in root
+    write('.flowguard/models/facet_child.py', child.replace(
+        'TESTED_BY = {"child_rule": ["tests/test_app.py:test_extra"], "ambiguous": ["tests/test_app.py:test_same"]}\n', ''))
+    unknown = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert '(? rules, ? known-bad, 0 tests)' in unknown
+    assert not {'facet_app', 'facet_parent', 'facet_child', '_flowguard_model_facet_parent', '_flowguard_model_facet_child'} & set(sys.modules)

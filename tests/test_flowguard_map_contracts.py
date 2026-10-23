@@ -516,8 +516,8 @@ def test_child_import_of_its_explicit_parent_preserves_tree_and_impact(tmp_path,
     assert {'parent', 'child'} <= set(impact.model_ids)
     assert main(['read', '--root', str(tmp_path), '--component', 'app']) == 0
     lines = capsys.readouterr().out.splitlines()
-    p = next(line for line in lines if 'model parent ' in line)
-    c = next(line for line in lines if 'model child ' in line)
+    p = next(line for line in lines if 'model parent:' in line)
+    c = next(line for line in lines if 'model child:' in line)
     assert len(c) - len(c.lstrip()) == len(p) - len(p.lstrip()) + 2
     write(tmp_path, '.flowguard/models/parent.py', parent + '\nPARENT="child"\n')
     assert 'parent_cycle' in {f.code for f in findings(tmp_path)}
