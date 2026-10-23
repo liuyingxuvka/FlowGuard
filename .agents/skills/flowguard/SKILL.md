@@ -55,7 +55,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 
 | capability | use when | lives here now |
 | --- | --- | --- |
-| behavior-commitment | external promises need one owner, source and tests; no silent fallback | `references/domains/behavior-commitment/protocol.md` |
+| behavior-commitment | external promises need one owner, source and tests; no silent fallback | component `entrypoints` + a model's `IMPLEMENTED_BY` or `NOT_MODELED` (`entrypoint_owner`, `entrypoint_unmodeled`), recipe `references/tree_operations.md#External promise (no silent fallback)` |
 | architecture-reduction | shrinking or merging code without behavior changes | tree operation `references/tree_operations.md#Remove or merge a node` (target `remove` + `CodeFacts.unreferenced`; `owner_dropped` stops a silent loss) |
 | code-structure | placing new code or splitting a module with its public surface intact | tree operation `references/tree_operations.md#Add or split a component` (target components; `duplicate_owner` and `owner_dropped` keep one owner and every public entrypoint) |
 | contract-exhaustion | enumerating every bad case or combination in a finite universe | `references/domains/contract-exhaustion/protocol.md` |

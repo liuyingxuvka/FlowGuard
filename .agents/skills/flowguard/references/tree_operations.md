@@ -58,3 +58,23 @@ Choose an explicit outcome for the old field:
 - Reassign: put the field in the recipient component's target `state` and preserve its behavior and bindings there.
 
 Check the default for a missing field and the behavior for null; who reads already persisted old data; and whether private content can be displayed to users.
+
+## External promise (no silent fallback)
+
+An external promise is a route, command, console script, handler or public API function recorded in a component's `entrypoints`.
+
+1. Start `python -m flowguard target start "<goal>"`; copy the file-owning component and any existing model you change with `python -m flowguard target add <id>`. Write a new model under `.flowguard/target/models/` when needed.
+2. List the entrypoint only on the component that owns its file; one promise has one owner (`entrypoint_owner`).
+3. Use a model in that component's subtree: name the entrypoint in `IMPLEMENTED_BY` and bind real tests in `TESTED_BY`, or state a concrete `NOT_MODELED` reason for an intentionally unmodeled promise (`entrypoint_unmodeled`).
+4. To retire a promise, remove it from the target component entry and list `entrypoint:<path:Symbol>` in target `remove`; `owner_dropped` blocks an undeclared loss.
+5. A legacy facade only delegates to the primary path; model and test that its result equals the primary path's result.
+
+For a model with primary and fallback paths, give each failure below its own `broken_variants()` entry that the rules must reject:
+- Primary failure is followed by a fallback that reports success.
+- A new field or data source fails, then code reads an old field or backup cache.
+- Two paths claim authoritative success for the same intent.
+- Required manual recovery is performed automatically.
+- A legacy facade performs business logic instead of delegating to the primary path.
+
+6. Run `python -m flowguard target check` until the design has no ERROR and only code/test TO-DO remains, then implement the code and tests.
+7. Run the same target check until ERROR and TO-DO are both zero, then `python -m flowguard target promote`, confirm the listed components and run `python -m flowguard change` with any remaining selected checks.

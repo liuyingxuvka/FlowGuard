@@ -175,7 +175,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "behavior-commitment",
         "contract-exhaustion",
         "engine-conformance",
         "engine-core",
@@ -195,14 +194,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c99f3392520e4658abe48bfddb73e625a30b983f0e48b2b1a59f35456938214b"
+      "fingerprint": "sha256:db20e529ed52486b856dc1134c0e979224bb10985d376318a184fee6430cce0b"
     },
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates kit contract models and the canonical behavior ledger without self-reported evidence blocks.",
+      "summary": "Generates kit contract models without self-reported evidence blocks.",
       "responsibilities": [
-        "every capability template writes one contract model built from a kit; retain adoption rules and the behavior model canonical auxiliary ledger",
+        "every capability template writes one contract model built from a kit; retain adoption rules",
         "generated placeholder code and test anchors fail cleanly until replaced with real ones",
         "generate edit-plan examples forwarding the existing DESIGN_ONLY marker to code-facts helpers"
       ],
@@ -225,59 +224,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8afc39b6f3324042a24ac210adf865a7d42cd5cd1e60c2c08a2489fc8d7fb835"
-    },
-    {
-      "id": "behavior-commitment",
-      "layer": "capabilities",
-      "summary": "Binds external promises to their code, tests, one owner and real source inventory; uses ordinary result labels.",
-      "responsibilities": [
-        "register each external promise with one owner and tests",
-        "block silent fallback from a failed primary path",
-        "with a project root, require each promise to name its entrypoint and tests as anchors that exist",
-        "model kit: explore added or retired commitments and paths with the ledger and primary-path reviews and a static scan of the real tests as invariants (a commitment whose test never imports or calls its entrypoint is a counterexample) and compare the target plan with the code"
-      ],
-      "files": [
-        "flowguard/behavior_commitment.py",
-        "flowguard/behavior_commitment_lookup.py",
-        "flowguard/primary_path_authority.py"
-      ],
-      "entrypoints": [
-        "flowguard/behavior_commitment.py:review_behavior_commitment_ledger",
-        "flowguard/primary_path_authority.py:review_primary_path_authority"
-      ],
-      "state": [
-        "declared behavior commitments"
-      ],
-      "side_effects": [
-        "writes a commitment file when requested"
-      ],
-      "depends_on": [
-        "contract-exhaustion",
-        "engine-conformance",
-        "engine-core",
-        "map-analysis",
-        "map-inventory",
-        "map-proof",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_behavior_commitment_contract_exhaustion.py",
-        "tests/test_behavior_commitment_ledger.py",
-        "tests/test_behavior_commitment_lookup.py",
-        "tests/test_behavior_inventory.py",
-        "tests/test_behavior_plane_upgrade.py",
-        "tests/test_primary_path_authority.py",
-        "tests/test_primary_path_authority_compatibility_matrix.py",
-        "tests/test_primary_path_authority_contract_exhaustion.py",
-        "tests/test_primary_path_authority_core_matrix.py",
-        "tests/test_primary_path_authority_facade_matrix.py",
-        "tests/test_primary_path_authority_field_matrix.py",
-        "tests/test_product_language_path_reuse.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:9cb60e50041baa6d60e41ae281d771c6a964e1b0d8e87393efacb32cbded3d33"
+      "fingerprint": "sha256:9712928faff1e0f248984dbb105d3f2c79312950ca905a52934d18018eefe8d8"
     },
     {
       "id": "contract-exhaustion",
@@ -303,10 +250,8 @@
         "shared-vocabulary"
       ],
       "tests": [
-        "tests/test_behavior_commitment_contract_exhaustion.py",
         "tests/test_contract_exhaustion.py",
-        "tests/test_hierarchical_mesh.py",
-        "tests/test_primary_path_authority_contract_exhaustion.py"
+        "tests/test_hierarchical_mesh.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -375,7 +320,6 @@
         "tests/test_model_test_alignment.py",
         "tests/test_model_test_binding_honesty.py",
         "tests/test_obligation_family.py",
-        "tests/test_product_language_path_reuse.py",
         "tests/test_code_boundary_conformance.py"
       ],
       "models": [],
@@ -470,7 +414,6 @@
         "map-proof"
       ],
       "tests": [
-        "tests/test_product_language_path_reuse.py",
         "tests/test_ui_structure.py"
       ],
       "models": [],
@@ -585,7 +528,8 @@
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details",
-        "compare current owner promises with merged target owners and explicit removal intent when checking a target"
+        "compare current owner promises with merged target owners and explicit removal intent when checking a target",
+        "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -616,7 +560,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:aa85ebc4d30d3fb747cde832f7fffcaa374368845515aa524a863788e6685896"
+      "fingerprint": "sha256:a444fa647df43f0712d11153ca90dff1e2c4bea04199b0358708f1c254bb7b12"
     },
     {
       "id": "map-target",
@@ -624,7 +568,7 @@
       "summary": "Keeps one target and checks its merged tree against actual code and tests.",
       "responsibilities": [
         "start, extend and drop one target without executing models or code checks",
-        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches",
+        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors",
         "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
         "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
         "stop a target that silently drops an entrypoint, state or side effect"
@@ -654,7 +598,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:badce481ad345b766a23d624acba1d92d21fac108b6b2761817ffc0da12445dd"
+      "fingerprint": "sha256:2082d6ed91d57b8803358e2571c1b700407bae32a5470972a4db6fbd324866ee"
     },
     {
       "id": "map-proof",

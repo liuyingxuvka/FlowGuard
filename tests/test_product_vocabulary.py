@@ -1,5 +1,4 @@
 """Keep obsolete receipt gates out of active product and skill surfaces."""
-import ast
 from pathlib import Path
 import re
 import subprocess
@@ -18,14 +17,6 @@ def test_no_receipt_vocabulary_left():
         if relative in exempt:
             continue
         content = (ROOT / relative).read_bytes()
-        if relative == "tests/test_behavior_commitment_ledger.py":
-            text = content.decode("utf-8")
-            legacy = next(node for node in ast.parse(text).body if isinstance(node, ast.FunctionDef)
-                          and node.name == "test_old_ledger_with_evidence_blocks_still_loads")
-            lines = text.splitlines(keepends=True)
-            # Only this legacy JSON migration example may name the removed keys.
-            content = "".join(lines[:legacy.lineno - 1] + ["\n"] * (legacy.end_lineno - legacy.lineno + 1)
-                              + lines[legacy.end_lineno:]).encode("utf-8")
         for match in re.finditer(b"receipt", content, re.IGNORECASE):
             offenders.append(f"{relative}:{content[:match.start()].count(bytes([10])) + 1}")
     assert not offenders, "\n".join(offenders)
@@ -36,22 +27,13 @@ PENDING = {
     ".flowguard/models/code_boundary_conformance.py": "FG-221",
     ".flowguard/models/contract_source_audit.py": "FG-221",
     ".flowguard/models/model_test_code_alignment.py": "FG-221",
-    "flowguard/behavior_commitment.py": "FG-219",
     "flowguard/contract_exhaustion.py": "FG-226",
     "flowguard/model_test_alignment.py": "FG-221",
     "flowguard/obligation_family.py": "FG-221",
-    "flowguard/primary_path_authority.py": "FG-219",
-    "flowguard/template_text/behavior_commitment.py": "FG-219",
     "flowguard/ui_structure.py": "FG-225",
-    "tests/test_behavior_commitment_contract_exhaustion.py": "FG-219",
-    "tests/test_behavior_commitment_ledger.py": "FG-219",
-    "tests/test_behavior_commitment_lookup.py": "FG-219",
-    "tests/test_behavior_inventory.py": "FG-219",
-    "tests/test_behavior_plane_upgrade.py": "FG-219",
     "tests/test_code_boundary_conformance.py": "FG-221",
     "tests/test_model_test_alignment.py": "FG-221",
     "tests/test_obligation_family.py": "FG-221",
-    "tests/test_product_language_path_reuse.py": "FG-219",
     "tests/test_transition_coverage.py": "FG-220",
     "tests/test_ui_structure.py": "FG-225",
 }

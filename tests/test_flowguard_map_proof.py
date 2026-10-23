@@ -1107,3 +1107,65 @@ def test_model_result_name_defaults_and_bounded_display(rule_count, bad_count, e
     payload = json.loads(json.dumps(result.__dict__))
     assert payload["rules"] == rules and payload["known_bad"] == bad
     assert ModelResult(**payload) == result
+
+
+def test_fallback_that_reports_success_is_a_known_bad_variant(tmp_path, capsys):
+    write(tmp_path, "app.py", '''def primary(available):
+    return "ok" if available else "failed"
+
+def backup(result):
+    return "error" if result == "failed" else result
+
+def run(available):
+    return backup(primary(available))
+''')
+    write(tmp_path, "tests/test_app.py", '''from app import run
+
+def test_run():
+    assert run(True) == "ok"
+    assert run(False) == "error"
+''')
+    source = '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "fallback"
+COMPONENTS = ["app"]
+IMPLEMENTED_BY = {"Primary": "app.py:primary", "Backup": "app.py:backup", "Run": "app.py:run"}
+TESTED_BY = {"failure_visible": ["tests/test_app.py:test_run"]}
+class Primary:
+    name = "Primary"
+    def apply(self, available, state):
+        return [FunctionResult("ok" if available else "failed", (not available, "pending"))]
+class Backup:
+    name = "Backup"
+    def __init__(self, silent=False): self.silent = silent
+    def apply(self, result, state):
+        output = "ok" if self.silent else ("error" if result == "failed" else result)
+        return [FunctionResult(output, (state[0], output))]
+INVARIANTS = (Invariant("failure_visible", "a failed primary never becomes silent success", lambda s, t: not s[0] or s[1] in ("pending", "error")),)
+def explorer(silent=False):
+    return Explorer(Workflow((Primary(), Backup(silent))), initial_states=((False, "pending"),),
+                    external_inputs=(True, False), max_sequence_length=1, progress_steps=0,
+                    invariants=INVARIANTS)
+def build_explorer(): return explorer()
+def broken_variants(): return {"silent_success": explorer(True)}
+def conformance():
+    from app import run
+    return CodeFactsReport(tuple(Fact("visible outcome", run(available) == expected, str(available))
+                                 for available, expected in ((True, "ok"), (False, "error"))))
+'''
+    path = ".flowguard/models/fallback.py"
+    write(tmp_path, path, source)
+    write(tmp_path, ".flowguard/map.json", json.dumps({"schema": "flowguard.map.v1", "components": [dict(
+        id="app", summary="Application outcome", responsibilities=["report the application outcome"],
+        files=["app.py"], entrypoints=["app.py:run"], tests=["tests/test_app.py"], models=[path],
+        depends_on=[], status="draft")]}))
+    code, output = models(tmp_path, capsys, "fallback", "--tests")
+    assert code == 0 and "PASS  fallback" in output, output
+    assert "silent_success" in output, output
+    lines = source.splitlines(keepends=True)
+    rule = next(line for line in lines if line.startswith("INVARIANTS = "))
+    write(tmp_path, path, source.replace(rule, "INVARIANTS = ()\n"))
+    code, output = models(tmp_path, capsys, "fallback")
+    assert code == 1 and "FAIL  fallback" in output, output
+    assert "known-bad variant 'silent_success' passed" in output, output

@@ -6,10 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-from .template_text.behavior_commitment import (
-    BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE,
-    BEHAVIOR_COMMITMENT_MODEL_TEMPLATE,
-)
 from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
@@ -53,13 +49,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 
 def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     return (TemplateFile(".flowguard/models/model_test_alignment.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),)
-
-
-def behavior_commitment_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/behavior_commitment.py", BEHAVIOR_COMMITMENT_MODEL_TEMPLATE),
-        TemplateFile(".flowguard/behavior/inventory/ledger.json", BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE),
-    )
 
 
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
@@ -106,14 +95,11 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE",
-    "BEHAVIOR_COMMITMENT_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
-    "behavior_commitment_template_files",
     "contract_exhaustion_template_files",
     "model_mesh_template_files",
     "model_test_alignment_template_files",

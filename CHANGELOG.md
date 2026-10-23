@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Duplicate or wrong-file-owner entrypoint declarations now fail `map check` with `entrypoint_owner` errors. Declared route, command, console-script and handler entrypoints, excluding argparse-derived subcommands, warn when no model anchor or reasoned `NOT_MODELED` covers them (`entrypoint_unmodeled`); existing dangerous-effect checks remain. The former FlowGuard behavior ledger is no longer read and its presence produces a `retired_file` warning. Existing ResearchGuard projects are expected to gain one additional warning on FlowGuard reference upgrade; record and resolve it through native model bindings or a reasoned exclusion.
+
 - Behavior-changing field edits now use target model state and real `CodeFacts.absent` / `CodeFacts.present` checks in `conformance()`; the former field-lifecycle engine and starter are removed. The rename-or-retire recipe covers deletion, migration, rejection or reassignment, missing/null values, persisted readers and privacy.
 
 - Code structure now uses target components and the add-or-split recipe. A state or side-effect claim shared by multiple components now triggers `duplicate_owner` in lint, the system model and target checks, and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard must specialize the descriptions of `logicguard`, `sourceguard`, `traceguard` and `experimentguard` in the same change as its FlowGuard reference upgrade.

@@ -173,7 +173,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
-    for name in ("behavior-commitment", "contract-exhaustion",
+    for name in ("contract-exhaustion",
                  "model-mesh", "model-test",
                  "topology-hazard", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
@@ -182,6 +182,7 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     assert main(["template", "architecture-reduction", "--write", str(tmp_path / "architecture-reduction")]) == 2
     assert main(["template", "code-structure", "--write", str(tmp_path / "code-structure")]) == 2
     assert main(["template", "field-lifecycle", "--write", str(tmp_path / "field-lifecycle")]) == 2
+    assert main(["template", "behavior-commitment", "--write", str(tmp_path / "behavior-commitment")]) == 2
 
 
 def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys):
@@ -572,3 +573,43 @@ def test_two_components_cannot_own_one_state(tmp_path, capsys):
     # The same words in state and side-effect facets do not name the same promise.
     borrower["side_effects"] = ["free copies per book", *empty]
     observe(False)
+
+
+def test_one_promise_has_one_owner(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "lib.py", "def helper():\n    return 1\n")
+    library = dict(id="lib", summary="Library helper", responsibilities=["provide library help"],
+                   files=["lib.py"], entrypoints=["lib.py:helper"], tests=[], models=[],
+                   depends_on=[], status="draft")
+    data["components"].append(library)
+    app = data["components"][0]
+    for duplicate in (False, True):
+        app["entrypoints"] = ["app.py:run", "lib.py:helper"]
+        library["entrypoints"] = ["lib.py:helper"] if duplicate else []
+        save(tmp_path, data)
+        errors = [f for f in findings(tmp_path) if f.code == "entrypoint_owner"]
+        assert errors and all(f.level == "error" for f in errors)
+        assert any("lib.py:helper is listed by app but lib.py belongs to lib" in f.message for f in errors)
+        if duplicate:
+            assert any("lib.py:helper is listed by app and lib; one promise has one owner" in f.message
+                       for f in errors)
+        assert main(["map", "check", "--root", str(tmp_path)]) == 1
+        capsys.readouterr()
+        app["entrypoints"] = ["app.py:run"]
+        library["entrypoints"] = ["lib.py:helper"]
+        save(tmp_path, data)
+        assert not any(f.code == "entrypoint_owner" for f in findings(tmp_path))
+        assert main(["map", "check", "--root", str(tmp_path)]) == 0
+        capsys.readouterr()
+
+
+def test_old_behavior_ledger_is_reported(tmp_path, capsys):
+    project(tmp_path)
+    path = ".flowguard/behavior/inventory/ledger.json"
+    write(tmp_path, path, "{}")
+    retired = [f for f in findings(tmp_path) if f.code == "retired_file"]
+    assert len(retired) == 1 and retired[0].level == "warn"
+    assert path in retired[0].message and "is no longer read" in retired[0].message
+    assert "move each promise" in retired[0].message and "delete the file" in retired[0].message
+    assert main(["map", "check", "--root", str(tmp_path)]) == 0
+    assert "retired_file" in capsys.readouterr().out

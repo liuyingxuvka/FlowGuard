@@ -8,13 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from flowguard import (
-    behavior_commitment_ledger_from_mapping,
-    behavior_commitment_ledger_to_mapping,
-)
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
-    behavior_commitment_template_files,
     contract_exhaustion_template_files,
     model_mesh_template_files,
     model_test_alignment_template_files,
@@ -27,7 +22,6 @@ from flowguard.templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    behavior_commitment_template_files,
     model_test_alignment_template_files,
     ui_flow_structure_template_files,
     model_mesh_template_files,
@@ -36,7 +30,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
     "ui-flow-structure-template": "ui_flow_structure",
     "model-mesh-template": "model_mesh",
@@ -165,40 +158,7 @@ class PublicTemplateTests(unittest.TestCase):
 
         self.assertEqual([], offenders)
 
-    def test_behavior_commitment_template_has_one_canonical_ledger_authority(self):
-        files = behavior_commitment_template_files()
-        by_path = {file.path: file.content for file in files}
 
-        self.assertIn(".flowguard/behavior/inventory/ledger.json", by_path)
-        payload = json.loads(by_path[".flowguard/behavior/inventory/ledger.json"])
-        canonical = behavior_commitment_ledger_from_mapping(payload)
-        self.assertEqual(payload, behavior_commitment_ledger_to_mapping(canonical))
-        commitment = payload["ledger"]["commitments"][0]
-        self.assertEqual("product_runtime", commitment["behavior_plane"])
-        self.assertEqual("intent:submit-order", commitment["business_intent_id"])
-        model_text = by_path[".flowguard/models/behavior_commitment.py"]
-        self.assertIn("load_behavior_commitment_ledger", model_text)
-        self.assertNotIn("BehaviorCommitment(", model_text)
-
-    def test_behavior_commitment_template_binds_promises_paths_and_tests_to_the_code(self):
-        files = behavior_commitment_template_files()
-        code = {"shop/orders.py": "def submit_order(order):\n    return order\n",
-                "shop/orders_v1.py": "from shop.orders import submit_order\n\n\ndef submit(order):\n"
-                                     "    return submit_order(order)\n",
-                "shop/test_orders.py": "from shop.orders import submit_order\n\n\ndef test_submit_order():\n"
-                                       "    assert submit_order({'id': 1})\n"}
-        self.assertIn("placeholder anchor", self.run_kit_template(files, "behavior_commitment", code,
-                                                                  expected_returncode=1))
-        self.assertIn("PASS  behavior_commitment", self.run_kit_template(files, "behavior_commitment", code,
-                                                                         fill="shop", expected_returncode=0))
-        untouched = dict(code, **{"shop/test_orders.py": "def test_submit_order():\n    assert {'id': 1}\n"})
-        output = self.run_kit_template(files, "behavior_commitment", untouched, fill="shop", expected_returncode=1)
-        self.assertIn("invariant: commitment_tests_touch_entrypoints", output)
-        self.assertIn("shop/test_orders.py never imports or calls shop/orders.py:submit_order", output)
-        own_logic = dict(code, **{"shop/orders_v1.py": "def submit(order):\n    return dict(order, via='v1')\n"})
-        self.assertIn("shop/orders_v1.py never imports or calls shop/orders.py:submit_order",
-                      self.run_kit_template(files, "behavior_commitment", own_logic, fill="shop",
-                                            expected_returncode=1))
 
     def alignment_code(self):
         return {"shop/module.py": "class Owner:\n    def __init__(self): self.ready = True\n",
@@ -300,10 +260,10 @@ class PublicTemplateTests(unittest.TestCase):
             else:
                 models = [p for p in paths if p.startswith(".flowguard/models/") and p.count("/") == 2]
                 self.assertEqual(1, len(models), name)
-                self.assertEqual([".flowguard/behavior/inventory/ledger.json"] if name == "behavior-commitment" else [],
+                self.assertEqual([],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(7, len(template_factories()))
+        self.assertEqual(6, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract

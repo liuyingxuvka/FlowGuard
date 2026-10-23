@@ -418,3 +418,75 @@ class Other:
     write('.flowguard/map.json', json.dumps(data))
     current, inv = _context(tmp_path)
     assert not any(f.code == 'model_writer_unbound' for f in run_check(tmp_path, current, inv))
+
+
+def test_external_promise_needs_a_model_or_a_reason(tmp_path):
+    (tmp_path / "cli.py").write_text("def business(value):\n    return value + 1\n\ndef main():\n    return business(0)\n")
+    (tmp_path / "pyproject.toml").write_text('[project.scripts]\nplain = "cli:main"\n')
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests/test_cli.py").write_text(
+        "from cli import business\n\ndef test_business():\n    assert business(0) == 1\n")
+    directory = tmp_path / ".flowguard/models"
+    directory.mkdir(parents=True)
+    model = directory / "business.py"
+    source = '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "business"
+COMPONENTS = ["commands"]
+IMPLEMENTED_BY = {"Increment": "cli.py:business"}
+TESTED_BY = {"incremented": ["tests/test_cli.py:test_business"]}
+NOT_MODELED = {}
+class Increment:
+    name = "Increment"
+    def __init__(self, delta=1): self.delta = delta
+    def apply(self, value, state):
+        return [FunctionResult(value + self.delta, (value, value + self.delta))]
+def explorer(delta=1):
+    return Explorer(Workflow((Increment(delta),)), initial_states=((0, 1),), external_inputs=(0, 1),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("incremented", "increments once", lambda s, t: s[1] == s[0] + 1),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"no_increment": explorer(0)}
+def conformance():
+    from cli import business
+    return CodeFactsReport(tuple(Fact("incremented", business(n) == n + 1, str(n)) for n in (0, 1)))
+'''
+    model.write_text(source)
+    data = {"schema": "flowguard.map.v1", "components": [dict(
+        id="commands", summary="Console command", responsibilities=["serve the console command"],
+        files=["cli.py"], entrypoints=["cli.py:main"], tests=["tests/test_cli.py"],
+        models=[".flowguard/models/business.py"], depends_on=[], status="draft")]}
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    proof = map_cli(tmp_path, "models", "business", "--tests")
+    assert proof.returncode == 0 and "PASS  business" in proof.stdout, proof.stdout + proof.stderr
+    result = map_cli(tmp_path, "check")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "external promise cli.py:main (console_script) has no model anchor" in result.stdout
+    assert "model it, or declare NOT_MODELED with a reason" in result.stdout
+    reason = {"cli.py:main": "The pure console adapter is tested directly; the finite model covers business arithmetic."}
+    model.write_text(source.replace("NOT_MODELED = {}", "NOT_MODELED = " + repr(reason)))
+    result = map_cli(tmp_path, "check")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "entrypoint_unmodeled" not in result.stdout
+    assert 'IMPLEMENTED_BY = {"Increment": "cli.py:business"}' in model.read_text()
+
+    # A declared bare method is a valid anchor for a decorated class handler.
+    command = tmp_path / "cli.py"
+    command.write_text(command.read_text() + '\nclass Events:\n    def handler(self, fn):\n        return fn\nevents = Events()\nclass Controller:\n    @events.handler\n    def handle(self):\n        return "ready"\n')
+    data["components"][0]["entrypoints"].append("cli.py:handle")
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    result = map_cli(tmp_path, "check")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "external promise cli.py:handle (handler) has no model anchor" in result.stdout
+    reason["cli.py:handle"] = "The registered pure class handler has no business state; its body returns readiness."
+    model.write_text(source.replace("NOT_MODELED = {}", "NOT_MODELED = " + repr(reason)))
+    result = map_cli(tmp_path, "check")
+    assert result.returncode == 0 and "entrypoint_unmodeled" not in result.stdout, result.stdout + result.stderr
+
+    # A real top-level function wins over a same-name decorated class method.
+    command.write_text(command.read_text() + '\ndef handle():\n    return "plain"\n')
+    del reason["cli.py:handle"]
+    model.write_text(source.replace("NOT_MODELED = {}", "NOT_MODELED = " + repr(reason)))
+    result = map_cli(tmp_path, "check")
+    assert result.returncode == 0 and "entrypoint_unmodeled" not in result.stdout, result.stdout + result.stderr

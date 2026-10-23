@@ -584,7 +584,7 @@ def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, reg
 def entrypoint_coverage_findings(raw: dict, data: dict, inv: Inventory,
                                  covered_by_model: dict[str, set[str]], *, not_modeled: set[str] | None = None,
                                  models_by_component: dict[str, list[str]] | None = None) -> list[Finding]:
-    """Reverse check dangerous declared entries against their existing model anchors or explicit reasons."""
+    """Check external or dangerous declared entries against model anchors or explicit reasons."""
     out = []
     dangerous = {"db", "network", "fs_write", "fs_delete"}
     for comp in data["components"]:
@@ -599,6 +599,14 @@ def entrypoint_coverage_findings(raw: dict, data: dict, inv: Inventory,
             file = raw["files"].get(path, {})
             functions = file.get("functions", {})
             names = [symbol] if symbol in functions else [name for name in functions if name.endswith("." + symbol)]
+            precise = sorted({entry["kind"] for entry in file.get("entrypoints", [])
+                              if entry["symbol"] in names and entry["kind"] in PRECISE_ENTRY_KINDS
+                              and entry.get("via") != "argparse"})
+            if precise:
+                out.append(Finding("warn", "entrypoint_unmodeled", comp["id"],
+                                   f"external promise {anchor} ({', '.join(precise)}) has no model anchor; "
+                                   "model it, or declare NOT_MODELED with a reason"))
+                continue
             effects = set().union(*(set(reachable_effects(raw, f"{path}#{name}")) for name in names))
             if effects & dangerous:
                 out.append(Finding("warn", "entrypoint_unmodeled", comp["id"],

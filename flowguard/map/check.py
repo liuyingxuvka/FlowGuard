@@ -55,6 +55,11 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
 
 def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None) -> list[Finding]:
     out: list[Finding] = []
+    retired = ".flowguard/behavior/inventory/ledger.json"
+    if (root / retired).is_file():
+        out.append(Finding("warn", "retired_file", "",
+                           f"{retired} is no longer read; move each promise to its component's entrypoints "
+                           "and a model, then delete the file (see references/upgrade.md)"))
     by_id = {c["id"]: c for c in data["components"]}
     owner, owners_all = owner_index(data, inv)
     for f, ids in sorted(owners_all.items()):
@@ -152,6 +157,15 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     evidence_graph = dependency_evidence(data, inv)
     from .lint import apply_accepted_debts, normalized_debts, structural_findings
     out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv), normalized_debts(data))[0])
+    declared_entries: dict[str, set[str]] = {}
+    for component in data["components"]:
+        for anchor in component.get("entrypoints", []):
+            declared_entries.setdefault(anchor, set()).add(component["id"])
+    for anchor, declaring in sorted(declared_entries.items()):
+        if len(declaring) > 1:
+            ids = sorted(declaring)
+            out.append(Finding("error", "entrypoint_owner", ids[0],
+                               f"{anchor} is listed by {' and '.join(ids)}; one promise has one owner"))
     stale_level = "error" if strict else "warn"
     for c in data["components"]:
         cid, files = c["id"], component_files(c, inv)
@@ -161,6 +175,14 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             if not any(glob_match(f, pat) for f in inv.source):
                 out.append(Finding("warn", "pattern_dead", cid, f"files pattern {pat!r} matches nothing"))
         for anchor in c.get("entrypoints", []):
+            path = anchor.partition(":")[0]
+            if not matches_any(path, c.get("files", [])):
+                owners = sorted(other["id"] for other in data["components"]
+                                if matches_any(path, other.get("files", [])))
+                ownership = (f"belongs to {', '.join(owners)}" if owners
+                             else "does not match this component's files")
+                out.append(Finding("error", "entrypoint_owner", cid,
+                                   f"{anchor} is listed by {cid} but {path} {ownership}; list it on its owner"))
             problem = anchor_problem(root, inv, anchor)
             if problem:
                 out.append(Finding("error", "anchor_broken", cid, problem))
