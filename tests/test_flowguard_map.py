@@ -232,14 +232,42 @@ def _impact_project_template(tmp_path_factory, _project_template):
         assert run(project, "scan")[0] == 0
     data = fill(project)
     data["components"][0]["tests"] = ["tests/test_api.py"]
-    data["components"][1]["models"] = [".flowguard/verification/owners/orders/run_checks.py"]
+    data["components"][1]["models"] = [".flowguard/models/orders_check.py"]
     data["components"][2]["models"] = [".flowguard/models/persistence.py"]
     write(project, "tests/test_api.py", "def test_api():\n    assert True\n")
     write(project, "tests/test_web.py", "def test_web():\n    assert True\n")
     data["components"][3]["tests"] = ["tests/test_web.py"]
-    write(project, ".flowguard/verification/owners/orders/run_checks.py", "raise SystemExit(0)\n")
-    write(project, ".flowguard/models/owners/orders/model.py", "VALUE = True\n")
-    write(project, ".flowguard/models/owners/orders/helper.py", "VALUE = True\n")
+    write(project, ".flowguard/models/orders_check.py", '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "orders_check"
+COMPONENTS = ["orders"]
+IMPLEMENTED_BY = {"Place": "shop/orders.py:OrderService.place"}
+TESTED_BY = {}
+class Place:
+    name = "Place"
+    def __init__(self, persists=True): self.persists = persists
+    def apply(self, value, state):
+        saved = state[1] | {value} if self.persists else state[1]
+        return [FunctionResult(value, (value, saved))]
+def explorer(persists=True):
+    return Explorer(Workflow((Place(persists),)), initial_states=((None, frozenset()),), external_inputs=(0, 1),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("placed_is_saved", "placing an order writes its database entry",
+                                          lambda s, t: s[0] is None or s[0] in s[1]),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"does_not_save": explorer(False)}
+def conformance():
+    from shop.orders import OrderService
+    from shop import storage
+    storage.DB.clear()
+    facts = []
+    for value in (0, 1):
+        observed = OrderService().place(value)
+        facts.extend((Fact("return matches input", observed == value, str(value)),
+                      Fact("order stored", storage.DB.get(value) is True, str(value))))
+    return CodeFactsReport(tuple(facts))
+''')
     write(project, ".flowguard/models/persistence.py", "MODEL_ID = 'storage-proof'\nCOMPONENTS = ['storage']\ndef build_explorer():\n    pass\n")
     save(project, data)
     git(project, "add", "-A")
@@ -251,6 +279,19 @@ def _impact_project_template(tmp_path_factory, _project_template):
 def impact_project(tmp_path: Path, _impact_project_template: Path):
     root = Path(shutil.copytree(_impact_project_template, tmp_path / "shop"))
     return root, load(root)
+
+
+def _legacy_order_checks(root, data):
+    """Restore the original isolated runner fixture for tests of its retiring behavior."""
+    (root / ".flowguard/models/orders_check.py").unlink()
+    runner = ".flowguard/verification/owners/orders/run_checks.py"
+    data["components"][1]["models"] = [runner]
+    write(root, runner, "raise SystemExit(0)\n")
+    write(root, ".flowguard/models/owners/orders/model.py", "VALUE = True\n")
+    write(root, ".flowguard/models/owners/orders/helper.py", "VALUE = True\n")
+    save(root, data)
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "legacy runner check baseline")
 
 
 def impact_of(root, data, changed, **kwargs):
@@ -399,6 +440,8 @@ def test_impact_declared_edges_bridge_unsupported_imports(impact_project, surfac
 def test_impact_verification_backreferences_and_old_paths(impact_project, change):
     from flowguard.map.impact import changed_files, render_impact
     root, data = impact_project
+    if change in {"nested", "helper", "runner"}:
+        _legacy_order_checks(root, data)
     changed = []
     if change == "delete":
         (root / "shop/storage.py").unlink()
@@ -421,7 +464,7 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
     imp = impact_of(root, data, changed, base="HEAD")
     if change in {"delete", "rename", "mapping"}:
         assert {"tests/test_orders.py", "tests/test_api.py"} <= set(imp.tests)
-        assert "orders" in imp.model_ids
+        assert "orders_check" in imp.model_ids
     else:
         assert imp.direct == [] and imp.dependents == []
         assert imp.tests == (["tests/test_orders.py"] if change == "test" else [])
@@ -762,6 +805,7 @@ def test_deleted_owner_without_surviving_checks_is_visible(impact_project):
 @pytest.mark.parametrize("registered", [False, True])
 def test_old_runner_requires_current_registration(impact_project, registered):
     root, data = impact_project
+    _legacy_order_checks(root, data)
     owner = data["components"][1]
     path = owner["models"][0]
     data["components"].remove(owner)
@@ -933,7 +977,7 @@ def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, ed
         assert imp.dependents == [] and imp.tests == [] and imp.models == []
     else:
         assert imp.comment_only == [] and imp.dependents == ["api", "orders"]
-        assert "tests/test_storage.py" in imp.tests and "orders" in imp.model_ids
+        assert "tests/test_storage.py" in imp.tests and "orders_check" in imp.model_ids
 
 
 @pytest.mark.parametrize("guard", ["TYPE_CHECKING", "t.TYPE_CHECKING"])

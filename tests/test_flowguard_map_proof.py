@@ -598,7 +598,12 @@ def test_runner_models_follow_the_same_binding_rule(shop, capsys):
     code, output = models(shop, capsys, "orders_check")
     assert code == 1 and "placeholder anchor" in output
     _runner_project(shop, "shop/orders.py:OrderService.place")
-    assert "orders_check" not in _check_codes(shop, capsys)
+    out = _check_codes(shop, capsys)
+    expected = (f"{'WARN':5} {'runner_model':24} {'-':26} {RUNNER}: runner models are retired; "
+                "rewrite it as a contract model in .flowguard/models/ "
+                "(MODEL_ID, build_explorer, broken_variants, conformance; see references/model_recipes.md)")
+    assert [line for line in out.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"] == [expected]
+    assert not any(line.startswith("ERROR") and RUNNER in line for line in out.splitlines())
     assert models(shop, capsys, "orders_check")[0] == 0
     write(shop, "shop/orders.py", FIXED.replace("def place(", "def place_order(").replace("return \"placed\"", "return 'placed'"))
     out = _check_codes(shop, capsys)
@@ -1245,3 +1250,28 @@ def test_bound_parameter_selection_preserves_each_item_guard(shop, capsys, suffi
         assert code == 1 and problem in output, output
         if suffix in {"[miss]", ""}:
             assert "test_bound[miss]" in output
+
+
+
+def test_runner_model_is_warned(shop, capsys):
+    _runner_project(shop, "shop/orders.py:OrderService.place")
+    marker = shop / "runner-result.txt"
+    source = (shop / RUNNER).read_text(encoding="utf-8")
+    original = '    return 0 if OrderService().place("o1", 5) == "placed" else 1'
+    replacement = ('    from pathlib import Path\n'
+                   '    result = OrderService().place("o1", 5)\n'
+                   '    Path("runner-result.txt").write_text(result, encoding="utf-8")\n'
+                   '    return 0 if result == "placed" else 1')
+    assert original in source
+    write(shop, RUNNER, source.replace(original, replacement, 1))
+    assert not marker.exists()
+    assert cli.main(["--root", str(shop), "check"]) == 0
+    output = capsys.readouterr().out
+    expected = (f"{'WARN':5} {'runner_model':24} {'-':26} {RUNNER}: runner models are retired; "
+                "rewrite it as a contract model in .flowguard/models/ "
+                "(MODEL_ID, build_explorer, broken_variants, conformance; see references/model_recipes.md)")
+    assert [line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"] == [expected]
+    assert not marker.exists()
+    code, output = models(shop, capsys, "orders_check")
+    assert code == 0 and "PASS  orders_check" in output, output
+    assert marker.read_text(encoding="utf-8") == "placed"

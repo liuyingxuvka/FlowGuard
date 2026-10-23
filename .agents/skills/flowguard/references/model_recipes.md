@@ -11,8 +11,8 @@ def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL, and 
 def conformance(): ...        # REQUIRED: replay the real code, or compare it as code facts; .ok must be True
 ```
 
-Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
-registered `run_checks.py`; component ids are for `read --component`. Unknown selectors fail.
+Selectors are `MODEL_ID` for top-level contract files; component ids are for
+`read --component`. Unknown selectors fail.
 Every selected model executes on every call (no result cache). A model without anchors or
 without conformance fails as "abstract boundary only".
 A model of code that does not exist yet is a target model: write it under `.flowguard/target/models/` (SKILL.md, target first).
@@ -153,7 +153,7 @@ fail, required conformance passes, and `python -m flowguard map check` reports n
 `model_*` errors. A pure anchor rename reuses the existing model/tests and does not
 need a new adapter. Report model-level confidence when no runtime replay was needed.
 
-## Capability models (kits and runners)
+## Capability models (kits)
 
 `python -m flowguard template contract-exhaustion | ui-flow-structure --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
 code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
@@ -165,14 +165,11 @@ use `codes="first"` for a validator that stops at the first defect in declaratio
 requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
 `exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
 are omitted; conformance still checks the clean base against the design, including adapter errors. Every capability
-template writes one top-level `.flowguard/models/<name>.py` kit contract model. Existing user-written runners remain accepted;
-a runner declares `IMPLEMENTED_BY` (and `TESTED_BY`) at top level and follows the same anchor rule.
+template writes one top-level `.flowguard/models/<name>.py` kit contract model.
 Template code and test anchors contain `REPLACE_ME`
-and fail until you name your code and tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. User-written runners remain registered through the component `models` field. Run
+and fail until you name your code and tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run
 `python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
-broken plans are rejected. A runner should print one line per case, return a non-zero exit code
-when any case disagrees with its expectation, and end with `raise SystemExit(run_owner(main))`
-(`from flowguard.map.runner import run_owner`); a `main()` that returns `None` is reported as an error.
+broken plans are rejected.
 
 ## Helpers
 
@@ -187,7 +184,7 @@ when any case disagrees with its expectation, and end with `raise SystemExit(run
 `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and
 `duplicate_child_owner` are errors; `test_not_nested` and `child_start_gap` remain warnings.
 Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
-the first anchor's owner, a runner's first listed component, or `system`.
+the first anchor's owner, or `system`.
 Prefer a parent model importing its child's blocks to compose their behavior.
 FlowGuard adds `.flowguard/models` to `sys.path`; sibling imports need no path edits.
 Prefix helper files with `_` so they are not registered as executable models.

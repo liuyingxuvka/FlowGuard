@@ -44,7 +44,7 @@
 | `entrypoints` | `path:Symbol` or `path:Class.method`; must exist (`check`) | human/AI |
 | `depends_on` | edges supported by parsed imports, lazy exports, literal import_module/__import__ calls, entrypoint literals or defined symbol literals or an accepted `dep_unused` debt; undeclared imports and unsupported declarations are errors; `deps --write` replaces `depends_on` with the supported edges | tool, then reviewed |
 | `tests` | test files/globs that exercise the component; must match something (`check`) | human/AI |
-| `models` | runner registration (`.../run_checks.py`); contract models (`.flowguard/models/<id>.py`) are optional here and derive links from COMPONENTS, anchors and PARENT; unrelated listings warn; files must exist (`check`) | human/AI |
+| `models` | optional: list contract models that this component's tree should show here; usually derived from COMPONENTS / IMPLEMENTED_BY / PARENT; unrelated listings warn; files must exist (`check`) | human/AI |
 | `status` | `draft` or `confirmed` | `confirm` |
 | `_hint` | facts written by `scan` to help describe a draft (file count, lines of code, a sample of public symbols); `confirm` deletes it | `scan` |
 | `fingerprint` | hash of the component's files at the last `confirm`; mismatch = STALE | `confirm` only |

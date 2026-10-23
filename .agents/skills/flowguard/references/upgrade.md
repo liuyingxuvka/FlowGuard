@@ -18,12 +18,12 @@ results into current proof.
    references or explicitly justified accepted debts; unsupported declarations are removed. Follow
    `first_map.md`, fix `map check` errors, review dependencies and confirm the map.
 6. Keep existing models whose declared boundary still matters. Register top-level
-   contract models or the real `run_checks.py` paths; do not register nested model.py.
+   contract models; do not register nested model.py.
 7. During migration run `python -m flowguard change` and its selected checks. At the
    final frozen revision run the full project suite and `python -m flowguard release`
    once, or use successful CI for that exact source SHA, before claiming completion.
 8. Do not retain SkillGuard compile/owner-receipt/selfproof or authority-closure gates.
-   Move any necessary business assertion to the existing native test/model runner;
+   Move any necessary business assertion to the existing native test or contract model;
    remove unconsumed projection envelopes. Code/model/test bindings remain native.
 
 Daily commands are read, change and release. Old self-review, self-conformance,
@@ -50,3 +50,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - The model-test alignment plan is gone; bind each rule to real tests in `TESTED_BY`, inspect the component's tests facet and run `python -m flowguard map models --tests`. `invariant_untested` warns about rule names with no binding key; it does not gate release or prove assertion strength. Failed bound tests, missing anchor reach and uncovered required known-bad invariants still block release.
 
 - Any `DESIGN_ONLY` declaration in `.flowguard/models/` is now a `design_only_model` ERROR, even when its value is `False`, `None` or an empty string. Run `python -m flowguard target start "<goal>"`, move the file to `.flowguard/target/models/` and delete the declaration; target models also reject it (`target_design_only`). `planned=` and planned-code-fact exemptions are retired; code facts check real code without a planning flag.
+
+- Runner models (`run_checks.py`) are retired and receive a `runner_model` warning; rewrite each as a contract model. They still execute during this warning stage.

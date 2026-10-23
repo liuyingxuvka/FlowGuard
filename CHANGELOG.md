@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Registered runner models now produce a `runner_model` warning while continuing to execute. The skill teaches contract models only.
+
 - `DESIGN_ONLY` and planned code facts are retired. Any current model declaring `DESIGN_ONLY` now fails, including declarations with false or empty values. Plan unbuilt behaviour as a target model and remove the declaration there too; target models also forbid it.
 
 - Models now warn with `invariant_untested` when a rule has no `TESTED_BY` key. This warning does not gate release or prove assertion strength; failed bound tests, missing anchor reach and uncovered required known-bad invariants still block release. The separate model-test alignment plan and static assertion audit are retired. Test bindings can select one exact `test_name[param-id]` case; a function binding still runs all its parameter cases.

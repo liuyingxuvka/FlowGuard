@@ -67,8 +67,8 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 | `review_ui_product_consistency` | Do surfaces with one intent reuse the same grammar and typography? |
 | `review_ui_source_baseline_interactions` / `review_ui_source_baseline_alignment` | For source-based work, is the old UI's behavior kept or mapped? |
 
-4. In the selected native review/owner, keep relevant good/bad assertions; any persistent runner
-   returns 0 only if good reports pass and relevant broken reports fail.
+4. In the selected native review/owner, keep relevant good/bad assertions; persistent checks use a contract model
+   that accepts good cases and rejects relevant broken cases.
 5. Its components come from `IMPLEMENTED_BY`; add `COMPONENTS` or `PARENT` only to place it elsewhere.
    Run `python -m flowguard map models ui_flow_structure`.
 6. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
@@ -100,7 +100,7 @@ enabled in the empty state but no transition handles it -> `unmodeled_control_ev
 
 ## Done when
 
-- [ ] The selected native UI reviews/existing-owner checks pass; any persistent runner is registered and run once.
+- [ ] The selected native UI reviews/existing-owner checks pass; persistent checks use contract models and run once.
 - [ ] Relevant broken fixtures fail with their expected code (assert the code, not only `not ok`).
 - [ ] Real UI tests (click-through or component tests) are in the component's `tests`.
 - [ ] `python -m flowguard change` is clean.

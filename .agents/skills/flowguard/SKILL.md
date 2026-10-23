@@ -6,7 +6,7 @@ description: "Use for software codebases: one living model tree of the software 
 # FlowGuard
 
 The current model is `.flowguard/map.json` plus `.flowguard/models/`: owners, files, responsibilities, state, side effects, dependencies, tests and executable contracts. Confirmed components store file fingerprints; changed code becomes STALE until re-read and confirmed.
-The target is `.flowguard/target/`: one planned change at a time, committed beside the code; git keeps history. Existing user-written `.../run_checks.py` runners stay registered in component `models`.
+The target is `.flowguard/target/`: one planned change at a time, committed beside the code; git keeps history.
 Commands: `python -m flowguard read | change | release | template | target` and `python -m flowguard map <command>`.
 Install the engine only from GitHub: `python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"`; the PyPI package named `flowguard` is a different project.
 
@@ -29,7 +29,7 @@ While working, `change` marks replaced nodes `moving to target`; other breakage 
 ## Change code only
 
 1. Edit the code, then `python -m flowguard change` (check + impact).
-2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `model_unbound` (register the runner with its owner); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree).
+2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `model_unbound` (an unregistered file under `.flowguard/verification/`: rewrite it as a contract model); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree).
 3. Run exactly the tests and models it lists; never claim a test passed unless you ran it.
 4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`.
 
@@ -47,7 +47,7 @@ Nodes nest as `system` > component > model > child model. Each has purpose, rule
 Root `system` is the code-derived component graph: unaccepted cycles, upward layer imports and duplicate owners violate its invariants; `python -m flowguard map models system` generates bad edges, and `map check` is its conformance.
 Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and `duplicate_child_owner` are ERRORs. A child slicing parent state declares `project_parent_state`; independent grouped checks need no projection.
 `python -m flowguard read --mermaid` draws the tree (append `--component ID` to focus); `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
-For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`assets/model_template.py`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models, runner directory ids select runners; component ids select `read --component`. Unknown model ids fail.
+For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`assets/model_template.py`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models; component ids select `read --component`. Unknown model ids fail.
 
 ## What you want to do
 
