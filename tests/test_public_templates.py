@@ -14,7 +14,6 @@ from flowguard import (
 )
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
-    architecture_reduction_template_files,
     behavior_commitment_template_files,
     code_structure_template_files,
     contract_exhaustion_template_files,
@@ -30,7 +29,6 @@ from flowguard.templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    architecture_reduction_template_files,
     behavior_commitment_template_files,
     model_test_alignment_template_files,
     code_structure_template_files,
@@ -42,7 +40,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "architecture-reduction-template": "architecture_reduction",
     "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
     "code-structure-template": "code_structure",
@@ -291,23 +288,6 @@ class PublicTemplateTests(unittest.TestCase):
                       self.run_kit_template(files, "code_structure", renamed, fill="shop", components=split,
                                             expected_returncode=1))
 
-    def test_architecture_reduction_template_fails_when_removed_code_is_still_referenced(self):
-        files = architecture_reduction_template_files()
-        code = {"shop/orders.py": "def validate(order):\n    return bool(order)\n\n\ndef validate_v2(order):\n"
-                                  "    return bool(order)\n\n\ndef place_order(order):\n    return validate(order)\n",
-                "shop/api.py": "from shop.orders import validate\n\n\ndef create(order):\n    return validate(order)\n"}
-        self.assertIn("placeholder anchor", self.run_kit_template(files, "architecture_reduction", code,
-                                                                  expected_returncode=1))
-        self.assertIn("PASS  architecture_reduction", self.run_kit_template(files, "architecture_reduction", code,
-                                                                            fill="shop", expected_returncode=0))
-        caller = dict(code, **{"shop/api.py": code["shop/api.py"] + "\n\nLEGACY = validate_v2\n"})
-        caller["shop/api.py"] = caller["shop/api.py"].replace("import validate\n", "import validate, validate_v2\n")
-        output = self.run_kit_template(files, "architecture_reduction", caller, fill="shop", expected_returncode=1)
-        self.assertIn("invariant: removed_code_unreferenced", output)
-        self.assertIn("shop/orders.py:validate_v2 is still referenced at shop/api.py:1, shop/api.py:8", output)
-        unused = dict(code, **{"shop/api.py": "def create(order):\n    return bool(order)\n"})
-        self.assertIn("known-bad variant 'remove_validate_still_called' passed",
-                      self.run_kit_template(files, "architecture_reduction", unused, fill="shop", expected_returncode=1))
 
     def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
         files = ui_flow_structure_template_files()
@@ -348,7 +328,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([".flowguard/behavior/inventory/ledger.json"] if name == "behavior-commitment" else [],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(10, len(template_factories()))
+        self.assertEqual(9, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -404,21 +384,6 @@ class PublicTemplateTests(unittest.TestCase):
         output = self.run_kit_template(files, "code_structure", completed, fill="shop", components=components, expected_returncode=0)
         self.assertNotIn("planned fact(s)", output)
 
-    def test_architecture_reduction_future_completed_target_can_be_planned(self):
-        from dataclasses import replace
-        files = architecture_reduction_template_files()
-        # The stock design remains active. Only conformance describes the future completed merge:
-        # validate_v2 is still real today, so its target 'is gone' fact must remain planned.
-        target = "replace(merge_validate_v2(plan()), candidates=(replace(merge_validate_v2(plan()).candidates[0], lifecycle_disposition='completed'),))"
-        future = tuple(replace(f, content="from dataclasses import replace\n" + f.content.replace("merge_validate_v2(plan()), anchors=IMPLEMENTED_BY", target + ", anchors=IMPLEMENTED_BY")) if f is files[0] else f for f in files)
-        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "merge validate_v2 into validate"\n') if f is future[0] else f for f in future)
-        code = {"shop/orders.py": "def validate(order):\n    return bool(order)\ndef validate_v2(order):\n    return bool(order)\ndef place_order(order):\n    return validate(order)\n",
-                "shop/api.py": "from shop.orders import validate\ndef create(order):\n    return validate(order)\n"}
-        output = self.run_kit_template(planned, "architecture_reduction", code, fill="shop", expected_returncode=0)
-        self.assertIn("PASS  architecture_reduction", output)
-        self.assertIn("planned fact(s) still to make true", output)
-        output = self.run_kit_template(future, "architecture_reduction", code, fill="shop", expected_returncode=1)
-        self.assertIn("still exists", output)
 
     def test_field_lifecycle_template_can_plan_a_replacement_not_yet_written(self):
         from dataclasses import replace

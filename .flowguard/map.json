@@ -175,7 +175,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "architecture-reduction",
         "behavior-commitment",
         "code-structure",
         "contract-exhaustion",
@@ -198,7 +197,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fe7fa5834f4b56818b6ab14730832c6e5dcb05680ecf4986a2a40d87d6c1a07d"
+      "fingerprint": "sha256:ec396a47332efa69e488fc2c0956917d7a66c7a55ad8177d783b06645c51c6c5"
     },
     {
       "id": "templates",
@@ -228,7 +227,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:22d177cd7565a3f22956cab0f6a9bfc7a8cc1726dc543055cb665ca07e52df95"
+      "fingerprint": "sha256:329d69415dd95f3a122c8a147065478b562db9afaf81ddd1e6acdc0e4654058a"
     },
     {
       "id": "behavior-commitment",
@@ -283,40 +282,6 @@
       "fingerprint": "sha256:9cb60e50041baa6d60e41ae281d771c6a964e1b0d8e87393efacb32cbded3d33"
     },
     {
-      "id": "architecture-reduction",
-      "layer": "capabilities",
-      "summary": "Reviews architectural simplifications against real code and explicit relation identities.",
-      "responsibilities": [
-        "gate merging or removing code on proven unchanged behaviour",
-        "check that each candidate names real code when given the project root (a completed removal names code that is gone and is not checked)",
-        "model kit: explore added candidates with the review and a static reference scan as invariants (deleting a symbol that another file still imports or names is a counterexample) and compare the target plan with the code",
-        "mark future candidate lifecycle facts planned without changing reduction reviews or reference scans"
-      ],
-      "files": [
-        "flowguard/architecture_reduction.py"
-      ],
-      "entrypoints": [
-        "flowguard/architecture_reduction.py:review_architecture_reduction"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "code-structure",
-        "engine-conformance",
-        "engine-core",
-        "map-analysis",
-        "map-proof",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_architecture_reduction.py",
-        "tests/test_canonical_relation_integrations.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:4bd1960f5f087343440a986e8144ff10f228a1057af862bd623888394aa2da3c"
-    },
-    {
       "id": "code-structure",
       "layer": "capabilities",
       "summary": "Reviews structural changes with real facts and explicit relation obligations.",
@@ -346,8 +311,6 @@
         "shared-vocabulary"
       ],
       "tests": [
-        "tests/test_architecture_reduction.py",
-        "tests/test_canonical_relation_integrations.py",
         "tests/test_code_boundary_conformance.py",
         "tests/test_code_structure.py",
         "tests/test_structure_mesh.py",
@@ -620,7 +583,7 @@
       "layer": "map",
       "summary": "Owns map schema, model bindings and component fingerprints.",
       "responsibilities": [
-        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree; resolve one complete optional model view with canonical paths and explicit missing mappings, retaining ordinary registry behavior by default",
+        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree; resolve one complete optional model view with canonical paths and explicit missing mappings, retaining ordinary registry behavior by default; validate explicit entrypoint, state and side-effect removal intents against the current map without deleting extra content",
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model; recognize the optional project_parent_state hook",
         "count strings as dependency evidence only in import-like contexts",
@@ -653,7 +616,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ae22e9147dbab1a88b23b44ac67ffa49e2e1e86a14364f4758d99e7175d2ca25"
+      "fingerprint": "sha256:f8eca7bf7d12f83b42d297fd83074d36130f1d4e94ff9335570a88379cf7eb96"
     },
     {
       "id": "map-discover",
@@ -693,7 +656,8 @@
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details"
+        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details",
+        "compare current owner promises with merged target owners and explicit removal intent when checking a target"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -724,7 +688,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9ebde124e8d5ce8da31a4c4b042b72c9fcc8b7a8d8d6be4664d0bd802638046a"
+      "fingerprint": "sha256:45490c8d49d8533248caee00b79fe8a89c62be73b00d1f2cdb60872efd0739d3"
     },
     {
       "id": "map-target",
@@ -734,7 +698,8 @@
         "start, extend and drop one target without executing models or code checks",
         "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches",
         "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
-        "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery"
+        "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
+        "stop a target that silently drops an entrypoint, state or side effect"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -761,7 +726,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b1ba20d996973592ca7584b35945e42f28581b278b52a1a40fbff5b5ef486235"
+      "fingerprint": "sha256:badce481ad345b766a23d624acba1d92d21fac108b6b2761817ffc0da12445dd"
     },
     {
       "id": "map-proof",

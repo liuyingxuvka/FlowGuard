@@ -56,7 +56,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | capability | use when | lives here now |
 | --- | --- | --- |
 | behavior-commitment | external promises need one owner, source and tests; no silent fallback | `references/domains/behavior-commitment/protocol.md` |
-| architecture-reduction | shrinking or merging code without behavior changes | `references/domains/architecture-reduction/protocol.md` |
+| architecture-reduction | shrinking or merging code without behavior changes | tree operation `references/tree_operations.md#Remove or merge a node` (target `remove` + `CodeFacts.unreferenced`; `owner_dropped` stops a silent loss) |
 | code-structure | placing new code or splitting a module with its public surface intact | `references/domains/code-structure/protocol.md` |
 | contract-exhaustion | enumerating every bad case or combination in a finite universe | `references/domains/contract-exhaustion/protocol.md` |
 | field-lifecycle | changing fields, schemas, defaults, aliases or replacements | `references/domains/field-lifecycle/protocol.md` |

@@ -619,6 +619,11 @@ def test_change_marks_only_planned_breakage_and_keeps_tests(tmp_path, capsys, mo
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _rename_return_toward_target(root)
+    # Retire the old public name explicitly while keeping the renamed entrypoint.
+    target_path = root / ".flowguard/target/map.json"
+    target_data = json.loads(target_path.read_text(encoding="utf-8"))
+    target_data.setdefault("remove", []).append("entrypoint:shelf/loans.py:LoanService.give_back")
+    target_path.write_text(json.dumps(target_data), encoding="utf-8")
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and not errors, (output, errors)
     assert any("INFO" in line and "moving to target:" in line and "LoanService.give_back" in line
@@ -1112,3 +1117,153 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
     # git restore/clean is guidance only: no index, ref, log or object changes.
     assert {p: v for p, v in after_files.items() if p.startswith(".git/")} == {
         p: v for p, v in before_files.items() if p.startswith(".git/")}
+
+
+
+def test_merge_a_component_keeps_its_promises(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    for arguments in (("target", "start", "merge members into loans"), ("target", "add", "loans")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["remove"] = ["component:members"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    owner_errors = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped:" in line]
+    assert len(owner_errors) == 2, output
+    assert any("entrypoint 'shelf/members.py:Members.may_borrow'" in line for line in owner_errors), output
+    assert any("state 'known members'" in line for line in owner_errors), output
+    all_errors = [line for line in output.splitlines() if line.startswith("ERROR ")]
+    code, changed, errors = _run(root, capsys, "change")
+    assert code == 0 and not errors, (changed, errors)
+    assert f'TARGET "merge members into loans": {len(all_errors)} design error(s)' in changed, changed
+    before_refusal = _project_snapshot(root)
+    code, refused, errors = _run(root, capsys, "target", "promote")
+    assert code == 1 and "promote refused:" in refused + errors, (refused, errors)
+    assert "run python -m flowguard target check" in refused + errors
+    assert _project_snapshot(root) == before_refusal
+
+    loans = data["components"][0]
+    loans["files"].append("shelf/members.py")
+    loans["entrypoints"].append("shelf/members.py:Members.may_borrow")
+    # A word-order change still names the same state; entrypoint anchors remain exact.
+    loans["state"].append("members known")
+    loans["responsibilities"].append("enforce the loan limit")
+    loans["depends_on"].remove("members")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "add", "flow:borrow")
+    assert code == 0 and not errors, (output, errors)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["flows"][0]["steps"] = [step.replace("members:", "loans:", 1) for step in data["flows"][0]["steps"]]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
+    data["components"][0]["state"][-1] = "known members"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 0 and not errors, (output, errors)
+    current = _load_map(root)
+    assert "members" not in {component["id"] for component in current["components"]}
+    kept = next(component for component in current["components"] if component["id"] == "loans")
+    assert "shelf/members.py" in kept["files"]
+    assert "shelf/members.py:Members.may_borrow" in kept["entrypoints"]
+    assert "known members" in kept["state"] and "enforce the loan limit" in kept["responsibilities"]
+    code, output, errors = _run(root, capsys, "map", "confirm", "loans")
+    assert code == 0 and not errors, (output, errors)
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
+
+
+def test_dropping_an_entrypoint_on_purpose_is_written_in_remove(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    for arguments in (("target", "start", "retire explicit member promises"),
+                      ("target", "add", "loans"), ("target", "add", "cli"),
+                      ("target", "add", "flow:borrow")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["remove"] = ["component:members", "entrypoint:shelf/members.py:Members.may_borrow", "state:known members"]
+    loans = next(component for component in data["components"] if component["id"] == "loans")
+    loans["files"].append("shelf/members.py")
+    loans["depends_on"].remove("members")
+    command = next(component for component in data["components"] if component["id"] == "cli")
+    command["side_effects"] = []
+    # A counterclaim in the wrong facet cannot take over a real side effect.
+    command["state"] = ["prints the result"]
+    data["flows"][0]["steps"] = [step.replace("members:", "loans:", 1) for step in data["flows"][0]["steps"]]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    owner_errors = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped:" in line]
+    assert len(owner_errors) == 1 and "side_effect 'prints the result'" in owner_errors[0], output
+    assert "component cli" in owner_errors[0]
+    command["state"] = []
+    data["remove"].append("side_effect:prints the result")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "owner_dropped" not in output and not errors, (output, errors)
+    assert "(+0 ~3 -1 nodes)" in output, output
+    code, current_read, errors = _run(root, capsys, "read")
+    assert code == 0 and not errors, (current_read, errors)
+    assert 'target: "retire explicit member promises": +0 ~3 -1 nodes;' in current_read, current_read
+    code, target_read, errors = _run(root, capsys, "read", "--target")
+    assert code == 0 and not errors, (target_read, errors)
+    header = next(line for line in target_read.splitlines() if line.startswith("target:"))
+    assert "-1 nodes)" in header, header
+    removed_nodes = [line for line in target_read.splitlines() if line.startswith("## - ")]
+    assert len(removed_nodes) == 1 and removed_nodes[0].startswith("## - members ["), target_read
+    code, changed, errors = _run(root, capsys, "change")
+    assert code == 0 and 'TARGET "retire explicit member promises": 0 design error(s)' in changed and not errors, (changed, errors)
+    data["remove"].append("entrypoint:shelf/nope.py:x")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "ERROR target: target_invalid" in output and not errors, (output, errors)
+    assert "entrypoint:shelf/nope.py:x" in output
+
+
+def test_removed_symbol_still_referenced_is_a_todo(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    for arguments in (("target", "start", "drop Catalog.free"), ("target", "add", "lending")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    path = root / ".flowguard/target/models/lending.py"
+    source = path.read_text(encoding="utf-8")
+    source = source.replace("from dataclasses import dataclass, replace\n",
+                            "from dataclasses import dataclass, replace\nfrom pathlib import Path\n"
+                            "from flowguard.map.facts import CodeFacts\n", 1)
+    prefix, separator, suffix = source.rpartition("    return last\n")
+    assert separator and not suffix
+    path.write_text(prefix + '    facts = CodeFacts(Path(__file__).resolve().parents[2])\n'
+                    '    facts.unreferenced("shelf/catalog.py:Catalog.free")\n'
+                    '    facts.check("the lending replay still conforms", last.ok, last.format_text())\n'
+                    '    return facts.report()\n', encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and "TO-DO model lending:" in output and "Catalog.free" in output and not errors, (output, errors)
+    assert "still referenced at shelf/loans.py:" in output, output
+    catalog = root / "shelf/catalog.py"
+    catalog_source = catalog.read_text(encoding="utf-8")
+    old_definition = '    def free(self, book):\n        return self.copies.get(book, 0)\n\n'
+    assert catalog_source.count(old_definition) == 1
+    catalog.write_text(catalog_source.replace(old_definition, ""), encoding="utf-8")
+    loans = root / "shelf/loans.py"
+    loan_source = loans.read_text(encoding="utf-8")
+    assert loan_source.count("self.catalog.free(book)") == 1
+    loans.write_text(loan_source.replace("self.catalog.free(book)", "self.catalog.copies.get(book, 0)"), encoding="utf-8")
+    tests = {"tests/test_catalog.py": (("c.free(\"x\")", 'c.copies.get("x", 0)'),),
+             "tests/test_loans.py": (("s.catalog.free(\"dune\")", 's.catalog.copies.get("dune", 0)'),)}
+    for relative, replacements in tests.items():
+        test_path = root / relative
+        text = test_path.read_text(encoding="utf-8")
+        for old, new in replacements:
+            assert old in text
+            text = text.replace(old, new)
+        test_path.write_text(text, encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)

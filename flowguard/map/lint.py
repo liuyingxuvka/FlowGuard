@@ -164,6 +164,30 @@ def duplicate_owner_findings(data: dict) -> list[Finding]:
             for key, owners in sorted(claims.items()) if len(owners) > 1]
 
 
+def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> list[Finding]:
+    """Keep each changed owner's promises, unless the target explicitly retires them."""
+    changed = {component["id"] for component in target.data.get("components", [])}
+    changed.update(target.remove.get("component", set()))
+    out = []
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects")):
+        def identity(value):
+            return value if kind == "entrypoint" else frozenset(tokens(value))
+
+        retained = {identity(value) for component in merged_data["components"]
+                    for value in component.get(field, [])}
+        removed = {identity(value) for value in target.remove.get(kind, set())}
+        for component in current_data["components"]:
+            if component["id"] not in changed:
+                continue
+            for value in component.get(field, []):
+                if identity(value) not in retained and identity(value) not in removed:
+                    out.append(Finding("error", "owner_dropped", component["id"],
+                                       f"{kind} {value!r} of component {component['id']} is on no component "
+                                       f"of the target; keep it on the component that takes over, or list "
+                                       f'"{kind}:{value}" in remove'))
+    return out
+
+
 def _rules(data, graph, *, root=None, inv=None):
     raw = structural_findings(data, graph, root=root, inv=inv) + duplicate_owner_findings(data)
     return apply_accepted_debts(raw, normalized_debts(data))[0]

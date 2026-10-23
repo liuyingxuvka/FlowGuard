@@ -76,7 +76,7 @@ def load_target(root: Path) -> Target | None:
         raise MapError(f"cannot read {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise MapError(f"{path} must contain a JSON object")
-    removed = {kind: set() for kind in ("component", "flow", "model")}
+    removed = {kind: set() for kind in ("component", "flow", "model", "entrypoint", "state", "side_effect")}
     for value in data.get("remove", []) if isinstance(data.get("remove", []), list) else []:
         if isinstance(value, str):
             kind, _, name = value.partition(":")
@@ -167,6 +167,8 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
     current = {"component": {c["id"] for c in current_data["components"]},
                "flow": {f["id"] for f in current_data.get("flows", [])},
                "model": {entry.id for entry in registry.entries}}
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects")):
+        current[kind] = {value for component in current_data["components"] for value in component.get(field, [])}
     removed = data.get("remove", [])
     if not isinstance(removed, list):
         invalid("remove must be a list")
@@ -220,6 +222,7 @@ def target_node_changes(root: Path, current_data: dict, target: Target) -> dict[
             contract = read_model_contract(root / rel)
             changes["~" if (root / ".flowguard/models" / filename).is_file() else "+"].append(
                 "model:" + str(contract.get("MODEL_ID", Path(filename).stem)))
-    for kind, names in target.remove.items():
+    for kind in ("component", "flow", "model"):
+        names = target.remove[kind]
         changes["-"].extend(f"{kind}:{name}" for name in sorted(names))
     return {symbol: sorted(values) for symbol, values in changes.items()}

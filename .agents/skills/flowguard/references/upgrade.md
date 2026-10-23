@@ -36,3 +36,5 @@ Component IDs select `read --component`; executable model IDs select `map models
 The ten capability engines are folded into the model tree; each line below says what replaces one of them.
 
 - `FlowGuardCheckPlan` / `run_model_first_checks` / `audit_model` / risk templates are removed; put the checks into a model file and run `python -m flowguard map models` (loops: call `flowguard.loop.check_loops` from the model's conformance or a test).
+
+- The old architecture-reduction engine and template are removed; use `references/tree_operations.md#Remove or merge a node` with target `remove` and `CodeFacts.unreferenced` instead.

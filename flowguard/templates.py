@@ -6,9 +6,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-from .template_text.architecture_reduction import (
-    ARCHITECTURE_REDUCTION_MODEL_TEMPLATE,
-)
 from .template_text.behavior_commitment import (
     BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE,
     BEHAVIOR_COMMITMENT_MODEL_TEMPLATE,
@@ -62,12 +59,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 
 def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
     return (TemplateFile(".flowguard/models/model_test_alignment.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),)
-
-
-def architecture_reduction_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/architecture_reduction.py", ARCHITECTURE_REDUCTION_MODEL_TEMPLATE),
-    )
 
 
 def behavior_commitment_template_files() -> tuple[TemplateFile, ...]:
@@ -133,7 +124,6 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
-    "ARCHITECTURE_REDUCTION_MODEL_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE",
     "BEHAVIOR_COMMITMENT_MODEL_TEMPLATE",
     "CODE_STRUCTURE_MODEL_TEMPLATE",
@@ -143,7 +133,6 @@ __all__ = [
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
-    "architecture_reduction_template_files",
     "behavior_commitment_template_files",
     "code_structure_template_files",
     "contract_exhaustion_template_files",

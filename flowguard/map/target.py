@@ -55,7 +55,7 @@ TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "test_missing"
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
-               "child_outside_parent", "duplicate_child_owner", "duplicate_owner"}
+               "child_outside_parent", "duplicate_child_owner", "duplicate_owner", "owner_dropped"}
 
 
 @dataclass(frozen=True)
@@ -174,7 +174,7 @@ def _issue_key(node, code, message, tree):
 def check_target(root: Path, *, models: bool = True) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
-    from .lint import _rules, _variants, duplicate_owner_findings
+    from .lint import _rules, _variants, dropped_owner_findings, duplicate_owner_findings
 
     root = root.resolve()
     current = load_map(root)
@@ -204,7 +204,8 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
             getattr(report, level).append(TargetFinding(node, code, message))
 
     replaced = {c["id"] for c in target.data.get("components", [])}
-    for finding in [*run_check(root, view.data, inv, view=view), *duplicate_owner_findings(view.data)]:
+    for finding in [*run_check(root, view.data, inv, view=view), *duplicate_owner_findings(view.data),
+                    *dropped_owner_findings(current, view.data, target)]:
         if finding.code in {"draft", "stale"} and finding.component in replaced:
             continue
         if finding.level == "info":
