@@ -232,6 +232,8 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
 
 def _child_start_check(root: Path, path: Path, contract: dict, module, design, result: ModelResult) -> None:
     """Warn about the actual model-parent port, without lending its calls to the child proof."""
+    if "project_parent_state" not in contract["functions"]:
+        return
     parent_id = contract.get("PARENT", "?")
     try:
         from .inventory import build_inventory
@@ -259,14 +261,9 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
         if parent is None:
             parent = _load(root, parent_path)
         parent_design = parent.build_explorer()
-        project = None
-        if "project_parent_state" in contract["functions"]:
-            project = module.project_parent_state
-            if not callable(project):
-                raise TypeError("project_parent_state must be callable")
-        elif not parent_design.initial_states or not design.initial_states \
-                or type(parent_design.initial_states[0]) is not type(design.initial_states[0]):
-            return
+        project = module.project_parent_state
+        if not callable(project):
+            raise TypeError("project_parent_state must be callable")
         states = reachable_states(parent_design, project)
         missing = [state for state in states if state not in design.initial_states]
         if missing:

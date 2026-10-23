@@ -893,6 +893,7 @@ COMPONENTS = ["counter"]
 IMPLEMENTED_BY = {"Increment": "counter.py:increment"}
 TESTED_BY = {"non_negative": ["tests/test_counter.py:test_increment"]}
 STARTS = (parent.State(),)
+def project_parent_state(state): return state
 def build_explorer(): return parent.make_explorer(STARTS)
 def broken_variants(): return parent.broken_variants()
 def conformance(): return parent.conformance()
@@ -904,6 +905,11 @@ def conformance(): return parent.conformance()
         write(tmp_path, '.flowguard/map.json', json.dumps(dict(schema='flowguard.map.v1', components=[
             dict(id='counter', files=['counter.py'], tests=['tests/test_counter.py'], models=[], depends_on=[],
                  status='draft', summary='Counter', responsibilities=['increment a counter'])])))
+    without_projection = child.replace('def project_parent_state(state): return state\n', '')
+    path.write_text(without_projection)
+    code, output = models(tmp_path, capsys, 'counter_child')
+    assert code == 0 and 'child_start_gap' not in output, output
+    path.write_text(child)
     if parent_first:
         import sys
 
@@ -942,7 +948,7 @@ assert any('child_start_gap: 3 of 4' in warning for warning in child.warnings), 
     code, output = models(tmp_path, capsys, 'counter_child')
     assert code == 0 and 'child_start_gap' not in output, output
 
-    local = child.replace('STARTS = (parent.State(),)',
+    local = without_projection.replace('STARTS = (parent.State(),)',
         'from dataclasses import dataclass\n@dataclass(frozen=True)\nclass LocalState:\n    value: int = 0\nSTARTS = (LocalState(),)')
     path.write_text(local)
     result = run_model(tmp_path, path)
@@ -960,6 +966,33 @@ assert any('child_start_gap: 3 of 4' in warning for warning in child.warnings), 
     warning = next(w for w in result.warnings if 'child_start_gap not checked:' in w)
     assert "parent 'counter_parent' could not be explored (port unavailable)" in warning
     assert '\n' not in warning
+    path.write_text(without_projection)
+    result = run_model(tmp_path, path)
+    assert result.status == 'pass' and not any('child_start_gap' in w for w in result.warnings), result
+
+
+def test_grouped_sub_check_under_a_parent_gets_no_start_gap_warning(tmp_path, capsys):
+    write(tmp_path, 'counter.py', 'def valid(value):\n    return value >= 0\n')
+    write(tmp_path, 'tests/test_counter.py',
+          'def test_valid():\n    from counter import valid\n    assert valid(0) and not valid(-1)\n')
+    source = '''from flowguard.kit import Feature, feature_explorer, feature_variants, feature_conformance
+MODEL_ID = "MODEL_NAME"
+COMPONENTS = ["counter"]
+IMPLEMENTED_BY = {"Validate": "counter.py:valid"}
+TESTED_BY = {"each_defect_rejected": ["tests/test_counter.py:test_valid"]}
+FEATURES = (Feature("negative", True, apply=lambda value: -1), EXTRA_FEATURE)
+def build_explorer(): return feature_explorer(FEATURES)
+def broken_variants(): return feature_variants(FEATURES)
+def conformance():
+    from counter import valid
+    return feature_conformance(FEATURES, lambda: 0, valid)
+'''
+    write(tmp_path, '.flowguard/models/parent.py', source.replace('MODEL_NAME', 'counter_parent')
+          .replace('EXTRA_FEATURE', 'Feature("positive", False, apply=lambda value: 1),'))
+    write(tmp_path, '.flowguard/models/child.py', source.replace('MODEL_NAME', 'counter_child')
+          .replace('EXTRA_FEATURE', '') + '\nPARENT = "counter_parent"\n')
+    code, output = models(tmp_path, capsys, 'counter_child')
+    assert code == 0 and 'PASS' in output and 'child_start_gap' not in output, output
 
 
 @pytest.mark.parametrize("location", ["conformance", "explore"])

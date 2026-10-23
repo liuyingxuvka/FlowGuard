@@ -727,7 +727,7 @@
       "layer": "map",
       "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; warn about model-child start gaps against the actual parent port without lending parent-check calls to child anchors",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system': architecture rules as invariants, generated known-bad edges and claims, map check as conformance",
@@ -765,7 +765,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f7f1150b5fd9d783e812a29b58ff4daf28802d752f2c6ccb5a0782d264068c99"
+      "fingerprint": "sha256:e2fbb2da539f895c6e0dc4b4946342fef060f79288a506e5d2a6c908370cecf3"
     },
     {
       "id": "engine-explore",

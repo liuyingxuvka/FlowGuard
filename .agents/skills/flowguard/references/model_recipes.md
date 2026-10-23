@@ -110,7 +110,7 @@ Use this when `change` names a model in REVIEW, reports `model_writer_unbound`, 
 1. Move shared `State`, inputs, invariants and adapter into `_<name>_common.py`; underscore helpers are not models, and editing one reruns its importers.
 2. Give each operation a child model with its own blocks, anchors, known-bad variants and replay.
 3. Import child blocks into the parent with `Workflow((SetBlock(), DelBlock()), mode="choice")`; each declares `accepted_input_type`, so no pass-through steps are needed.
-4. Start children from the parent's bounded reachable states with `flowguard.kit.reachable_states(parent.build_explorer())`; use `project_parent_state` when state representations differ.
+4. A child that slices parent state declares `project_parent_state(state)` (`return state` when reusing the parent's `State`) and starts from `flowguard.kit.reachable_states(parent.build_explorer(), project_parent_state)`; `map models` warns with `child_start_gap` when it misses parent states. An independent sub-check grouped under a parent needs neither projection nor reachable-state starts.
 5. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
 6. Run `python -m flowguard map models` so parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
 

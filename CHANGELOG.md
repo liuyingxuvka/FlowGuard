@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `child_start_gap` is checked only for child models that declare `project_parent_state`; an independent check grouped under a parent no longer gets a false warning.
+
 ## v0.70.10 - 2026-10-22 - One model tree, real proof flows and simpler contracts
 
 - Feature kits explore allowed feature sets, support `codes="first"`, and validate `requires` and `conflicts`. Clean inputs still receive a real conformance check when a feature universe has no clean-input invariant.
