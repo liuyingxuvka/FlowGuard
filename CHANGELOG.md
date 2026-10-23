@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Change selection recognizes removed model contracts from Git history without running old code. It keeps surviving parents, importers and tests, supports moves that preserve the model ID, and rejects remaining references to missing models.
 - Removed finding-ledger and maintenance-obligation memory APIs: `MaintenanceObligation`, `MaintenanceObligationReport`, `OBLIGATION_CONFIDENCE_BLOCKED`, `OBLIGATION_CONFIDENCE_FULL`, `OBLIGATION_CONFIDENCE_SCOPED`, `OBLIGATION_STATUSES`, `OBLIGATION_STATUS_OBSERVATION`, `OBLIGATION_STATUS_OPEN`, `OBLIGATION_STATUS_RESOLVED`, `OBLIGATION_STATUS_SCOPED`, `OBLIGATION_STRENGTHS`, `OBLIGATION_STRENGTH_OPTIONAL`, `OBLIGATION_STRENGTH_REQUIRED`, `OBLIGATION_STRENGTH_SUGGESTED`, `build_maintenance_obligation_report`, `coerce_maintenance_obligation`, `obligation_from_finding_ledger_entry`, `obligation_from_maturation_finding`, `obligations_from_finding_ledger`, `obligations_from_maturation_findings`, `FlowGuardFindingLedger`, `FlowGuardFindingLedgerEntry`, `build_finding_ledger`. Known architecture problems belong in `accepted_debts`; planned work belongs in a target.
 - `child_outside_parent`, `duplicate_child_owner` and `parent_import_mismatch` are now errors that fail `map check` and `release`.
 - `child_start_gap` is checked only for child models that declare `project_parent_state`; an independent check grouped under a parent no longer gets a false warning.

@@ -258,6 +258,112 @@ def impact_of(root, data, changed, **kwargs):
     return compute_impact(root, data, build_inventory(root, DEFAULT_IGNORE), changed, **kwargs)
 
 
+@pytest.fixture()
+def retired_model_project(impact_project):
+    root, data = impact_project
+    for mid in ("survivor", "retired"):
+        write(root, f"tests/test_{mid}.py", "def test_safe():\n    assert True\n")
+        write(root, f".flowguard/models/{mid}.py",
+              f"MODEL_ID = {mid!r}\nCOMPONENTS = ['storage']\n"
+              "IMPLEMENTED_BY = {'Save': 'shop/storage.py:save'}\n"
+              f"TESTED_BY = {{'safe': ['tests/test_{mid}.py:test_safe']}}\n"
+              + ("PARENT = 'survivor'\n" if mid == "retired" else "")
+              + "def build_explorer(): pass\n")
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "retirement baseline")
+    return root, data
+
+
+@pytest.mark.parametrize("operation", ["delete", "rename-same-id", "delete-own-test"])
+def test_removed_contract_keeps_surviving_parent_and_tests(retired_model_project, operation):
+    from flowguard.map.impact import changed_files
+
+    root, data = retired_model_project
+    path = ".flowguard/models/retired.py"
+    move = operation == "rename-same-id"
+    if move:
+        (root / path).rename(root / ".flowguard/models/replacement.py")
+    else:
+        (root / path).unlink()
+    if operation == "delete-own-test":
+        (root / "tests/test_retired.py").unlink()
+    imp = impact_of(root, data, changed_files(root, "HEAD"), base="HEAD")
+    assert not imp.blocked
+    assert path not in imp.models
+    assert "survivor" in imp.model_ids
+    assert "tests/test_survivor.py" in imp.tests
+    assert ("tests/test_retired.py" in imp.tests) is (operation != "delete-own-test")
+    assert ("retired" in imp.model_ids) is move
+    assert (".flowguard/models/replacement.py" in imp.models) is move
+
+
+@pytest.mark.parametrize("via", ["direct", "helper", "removed-helper"])
+def test_removed_contract_keeps_importers_and_their_tests_blocked(retired_model_project, via):
+    from flowguard.map.impact import changed_files
+
+    root, data = retired_model_project
+    write(root, "tests/test_importer.py", "def test_safe():\n    assert True\n")
+    source = ("MODEL_ID = 'importer'\nCOMPONENTS = ['storage']\n"
+              "TESTED_BY = {'safe': ['tests/test_importer.py:test_safe']}\n"
+              "def build_explorer(): pass\n")
+    if via == "direct":
+        source += "import retired\n"
+    else:
+        source += "import _bridge\n"
+        write(root, ".flowguard/models/_bridge.py", "import retired\n")
+    write(root, ".flowguard/models/importer.py", source)
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "importer baseline")
+    (root / ".flowguard/models/retired.py").unlink()
+    if via == "removed-helper":
+        (root / ".flowguard/models/_bridge.py").unlink()
+    imp = impact_of(root, data, changed_files(root, "HEAD"), base="HEAD")
+    assert imp.blocked
+    assert "importer" in imp.model_ids
+    assert "tests/test_importer.py" in imp.tests
+
+
+@pytest.mark.parametrize("residue", ["map", "flow", "parent"])
+def test_removed_contract_with_current_reference_stays_blocked(retired_model_project, residue):
+    from flowguard.map.impact import changed_files
+
+    root, data = retired_model_project
+    path = ".flowguard/models/retired.py"
+    (root / path).unlink()
+    if residue == "map":
+        data["components"][2]["models"].append(path)
+    elif residue == "flow":
+        data["flows"][0]["model"] = path
+    else:
+        write(root, ".flowguard/models/orphan.py",
+              "MODEL_ID = 'orphan'\nCOMPONENTS = ['storage']\nPARENT = 'retired'\n"
+              "TESTED_BY = {'safe': ['tests/test_storage.py:test_y']}\n"
+              "def build_explorer(): pass\n")
+    save(root, data)
+    imp = impact_of(root, data, changed_files(root, "HEAD"), base="HEAD")
+    assert imp.blocked
+    if residue == "parent":
+        assert "orphan" in imp.model_ids and "tests/test_storage.py" in imp.tests
+
+
+@pytest.mark.parametrize("invalid", ["never-existed", "malformed", "duplicate", "no-base"])
+def test_missing_model_without_unambiguous_base_contract_stays_blocked(retired_model_project, invalid):
+    root, data = retired_model_project
+    path = ".flowguard/models/retired.py"
+    if invalid == "malformed":
+        write(root, path, "MODEL_ID = 'retired'\n")
+    elif invalid == "duplicate":
+        write(root, ".flowguard/models/duplicate.py", (root / path).read_text())
+    if invalid in {"malformed", "duplicate"}:
+        git(root, "add", "-A")
+        git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "invalid old contract")
+    (root / path).unlink()
+    if invalid == "never-existed":
+        path = ".flowguard/models/never_existed.py"
+    imp = impact_of(root, data, [path], base=None if invalid == "no-base" else "HEAD")
+    assert imp.blocked
+
+
 def test_impact_default_full_closure_and_explicit_depth(impact_project):
     from flowguard.map.impact import render_impact
     root, data = impact_project

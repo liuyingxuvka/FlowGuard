@@ -6,13 +6,14 @@ import ast
 import json
 import os
 import subprocess
+import tempfile
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract
+from .mapfile import component_files, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
 
 from .tree import build_tree
 
@@ -104,6 +105,46 @@ def _comment_only(root: Path, base: str | None, path: str) -> bool:
         return False
 
 
+def _removed_model_context(root: Path, base: str | None, changed: list[str]) -> tuple[set[str], dict, dict]:
+    """Read real Git removals through the canonical static registry; never import old code."""
+    if base is None or not any(Path(p).parent.as_posix() == ".flowguard/models" for p in changed):
+        return set(), {}, {}
+    try:
+        removed = {p for p in git_paths(root, "diff", "--no-renames", "--diff-filter=D", "--name-only", "-z",
+                                        base, "--", ".flowguard/models")
+                   if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")
+                   and not os.path.lexists(root / p)}
+        if not removed.intersection(changed):
+            return set(), {}, {}
+        paths = [p for p in git_paths(root, "ls-tree", "-r", "--name-only", "-z", base, "--", ".flowguard/models")
+                 if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")]
+    except subprocess.CalledProcessError:
+        return set(), {}, {}             # missing/unknown models retain the existing hard gate
+    contracts, imports = {}, {}
+    with tempfile.TemporaryDirectory(prefix="flowguard-previous-models-") as directory:
+        prior_root = Path(directory)
+        for path in paths:
+            blob = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
+            if blob.returncode:
+                return removed, {}, {p: [] for p in removed}  # an incomplete namespace cannot prove unique identity
+            target = prior_root / path
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(blob.stdout)
+            if path in removed:
+                try:
+                    imports[path] = top_level_imports(ast.parse(read_source(target)))
+                except (OSError, SyntaxError, ValueError, TypeError):
+                    imports[path] = []
+        prior = model_registry(prior_root, {"components": [], "flows": []})
+        counts: dict[str, int] = defaultdict(int)
+        for entry in prior.entries:
+            counts[entry.id] += 1
+        for entry in prior.entries:
+            if entry.kind == "contract" and counts[entry.id] == 1:
+                contracts[entry.path] = read_model_contract(prior_root / entry.path)
+    return removed, contracts, imports
+
+
 def _binding_indexes(data: dict, tree=None) -> tuple[dict[str, set[str]], dict[str, set[str]]]:
     tests: dict[str, set[str]] = defaultdict(set)
     models: dict[str, set[str]] = defaultdict(set)
@@ -190,7 +231,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             reverse[dst].add(src)
     for src, dst in terminal:
         reverse_terminal[dst].add(src)
-    tree = build_tree(root, data, inv)
+    removed, prior_contracts, historical_imports = _removed_model_context(root, base, changed)
+    tree = build_tree(root, data, inv, historical_imports=historical_imports)
     test_bindings, model_bindings = _binding_indexes(data, tree)
     old_tests, old_models = _binding_indexes(previous or {})
     registry = model_registry(root, data)
@@ -209,6 +251,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 contract_tests[entry.path].add(anchor.split(":", 1)[0])
     direct, blocked, map_review = set(), [], []
     selected_model_paths, matched, seeds = set(), set(), set()
+    retired = set()
     matched_owners: dict[str, set[str]] = defaultdict(set)
     tests = {f for f in changed if f in inv.tests and is_collectable_test(f) and f not in comment_only}
     for f in changed:
@@ -260,6 +303,41 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 if f in text or Path(f).name in text:
                     referenced.add(t)
             tests.update(referenced)
+    referenced_models = {p for comp in data["components"] for p in comp.get("models", [])}
+    referenced_models.update(flow["model"] for flow in data.get("flows", []) if flow.get("model"))
+    current_ids = {entry.id for entry in registry.entries}
+    prior_by_id = {contract["MODEL_ID"]: contract for contract in prior_contracts.values()}
+    for path in sorted(removed.intersection(changed)):
+        if Path(path).name.startswith("_"):
+            continue
+        selected_model_paths.add(path)
+        contract = prior_contracts.get(path)
+        if contract is None:
+            continue                     # unknown/malformed/ambiguous old contracts still fail
+        mid = contract["MODEL_ID"]
+        importers = tree.importers(path)
+        dangling_children = {n.id for n in tree.nodes.values() if n.contract.get("PARENT") == mid
+                             and mid not in current_ids and mid not in by_id and mid != "system"}
+        linked = importers | dangling_children
+        linked.update(entry.id for entry in registry.entries if entry.id == mid)
+        parent, seen = contract.get("PARENT"), set()
+        while parent and parent not in by_id and parent != "system" and parent not in seen:
+            seen.add(parent)
+            if parent in tree.nodes:
+                linked.add(parent)
+                break
+            parent = prior_by_id.get(parent, {}).get("PARENT")
+        for linked_id in linked:
+            node = tree.nodes[linked_id]
+            selected_model_paths.add(node.path)
+            tests.update(contract_tests.get(node.path, ()))
+        prior_tests = {anchor.split(":", 1)[0] for anchors in contract.get("TESTED_BY", {}).values() for anchor in anchors}
+        tests.update(prior_tests & set(inv.tests))
+        if path not in referenced_models and not importers and not dangling_children and not contract_inputs.get(path):
+            retired.add(path)
+            matched.add(path)
+        else:
+            blocked.append(f"{path}: removed model is still referenced by the current map, model tree or code anchors")
     top_model_files = [f for f in changed if Path(f).parent.as_posix() == ".flowguard/models" and f.endswith(".py")]
     importers = {f: tree.importers(f) for f in top_model_files}
     for f in top_model_files:
@@ -330,6 +408,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             break
         selected_model_paths.update(expanded)
     models = []
+    selected_model_paths.difference_update(retired)
     id_counts: dict[str, int] = defaultdict(int)
     for entry in registry.entries:
         id_counts[entry.id] += 1
