@@ -1,4 +1,8 @@
-# Upgrade a project from FlowGuard 0.69
+# Upgrade FlowGuard projects
+
+## From 0.69
+
+### Upgrade a project from FlowGuard 0.69
 
 The current map, `.flowguard/map.json`, replaces `.flowguard/project.toml` and the
 old ledger/receipt gates. Preserve old material in git history; do not turn old
@@ -26,3 +30,7 @@ Daily commands are read, change and release. Old self-review, self-conformance,
 model-impact freshness and authority snapshot APIs are retired in 0.70.0.
 Component IDs select `read --component`; executable model IDs select `map models`.
 `read` may update disposable caches but does not change project behavior/data.
+
+## From 0.70.10 to 0.70.11
+
+The ten capability engines are folded into the model tree; each line below says what replaces one of them.

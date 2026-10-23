@@ -161,7 +161,7 @@ def test_new_uncommitted_map_does_not_block_first_change(tmp_path, capsys):
 def test_legacy_project_read_points_to_upgrade_guide(tmp_path, capsys):
     write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
     assert main(["read", "--root", str(tmp_path)]) == 2
-    assert "upgrade_from_0_69.md" in capsys.readouterr().err
+    assert "upgrade.md" in capsys.readouterr().err
 
 
 def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):

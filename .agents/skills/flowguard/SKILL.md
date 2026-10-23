@@ -70,7 +70,7 @@ Read only the matching protocol, not a chain of them. `python -m flowguard templ
 
 ## First map of an existing project
 
-Old `.flowguard/project.toml` integrations: follow `references/upgrade_from_0_69.md` first.
+Old `.flowguard/project.toml` integrations: follow `references/upgrade.md` first.
 Use `references/first_map.md`: scan -> digest -> describe -> deps -> check -> confirm -> lint. `scan` bounds draft grouping; `python -m flowguard map discover` separately shows routes, commands, effects and state writers. Read digests, not whole files.
 
 ## Architecture review and release

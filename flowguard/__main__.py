@@ -113,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     if any(flag in rest for flag in ("--request", "--contract", "--owner-current")):
-        print("This 0.69 workflow interface retired in 0.70.0; see references/upgrade_from_0_69.md", file=sys.stderr)
+        print("This 0.69 workflow interface retired in 0.70.0; see references/upgrade.md", file=sys.stderr)
         return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None) -> int:
         project = Path(ns.root)
         legacy = (project / ".flowguard/project.toml").is_file() and not (project / ".flowguard/map.json").is_file()
         if legacy:
-            print("FlowGuard 0.69 project detected; upgrade instructions: references/upgrade_from_0_69.md", file=sys.stderr)
+            print("FlowGuard 0.69 project detected; upgrade instructions: references/upgrade.md", file=sys.stderr)
             return 2
         if ns.find:
             return map_main([*root, "find", *ns.find])

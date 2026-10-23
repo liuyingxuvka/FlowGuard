@@ -1346,7 +1346,7 @@ def __getattr__(name: str) -> Any:
             retired = {"ModelAuthoritySnapshot", "ModelRevisionSet", "ModelAuthority", "ModelAuthorityStore",
                        "model_authority_snapshot", "RuntimeGateway"}
             if name in retired:
-                raise ImportError(f"{name} retired in 0.70.0; see references/upgrade_from_0_69.md") from None
+                raise ImportError(f"{name} retired in 0.70.0; see references/upgrade.md") from None
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = module
         return module

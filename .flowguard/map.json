@@ -120,7 +120,8 @@
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree",
-        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode"
+        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
+        "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -155,14 +156,15 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dc2c1ae7e5094de8c589c744eccbd8e9baa42525e9ef068336b86320c371e669"
+      "fingerprint": "sha256:7b0400d9575f3d8a51149df5b48ab74577fb479f8b29dc7a8b8d6ffda220bcfd"
     },
     {
       "id": "public-api",
       "layer": "interface",
       "summary": "Lazily exposes current native APIs, including step tokens and branch seeds, without retired pack exports.",
       "responsibilities": [
-        "expose current public names from their owning modules without importing those modules early"
+        "expose current public names from their owning modules without importing those modules early",
+        "direct retired public API names to references/upgrade.md without changing public name resolution"
       ],
       "files": [
         "flowguard/__init__.py"
@@ -198,7 +200,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:21ba3039f7b100c03775f42508ff9c3eca6c9271ba510b3ef1c8e727c7c93ba5"
+      "fingerprint": "sha256:dc1d5d22860325796a3823fb710366270ff9f91e9d2146a9fa93f989ff673b4f"
     },
     {
       "id": "templates",

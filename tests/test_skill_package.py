@@ -22,6 +22,30 @@ CAPABILITIES = (
 SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## What blocks", "## Done when", "## Limits")
 
 
+def _parse_documented_command_arguments(command: str) -> None:
+    """Use the actual parsers; placeholders are one argument, never a skip."""
+    import shlex
+
+    from flowguard.__main__ import _verb_parser
+    from flowguard.map.cli import build_parser
+
+    # A generic command slot names no operation; choose one real map verb.
+    command = re.sub(r"^map\s+<command>(?=\s|$)", "map check", command)
+    command = re.sub(r"<[^>]+>", "1", command)
+    words = ["1" if re.fullmatch(r"[A-Z][A-Z0-9_]*", word) else word for word in shlex.split(command)]
+    if not words:
+        raise ValueError("empty command")
+    verb, rest = words[0], words[1:]
+    if verb == "map":
+        parser = build_parser()
+    elif verb in {"read", "change", "release", "template", "target"}:
+        parser = _verb_parser(verb)
+    else:
+        raise ValueError(f"no documented argument parser for {verb!r}")
+    with contextlib.redirect_stderr(io.StringIO()):
+        parser.parse_args(rest)
+
+
 class SkillPackageTests(unittest.TestCase):
     def test_skill_entry_is_short_and_describes_the_tree(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
@@ -29,9 +53,9 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(1, text.splitlines().count("## The tree"))
         for retired in ("## Binding", "L0 ", "L1:", "L2", "keep runners"):
             self.assertNotIn(retired, text)
-        for name in CAPABILITIES:
-            with self.subTest(protocol=name):
-                lines = (SKILL / "references" / "domains" / name / "protocol.md").read_text(encoding="utf-8").splitlines()
+        for path in sorted((SKILL / "references" / "domains").glob("*/protocol.md")):
+            with self.subTest(protocol=path.parent.name):
+                lines = path.read_text(encoding="utf-8").splitlines()
                 self.assertTrue(any(line.startswith("Tree operation:") for line in lines[:3]))
 
         self.assertNotIn("DESIGN_ONLY", text)
@@ -64,19 +88,58 @@ class SkillPackageTests(unittest.TestCase):
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
             self.assertIn("git+https://github.com/liuyingxuvka/FlowGuard.git", path.read_text(encoding="utf-8"))
         markdown = subprocess.check_output(["git", "ls-files", "-z", "--", "*.md"], cwd=ROOT).decode("utf-8")
-        for relative in filter(None, markdown.split("\0")):
+        paths = [ROOT / relative for relative in filter(None, markdown.split("\0"))
+                 if not re.fullmatch(r"\.agents/skills/flowguard/references/domains/[^/]+/protocol\.md", relative)]
+        paths.extend(sorted((SKILL / "references" / "domains").glob("*/protocol.md")))
+        for path in paths:
             self.assertIsNone(re.search(r"\bpip\s+install\s+flowguard(?=\s|$)",
-                                        (ROOT / relative).read_text(encoding="utf-8"), re.M), relative)
+                                        path.read_text(encoding="utf-8"), re.M), path.relative_to(ROOT).as_posix())
 
     def test_entry_lists_every_capability_once(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
         for name in CAPABILITIES:
             self.assertEqual(1, len(re.findall(rf"^\| {re.escape(name)} \|", text, re.M)), name)
 
-    def test_every_capability_has_a_short_complete_protocol(self) -> None:
+    def test_capability_rows_point_to_existing_places(self) -> None:
+        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
+        heading = "## What you want to do"
+        self.assertEqual(1, text.splitlines().count(heading))
+        section = text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
+        data_rows = [line for line in section.splitlines() if line.startswith("|")
+                     and line not in ("| capability | use when | lives here now |", "| --- | --- | --- |")]
+        self.assertCountEqual(CAPABILITIES, [line.split("|")[1].strip() for line in data_rows])
+        listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,
+                                capture_output=True, text=True, check=True).stdout.split()
         for name in CAPABILITIES:
-            path = SKILL / "references" / "domains" / name / "protocol.md"
-            with self.subTest(name=name):
+            with self.subTest(capability=name):
+                rows = [line for line in section.splitlines() if re.match(rf"^\| {re.escape(name)} \|", line)]
+                self.assertEqual(1, len(rows), name)
+                cells = [cell.strip() for cell in rows[0].strip().strip("|").split("|")]
+                self.assertEqual(3, len(cells), rows[0])
+                self.assertTrue(all(cells), rows[0])
+                places = 0
+                for token in re.findall(r"`([^`\n]+)`", cells[2]):
+                    if token.startswith("references/"):
+                        relative, separator, title = token.partition("#")
+                        path = SKILL / relative
+                        self.assertTrue(path.is_file(), token)
+                        if separator:
+                            self.assertTrue(title, token)
+                            self.assertTrue(any(line in ("## " + title, "### " + title)
+                                                for line in path.read_text(encoding="utf-8").splitlines()), token)
+                        places += 1
+                    elif token.startswith("python -m flowguard "):
+                        command = token.removeprefix("python -m flowguard ")
+                        template = re.match(r"template ([a-z][a-z-]*)(?:\s|$)", command)
+                        if template:
+                            self.assertIn(template.group(1), listed, token)
+                        _parse_documented_command_arguments(command)
+                        places += 1
+                self.assertGreater(places, 0, cells[2])
+
+    def test_every_capability_has_a_short_complete_protocol(self) -> None:
+        for path in sorted((SKILL / "references" / "domains").glob("*/protocol.md")):
+            with self.subTest(name=path.parent.name):
                 text = path.read_text(encoding="utf-8")
                 self.assertLessEqual(len(text.splitlines()), 130)
                 for section in SECTIONS:
@@ -85,9 +148,11 @@ class SkillPackageTests(unittest.TestCase):
     def test_template_names_in_protocols_exist(self) -> None:
         listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,
                                 capture_output=True, text=True, check=True).stdout.split()
-        for path in (SKILL / "references" / "domains").glob("*/protocol.md"):
+        docs = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md")),
+                *sorted((SKILL / "references" / "domains").glob("*/protocol.md"))]
+        for path in docs:
             for name in re.findall(r"python -m flowguard template ([a-z][a-z-]+)", path.read_text(encoding="utf-8")):
-                with self.subTest(protocol=path.parent.name, template=name):
+                with self.subTest(document=path.relative_to(SKILL).as_posix(), template=name):
                     self.assertIn(name, listed)
 
     def test_documented_commands_exist(self) -> None:
@@ -121,11 +186,6 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual([], problems)
 
     def test_documented_command_arguments_parse(self) -> None:
-        import shlex
-
-        from flowguard.__main__ import _verb_parser
-        from flowguard.map.cli import build_parser
-
         docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
                 *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
         problems = []
@@ -134,20 +194,13 @@ class SkillPackageTests(unittest.TestCase):
             for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 for match in re.finditer(r"python -m flowguard ([^`\n]*)", line):
                     command = re.sub(r"(?<=\S)[.,;:)]+$", "", match.group(1).split("#", 1)[0].strip())
-                    if not command or any(mark in command for mark in ("|", "[", "<", "...")):
-                        continue                      # alternatives, optional parts and placeholders
-                    words = ["1" if re.fullmatch(r"[A-Z][A-Z0-9_]*", word) else word for word in shlex.split(command)]
-                    verb, rest = words[0], words[1:]
-                    if verb == "map" and rest:
-                        parser = build_parser()
-                    elif verb in {"read", "change", "release", "template", "target"}:
-                        parser = _verb_parser(verb)
-                    else:
-                        continue
+                    if not command or any(mark in command for mark in ("|", "[", "...")):
+                        continue                      # illustrative alternatives and optional parts
+                    if command.split()[0] not in {"map", "read", "change", "release", "template", "target"}:
+                        continue                      # top-level flags have no verb argument parser
                     try:
-                        with contextlib.redirect_stderr(io.StringIO()):
-                            parser.parse_args(rest)
-                    except SystemExit:
+                        _parse_documented_command_arguments(command)
+                    except (SystemExit, ValueError):
                         problems.append(f"{rel}:{number}: python -m flowguard {command}")
         self.assertEqual([], problems)
 

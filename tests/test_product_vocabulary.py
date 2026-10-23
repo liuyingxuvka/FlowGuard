@@ -12,7 +12,7 @@ def test_no_receipt_vocabulary_left():
         ["git", "ls-files", "-z", "--", "flowguard", ".agents/skills/flowguard", ".flowguard", "examples", "tests"],
         cwd=ROOT,
     ).decode().split("\0")
-    exempt = {"tests/test_product_vocabulary.py", ".agents/skills/flowguard/references/upgrade_from_0_69.md"}
+    exempt = {"tests/test_product_vocabulary.py", ".agents/skills/flowguard/references/upgrade.md"}
     offenders = []
     for relative in filter(None, paths):
         if relative in exempt:
