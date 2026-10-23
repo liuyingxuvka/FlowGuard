@@ -36,6 +36,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ..hazards import model_hazards
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
@@ -58,6 +59,7 @@ class ModelResult:
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
     code_gaps: list[str] = field(default_factory=list)
+    hazards: list[str] = field(default_factory=list)
 
 
 def model_files(root: Path) -> list[Path]:
@@ -445,6 +447,10 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
             with calls:
                 report = design.explore()
+            try:
+                result.hazards = model_hazards(design)
+            except Exception as exc:
+                result.hazards = [f"inference failed: {exc}"]
             untested = sorted(invariant_names - contract.get("TESTED_BY", {}).keys())
             if untested:
                 result.warnings.append("invariant_untested: " + ", ".join(untested)
@@ -677,6 +683,9 @@ def render_results(results: list[ModelResult]) -> str:
         lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s")
         if r.rules or r.known_bad:
             lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
+        lines += [f"      hazard: {hazard}" for hazard in r.hazards[:5]]
+        if len(r.hazards) > 5:
+            lines.append(f"      hazard: +{len(r.hazards) - 5} more")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
     failed = sum(r.status != "pass" for r in results)

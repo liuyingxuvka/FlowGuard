@@ -153,6 +153,18 @@ fail, required conformance passes, and `python -m flowguard map check` reports n
 `model_*` errors. A pure anchor rename reuses the existing model/tests and does not
 need a new adapter. Report model-level confidence when no runtime replay was needed.
 
+## Hazards
+
+`python -m flowguard map models` prints computed `hazard:` hints; they never change PASS/FAIL or release.
+Every concern must identify an actual node or edge in the model; otherwise it is not a hazard.
+- `shared_writer`: blocks write the same state; add an invariant or a known-bad case where those writers disagree.
+- `side_effect_repeat`: an effect-bearing node can repeat; check idempotency with an invariant or repeated-action bad case.
+- `external_confirmation_boundary`: an edge crosses an external-confirmation node; check progress waits for acknowledgment.
+- `legacy_or_compatibility_path`: a named node keeps an old path; add a compatibility regression or leave the hint as information.
+- `coarse_terminal_state`: a terminal-looking node may hide distinct outcomes; check its success/failure invariant.
+- `parent_child_compression`: a parent/child or mesh node hides detail; check the handoff or a broken child variant.
+Hints may be left as information; inference failures are information too. `read` stays static; `target check` does not print hazards.
+
 ## Capability models (kits)
 
 `python -m flowguard template contract-exhaustion | ui-flow-structure --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;

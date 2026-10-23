@@ -176,7 +176,7 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     for name in ("contract-exhaustion",
-                 "topology-hazard", "ui-flow"):
+                 "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
         assert "then run: python -m flowguard map models " in out and "/docs/" not in out, name
@@ -186,6 +186,7 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
     assert main(["template", "behavior-commitment", "--write", str(tmp_path / "behavior-commitment")]) == 2
     assert main(["template", "model-mesh", "--write", str(tmp_path / "model-mesh")]) == 2
     assert main(["template", "model-test", "--write", str(tmp_path / "model-test")]) == 2
+    assert main(["template", "topology-hazard", "--write", str(tmp_path / "topology-hazard")]) == 2
 
 
 def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys):

@@ -13,9 +13,6 @@ from .template_text.core import (
 from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
 )
-from .template_text.topology_hazard import (
-    TOPOLOGY_HAZARD_MODEL_TEMPLATE,
-)
 from .template_text.ui_flow_structure import (
     UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
 )
@@ -51,12 +48,6 @@ def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def topology_hazard_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/topology_hazard.py", TOPOLOGY_HAZARD_MODEL_TEMPLATE),
-    )
-
-
 def contract_exhaustion_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/contract_exhaustion.py", CONTRACT_EXHAUSTION_MODEL_TEMPLATE),
@@ -84,11 +75,9 @@ def write_template_files(
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
-    "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
     "contract_exhaustion_template_files",
-    "topology_hazard_template_files",
     "ui_flow_structure_template_files",
     "write_template_files",
 ]

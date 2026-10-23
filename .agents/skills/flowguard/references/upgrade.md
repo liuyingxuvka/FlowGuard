@@ -52,3 +52,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - Any `DESIGN_ONLY` declaration in `.flowguard/models/` is now a `design_only_model` ERROR, even when its value is `False`, `None` or an empty string. Run `python -m flowguard target start "<goal>"`, move the file to `.flowguard/target/models/` and delete the declaration; target models also reject it (`target_design_only`). `planned=` and planned-code-fact exemptions are retired; code facts check real code without a planning flag.
 
 - Runner models (`run_checks.py`) are retired and receive a `runner_model` warning; rewrite each as a contract model. They still execute during this warning stage.
+
+- Topology-hazard review models are gone; `python -m flowguard map models` now computes `hazard:` hints from each model's structure when landmarks exist, without changing verdicts.

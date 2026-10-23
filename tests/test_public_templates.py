@@ -11,7 +11,6 @@ from pathlib import Path
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     contract_exhaustion_template_files,
-    topology_hazard_template_files,
     ui_flow_structure_template_files,
     write_template_files,
 )
@@ -22,13 +21,11 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     ui_flow_structure_template_files,
     contract_exhaustion_template_files,
-    topology_hazard_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
     "ui-flow-structure-template": "ui_flow_structure",
     "contract-exhaustion-template": "contract_exhaustion",
-    "topology-hazard-template": "model_topology_hazard_review",
 }
 
 
@@ -215,7 +212,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(4, len(template_factories()))
+        self.assertEqual(3, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -230,16 +227,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertIn("placeholder anchor", output)
                 self.assertNotIn("Traceback", output)
 
-    def test_topology_hazard_template_executes(self):
-        files = topology_hazard_template_files()
-        self.assertEqual([".flowguard/models/topology_hazard.py"], [f.path for f in files])
-        output = self.run_kit_template(files, "topology_hazard", {"shop/module.py": "class Owner: pass\n"}, expected_returncode=1)
-        self.assertIn("placeholder anchor", output)
 
-    def test_topology_hazard_template_good_review_exits_zero(self):
-        output = self.run_kit_template(topology_hazard_template_files(), "topology_hazard",
-                                      {"shop/module.py": "class Owner: pass\n"}, fill="shop", expected_returncode=0)
-        self.assertIn("PASS  topology_hazard", output)
 
 
 
@@ -250,7 +238,6 @@ class PublicTemplateTests(unittest.TestCase):
             factory.__name__.removesuffix("_template_files"): factory
             for factory in PUBLIC_TEMPLATE_FACTORIES
         }
-        factories["model_topology_hazard_review"] = topology_hazard_template_files
         for command, template_name in TEMPLATE_CLI_COMMANDS.items():
             self.assertIn(template_name, factories, command)
             files = factories[template_name]()

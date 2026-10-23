@@ -182,7 +182,6 @@
         "engine-scenarios",
         "problem-corpus",
         "templates",
-        "topology-hazard",
         "ui-flow"
       ],
       "tests": [
@@ -190,7 +189,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dd8ec496edc40ecc90db1356521349135a74fc0e31495898d304b95c63303e40"
+      "fingerprint": "sha256:506496d2764b0eb7b4ce2620e3d34555c020215c283f7922e9b681f122136c1d"
     },
     {
       "id": "templates",
@@ -219,7 +218,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2150ad1080936827f584976a26a143714e0a268ff8ef133b0dc1d9b17328869e"
+      "fingerprint": "sha256:7bf6a73b91330b1d043c485cb142a82ec926acd1a03b1c20f420042b93425f45"
     },
     {
       "id": "contract-exhaustion",
@@ -249,33 +248,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:f5206bbaef93ec5058c40c91329bcc8224359e8e42fe1b00b4e12ab78335b707"
-    },
-    {
-      "id": "topology-hazard",
-      "layer": "capabilities",
-      "summary": "Reviews shared writers, repeat effects and fallback paths using source labels and native test-required dispositions.",
-      "responsibilities": [
-        "flag hazards implied by the shape of the model",
-        "generate hazards from the topology unless the plan lists anchored ones; an unanchored warning never switches generation off",
-        "retain each choice block without inventing sequential block-to-block workflow edges"
-      ],
-      "files": [
-        "flowguard/topology_hazard.py"
-      ],
-      "entrypoints": [
-        "flowguard/topology_hazard.py:review_topology_hazards"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core"
-      ],
-      "tests": [
-        "tests/test_topology_hazard.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:e419d7cdb75eb5187e5c99675ffdf8cc581fc1663a819eab51655e7cadd50915"
     },
     {
       "id": "test-mesh",
@@ -530,7 +502,7 @@
       "layer": "map",
       "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification; print computed hazards for every model after its existing design exploration, never gating a verdict or repeating user hooks",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
@@ -557,6 +529,7 @@
       "depends_on": [
         "engine-conformance",
         "engine-explore",
+        "engine-properties",
         "map-analysis",
         "map-file",
         "map-inventory"
@@ -568,7 +541,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9cc6aef2c6bd3b25202dd96ab81d8ede494df531d45c65fcb5d479943bf38b34"
+      "fingerprint": "sha256:3055f3ade41ce4f09d85d1c82a083c6a40a26cbd8d1f6fa8a8d06699061b65c4"
     },
     {
       "id": "engine-explore",
@@ -616,14 +589,15 @@
       "layer": "engine",
       "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
       "responsibilities": [
-        "provide reusable invariants and contracts",
+        "provide reusable invariants and contracts; derive informational hazards from actual model structure and names, anchored to its nodes or edges, without usage-text predictions or verdict changes",
         "check that handoffs between child models close"
       ],
       "files": [
         "flowguard/checks.py",
         "flowguard/packs/*.py",
         "flowguard/contract.py",
-        "flowguard/closure.py"
+        "flowguard/closure.py",
+        "flowguard/hazards.py"
       ],
       "entrypoints": [
         "flowguard/checks.py:at_most_once_by",
@@ -641,11 +615,12 @@
         "tests/test_contract_core.py",
         "tests/test_packs.py",
         "tests/test_property_factories.py",
-        "tests/test_closure.py"
+        "tests/test_closure.py",
+        "tests/test_hazards.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6e4fcfc03fd10a4224fbfbd595ed53db0716744c879973fd2714c4428e794e59"
+      "fingerprint": "sha256:7ff7b3211a076e2ee2f122e1088be6753dd13ca0a87354a54d400cbbb52b6089"
     },
     {
       "id": "engine-scenarios",
