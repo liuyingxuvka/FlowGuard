@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `python -m flowguard target promote` replaces the current tree with the target once its full check is clean and its checked inputs are unchanged, then lists the components to confirm.
+
 - `read --target` and `read --mermaid --target` show what the target adds, changes and removes, node by node; component details include the previous values of changed facets.
 
 - While a target exists, `change` reports its remaining static work and marks breakage of replaced nodes as `moving to target`; unplanned breakage stays an error, and `release` warns about the unfinished target.

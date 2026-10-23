@@ -734,19 +734,22 @@
       "responsibilities": [
         "start, extend and drop one target without executing models or code checks",
         "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches",
-        "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution"
+        "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
+        "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery"
       ],
       "files": [
         "flowguard/map/target.py"
       ],
       "entrypoints": [
-        "flowguard/map/target.py:main"
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target"
       ],
       "state": [
         ".flowguard/target/ (at most one target)"
       ],
       "side_effects": [
-        "writes and deletes .flowguard/target/"
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
       ],
       "depends_on": [
         "map-analysis",
@@ -759,7 +762,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e8ca174a797e4f67b3c70cd62dfc61797d66ff119a57bb3abce640b8a5a1ebf5"
+      "fingerprint": "sha256:b1ba20d996973592ca7584b35945e42f28581b278b52a1a40fbff5b5ef486235"
     },
     {
       "id": "map-proof",
@@ -1155,6 +1158,17 @@
         "map-file:new_map",
         "map-discover:discover",
         "map-analysis:run_lint"
+      ]
+    },
+    {
+      "id": "target_work",
+      "summary": "plan a change as a target model, check the code against it, promote it",
+      "steps": [
+        "cli:main",
+        "map-target:main",
+        "map-target:check_target",
+        "map-proof:run_models",
+        "map-target:promote_target"
       ]
     }
   ],

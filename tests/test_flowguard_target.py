@@ -937,3 +937,178 @@ def test_read_target_conflicts_only_with_find(tmp_path, capsys, monkeypatch):
         _static_target_read(root, capsys, monkeypatch, "read", "--target", "--find", "loans")
     assert error.value.code == 2
     capsys.readouterr()
+
+
+def _promote_with_real_check(root: Path, capsys, monkeypatch):
+    from flowguard.map import target
+
+    original_check = target.check_target
+    modes = []
+
+    def observe_check(*args, **kwargs):
+        modes.append(kwargs.get("models", True))
+        return original_check(*args, **kwargs)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(target, "check_target", observe_check)
+        result = _run(root, capsys, "target", "promote")
+    assert modes == [True], modes
+    return result
+
+
+def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    before_missing = _project_snapshot(root)
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 2 and "no target; start one" in output + errors, (output, errors)
+    assert _project_snapshot(root) == before_missing
+    for arguments in (("target", "start", "holds"), ("target", "add", "loans"),
+                      ("target", "add", "lending")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    directory = root / ".flowguard/target"
+    (directory / "map.json").write_text(SHELF_TARGET["map.json"], encoding="utf-8")
+    (directory / "models/lending.py").write_text(SHELF_TARGET["models/lending.py"], encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and "TO-DO model lending:" in output and not errors, (output, errors)
+    before = _project_snapshot(root)
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 1 and "promote refused:" in output + errors, (output, errors)
+    assert _project_snapshot(root) == before
+
+    for relative in ("shelf/loans.py", "tests/test_loans.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and not errors, (output, errors)
+    checked_model = (directory / "models/lending.py").read_bytes()
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 0 and not errors and output.startswith('promoted "'), (output, errors)
+    assert "next: python -m flowguard map confirm loans" in output
+    assert "next: python -m flowguard change" in output
+    assert not directory.exists()
+    assert (root / ".flowguard/models/lending.py").read_bytes() == checked_model
+    loans = next(component for component in _load_map(root)["components"] if component["id"] == "loans")
+    assert loans["status"] == "draft" and "fingerprint" not in loans
+    assert "tests/test_loans.py" in loans["tests"]
+    code, output, errors = _run(root, capsys, "map", "confirm", "loans")
+    assert code == 0 and not errors, (output, errors)
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and "0 error(s), 0 warning(s)" in output and not errors, (output, errors)
+    code, output, errors = _run(root, capsys, "map", "models", "lending", "--tests")
+    assert code == 0 and any(line.split()[:2] == ["PASS", "lending"] for line in output.splitlines()), (output, errors)
+    assert "no_idle_copy_while_held" in output
+    code, output, errors = _run(root, capsys, "read")
+    assert code == 0 and not errors, (output, errors)
+    assert not any(line.startswith("target:") for line in output.splitlines())
+    directory.mkdir()
+    (directory / "map.json").write_text("{", encoding="utf-8")
+    before_invalid = _project_snapshot(root)
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 1 and "promote refused:" in output + errors, (output, errors)
+    assert _project_snapshot(root) == before_invalid
+
+
+def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root, reports=True)
+    path = directory / "map.json"
+    draft = json.loads(path.read_text(encoding="utf-8"))
+    draft["remove"] = ["flow:borrow"]
+    path.write_text(json.dumps(draft), encoding="utf-8")
+    for relative in ("shelf/reports.py", "tests/test_reports.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 0 and not errors, (output, errors)
+    assert not directory.exists()
+    data = _load_map(root)
+    reports = next(component for component in data["components"] if component["id"] == "reports")
+    assert reports["status"] == "draft" and "fingerprint" not in reports
+    assert not any(flow["id"] == "borrow" for flow in data["flows"])
+    assert "next: python -m flowguard map confirm reports" in output
+    assert _run(root, capsys, "map", "confirm", "reports")[0] == 0
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
+
+
+def test_target_promote_keeps_replacement_filename_when_old_model_id_is_removed(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = root / ".flowguard/target"
+    (directory / "models").mkdir(parents=True)
+    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "rename the model identity",
+        "components": [], "flows": [], "remove": ["model:lending"]}), encoding="utf-8")
+    source = SHELF_BASE[".flowguard/models/lending.py"]
+    assert source.count('MODEL_ID = "lending"') == 1
+    replacement = source.replace('MODEL_ID = "lending"', 'MODEL_ID = "lending_v2"').encode("utf-8")
+    (directory / "models/lending.py").write_bytes(replacement)
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 0 and not errors, (output, errors)
+    assert not directory.exists()
+    assert (root / ".flowguard/models/lending.py").read_bytes() == replacement
+    code, output, errors = _run(root, capsys, "map", "models", "lending_v2", "--tests")
+    assert code == 0 and any(line.split()[:2] == ["PASS", "lending_v2"] for line in output.splitlines()), (output, errors)
+
+
+def test_target_promote_refuses_a_model_that_edits_its_checked_source(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root)
+    for relative in ("shelf/loans.py", "tests/test_loans.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    model = directory / "models/lending.py"
+    model.write_text(model.read_text(encoding="utf-8") + '''
+_original_conformance = conformance
+
+def conformance():
+    from pathlib import Path
+    report = _original_conformance()
+    target = Path(__file__).resolve().parents[2] / ".flowguard/target/models/lending.py"
+    with target.open("a", encoding="utf-8") as stream:
+        stream.write("\\n# edited during the real conformance check\\n")
+    return report
+''', encoding="utf-8")
+    before_files, before_dirs = _project_snapshot(root)
+    code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert code == 1 and "promote refused:" in output + errors, (output, errors)
+    assert "changed" in (output + errors).lower()
+    after_files, after_dirs = _project_snapshot(root)
+    relative = ".flowguard/target/models/lending.py"
+    assert after_files[relative][0] == before_files[relative][0] + b"\n# edited during the real conformance check\n"
+    # The real model's explicit edit survives; the promoter writes nothing else.
+    assert {p: v for p, v in after_files.items() if p != relative} == {
+        p: v for p, v in before_files.items() if p != relative}
+    assert after_dirs == before_dirs and directory.is_dir()
+
+
+def test_target_promote_reports_real_write_failure_without_backup_or_automatic_git(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root)
+    for relative in ("shelf/loans.py", "tests/test_loans.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    before_files, before_dirs = _project_snapshot(root)
+    original_write = Path.write_bytes
+    destination = root / ".flowguard/models/lending.py"
+    attempted = []
+
+    def fail_destination(path, content):
+        if path == destination:
+            attempted.append(path)
+            raise OSError("injected target destination write failure")
+        return original_write(path, content)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(Path, "write_bytes", fail_destination)
+        code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
+    assert attempted == [destination]
+    assert code == 2 and "injected target destination write failure" in output + errors, (output, errors)
+    assert "restore with: git checkout -- .flowguard && git clean -fd .flowguard" in output + errors
+    assert directory.is_dir()
+    after_files, after_dirs = _project_snapshot(root)
+    assert after_dirs == before_dirs
+    assert set(after_files) == set(before_files)  # no backup or completion marker
+    # git restore/clean is guidance only: no index, ref, log or object changes.
+    assert {p: v for p, v in after_files.items() if p.startswith(".git/")} == {
+        p: v for p, v in before_files.items() if p.startswith(".git/")}

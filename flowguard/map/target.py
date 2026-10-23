@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -15,7 +16,7 @@ from dataclasses import dataclass, field, replace
 
 from .common import matches_any
 from .inventory import build_inventory
-from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract
+from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_node_changes, validate_target
 from .tree import build_tree
 
@@ -31,7 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     drop = commands.add_parser("drop", help="preview or delete the target")
     drop.add_argument("--yes", action="store_true")
     check = commands.add_parser("check", help="check actual code against the current tree with the target applied")
-    for command in (start, add, drop, check):
+    promote = commands.add_parser("promote", help="replace the current tree with a clean target")
+    for command in (start, add, drop, check, promote):
         command.add_argument("--root", default=argparse.SUPPRESS)
     return parser
 
@@ -266,6 +268,87 @@ def render_target_report(report: TargetReport) -> str:
     return "\n".join(lines)
 
 
+def _file_hash(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for block in iter(lambda: source.read(64 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _promotion_inputs(root, data):
+    """Operation-local byte identities, never stored as a check result or cache."""
+    inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
+    paths = set(inv.files) | {".flowguard/map.json"}
+    paths.update(p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py") if p.is_file())
+    paths.update(p.relative_to(root).as_posix() for p in (root / TARGET_RELDIR).rglob("*") if p.is_file())
+    return {path: _file_hash(root / path) for path in sorted(paths)}
+
+
+def promote_target(root: Path) -> int:
+    """Check once, revalidate the checked bytes, then apply a prepared write plan."""
+    root = root.resolve()
+    try:
+        if not (root / TARGET_RELDIR).exists():
+            raise MapError('no target; start one with python -m flowguard target start "<goal>"')
+        current = load_map(root)
+        inputs = _promotion_inputs(root, current)
+        current = load_map(root)
+        try:
+            target = load_target(root)
+        except MapError:
+            target = None
+        prepared = target is not None and not validate_target(root, current, target)
+        if prepared:
+            view = build_target_view(root, current, target)
+            merged = view.data
+            model_bytes = {name: (root / path).read_bytes() for name, path in target.models.items()}
+            staged_matches = all(hashlib.sha256(content).hexdigest() == inputs.get(target.models[name])
+                                 for name, content in model_bytes.items())
+            deleted = [entry.path for entry in model_registry(root, current).entries
+                       if entry.id in target.remove["model"] and view.resolve(entry.path) is None]
+            changes = target_node_changes(root, current, target)
+            drafts = sorted(c["id"] for c in target.data.get("components", []))
+        # The same full proof and TESTED_BY path as `target check`, exactly once.
+        report = check_target(root)
+        if report.errors or report.todos:
+            print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do; "
+                  "run python -m flowguard target check")
+            return 1
+        if not prepared or not staged_matches or _promotion_inputs(root, current) != inputs:
+            print("promote refused: checked inputs changed; run python -m flowguard target check")
+            return 1
+        problems = validate_map(merged)
+        if problems:
+            print("promote refused: " + "; ".join(problems))
+            return 1
+        save_map(root, merged)
+        if model_bytes:
+            (root / ".flowguard/models").mkdir(parents=True, exist_ok=True)
+        for name, content in model_bytes.items():
+            (root / ".flowguard/models" / name).write_bytes(content)
+        for path in deleted:
+            (root / path).unlink()
+        shutil.rmtree(root / TARGET_RELDIR, onerror=_remove_readonly)
+        summaries = []
+        for kind, label in (("component", "components"), ("model", "models"), ("flow", "flows")):
+            items = [symbol + entry.split(":", 1)[1] for symbol in ("+", "~", "-")
+                     for entry in changes[symbol] if entry.startswith(kind + ":")]
+            summaries.append(label + " " + (" ".join(items) or "-"))
+        print(f'promoted "{target.goal}": ' + "; ".join(summaries))
+        if drafts:
+            print("next: python -m flowguard map confirm " + " ".join(drafts))
+        print("next: python -m flowguard change")
+        return 0
+    except OSError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        print("restore with: git checkout -- .flowguard && git clean -fd .flowguard", file=sys.stderr)
+        return 2
+    except MapError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+
 def _add(root: Path, data: dict, target, requested: str) -> None:
     registry = model_registry(root, data)
     components = {c["id"]: c for c in data["components"]}
@@ -319,6 +402,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     root = Path(args.root).resolve()
     try:
+        if args.command == "promote":
+            return promote_target(root)
         if args.command == "check":
             report = check_target(root)
             print(render_target_report(report))
