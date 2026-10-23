@@ -1065,7 +1065,7 @@ def conformance():
     from pathlib import Path
     report = _original_conformance()
     target = Path(__file__).resolve().parents[2] / ".flowguard/target/models/lending.py"
-    with target.open("a", encoding="utf-8") as stream:
+    with target.open("a", encoding="utf-8", newline="\\n") as stream:
         stream.write("\\n# edited during the real conformance check\\n")
     return report
 ''', encoding="utf-8")
