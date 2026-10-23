@@ -597,3 +597,186 @@ def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, ca
     else:
         assert "TO-DO model lending:" in output and "shelf.future_feature" in output
         assert not any(line.startswith("ERROR ") for line in output.splitlines())
+
+
+def _rename_return_toward_target(root: Path) -> None:
+    directory = _install_shelf_target(root)
+    for path in (directory / "map.json", directory / "models/lending.py"):
+        source = path.read_text(encoding="utf-8")
+        assert "shelf/loans.py:LoanService.give_back" in source
+        path.write_text(source.replace("shelf/loans.py:LoanService.give_back",
+                                       "shelf/loans.py:LoanService.return_book"), encoding="utf-8")
+    code = root / "shelf/loans.py"
+    source = code.read_text(encoding="utf-8")
+    assert source.count("def give_back(") == 1
+    code.write_text(source.replace("def give_back(", "def return_book("), encoding="utf-8")
+
+
+def test_change_marks_only_planned_breakage_and_keeps_tests(tmp_path, capsys, monkeypatch):
+    from flowguard.map import cli as map_cli
+    from flowguard.map import proof
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _rename_return_toward_target(root)
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and not errors, (output, errors)
+    assert any("INFO" in line and "moving to target:" in line and "LoanService.give_back" in line
+               for line in output.splitlines()), output
+    code, strict, errors = _run(root, capsys, "map", "check", "--strict")
+    assert code == 1 and "ERROR" in strict and "LoanService.give_back" in strict, (strict, errors)
+
+    original_check = map_cli.check_target
+    modes = []
+
+    def static_check(*args, **kwargs):
+        modes.append(kwargs.get("models", True))
+        return original_check(*args, **kwargs)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("change must not execute models or TESTED_BY")
+
+    # This guard covers this actual change only; all FG209 native tests remain real.
+    with monkeypatch.context() as scoped:
+        scoped.setattr(map_cli, "check_target", static_check)
+        for name in ("run_models", "run_model", "run_model_in_process"):
+            scoped.setattr(proof, name, forbidden)
+        code, output, errors = _run(root, capsys, "change", "shelf/loans.py")
+    assert code == 0 and not errors, (output, errors)
+    assert modes == [False]
+    assert "moving to target: lending" in output
+    assert any(line.startswith("run:") and "tests/test_loans.py" in line for line in output.splitlines()), output
+    for line in output.splitlines():
+        if line.startswith("run: python -m flowguard map models "):
+            assert "lending" not in line.split()[6:], line
+    assert any(line.startswith('TARGET "') and "0 design error(s)" in line for line in output.splitlines()), output
+
+
+def test_unplanned_catalog_breakage_stays_an_error_with_a_target(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    path = root / "shelf/catalog.py"
+    source = path.read_text(encoding="utf-8")
+    assert source.count("def take(") == 1
+    path.write_text(source.replace("def take(", "def take_renamed("), encoding="utf-8")
+    for arguments in (("map", "check"), ("change", "shelf/catalog.py")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 1 and not errors, (output, errors)
+        assert any("ERROR" in line and "anchor_broken" in line and "Catalog.take" in line
+                   and "moving to target:" not in line for line in output.splitlines()), output
+
+
+def test_new_target_file_is_moving_but_strict_remains_an_error(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root, reports=True)
+    (root / "shelf/reports.py").write_text(SHELF_AFTER["shelf/reports.py"], encoding="utf-8")
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and not errors, (output, errors)
+    assert any("INFO" in line and "file_unmapped" in line and "moving to target:" in line
+               and "shelf/reports.py" in line for line in output.splitlines()), output
+    code, output, errors = _run(root, capsys, "change", "shelf/reports.py")
+    assert code == 0 and not errors, (output, errors)
+    assert "moving to target:" in output and "UNMAPPED changed files" not in output
+    code, output, errors = _run(root, capsys, "map", "check", "--strict")
+    assert code == 1 and any("ERROR" in line and "file_unmapped" in line
+                            for line in output.splitlines()), (output, errors)
+
+
+def test_release_warns_first_but_runs_the_same_current_models(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    before_code, before, before_errors = _run(root, capsys, "release")
+    assert before_code == 0 and not before_errors, (before, before_errors)
+    assert not any(line.startswith("warning: target ") for line in before.splitlines())
+    _install_shelf_target(root)
+    code, output, errors = _run(root, capsys, "release")
+    assert code == before_code and not errors, (output, errors)
+    goal = json.loads(SHELF_TARGET["map.json"])["goal"]
+    assert output.splitlines()[0] == (
+        f'warning: target "{goal}" exists: release checks only the current tree; '
+        'promote or drop the target before releasing')
+    # Compare actual proof results/counts, leaving elapsed times out of the oracle.
+    def proof_facts(text):
+        return ([line.split()[:2] for line in text.splitlines() if line.split()[:1] in (["PASS"], ["FAIL"], ["ERROR"])],
+                [line.strip() for line in text.splitlines() if line.startswith("models:") or "rules:" in line],
+                [line for line in text.splitlines() if line.startswith("check --strict:")])
+    assert proof_facts(output) == proof_facts(before)
+    assert "no_idle_copy_while_held" not in output
+    assert "verify: PASS" in output
+
+
+def test_impact_skips_target_changes_before_test_content_lookup(tmp_path, capsys, monkeypatch):
+    from flowguard.map import impact
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import ignore_patterns
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    data = _load_map(root)
+    inventory = build_inventory(root, ignore_patterns(data))
+    read_source = impact.read_source
+    read_tests = []
+
+    def observe_read(path):
+        if Path(path).resolve().is_relative_to(root / "tests"):
+            read_tests.append(str(path))
+        return read_source(path)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(impact, "read_source", observe_read)
+        result = impact.compute_impact(root, data, inventory,
+            [".flowguard/target/models/lending.py", ".flowguard/target/map.json"], base="HEAD")
+    assert not result.changed and not result.tests and not result.models and not result.unmapped, result
+    assert not result.blocked and not read_tests, (result, read_tests)
+
+
+@pytest.mark.parametrize("node", ["model", "flow", "missing_model"])
+def test_target_component_does_not_hide_an_unplanned_model_or_flow(tmp_path, capsys, node):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    if node == "model":
+        source = SHELF_BASE[".flowguard/models/lending.py"]
+        assert source.count('MODEL_ID = "lending"') == 1
+        (root / ".flowguard/models/unplanned_lending.py").write_text(
+            source.replace('MODEL_ID = "lending"', 'MODEL_ID = "unplanned_lending"'), encoding="utf-8")
+        finding, identity = "model_anchor_broken", ".flowguard/models/unplanned_lending.py"
+    elif node == "missing_model":
+        data = _load_map(root)
+        next(component for component in data["components"] if component["id"] == "loans")["models"] = [
+            ".flowguard/models/unknown_contract.py"]
+        _write_map(root, data)
+        finding, identity = "model_missing", ".flowguard/models/unknown_contract.py"
+    else:
+        data = _load_map(root)
+        data["flows"].append({"id": "unplanned_return", "summary": "Return an existing loan.",
+                              "steps": ["loans:LoanService.give_back"]})
+        _write_map(root, data)
+        finding, identity = "flow_step_broken", "unplanned_return"
+    _rename_return_toward_target(root)
+    changed = ["shelf/loans.py"] + ([identity] if node == "missing_model" else [])
+    for arguments in (("map", "check"), ("change", *changed)):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 1 and not errors, (output, errors)
+        assert any("ERROR" in line and finding in line and identity in line
+                   and "moving to target:" not in line for line in output.splitlines()), output
+        assert any("INFO" in line and "moving to target:" in line and "LoanService.give_back" in line
+                   for line in output.splitlines()), output
+        if node == "missing_model" and arguments[0] == "change":
+            assert any(line.startswith("BLOCKED ") and identity in line for line in output.splitlines()), output
+
+
+def test_target_keeps_ambiguous_test_command_blocked(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    data = _load_map(root)
+    data["test_commands"] = {"tests/test_loans.py": "python -m pytest -q",
+                             "tests/test_*.py": "python -m pytest -v"}
+    expected = "ambiguous test commands"
+    _write_map(root, data)
+    code, output, errors = _run(root, capsys, "change", "shelf/loans.py")
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("BLOCKED ") and expected in line for line in output.splitlines()), output

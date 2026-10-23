@@ -117,9 +117,9 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatches daily map, proof, target draft and single-contract template commands.",
+      "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids"
       ],
       "files": [
@@ -155,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e4e6c38da6892ce0840c3068e8de9f127708e30e49f6a477a89f4e78a52983b0"
+      "fingerprint": "sha256:ee2232d17973c71606ab62cd6ee19b572479fd80fc5059e34a3be354463f3f76"
     },
     {
       "id": "public-api",
@@ -691,7 +691,7 @@
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
         "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share exact responsibility-token duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree",
-        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point",
+        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks"
@@ -725,7 +725,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:674c7dd1bd7834325543b397090e8b64a7f184c64d0b1c2cf1149bf705614897"
+      "fingerprint": "sha256:66259c652a80d2410c138b32945de685c0f4762b1ca22be5b0ad4dca3b5ea2df"
     },
     {
       "id": "map-target",
@@ -733,7 +733,8 @@
       "summary": "Keeps one target and checks its merged tree against actual code and tests.",
       "responsibilities": [
         "start, extend and drop one target without executing models or code checks",
-        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches"
+        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches",
+        "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -758,7 +759,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:75ea96140ed588477ccd2901bc7a149c6797ede53248cd0b9a9cf22a84ff2c7d"
+      "fingerprint": "sha256:e8ca174a797e4f67b3c70cd62dfc61797d66ff119a57bb3abce640b8a5a1ebf5"
     },
     {
       "id": "map-proof",

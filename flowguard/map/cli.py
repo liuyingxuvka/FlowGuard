@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 from .check import run_check
@@ -33,6 +34,8 @@ from .proof import render_results, run_models
 from .scan import new_map
 from .tree import build_tree
 from .views import defined_symbols, find_owners, render_digest, render_mermaid, render_show
+from .target import check_target, moving_to_target, target_model_paths, target_owns_file
+from .targetfile import TARGET_RELDIR, load_target, validate_target
 
 
 def _context(root: Path, with_bodies: bool = True):
@@ -127,9 +130,21 @@ def cmd_digest(root: Path, a) -> int:
     return 1 if text.startswith("unknown component") else 0
 
 
+def _active_target(root, data):
+    """Malformed drafts never authorize weakening a current-tree finding."""
+    try:
+        target = load_target(root)
+        return target if target is not None and not validate_target(root, data, target) else None
+    except MapError:
+        return None
+
+
 def cmd_check(root: Path, a) -> int:
     data, inv = _context(root)
-    counts = print_findings(run_check(root, data, inv, strict=a.strict), "check", as_json=a.json, limit=a.limit)
+    findings = run_check(root, data, inv, strict=a.strict)
+    if not a.strict:
+        findings = moving_to_target(findings, root, data, _active_target(root, data))
+    counts = print_findings(findings, "check", as_json=a.json, limit=a.limit)
     return 1 if counts["error"] else 0
 
 
@@ -157,23 +172,35 @@ def cmd_change(root: Path, a) -> int:
     findings = run_check(root, data, inv)
     imp = compute_impact(root, data, inv, changes, base=a.base)
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)
+    target = _active_target(root, data)
+    findings = moving_to_target(findings, root, data, target)
+    architecture = moving_to_target(architecture, root, data, target)
+    unmapped = [path for path in imp.unmapped if target is None or not target_owns_file(path, target)]
     # Structural violations appear once, as ARCH lines with import paths.
     arch_rules = {(f.code, f.component) for f in architecture if f.code in {"layer_violation", "dependency_cycle"}}
-    shown = [f for f in findings if (f.level != "info" or f.component in imp.direct)
+    shown = [f for f in findings if (f.level != "info" or f.component in imp.direct or f.message.startswith("moving to target: "))
              and (f.code, f.component) not in arch_rules]
     counts = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
     print_findings(shown, "check", as_json=False, limit=80)
     if len(shown) < len(findings):
         print(f"({len(findings) - len(shown)} more finding(s) not repeated here: python -m flowguard map check)")
     print()
-    print(render_impact(imp))
+    print(render_impact(replace(imp, unmapped=unmapped), moving_models=target_model_paths(root, data, target))
+          if target is not None else render_impact(imp))
+    if (root / TARGET_RELDIR).exists():
+        if target is None:
+            print("TARGET: .flowguard/target/map.json is invalid; run: python -m flowguard target check")
+        else:
+            report = check_target(root, models=False)
+            print(f'TARGET "{report.goal}": {len(report.errors)} design error(s), {len(report.todos)} to-do in the map; '
+                  'run: python -m flowguard target check (it also runs the target models)')
     for finding in architecture:
         print(f"ARCH {finding.level.upper()} {finding.code} {finding.component}: {finding.message}")
     affected = set(imp.direct)
     for debt in data.get("accepted_debts", []):
         if debt.get("component") in affected:
             print(f"DEBT {debt['component']} {debt['code']}: {debt['reason']}")
-    return int(bool(counts["error"] or imp.blocked or imp.unmapped or any(f.level == "error" for f in architecture)))
+    return int(bool(counts["error"] or imp.blocked or unmapped or any(f.level == "error" for f in architecture)))
 
 
 def cmd_deps(root: Path, a) -> int:
@@ -227,6 +254,13 @@ def cmd_models(root: Path, a) -> int:
 
 
 def cmd_verify(root: Path, a) -> int:
+    if (root / TARGET_RELDIR).exists():
+        try:
+            target = load_target(root)
+            goal = target.goal if target is not None else "<invalid target>"
+        except MapError:
+            goal = "<invalid target>"
+        print(f'warning: target "{goal}" exists: release checks only the current tree; promote or drop the target before releasing')
     data, inv = _context(root)
     check = print_findings(run_check(root, data, inv, strict=True), "check --strict", as_json=False, limit=a.limit)
     findings = run_lint(root, data, inv)

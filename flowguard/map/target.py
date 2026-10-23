@@ -11,8 +11,9 @@ import shutil
 import stat
 import sys
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
+from .common import matches_any
 from .inventory import build_inventory
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract
 from .targetfile import TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_node_changes, validate_target
@@ -71,6 +72,48 @@ class TargetReport:
     warnings: list[TargetFinding] = field(default_factory=list)
 
 
+def target_model_paths(root, data, target):
+    """Current logical files replaced or explicitly removed by this target."""
+    paths = {f".flowguard/models/{filename}" for filename in target.models}
+    paths.update(entry.path for entry in model_registry(root, data).entries
+                 if entry.id in target.remove["model"])
+    return paths
+
+
+def target_owns_file(path, target):
+    return any(matches_any(path, component.get("files", []))
+               for component in target.data.get("components", []))
+
+
+def moving_to_target(findings, root, data, target):
+    """Annotate only current breakage of a node the target actually replaces."""
+    if target is None:
+        return findings
+    components = {c["id"] for c in target.data.get("components", [])} | target.remove["component"]
+    flows = {f["id"] for f in target.data.get("flows", [])} | target.remove["flow"]
+    models = target_model_paths(root, data, target)
+    model_codes = {"model_anchor_broken", "model_test_broken", "model_anchor_missing",
+                   "model_conformance_missing", "model_unreadable", "model_contract"}
+    result = []
+    for finding in findings:
+        planned = False
+        if finding.level in {"error", "warn"}:
+            flow = re.match(r"flow ([^ :]+):", finding.message)
+            model = re.match(r"(\.flowguard/models/[^:]+\.py):", finding.message)
+            if flow:
+                planned = (finding.code in {"flow_step_broken", "flow_step_unknown", "model_missing"}
+                           and flow.group(1) in flows)
+            elif model or finding.code in model_codes or (finding.code == "model_missing" and finding.message.startswith("model file ")):
+                planned = bool(model and finding.code in model_codes and model.group(1) in models)
+            elif finding.code == "file_unmapped":
+                planned = target_owns_file(finding.message.split(" has no owning component", 1)[0], target)
+            else:
+                planned = finding.component in components
+        result.append(replace(finding, level="info", message="moving to target: " + finding.message)
+                      if planned else finding)
+    return result
+
+
 def _selected_models(root, current, target, view, inv, tree):
     """Traverse the union of native current/merged edges, in both directions."""
     old = build_tree(root, current, inv)
@@ -126,11 +169,10 @@ def _issue_key(node, code, message, tree):
     return node, family, message
 
 
-def check_target(root: Path) -> TargetReport:
+def check_target(root: Path, *, models: bool = True) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
     from .lint import _rules, _variants, duplicate_owner_findings
-    from .proof import run_models
 
     root = root.resolve()
     current = load_map(root)
@@ -172,6 +214,10 @@ def check_target(root: Path) -> TargetReport:
     for name, changed, edges in _variants(view.data, graph):
         if not any(f.level == "error" for f in _rules(changed, edges)):
             add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
+    if not models:
+        return report
+    from .proof import run_models
+
     selected = _selected_models(root, current, target, view, inv, tree)
     # [] means "all" to the ordinary runner; an empty target selection means none.
     results = run_models(root, selected, tests=True, view=view, inv=inv) if selected else []

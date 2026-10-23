@@ -199,7 +199,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         raise ValueError("impact depth must be nonnegative")
     changed = sorted({project_relative(root, f) for f in changed
                       if "__pycache__" not in Path(project_relative(root, f)).parts
-                      and not f.endswith((".pyc", ".pyo")) and not project_relative(root, f).startswith(".flowguard/cache/")})
+                      and not f.endswith((".pyc", ".pyo"))
+                      and not project_relative(root, f).startswith((".flowguard/cache/", ".flowguard/target/"))})
     previous = _previous_map(root, base) if ".flowguard/map.json" in changed else None
     # A comment-only edit keeps its owner in REVIEW but selects no callers, tests or models.
     comment_only = sorted(f for f in changed if _comment_only(root, base, f))
@@ -466,7 +467,11 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     )
 
 
-def render_impact(imp: Impact) -> str:
+def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
+    selected = list(zip(imp.models, imp.model_ids))
+    moving = [(path, mid) for path, mid in selected if path in (moving_models or set())]
+    models = [path for path, mid in selected if path not in (moving_models or set())] if moving_models else imp.models
+    model_ids = [mid for path, mid in selected if path not in (moving_models or set())] if moving_models else imp.model_ids
     lines = [f"changed files: {len(imp.changed)}  directly affected: {', '.join(imp.direct) or '-'}",
              f"dependents: {', '.join(imp.dependents) or '-'}"]
     if imp.depth is not None:
@@ -480,8 +485,11 @@ def render_impact(imp: Impact) -> str:
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
     if imp.comment_only:
         lines.append("comment-only edits (no tests or models selected): " + ", ".join(imp.comment_only))
-    lines.append(f"models to run: {len(imp.models)} selected (full list: python -m flowguard map impact --json)" if len(imp.models) > 8
-                 else f"models to run: {', '.join(imp.models) or '-'}")
+    lines.append(f"models to run: {len(models)} selected (full list: python -m flowguard map impact --json)" if len(models) > 8
+                 else f"models to run: {', '.join(models) or '-'}")
+    if moving:
+        lines.append("moving to target: " + ", ".join(mid for path, mid in moving)
+                     + " (python -m flowguard target check runs their target versions)")
     groups: dict[str, list[str]] = defaultdict(list)
     no_command = []
     for test in imp.tests:
@@ -503,8 +511,8 @@ def render_impact(imp: Impact) -> str:
         import shlex
         lines.append(f"run: {command} " + " ".join(shlex.quote(t) for t in tests))
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
-    if imp.models:
-        lines.append("run: python -m flowguard map models " + " ".join(imp.model_ids))
+    if models:
+        lines.append("run: python -m flowguard map models " + " ".join(model_ids))
     for cid in imp.needs_review:
         message = f"REVIEW {cid}: its files changed; update its description if behavior changed, then confirm {cid}"
         if imp.review_models.get(cid):
