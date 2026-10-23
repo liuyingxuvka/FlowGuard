@@ -37,3 +37,24 @@ Do not delete on a guess: removed symbols must be `unreferenced`.
 7. Run `python -m flowguard target check` until there is no ERROR and only code/test TO-DO remains. `component_empty`, `anchor_broken`, `file_unmapped` and `dep_unused` can identify code still to write.
 8. Write the code and tests, then run the same target check until ERROR and TO-DO are both zero; it checks changed target models and related models with bound tests in the merged tree.
 9. Run `python -m flowguard target promote`, confirm the listed components, then `python -m flowguard change` and any remaining selected checks.
+
+## Rename or retire a field
+
+Fields belong to model state or a component's `state`. Routing, permissions, feature flags, mode/version switches, persistence and prompt configuration carry behavior and use a target.
+Pure display or metadata changes that leave behavior unchanged may follow **Change code only** in the skill.
+
+1. Start `python -m flowguard target start "<goal>"`, then copy the owning model with `python -m flowguard target add <model-id>`.
+2. Copy the component too if its `state` description changes. Keep retained promises on an owner; list `state:<original text>` in target `remove` only for an intentionally retired old promise.
+3. Change the target model's state names and values. Add a known-bad variant for an old field still being read or a missing new field silently falling back to the old one.
+4. Record the applicable `CodeFacts(root).absent("old_mode", OWNED_FILES)` / `CodeFacts(root).present("mode", OWNED_FILES)` facts in that target model's real `conformance()`; before the code changes, unmet facts are TO-DO.
+5. Run `python -m flowguard target check` until there is no ERROR and only code/test TO-DO remains, then implement the code and tests.
+6. Run the same target check until ERROR and TO-DO are both zero; it checks changed target models and related models with bound tests in the merged tree.
+7. Run `python -m flowguard target promote`, confirm the listed components, then `python -m flowguard change` and any remaining selected checks.
+
+Choose an explicit outcome for the old field:
+- Delete: require `absent` across its active producers and readers.
+- Migrate: require the new name to be `present`; confine old-name reads to explicit, tested migration code and scope absence checks to the remaining active code.
+- Reject: make legacy input fail a real check, and cover it with a known-bad variant or test.
+- Reassign: put the field in the recipient component's target `state` and preserve its behavior and bindings there.
+
+Check the default for a missing field and the behavior for null; who reads already persisted old data; and whether private content can be displayed to users.

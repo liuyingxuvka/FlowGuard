@@ -38,7 +38,6 @@ PENDING = {
     ".flowguard/models/model_test_code_alignment.py": "FG-221",
     "flowguard/behavior_commitment.py": "FG-219",
     "flowguard/contract_exhaustion.py": "FG-226",
-    "flowguard/field_lifecycle.py": "FG-218",
     "flowguard/model_test_alignment.py": "FG-221",
     "flowguard/obligation_family.py": "FG-221",
     "flowguard/primary_path_authority.py": "FG-219",

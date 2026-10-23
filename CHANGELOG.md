@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Behavior-changing field edits now use target model state and real `CodeFacts.absent` / `CodeFacts.present` checks in `conformance()`; the former field-lifecycle engine and starter are removed. The rename-or-retire recipe covers deletion, migration, rejection or reassignment, missing/null values, persisted readers and privacy.
+
 - Code structure now uses target components and the add-or-split recipe. A state or side-effect claim shared by multiple components now triggers `duplicate_owner` in lint, the system model and target checks, and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard must specialize the descriptions of `logicguard`, `sourceguard`, `traceguard` and `experimentguard` in the same change as its FlowGuard reference upgrade.
 
 - Architecture reduction now follows a target remove-or-merge operation. Target checks reject silently lost entrypoints, state or side effects (`owner_dropped`); `remove` accepts `entrypoint:`, `state:` and `side_effect:` for deliberate retirement.

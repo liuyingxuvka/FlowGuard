@@ -13,8 +13,6 @@ from flowguard import (
     ContractAxis,
     ContractExhaustionPlan,
     ContractInteractionGroup,
-    FieldLifecyclePlan,
-    FieldLifecycleRow,
     UISourceBaselineInteractionGate,
     UISourceInteractionSemantics,
     SUPPORTED_UI_EVIDENCE_KINDS,
@@ -109,7 +107,6 @@ from flowguard import (
     review_ui_visible_surface,
     contract_exhaustion_to_test_mesh_shard_ids,
     review_contract_exhaustion,
-    ui_content_visibility_candidate_ids_from_field_lifecycle,
 )
 
 from flowguard.contract_exhaustion import (
@@ -4727,22 +4724,6 @@ class UIContentVisibilityTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertIn("internal_content_mapped_to_ui", finding_codes(report))
 
-    def test_field_lifecycle_handoff_only_projects_ui_reader_fields(self):
-        field_plan = FieldLifecyclePlan(
-            "ui-candidate-fields",
-            discovered_field_ids=("field:result", "field:trace"),
-            fields=(
-                FieldLifecycleRow("field:result", reader_ids=("ordinary-ui-view",)),
-                FieldLifecycleRow("field:trace", reader_ids=("audit-log",)),
-            ),
-        )
-
-        candidate_ids = ui_content_visibility_candidate_ids_from_field_lifecycle(
-            field_plan,
-            ui_reader_ids=("ordinary-ui-view",),
-        )
-
-        self.assertEqual(("field:result",), candidate_ids)
 
 
 class UIProductConsistencyTests(unittest.TestCase):

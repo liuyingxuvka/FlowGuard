@@ -1312,3 +1312,41 @@ def test_target_keeps_state_unique_and_public_entries_owned(tmp_path, capsys):
     dropped = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped:" in line]
     assert len(dropped) == 1 and "entrypoint 'shelf/loans.py:LoanService.give_back'" in dropped[0], output
     assert "duplicate_owner:" not in output, output
+
+
+
+def test_rename_a_field_through_the_target(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    current_model = (root / ".flowguard/models/lending.py").read_bytes()
+    for arguments in (("target", "start", "rename the member loan limit"), ("target", "add", "lending")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
+
+    model = root / ".flowguard/target/models/lending.py"
+    source = model.read_text(encoding="utf-8")
+    old_import = "from dataclasses import dataclass, replace\n"
+    assert source.count(old_import) == 1
+    source = source.replace(old_import, old_import + "from pathlib import Path\nfrom flowguard.map.facts import CodeFacts\n", 1)
+    prefix, separator, suffix = source.rpartition("    return last\n")
+    assert separator and not suffix
+    model.write_text(prefix + '    facts = CodeFacts(Path(__file__).resolve().parents[2])\n'
+                     '    facts.check("the lending replay still conforms", last.ok, last.format_text())\n'
+                     '    facts.absent("LIMIT", ["shelf/members.py"])\n'
+                     '    facts.present("LOAN_LIMIT", ["shelf/members.py"])\n'
+                     '    return facts.report()\n', encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and not errors, (output, errors)
+    assert "TO-DO model lending:" in output and "LIMIT" in output, output
+    assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
+    assert (root / ".flowguard/models/lending.py").read_bytes() == current_model
+
+    members = root / "shelf/members.py"
+    source = members.read_text(encoding="utf-8")
+    assert source.count("LIMIT") == 2 and "LOAN_LIMIT" not in source
+    members.write_text(source.replace("LIMIT", "LOAN_LIMIT"), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
+    assert (root / ".flowguard/models/lending.py").read_bytes() == current_model

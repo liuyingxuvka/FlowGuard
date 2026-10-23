@@ -16,7 +16,6 @@ from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     behavior_commitment_template_files,
     contract_exhaustion_template_files,
-    field_lifecycle_template_files,
     model_mesh_template_files,
     model_test_alignment_template_files,
     topology_hazard_template_files,
@@ -30,7 +29,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     behavior_commitment_template_files,
     model_test_alignment_template_files,
-    field_lifecycle_template_files,
     ui_flow_structure_template_files,
     model_mesh_template_files,
     contract_exhaustion_template_files,
@@ -40,7 +38,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 TEMPLATE_CLI_COMMANDS = {
     "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
-    "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "model-mesh-template": "model_mesh",
     "contract-exhaustion-template": "contract_exhaustion",
@@ -306,7 +303,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([".flowguard/behavior/inventory/ledger.json"] if name == "behavior-commitment" else [],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(8, len(template_factories()))
+        self.assertEqual(7, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -332,28 +329,9 @@ class PublicTemplateTests(unittest.TestCase):
                                       {"shop/module.py": "class Owner: pass\n"}, fill="shop", expected_returncode=0)
         self.assertIn("PASS  topology_hazard", output)
 
-    def test_field_lifecycle_template_fails_until_bound_to_real_code(self):
-        files = field_lifecycle_template_files()
-        code = {"shop/orders.py": "class Order:\n    mode = 'fast'\n"}
-        self.assertIn("placeholder anchor", self.run_kit_template(files, "field_lifecycle", code, expected_returncode=1))
-        self.assertIn("PASS  field_lifecycle", self.run_kit_template(files, "field_lifecycle", code, fill="shop",
-                                                                     expected_returncode=0))
-        stale = {"shop/orders.py": code["shop/orders.py"] + "    old_mode = None\n"}
-        self.assertIn("field:old_mode: deleted field has no reference left",
-                      self.run_kit_template(files, "field_lifecycle", stale, fill="shop", expected_returncode=1))
 
 
 
-    def test_field_lifecycle_template_can_plan_a_replacement_not_yet_written(self):
-        from dataclasses import replace
-        files = field_lifecycle_template_files()
-        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "replace old_mode with mode"\n') if f is files[0] else f for f in files)
-        code = {"shop/orders.py": "class Order:\n    old_mode = 'fast'\n"}
-        output = self.run_kit_template(planned, "field_lifecycle", code, fill="shop", expected_returncode=0)
-        self.assertIn("PASS  field_lifecycle", output)
-        self.assertIn("planned fact(s) still to make true", output)
-        output = self.run_kit_template(files, "field_lifecycle", code, fill="shop", expected_returncode=1)
-        self.assertIn("replacement field:mode exists", output)
 
     def test_template_cli_prints_and_writes_new_templates(self):
         factories = {

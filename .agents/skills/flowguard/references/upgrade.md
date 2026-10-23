@@ -40,3 +40,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - The old architecture-reduction engine and template are removed; use `references/tree_operations.md#Remove or merge a node` with target `remove` and `CodeFacts.unreferenced` instead.
 
 - The old `.flowguard/models/code_structure.py` starter no longer imports; plan the split as a target using `references/tree_operations.md#Add or split a component`. A state or side-effect claim shared by multiple components now raises `duplicate_owner` and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard's FlowGuard reference upgrade must give `logicguard`, `sourceguard`, `traceguard` and `experimentguard` specific state/effect descriptions in the same change.
+
+- The old `.flowguard/models/field_lifecycle.py` starter no longer imports; use the target-model field operation in `references/tree_operations.md#Rename or retire a field`, with `CodeFacts.absent` / `CodeFacts.present` in real `conformance()`.

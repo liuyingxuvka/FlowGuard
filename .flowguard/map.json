@@ -182,7 +182,6 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "field-lifecycle",
         "model-mesh",
         "model-test",
         "problem-corpus",
@@ -196,7 +195,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:61081cbb220d56111d988352f06f1b9a707f7885c849e454972a09fcd152faec"
+      "fingerprint": "sha256:c99f3392520e4658abe48bfddb73e625a30b983f0e48b2b1a59f35456938214b"
     },
     {
       "id": "templates",
@@ -226,7 +225,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d02dfcc1119f5274e70f7e2edc1228bcc34998e046d0a3777ede056e6f6696a2"
+      "fingerprint": "sha256:8afc39b6f3324042a24ac210adf865a7d42cd5cd1e60c2c08a2489fc8d7fb835"
     },
     {
       "id": "behavior-commitment",
@@ -312,37 +311,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:22080340d543dbadf742cc49e2b9c1364c8e833834a1023984fdd42299a9335a"
-    },
-    {
-      "id": "field-lifecycle",
-      "layer": "capabilities",
-      "summary": "Checks field vocabulary, readers, writers, defaults and replacements.",
-      "responsibilities": [
-        "reject unknown role, lifecycle and behavior-impact values with typed blockers",
-        "account for field owners, readers, writers and replacements",
-        "model kit: explore field edits with the review as invariant and compare the plan with the code (deleted fields unreferenced, replacements and locations present)",
-        "compare planned field replacement and retirement targets while present code anchors remain required"
-      ],
-      "files": [
-        "flowguard/field_lifecycle.py"
-      ],
-      "entrypoints": [
-        "flowguard/field_lifecycle.py:review_field_lifecycle"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-conformance",
-        "engine-core",
-        "map-proof",
-        "model-test"
-      ],
-      "tests": [
-        "tests/test_field_lifecycle.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:eec3d0346c5e9def0bd99b01409c481bb367da555c020b6fb1568939c409ca9c"
     },
     {
       "id": "model-mesh",
