@@ -14,15 +14,18 @@ def run_system_model(root, data, inv):
     from .proof import ModelResult
 
     started = time.monotonic()
-    result = ModelResult(model="system", file=".flowguard/map.json")
+    result = ModelResult(model="system", file=".flowguard/map.json",
+                         rules=["dependency_cycle", "duplicate_owner", "layer_violation"])
     graph = component_graph(data, inv)
     result.problems.extend(f"{f.code} {f.component}: {f.message}"
                            for f in _rules(data, graph, root=root, inv=inv) if f.level == "error")
     generated = 0
     for name, changed_data, changed_graph in _variants(data, graph):
         generated += 1
+        result.known_bad.append(str(name))
         if not any(f.level == "error" for f in _rules(changed_data, changed_graph)):
             result.problems.append(f"generated known-bad variant '{name}' passed: the architecture rules do not catch it")
+    result.known_bad.sort()
     consistency = run_check(root, data, inv)
     errors = [f for f in consistency if f.level == "error"]
     if errors:

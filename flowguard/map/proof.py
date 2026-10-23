@@ -50,6 +50,8 @@ class ModelResult:
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
     uncovered_invariants: list[str] = field(default_factory=list)
+    rules: list[str] = field(default_factory=list)
+    known_bad: list[str] = field(default_factory=list)
 
 
 def model_files(root: Path) -> list[Path]:
@@ -299,6 +301,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
             result.status = "fail"
             result.problems.append("build_explorer() declares no invariants or reachability checks")
         invariant_names = {_invariant_name(i) for i in design.invariants}
+        result.rules = sorted(invariant_names)
         for name in sorted(set(contract.get("TESTED_BY", {})) - invariant_names):
             result.status = "fail"
             result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
@@ -318,6 +321,7 @@ def run_model_in_process(root: Path, path: Path) -> ModelResult:
             variants = module.broken_variants()
             if not isinstance(variants, dict) or not variants:
                 raise ValueError("broken_variants() must return a nonempty dictionary; no known-bad proof executed")
+            result.known_bad = sorted(str(name) for name in variants)
             covered: set[str] = set()
             for name, explorer in variants.items():
                 if not isinstance(explorer, Explorer):
@@ -507,9 +511,14 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
 def render_results(results: list[ModelResult]) -> str:
     if not results:
         return "models: 0 declared, 0 executed; no model proof"
+    def names(values):
+        return ", ".join(values[:8]) + (f" +{len(values) - 8} more" if len(values) > 8 else "")
+
     lines = []
     for r in results:
         lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s")
+        if r.rules or r.known_bad:
+            lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
     failed = sum(r.status != "pass" for r in results)

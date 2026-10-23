@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `map models` and `release` list each model's real rule and known-bad variant names. Long name lists are abbreviated in text while complete names remain in the result.
+
 - Project, component and model views share five static facets: purpose, rules, known-bad cases, code and tests. Overview and Mermaid labels include rule counts; component details distinguish bound, unbound and nonnested tests without running user models.
 
 - Change selection recognizes removed model contracts from Git history without running old code. It keeps surviving parents, importers and tests, supports moves that preserve the model ID, and rejects remaining references to missing models.

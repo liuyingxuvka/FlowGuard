@@ -1009,3 +1009,98 @@ def test_placeholder_anchor_failures_are_clean_in_hooks_and_exploration(shop, ca
     assert "placeholder anchor 'REPLACE_ME/module.py:Owner': replace it with the real 'path:Symbol' this model is about" in output
     assert "Traceback" not in output
     assert "explored no input transitions" not in output
+
+
+@pytest.mark.parametrize("mixed_keys", [False, True])
+def test_models_output_lists_rule_and_variant_names(shop, capsys, monkeypatch, mixed_keys):
+    write(shop, "shop/orders.py", FIXED)
+    expected_bad = ["charge_every_time"]
+    if mixed_keys:
+        _edit_model(shop, 'return {"charge_every_time": _explorer(ChargeEveryTime())}',
+                    'return {1: _explorer(ChargeEveryTime()), "1": _explorer(ChargeEveryTime()), '
+                    '"charge_every_time": _explorer(ChargeEveryTime())}')
+        expected_bad = ["1", "1", "charge_every_time"]
+    captured = []
+    actual = cli.run_models
+
+    def capture(*args, **kwargs):
+        results = actual(*args, **kwargs)  # includes the real model child JSON transport
+        captured.extend(results)
+        return results
+
+    monkeypatch.setattr(cli, "run_models", capture)
+    code, output = models(shop, capsys, "order_placement")
+    assert code == 0, output
+    result, = captured
+    assert result.rules == ["one_charge_per_order"]
+    assert result.known_bad == expected_bad
+    assert "rules: one_charge_per_order; known-bad: " + ", ".join(expected_bad) in output
+    assert json.loads(json.dumps(result.__dict__))["known_bad"] == expected_bad
+
+
+def test_system_model_names_follow_one_generated_pass(shop, capsys, monkeypatch):
+    from flowguard.map import system_model
+
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, "shop/api.py", "from shop.orders import OrderService\ndef handle(): return OrderService()\n")
+    map_path = shop / ".flowguard/map.json"
+    data = json.loads(map_path.read_text())
+    data["layers"] = ["interface", "engine"]
+    orders = data["components"][0]
+    orders.update(files=["shop/orders.py", "shop/__init__.py"], layer="engine")
+    data["components"].append(dict(orders, id="api", layer="interface", responsibilities=["receive requests"],
+        files=["shop/api.py"], entrypoints=["shop/api.py:handle"], depends_on=["orders"], tests=[], models=[]))
+    map_path.write_text(json.dumps(data))
+    actual_variants, actual_models = system_model._variants, cli.run_models
+    passes, names, captured = [], [], []
+
+    def variants(*args, **kwargs):
+        passes.append(1)
+        for variant in actual_variants(*args, **kwargs):
+            names.append(variant[0])
+            yield variant
+
+    def capture(*args, **kwargs):
+        results = actual_models(*args, **kwargs)
+        captured.extend(results)
+        return results
+
+    monkeypatch.setattr(system_model, "_variants", variants)
+    monkeypatch.setattr(cli, "run_models", capture)
+    code, output = models(shop, capsys, "system")
+    assert code == 0, output
+    result, = captured
+    assert passes == [1] and names
+    assert result.rules == ["dependency_cycle", "duplicate_owner", "layer_violation"]
+    assert result.known_bad == sorted(names)
+    assert "rules: dependency_cycle, duplicate_owner, layer_violation; known-bad: " in output
+    assert all(name in output for name in names)
+
+
+@pytest.mark.parametrize("rule_count,bad_count,expected_line", [
+    (0, 0, None),
+    (8, 8, "      rules: r0, r1, r2, r3, r4, r5, r6, r7; known-bad: b0, b1, b2, b3, b4, b5, b6, b7"),
+    (9, 9, "      rules: r0, r1, r2, r3, r4, r5, r6, r7 +1 more; known-bad: b0, b1, b2, b3, b4, b5, b6, b7 +1 more"),
+    (9, 0, "      rules: r0, r1, r2, r3, r4, r5, r6, r7 +1 more; known-bad: "),
+    (0, 9, "      rules: ; known-bad: b0, b1, b2, b3, b4, b5, b6, b7 +1 more")])
+def test_model_result_name_defaults_and_bounded_display(rule_count, bad_count, expected_line):
+    from flowguard.map.proof import ModelResult, render_results
+
+    legacy = ModelResult(**{"model": "legacy", "file": "legacy.py"})
+    other = ModelResult("other", "other.py")
+    assert legacy.rules == legacy.known_bad == other.rules == other.known_bad == []
+    legacy.rules.append("only_this_result")
+    legacy.known_bad.append("only_this_variant_list")
+    assert other.rules == other.known_bad == []
+    rules = [f"r{i}" for i in range(rule_count)]
+    bad = [f"b{i}" for i in range(bad_count)]
+    result = ModelResult("bounded", "bounded.py", rules=rules, known_bad=bad,
+                         problems=["original problem"], warnings=["original warning"])
+    output = render_results([result])
+    assert "original problem" in output and "warning: original warning" in output
+    assert "models: 1 passed, 0 failed" in output
+    detail = [line for line in output.splitlines() if line.startswith("      rules:")]
+    assert detail == ([] if expected_line is None else [expected_line])
+    payload = json.loads(json.dumps(result.__dict__))
+    assert payload["rules"] == rules and payload["known_bad"] == bad
+    assert ModelResult(**payload) == result
