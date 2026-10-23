@@ -1267,3 +1267,48 @@ def test_removed_symbol_still_referenced_is_a_todo(tmp_path, capsys):
         test_path.write_text(text, encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
+
+
+
+def test_target_keeps_state_unique_and_public_entries_owned(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    for arguments in (("target", "start", "plan a lending split"), ("target", "add", "loans")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["state"].append("holds per book in order")
+    data["components"].append({"id": "holds", "layer": "lending", "summary": "Records member reservations",
+                               "responsibilities": ["record a member reservation"], "files": ["shelf/holds.py"],
+                               "entrypoints": [], "state": ["holds per book in order"], "side_effects": [],
+                               "depends_on": [], "tests": [], "models": []})
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "duplicate_owner:" in line
+               and "state 'holds per book in order'" in line for line in output.splitlines()), output
+
+    current = _load_map(root)
+    desk = json.loads(json.dumps(next(component for component in current["components"] if component["id"] == "loans")))
+    command = json.loads(json.dumps(next(component for component in current["components"] if component["id"] == "cli")))
+    for component in (desk, command):
+        for field in ("status", "fingerprint", "_hint"):
+            component.pop(field, None)
+    desk.update(id="lending-desk", summary="Lends free copies", responsibilities=["lend a free copy"],
+                entrypoints=["shelf/loans.py:LoanService.borrow"])
+    command["depends_on"] = ["lending-desk"]
+    returns = {"id": "returns", "layer": "lending", "summary": "Takes back a lent copy",
+               "responsibilities": ["take a lent copy back"], "files": ["shelf/returns.py"],
+               "entrypoints": [], "state": [], "side_effects": [], "depends_on": [], "tests": [], "models": []}
+    data["components"] = [desk, returns, command]
+    data["remove"] = ["component:loans"]
+    flow = json.loads(json.dumps(current["flows"][0]))
+    flow["steps"] = [step.replace("loans:", "lending-desk:", 1) for step in flow["steps"]]
+    data["flows"] = [flow]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    dropped = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped:" in line]
+    assert len(dropped) == 1 and "entrypoint 'shelf/loans.py:LoanService.give_back'" in dropped[0], output
+    assert "duplicate_owner:" not in output, output

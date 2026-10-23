@@ -176,7 +176,6 @@
       "side_effects": [],
       "depends_on": [
         "behavior-commitment",
-        "code-structure",
         "contract-exhaustion",
         "engine-conformance",
         "engine-core",
@@ -197,7 +196,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ec396a47332efa69e488fc2c0956917d7a66c7a55ad8177d783b06645c51c6c5"
+      "fingerprint": "sha256:61081cbb220d56111d988352f06f1b9a707f7885c849e454972a09fcd152faec"
     },
     {
       "id": "templates",
@@ -227,7 +226,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:329d69415dd95f3a122c8a147065478b562db9afaf81ddd1e6acdc0e4654058a"
+      "fingerprint": "sha256:d02dfcc1119f5274e70f7e2edc1228bcc34998e046d0a3777ede056e6f6696a2"
     },
     {
       "id": "behavior-commitment",
@@ -280,45 +279,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:9cb60e50041baa6d60e41ae281d771c6a964e1b0d8e87393efacb32cbded3d33"
-    },
-    {
-      "id": "code-structure",
-      "layer": "capabilities",
-      "summary": "Reviews structural changes with real facts and explicit relation obligations.",
-      "responsibilities": [
-        "recommend one owning module per model element",
-        "check that a module split keeps one owner per item and the old public entrypoints; with a project root, that child modules and entrypoints exist",
-        "model kit: explore module-plan edits with the recommendation and split reviews as invariants and compare the target plan with the code and the map (module files, split children and entrypoints exist; each owner file belongs to the named component)",
-        "compare planned module and split target files with current source under DESIGN_ONLY"
-      ],
-      "files": [
-        "flowguard/code_structure.py",
-        "flowguard/structuremesh.py"
-      ],
-      "entrypoints": [
-        "flowguard/code_structure.py:review_code_structure_recommendation",
-        "flowguard/structuremesh.py:review_structure_mesh"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-conformance",
-        "engine-core",
-        "map-analysis",
-        "map-file",
-        "map-inventory",
-        "map-proof",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_code_boundary_conformance.py",
-        "tests/test_code_structure.py",
-        "tests/test_structure_mesh.py",
-        "tests/test_understanding_plumbing_reduction.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:0355e809b9cbdbd8c4d8f2801000ee9024267f90ea94be4318a6d669ed552897"
     },
     {
       "id": "contract-exhaustion",
@@ -652,7 +612,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share exact responsibility-token duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree",
+        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share type-separated responsibility, state and side-effect duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
@@ -688,7 +648,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:45490c8d49d8533248caee00b79fe8a89c62be73b00d1f2cdb60872efd0739d3"
+      "fingerprint": "sha256:aa85ebc4d30d3fb747cde832f7fffcaa374368845515aa524a863788e6685896"
     },
     {
       "id": "map-target",
@@ -736,7 +696,7 @@
         "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
-        "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance",
+        "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
         "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window",
         "preserve real anchors and expose planned Fact reports with a DESIGN_ONLY conformance gate",
         "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback"
@@ -907,7 +867,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:551cc0619e1d5bec154be67601c95d7f58d51e2641c98367633f54ec787ff914"
+      "fingerprint": "sha256:e1e608b595a21d54d0a76761eb3b398819baab167778c3fcdb6511ac5291082a"
     },
     {
       "id": "problem-corpus",

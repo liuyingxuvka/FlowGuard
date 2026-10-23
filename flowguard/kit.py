@@ -19,10 +19,8 @@ give a capability or a self-model all five with little code:
   runs the real review and reports a counterexample trace (the feature
   sequence, the expected and the observed verdict) for every combination that
   breaks an invariant or differs from the design.
-* **Plan edits** - the state is a capability plan reached by named edits, and
-  existing reviews (``review_field_lifecycle``, ``review_code_structure_recommendation``
-  and ``review_structure_mesh``, ...) are the invariants every reachable plan must
-  pass (``plan_explorer``).
+* **Plan edits** - the state is a capability plan reached by named edits;
+  ``plan_explorer`` checks every reachable plan against existing review invariants.
 """
 
 from __future__ import annotations

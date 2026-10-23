@@ -15,7 +15,6 @@ from flowguard import (
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     behavior_commitment_template_files,
-    code_structure_template_files,
     contract_exhaustion_template_files,
     field_lifecycle_template_files,
     model_mesh_template_files,
@@ -31,7 +30,6 @@ ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_TEMPLATE_FACTORIES = (
     behavior_commitment_template_files,
     model_test_alignment_template_files,
-    code_structure_template_files,
     field_lifecycle_template_files,
     ui_flow_structure_template_files,
     model_mesh_template_files,
@@ -42,7 +40,6 @@ PUBLIC_TEMPLATE_FACTORIES = (
 TEMPLATE_CLI_COMMANDS = {
     "behavior-commitment-template": "behavior_commitment",
     "model-test-alignment-template": "model_test_alignment",
-    "code-structure-template": "code_structure",
     "field-lifecycle-template": "field_lifecycle",
     "ui-flow-structure-template": "ui_flow_structure",
     "model-mesh-template": "model_mesh",
@@ -268,25 +265,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("- each_defect_rejected: contract:order_id:missing_required_field: expected rejected, "
                       "observed accepted", output)
 
-    def test_code_structure_template_compares_the_split_with_the_code_and_the_map(self):
-        files = code_structure_template_files()
-        code = {"shop/orders.py": "from shop.pricing import price_order\n\n\ndef place_order(order):\n"
-                                  "    return {'total': price_order(order)}\n",
-                "shop/pricing.py": "def price_order(order):\n    return order['amount']\n"}
-        split = {"orders": ["shop/orders.py"], "pricing": ["shop/pricing.py"]}
-        self.assertIn("placeholder anchor", self.run_kit_template(files, "code_structure", code, components=split,
-                                                                  expected_returncode=1))
-        self.assertIn("PASS  code_structure", self.run_kit_template(files, "code_structure", code, fill="shop",
-                                                                    components=split, expected_returncode=0))
-        other_owner = {"orders": ["shop/orders.py"], "billing": ["shop/pricing.py"]}
-        self.assertIn("- PriceOrder: owner file shop/pricing.py belongs to map component orders: "
-                      "shop/pricing.py belongs to billing",
-                      self.run_kit_template(files, "code_structure", code, fill="shop", components=other_owner,
-                                            expected_returncode=1))
-        renamed = {"shop/orders.py": code["shop/orders.py"], "shop/prices.py": code["shop/pricing.py"]}
-        self.assertIn("IMPLEMENTED_BY PriceOrder -> anchor file missing: shop/pricing.py",
-                      self.run_kit_template(files, "code_structure", renamed, fill="shop", components=split,
-                                            expected_returncode=1))
 
 
     def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
@@ -328,7 +306,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([".flowguard/behavior/inventory/ledger.json"] if name == "behavior-commitment" else [],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(9, len(template_factories()))
+        self.assertEqual(8, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -364,25 +342,6 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("field:old_mode: deleted field has no reference left",
                       self.run_kit_template(files, "field_lifecycle", stale, fill="shop", expected_returncode=1))
 
-    def test_code_structure_template_runs_as_a_plan_before_the_split(self):
-        from dataclasses import replace
-        files = code_structure_template_files()
-        current = {"shop/orders.py": "def place_order(order):\n    return price_order(order)\n\ndef price_order(order):\n    return order['amount']\n"}
-        unsplit = tuple(replace(f, content=f.content.replace("REPLACE_ME/pricing.py:price_order", "REPLACE_ME/orders.py:price_order")) for f in files)
-        planned = tuple(replace(f, content=f.content + '\nDESIGN_ONLY = "split pricing into its own module"\n') if f is unsplit[0] else f for f in unsplit)
-        components = {"orders": ["shop/orders.py"], "pricing": ["shop/pricing.py"]}
-        output = self.run_kit_template(planned, "code_structure", current, fill="shop", components=components, expected_returncode=0)
-        self.assertIn("PASS  code_structure", output)
-        self.assertIn("planned fact(s) still to make true", output)
-        output = self.run_kit_template(unsplit, "code_structure", current, fill="shop", components=components, expected_returncode=1)
-        self.assertIn("does not exist", output)
-        forced = tuple(replace(f, content=f.content.replace('planned="DESIGN_ONLY" in globals()', 'planned=True')) for f in unsplit)
-        output = self.run_kit_template(forced, "code_structure", current, fill="shop", components=components, expected_returncode=1)
-        self.assertIn("planned facts without DESIGN_ONLY:", output)
-        completed = {"shop/orders.py": "from shop.pricing import price_order\ndef place_order(order):\n    return price_order(order)\n",
-                     "shop/pricing.py": "def price_order(order):\n    return order['amount']\n"}
-        output = self.run_kit_template(files, "code_structure", completed, fill="shop", components=components, expected_returncode=0)
-        self.assertNotIn("planned fact(s)", output)
 
 
     def test_field_lifecycle_template_can_plan_a_replacement_not_yet_written(self):

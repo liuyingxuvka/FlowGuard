@@ -42,7 +42,6 @@ PENDING = {
     "flowguard/model_test_alignment.py": "FG-221",
     "flowguard/obligation_family.py": "FG-221",
     "flowguard/primary_path_authority.py": "FG-219",
-    "flowguard/structuremesh.py": "FG-217",
     "flowguard/template_text/behavior_commitment.py": "FG-219",
     "flowguard/ui_structure.py": "FG-225",
     "tests/test_behavior_commitment_contract_exhaustion.py": "FG-219",
@@ -54,7 +53,6 @@ PENDING = {
     "tests/test_model_test_alignment.py": "FG-221",
     "tests/test_obligation_family.py": "FG-221",
     "tests/test_product_language_path_reuse.py": "FG-219",
-    "tests/test_structure_mesh.py": "FG-217",
     "tests/test_transition_coverage.py": "FG-220",
     "tests/test_ui_structure.py": "FG-225",
 }

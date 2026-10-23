@@ -152,16 +152,23 @@ def structural_findings(data: dict, graph: dict[str, set[str]], *,
 
 
 def duplicate_owner_findings(data: dict) -> list[Finding]:
-    """Exact responsibility-token claims, shared with the built-in root model."""
-    claims: dict[str, set[str]] = defaultdict(set)
+    """Type-separated token claims, shared with the root model and target checks."""
+    claims: dict[tuple[str, str], set[str]] = defaultdict(set)
+    original: dict[tuple[str, str], str] = {}
     for component in data["components"]:
-        for responsibility in component.get("responsibilities", []):
-            words = tokens(responsibility)
-            if words:
-                claims[" ".join(sorted(words))].add(component["id"])
+        for kind, field in (("responsibility", "responsibilities"), ("state", "state"),
+                            ("side effect", "side_effects")):
+            for value in component.get(field, []):
+                words = tokens(value)
+                if not words or words <= {"none", "nothing"}:
+                    continue
+                key = kind, " ".join(sorted(words))
+                claims[key].add(component["id"])
+                original[key] = min(original.get(key, value), value)
     return [Finding("error", "duplicate_owner", sorted(owners)[0],
-                    f"responsibility {key!r} is claimed by {sorted(owners)}")
-            for key, owners in sorted(claims.items()) if len(owners) > 1]
+                    f"{kind} {(words if kind == 'responsibility' else original[kind, words])!r} "
+                    f"is claimed by {sorted(owners)}")
+            for (kind, words), owners in sorted(claims.items()) if len(owners) > 1]
 
 
 def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> list[Finding]:

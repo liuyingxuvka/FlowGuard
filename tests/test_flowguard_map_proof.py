@@ -169,7 +169,8 @@ def test_strict_check_and_verify_gate(shop, capsys):
 
 def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
     data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
-    extra = dict(data["components"][0], id="billing", files=["billing/*.py"], entrypoints=[], tests=[], models=[])
+    extra = dict(data["components"][0], id="billing", files=["billing/*.py"], entrypoints=[], tests=[], models=[],
+                 state=[], side_effects=[])
     data["components"].append(extra)                                             # same responsibility twice
     write(shop, "billing/pay.py", "def pay():\n    return 1\n")
     (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
@@ -361,7 +362,8 @@ def test_non_python_anchor_is_a_warning_not_a_failure(shop, capsys):
     map_path = shop / ".flowguard/map.json"
     data = json.loads(map_path.read_text())
     data["components"].append(dict(data["components"][0], id="ui", summary="Cart interface",
-        responsibilities=["render shopping cart"], files=["web/cart.ts"], entrypoints=[], tests=[], models=[]))
+        responsibilities=["render shopping cart"], files=["web/cart.ts"], entrypoints=[], tests=[], models=[],
+        state=[], side_effects=[]))
     map_path.write_text(json.dumps(data))
     _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
           'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Ui": "web/cart.ts:addItem"}')
@@ -669,7 +671,7 @@ def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
     orders.update(files=["shop/orders.py", "shop/__init__.py"], layer="engine")
     data["components"].append(dict(orders, id="api", layer="interface", summary="HTTP entry",
         responsibilities=["receive checkout requests"], files=["shop/api.py"], depends_on=["orders"],
-        entrypoints=["shop/api.py:handle"], tests=[], models=[]))
+        entrypoints=["shop/api.py:handle"], tests=[], models=[], state=[], side_effects=[]))
     # The root checks static consistency; it must never execute a registered user model.
     model_path = shop / ".flowguard/models/order_placement.py"
     model_path.write_text("raise AssertionError('system imported user model')\n" + MODEL_SOURCE.read_text())
@@ -1049,7 +1051,8 @@ def test_system_model_names_follow_one_generated_pass(shop, capsys, monkeypatch)
     orders = data["components"][0]
     orders.update(files=["shop/orders.py", "shop/__init__.py"], layer="engine")
     data["components"].append(dict(orders, id="api", layer="interface", responsibilities=["receive requests"],
-        files=["shop/api.py"], entrypoints=["shop/api.py:handle"], depends_on=["orders"], tests=[], models=[]))
+        files=["shop/api.py"], entrypoints=["shop/api.py:handle"], depends_on=["orders"], tests=[], models=[],
+        state=[], side_effects=[]))
     map_path.write_text(json.dumps(data))
     actual_variants, actual_models = system_model._variants, cli.run_models
     passes, names, captured = [], [], []

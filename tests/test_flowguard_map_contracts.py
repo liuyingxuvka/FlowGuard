@@ -173,13 +173,14 @@ def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
 
 
 def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
-    for name in ("behavior-commitment", "code-structure", "contract-exhaustion",
+    for name in ("behavior-commitment", "contract-exhaustion",
                  "field-lifecycle", "model-mesh", "model-test",
                  "topology-hazard", "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
         assert "then run: python -m flowguard map models " in out and "/docs/" not in out, name
     assert main(["template", "architecture-reduction", "--write", str(tmp_path / "architecture-reduction")]) == 2
+    assert main(["template", "code-structure", "--write", str(tmp_path / "code-structure")]) == 2
 
 
 def test_change_warns_when_another_owner_mutates_declared_state(tmp_path, capsys):
@@ -522,3 +523,51 @@ def test_child_import_of_its_explicit_parent_preserves_tree_and_impact(tmp_path,
     assert len(c) - len(c.lstrip()) == len(p) - len(p.lstrip()) + 2
     write(tmp_path, '.flowguard/models/parent.py', parent + '\nPARENT="child"\n')
     assert 'parent_cycle' in {f.code for f in findings(tmp_path)}
+
+
+
+def test_two_components_cannot_own_one_state(tmp_path, capsys):
+    data = project(tmp_path)
+    write(tmp_path, "app.py", "COPIES = {}\n\ndef run():\n    print('prints the result')\n    return True\n")
+    write(tmp_path, "loans.py", "LOANS = []\n\ndef record():\n    print('free copies per book')\n")
+    owner = data["components"][0]
+    owner["state"] = ["free copies per book"]
+    empty = ["", "none", "nothing", "none nothing"]
+    owner["side_effects"] = list(empty)
+    borrower = {"id": "loans", "summary": "Records current loans", "responsibilities": ["record a loan"],
+                "files": ["loans.py"], "entrypoints": ["loans.py:record"], "state": ["free copies per book"],
+                "side_effects": list(empty), "tests": [], "models": [], "depends_on": [], "status": "draft"}
+    data["components"].append(borrower)
+
+    def observe(expected_failure):
+        save(tmp_path, data)
+        capsys.readouterr()
+        assert main(["map", "lint", "--root", str(tmp_path)]) == int(expected_failure)
+        lint_output = capsys.readouterr().out
+        assert main(["map", "models", "system", "--root", str(tmp_path)]) == int(expected_failure)
+        model_output = capsys.readouterr().out
+        status = "FAIL" if expected_failure else "PASS"
+        assert any(line.split()[:2] == [status, "system"] for line in model_output.splitlines()), model_output
+        if not expected_failure:
+            assert "duplicate_owner" not in lint_output, lint_output
+        return lint_output, model_output
+
+    phrase = "state 'free copies per book' is claimed by ['app', 'loans']"
+    lint_output, model_output = observe(True)
+    assert phrase in lint_output and phrase in model_output, (lint_output, model_output)
+    # Matching uses token identity, while diagnostics retain the declared phrase.
+    borrower["state"] = ["book per copies free"]
+    lint_output, model_output = observe(True)
+    phrase = "state 'book per copies free' is claimed by ['app', 'loans']"
+    assert phrase in lint_output and phrase in model_output, (lint_output, model_output)
+    owner["state"] += empty
+    borrower["state"] = ["current loans", *empty]
+    observe(False)
+    owner["side_effects"] = ["prints the result", *empty]
+    borrower["side_effects"] = ["the result prints", *empty]
+    lint_output, model_output = observe(True)
+    phrase = "side effect 'prints the result' is claimed by ['app', 'loans']"
+    assert phrase in lint_output and phrase in model_output, (lint_output, model_output)
+    # The same words in state and side-effect facets do not name the same promise.
+    borrower["side_effects"] = ["free copies per book", *empty]
+    observe(False)

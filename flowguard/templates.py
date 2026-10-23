@@ -10,9 +10,6 @@ from .template_text.behavior_commitment import (
     BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE,
     BEHAVIOR_COMMITMENT_MODEL_TEMPLATE,
 )
-from .template_text.code_structure import (
-    CODE_STRUCTURE_MODEL_TEMPLATE,
-)
 from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
@@ -68,12 +65,6 @@ def behavior_commitment_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def code_structure_template_files() -> tuple[TemplateFile, ...]:
-    return (
-        TemplateFile(".flowguard/models/code_structure.py", CODE_STRUCTURE_MODEL_TEMPLATE),
-    )
-
-
 def field_lifecycle_template_files() -> tuple[TemplateFile, ...]:
     return (
         TemplateFile(".flowguard/models/field_lifecycle.py", FIELD_LIFECYCLE_MODEL_TEMPLATE),
@@ -126,7 +117,6 @@ __all__ = [
     "ADOPTION_LOG_TEMPLATE",
     "BEHAVIOR_COMMITMENT_LEDGER_TEMPLATE",
     "BEHAVIOR_COMMITMENT_MODEL_TEMPLATE",
-    "CODE_STRUCTURE_MODEL_TEMPLATE",
     "FIELD_LIFECYCLE_MODEL_TEMPLATE",
     "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
@@ -134,7 +124,6 @@ __all__ = [
     "TemplateFile",
     "adoption_template_files",
     "behavior_commitment_template_files",
-    "code_structure_template_files",
     "contract_exhaustion_template_files",
     "field_lifecycle_template_files",
     "model_mesh_template_files",
