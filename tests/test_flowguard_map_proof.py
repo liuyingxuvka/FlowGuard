@@ -988,11 +988,11 @@ def conformance():
     return feature_conformance(FEATURES, lambda: 0, valid)
 '''
     write(tmp_path, '.flowguard/models/parent.py', source.replace('MODEL_NAME', 'counter_parent')
-          .replace('EXTRA_FEATURE', 'Feature("positive", False, apply=lambda value: 1),'))
+          .replace('EXTRA_FEATURE', 'Feature("positive", False, apply=lambda value: value if value < 0 else 1),'))
     write(tmp_path, '.flowguard/models/child.py', source.replace('MODEL_NAME', 'counter_child')
           .replace('EXTRA_FEATURE', '') + '\nPARENT = "counter_parent"\n')
-    code, output = models(tmp_path, capsys, 'counter_child')
-    assert code == 0 and 'PASS' in output and 'child_start_gap' not in output, output
+    code, output = models(tmp_path, capsys, 'counter_parent', 'counter_child')
+    assert code == 0 and 'models: 2 passed, 0 failed' in output and 'child_start_gap' not in output, output
 
 
 @pytest.mark.parametrize("location", ["conformance", "explore"])
