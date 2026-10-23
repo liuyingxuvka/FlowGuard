@@ -117,7 +117,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatches daily map, proof and single-contract template commands.",
+      "summary": "Dispatches daily map, proof, target draft and single-contract template commands.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids"
@@ -143,6 +143,7 @@
         "map-file",
         "map-inventory",
         "map-proof",
+        "map-target",
         "public-api",
         "templates"
       ],
@@ -154,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bcb2e9736fd0172cf5df7f3781b9cd8650306620178fd995abec0e1311aaa37d"
+      "fingerprint": "sha256:e4e6c38da6892ce0840c3068e8de9f127708e30e49f6a477a89f4e78a52983b0"
     },
     {
       "id": "public-api",
@@ -620,7 +621,7 @@
       "layer": "map",
       "summary": "Owns map schema, model bindings and component fingerprints.",
       "responsibilities": [
-        "validate, load and save the map, writing depends_on sorted and deduplicated",
+        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree",
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model; recognize the optional project_parent_state hook",
         "count strings as dependency evidence only in import-like contexts",
@@ -631,7 +632,8 @@
       "files": [
         "flowguard/map/mapfile.py",
         "flowguard/map/scan.py",
-        "flowguard/map/tree.py"
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -652,7 +654,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f3cae3e05ebc8f963004ed90b2002cefd7db84fe699d1e47aa555deddf7d5fdc"
+      "fingerprint": "sha256:bd2f538f396f0f81909afdc6400962c2406c2533775ab0f0ede87bfbfe51858d"
     },
     {
       "id": "map-discover",
@@ -692,7 +694,7 @@
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator"
+        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -723,7 +725,37 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:20f81bd1edd118043f15a9d469bd1fa484ad888f56e9a59e8dc17729caae96c6"
+      "fingerprint": "sha256:63b61354e7df321652ae7ddea86aafac4691897a12a8ba37be86fbf692edb8d4"
+    },
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Keeps one target draft next to the current tree.",
+      "responsibilities": [
+        "start, extend and drop one target without executing models or code checks"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/"
+      ],
+      "depends_on": [
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:07ba98e8b620b6c740e3b65f5349900fd87f688b7fd4aef654d8fc435919a8ca"
     },
     {
       "id": "map-proof",

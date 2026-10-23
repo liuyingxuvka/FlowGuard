@@ -5,6 +5,7 @@
   release   [--root R]                                       release gate: strict check + lint errors + all models
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
   template  [--list | NAME [--write DIR] [--force]]          starter model files for one capability
+  target    start "<goal>" | add <id> | check | promote | drop   plan a change as a target model, check the code against it, promote it
 """
 
 from __future__ import annotations
@@ -19,6 +20,9 @@ from .map.common import quiet_broken_pipe, safe_stdio
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
+    if verb == "target":
+        from .map.target import build_parser
+        return build_parser()
     p = argparse.ArgumentParser(prog=f"python -m flowguard {verb}")
     if verb == "template":
         p.add_argument("name", nargs="?", help="template name (see --list)")
@@ -101,7 +105,10 @@ def main(argv: list[str] | None = None) -> int:
     verb, rest = args[0], args[1:]
     if verb == "map":
         return map_main(rest)
-    if verb not in {"read", "change", "release", "template"}:
+    if verb == "target":
+        from .map.target import main as target_main
+        return target_main(rest)
+    if verb not in {"read", "change", "release", "template", "target"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
     if any(flag in rest for flag in ("--request", "--contract", "--owner-current")):

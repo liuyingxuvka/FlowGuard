@@ -12,7 +12,8 @@ from .inventory import Inventory
 from .facets import _test_function_index, component_facets, model_facets, system_facets
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
-from .mapfile import component_files, component_graph, is_stale, owner_index
+from .mapfile import MapError, component_files, component_graph, is_stale, owner_index
+from .targetfile import load_target, target_node_changes, validate_target
 
 
 def _architecture(data: dict, graph: dict[str, set[str]]):
@@ -88,7 +89,19 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
         + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else "")
         for flow in data.get("flows", [])]
-    essential = "\n".join([head, *flows])
+    target_lines = []
+    try:
+        target = load_target(root)
+        if target is not None:
+            if validate_target(root, data, target):
+                raise ValueError("invalid target")
+            changes = target_node_changes(root, data, target)
+            target_lines.append(f'target: "{target.goal}": +{len(changes["+"])} ~{len(changes["~"])} '
+                                f'-{len(changes["-"])} nodes; see python -m flowguard read --target; '
+                                'python -m flowguard target check lists what is left')
+    except (OSError, ValueError, TypeError, SyntaxError, MapError):
+        target_lines.append("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
+    essential = "\n".join([head, *target_lines, *flows])
     root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
                                                    model_data, bindings=detail)
     if component == "system":

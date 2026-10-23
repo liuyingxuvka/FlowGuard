@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `python -m flowguard target start | add | drop` keeps one target draft under `.flowguard/target/` next to the current tree. `read` names an existing target while current checks and model proofs continue to use the current tree.
+
 - `map models` and `release` list each model's real rule and known-bad variant names. Long name lists are abbreviated in text while complete names remain in the result.
 
 - Project, component and model views share five static facets: purpose, rules, known-bad cases, code and tests. Overview and Mermaid labels include rule counts; component details distinguish bound, unbound and nonnested tests without running user models.

@@ -10,7 +10,7 @@ FlowGuard on itself.
 2. Make the change. Keep responsibilities single-owned; extend the existing owner instead of adding a second one.
 3. `python -m flowguard change` - fix every check error; run the tests and models it lists.
 4. Update the description of every component listed as REVIEW, then `python -m flowguard map confirm <id>`.
-5. Before each push, run the affected checks selected above and report their results. For the final frozen source SHA, the complete `ci.yml` workflow must pass: Ubuntu Python 3.11 runs `python -m pytest -q` and `python -m flowguard release` once; Ubuntu Python 3.13 and Windows Python 3.12 run the six core path/packaging test files and the real skill copy/`--check`. Those two smoke environments do not claim complete cross-platform coverage. Publication waits for the entire workflow on the exact source SHA; do not repeat the full local suite solely to produce another checkpoint.
+5. Before each push, run the affected checks selected above and report their results. For the final frozen source SHA, the complete `ci.yml` workflow must pass: Ubuntu Python 3.11 runs `python -m pytest -q` and `python -m flowguard release` once; Ubuntu Python 3.13 and Windows Python 3.12 run the seven core path/packaging test files and the real skill copy/`--check`. Those two smoke environments do not claim complete cross-platform coverage. Publication waits for the entire workflow on the exact source SHA; do not repeat the full local suite solely to produce another checkpoint.
 
 ## Layout
 

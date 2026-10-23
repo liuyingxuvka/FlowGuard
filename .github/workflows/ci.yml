@@ -59,6 +59,7 @@ jobs:
           tests/test_public_api.py
           tests/test_skill_package.py
           tests/test_packaged_cli_surface.py
+          tests/test_flowguard_target.py
 
       - name: Copy the skill and check installed files
         shell: bash

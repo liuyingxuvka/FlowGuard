@@ -79,10 +79,12 @@ class SkillPackageTests(unittest.TestCase):
 
         from flowguard.__main__ import template_factories
         from flowguard.map.cli import build_parser
+        from flowguard.map.target import build_parser as target_parser
 
         subs = next(a for a in build_parser()._actions if isinstance(a, argparse._SubParsersAction))
         map_cmds, templates = set(subs.choices), set(template_factories())
-        verbs = {"read", "change", "release", "map", "template", "--help", "--version"}
+        target_cmds = set(next(a for a in target_parser()._actions if isinstance(a, argparse._SubParsersAction)).choices)
+        verbs = {"read", "change", "release", "map", "template", "target", "--help", "--version"}
         docs = [ROOT / "README.md", ROOT / "README.zh-CN.md", ROOT / "AGENTS.md",
                 *sorted((ROOT / "docs").glob("*.md")), *sorted(SKILL.rglob("*.md"))]
         problems = []
@@ -93,6 +95,8 @@ class SkillPackageTests(unittest.TestCase):
                     if verb not in verbs or (verb == "map" and arg and arg not in map_cmds) \
                             or (verb == "template" and arg and arg not in templates):
                         problems.append(f"{rel}:{number}: python -m flowguard {verb} {arg}".rstrip())
+                    if verb == "target" and arg and arg not in target_cmds:
+                        problems.append(f"{rel}:{number}: python -m flowguard target {arg}")
                 for cmd in re.findall(r"python -m flowguard\.map ([a-z][\w-]*)", line):
                     if cmd not in map_cmds:
                         problems.append(f"{rel}:{number}: python -m flowguard.map {cmd}")
@@ -120,7 +124,7 @@ class SkillPackageTests(unittest.TestCase):
                     verb, rest = words[0], words[1:]
                     if verb == "map" and rest:
                         parser = build_parser()
-                    elif verb in {"read", "change", "release", "template"}:
+                    elif verb in {"read", "change", "release", "template", "target"}:
                         parser = _verb_parser(verb)
                     else:
                         continue
