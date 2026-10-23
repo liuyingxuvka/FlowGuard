@@ -56,3 +56,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - Topology-hazard review models are gone; `python -m flowguard map models` now computes `hazard:` hints from each model's structure when landmarks exist, without changing verdicts.
 
 - The `ui-flow-structure` template is retired; use `ui-journey` (`ui-flow` remains an alias) and import from `flowguard.ui_flow`. The remaining UI review questions are in `references/model_recipes.md#UI journey`.
+
+- The `contract-exhaustion` template is now `validator`; import from `flowguard.validator`. Routes, cross-engine handoffs/adapters, coverage universes and confidence are gone; finite bad-case generation and execution against the real function remain.

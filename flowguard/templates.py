@@ -10,8 +10,8 @@ from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
 )
-from .template_text.contract_exhaustion import (
-    CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
+from .template_text.validator import (
+    VALIDATOR_MODEL_TEMPLATE,
 )
 from .template_text.ui_journey import (
     UI_JOURNEY_MODEL_TEMPLATE,
@@ -48,9 +48,9 @@ def ui_journey_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
-def contract_exhaustion_template_files() -> tuple[TemplateFile, ...]:
+def validator_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/models/contract_exhaustion.py", CONTRACT_EXHAUSTION_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/models/validator.py", VALIDATOR_MODEL_TEMPLATE),
     )
 
 
@@ -77,7 +77,7 @@ __all__ = [
     "MODEL_NOTES_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
-    "contract_exhaustion_template_files",
+    "validator_template_files",
     "ui_journey_template_files",
     "write_template_files",
 ]

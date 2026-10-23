@@ -23,7 +23,6 @@ def test_no_receipt_vocabulary_left():
 
 
 PENDING = {
-    "flowguard/contract_exhaustion.py": "FG-226",
 }
 
 

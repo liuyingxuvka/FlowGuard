@@ -118,7 +118,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
@@ -155,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c9a4ed1d754ba4878ee39b927b8d8608564b03d9fff26990085f816e0904278b"
+      "fingerprint": "sha256:f0d87ca2a7da120b6ee8d6670a2dd12db0daed8f0515fbdc009d5d6304f8cb41"
     },
     {
       "id": "public-api",
@@ -174,7 +174,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "contract-exhaustion",
         "engine-conformance",
         "engine-core",
         "engine-explore",
@@ -188,7 +187,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:53579017d00d0698e36861f2da7b4813be0c019dc6e3a2f013c0159de5362b2b"
+      "fingerprint": "sha256:be42619d7e4a656841dc2c59195c8778218a03474f19bedd76036a8f729c7c98"
     },
     {
       "id": "templates",
@@ -217,36 +216,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:42d4a835fb814de90c6dc060e06aaf3ca8c7a03fd694b69f14c70d9973100966"
-    },
-    {
-      "id": "contract-exhaustion",
-      "layer": "capabilities",
-      "summary": "Enumerates finite contract boundaries and reactions with real oracles and ordinary result labels.",
-      "responsibilities": [
-        "generate every bad case and combination of a finite boundary",
-        "require an oracle for every generated case",
-        "model kit: generated bad cases form allowed feature sets explored once on the real function; codes all or first, requires and conflicts; report execution versus declaration"
-      ],
-      "files": [
-        "flowguard/contract_exhaustion.py"
-      ],
-      "entrypoints": [
-        "flowguard/contract_exhaustion.py:review_contract_exhaustion"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-conformance",
-        "engine-core",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_contract_exhaustion.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:f5206bbaef93ec5058c40c91329bcc8224359e8e42fe1b00b4e12ab78335b707"
+      "fingerprint": "sha256:d5c8ec99d8858442d7262e9dcbea1403211ee20528a65a5f25ef66260e71f659"
     },
     {
       "id": "test-mesh",
@@ -721,29 +691,6 @@
       "fingerprint": "sha256:15003c3829f80a384ed2689b97779a2b70642e3504d0f6057e710b515b27de82"
     },
     {
-      "id": "shared-vocabulary",
-      "layer": "foundation",
-      "summary": "Defines exact canonical relation identities shared by native capabilities.",
-      "responsibilities": [
-        "hold vocabulary shared by several capabilities"
-      ],
-      "files": [
-        "flowguard/canonical_relation.py"
-      ],
-      "entrypoints": [],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core"
-      ],
-      "tests": [
-        "tests/test_canonical_relation.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:28e4b6bb46eb778182b6000a2c823c49fef19eff9b67d932c86fb4e2999574a8"
-    },
-    {
       "id": "ui-journey",
       "layer": "capabilities",
       "summary": "UI journeys as a model kind: states, controls and transitions explored, checked against the UI source",
@@ -771,6 +718,34 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:3e41380d0e8db4cd87652da0c88ea4ffd07f23a404463b1d136667ee582c8ee2"
+    },
+    {
+      "id": "validator",
+      "layer": "capabilities",
+      "summary": "Validators as a model kind: a finite input boundary, generated bad cases, each executed against the real function",
+      "responsibilities": [
+        "generate complete finite bad cases and bounded Cartesian interactions with stable case identifiers and a real oracle for every case; reject invalid, unbounded, missing-oracle or excessive boundaries directly instead of returning partial coverage",
+        "execute every allowed generated bad-case feature combination against the real function, preserving clean-call observations and naming any accepted bad case; mutation labels do not establish arbitrary temporal side-effect behavior"
+      ],
+      "files": [
+        "flowguard/validator.py"
+      ],
+      "entrypoints": [
+        "flowguard/validator.py:contract_exhaustion_features",
+        "flowguard/validator.py:execute_contract_features"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "engine-core"
+      ],
+      "tests": [
+        "tests/test_validator.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:8e456a9cb999f55d28b09c1f488b1ce91291bc5fbb90a36bd8dfb9594fcaf20c"
     }
   ],
   "flows": [

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The `validator` template and `flowguard.validator` preserve finite bad-case generation, bounded combinations, stable case ids and execution against the real function. Default input/payload cases now include old schema versions and conflicting identities. The separate contract-exhaustion engine, routes, handoffs, coverage universes and confidence are retired.
+
 - UI journeys now use the `ui-journey` template and `flowguard.ui_flow`, with automatic recovery, destructive-action, dialog-close and reachability rules. The `ui-flow` alias remains; other UI review knowledge is preserved as eight groups of manual review questions in the recipe.
 
 - Target child models can reference future files already declared by their owning component; missing code remains TO-DO.
