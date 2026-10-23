@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import json
+import shutil
 import subprocess
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
@@ -23,9 +26,9 @@ def write(root: Path, rel: str, text: str) -> None:
     path.write_text(text, encoding="utf-8")
 
 
-@pytest.fixture()
-def project(tmp_path: Path) -> Path:
-    root = tmp_path / "shop"
+@pytest.fixture(scope="module")
+def _project_template(tmp_path_factory) -> Path:
+    root = tmp_path_factory.mktemp("project-template") / "shop"
     write(root, "shop/__init__.py", "")
     write(root, "shop/api.py", "from shop.orders import place_order\n\ndef handle(req):\n    return place_order(req)\n")
     write(root, "shop/orders.py", "from typing import TYPE_CHECKING\nfrom shop import storage\nif TYPE_CHECKING:\n    from shop.api import handle\n\n"
@@ -39,6 +42,11 @@ def project(tmp_path: Path) -> Path:
     git(root, "add", "-A")
     git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "init")
     return root
+
+
+@pytest.fixture()
+def project(tmp_path: Path, _project_template: Path) -> Path:
+    return Path(shutil.copytree(_project_template, tmp_path / "shop"))
 
 
 def run(root: Path, *argv: str, capsys=None) -> tuple[int, str]:
@@ -217,9 +225,11 @@ def test_fingerprint_ignores_crlf_line_endings(project, capsys):
     assert fingerprint(project, ["shop/storage.py"]) == lf
 
 
-@pytest.fixture()
-def impact_project(project, capsys):
-    run(project, "scan", capsys=capsys)
+@pytest.fixture(scope="module")
+def _impact_project_template(tmp_path_factory, _project_template):
+    project = Path(shutil.copytree(_project_template, tmp_path_factory.mktemp("impact-template") / "shop"))
+    with redirect_stdout(io.StringIO()):
+        assert run(project, "scan")[0] == 0
     data = fill(project)
     data["components"][0]["tests"] = ["tests/test_api.py"]
     data["components"][1]["models"] = [".flowguard/verification/owners/orders/run_checks.py"]
@@ -234,7 +244,13 @@ def impact_project(project, capsys):
     save(project, data)
     git(project, "add", "-A")
     git(project, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "map with checks")
-    return project, data
+    return project
+
+
+@pytest.fixture()
+def impact_project(tmp_path: Path, _impact_project_template: Path):
+    root = Path(shutil.copytree(_impact_project_template, tmp_path / "shop"))
+    return root, load(root)
 
 
 def impact_of(root, data, changed, **kwargs):

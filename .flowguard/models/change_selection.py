@@ -8,6 +8,7 @@ by the existing native BLOCKED regression, not reinterpreted as this helper.
 """
 from dataclasses import dataclass, replace
 import json
+import shutil
 from pathlib import Path
 import subprocess
 import tempfile
@@ -114,37 +115,44 @@ def _write(root, path, text):
     target.write_text(text, encoding="utf-8")
 
 
+def _build_baseline(root):
+    _write(root, "core.py", "def work():\n    return 1\n")
+    _write(root, "api.py", "from core import work\ndef handle():\n    return work()\n")
+    for name in ("core", "api", "child", "parent", "review"):
+        _write(root, "tests/test_" + name + ".py", "def test_safe():\n    assert True\n")
+    for mid in ALL:
+        source = (f'MODEL_ID = {mid!r}\nCOMPONENTS = ["core"]\n'
+                  'IMPLEMENTED_BY = {"Work": "core.py:work"}\n'
+                  f'TESTED_BY = {{"safe": ["tests/test_{mid}.py:test_safe"]}}\n'
+                  'def build_explorer(): pass\n')
+        source += {"parent": 'PARENT = "core"\nimport child\n',
+                   "child": 'PARENT = "parent"\nfrom _helper import VALUE\n',
+                   "review": 'PARENT = "parent"\nimport parent\n'}[mid]
+        _write(root, ".flowguard/models/" + mid + ".py", source)
+    _write(root, ".flowguard/models/_helper.py", "VALUE = 1\n")
+    _write(root, ".flowguard/models/_unused.py", "VALUE = 1\n")
+    data = {"schema": "flowguard.map.v1", "project": "selection", "layers": ["interface", "core"],
+                 "ignore": [], "test_command": "python -m pytest -q", "components": [
+        {"id": name, "layer": "interface" if name == "api" else "core", "summary": name + " behavior",
+         "responsibilities": [name + " operation"], "files": [name + ".py"],
+         "entrypoints": [], "depends_on": ["core"] if name == "api" else [],
+         "tests": ["tests/test_api.py"] if name == "api" else ["tests/test_" + n + ".py" for n in ("core", "child", "parent", "review")],
+         "models": [], "status": "draft", "fingerprint": ""} for name in ("core", "api")],
+        "flows": [], "accepted_debts": []}
+    _write(root, ".flowguard/map.json", json.dumps(data))
+    for args in (("init", "-q"), ("add", "--", "."),
+                 ("-c", "user.name=FlowGuard model", "-c", "user.email=model@example.invalid", "commit", "-qm", "baseline")):
+        subprocess.run(["git", *args], cwd=root, check=True, capture_output=True)
+
+
 class RealSelection:
+    def __init__(self, baseline):
+        self.baseline = baseline
+
     def reset(self, initial_state):
         self.directory = tempfile.TemporaryDirectory(prefix="flowguard-selection-model-")
-        self.root = Path(self.directory.name)
-        _write(self.root, "core.py", "def work():\n    return 1\n")
-        _write(self.root, "api.py", "from core import work\ndef handle():\n    return work()\n")
-        for name in ("core", "api", "child", "parent", "review"):
-            _write(self.root, "tests/test_" + name + ".py", "def test_safe():\n    assert True\n")
-        for mid in ALL:
-            source = (f'MODEL_ID = {mid!r}\nCOMPONENTS = ["core"]\n'
-                      'IMPLEMENTED_BY = {"Work": "core.py:work"}\n'
-                      f'TESTED_BY = {{"safe": ["tests/test_{mid}.py:test_safe"]}}\n'
-                      'def build_explorer(): pass\n')
-            source += {"parent": 'PARENT = "core"\nimport child\n',
-                       "child": 'PARENT = "parent"\nfrom _helper import VALUE\n',
-                       "review": 'PARENT = "parent"\nimport parent\n'}[mid]
-            _write(self.root, ".flowguard/models/" + mid + ".py", source)
-        _write(self.root, ".flowguard/models/_helper.py", "VALUE = 1\n")
-        _write(self.root, ".flowguard/models/_unused.py", "VALUE = 1\n")
-        self.data = {"schema": "flowguard.map.v1", "project": "selection", "layers": ["interface", "core"],
-                     "ignore": [], "test_command": "python -m pytest -q", "components": [
-            {"id": name, "layer": "interface" if name == "api" else "core", "summary": name + " behavior",
-             "responsibilities": [name + " operation"], "files": [name + ".py"],
-             "entrypoints": [], "depends_on": ["core"] if name == "api" else [],
-             "tests": ["tests/test_api.py"] if name == "api" else ["tests/test_" + n + ".py" for n in ("core", "child", "parent", "review")],
-             "models": [], "status": "draft", "fingerprint": ""} for name in ("core", "api")],
-            "flows": [], "accepted_debts": []}
-        _write(self.root, ".flowguard/map.json", json.dumps(self.data))
-        for args in (("init", "-q"), ("add", "--", "."),
-                     ("-c", "user.name=FlowGuard model", "-c", "user.email=model@example.invalid", "commit", "-qm", "baseline")):
-            subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+        self.root = Path(shutil.copytree(self.baseline, Path(self.directory.name) / "project"))
+        self.data = json.loads((self.root / ".flowguard/map.json").read_text(encoding="utf-8"))
         self.state = initial_state
 
     def apply_step(self, step):
@@ -170,13 +178,16 @@ class RealSelection:
 
 def conformance():
     last = None
-    for trace in select_covering_traces(build_explorer().explore().traces):
-        adapter = RealSelection()
-        try:
-            last = replay_trace(trace=trace, adapter=adapter, invariants=INVARIANTS,
-                                rules=(projected_state_matches(), projected_output_matches()))
-        finally:
-            adapter.close()
-        if not last.ok:
-            return last
+    with tempfile.TemporaryDirectory(prefix="flowguard-selection-baseline-") as directory:
+        baseline = Path(directory)
+        _build_baseline(baseline)
+        for trace in select_covering_traces(build_explorer().explore().traces):
+            adapter = RealSelection(baseline)
+            try:
+                last = replay_trace(trace=trace, adapter=adapter, invariants=INVARIANTS,
+                                    rules=(projected_state_matches(), projected_output_matches()))
+            finally:
+                adapter.close()
+            if not last.ok:
+                return last
     return last
