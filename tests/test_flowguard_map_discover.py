@@ -326,8 +326,7 @@ def test_state_writes_include_delete_and_existing_assignment_forms(operation):
     assert 'Proxy.label' not in facts['functions']['Proxy.__init__']['writes']
 
 
-@pytest.mark.parametrize('design_only', [False, True])
-def test_new_writer_of_modeled_state_is_reported(tmp_path, monkeypatch, design_only):
+def test_new_writer_of_modeled_state_is_reported(tmp_path, monkeypatch):
     from flowguard.map import discover as discovery
     from flowguard.map.check import run_check
     from flowguard.map.cli import _context
@@ -363,8 +362,6 @@ class Other:
              'IMPLEMENTED_BY={"Set":"pkg/proxy.py:Proxy.__setitem__"}\n'
              'def build_explorer(): pass\n'
              'def conformance():\n    from pkg.proxy import Proxy\n    return Proxy()\n')
-    if design_only:
-        model += 'DESIGN_ONLY="Planned state boundary"\n'
     write('.flowguard/models/proxy.py', model)
     data = dict(schema='flowguard.map.v1', components=[
         dict(id='proxy', files=['pkg/*.py'], summary='Proxy ordering', responsibilities=['order parts'],
@@ -386,9 +383,6 @@ class Other:
         patch.setattr(discovery, 'discover_inventory', counted)
         warnings = [f for f in run_check(tmp_path, current, inv) if f.code == 'model_writer_unbound']
     assert len(calls) == 1
-    if design_only:
-        assert not warnings
-        return
     assert len(warnings) == 2
     assert all(f.level == 'warn' and f.component == 'proxy' for f in warnings)
     assert all('model proxy_model' in f.message and 'pkg/proxy.py:Proxy.__setitem__' in f.message for f in warnings)

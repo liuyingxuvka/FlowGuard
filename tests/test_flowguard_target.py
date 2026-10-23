@@ -1350,3 +1350,23 @@ def test_rename_a_field_through_the_target(tmp_path, capsys):
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
     assert (root / ".flowguard/models/lending.py").read_bytes() == current_model
+
+
+def test_current_design_only_model_stays_an_error_with_a_target(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    original = (root / ".flowguard/models/lending.py").read_text(encoding="utf-8")
+    declaration = 'MODEL_ID = "lending"'
+    assert original.count(declaration) == 1
+    source = original.replace(declaration, 'MODEL_ID = "retired_current"')
+    path = root / ".flowguard/models/retired_current.py"
+    path.write_text(source + "\nDESIGN_ONLY = False\n", encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "design_only_model" in line and "retired_current.py" in line
+               for line in output.splitlines()), output
+    assert not any(line.startswith("TO-DO ") and "design_only_model" in line for line in output.splitlines()), output
+    assert "move this file to .flowguard/target/models/" in output, output
+    path.unlink()
+    _assert_current_lending(root, capsys)

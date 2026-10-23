@@ -102,24 +102,3 @@ def test_load_anchor_imports_the_named_code_and_rejects_placeholders(tmp_path):
         sys.path.remove(str(root))
         sys.modules.pop("shop.orders", None)
         sys.modules.pop("shop", None)
-
-
-def test_planned_facts_hold_only_under_design_only(tmp_path):
-    root = _project(tmp_path)
-    facts = CodeFacts(root, planned=True)
-    assert facts.anchors_exist(["shop/orders.py:place"])
-    assert not facts.check("future module", (root / "future.py").exists(), "does not exist")
-    report = facts.report()
-    assert report.ok and not report.violations
-    assert [fact.name for fact in report.planned] == ["future module"]
-    assert report.format_text() == ("code facts: 1 of 1 hold; 1 planned (DESIGN_ONLY: they must hold after the change)\n"
-                                    "- planned: future module")
-    assert not facts.anchors_exist(["shop/missing.py:place"])
-    assert not facts.report().ok and not facts.report().violations[0].planned
-    empty = CodeFacts(root, planned=True)
-    assert not empty.report().ok
-    empty.check("planned only", False)
-    assert not empty.report().ok
-    for i in range(8):
-        empty.check(f"later{i}", False)
-    assert empty.report().format_text().count("later") == 4  # at most five planned names, including planned only

@@ -19,7 +19,7 @@ TESTED_BY = {
     "each_defect_rejected": [
         "tests/test_flowguard_map_proof.py:test_broken_variant_must_violate_a_design_property",
         "tests/test_flowguard_map_proof.py:test_model_that_never_runs_its_implemented_by_code_fails",
-        "tests/test_flowguard_map_proof.py:test_abstract_model_fails_and_design_only_is_the_one_exemption",
+        "tests/test_flowguard_map_proof.py:test_abstract_model_fails",
         "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
     ],
     "clean_input_accepted": [

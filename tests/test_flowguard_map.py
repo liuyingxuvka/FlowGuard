@@ -1016,7 +1016,7 @@ def test_scan_preserves_project_gitignore(project, capsys):
 def test_change_selects_importers_and_ancestors_of_a_changed_model(impact_project, changed, expected, tests):
     root, data = impact_project
     for mid in ('parent', 'child', 'grand'):
-        content = (f'MODEL_ID = {mid!r}\nDESIGN_ONLY = "Finite selection probe"\n'
+        content = (f'MODEL_ID = {mid!r}\nIMPLEMENTED_BY = {{"Probe": "tests/test_{mid}.py:test_safe"}}\ndef conformance(): pass\n'
                    f'TESTED_BY = {{"safe": ["tests/test_{mid}.py:test_safe"]}}\ndef build_explorer(): pass\n')
         content += {'parent': 'import child\nimport _shared\n', 'child': 'from _shared import VALUE\n',
                     'grand': 'PARENT = "parent"\n'}[mid]
@@ -1081,7 +1081,7 @@ def test_change_selects_the_review_children_of_a_selected_model(impact_project):
         text = f'MODEL_ID = {mid!r}\nCOMPONENTS = []\n'
         if parent:
             text += f'PARENT = {parent!r}\n'
-        text += imports + 'DESIGN_ONLY = "selection only"\ndef build_explorer(): pass\n'
+        text += imports + 'def build_explorer(): pass\ndef conformance(): pass\n'
         if mid == "target":
             text += 'IMPLEMENTED_BY = {"save": "shop/storage.py:save"}\n'
         write(root, f'.flowguard/models/{mid}.py', text)

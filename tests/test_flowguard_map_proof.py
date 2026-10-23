@@ -259,7 +259,7 @@ def test_defined_proof_hooks_cannot_silently_do_nothing(tmp_path, hook):
     assert result.status == "error" and "no " in " ".join(result.problems)
 
 
-def test_abstract_model_fails_and_design_only_is_the_one_exemption(tmp_path):
+def test_abstract_model_fails(tmp_path):
     from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL)
     result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
@@ -270,11 +270,6 @@ def test_abstract_model_fails_and_design_only_is_the_one_exemption(tmp_path):
     assert native.status == "fail"
     assert any("abstract boundary only" in problem for problem in native.problems)
     assert any("declares no IMPLEMENTED_BY anchors" in problem for problem in native.problems)
-    write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL + '\nDESIGN_ONLY = "the order service is not written yet"\n')
-    result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
-    assert result.status == "pass" and any("design only" in warning for warning in result.warnings)
-    native = _native_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
-    assert native.status == "pass" and any("design only" in warning for warning in native.warnings)
 
 
 def test_no_models_output_is_explicitly_not_model_proof(tmp_path):
@@ -626,11 +621,6 @@ def test_unbound_models_are_errors_in_check(shop, capsys):
     _edit_model(shop, "def conformance():\n", "def _old_conformance():\n")
     out = _check_codes(shop, capsys)
     assert "model_anchor_missing" in out and "model_conformance_missing" in out
-    _edit_model(shop, "IMPLEMENTED_BY = {}", 'IMPLEMENTED_BY = {}\nDESIGN_ONLY = "the order service is not written yet"')
-    out = _check_codes(shop, capsys)
-    assert "model_anchor_missing" not in out and "model_conformance_missing" not in out
-    cli.main(["--root", str(shop), "lint"])
-    assert "model_design_only" in capsys.readouterr().out
 
 
 def test_verify_without_user_models_runs_the_builtin_system(tmp_path, capsys):

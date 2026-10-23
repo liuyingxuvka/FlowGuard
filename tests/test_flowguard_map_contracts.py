@@ -4,6 +4,8 @@ import json
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from flowguard.__main__ import main
 from flowguard.map.cli import _context
 from flowguard.map.check import run_check
@@ -458,7 +460,7 @@ def test_model_tree_legacy_anchor_runner_and_root_defaults(tmp_path):
 
     data = project(tmp_path)
     write(tmp_path, ".flowguard/models/anchored.py", CONTRACT.replace('"one"', '"anchored"').replace('COMPONENTS = ["app"]', 'COMPONENTS = []'))
-    write(tmp_path, ".flowguard/models/rooted.py", 'MODEL_ID = "rooted"\nDESIGN_ONLY = "Abstract probe"\ndef build_explorer(): pass\n')
+    write(tmp_path, ".flowguard/models/rooted.py", 'MODEL_ID = "rooted"\nIMPLEMENTED_BY = {"Probe": "tests/test_app.py:test_run"}\ndef build_explorer(): pass\ndef conformance(): pass\n')
     runner = ".flowguard/verification/owners/native/run_checks.py"
     write(tmp_path, runner, "VALUE = 1\n")
     data["components"][0]["models"] = [runner]
@@ -667,3 +669,45 @@ def conformance():
     assert not any(f.code in {"duplicate_child_owner", "parent_unknown"} for f in findings(tmp_path))
     assert main(["map", "check", "--root", str(tmp_path)]) == 0
     capsys.readouterr()
+
+
+@pytest.mark.parametrize("literal", ['"Future behavior"', "False", "None", '""'])
+def test_design_only_model_is_an_error_that_points_to_the_target(tmp_path, capsys, literal):
+    data = project(tmp_path)
+    path = ".flowguard/models/retired_design.py"
+    source = '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "retired_design"
+COMPONENTS = ["app"]
+IMPLEMENTED_BY = {"Run": "app.py:run"}
+TESTED_BY = {"returns_true": ["tests/test_app.py:test_run"]}
+class Run:
+    name = "Run"
+    def __init__(self, bad=False): self.bad = bad
+    def apply(self, inp, state): return [FunctionResult(not self.bad, not self.bad)]
+def explorer(bad=False):
+    return Explorer(Workflow((Run(bad),)), initial_states=(True,), external_inputs=(0,),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("returns_true", "returns true", lambda s, t: s is True),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"returns_false": explorer(True)}
+def conformance():
+    from app import run
+    return CodeFactsReport((Fact("actual run returns true", run() is True),))
+'''
+    write(tmp_path, path, source)
+    data["components"][0]["models"] = [path]
+    save(tmp_path, data)
+    assert main(["map", "check", "--root", str(tmp_path)]) == 0
+    capsys.readouterr()
+    assert main(["map", "models", "--root", str(tmp_path), "retired_design", "--tests"]) == 0
+    assert "PASS  retired_design" in capsys.readouterr().out
+    write(tmp_path, path, source + f"\nDESIGN_ONLY = {literal}\n")
+    message = "move this file to .flowguard/target/models/"
+    assert main(["map", "check", "--root", str(tmp_path)]) == 1
+    output = capsys.readouterr().out
+    assert "design_only_model" in output and message in output, output
+    assert main(["map", "models", "--root", str(tmp_path), "retired_design"]) == 1
+    output = capsys.readouterr().out
+    assert "FAIL  retired_design" in output and message in output, output

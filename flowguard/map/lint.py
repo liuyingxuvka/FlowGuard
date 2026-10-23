@@ -388,10 +388,7 @@ def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *,
             contract = read_model_contract(path)
         except (OSError, SyntaxError, ValueError):
             continue
-        if contract.get("DESIGN_ONLY"):
-            out.append(Finding("warn", "model_design_only", "", f"{entry.path}: DESIGN_ONLY ({contract['DESIGN_ONLY']}); "
-                               "bind it with IMPLEMENTED_BY and conformance() once the code exists"))
-        elif not contract.get("TESTED_BY") and entry.path in tested:
+        if not contract.get("TESTED_BY") and entry.path in tested:
             out.append(Finding("warn", "model_tests_unbound", "", f"{entry.path}: TESTED_BY names no test although its "
                                "component lists tests; name the tests that guard this model"))
     return out
@@ -559,8 +556,6 @@ def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, reg
     owner, _ = owner_index(data, inv)
     out = []
     for entry, contract in contracts:
-        if contract.get("DESIGN_ONLY"):
-            continue
         by_file = defaultdict(list)
         for anchor in sorted(contract.get("IMPLEMENTED_BY", {}).values()):
             writes = anchor_state_writes(raw, anchor)

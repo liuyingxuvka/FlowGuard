@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
+from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -119,15 +119,17 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         if entry.kind == "contract":
             if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
                 out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
-        if not contract.get("DESIGN_ONLY"):
-            if not contract.get("IMPLEMENTED_BY"):
-                out.append(Finding("error", "model_anchor_missing", "",
-                                   f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
-                                   "('path:Symbol'), or mark DESIGN_ONLY = '<reason>' while that code does not exist"))
-            if entry.kind == "contract" and "conformance" not in contract["functions"]:
-                out.append(Finding("error", "model_conformance_missing", "",
-                                   f"{rel}: abstract boundary only: no conformance(); replay the real code or "
-                                   "compare it as code facts, or mark DESIGN_ONLY = '<reason>'"))
+        retired = design_only_problem(contract, rel)
+        if retired:
+            out.append(Finding("error", "design_only_model", "", retired))
+        if not contract.get("IMPLEMENTED_BY"):
+            out.append(Finding("error", "model_anchor_missing", "",
+                               f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
+                               "('path:Symbol'), or plan it as a target model (python -m flowguard target start)"))
+        if entry.kind == "contract" and "conformance" not in contract["functions"]:
+            out.append(Finding("error", "model_conformance_missing", "",
+                               f"{rel}: abstract boundary only: no conformance(); replay the real code or "
+                               "compare it as code facts, or plan it as a target model (python -m flowguard target start)"))
         for comp_id in contract.get("COMPONENTS", []):
             if comp_id not in by_id:
                 out.append(Finding("error", "model_component_unknown", "", f"{rel}: COMPONENTS names unknown {comp_id!r}"))

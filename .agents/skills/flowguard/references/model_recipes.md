@@ -208,7 +208,7 @@ conformance check in that same window does count.
 
 Only calls and reads in the same process are visible: subprocess-only tests miss
 the anchors. A weaker assertion that still calls the code cannot be detected.
-Non-Python test bindings and design-only models are warned about, not executed.
+Non-Python test bindings are warned about, not executed.
 Checking Python bindings requires pytest in the environment (`.[dev]` provides it).
 
 **Which tests to bind:** give every rule a test that fails when that rule breaks, plus a real normal-path or replay test; one test may guard several rules.

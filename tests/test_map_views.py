@@ -92,7 +92,7 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
     write('.flowguard/models/parent.py', contract.format(mid='parent', components=['app', 'store']) +
           'import child\nTESTED_BY = {"works": ["tests/test_app.py:test_run"]}\n')
     write('.flowguard/models/child.py', contract.format(mid='child', components=['app']))
-    write('.flowguard/models/rooted.py', 'MODEL_ID="rooted"\nPARENT="system"\nDESIGN_ONLY="Abstract root probe"\ndef build_explorer(): pass\n')
+    write('.flowguard/models/rooted.py', 'MODEL_ID="rooted"\nPARENT="system"\nIMPLEMENTED_BY={"Run":"app.py:run"}\ndef conformance(): pass\ndef build_explorer(): pass\n')
     data = dict(project='demo', layers=['entry', 'domain'], components=[
         dict(_component('app'), files=['app.py'], layer='entry'),
         dict(_component('store'), files=['store.py'], layer='domain'),
@@ -136,8 +136,8 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     directory.mkdir(parents=True)
     (tmp_path / 'one.py').write_text('def run(): return True\n')
     (tmp_path / 'two.py').write_text('def run(): return False\n')
-    (directory / 'parent.py').write_text('MODEL_ID="audit.current"\nCOMPONENTS=["a-b"]\nDESIGN_ONLY="Diagram probe"\nimport child\ndef build_explorer(): pass\n')
-    (directory / 'child.py').write_text('MODEL_ID="audit-current"\nCOMPONENTS=["a.b"]\nDESIGN_ONLY="Diagram probe"\ndef build_explorer(): pass\n')
+    (directory / 'parent.py').write_text('MODEL_ID="audit.current"\nCOMPONENTS=["a-b"]\nIMPLEMENTED_BY={"One":"one.py:run"}\ndef conformance(): pass\nimport child\ndef build_explorer(): pass\n')
+    (directory / 'child.py').write_text('MODEL_ID="audit-current"\nCOMPONENTS=["a.b"]\nIMPLEMENTED_BY={"Run":"two.py:run"}\ndef conformance(): pass\ndef build_explorer(): pass\n')
     data = dict(schema='flowguard.map.v1', project='demo "quoted"', layers=['entry "tier"', 'empty layer'], components=[
         dict(_component('a-b'), files=['one.py'], layer='entry "tier"'),
         dict(_component('a.b'), files=['two.py'])])
@@ -174,8 +174,8 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     from flowguard.map.tree import build_tree
     (tmp_path / 'system_code.py').write_text('def run(): pass\n')
     data['components'].append(dict(_component('system'), files=['system_code.py']))
-    (directory / 'local.py').write_text('MODEL_ID="local"\nCOMPONENTS=["system"]\nDESIGN_ONLY="Component probe"\ndef build_explorer(): pass\n')
-    (directory / 'rooted.py').write_text('MODEL_ID="rooted"\nPARENT="system"\nDESIGN_ONLY="Root probe"\ndef build_explorer(): pass\n')
+    (directory / 'local.py').write_text('MODEL_ID="local"\nCOMPONENTS=["system"]\nIMPLEMENTED_BY={"Run":"system_code.py:run"}\ndef conformance(): pass\ndef build_explorer(): pass\n')
+    (directory / 'rooted.py').write_text('MODEL_ID="rooted"\nPARENT="system"\nIMPLEMENTED_BY={"Run":"one.py:run"}\ndef conformance(): pass\ndef build_explorer(): pass\n')
     inv = build_inventory(tmp_path, DEFAULT_IGNORE)
     tree = build_tree(tmp_path, data, inv)
     assert {n.id for n in tree.models_for_component('system')} == {'local'}

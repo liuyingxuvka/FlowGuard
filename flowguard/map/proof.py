@@ -39,7 +39,7 @@ from pathlib import Path
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
-from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files, resolve_model_path
+from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files, resolve_model_path, design_only_problem
 from .tree import build_tree
 from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
 
@@ -198,14 +198,19 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         if physical is None:
             raise FileNotFoundError(f"model {path} is absent from the target view")
         contract = read_model_contract(physical)
+        retired = design_only_problem(contract, result.file)
+        if retired:
+            if retired not in result.problems:
+                _fail(result, retired)
+            return
         bindings = [(invariant, anchor) for invariant, anchors in contract.get("TESTED_BY", {}).items() for anchor in anchors]
         if statuses is not None:
             statuses.update({anchor: "not_run" for _, anchor in bindings})
         if not bindings:
             return
         anchors = list(contract.get("IMPLEMENTED_BY", {}).values())
-        if contract.get("DESIGN_ONLY") or not anchors:
-            result.warnings.append("TESTED_BY reach not checked: DESIGN_ONLY or no IMPLEMENTED_BY anchors")
+        if not anchors:
+            result.warnings.append("TESTED_BY reach not checked: no IMPLEMENTED_BY anchors")
             return
         nodes, parsed, exact_items = {}, {}, set()
         for invariant, anchor in bindings:
@@ -340,12 +345,9 @@ def _fail(result: ModelResult, problem: str, *, code_gap: bool = False) -> None:
 def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: AnchorWatch, where: str) -> None:
     """The one binding rule for contract models and runners: anchors are declared, resolve and are consulted."""
     anchors = contract.get("IMPLEMENTED_BY", {})
-    if contract.get("DESIGN_ONLY"):
-        if not anchors:
-            return
-    elif not anchors:
+    if not anchors:
         _fail(result, "declares no IMPLEMENTED_BY anchors; name the real code this model is about ('path:Symbol'), "
-                      "or mark DESIGN_ONLY = '<reason>' while that code does not exist")
+                      "or plan it as a target model (python -m flowguard target start)")
     problems = anchor_problems(root, anchors.values())
     for name, anchor in sorted(anchors.items()):
         if anchor in problems:
@@ -412,6 +414,10 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             return ModelResult(path.stem, path.relative_to(root).as_posix(), status="error", problems=["model is absent from the target view"])
         contract = read_model_contract(physical)
         result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
+        retired = design_only_problem(contract, result.file)
+        if retired:
+            _fail(result, retired)
+            return result
         if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
             result.status = "error"
             result.problems.append("a model file needs MODEL_ID and def build_explorer()")
@@ -495,12 +501,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                     conf = module.conformance()
                 if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):
                     raise ValueError("conformance() must return a report with boolean .ok and format_text(); no real-code proof executed")
-                planned = getattr(conf, "planned", ())
-                if planned:
-                    if contract.get("DESIGN_ONLY"):
-                        result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): {len(planned)} planned fact(s) still to make true; remove DESIGN_ONLY after the change")
-                    else:
-                        _fail(result, "planned facts without DESIGN_ONLY: " + ", ".join(fact.name for fact in planned))
                 if not conf.ok:
                     environment = [v for v in getattr(conf, "violations", ())
                                    if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}
@@ -517,11 +517,9 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                         problem = "the real code does not conform to the model:\n" + conf.format_text(max_examples=1)
                         result.problems.append(problem)
                         result.code_gaps.append(problem)
-            elif contract.get("DESIGN_ONLY"):
-                result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): no conformance(); bind it once the code exists")
             else:
                 _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
-                              "or mark DESIGN_ONLY = '<reason>'")
+                              "or plan it as a target model (python -m flowguard target start)")
             _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
         except PlaceholderAnchorError as exc:
             _fail(result, str(exc))
@@ -572,6 +570,10 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
         result.status = "error"
         result.problems.append(f"cannot read the runner's IMPLEMENTED_BY / TESTED_BY literals: {exc}")
         return result
+    retired = design_only_problem(contract, result.file)
+    if retired:
+        _fail(result, retired)
+        return result
     try:
         with _view_request(view) as extra:
             bootstrap = ("from flowguard.map.proof import _runner_view_main; raise SystemExit(_runner_view_main())"
@@ -605,9 +607,7 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
         watch = AnchorWatch(root, contract.get("IMPLEMENTED_BY", {}).values())
         watch.called = set(consulted["anchors"])
         watch.read_files = {os.path.realpath(root / rel) for rel in consulted["read"]}
-        if contract.get("DESIGN_ONLY"):
-            result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): bind it once the code exists")
-        elif own_files is not None and not ((loaded | set(consulted["read"])) & own_files):
+        if own_files is not None and not ((loaded | set(consulted["read"])) & own_files):
             _fail(result, "abstract boundary only: runner loaded no code of its bound components")
         _anchor_verdict(result, root, contract, watch, "by the runner")
     except subprocess.TimeoutExpired:

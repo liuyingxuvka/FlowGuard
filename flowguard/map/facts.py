@@ -163,37 +163,28 @@ class Fact:
     name: str
     ok: bool
     detail: str = ""
-    planned: bool = False
 
 
 @dataclass(frozen=True)
 class CodeFactsReport:
-    """Static facts: at least one real fact, no real violations; planned failures remain explicit."""
+    """Static facts: at least one fact, and no violations."""
 
     facts: tuple[Fact, ...] = ()
 
     @property
     def ok(self) -> bool:
-        real = tuple(fact for fact in self.facts if not fact.planned)
-        return bool(real) and all(fact.ok for fact in real)
+        return bool(self.facts) and all(fact.ok for fact in self.facts)
 
     @property
     def violations(self) -> tuple[Fact, ...]:
-        return tuple(fact for fact in self.facts if not fact.ok and not fact.planned)
-
-    @property
-    def planned(self) -> tuple[Fact, ...]:
-        return tuple(fact for fact in self.facts if fact.planned)
+        return tuple(fact for fact in self.facts if not fact.ok)
 
     def format_text(self, max_examples: int | None = None) -> str:
         shown = self.violations[:max_examples] if max_examples else self.violations
-        real_count = len(self.facts) - len(self.planned)
+        real_count = len(self.facts)
         lines = [f"code facts: {real_count - len(self.violations)} of {real_count} hold"
                  + ("" if self.facts else " (no fact was checked)")]
-        if self.planned:
-            lines[0] += f"; {len(self.planned)} planned (DESIGN_ONLY: they must hold after the change)"
         lines += [f"- {fact.name}: {fact.detail}" for fact in shown]
-        lines += [f"- planned: {fact.name}" for fact in self.planned[:5]]
         return "\n".join(lines)
 
 
@@ -204,9 +195,8 @@ def _word(word: str) -> re.Pattern:
 class CodeFacts:
     """Read the real code statically and record facts that a model's conformance() compares with the model."""
 
-    def __init__(self, root: str | Path | None = None, *, planned: bool = False) -> None:
+    def __init__(self, root: str | Path | None = None) -> None:
         self.root = Path(root) if root is not None else Path.cwd()
-        self._planned = planned
         self.facts: list[Fact] = []
 
     def text(self, path: str) -> str:
@@ -273,8 +263,8 @@ class CodeFacts:
         return self.check(name or f"{anchor} has no reference outside {anchor.partition(':')[0]}", not hits,
                           f"still referenced at {', '.join(hits[:5])}")
 
-    def check(self, name: str, ok: bool, detail: str = "", *, _anchor: bool = False) -> bool:
-        self.facts.append(Fact(name, bool(ok), "" if ok else detail, self._planned and not ok and not _anchor))
+    def check(self, name: str, ok: bool, detail: str = "") -> bool:
+        self.facts.append(Fact(name, bool(ok), "" if ok else detail))
         return bool(ok)
 
     def anchors_exist(self, anchors: Mapping[str, str] | Iterable[str]) -> bool:
@@ -284,7 +274,7 @@ class CodeFacts:
         for anchor in names:
             if anchor not in problems and not anchor.partition(":")[0].endswith(".py"):
                 self.text(anchor.partition(":")[0])
-            self.check(f"anchor {anchor} exists", anchor not in problems, problems.get(anchor, ""), _anchor=True)
+            self.check(f"anchor {anchor} exists", anchor not in problems, problems.get(anchor, ""))
         return not problems
 
     def present(self, word: str, paths: Iterable[str], name: str = "") -> bool:

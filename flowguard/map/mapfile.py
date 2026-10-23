@@ -190,13 +190,19 @@ def read_model_contract(path: Path) -> dict:
         if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
                                                  for k, v in value.items()):
             raise ValueError(f"{key} must map anchors/names to nonempty strings")
-    if "DESIGN_ONLY" in found and not (isinstance(found["DESIGN_ONLY"], str) and found["DESIGN_ONLY"].strip()):
-        raise ValueError("DESIGN_ONLY must be a nonempty reason string")
     tested_by = found.get("TESTED_BY", {})
     if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):
         raise ValueError("TESTED_BY must map invariant names to lists of test anchors")
     return found
+
+
+def design_only_problem(contract: dict, path: str) -> str | None:
+    """The one retirement diagnostic; the reader keeps the literal for target validation."""
+    if "DESIGN_ONLY" not in contract:
+        return None
+    return (f'{path}: DESIGN_ONLY is retired; a model of code that does not exist yet is a target model: '
+            'move this file to .flowguard/target/models/ (python -m flowguard target start "<goal>")')
 
 
 def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
