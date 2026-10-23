@@ -50,7 +50,7 @@ rejected before any write happens.
    - `ContractOracle(oracle_id, expected_status=..., expected_message_fields=..., required_repair_fields=..., forbidden_downstream_steps=...)`.
    - `ContractExhaustionPlan(plan_id, dimensions=, axes=, interaction_groups=, oracles=, model_id=, claim_scope="routine")`.
 3. Optional feeders turn other findings into seed cases (`seed_cases=`):
-   `state_closure_cases_to_contract_cases`, `scenario_matrix_to_contract_cases`,
+   `scenario_matrix_to_contract_cases` (from `flowguard.contract_exhaustion`),
    `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`,
    `transition_coverage_to_contract_cases`, `model_mesh_closure_to_contract_cases`.
 4. Keep actual broken plans relevant to the finite boundary (see examples below).

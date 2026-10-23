@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Removed the old check-plan runner and its reports (`flowguard.plan`, `flowguard.runner`, `flowguard.formal_runner`, `flowguard.summary_report`, `flowguard.audit`, `flowguard.risk`, `flowguard.risk_templates`, `flowguard.template_packs`, `flowguard._evidence_status`, `flowguard.model_path_quality`, `flowguard.state_closure`, `flowguard.step_contracts`); `python -m flowguard map models` is the one model runner. Loop, progress, contract and scenario helpers remain available in model conformance or tests.
+
 - The skill has one entry flow: read, then target first for behaviour or structure changes, or a direct edit for code-only changes.
 
 - `python -m flowguard target promote` replaces the current tree with the target once its full check is clean and its checked inputs are unchanged, then lists the components to confirm.

@@ -15,56 +15,10 @@ from flowguard import (
     review_mesh_closure_model,
     summarize_child_boundary_change,
 )
-from flowguard.model_path_quality import (
-    PathQualityResult,
-    PathQualitySubject,
-    canonical_fingerprint,
-)
 
 
-def path_fp(value):
-    return canonical_fingerprint({"value": value})
 
 
-def path_quality(model_id="payment", currentness_id="snapshot:current"):
-    owner = PathQualitySubject(
-        model_id=model_id,
-        boundary_id=f"boundary:{model_id}",
-        model_fingerprint=path_fp(f"model:{model_id}"),
-        normalized_facts_fingerprint=path_fp(f"facts:{model_id}"),
-        retained_element_inventory_fingerprint=path_fp(f"retained:{model_id}"),
-        purpose_fingerprint=path_fp(f"purpose:{model_id}"),
-        intent_fingerprint=path_fp(f"intent:{model_id}"),
-        obligation_fingerprint=path_fp(f"obligations:{model_id}"),
-        provider_fingerprint=path_fp(f"provider:{model_id}"),
-        dependency_fingerprint=path_fp(f"dependencies:{model_id}"),
-        code_fingerprint=path_fp(f"code:{model_id}"),
-        test_fingerprint=path_fp(f"tests:{model_id}"),
-        oracle_fingerprint=path_fp(f"oracles:{model_id}"),
-        evidence_fingerprint=path_fp(f"evidence:{model_id}"),
-        currentness_id=currentness_id,
-    )
-    result = PathQualityResult(
-        result_id=f"path-quality:{model_id}",
-        subject_fingerprint=owner.fingerprint,
-        mode="lightweight",
-        trigger_ids=(),
-        finding_ids=(),
-        candidate_ids=(),
-        rewrite_rule_ids=(),
-        conclusion="single_clear_path",
-        unresolved_ids=(),
-        selected_candidate_id="",
-        selected_candidate_lane="",
-        comparison_boundary_id="",
-        candidate_set_fingerprint="",
-        rewrite_set_fingerprint="",
-        necessity_witness_set_fingerprint=path_fp(f"witnesses:{model_id}"),
-        detail_evidence_fingerprint=path_fp(f"detail:{model_id}"),
-        producer_id="model_maturation",
-        currentness_id=currentness_id,
-    )
-    return owner, result
 
 
 def child(model_id, **kwargs):

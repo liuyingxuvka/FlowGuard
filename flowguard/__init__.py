@@ -15,19 +15,8 @@ __version__ = "0.70.10"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {
-    "flowguard._evidence_status": (
-        "RISK_CONFIDENCE_BLOCKED",
-        "RISK_CONFIDENCE_FULL",
-        "RISK_CONFIDENCE_PARTIAL",
-        "RISK_CONFIDENCE_SCOPED",
-        "RISK_PROOF_STATUS_ERROR",
-        "RISK_PROOF_STATUS_FAILED",
-        "RISK_PROOF_STATUS_NOT_RUN",
-        "RISK_PROOF_STATUS_PASSED",
-        "RISK_PROOF_STATUS_PROGRESS_ONLY",
-        "RISK_PROOF_STATUS_RUNNING",
-        "RISK_PROOF_STATUS_SKIPPED",
-        "RISK_PROOF_STATUS_STALE",
+    "flowguard._hashing": (
+        "canonical_fingerprint",
     ),
     "flowguard._mesh_vocab": (
         "OWNERSHIP_CHILD",
@@ -103,11 +92,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "architecture_reduction_code_facts",
         "architecture_reduction_explorer",
         "review_architecture_reduction",
-    ),
-    "flowguard.audit": (
-        "ModelQualityAuditReport",
-        "ModelQualityFinding",
-        "audit_model",
     ),
     "flowguard.baseline": (
         "EvidenceBaselineReport",
@@ -457,7 +441,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "review_contract_exhaustion",
         "review_observed_problem_backfeed",
         "scenario_matrix_to_contract_cases",
-        "state_closure_cases_to_contract_cases",
         "transition_coverage_to_contract_cases",
     ),
     "flowguard.core": (
@@ -632,9 +615,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "minimize_failing_sequence",
         "minimize_report_counterexample",
     ),
-    "flowguard.model_path_quality": (
-        "canonical_fingerprint",
-    ),
     "flowguard.model_test_alignment": (
         "ARTIFACT_PAYLOAD_METHOD_AUTOMATED_TEST",
         "ARTIFACT_PAYLOAD_METHOD_BROWSER",
@@ -753,10 +733,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "RetryPack",
         "SideEffectPack",
     ),
-    "flowguard.plan": (
-        "FlowGuardCheckPlan",
-        "ScenarioMatrixConfig",
-    ),
     "flowguard.primary_path_authority": (
         "FallbackPathCandidate",
         "PPA_AUTHORITY_EXTERNAL_FACADE",
@@ -861,51 +837,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "scenario_status_explanation",
         "scenario_status_ok",
     ),
-    "flowguard.risk": (
-        "RISK_INTENT_FIELDS",
-        "RiskIntent",
-        "RiskProfile",
-        "SkippedCheck",
-    ),
-    "flowguard.risk_templates": (
-        "KNOWN_BAD_PROOF_CAUGHT_STATUSES",
-        "KNOWN_BAD_PROOF_NOT_CURRENT_STATUSES",
-        "KNOWN_BAD_PROOF_PASS_STATUSES",
-        "KnownBadProof",
-        "MinimumModelContract",
-        "MinimumModelReviewReport",
-        "NOT_HARVESTABLE_REASONS",
-        "RISK_TEMPLATE_SOURCES",
-        "RISK_TEMPLATE_STATUSES",
-        "RiskTemplate",
-        "RiskTemplateHarvestReport",
-        "RiskTemplateMatch",
-        "RiskTemplateSearchReport",
-        "TEMPLATE_HARVEST_DISPOSITIONS",
-        "TEMPLATE_HARVEST_WITH_TEMPLATE_ID",
-        "TEMPLATE_LIBRARY_ENV_VAR",
-        "TemplateHarvestReview",
-        "TemplateReuseReview",
-        "TemplateSeedHarvestReport",
-        "builtin_risk_templates",
-        "default_local_template_library_root",
-        "harvest_risk_template_candidate",
-        "harvest_template_seed_candidate",
-        "load_local_risk_templates",
-        "load_local_template_seeds",
-        "merge_risk_templates",
-        "promote_template_seed",
-        "review_known_bad_proofs",
-        "review_minimum_model_contract",
-        "review_template_harvest_closure",
-        "review_template_reuse",
-        "search_risk_templates",
-        "write_local_risk_template",
-        "write_local_template_seed",
-    ),
-    "flowguard.runner": (
-        "run_model_first_checks",
-    ),
     "flowguard.scenario": (
         "OracleCheckResult",
         "Scenario",
@@ -923,72 +854,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "report_artifact",
         "trace_artifact",
     ),
-    "flowguard.state_closure": (
-        "STATE_CLOSURE_CASE_CONFLICTING_IDENTITY",
-        "STATE_CLOSURE_CASE_EXTERNAL_UNKNOWN",
-        "STATE_CLOSURE_CASE_INVALID_INITIAL_STATE",
-        "STATE_CLOSURE_CASE_MALFORMED_INPUT",
-        "STATE_CLOSURE_CASE_MISSING_REQUIRED_FIELD",
-        "STATE_CLOSURE_CASE_OLD_SCHEMA_VERSION",
-        "STATE_CLOSURE_CASE_TERMINAL_REPLAY",
-        "STATE_CLOSURE_CASE_UNKNOWN_ENUM",
-        "STATE_CLOSURE_CONFIDENCE_BLOCKED",
-        "STATE_CLOSURE_CONFIDENCE_FULL",
-        "STATE_CLOSURE_CONFIDENCE_SCOPED",
-        "STATE_CLOSURE_DECISION_BLOCKED",
-        "STATE_CLOSURE_DECISION_PASS",
-        "STATE_CLOSURE_DECISION_SCOPED",
-        "STATE_CLOSURE_DIMENSION_EXTERNAL_INPUT",
-        "STATE_CLOSURE_DIMENSION_INPUT_FIELD",
-        "STATE_CLOSURE_DIMENSION_OUTPUT",
-        "STATE_CLOSURE_DIMENSION_STATE_FIELD",
-        "STATE_CLOSURE_FINDING_BLOCKER",
-        "STATE_CLOSURE_FINDING_CONFIDENCE_GAP",
-        "STATE_CLOSURE_FINDING_INFO",
-        "STATE_CLOSURE_FINDING_SEVERITIES",
-        "STATE_CLOSURE_HANDLINGS",
-        "STATE_CLOSURE_HANDLING_ACCEPT_AS_NORMAL",
-        "STATE_CLOSURE_HANDLING_BLOCK",
-        "STATE_CLOSURE_HANDLING_ISOLATE",
-        "STATE_CLOSURE_HANDLING_REJECT",
-        "STATE_CLOSURE_HANDLING_ROUTE_TO_MODEL_MATURATION",
-        "STATE_CLOSURE_HANDLING_UNKNOWN",
-        "STATE_CLOSURE_POLICIES",
-        "STATE_CLOSURE_POLICY_CLOSED",
-        "STATE_CLOSURE_POLICY_OPEN",
-        "STATE_CLOSURE_POLICY_UNBOUNDED",
-        "STATE_CLOSURE_POLICY_UNKNOWN",
-        "StateClosureCase",
-        "StateClosureDimension",
-        "StateClosureFinding",
-        "StateClosurePlan",
-        "StateClosureReport",
-        "infer_state_closure_dimensions",
-        "infer_state_closure_plan",
-        "review_state_closure",
-    ),
-    "flowguard.step_contracts": (
-        "STEP_CONTRACT_METADATA_KEYS",
-        "STEP_METADATA_CLAIM_LABELS",
-        "STEP_METADATA_INVALIDATED_TOKENS",
-        "STEP_METADATA_PRODUCED_TOKENS",
-        "STEP_METADATA_RUNTIME_NODE_IDS",
-        "STEP_METADATA_SKIPPED_STEP_IDS",
-        "STEP_METADATA_STEP_IDS",
-        "STEP_SKIP_ALLOWED",
-        "STEP_SKIP_ALLOWED_WITH_REASON",
-        "STEP_SKIP_FORBIDDEN",
-        "STEP_SKIP_POLICIES",
-        "StepContractFinding",
-        "StepContractReport",
-        "WorkflowStepContract",
-        "compile_step_contract_invariants",
-        "extract_step_contract_metadata",
-        "review_step_contract_trace",
-        "step_contract_metadata",
-        "step_contract_metadata_matches_rule",
-        "step_contracts_to_model_obligations",
-    ),
     "flowguard.structuremesh": (
         "ModuleStructureEvidence",
         "PublicEntrypointEvidence",
@@ -999,28 +864,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "StructureMeshReport",
         "StructurePartitionItem",
         "review_structure_mesh",
-    ),
-    "flowguard.summary_report": (
-        "FlowGuardSection",
-        "FlowGuardSummaryReport",
-        "build_flowguard_summary_report",
-        "section_from_audit_report",
-        "section_from_check_report",
-        "section_from_ok_report",
-        "section_from_scenario_report",
-    ),
-    "flowguard.template_packs": (
-        "TEMPLATE_SEED_CLOSURE_DISPOSITIONS",
-        "TEMPLATE_SEED_PRIVACY_DISPOSITIONS",
-        "TEMPLATE_SEED_PROMOTION_STATUSES",
-        "TEMPLATE_SEED_SCHEMA",
-        "TemplateSeed",
-        "TemplateSeedSelection",
-        "TemplateSeedValidation",
-        "builtin_template_seeds",
-        "close_template_seed",
-        "select_template_seeds",
-        "validate_template_seed",
     ),
     "flowguard.templates": (
         "TemplateFile",
@@ -1317,20 +1160,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
     ),
 }
 
-# public name -> attribute name in its owner module (only where they differ)
-_RENAMED: dict[str, str] = {
-    "LAYERED_NON_PASSING_PROOF_STATUSES": "NON_PASSING_PROOF_STATUSES",
-    "LAYERED_PASSING_PROOF_STATUSES": "PASSING_PROOF_STATUSES",
-    "LAYERED_PROOF_STATUS_ERROR": "PROOF_STATUS_ERROR",
-    "LAYERED_PROOF_STATUS_FAILED": "PROOF_STATUS_FAILED",
-    "LAYERED_PROOF_STATUS_NOT_RUN": "PROOF_STATUS_NOT_RUN",
-    "LAYERED_PROOF_STATUS_PASSED": "PROOF_STATUS_PASSED",
-    "LAYERED_PROOF_STATUS_PROGRESS_ONLY": "PROOF_STATUS_PROGRESS_ONLY",
-    "LAYERED_PROOF_STATUS_RUNNING": "PROOF_STATUS_RUNNING",
-    "LAYERED_PROOF_STATUS_SKIPPED": "PROOF_STATUS_SKIPPED",
-    "LAYERED_PROOF_STATUS_STALE": "PROOF_STATUS_STALE",
-}
-
 _OWNER: dict[str, str] = {name: owner for owner, group in _PUBLIC_API.items() for name in group}
 __all__ = sorted(_OWNER)
 
@@ -1350,7 +1179,7 @@ def __getattr__(name: str) -> Any:
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = module
         return module
-    value = getattr(importlib.import_module(owner), _RENAMED.get(name, name))
+    value = getattr(importlib.import_module(owner), name)
     globals()[name] = value
     return value
 

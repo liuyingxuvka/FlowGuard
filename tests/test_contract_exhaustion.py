@@ -44,7 +44,6 @@ from flowguard import (
     ObligationFamilyMember,
     Scenario,
     ScenarioExpectation,
-    StateClosureCase,
     TransitionCoverageCell,
     TransitionCoverageMatrix,
     TEST_KIND_REPLAY,
@@ -59,7 +58,6 @@ from flowguard import (
     review_contract_exhaustion,
     review_observed_problem_backfeed,
     scenario_matrix_to_contract_cases,
-    state_closure_cases_to_contract_cases,
     transition_coverage_to_contract_cases,
 )
 from flowguard.obligation_family import FamilyBadCaseSeed
@@ -848,17 +846,7 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertIn("observed_problem_case_missing", finding_codes)
         self.assertIn("observed_problem_same_class_case_missing", finding_codes)
 
-    def test_state_closure_and_scenario_matrix_feed_common_cases(self):
-        state_cases = state_closure_cases_to_contract_cases(
-            (
-                StateClosureCase(
-                    "unknown-status",
-                    "input.status",
-                    CONTRACT_MUTATION_UNKNOWN_ENUM,
-                    value="surprise",
-                ),
-            )
-        )
+    def test_scenario_matrix_feeds_common_cases(self):
         scenarios = scenario_matrix_to_contract_cases(
             (
                 Scenario(
@@ -872,11 +860,11 @@ class ContractExhaustionTests(unittest.TestCase):
             )
         )
         report = review_contract_exhaustion(
-            ContractExhaustionPlan("imported-cases", seed_cases=state_cases + scenarios)
+            ContractExhaustionPlan("imported-cases", seed_cases=scenarios)
         )
 
         self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(2, len(report.generated_cases))
+        self.assertEqual(1, len(report.generated_cases))
         self.assertIn(CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT, report.required_route_case_ids)
         self.assertIn(CONTRACT_ROUTE_TEST_MESH, report.required_route_case_ids)
 

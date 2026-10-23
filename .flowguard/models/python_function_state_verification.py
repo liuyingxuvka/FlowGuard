@@ -10,8 +10,7 @@ records tokens (idempotently), branches safely and stops on a terminal output; a
 adapter that only receives inputs; a write contract the trace keeps; a terminating loop graph.  Each
 rejecting feature adds one engine-level defect to it (a block that cannot be invoked, a duplicate write,
 a corrupted expected trace, ...) and names the finding the engine must report; each benign feature is a
-variation the engine must treat the same (another invocation hook, result objects, a supplied
-exploration report).  The kit explores every feature alone and every pair on the real engine, so a
+variation the engine must treat the same (another invocation hook or result objects).  The kit explores every feature alone and every pair on the real engine, so a
 defect hidden by another one is a counterexample.
 
 Run:
@@ -28,9 +27,8 @@ from flowguard.contract import FunctionContract, check_trace_contracts
 from flowguard.core import FunctionResult, Invariant, invoke_block
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
 from flowguard.loop import GraphEdge, LoopCheckConfig, check_loops
-from flowguard.plan import FlowGuardCheckPlan, ScenarioMatrixConfig
+from flowguard.explorer import Explorer
 from flowguard.replay import ReplayInput, ReplayObservation
-from flowguard.runner import run_model_first_checks
 from flowguard.workflow import Workflow
 
 MODEL_ID = "python_function_state_verification"
@@ -40,7 +38,7 @@ IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
                   "Replay": "flowguard/conformance.py:replay_trace",
                   "TraceContracts": "flowguard/contract.py:check_trace_contracts",
                   "Loops": "flowguard/loop.py:check_loops",
-                  "ModelFirstChecks": "flowguard/runner.py:run_model_first_checks"}
+                  "Explore": "flowguard/explorer.py:Explorer.explore"}
 TESTED_BY = {
     "every_defect_reported": ["tests/test_python_function_state_verification_owner.py:"
                               "test_the_real_engine_reports_every_defect_alone_and_in_pairs"],
@@ -161,7 +159,7 @@ def _raises(state, trace):
 def clean_fixture() -> dict:
     trace = Workflow((Record(), Record())).execute(State(), "a").completed_paths[0].trace
     return {"tokens": ("record", "both", "stop"), "hook": "apply", "objects": False, "extra_invariants": (),
-            "labels": ("record", "both:a", "both:b"), "max_transitions": None, "supplied_report": False,
+            "labels": ("record", "both:a", "both:b"), "max_transitions": None,
             "replay_trace": trace, "adapter_duplicates": False, "contract_trace": trace, "cycle": False}
 
 
@@ -206,7 +204,6 @@ FEATURES = (
     Feature("block_invoked_through_run", False, (), _set("hook", "run")),
     Feature("block_invoked_as_callable", False, (), _set("hook", "__call__")),
     Feature("results_as_objects", False, (), _set("objects", True)),
-    Feature("runner_given_its_exploration_report", False, (), _set("supplied_report", True)),
 )
 
 
@@ -224,19 +221,11 @@ def _explore(fixture: dict) -> tuple[object, list[str]]:
                   Invariant("right_branch_unsafe", "the right branch is unsafe", lambda s, t: "right" not in s.records),
                   Invariant("hooks_by_priority", "only the highest-priority hook runs",
                             lambda s, t: WRONG_HOOK not in s.records)) + fixture["extra_invariants"]
-    plan = FlowGuardCheckPlan(
+    explorer = Explorer(
         workflow=Workflow((block, Tail())), initial_states=(State(),), external_inputs=fixture["tokens"],
         invariants=invariants, max_sequence_length=2, max_transitions=fixture["max_transitions"],
-        terminal_predicate=lambda output, state, trace: output == "stop", required_labels=fixture["labels"],
-        scenario_matrix_config=ScenarioMatrixConfig(enabled=False))
-    report = dict(run_model_first_checks(plan).metadata)["model_check_report"]
-    problems = []
-    if fixture["supplied_report"]:                        # the runner must consume it, not explore again
-        calls = block.calls
-        consumed = dict(run_model_first_checks(plan, model_report=report).metadata)["model_check_report"]
-        if consumed is not report or block.calls != calls:
-            problems.append("runner_explored_again")
-    return report, problems
+        terminal_predicate=lambda output, state, trace: output == "stop", required_labels=fixture["labels"])
+    return explorer.explore(), []
 
 
 def run_engine(fixture: dict):

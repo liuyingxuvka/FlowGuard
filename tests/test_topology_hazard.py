@@ -3,10 +3,6 @@ from dataclasses import dataclass
 
 from flowguard import (
     FunctionResult,
-    KnownBadProof,
-    MinimumModelContract,
-    RiskIntent,
-    RiskProfile,
     BusinessPathIdentity,
     TOPOLOGY_LANDMARK_BUSINESS_PATH_CONFLICT,
     TOPOLOGY_LANDMARK_BUSINESS_PATH_DUPLICATE,
@@ -27,48 +23,10 @@ from flowguard import (
     infer_topology_hazard_plan,
     review_topology_hazards,
 )
-from flowguard.plan import FlowGuardCheckPlan
-from flowguard.runner import run_model_first_checks
 
 
 
 
-def formal_entry_kwargs():
-    return {
-        "risk_profile": RiskProfile(
-            modeled_boundary="save topology",
-            risk_classes=("side_effect",),
-            risk_intent=RiskIntent(
-                failure_modes=("save completes without durable record",),
-                protected_error_classes=("missing_save_evidence",),
-                protected_harms=("caller trusts a missing record",),
-                must_model_state=("saved_record", "status"),
-                must_model_side_effects=("record_write",),
-                completion_evidence=("saved_label",),
-                adversarial_inputs=("save event repeated",),
-                hard_invariants=("save has durable evidence",),
-                known_bad_cases=("save_without_record",),
-                blindspots=("real storage replay is not part of this topology test",),
-            ),
-        ),
-        "minimum_model_contract": MinimumModelContract(
-            protected_error_classes=("missing_save_evidence",),
-            modeled_state=("saved_record", "status"),
-            modeled_side_effects=("record_write",),
-            completion_evidence=("saved_label",),
-            known_bad_cases=("save_without_record",),
-        ),
-        "known_bad_proofs": (
-            KnownBadProof(
-                "save_without_record",
-                protected_error_class="missing_save_evidence",
-                method="broken_workflow",
-                observed_status="failed",
-                observed_failure="save completion without evidence rejected",
-                evidence_id="model:save_without_record",
-            ),
-        ),
-    }
 
 
 @dataclass(frozen=True)
@@ -261,21 +219,6 @@ class TopologyHazardTests(unittest.TestCase):
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(TOPOLOGY_CONFIDENCE_FULL, report.confidence)
 
-    def test_runner_adds_topology_hazard_section(self):
-        summary = run_model_first_checks(
-            FlowGuardCheckPlan(
-                workflow=Workflow((SaveRecord(),), name="save"),
-                initial_states=(State(),),
-                external_inputs=(Event(),),
-                max_sequence_length=1,
-                **formal_entry_kwargs(),
-            )
-        )
-        sections = {section.name: section for section in summary.sections}
-        metadata = dict(summary.metadata)
-
-        self.assertIn("topology_hazard", sections)
-        self.assertIn("topology_hazard_report", metadata)
 
 def test_topology_scope_out_without_reason_blocks():
     from dataclasses import dataclass, replace

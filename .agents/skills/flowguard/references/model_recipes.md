@@ -170,7 +170,6 @@ when any case disagrees with its expectation, and end with `raise SystemExit(run
 ## Helpers
 
 - `minimize_failing_sequence(...)` (flowguard.minimize): shrink a failing input sequence.
-- `audit_model(...)` with `RiskProfile` (flowguard.audit): list gaps for the declared risks.
 - `mermaid_code_block(...)` / `loop_report_to_mermaid_text(...)`: render a model/report;
   see examples/mermaid_export_example.py.
 

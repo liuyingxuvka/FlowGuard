@@ -3424,32 +3424,6 @@ def review_observed_problem_backfeed(
     return backfeed_report
 
 
-def state_closure_cases_to_contract_cases(
-    cases: Sequence[Any],
-    *,
-    source_route: str = "state_closure",
-) -> tuple[ContractMutationCase, ...]:
-    """Project StateClosureCase objects into ContractExhaustion cases."""
-
-    result: list[ContractMutationCase] = []
-    for case in cases:
-        case_kind = str(getattr(case, "case_kind", ""))
-        mutation_type = case_kind or CONTRACT_MUTATION_UNKNOWN_ENUM
-        result.append(
-            ContractMutationCase(
-                case_id=_case_id("state_closure", getattr(case, "case_id", "")),
-                dimension_id=str(getattr(case, "dimension_id", "")),
-                mutation_type=mutation_type,
-                source_route=source_route,
-                source_case_id=str(getattr(case, "case_id", "")),
-                input_delta={"value": to_jsonable(getattr(case, "value", None))},
-                description=str(getattr(case, "description", "")),
-                metadata=dict(getattr(case, "metadata", {}) or {}),
-            )
-        )
-    return tuple(result)
-
-
 def scenario_matrix_to_contract_cases(
     scenarios: Sequence[Any],
     *,
@@ -3901,6 +3875,5 @@ __all__ = (
     "review_contract_exhaustion",
     "review_observed_problem_backfeed",
     "scenario_matrix_to_contract_cases",
-    "state_closure_cases_to_contract_cases",
     "transition_coverage_to_contract_cases",
 )

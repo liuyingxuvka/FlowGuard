@@ -34,3 +34,5 @@ Component IDs select `read --component`; executable model IDs select `map models
 ## From 0.70.10 to 0.70.11
 
 The ten capability engines are folded into the model tree; each line below says what replaces one of them.
+
+- `FlowGuardCheckPlan` / `run_model_first_checks` / `audit_model` / risk templates are removed; put the checks into a model file and run `python -m flowguard map models` (loops: call `flowguard.loop.check_loops` from the model's conformance or a test).

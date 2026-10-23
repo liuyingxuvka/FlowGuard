@@ -8,14 +8,8 @@ from dataclasses import dataclass
 from unittest.mock import patch
 
 from flowguard import (
-    FlowGuardCheckPlan,
     FunctionResult,
-    KnownBadProof,
-    MinimumModelContract,
-    RiskIntent,
-    RiskProfile,
     Workflow,
-    run_model_first_checks,
 )
 from flowguard.explorer import Explorer
 
@@ -46,42 +40,6 @@ def run_with_captured_streams(explorer):
     return report, stdout.getvalue(), stderr.getvalue()
 
 
-def formal_entry_kwargs():
-    return {
-        "risk_profile": RiskProfile(
-            modeled_boundary="recording progress",
-            risk_classes=("side_effect",),
-            risk_intent=RiskIntent(
-                failure_modes=("recording reports complete without evidence",),
-                protected_error_classes=("missing_record_evidence",),
-                protected_harms=("caller trusts an unrecorded input",),
-                must_model_state=("seen",),
-                must_model_side_effects=("record_write",),
-                completion_evidence=("recorded_label",),
-                adversarial_inputs=("single input record",),
-                hard_invariants=("recorded input is visible in state",),
-                known_bad_cases=("record_without_seen_state",),
-                blindspots=("this test checks progress output, not production replay",),
-            ),
-        ),
-        "minimum_model_contract": MinimumModelContract(
-            protected_error_classes=("missing_record_evidence",),
-            modeled_state=("seen",),
-            modeled_side_effects=("record_write",),
-            completion_evidence=("recorded_label",),
-            known_bad_cases=("record_without_seen_state",),
-        ),
-        "known_bad_proofs": (
-            KnownBadProof(
-                "record_without_seen_state",
-                protected_error_class="missing_record_evidence",
-                method="broken_workflow",
-                observed_status="failed",
-                observed_failure="recorded label without state evidence rejected",
-                evidence_id="model:record_without_seen_state",
-            ),
-        ),
-    }
 
 
 class ExplorerProgressTests(unittest.TestCase):
@@ -166,21 +124,6 @@ class ExplorerProgressTests(unittest.TestCase):
         self.assertEqual(len(materialized_report.violations), len(compact_report.violations))
         self.assertGreater(len(compact_report.violations), 0)
 
-    def test_runner_inherits_explorer_progress(self):
-        plan = FlowGuardCheckPlan(
-            workflow=Workflow((RecordInput(),), name="recording"),
-            initial_states=(State(),),
-            external_inputs=("a",),
-            max_sequence_length=1,
-            **formal_entry_kwargs(),
-        )
-        stderr = io.StringIO()
-        with patch.dict(os.environ, {"FLOWGUARD_PROGRESS": "1"}), redirect_stderr(stderr):
-            summary = run_model_first_checks(plan)
-
-        self.assertIn("model_check", {section.name for section in summary.sections})
-        self.assertIn("[flowguard] start phase=explore work_total=1 progress_steps=10", stderr.getvalue())
-        self.assertIn("[flowguard] progress 100% work=1/1", stderr.getvalue())
 
 
 if __name__ == "__main__":

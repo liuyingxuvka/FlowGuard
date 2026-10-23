@@ -25,12 +25,6 @@ from flowguard.templates import (
     ui_flow_structure_template_files,
     write_template_files,
 )
-from flowguard.risk_templates import (
-    TemplateHarvestReview,
-    harvest_risk_template_candidate,
-    review_template_harvest_closure,
-    search_risk_templates,
-)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -473,48 +467,6 @@ class PublicTemplateTests(unittest.TestCase):
         code, _stdout, _stderr = self.run_cli(["template", "no-such-template"])
         self.assertEqual(2, code)
 
-    def test_risk_template_cli_searches_and_harvests(self):
-        search_report = search_risk_templates(
-            "completion evidence",
-            include_local=False,
-        )
-        self.assertEqual(("public",), search_report.searched_layers)
-        self.assertEqual(
-            "completion_requires_evidence",
-            search_report.matches[0].template.template_id,
-        )
-
-        harvest_report = harvest_risk_template_candidate(
-            template_id="cli_sample",
-            title="CLI sample",
-            summary="CLI sample.",
-            protected_error_classes=("premature_completion",),
-            required_state=("completed",),
-            required_evidence=("completion_record",),
-            known_bad_cases=("ack_only",),
-            known_bad_proofs=(
-                {
-                    "case_id": "ack_only",
-                    "protected_error_class": "premature_completion",
-                    "method": "broken_workflow_variant",
-                    "observed_status": "failed",
-                    "observed_failure": "ack-only completion was rejected",
-                    "evidence_id": "cli:known-bad",
-                },
-            ),
-            write=False,
-        )
-        self.assertTrue(harvest_report.ok)
-        self.assertEqual("candidate_ready", harvest_report.status)
-        self.assertEqual("", harvest_report.path)
-
-        closure = review_template_harvest_closure(
-            TemplateHarvestReview(
-                disposition="duplicate_linked",
-                linked_template_ids=("completion_requires_evidence",),
-            )
-        )
-        self.assertTrue(closure.ok)
 
     def test_public_templates_do_not_contain_local_project_markers(self):
         home_path = Path.home()

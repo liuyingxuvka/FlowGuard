@@ -54,9 +54,7 @@ Each candidate carries a route code (`TOPOLOGY_ROUTE_*`) and a disposition
   confidence only after the models and tests that cover the hazard have been
   rerun and pass, and keep anything unproven listed as a gap.
 
-Pass the plan as `FlowGuardCheckPlan(topology_hazard_plan=..., usage_intent=...)`
-to get a topology section in `run_model_first_checks(...)`, or call
-`review_topology_hazards(...)` directly.
+Call `review_topology_hazards(...)` directly from model conformance or a test.
 
 Starter template (prints the files; add `--write .` to write them):
 

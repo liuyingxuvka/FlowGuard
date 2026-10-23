@@ -161,7 +161,7 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Lazily exposes current native APIs, including step tokens and branch seeds, without retired pack exports.",
+      "summary": "Lazily exposes native model-tree and computation APIs, with upgrade guidance for retired names.",
       "responsibilities": [
         "expose current public names from their owning modules without importing those modules early",
         "direct retired public API names to references/upgrade.md without changing public name resolution"
@@ -182,9 +182,7 @@
         "engine-conformance",
         "engine-core",
         "engine-explore",
-        "engine-path-quality",
         "engine-properties",
-        "engine-runner",
         "engine-scenarios",
         "field-lifecycle",
         "model-mesh",
@@ -200,7 +198,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dc1d5d22860325796a3823fb710366270ff9f91e9d2146a9fa93f989ff673b4f"
+      "fingerprint": "sha256:fe7fa5834f4b56818b6ab14730832c6e5dcb05680ecf4986a2a40d87d6c1a07d"
     },
     {
       "id": "templates",
@@ -390,7 +388,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:6de935591fadbdbbaf5cc6f44e91f8de7d0344351228e31be136f65d3d3d0875"
+      "fingerprint": "sha256:22080340d543dbadf742cc49e2b9c1364c8e833834a1023984fdd42299a9335a"
     },
     {
       "id": "field-lifecycle",
@@ -487,7 +485,6 @@
         "tests/test_model_test_binding_honesty.py",
         "tests/test_obligation_family.py",
         "tests/test_product_language_path_reuse.py",
-        "tests/test_step_contracts.py",
         "tests/test_code_boundary_conformance.py"
       ],
       "models": [],
@@ -855,40 +852,33 @@
     {
       "id": "engine-properties",
       "layer": "engine",
-      "summary": "Provides reusable invariants and workflow step-token contracts with unchanged prerequisite and claim ordering.",
+      "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
       "responsibilities": [
         "provide reusable invariants and contracts"
       ],
       "files": [
         "flowguard/checks.py",
         "flowguard/packs/*.py",
-        "flowguard/state_closure.py",
-        "flowguard/contract.py",
-        "flowguard/step_contracts.py"
+        "flowguard/contract.py"
       ],
       "entrypoints": [
-        "flowguard/state_closure.py:review_state_closure"
+        "flowguard/checks.py:at_most_once_by"
       ],
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-conformance",
         "engine-core",
         "engine-explore",
-        "engine-scenarios",
-        "model-test"
+        "engine-scenarios"
       ],
       "tests": [
-        "tests/test_audit.py",
         "tests/test_contract_core.py",
         "tests/test_packs.py",
-        "tests/test_property_factories.py",
-        "tests/test_runner.py",
-        "tests/test_state_closure.py"
+        "tests/test_property_factories.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a7a48d4f5c6cc87bc83a15f8a150d33e4c92eed4c1c7a8a2bb8715f3aa170425"
+      "fingerprint": "sha256:34d88b3651eeddfd0423d8e182cea0dd189bed7e95f4964dbef262681373fef4"
     },
     {
       "id": "engine-scenarios",
@@ -953,79 +943,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:551cc0619e1d5bec154be67601c95d7f58d51e2641c98367633f54ec787ff914"
-    },
-    {
-      "id": "engine-runner",
-      "layer": "engine",
-      "summary": "Runs check plans and selects validated branch seeds directly through bounded predicates; completion labels remain domain specific.",
-      "responsibilities": [
-        "run model-first check plans",
-        "summarise check results as sections, overall status and metadata"
-      ],
-      "files": [
-        "flowguard/runner.py",
-        "flowguard/formal_runner.py",
-        "flowguard/plan.py",
-        "flowguard/summary_report.py",
-        "flowguard/audit.py",
-        "flowguard/risk.py",
-        "flowguard/risk_templates.py",
-        "flowguard/template_packs.py"
-      ],
-      "entrypoints": [
-        "flowguard/runner.py:run_model_first_checks"
-      ],
-      "state": [],
-      "side_effects": [
-        "temporarily sets check environment; writes requested reports"
-      ],
-      "depends_on": [
-        "engine-core",
-        "engine-explore",
-        "engine-path-quality",
-        "engine-properties",
-        "engine-scenarios",
-        "topology-hazard"
-      ],
-      "tests": [
-        "tests/test_audit.py",
-        "tests/test_explorer_progress.py",
-        "tests/test_formal_runner.py",
-        "tests/test_risk_plan.py",
-        "tests/test_risk_templates.py",
-        "tests/test_route_scoped_template_seeds.py",
-        "tests/test_runner.py",
-        "tests/test_state_closure.py",
-        "tests/test_summary_report.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:63146344b79fc3e77bc59fac78b463057bc1a7b29fbf88d1f6400b0853dadef7"
-    },
-    {
-      "id": "engine-path-quality",
-      "layer": "engine",
-      "summary": "Finds unreachable, repeated and no-progress paths and checks native test-result bindings.",
-      "responsibilities": [
-        "find structural path defects in models",
-        "validate native model path-quality intake bindings"
-      ],
-      "files": [
-        "flowguard/model_path_quality.py"
-      ],
-      "entrypoints": [
-        "flowguard/model_path_quality.py:find_lightweight_findings"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [],
-      "tests": [
-        "tests/test_model_path_quality.py",
-        "tests/test_runner.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:25af26bfb3a4440af06443c12fddc24ba408968a7197aac89a3cdb74d86c6a83"
     },
     {
       "id": "problem-corpus",
@@ -1102,7 +1019,6 @@
       "files": [
         "flowguard/canonical_relation.py",
         "flowguard/_mesh_vocab.py",
-        "flowguard/_evidence_status.py",
         "flowguard/behavior_plane.py"
       ],
       "entrypoints": [],
@@ -1116,7 +1032,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ffd50d3a8fd5ec0f73a7fdce065a25d485a8edf8a52b71f7473c189bc43fea35"
+      "fingerprint": "sha256:a1da0da6d8e014955e656a3a74857bd34d0456aeb983d95f80c395240008edf7"
     }
   ],
   "flows": [
@@ -1174,18 +1090,5 @@
       ]
     }
   ],
-  "accepted_debts": [
-    {
-      "code": "layer_violation",
-      "component": "engine-properties",
-      "contains": "(model-test)",
-      "reason": "step_contracts projects step contracts into ModelTestAlignment obligations through a function-local import; move the projection into model-test when it is next changed"
-    },
-    {
-      "code": "layer_violation",
-      "component": "engine-runner",
-      "contains": "(topology-hazard)",
-      "reason": "the model-first runner adds an optional topology-hazard section; invert it into a section plug-in when the runner is next changed"
-    }
-  ]
+  "accepted_debts": []
 }
