@@ -120,7 +120,7 @@
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree",
-        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids"
+        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -155,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ee2232d17973c71606ab62cd6ee19b572479fd80fc5059e34a3be354463f3f76"
+      "fingerprint": "sha256:dc2c1ae7e5094de8c589c744eccbd8e9baa42525e9ef068336b86320c371e669"
     },
     {
       "id": "public-api",
@@ -694,7 +694,7 @@
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks"
+        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -725,7 +725,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:66259c652a80d2410c138b32945de685c0f4762b1ca22be5b0ad4dca3b5ea2df"
+      "fingerprint": "sha256:9ebde124e8d5ce8da31a4c4b042b72c9fcc8b7a8d8d6be4664d0bd802638046a"
     },
     {
       "id": "map-target",

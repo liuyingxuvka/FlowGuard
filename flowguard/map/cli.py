@@ -94,8 +94,21 @@ def cmd_discover(root: Path, a) -> int:
 
 def cmd_show(root: Path, a) -> int:
     data, inv = _context(root, with_bodies=False)
-    text = render_mermaid(root, data, inv, component=a.component) if getattr(a, "mermaid", False) else render_show(
-        root, data, inv, component=a.component, detail=a.detail, budget=a.budget)
+    target = None
+    if getattr(a, "target", False):
+        try:
+            target = load_target(root)
+            if target is None:
+                print('no target; start one with python -m flowguard target start "<goal>"')
+                return 1
+            if validate_target(root, data, target):
+                raise MapError("invalid target")
+        except (OSError, ValueError, TypeError, SyntaxError, MapError):
+            print("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
+            return 1
+    options = {"target": target} if target is not None else {}
+    text = render_mermaid(root, data, inv, component=a.component, **options) if getattr(a, "mermaid", False) else render_show(
+        root, data, inv, component=a.component, detail=a.detail, budget=a.budget, **options)
     print(text)
     return 1 if text.startswith("no component") else 0
 
@@ -316,6 +329,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("show"); s.add_argument("--component"); s.add_argument("--detail", action="store_true")
     s.add_argument("--budget", type=int, default=8000, help="max characters printed")
     s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
+    s.add_argument("--target", action="store_true", help="show the target's node-by-node changes")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s.add_argument("--max-lines", type=int, default=60, help="max outline lines per file")

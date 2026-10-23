@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `read --target` and `read --mermaid --target` show what the target adds, changes and removes, node by node; component details include the previous values of changed facets.
+
 - While a target exists, `change` reports its remaining static work and marks breakage of replaced nodes as `moving to target`; unplanned breakage stays an error, and `release` warns about the unfinished target.
 
 - `python -m flowguard target check` checks real code against the current tree with the target applied, including bound tests. Target design mistakes are errors; code and tests still needed are TO-DO lines. Each check uses fresh results and leaves project files and caches unchanged.

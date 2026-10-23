@@ -9,7 +9,7 @@ from pathlib import Path
 from .common import matches_any, read_source
 from .inventory import Inventory
 from .lint import _variants
-from .mapfile import component_files, is_stale
+from .mapfile import component_files, is_stale, resolve_model_path
 
 
 @dataclass(frozen=True)
@@ -42,10 +42,13 @@ def _returned_dicts(function):
     return returned
 
 
-def model_facets(root: Path, node) -> Facets:
+def model_facets(root: Path, node, *, view=None) -> Facets:
     contract = node.contract
     try:
-        syntax = ast.parse(read_source(root / node.path))
+        path = resolve_model_path(root, node.path, view=view)
+        if path is None:
+            raise FileNotFoundError(node.path)
+        syntax = ast.parse(read_source(path))
     except (OSError, SyntaxError):
         syntax = ast.Module(body=[], type_ignores=[])
     doc = ast.get_docstring(syntax)

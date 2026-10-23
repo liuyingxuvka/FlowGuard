@@ -780,3 +780,160 @@ def test_target_keeps_ambiguous_test_command_blocked(tmp_path, capsys):
     code, output, errors = _run(root, capsys, "change", "shelf/loans.py")
     assert code == 1 and not errors, (output, errors)
     assert any(line.startswith("BLOCKED ") and expected in line for line in output.splitlines()), output
+
+
+def _static_target_read(root: Path, capsys, monkeypatch, *arguments: str):
+    from flowguard.map import check, lint, proof, target
+    from flowguard.map import cli as map_cli
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("read must use static source facts, not import models or run a checker")
+
+    # Fixture confirmation is already complete. These guards cover one read only.
+    with monkeypatch.context() as scoped:
+        for name in ("run_models", "run_model", "run_model_in_process", "_load"):
+            scoped.setattr(proof, name, forbidden)
+        scoped.setattr(check, "run_check", forbidden)
+        scoped.setattr(map_cli, "run_check", forbidden)
+        scoped.setattr(lint, "run_lint", forbidden)
+        scoped.setattr(target, "check_target", forbidden)
+        scoped.setattr(map_cli, "check_target", forbidden)
+        return _run(root, capsys, *arguments)
+
+
+def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root)
+    model = directory / "models/lending.py"
+    source = model.read_text(encoding="utf-8")
+    first_line = source.splitlines()[0]
+    model.write_text(source.replace(first_line, '"""Target-only reservation policy.', 1)
+                     + '\nraise AssertionError("a read imported the target model")\n', encoding="utf-8")
+    current_bytes = (root / ".flowguard/models/lending.py").read_bytes()
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and not errors and len(output.rstrip("\n")) <= 8000, (output, errors)
+    for text in ("## ~ loans", "~ model lending", "rules + no_idle_copy_while_held",
+                 "known-bad + return_ignores_holds", "code + Hold -> shelf/loans.py:LoanService.hold",
+                 "tests + no_idle_copy_while_held -> tests/test_loans.py:test_hold_gets_returned_copy",
+                 "state + holds per book in order", "unchanged: 3 component(s)"):
+        assert text in output, (text, output)
+    assert "Target-only reservation policy." in output
+    assert "## catalog" not in output and "## members" not in output
+
+    code, detail, errors = _static_target_read(root, capsys, monkeypatch,
+                                              "read", "--target", "--component", "loans")
+    assert code == 0 and not errors, (detail, errors)
+    component, model_text = detail.split("model lending:", 1)
+    labels = ("purpose:", "rules:", "known-bad:", "code:", "tests:")
+    for section in (component, model_text):
+        positions = [section.index(label) for label in labels]
+        assert positions == sorted(positions), section
+    # The component purpose is unchanged, while the model purpose really differs.
+    for section, changed_purpose in ((component, False), (model_text, True)):
+        purpose = section.split("purpose:", 1)[1].split("rules:", 1)[0]
+        assert ("was:" in purpose) == changed_purpose, purpose
+    assert "was:" in component.split("rules:", 1)[1].split("known-bad:", 1)[0]
+    assert "was:" in model_text.split("known-bad:", 1)[1].split("code:", 1)[0]
+    assert "was:" in model_text.split("tests:", 1)[1]
+    code, current, errors = _static_target_read(root, capsys, monkeypatch,
+                                               "read", "--component", "loans")
+    assert code == 0 and not errors, (current, errors)
+    assert "no_idle_copy_while_held" not in current and "return_ignores_holds" not in current
+    assert "Target-only reservation policy." not in current
+    assert (root / ".flowguard/models/lending.py").read_bytes() == current_bytes
+
+
+def test_read_target_added_removed_flows_and_mermaid_use_real_node_identity(tmp_path, capsys, monkeypatch):
+    import re
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root)
+    path = directory / "map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"].extend(json.loads(SHELF_TARGET["map_reports.json"])["components"])
+    data["remove"] = ["component:cli"]
+    data["flows"] = [
+        {"id": "borrow", "summary": "Borrow with future holds.", "steps": ["loans:LoanService.hold"]},
+        {"id": "overdue", "summary": "List overdue loans.", "steps": ["reports:overdue"]}]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and not errors, (output, errors)
+    for text in ("## + reports", "## - cli", "(removed by the target)", "> ~ flow borrow:", "> + flow overdue:"):
+        assert text in output, (text, output)
+    removed = output.split("## - cli", 1)[1].split("\n## ", 1)[0]
+    assert "purpose:" not in removed and "changes:" not in removed
+    code, diagram, errors = _static_target_read(root, capsys, monkeypatch,
+                                               "read", "--mermaid", "--target")
+    assert code == 0 and not errors and diagram.startswith("flowchart TD\n"), (diagram, errors)
+    for style in ("added", "changed", "removed"):
+        assert f"classDef {style} " in diagram
+    assert "stroke-dasharray" in next(line for line in diagram.splitlines() if "classDef removed " in line)
+    # Resolve IDs from actual definitions, rather than assume the renderer's sanitizer.
+    def component_id(label):
+        matches = re.findall(r'^\s*(\w+)\["' + re.escape(label) + r'<br/>[^"\n]*"\]', diagram, re.M)
+        assert len(matches) == 1, (label, diagram)
+        return matches[0]
+    loans, reports, removed_cli = (component_id(label) for label in ("loans", "reports", "cli"))
+    models = re.findall(r'^\s*(\w+)\(\["model lending<br/>[^"\n]*"\]\)', diagram, re.M)
+    assert len(models) == 1, diagram
+    lending = models[0]
+    for node, style in ((loans, "changed"), (lending, "changed"), (reports, "added"), (removed_cli, "removed")):
+        assert any(line.strip().rstrip(";") == f"class {node} {style}" for line in diagram.splitlines()), diagram
+    assert f"{loans} --> {lending}" in diagram
+    assert f"root_system --> {reports}" in diagram
+    code, focused, errors = _static_target_read(root, capsys, monkeypatch,
+        "read", "--target", "--mermaid", "--component", "loans")
+    assert code == 0 and "model lending" in focused and not errors, (focused, errors)
+    assert "reports<br/>" not in focused and "cli<br/>" not in focused
+
+
+def test_read_target_comments_do_not_invent_facet_changes(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = root / ".flowguard/target"
+    (directory / "models").mkdir(parents=True)
+    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "explain lending",
+        "components": [], "flows": [], "remove": []}), encoding="utf-8")
+    (directory / "models/lending.py").write_text(
+        SHELF_BASE[".flowguard/models/lending.py"] + "\n# Explanation only, no declared fact changed.\n", encoding="utf-8")
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and "model lending" in output and not errors, (output, errors)
+    assert "changes:" not in output and "was:" not in output
+    (directory / "models/lending.py").unlink()
+    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "retire lending",
+        "components": [], "flows": [], "remove": ["component:loans", "model:lending"]}), encoding="utf-8")
+    code, removed, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and not errors, (removed, errors)
+    assert "## - loans" in removed and "\n  - model lending:" in removed, removed
+    assert removed.count("(removed by the target)") == 2, removed
+    assert not any(label in removed for label in ("purpose:", "rules:", "known-bad:", "code:", "tests:")), removed
+
+
+@pytest.mark.parametrize("state", ["absent", "invalid"])
+def test_read_target_absent_or_invalid_is_not_a_current_view(tmp_path, capsys, monkeypatch, state):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    if state == "invalid":
+        directory = root / ".flowguard/target"
+        directory.mkdir()
+        (directory / "map.json").write_text("{", encoding="utf-8")
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 1, (output, errors)
+    text = output + errors
+    if state == "absent":
+        assert 'no target; start one with python -m flowguard target start "<goal>"' in text
+    else:
+        assert "target: .flowguard/target/map.json is invalid" in text
+    assert "## loans" not in output
+
+
+def test_read_target_conflicts_only_with_find(tmp_path, capsys, monkeypatch):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    with pytest.raises(SystemExit) as error:
+        _static_target_read(root, capsys, monkeypatch, "read", "--target", "--find", "loans")
+    assert error.value.code == 2
+    capsys.readouterr()

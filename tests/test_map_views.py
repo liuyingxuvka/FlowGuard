@@ -262,3 +262,78 @@ def broken_variants():
     unknown = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert '(? rules, ? known-bad, 0 tests)' in unknown
     assert not {'facet_app', 'facet_parent', 'facet_child', '_flowguard_model_facet_parent', '_flowguard_model_facet_child'} & set(sys.modules)
+
+
+def test_target_show_keeps_current_character_budgets_without_running_checks(tmp_path, monkeypatch):
+    from flowguard.map import check, lint, proof, target
+    from flowguard.map.targetfile import Target
+
+    data = dict(project='budget-demo', layers=['domain'], components=[
+        dict(_component('alpha', summary='Original purpose', responsibilities=['serve alpha']), layer='domain'),
+        dict(_component('beta', summary='Unchanged purpose', responsibilities=['serve beta']), layer='domain')],
+        flows=[dict(id='request', summary='request to alpha', steps=['alpha:run'])])
+    replacement = dict(data['components'][0], summary='A changed purpose ' + 'x' * 12000)
+    replacement.pop('status')
+    replacement.pop('fingerprint')
+    draft = Target('explain alpha', dict(schema='flowguard.target.v1', goal='explain alpha',
+        components=[replacement], flows=[], remove=[]), {}, {'component': set(), 'flow': set(), 'model': set()})
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('a target read must not execute models or checks')
+
+    with monkeypatch.context() as scoped:
+        for name in ('run_models', 'run_model', 'run_model_in_process', '_load'):
+            scoped.setattr(proof, name, forbidden)
+        scoped.setattr(check, 'run_check', forbidden)
+        scoped.setattr(lint, 'run_lint', forbidden)
+        scoped.setattr(target, 'check_target', forbidden)
+        full = render_show(tmp_path, data, _inventory(tmp_path), component=None, detail=False,
+                           budget=8000, target=draft)
+        assert len(full) <= 8000 and 'target:' in full
+        for budget in (0, 80, 260):
+            bounded = render_show(tmp_path, data, _inventory(tmp_path), component=None, detail=False,
+                                  budget=budget, target=draft)
+            assert len(bounded) <= budget
+            if budget == 260:
+                assert 'truncated' in bounded
+
+
+def test_target_snapshots_keep_their_own_inventory_classification(tmp_path, monkeypatch):
+    from flowguard.map import check, lint, proof, target
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import component_graph
+    from flowguard.map.targetfile import Target
+
+    (tmp_path / 'test_reclassified.py').write_text('def test_live():\n    raise AssertionError("read executed a test")\n')
+    (tmp_path / 'resource.txt').write_text('exact code resource\n')
+    component = dict(_component('alpha', summary='Own an explicit code resource', responsibilities=['serve alpha']),
+                     files=['test_reclassified.py', 'resource.txt'], tests=['test_reclassified.py'])
+    data = dict(project='classification', components=[component], flows=[])
+    replacement = {key: value for key, value in component.items() if key not in {'status', 'fingerprint'}}
+    replacement['files'] = []
+    draft = Target('use the Python file as a test', dict(schema='flowguard.target.v1', goal='use the Python file as a test',
+        components=[replacement], flows=[], remove=[]), {}, {'component': set(), 'flow': set(), 'model': set()})
+    inventory = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    component_graph(data, inventory)
+    assert len(inventory.source) == 2 and not inventory.tests
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('a target read must not execute models or checks')
+
+    with monkeypatch.context() as scoped:
+        for name in ('run_models', 'run_model', 'run_model_in_process', '_load'):
+            scoped.setattr(proof, name, forbidden)
+        scoped.setattr(check, 'run_check', forbidden)
+        scoped.setattr(lint, 'run_lint', forbidden)
+        scoped.setattr(target, 'check_target', forbidden)
+        detail = render_show(tmp_path, data, inventory, component='alpha', detail=True, budget=8000, target=draft)
+        assert 'tests: 1 files: test_reclassified.py; 1 functions, 0 bound' in detail, detail
+        assert 'was: 0 files: -; 0 functions, 0 bound' in detail, detail
+        system = render_show(tmp_path, data, inventory, component='system', detail=True, budget=8000, target=draft)
+        assert 'code: 1 components, 1 source files' in system, system
+        assert 'was: 1 components, 2 source files' in system, system
+        assert 'tests: 1 files: test_reclassified.py; 1 functions, 0 bound' in system, system
+        assert 'was: 0 files: -; 0 functions, 0 bound' in system, system
+        assert '(+0 ~1 -0 nodes)' in system, system
+    assert len(inventory.source) == 1 and inventory.tests == ['test_reclassified.py']

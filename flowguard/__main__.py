@@ -36,6 +36,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         group.add_argument("--component", help="show one component in detail")
         group.add_argument("--find", nargs="+", metavar="WORD", help="which component owns this responsibility")
         p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
+        p.add_argument("--target", action="store_true", help="show changes made by the target (incompatible with --find)")
     elif verb == "change":
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
@@ -118,6 +119,8 @@ def main(argv: list[str] | None = None) -> int:
     ns = parser.parse_args(rest)
     if verb == "read" and ns.mermaid and ns.find:
         parser.error("--mermaid cannot be used with --find")
+    if verb == "read" and ns.target and ns.find:
+        parser.error("--target cannot be used with --find")
     if verb == "template":
         return _template(ns)
     root = ["--root", ns.root]
@@ -130,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
         if ns.find:
             return map_main([*root, "find", *ns.find])
         return map_main([*root, "show", *(["--component", ns.component] if ns.component else []),
-                         *(["--mermaid"] if ns.mermaid else [])])
+                         *(["--mermaid"] if ns.mermaid else []), *(["--target"] if ns.target else [])])
     if verb == "change":
         from .map.cli import cmd_change
         from .map.mapfile import MapError

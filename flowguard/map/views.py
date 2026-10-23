@@ -13,7 +13,7 @@ from .facets import _test_function_index, component_facets, model_facets, system
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
 from .mapfile import MapError, component_files, component_graph, is_stale, owner_index
-from .targetfile import load_target, target_node_changes, validate_target
+from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
 
 def _architecture(data: dict, graph: dict[str, set[str]]):
@@ -45,7 +45,8 @@ def _count(value):
     return "?" if value is None else str(value)
 
 
-def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, bindings: bool = False) -> list[str]:
+def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, bindings: bool = False,
+                 changes=None, previous=None) -> list[str]:
     roots = sorted((tree.nodes[mid] for mid in ids if tree.nodes[mid].parent_kind != "model"
                     or tree.nodes[mid].parent not in ids), key=lambda n: n.id)
     pending, lines = [(node, 1) for node in reversed(roots)], []
@@ -55,16 +56,183 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
         purpose = fact.purpose[:50] + ("…" if len(fact.purpose) > 50 else "")
         home = f" (home {node.home})" if component and (node.home_kind != "component" or node.home != component) else ""
         kind = " [runner]" if node.kind == "runner" else ""
-        lines.append("  " * depth + f"model {node.id}: {purpose} "
+        mark = changes.get(("model", node.id), "") if changes is not None else ""
+        prefix = mark + " " if mark else ""
+        lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
                      f"({_count(fact.rule_count)} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests){kind}{home}")
-        if bindings:
+        before = previous.get(("model", node.id)) if previous is not None else None
+        if mark == "-":
+            lines[-1] += " (removed by the target)"
+        elif changes is not None and bindings:
+            lines.extend(_facet_lines_with_was(fact, before[1] if before else None, "  " * (depth + 1)))
+        elif bindings:
             lines.extend(_facet_lines(fact, "  " * (depth + 1)))
+        elif changes is not None and mark:
+            delta = _node_delta("model", before, (node, fact))
+            if delta:
+                lines.append("  " * (depth + 1) + "changes: " + "; ".join(delta))
         pending.extend((child, depth + 1) for child in reversed(tree.children(node.id, "model")) if child.id in ids)
     return lines
 
 
-def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int) -> str:
+def _facet_lines_with_was(fact, before, indent):
+    lines, old = [], _facet_lines(before, "") if before is not None else []
+    for index, line in enumerate(_facet_lines(fact, "")):
+        lines.append(indent + line)
+        if old and line != old[index]:
+            lines.append(indent + "was: " + old[index].partition(": ")[2])
+    return lines
+
+
+def _node_fields(kind, record):
+    node, fact = record
+    fields = {"purpose": (fact.purpose,), "rules": fact.rules or ("built at run time",),
+              "known-bad": fact.known_bad or (("built at run time",) if fact.known_bad_count is None else ()),
+              "code": tuple(value for value in fact.code if value != "STALE"), "tests": fact.tests}
+    if kind == "component":
+        fields["code"] = tuple(value for value in fields["code"]
+                               if not value.startswith(("entry: ", "state: ", "effects: "))) + tuple(node.get("entrypoints", []))
+        fields["state"] = tuple(node.get("state", []))
+        fields["effects"] = tuple(node.get("side_effects", []))
+        for field, label in (("files", "files"), ("depends_on", "uses"), ("tests", "tests"), ("layer", "layer")):
+            value = node.get(field, []) if field != "layer" else (node.get(field) or "unlayered",)
+            fields[label] = tuple(dict.fromkeys((*fields.get(label, ()), *value)))
+    elif kind == "model":
+        fields["parent"] = ("system" if node.parent_kind == "system" else f"{node.parent_kind} {node.parent}",)
+        fields["file"] = (node.path,)
+    return fields
+
+
+def _node_delta(kind, before, after):
+    old = _node_fields(kind, before) if before else {}
+    new = _node_fields(kind, after) if after else {}
+    parts = []
+    for label in dict.fromkeys([*new, *old]):
+        for sign, values, other in (("+", new.get(label, ()), old.get(label, ())),
+                                    ("-", old.get(label, ()), new.get(label, ()))):
+            for value in values:
+                if value not in other:
+                    shown_label, shown_value = label, value
+                    if label == "code" and value.startswith("state: "):
+                        shown_label, shown_value = "state", value[7:]
+                    parts.append(f"{shown_label} {sign} {shown_value}")
+    return parts
+
+
+def _target_comparison(root, data, inv, target):
+    view = build_target_view(root, data, target)
+
+    def snapshot(mapping, selected_view=None):
+        tree = build_tree(root, mapping, inv, view=selected_view)
+        graph = component_graph(mapping, inv)
+        functions = _test_function_index(root, inv)
+        records = {("component", c["id"]): (c, component_facets(root, mapping, inv, c, tree, graph, functions))
+                   for c in mapping["components"]}
+        records.update({("model", mid): (node, model_facets(root, node, view=selected_view))
+                        for mid, node in tree.nodes.items()})
+        return tree, graph, records, system_facets(mapping, inv, tree, graph, functions)
+
+    old_tree, _, old, old_system = snapshot(data)
+    tree, graph, new, new_system = snapshot(view.data, view)
+    changes = {key: "+" if key not in old else "-" if key not in new else "~"
+               for key in old.keys() | new.keys()
+               if key not in old or key not in new or _node_delta(key[0], old[key], new[key])}
+    old_flows = {f["id"]: f for f in data.get("flows", [])}
+    new_flows = {f["id"]: f for f in view.data.get("flows", [])}
+    changes.update({("flow", fid): "+" if fid not in old_flows else "-" if fid not in new_flows else "~"
+                    for fid in old_flows.keys() | new_flows.keys()
+                    if old_flows.get(fid) != new_flows.get(fid)})
+    # Draft presence is visible even when all five facets still match today.
+    # Added/removed identities still come from the actual two trees, not filenames.
+    for entries in target_node_changes(root, data, target).values():
+        for entry in entries:
+            kind, identity = entry.split(":", 1)
+            key = (kind, identity)
+            if key in old and key in new or kind == "flow" and identity in old_flows and identity in new_flows:
+                changes.setdefault(key, "~")
+    return view, old_tree, tree, old, new, changes, graph, old_system, new_system
+
+
+def _show_header(data, graph, *, architecture=None, debts=None):
+    if architecture is None:
+        architecture, debts, _ = _architecture(data, graph)
+    head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
+    head += ", layers (top > bottom) " + " > ".join(data["layers"]) if data.get("layers") else ", layers: none"
+    return head + f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
+
+
+def _render_target_show(root, data, inv, target, *, component, detail, budget):
+    view, old_tree, tree, old, new, changes, graph, old_system, new_system = _target_comparison(root, data, inv, target)
+    merged = view.data
+    component_ids = {cid for kind, cid in old.keys() | new.keys() if kind == "component"}
+    if component and component != "system":
+        component_ids = {cid for cid in component_ids if cid == component or cid.startswith(component + ".")}
+        if not component_ids:
+            return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
+    elif component == "system":
+        component_ids = set()
+    counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
+    lines = [_show_header(merged, graph),
+             f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)']
+    if not component:
+        flows = {f["id"]: f for f in [*data.get("flows", []), *merged.get("flows", [])]}
+        for kind, fid in sorted(changes):
+            if kind == "flow":
+                flow = flows[fid]
+                lines.append(f'> {changes[(kind, fid)]} flow {fid}: {flow.get("summary", "")} :: '
+                             + " -> ".join(flow.get("steps", []))
+                             + (f" model: {flow['model']}" if flow.get("model") else "")
+                             + (" (removed by the target)" if changes[(kind, fid)] == "-" else ""))
+    essential = "\n".join(lines)
+    model_data = {mid: record[1] for (kind, mid), record in new.items() if kind == "model"}
+    old_model_data = {mid: record[1] for (kind, mid), record in old.items() if kind == "model"}
+    roots = {mid for mid, node in tree.nodes.items() if node.home_kind == "system" and ("model", mid) in changes}
+    top = essential
+    if component is None or component == "system":
+        if component == "system":
+            top += "\n" + "\n".join(_facet_lines_with_was(new_system, old_system, "  "))
+        top += "\n" + "\n".join(_model_lines(tree, roots, model_data, bindings=bool(component or detail), changes=changes, previous=old))
+        removed_roots = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "system" and changes.get(("model", mid)) == "-"}
+        top += "\n" + "\n".join(_model_lines(old_tree, removed_roots, old_model_data, changes=changes, previous=old))
+    blocks = []
+    for cid in sorted(component_ids):
+        key = ("component", cid)
+        before, after = old.get(key), new.get(key)
+        ids = {mid for mid, node in tree.nodes.items() if node.home_kind == "component" and node.home == cid and ("model", mid) in changes}
+        removed = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "component" and node.home == cid and changes.get(("model", mid)) == "-"}
+        if not component and key not in changes and not ids and not removed:
+            continue
+        record = after or before
+        comp, fact = record
+        mark = changes.get(key, "")
+        heading = f"\n## {mark + ' ' if mark else ''}{cid} [{comp.get('layer') or '-'}] {fact.code[0]}, {fact.rule_count} rules"
+        if mark == "-":
+            removed_lines = _model_lines(old_tree, removed, old_model_data, changes=changes, previous=old)
+            blocks.append((cid, "\n".join([heading + " (removed by the target)", *removed_lines])))
+            continue
+        body = [heading]
+        if component or detail:
+            body.extend(_facet_lines_with_was(fact, before[1] if before else None, "  "))
+            ids = {node.id for node in tree.models_for_component(cid)}
+        else:
+            body.append("  " + fact.purpose[:90] + ("…" if len(fact.purpose) > 90 else ""))
+            delta = _node_delta("component", before, after)
+            if delta:
+                body.append("  changes: " + "; ".join(delta))
+        body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
+                                 bindings=bool(component or detail), changes=changes, previous=old))
+        body.extend(_model_lines(old_tree, removed, old_model_data, changes=changes, previous=old))
+        blocks.append((cid, "\n".join(body)))
+    if component is None:
+        unchanged = sum(("component", c["id"]) not in changes for c in data["components"])
+        blocks.append(("unchanged", f"unchanged: {unchanged} component(s); python -m flowguard read shows them"))
+    return _bounded_show(top, essential, blocks, budget)
+
+
+def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int, target=None) -> str:
     budget = max(0, budget)
+    if target is not None:
+        return _render_target_show(root, data, inv, target, component=component, detail=detail, budget=budget)
     graph = component_graph(data, inv)
     tree = build_tree(root, data, inv)
     model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
@@ -78,12 +246,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         if not comps:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
     architecture, debts, problems = _architecture(data, graph)
-    head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
-    if data.get("layers"):
-        head += ", layers (top > bottom) " + " > ".join(data["layers"])
-    else:
-        head += ", layers: none"
-    head += f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
+    head = _show_header(data, graph, architecture=architecture, debts=debts)
     model_ids = {node.path: node.id for node in tree.nodes.values()}
     flows = [] if component else [
         f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
@@ -138,6 +301,10 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         lines.extend(_model_lines(tree, models, model_data, component=c["id"] if component or detail else None,
                                   bindings=bool(component or detail)))
         blocks.append((c["id"], "\n".join(lines)))
+    return _bounded_show(top, essential, blocks, budget)
+
+
+def _bounded_show(top, essential, blocks, budget):
     text = top + "\n" + "\n".join(b for _, b in blocks)
     if len(text) <= budget:
         return text
@@ -163,19 +330,35 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     return (shown + f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID")[:budget]
 
 
-def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | None = None) -> str:
+def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | None = None, target=None) -> str:
     """Export the same home/parent tree, with no dependency hairball or text budget."""
-    comps = [c for c in data["components"] if component is None or c["id"] == component]
+    changes, old, new = {}, {}, {}
+    if target is not None:
+        view, old_tree, tree, old, new, changes, graph, _, _ = _target_comparison(root, data, inv, target)
+        data = view.data
+        all_comps = [*data["components"], *[record[0] for key, record in old.items()
+                                         if key[0] == "component" and changes.get(key) == "-"]]
+    else:
+        all_comps = data["components"]
+    comps = [c for c in all_comps if component is None or c["id"] == component]
     if component and not comps:
         return f"no component {component!r}; run 'python -m flowguard read' to list components"
-    tree = build_tree(root, data, inv)
-    model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
-    graph = component_graph(data, inv)
-    functions = _test_function_index(root, inv)
-    component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions) for c in comps}
+    if target is None:
+        tree = build_tree(root, data, inv)
+        model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
+        graph = component_graph(data, inv)
+        functions = _test_function_index(root, inv)
+        component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions) for c in comps}
+    else:
+        records = {**old, **new}
+        model_data = {mid: record[1] for (kind, mid), record in records.items() if kind == "model"}
+        component_data = {c["id"]: records[("component", c["id"])][1] for c in comps}
     _, _, problems = _architecture(data, graph)
     homes = {c["id"] for c in comps}
-    models = [node for node in tree.nodes.values() if
+    all_models = list(tree.nodes.values())
+    if target is not None:
+        all_models.extend(record[0] for key, record in old.items() if key[0] == "model" and changes.get(key) == "-")
+    models = [node for node in all_models if
               (node.home_kind == "component" and node.home in homes) or
               (component is None and node.home_kind == "system")]
     used = set()
@@ -194,7 +377,8 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
 
     components = {c["id"]: identifier("c_", c["id"]) for c in comps}
     model_ids = {node.id: identifier("m_", node.id) for node in sorted(models, key=lambda n: n.id)}
-    lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {len(comps)} components"]']
+    count = sum(("component", c["id"]) in new for c in comps) if target is not None else len(comps)
+    lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {count} components"]']
     declared_layers = data.get("layers", []) if component is None else []
     groups = list(dict.fromkeys([*declared_layers, *[c.get("layer", "") for c in comps]]))
     for index, layer in enumerate(groups):
@@ -219,6 +403,14 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         else:
             parent = "root_system"
         lines.append(f"  {parent} --> {model_ids[node.id]}")
+    if target is not None:
+        lines.extend(["  classDef added fill:#e6ffed,stroke:#22863a", "  classDef changed fill:#fff5b1,stroke:#b08800",
+                      "  classDef removed fill:#ffeef0,stroke:#cb2431,stroke-dasharray:5 5"])
+        for kind, identities in (("component", components), ("model", model_ids)):
+            for name, identity in identities.items():
+                style = {"+": "added", "~": "changed", "-": "removed"}.get(changes.get((kind, name)))
+                if style:
+                    lines.append(f"  class {identity} {style}")
     return "\n".join(lines)
 
 
