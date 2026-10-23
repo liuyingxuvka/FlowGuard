@@ -3463,159 +3463,14 @@ def scenario_matrix_to_contract_cases(
     return tuple(result)
 
 
-def family_bad_case_seed_to_contract_cases(
-    family: Any,
-    seed: Any,
-    *,
-    source_route: str = "obligation_family_parity",
-) -> tuple[ContractMutationCase, ...]:
-    """Project same-class derived bad cases into ContractExhaustion cases."""
-
-    from .obligation_family import derive_same_class_bad_cases
-
-    result: list[ContractMutationCase] = []
-    for case in derive_same_class_bad_cases(family, seed):
-        result.append(
-            ContractMutationCase(
-                case_id=_case_id("same_class", case.case_id),
-                mutation_type=CONTRACT_MUTATION_SAME_CLASS_CASE,
-                source_route=source_route,
-                source_case_id=case.source_case_id or case.case_id,
-                expected_status=case.expected_status,
-                family_id=case.family_id,
-                member_id=case.member_id,
-                required_routes=(
-                    CONTRACT_ROUTE_OBLIGATION_FAMILY,
-                    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                    CONTRACT_ROUTE_TEST_MESH,
-                ),
-                description=case.description,
-                metadata={
-                    "mechanism_id": case.mechanism_id,
-                    "failure_mode": case.failure_mode,
-                    "source_member_id": case.source_member_id,
-                    "affected_model_ids": list(getattr(case, "affected_model_ids", ())),
-                    "root_cause_dimension_ids": list(getattr(case, "root_cause_dimension_ids", ())),
-                    "interaction_group_ids": list(getattr(case, "interaction_group_ids", ())),
-                    "observed_combination_case_id": str(getattr(case, "observed_combination_case_id", "")),
-                    "generated_combination_case_ids": list(getattr(case, "generated_combination_case_ids", ())),
-                    **dict(case.metadata),
-                },
-            )
-        )
-    return tuple(result)
-
-
-def artifact_payload_cases_to_contract_cases(
-    payload_contract: Any,
-    *,
-    source_route: str = "artifact_payload",
-) -> tuple[ContractMutationCase, ...]:
-    """Project artifact payload contract cases into normalized bad cases."""
-
-    result: list[ContractMutationCase] = []
-    contract_id = str(getattr(payload_contract, "payload_contract_id", ""))
-    for case in getattr(payload_contract, "cases", ()):
-        expected_status = str(getattr(case, "expected_status", "") or "")
-        mutation_type = (
-            CONTRACT_MUTATION_CONFLICTING_PAYLOAD
-            if expected_status == "rejected"
-            else CONTRACT_MUTATION_MISSING_BODY
-        )
-        result.append(
-            ContractMutationCase(
-                case_id=_case_id("payload", contract_id, getattr(case, "case_id", "")),
-                dimension_id=contract_id,
-                mutation_type=mutation_type,
-                source_route=source_route,
-                source_case_id=str(getattr(case, "case_id", "")),
-                required=bool(getattr(case, "required", True)),
-                expected_status=(
-                    CONTRACT_ORACLE_BLOCK_BEFORE_DOWNSTREAM
-                    if expected_status == "rejected"
-                    else CONTRACT_ORACLE_PASS_ALLOWED
-                ),
-                input_delta={
-                    "expected_output": str(getattr(case, "expected_output", "")),
-                    "expected_error_path": str(getattr(case, "expected_error_path", "")),
-                    "round_trip_required": bool(getattr(case, "round_trip_required", False)),
-                },
-                required_routes=(
-                    CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-                    CONTRACT_ROUTE_TEST_MESH,
-                ),
-                description=str(getattr(case, "description", "")),
-                metadata={
-                    "payload_contract_id": contract_id,
-                    "payload_surface": str(getattr(payload_contract, "payload_surface", "")),
-                    "payload_kind": str(getattr(payload_contract, "payload_kind", "")),
-                },
-            )
-        )
-    return tuple(result)
 
 
 
 
 
 
-def contract_exhaustion_to_model_obligations(report: ContractExhaustionReport) -> tuple[Any, ...]:
-    """Project generated cases into Model-Test Alignment obligations."""
 
-    from .model_test_alignment import (
-        TEST_KIND_NEGATIVE_PATH,
-        TEST_KIND_REPLAY,
-        ModelObligation,
-    )
 
-    obligations: list[Any] = []
-    for case in report.generated_cases:
-        if CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT not in case.routes():
-            continue
-        required_test_kinds = (TEST_KIND_REPLAY,) if case.required_test_cell_id else (TEST_KIND_NEGATIVE_PATH,)
-        external_inputs = tuple(
-            value
-            for value in (
-                case.mutation_type,
-                *case.axis_case_ids,
-                case.interaction_group_id,
-            )
-            if str(value)
-        )
-        obligations.append(
-            ModelObligation(
-                f"contract_exhaustion:{case.case_id}",
-                obligation_type=CONTRACT_EXHAUSTION_ROUTE,
-                description=case.description or case.mutation_type,
-                required=case.required,
-                required_test_kinds=required_test_kinds,
-                risk_level="high",
-                external_inputs=external_inputs,
-                external_outputs=(case.expected_status,),
-                error_paths=(case.expected_status,),
-                exact_external_contract=True,
-                required_runtime_node_ids=tuple(
-                    str(value)
-                    for value in (
-                        case.metadata.get("runtime_node_id", ""),
-                    )
-                    if str(value)
-                ),
-                relation_ids=_metadata_values(
-                    case.metadata,
-                    "relation_ids",
-                ),
-                relation_test_obligation_ids=_metadata_values(
-                    case.metadata,
-                    "relation_test_obligation_ids",
-                ),
-                relation_impacted_model_ids=_metadata_values(
-                    case.metadata,
-                    "affected_model_ids",
-                ),
-            )
-        )
-    return tuple(obligations)
 
 
 def contract_exhaustion_to_test_mesh_cell_ids(report: ContractExhaustionReport) -> tuple[str, ...]:
@@ -3776,17 +3631,14 @@ __all__ = (
     "ContractProductSignature",
     "ObservedProblemBackfeed",
     "ObservedProblemBackfeedReport",
-    "artifact_payload_cases_to_contract_cases",
     "build_contract_product_signature",
     "contract_fault_profiles_from_report",
     "contract_exhaustion_features",
     "contract_exhaustion_to_composite_handoff_acceptance_ids",
-    "contract_exhaustion_to_model_obligations",
     "contract_exhaustion_to_risk_gate_ids",
     "contract_exhaustion_to_test_mesh_cell_ids",
     "contract_exhaustion_to_test_mesh_shard_ids",
     "execute_contract_features",
-    "family_bad_case_seed_to_contract_cases",
     "review_contract_exhaustion",
     "review_observed_problem_backfeed",
     "scenario_matrix_to_contract_cases",

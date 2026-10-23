@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import importlib.util
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import flowguard
+
 import pytest
 
 from flowguard.pytest_shards import (
@@ -69,3 +76,40 @@ def test_aggregate_requires_exact_union_and_preserves_native_counters():
 
     with pytest.raises(ValueError, match="overlap"):
         aggregate_pytest_projections([projections[0], projections[0]], expected)
+
+
+def _recorder_copy():
+    path = Path(flowguard.__file__).with_name("pytest_nodeid_recorder.py")
+    spec = importlib.util.spec_from_file_location("recorder_copy_for_test", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)   # separate globals: the live session's recorder is untouched
+    return module
+
+
+def test_recorder_keeps_the_worst_phase_outcome():
+    rec = _recorder_copy()
+    report = lambda when, outcome: SimpleNamespace(nodeid="t.py::a", when=when, passed=outcome == "passed",
+                                                   failed=outcome == "failed", skipped=outcome == "skipped")
+    rec.pytest_runtest_logreport(report("setup", "passed"))
+    rec.pytest_runtest_logreport(report("call", "skipped"))
+    rec.pytest_runtest_logreport(report("teardown", "passed"))
+    assert rec._STATUSES == {"t.py::a": "skipped"}
+    rec.pytest_runtest_logreport(SimpleNamespace(nodeid="t.py::b", when="teardown", passed=False, failed=True, skipped=False))
+    assert rec._STATUSES["t.py::b"] == "error"
+    rec.pytest_collectreport(SimpleNamespace(nodeid="t2.py", passed=False, skipped=True))
+    assert rec._NODEIDS == ["t.py::a", "t.py::b", "t2.py"] and rec._STATUSES["t2.py"] == "skipped"
+
+
+def test_recorder_writes_node_outcomes_and_resets_each_run(tmp_path, monkeypatch):
+    rec = _recorder_copy()
+    session = SimpleNamespace(config=SimpleNamespace(rootpath=tmp_path, option=SimpleNamespace(xmlpath=None)))
+    target = tmp_path / "nodeids.json"
+    monkeypatch.setenv("FLOWGUARD_PYTEST_NODEIDS", str(target))
+    rec.pytest_sessionstart(session)
+    rec.pytest_runtest_logreport(SimpleNamespace(nodeid="t.py::a", when="call", passed=True, failed=False, skipped=False))
+    rec.pytest_sessionfinish(session, 0)
+    record = json.loads(target.read_text())
+    assert record["nodeids"] == ["t.py::a"] and record["statuses"] == {"t.py::a": "passed"}
+    assert "input_digest_before" not in record
+    rec.pytest_sessionstart(session)
+    assert rec._NODEIDS == [] and rec._STATUSES == {}

@@ -61,7 +61,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | contract-exhaustion | enumerating every bad case or combination in a finite universe | `references/domains/contract-exhaustion/protocol.md` |
 | field-lifecycle | changing fields, schemas, defaults, aliases or replacements | tree operation `references/tree_operations.md#Rename or retire a field` (target model state + `CodeFacts.absent` / `present`) |
 | model-mesh | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `child_outside_parent`; `flowguard.closure` for handoffs between children) |
-| model-test | checking rules, code and tests against one another | `references/domains/model-test/protocol.md` |
+| model-test | checking rules, code and tests against one another | the tests facet (`python -m flowguard read --component <id>`) and `python -m flowguard map models --tests` (`invariant_untested`, `tested_by_failed`, `tested_by_misses_anchor`); `references/model_recipes.md#Run the bound tests` |
 | topology-hazard | reviewing shared writers, repeated effects and future-use hazards | `references/domains/topology-hazard/protocol.md` |
 | test-mesh | sharding a suite too slow for one command | `references/domains/test-mesh/protocol.md` |
 | ui-flow | UI states, journeys, controls, cancel/recover and operability | `references/domains/ui-flow/protocol.md` |

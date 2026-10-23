@@ -39,6 +39,18 @@ def normalize_newlines(data: bytes) -> bytes:
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
 
 
+def parse_test_anchor(anchor: str) -> tuple[str, str, str]:
+    """Split a TESTED_BY anchor's optional exact pytest parameter item suffix."""
+    path, _, symbol = anchor.partition(":")
+    if "[" not in symbol and "]" not in symbol:
+        return path, symbol, ""
+    base, opening, item = symbol.partition("[")
+    if (not opening or not base or "]" in base or not item.endswith("]")
+            or not item[:-1] or any(char in item[:-1] for char in "[]\r\n")):
+        raise ValueError(f"TESTED_BY anchor {anchor!r} has a malformed parameter selector; use 'path.py:test_name[param-id]'")
+    return path, base, opening + item
+
+
 def content_digest(path: Path) -> str:
     """sha256 with physical newlines normalized, so platform checkouts agree."""
     return sha256_bytes(normalize_newlines(path.read_bytes()))

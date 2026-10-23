@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
+from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
 from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files, resolve_model_path
 from .tree import build_tree
@@ -206,11 +207,18 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         if contract.get("DESIGN_ONLY") or not anchors:
             result.warnings.append("TESTED_BY reach not checked: DESIGN_ONLY or no IMPLEMENTED_BY anchors")
             return
-        nodes, parsed = {}, {}
+        nodes, parsed, exact_items = {}, {}, set()
         for invariant, anchor in bindings:
             rel, _, symbol = anchor.partition(":")
             if not rel.endswith(".py"):
                 result.warnings.append(f"TESTED_BY {anchor} is not a Python test: reach not checked")
+                continue
+            try:
+                rel, symbol, suffix = parse_test_anchor(anchor)
+            except ValueError as exc:
+                if statuses is not None:
+                    statuses[anchor] = "failed"
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {exc}", code_gap=True)
                 continue
             if rel not in parsed:
                 parsed[rel] = parse_python(root, rel, rel[:-3].replace("/", "."), collect_bodies=False)
@@ -221,7 +229,9 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
                     statuses[anchor] = "failed"
                 _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable", code_gap=True)
                 continue
-            nodes[anchor] = rel + "::" + "::".join(matches[0].split("."))
+            nodes[anchor] = rel + "::" + "::".join(matches[0].split(".")) + suffix
+            if suffix:
+                exact_items.add(anchor)
         if not nodes:
             return
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
@@ -253,7 +263,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             if anchor not in nodes:
                 continue
             selector = nodes[anchor]
-            items = [item for item in payload["items"] if item["nodeid"] == selector or item["nodeid"].startswith(selector + "[")]
+            items = [item for item in payload["items"] if item["nodeid"] == selector
+                     or (anchor not in exact_items and item["nodeid"].startswith(selector + "["))]
             failed = [item["nodeid"] for item in items if item["failed"] or not item["entered"] or not item["call_passed"]]
             if not items or failed:
                 if statuses is not None:
@@ -428,6 +439,10 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
             with calls:
                 report = design.explore()
+            untested = sorted(invariant_names - contract.get("TESTED_BY", {}).keys())
+            if untested:
+                result.warnings.append("invariant_untested: " + ", ".join(untested)
+                                       + " have no TESTED_BY test; bind a test that fails when the rule is broken")
             if not report.explored_sequence_count or not report.transition_count:
                 result.status = "fail"
                 result.problems.append("build_explorer() explored no input transitions; the design proves nothing")

@@ -180,9 +180,7 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "model-test",
         "problem-corpus",
-        "shared-vocabulary",
         "templates",
         "topology-hazard",
         "ui-flow"
@@ -192,7 +190,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8fc43b82407a42c58b0f0df06c9bbe87dad618197494c775d8101ca12e338001"
+      "fingerprint": "sha256:dd8ec496edc40ecc90db1356521349135a74fc0e31495898d304b95c63303e40"
     },
     {
       "id": "templates",
@@ -222,7 +220,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:99cc5b0e4dcece728cd944f2cf097e6bf3775ecc4db42ae4fcbc729f17c925c3"
+      "fingerprint": "sha256:2150ad1080936827f584976a26a143714e0a268ff8ef133b0dc1d9b17328869e"
     },
     {
       "id": "contract-exhaustion",
@@ -244,7 +242,6 @@
       "depends_on": [
         "engine-conformance",
         "engine-core",
-        "model-test",
         "shared-vocabulary"
       ],
       "tests": [
@@ -252,41 +249,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:46e2a3431593e8e8b913ef22a57d5b9560638163c8a917a14aee74cb546e9bb6"
-    },
-    {
-      "id": "model-test",
-      "layer": "capabilities",
-      "summary": "Cross-checks obligations, code contracts and real test evidence while preserving native evidence guards.",
-      "responsibilities": [
-        "cross-check obligations, code contracts and tests",
-        "derive unique test evidence and merged obligations from literal model bindings; distinguish design assumptions from actual execution statuses"
-      ],
-      "files": [
-        "flowguard/model_test_alignment.py",
-        "flowguard/model_test_alignment_source.py",
-        "flowguard/obligation_family.py"
-      ],
-      "entrypoints": [
-        "flowguard/model_test_alignment.py:review_model_test_alignment"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core",
-        "map-file",
-        "shared-vocabulary"
-      ],
-      "tests": [
-        "tests/test_contract_exhaustion.py",
-        "tests/test_model_test_alignment.py",
-        "tests/test_model_test_binding_honesty.py",
-        "tests/test_obligation_family.py",
-        "tests/test_code_boundary_conformance.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:f2e720c4cde2f4d49c9bb6a0c17dee4a95af0fdad59d25ed8e1bee9bec19e9da"
+      "fingerprint": "sha256:f5206bbaef93ec5058c40c91329bcc8224359e8e42fe1b00b4e12ab78335b707"
     },
     {
       "id": "topology-hazard",
@@ -386,7 +349,8 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries; allow explicit read-only inventory without cache directory creation or writes, keeping the normal cache default"
+        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries; allow explicit read-only inventory without cache directory creation or writes, keeping the normal cache default",
+        "parse explicit bound-test item selectors as pure strings for TESTED_BY validation and execution"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -408,7 +372,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fd2ac828b773edffbada75bc8ef9170bce7fb8f44cbfa8098df444191664aacb"
+      "fingerprint": "sha256:3ac1bfc990b3706c312b767acb2ed4b91fc41ffae9cf393d018c68330e1f2aa8"
     },
     {
       "id": "map-file",
@@ -484,7 +448,7 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share type-separated responsibility, state and side-effect duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree",
+        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share type-separated responsibility, state and side-effect duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree; validate optional exact TESTED_BY parameter selectors against their base test symbol without changing other anchor kinds; count selected test items once by their base function in the component tests facet",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
@@ -521,7 +485,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a444fa647df43f0712d11153ca90dff1e2c4bea04199b0358708f1c254bb7b12"
+      "fingerprint": "sha256:170d89c59fee1e2c477352cfcc019058f7d55f96f2d89cb620348ed2ca2bda7d"
     },
     {
       "id": "map-target",
@@ -532,7 +496,8 @@
         "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors",
         "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
         "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
-        "stop a target that silently drops an entrypoint, state or side effect"
+        "stop a target that silently drops an entrypoint, state or side effect",
+        "show invariant_untested as a model warning while retaining proof and known-bad failures"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -559,7 +524,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2082d6ed91d57b8803358e2571c1b700407bae32a5470972a4db6fbd324866ee"
+      "fingerprint": "sha256:2c3b37d3295c9911791c48542b1fa5b63c066e5e4ba3ebc7a163ab643098ebc2"
     },
     {
       "id": "map-proof",
@@ -570,7 +535,7 @@
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
-        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window",
+        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
         "preserve real anchors and expose planned Fact reports with a DESIGN_ONLY conformance gate",
         "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback"
       ],
@@ -604,7 +569,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:656c505e3c08a1aae7078c29b66fd01b823a98f78f1a5a53e697533cacf26f17"
+      "fingerprint": "sha256:081edbc2602ff3b33b268cf29a02eddf08354897c22d1985997509a3717d24cf"
     },
     {
       "id": "engine-explore",
@@ -815,13 +780,12 @@
     {
       "id": "shared-vocabulary",
       "layer": "foundation",
-      "summary": "Defines shared schema, behavior planes and exact canonical relation identities.",
+      "summary": "Defines exact canonical relation identities shared by native capabilities.",
       "responsibilities": [
         "hold vocabulary shared by several capabilities"
       ],
       "files": [
-        "flowguard/canonical_relation.py",
-        "flowguard/behavior_plane.py"
+        "flowguard/canonical_relation.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -834,7 +798,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:af3d86443059b7cd9632804ebab9eec97e389c17beff643c439b6761c250fe8a"
+      "fingerprint": "sha256:28e4b6bb46eb778182b6000a2c823c49fef19eff9b67d932c86fb4e2999574a8"
     }
   ],
   "flows": [

@@ -238,7 +238,7 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
             add("errors", node, "uncovered_invariant", f"invariant {invariant!r} is violated by no known-bad variant")
         for warning in result.warnings:
             if not any(warning.startswith(f"invariant {name!r} is violated by no known-bad variant") for name in result.uncovered_invariants):
-                add("warnings", node, "model_warning", warning)
+                add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
     return report
 
 

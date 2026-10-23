@@ -10,7 +10,6 @@ from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
 )
-from .template_text.model_test_alignment import MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE
 from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
 )
@@ -44,8 +43,6 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
     )
 
 
-def model_test_alignment_template_files() -> tuple[TemplateFile, ...]:
-    return (TemplateFile(".flowguard/models/model_test_alignment.py", MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE),)
 
 
 def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
@@ -86,13 +83,11 @@ def write_template_files(
 
 __all__ = [
     "ADOPTION_LOG_TEMPLATE",
-    "MODEL_TEST_ALIGNMENT_MODEL_TEMPLATE",
     "MODEL_NOTES_TEMPLATE",
     "TOPOLOGY_HAZARD_MODEL_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
     "contract_exhaustion_template_files",
-    "model_test_alignment_template_files",
     "topology_hazard_template_files",
     "ui_flow_structure_template_files",
     "write_template_files",

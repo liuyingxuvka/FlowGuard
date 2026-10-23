@@ -11,7 +11,6 @@ from pathlib import Path
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     contract_exhaustion_template_files,
-    model_test_alignment_template_files,
     topology_hazard_template_files,
     ui_flow_structure_template_files,
     write_template_files,
@@ -21,14 +20,12 @@ from flowguard.templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    model_test_alignment_template_files,
     ui_flow_structure_template_files,
     contract_exhaustion_template_files,
     topology_hazard_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "model-test-alignment-template": "model_test_alignment",
     "ui-flow-structure-template": "ui_flow_structure",
     "contract-exhaustion-template": "contract_exhaustion",
     "topology-hazard-template": "model_topology_hazard_review",
@@ -157,31 +154,8 @@ class PublicTemplateTests(unittest.TestCase):
 
 
 
-    def alignment_code(self):
-        return {"shop/module.py": "class Owner:\n    def __init__(self): self.ready = True\n",
-                "shop/test_module.py": "from shop.module import Owner\ndef test_owner():\n    assert isinstance(Owner(), Owner)\n",
-                ".flowguard/models/shop.py": 'MODEL_ID="shop"\nPARENT="system"\nIMPLEMENTED_BY={"Owner":"shop/module.py:Owner"}\nTESTED_BY={"owner":["shop/test_module.py:test_owner"]}\ndef build_explorer(): pass\n'}
 
-    def test_model_test_alignment_template_executes(self):
-        files = model_test_alignment_template_files()
-        self.assertEqual([".flowguard/models/model_test_alignment.py"], [f.path for f in files])
-        code = self.alignment_code()
-        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=0)
-        self.assertIn("PASS  model_test_alignment", output)
-        code["shop/test_module.py"] = "from shop.module import Owner\ndef test_owner():\n    Owner()\n    assert False, 'real failing bound test'\n"
-        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=1)
-        self.assertIn("tested_by_failed", output)
-        self.assertIn("real failing bound test", output)
-        code["shop/test_module.py"] = "def test_owner():\n    assert True\n"
-        output = self.run_kit_template(files, "model_test_alignment", code, fill="shop", expected_returncode=1)
-        self.assertIn("tested_by_misses_anchor", output)
 
-    def test_model_test_alignment_template_fails_when_its_plan_names_missing_code(self):
-        code = self.alignment_code()
-        code[".flowguard/models/shop.py"] = code[".flowguard/models/shop.py"].replace("shop/module.py:Owner", "shop/request.py:parse_request")
-        output = self.run_kit_template(model_test_alignment_template_files(), "model_test_alignment", code,
-                                       fill="shop", expected_returncode=1)
-        self.assertIn("anchor file missing: shop/request.py", output)
 
 
     def test_contract_exhaustion_template_runs_the_bad_cases_against_the_real_function(self):
@@ -241,7 +215,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(5, len(template_factories()))
+        self.assertEqual(4, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract

@@ -23,17 +23,8 @@ def test_no_receipt_vocabulary_left():
 
 
 PENDING = {
-    ".agents/skills/flowguard/references/domains/model-test/protocol.md": "FG-221",
-    ".flowguard/models/code_boundary_conformance.py": "FG-221",
-    ".flowguard/models/contract_source_audit.py": "FG-221",
-    ".flowguard/models/model_test_code_alignment.py": "FG-221",
     "flowguard/contract_exhaustion.py": "FG-226",
-    "flowguard/model_test_alignment.py": "FG-221",
-    "flowguard/obligation_family.py": "FG-221",
     "flowguard/ui_structure.py": "FG-225",
-    "tests/test_code_boundary_conformance.py": "FG-221",
-    "tests/test_model_test_alignment.py": "FG-221",
-    "tests/test_obligation_family.py": "FG-221",
     "tests/test_ui_structure.py": "FG-225",
 }
 

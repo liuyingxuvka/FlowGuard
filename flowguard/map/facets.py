@@ -6,7 +6,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import matches_any, read_source
+from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
 from .lint import _variants
 from .mapfile import component_files, is_stale, resolve_model_path
@@ -119,7 +119,10 @@ def _test_facts(paths, nodes, functions):
     for node in nodes:
         for anchors in node.contract.get("TESTED_BY", {}).values():
             for anchor in anchors:
-                path, _, name = anchor.partition(":")
+                try:
+                    path, name, _ = parse_test_anchor(anchor)
+                except ValueError:
+                    continue
                 matches = {(p, s) for p, s in actual if p == path and s == name}
                 if not matches:
                     matches = {(p, s) for p, s in actual if p == path and s.endswith("." + name)}

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .common import Finding, glob_match, is_test_file, read_source, matches_any
+from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 
@@ -140,7 +140,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                                        "do not place it here; remove it from models"))
         for invariant, anchors in contract.get("TESTED_BY", {}).items():
             for anchor in anchors:
-                problem = anchor_problem(root, inv, anchor)
+                try:
+                    _, _, suffix = parse_test_anchor(anchor)
+                    problem = anchor_problem(root, inv, anchor.removesuffix(suffix) if suffix else anchor)
+                    if suffix and problem:
+                        problem = f"{anchor}: {problem}"
+                except ValueError as exc:
+                    problem = str(exc)
                 if problem:
                     out.append(Finding("error", "model_test_broken", "", f"{rel}: {invariant} -> {problem}"))
         for block, anchor in contract.get("IMPLEMENTED_BY", {}).items():

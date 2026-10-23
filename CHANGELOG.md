@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Models now warn with `invariant_untested` when a rule has no `TESTED_BY` key. This warning does not gate release or prove assertion strength; failed bound tests, missing anchor reach and uncovered required known-bad invariants still block release. The separate model-test alignment plan and static assertion audit are retired. Test bindings can select one exact `test_name[param-id]` case; a function binding still runs all its parameter cases.
+
 - Model nesting now uses the map tree, and child handoff closure lives in `flowguard.closure` with a parent-model `closure_invariant`. Token consumption, complete joins, reachable normal exits and loop-progress guards remain. Duplicate partition-map reviews and the rationale-only gate for out-of-scope terminals are removed.
 
 - Duplicate or wrong-file-owner entrypoint declarations now fail `map check` with `entrypoint_owner` errors. Declared route, command, console-script and handler entrypoints, excluding argparse-derived subcommands, warn when no model anchor or reasoned `NOT_MODELED` covers them (`entrypoint_unmodeled`); existing dangerous-effect checks remain. The former FlowGuard behavior ledger is no longer read and its presence produces a `retired_file` warning. Existing ResearchGuard projects are expected to gain one additional warning on FlowGuard reference upgrade; record and resolve it through native model bindings or a reasoned exclusion.

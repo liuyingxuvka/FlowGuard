@@ -20,8 +20,17 @@ TESTED_BY = {
         "tests/test_flowguard_map_proof.py:test_broken_variant_must_violate_a_design_property",
         "tests/test_flowguard_map_proof.py:test_model_that_never_runs_its_implemented_by_code_fails",
         "tests/test_flowguard_map_proof.py:test_abstract_model_fails_and_design_only_is_the_one_exemption",
-        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant",
+        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
     ],
+    "clean_input_accepted": [
+        "tests/test_flowguard_map_proof.py:test_fixed_code_passes_and_every_run_executes"
+    ],
+    "benign_features_neutral": [
+        "tests/test_flowguard_map_proof.py:test_plain_function_invariant_is_accepted"
+    ],
+    "first_defect_reported": [
+        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
+    ]
 }
 
 BASE = '''from types import SimpleNamespace

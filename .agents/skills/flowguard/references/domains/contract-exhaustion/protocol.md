@@ -50,8 +50,7 @@ rejected before any write happens.
    - `ContractOracle(oracle_id, expected_status=..., expected_message_fields=..., required_repair_fields=..., forbidden_downstream_steps=...)`.
    - `ContractExhaustionPlan(plan_id, dimensions=, axes=, interaction_groups=, oracles=, model_id=, claim_scope="routine")`.
 3. Optional feeders turn other findings into seed cases (`seed_cases=`):
-   `scenario_matrix_to_contract_cases` (from `flowguard.contract_exhaustion`),
-   `family_bad_case_seed_to_contract_cases`, `artifact_payload_cases_to_contract_cases`.
+   `scenario_matrix_to_contract_cases` (from `flowguard.contract_exhaustion`).
 4. Keep actual broken plans relevant to the finite boundary (see examples below).
 5. In the model, `contract_exhaustion_features(plan(), mutate)` makes every generated bad case a feature
    that changes the valid call (`flowguard.kit`); `build_explorer()` and `broken_variants()` use
@@ -63,8 +62,7 @@ rejected before any write happens.
    Run `python -m flowguard map models contract_exhaustion`.
 7. Hand case ids to tests. `contract_exhaustion_to_test_mesh_cell_ids(report)` gives
    product ids (`cartesian:<model>:<group>:<n>`); it is empty for single-field cases.
-   `contract_exhaustion_to_model_obligations(report)` covers every case
-   (`contract_exhaustion:contract:<dimension>:<mutation>`). One test per required case.
+   One test per required case.
 8. Run `python -m flowguard change`; execute selected checks not already current, rerunning affected checks after edits.
 
 ## What blocks

@@ -210,3 +210,8 @@ Only calls and reads in the same process are visible: subprocess-only tests miss
 the anchors. A weaker assertion that still calls the code cannot be detected.
 Non-Python test bindings and design-only models are warned about, not executed.
 Checking Python bindings requires pytest in the environment (`.[dev]` provides it).
+
+**Which tests to bind:** give every rule a test that fails when that rule breaks, plus a real normal-path or replay test; one test may guard several rules.
+`TESTED_BY` uses real paths: `tests/test_x.py:test_name` runs every parameter case; `tests/test_x.py:test_name[param-id]` binds that exact case.
+`invariant_untested` names rules with no `TESTED_BY` key; it is a warning that does not gate `release`, and its absence does not prove assertion strength.
+The tests facet of `python -m flowguard read --component <id>` shows each node's bindings.

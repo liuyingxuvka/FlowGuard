@@ -7,7 +7,6 @@ from flowguard import (
     execute_contract_features,
     CONTRACT_DIMENSION_FIELD,
     CONTRACT_DIMENSION_INPUT,
-    CONTRACT_DIMENSION_PAYLOAD,
     CONTRACT_GENERATION_PARENT_INTERFACE,
     CONTRACT_EXHAUSTION_CONFIDENCE_BLOCKED,
     CONTRACT_EXHAUSTION_CONFIDENCE_FULL,
@@ -22,10 +21,7 @@ from flowguard import (
     CONTRACT_ROUTE_FIELD_LIFECYCLE,
     CONTRACT_ROUTE_MODEL_MESH,
     CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT,
-    CONTRACT_ROUTE_OBLIGATION_FAMILY,
     CONTRACT_ROUTE_TEST_MESH,
-    ArtifactPayloadCase,
-    ArtifactPayloadContract,
     CompositeHandoffAcceptance,
     ContractCoverageExclusion,
     ContractCoverageUniverse,
@@ -37,23 +33,16 @@ from flowguard import (
     ContractOracle,
     CompositeHandoffResult,
     ObservedProblemBackfeed,
-    ObligationFamily,
-    ObligationFamilyMember,
     Scenario,
     ScenarioExpectation,
-    TEST_KIND_REPLAY,
-    artifact_payload_cases_to_contract_cases,
     contract_fault_profiles_from_report,
     contract_exhaustion_to_composite_handoff_acceptance_ids,
-    contract_exhaustion_to_model_obligations,
     contract_exhaustion_to_test_mesh_cell_ids,
     contract_exhaustion_to_test_mesh_shard_ids,
-    family_bad_case_seed_to_contract_cases,
     review_contract_exhaustion,
     review_observed_problem_backfeed,
     scenario_matrix_to_contract_cases,
 )
-from flowguard.obligation_family import FamilyBadCaseSeed
 
 
 class ContractExhaustionTests(unittest.TestCase):
@@ -89,9 +78,6 @@ class ContractExhaustionTests(unittest.TestCase):
             tuple(acceptance.acceptance_id for acceptance in report.composite_handoff_acceptances),
             contract_exhaustion_to_composite_handoff_acceptance_ids(report),
         )
-        obligations = contract_exhaustion_to_model_obligations(report)
-        self.assertEqual(3, len(obligations))
-        self.assertTrue(all("contract_exhaustion:" in obligation.obligation_id for obligation in obligations))
 
     def test_omitted_family_member_and_reduction_candidate_generate_downstream_cases(self):
         report = review_contract_exhaustion(
@@ -115,9 +101,6 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertIn("expected_reduction_candidate_omitted", {finding.code for finding in report.findings})
         self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
-        obligations = contract_exhaustion_to_model_obligations(report)
-        self.assertEqual(2, len(obligations))
-        self.assertTrue(all(obligation.required_test_kinds == (TEST_KIND_REPLAY,) for obligation in obligations))
 
     def test_canonical_relation_handoff_materializes_typed_mta_obligations_and_testmesh_shard(self):
         relation_id = "canonical-relation:router-duplicate"
@@ -156,11 +139,6 @@ class ContractExhaustionTests(unittest.TestCase):
         )
         self.assertEqual(3, len(report.downstream_relation_obligation_ids))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
-        obligations = contract_exhaustion_to_model_obligations(report)
-        relation_obligation = next(
-            obligation for obligation in obligations if relation_id in obligation.relation_ids
-        )
-        self.assertIn(relation_id, relation_obligation.relation_ids)
 
     def test_opaque_canonical_relation_handoff_id_blocks_exhaustion_confidence(self):
         report = review_contract_exhaustion(
@@ -185,7 +163,6 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertFalse(report.ok)
         self.assertEqual(("canonical-relation:opaque",), report.unmaterialized_relation_ids)
         self.assertIn("unmaterialized_relation_id", {finding.code for finding in report.findings})
-        self.assertEqual(1, len(contract_exhaustion_to_model_obligations(report)))
         self.assertTrue(contract_exhaustion_to_test_mesh_shard_ids(report))
 
     def test_model_local_cartesian_interaction_group_generates_record_and_route_obligations(self):
@@ -213,14 +190,6 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertEqual(("contract_shard:packet-router:packet-evidence-contract",), contract_exhaustion_to_test_mesh_shard_ids(report))
         self.assertTrue(all(case.model_id == "packet-router" for case in report.combination_cases))
         self.assertTrue(set(report.required_combination_case_ids).issubset(set(contract_exhaustion_to_test_mesh_cell_ids(report))))
-        obligations = contract_exhaustion_to_model_obligations(report)
-        cartesian_obligations = [
-            obligation
-            for obligation in obligations
-            if "cartesian:packet-router:packet-evidence-contract" in obligation.obligation_id
-        ]
-        self.assertEqual(4, len(cartesian_obligations))
-        self.assertTrue(all("packet-evidence-contract" in obligation.external_inputs for obligation in cartesian_obligations))
 
     def test_model_local_cartesian_group_blocks_when_limit_cannot_close_all_cases(self):
         report = review_contract_exhaustion(
@@ -861,68 +830,7 @@ class ContractExhaustionTests(unittest.TestCase):
         self.assertIn(CONTRACT_ROUTE_MODEL_TEST_ALIGNMENT, report.required_route_case_ids)
         self.assertIn(CONTRACT_ROUTE_TEST_MESH, report.required_route_case_ids)
 
-    def test_obligation_family_seed_projects_same_class_bad_cases(self):
-        family = ObligationFamily(
-            "packets",
-            members=(
-                ObligationFamilyMember("packet-a", required_mechanisms=("evidence-bind",)),
-                ObligationFamilyMember("packet-b", required_mechanisms=("evidence-bind",)),
-                ObligationFamilyMember("packet-c", required_mechanisms=("other",)),
-            ),
-            required_mechanisms=("evidence-bind",),
-        )
-        seed = FamilyBadCaseSeed(
-            "miss-a",
-            family_id="packets",
-            source_member_id="packet-a",
-            mechanism_id="evidence-bind",
-            failure_mode="missing_current_evidence",
-            source_case_id="observed-a",
-        )
 
-        cases = family_bad_case_seed_to_contract_cases(family, seed)
-        report = review_contract_exhaustion(ContractExhaustionPlan("same-class", seed_cases=cases))
-
-        self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(("same_class:miss-a:packet-b:evidence-bind",), tuple(case.case_id for case in cases))
-        self.assertEqual(
-            ("same_class:miss-a:packet-b:evidence-bind",),
-            report.required_route_case_ids[CONTRACT_ROUTE_OBLIGATION_FAMILY],
-        )
-
-    def test_payload_transition_and_mesh_closure_project_to_single_report(self):
-        payload_cases = artifact_payload_cases_to_contract_cases(
-            ArtifactPayloadContract(
-                "packet-payload",
-                payload_surface="flowpilot packet",
-                payload_kind="json",
-                cases=(
-                    ArtifactPayloadCase(
-                        "missing-body",
-                        expected_status="rejected",
-                        expected_error_path="body_ref",
-                    ),
-                ),
-            )
-        )
-        report = review_contract_exhaustion(
-            ContractExhaustionPlan(
-                "combined",
-                dimensions=(
-                    ContractDimension(
-                        "artifact-proof",
-                        CONTRACT_DIMENSION_PAYLOAD,
-                        mutation_types=(),
-                        metadata={"risk_gate_id": "artifact-proof-gate"},
-                    ),
-                ),
-                seed_cases=payload_cases,
-            )
-        )
-
-        self.assertTrue(report.ok, report.format_text())
-        self.assertIn(CONTRACT_ROUTE_TEST_MESH, report.required_route_case_ids)
-        self.assertTrue(contract_exhaustion_to_test_mesh_cell_ids(report))
 
 
 

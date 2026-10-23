@@ -113,6 +113,8 @@ def test_fixed_code_passes_and_every_run_executes(shop, capsys):
         assert code == 0 and "PASS" in out and "cached" not in out
         assert "violated by no known-bad variant" not in out
     assert not (shop / ".flowguard/cache/models.json").exists()
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "pass", native.problems
 
 
 def test_invariant_no_known_bad_variant_violates_is_a_warning(shop, capsys):
@@ -435,6 +437,13 @@ def test_plain_function_invariant_is_accepted(shop, capsys):
     code, out = models(shop, capsys)
     assert code == 0, out
 
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "pass", native.problems
+    path = shop / MODEL
+    path.write_text(path.read_text(encoding="utf-8") + "\ndef unused_helper():\n    return 17\n", encoding="utf-8")
+    neutral = _native_model(shop, path)
+    assert (neutral.status, neutral.problems, neutral.warnings) == (native.status, native.problems, native.warnings)
+
 
 @pytest.mark.parametrize("body,status", [("raise SystemExit(0)", "pass"), ("raise SystemExit(run_owner(lambda: 0))", "pass"),
                                          ("raise SystemExit(run_owner(lambda: None))", "error"),
@@ -469,11 +478,17 @@ def test_tested_by_must_name_a_design_invariant(shop, capsys):
     write(shop, "shop/orders.py", FIXED)
     path = shop / MODEL
     source = path.read_text(encoding="utf-8")
+    caught = 'return {"charge_every_time": _explorer(ChargeEveryTime())}'
+    assert caught in source
+    source = source.replace(caught, 'return {"charge_every_time": _explorer(PlaceOrder())}', 1)
     write(shop, MODEL, source + '\nTESTED_BY = {"no_such_invariant": ["tests/test_orders.py:test_place_once"]}\n')
     code, out = models(shop, capsys)
     assert code == 1 and "no_such_invariant" in out
     native = _native_model(shop, shop / MODEL)
     assert native.status == "fail" and "no_such_invariant" in " ".join(native.problems)
+
+    assert native.problems[0].startswith("TESTED_BY names 'no_such_invariant'")
+    assert any("known-bad variant 'charge_every_time' passed" in problem for problem in native.problems)
 
 
 @pytest.mark.parametrize("location", ["hook", "adapter_reset", "adapter_step"])
@@ -1169,3 +1184,74 @@ def conformance():
     code, output = models(tmp_path, capsys, "fallback")
     assert code == 1 and "FAIL  fallback" in output, output
     assert "known-bad variant 'silent_success' passed" in output, output
+
+
+
+def test_rule_without_a_test_is_named(shop, capsys):
+    write(shop, "shop/orders.py", FIXED)
+    path = shop / MODEL
+    source = path.read_text(encoding="utf-8")
+    source += ('\nINVARIANTS = INVARIANTS + (at_most_once_by("retry_has_one_charge", '
+               '"a retry has one charge", lambda state: state.charges, lambda charge: charge, "charge"),)\n')
+    binding = "tests/test_orders.py:test_place_once"
+    first = {"one_charge_per_order": [binding]}
+    write(shop, MODEL, source + "\nTESTED_BY = " + repr(first) + "\n")
+    code, output = models(shop, capsys, "order_placement")
+    expected = ("invariant_untested: retry_has_one_charge have no TESTED_BY test; "
+                "bind a test that fails when the rule is broken")
+    assert code == 0 and "PASS  order_placement" in output, output
+    assert expected in output
+    assert "invariant_untested: one_charge_per_order" not in output
+    native = _native_model(shop, path)
+    assert native.status == "pass", native.problems
+    assert [warning for warning in native.warnings if warning.startswith("invariant_untested:")] == [expected]
+    complete = {**first, "retry_has_one_charge": [binding]}
+    write(shop, MODEL, source + "\nTESTED_BY = " + repr(complete) + "\n")
+    code, output = models(shop, capsys, "order_placement")
+    assert code == 0 and "PASS  order_placement" in output, output
+    assert "invariant_untested:" not in output
+    native = _native_model(shop, path)
+    assert native.status == "pass", native.problems
+    assert not any(warning.startswith("invariant_untested:") for warning in native.warnings)
+
+
+@pytest.mark.parametrize("suffix,problem", [
+    ("[hit]", None),
+    ("[miss]", "tested_by_misses_anchor"),
+    ("[unknown]", "tested_by_failed"),
+    ("", "tested_by_misses_anchor"),
+    ("[", "malformed"),
+])
+def test_bound_parameter_selection_preserves_each_item_guard(shop, capsys, suffix, problem):
+    write(shop, "shop/orders.py", FIXED)
+    write(shop, "tests/test_orders.py", "import pytest\n"
+          "@pytest.mark.parametrize('hit', [True, False], ids=['hit', 'miss'])\n"
+          "def test_bound(hit):\n"
+          "    if hit:\n"
+          "        from shop.orders import OrderService\n"
+          "        assert OrderService().place('x', 1) == 'placed'\n"
+          "    else:\n"
+          "        assert 1 == 1\n")
+    anchor = "tests/test_orders.py:test_bound" + suffix
+    source = (shop / MODEL).read_text(encoding="utf-8")
+    write(shop, MODEL, source + "\nTESTED_BY = " + repr({"one_charge_per_order": [anchor]}) + "\n")
+    checked = _check_codes(shop, capsys)
+    if problem == "malformed":
+        assert "model_test_broken" in checked and "malformed parameter selector" in checked, checked
+    else:
+        assert "model_test_broken" not in checked, checked
+    from flowguard.__main__ import main as public_main
+    assert public_main(["read", "--root", str(shop), "--component", "orders"]) == 0
+    readback = capsys.readouterr().out
+    expected_bound = 0 if problem == "malformed" else 1
+    assert f"1 functions, {expected_bound} bound" in readback, readback
+    code, output = models(shop, capsys, "order_placement", "--tests")
+    if problem is None:
+        assert code == 0 and "PASS  order_placement" in output, output
+    elif problem == "malformed":
+        assert code != 0 and "TESTED_BY" in output, output
+        assert "PASS  order_placement" not in output
+    else:
+        assert code == 1 and problem in output, output
+        if suffix in {"[miss]", ""}:
+            assert "test_bound[miss]" in output
