@@ -1370,3 +1370,64 @@ def test_current_design_only_model_stays_an_error_with_a_target(tmp_path, capsys
     assert "move this file to .flowguard/target/models/" in output, output
     path.unlink()
     _assert_current_lending(root, capsys)
+
+
+def test_target_child_can_plan_code_owned_by_its_component(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root, reports=True)
+    source = '''from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "report_child"
+PARENT = "reports"
+IMPLEMENTED_BY = {"Overdue": "shelf/reports.py:overdue"}
+TESTED_BY = {}
+class Overdue:
+    name = "Overdue"
+    def __init__(self, bad=False): self.bad = bad
+    def apply(self, late, state):
+        result = (("alice", "book"),) if late or self.bad else ()
+        return [FunctionResult(result, (late, result))]
+def explorer(bad=False):
+    return Explorer(Workflow((Overdue(bad),)), initial_states=((False, ()),), external_inputs=(False, True),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("only_overdue", "only late members appear",
+                                          lambda s, t: s[1] == ((("alice", "book"),) if s[0] else ())),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"ignores_lateness": explorer(True)}
+def conformance():
+    from types import SimpleNamespace
+    from shelf.reports import overdue
+    service = SimpleNamespace(loans=[("alice", "book")])
+    return CodeFactsReport(tuple(Fact("actual overdue result", tuple(overdue(service, {"alice"} if late else set()))
+                                     == ((("alice", "book"),) if late else ())) for late in (False, True)))
+'''
+    child = directory / "models/report_child.py"
+    child.write_text(source, encoding="utf-8")
+    assert not (root / "shelf/reports.py").exists()
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and not errors, (output, errors)
+    assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
+    assert any(line.startswith("TO-DO ") and "model_anchor_broken" in line and "shelf/reports.py" in line
+               for line in output.splitlines()), output
+    _assert_current_lending(root, capsys)
+
+    child.write_text(source.replace("shelf/reports.py:overdue", "shelf/unowned_report.py:overdue"), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "child_outside_parent" in line and "shelf/unowned_report.py" in line
+               for line in output.splitlines()), output
+
+    # This final guard observes the current tree after removing the overlay.
+    code, output, errors = _run(root, capsys, "target", "drop", "--yes")
+    assert code == 0 and not errors and not directory.exists(), (output, errors)
+    current_model = root / ".flowguard/models/lending.py"
+    current_source = current_model.read_text(encoding="utf-8")
+    anchor = "shelf/loans.py:LoanService.borrow"
+    assert current_source.count(anchor) == 1
+    current_model.write_text(current_source.replace(anchor, "shelf/loans.py:LoanService.missing_borrow"), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "model_anchor_broken" in line and "missing_borrow" in line
+               for line in output.splitlines()), output

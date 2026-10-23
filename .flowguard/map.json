@@ -354,7 +354,7 @@
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED) without importing the model; recognize the optional project_parent_state hook; retain retired design-marker literals solely to diagnose misplaced current models",
         "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge",
+        "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge; only in a target view, keep a missing child anchor inside a component parent when its declared files match that path, while ordinary current, model-parent and unmatched-path containment keep their errors",
         "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings",
         "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes"
       ],
@@ -383,7 +383,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3678b583c792d617db4278950bb58c225bd2b1d2c65c8059475dae67c06e81c1"
+      "fingerprint": "sha256:e2dc5be2e06c52218c7301e6156722f989a8e4a9e06d7c92677040feb2e1ec39"
     },
     {
       "id": "map-discover",
@@ -464,7 +464,7 @@
       "summary": "Keeps one target and checks its merged tree against actual code and tests.",
       "responsibilities": [
         "start, extend and drop one target without executing models or code checks; reject a retired design marker in a current model as an error while preserving the existing target marker rejection",
-        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors",
+        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors; keep independently missing implementation anchors as code to-do when target-declared component containment is valid, with genuine regression coverage for the current and invalid-parent boundaries",
         "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
         "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
         "stop a target that silently drops an entrypoint, state or side effect",

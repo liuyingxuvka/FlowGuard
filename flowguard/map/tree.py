@@ -190,7 +190,13 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
             cids.update(owner.get(a.split(":", 1)[0]) for a in parent.contract.get("IMPLEMENTED_BY", {}).values())
             allowed = {path for cid in cids if cid in components for path in component_files(components[cid], inv)}
         for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
-            if anchor.split(":", 1)[0] not in allowed:
+            anchor_path = anchor.split(":", 1)[0]
+            planned_component_anchor = (
+                view is not None and node.parent_kind == "component"
+                and not (root / anchor_path).exists()
+                and matches_any(anchor_path, components[node.parent].get("files", []))
+            )
+            if anchor_path not in allowed and not planned_component_anchor:
                 tree.findings.append(Finding("error", "child_outside_parent", node.home if node.home_kind == "component" else "",
                     f"{node.path}: IMPLEMENTED_BY {anchor!r} is outside parent {node.parent!r}'s code"))
             if node.parent_kind == "model":
