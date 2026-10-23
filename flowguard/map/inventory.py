@@ -275,15 +275,15 @@ def _read_cache(path: Path) -> dict:
         return {}
 
 
-def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True) -> Inventory:
-    """with_bodies=False skips duplicate-body hashing (only lint needs it); cached bodies are kept."""
+def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, write_cache: bool = True) -> Inventory:
+    """Skip body hashes when requested; write_cache=False reads without creating a cache."""
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
     files_set = set(files)
     source = [f for f in files if Path(f).suffix in SOURCE_EXTS]
     tests = [f for f in source if is_test_file(f)]
     py_files = [f for f in source if f.endswith(".py")]
     roots = python_roots(py_files)
-    cache_path = cache_dir(root) / "inventory.json"
+    cache_path = (cache_dir(root) if write_cache else root / CACHE_RELDIR) / "inventory.json"
     old, new = _read_cache(cache_path), {}
     py: dict[str, PyInfo] = {}
     mod_to_path: dict[str, str] = {}
@@ -312,7 +312,7 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True) -> 
                       "import_literals": sorted(info.import_literals)}
         py[f] = info
         mod_to_path[module] = f
-    if new != old or not cache_path.is_file():
+    if write_cache and (new != old or not cache_path.is_file()):
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
             cache_path.write_text(json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": new}), encoding="utf-8")

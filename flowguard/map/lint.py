@@ -22,7 +22,7 @@ from .common import Finding, read_source, tokens
 from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
-from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract
+from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract, resolve_model_path
 
 @dataclass
 class Limits:
@@ -236,7 +236,7 @@ def _variants(data, graph, *, only=None):
             break
 
 
-def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None) -> list[Finding]:
+def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None) -> list[Finding]:
     limits = limits or Limits()
     comps = data["components"]
     graph = component_graph(data, inv)
@@ -284,7 +284,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
             out.append(Finding("warn" if len(hit) > 1 else "info", "duplicate_code", hit[0],
                                f"{len(sites)} identical bodies ({sites[0][2]} AST nodes) in {hit}: {where}"))
 
-    raw = discover_inventory(root, inv)
+    raw = discover_inventory(root, inv, write_cache=view is None)
     modules = {info.module: path for path, info in inv.py.items()}
     declared_state = {c["id"]: set(c.get("state", [])) for c in comps}
     for path, facts in raw["files"].items():
@@ -303,9 +303,13 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     imported = {t for deps in inv.file_deps.values() for t in deps}
     modules = {info.module: path for path, info in inv.py.items()}
     # Registered executable models/runners are real importers even though they are outside source ownership.
-    registry = model_registry(root, data)
+    registry = model_registry(root, data, view=view)
     for entry in registry.entries:
-        info = parse_python(root, entry.path, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False)
+        physical = resolve_model_path(root, entry.path, view=view)
+        if physical is None:
+            continue
+        source = entry.path if view is None else str(physical)
+        info = parse_python(root, source, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False)
         imported.update(target for imp in info.imports if (target := resolve_import(imp, modules)))
     entry_files = {a.split(":", 1)[0] for c in comps for a in c.get("entrypoints", [])}
     entry_files |= {path for path, facts in raw["files"].items() if facts.get("entrypoints")}
@@ -315,12 +319,12 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                 and not any(symbol.startswith("pytest_") and "." not in symbol for symbol in inv.py[f].symbols):
             out.append(Finding("info", "never_imported", owner.get(f, ""), f"{f} is not imported by any repo file (dead code or an entrypoint?)"))
     out.extend(discovery_findings(raw, data, inv))
-    covered_by_model, not_modeled = model_coverage(root, data, registry)
-    tree = build_tree(root, data, inv)
+    covered_by_model, not_modeled = model_coverage(root, data, registry, view=view)
+    tree = build_tree(root, data, inv, view=view)
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
-    out.extend(model_writer_findings(raw, data, root, inv, registry))
-    out.extend(model_binding_notes(root, data, inv))
+    out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
+    out.extend(model_binding_notes(root, data, inv, view=view))
     debts = normalized_debts(data)
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
@@ -336,18 +340,21 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     return out
 
 
-def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None) -> list[Finding]:
+def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *, view=None) -> list[Finding]:
     """Non-gating binding notes: design-only models still to bind; models whose guarding tests are not named."""
     out: list[Finding] = []
     if inv is None:
         from .inventory import build_inventory
         from .mapfile import ignore_patterns
-        inv = build_inventory(root, ignore_patterns(data))
-    tree = build_tree(root, data, inv)
+        inv = build_inventory(root, ignore_patterns(data), write_cache=view is None)
+    tree = build_tree(root, data, inv, view=view)
     tested = {n.path for c in data.get("components", []) if c.get("tests") for n in tree.models_for_component(c["id"])}
-    for entry in model_registry(root, data).entries:
+    for entry in model_registry(root, data, view=view).entries:
+        path = resolve_model_path(root, entry.path, view=view)
+        if path is None:
+            continue
         try:
-            contract = read_model_contract(root / entry.path)
+            contract = read_model_contract(path)
         except (OSError, SyntaxError, ValueError):
             continue
         if contract.get("DESIGN_ONLY"):
@@ -359,13 +366,16 @@ def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None) ->
     return out
 
 
-def model_coverage(root: Path, data: dict, registry=None) -> tuple[dict[str, set[str]], set[str]]:
+def model_coverage(root: Path, data: dict, registry=None, *, view=None) -> tuple[dict[str, set[str]], set[str]]:
     """Read declared implementation anchors and explicit negative scope once."""
     covered = {}
     not_modeled = set()
-    for entry in (registry or model_registry(root, data)).entries:
+    for entry in (registry or model_registry(root, data, view=view)).entries:
+        path = resolve_model_path(root, entry.path, view=view)
+        if path is None:
+            continue
         try:
-            contract = read_model_contract(root / entry.path)
+            contract = read_model_contract(path)
         except (OSError, SyntaxError, ValueError):
             continue
         covered[entry.path] = set(contract.get("IMPLEMENTED_BY", {}).values())
@@ -488,25 +498,28 @@ ARCHITECTURE_CODES = {"dependency_cycle", "layer_violation", "duplicate_owner", 
 
 
 def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
-                                 component_ids: list[str] | set[str], *, findings: list[Finding] | None = None) -> list[Finding]:
+                                 component_ids: list[str] | set[str], *, findings: list[Finding] | None = None, view=None) -> list[Finding]:
     """Architecture findings for directly changed owners; reuse an already computed lint when supplied."""
     selected = set(component_ids)
     if not selected:
         return []
-    findings = run_lint(root, data, inv) if findings is None else findings
+    findings = run_lint(root, data, inv, view=view) if findings is None else findings
     return [finding for finding in findings if finding.code in ARCHITECTURE_CODES
             and (finding.component in selected or
                  any(re.search(rf"(?<![\w.-]){re.escape(component)}(?![\w.-])", finding.message) for component in selected)
                  and finding.code in {"dependency_cycle", "duplicate_code", "duplicate_owner", "possible_duplicate"})]
 
 
-def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None) -> list[Finding]:
+def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None, *, view=None) -> list[Finding]:
     """Other exact functions in an anchor's own file that write its modeled state."""
     contracts = []
     excluded = set()
-    for entry in (registry or model_registry(root, data)).entries:
+    for entry in (registry or model_registry(root, data, view=view)).entries:
+        path = resolve_model_path(root, entry.path, view=view)
+        if path is None:
+            continue
         try:
-            contract = read_model_contract(root / entry.path)
+            contract = read_model_contract(path)
         except (OSError, SyntaxError, ValueError):
             continue
         contracts.append((entry, contract))

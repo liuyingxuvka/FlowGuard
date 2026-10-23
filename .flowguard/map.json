@@ -592,7 +592,7 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries"
+        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries; allow explicit read-only inventory without cache directory creation or writes, keeping the normal cache default"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -614,14 +614,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d7191af589c54abf1cc2700e1366c71301412b4c2bf7ddce0e626e37e17884b9"
+      "fingerprint": "sha256:fd2ac828b773edffbada75bc8ef9170bce7fb8f44cbfa8098df444191664aacb"
     },
     {
       "id": "map-file",
       "layer": "map",
       "summary": "Owns map schema, model bindings and component fingerprints.",
       "responsibilities": [
-        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree",
+        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree; resolve one complete optional model view with canonical paths and explicit missing mappings, retaining ordinary registry behavior by default",
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model; recognize the optional project_parent_state hook",
         "count strings as dependency evidence only in import-like contexts",
@@ -654,14 +654,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bd2f538f396f0f81909afdc6400962c2406c2533775ab0f0ede87bfbfe51858d"
+      "fingerprint": "sha256:ae22e9147dbab1a88b23b44ac67ffa49e2e1e86a14364f4758d99e7175d2ca25"
     },
     {
       "id": "map-discover",
       "layer": "map",
       "summary": "Discovers entrypoints, effects and reachable calls.",
       "responsibilities": [
-        "discover entrypoints, side effects and state writers",
+        "discover entrypoints, side effects and state writers; propagate an explicit no-cache-write mode without creating cache directories",
         "del statements count as state writes; expose exact anchor state writes for model checks"
       ],
       "files": [
@@ -683,14 +683,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c12172d021ea4d5b49b9a557d17f0f0f1339324bb835a837c375c585bc41f33b"
+      "fingerprint": "sha256:b3c3550e29f5616435316f54de5d72ffbb09ee90e53a3e51886dd5c4cdd9be61"
     },
     {
       "id": "map-analysis",
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share exact responsibility-token duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope",
+        "verify the map against code; name the owners next to an unmapped file; every model and runner declares IMPLEMENTED_BY anchors that resolve (contract models also conformance()) unless marked DESIGN_ONLY; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share exact responsibility-token duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree",
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select models and runners by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
@@ -725,14 +725,15 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:63b61354e7df321652ae7ddea86aafac4691897a12a8ba37be86fbf692edb8d4"
+      "fingerprint": "sha256:674c7dd1bd7834325543b397090e8b64a7f184c64d0b1c2cf1149bf705614897"
     },
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Keeps one target draft next to the current tree.",
+      "summary": "Keeps one target and checks its merged tree against actual code and tests.",
       "responsibilities": [
-        "start, extend and drop one target without executing models or code checks"
+        "start, extend and drop one target without executing models or code checks",
+        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -747,22 +748,24 @@
         "writes and deletes .flowguard/target/"
       ],
       "depends_on": [
+        "map-analysis",
         "map-file",
-        "map-inventory"
+        "map-inventory",
+        "map-proof"
       ],
       "tests": [
         "tests/test_flowguard_target.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:07ba98e8b620b6c740e3b65f5349900fd87f688b7fd4aef654d8fc435919a8ca"
+      "fingerprint": "sha256:75ea96140ed588477ccd2901bc7a149c6797ede53248cd0b9a9cf22a84ff2c7d"
     },
     {
       "id": "map-proof",
       "layer": "map",
       "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display",
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints and runner scope from the tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification",
         "fail a model or runner whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
         "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
         "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance",
@@ -800,7 +803,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9b0df1771bc2913015eadc582f7618c768fb05ccd70f0a51df0040e6157de3e6"
+      "fingerprint": "sha256:656c505e3c08a1aae7078c29b66fd01b823a98f78f1a5a53e697533cacf26f17"
     },
     {
       "id": "engine-explore",

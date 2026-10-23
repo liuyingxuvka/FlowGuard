@@ -394,7 +394,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
 
 def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) -> dict:
     """py_files: path -> module.  Returns {"files": facts, "edges": ..., "reach": ...} (raw)."""
-    cache_path = cache_dir(root) / "discover.json"
+    cache_path = (cache_dir(root) if write_cache else root / CACHE_RELDIR) / "discover.json"
     try:
         old = json.loads(cache_path.read_text(encoding="utf-8"))
         old = old.get("files", {}) if old.get("schema") == CACHE_SCHEMA and old.get("parser") == PARSER_ID else {}
@@ -497,14 +497,14 @@ def component_summary(raw: dict, files: list[str]) -> dict:
     }
 
 
-def discover_inventory(root: Path, inv) -> dict:
+def discover_inventory(root: Path, inv, *, write_cache: bool = True) -> dict:
     """Run discovery over the inventory's non-test Python files (cached by content digest)."""
 
     from .inventory import module_name, python_roots
 
     roots = python_roots(list(inv.py))
     modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f)}
-    raw = discover(root, modules)
+    raw = discover(root, modules, write_cache=write_cache)
     mod_to_path = {module: path for path, module in modules.items()}
     for name, target, via in console_scripts(root):
         module, sep, symbol = target.partition(":")

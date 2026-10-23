@@ -286,3 +286,314 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
     assert {"target_model_id_clash", "target_design_only"} <= {
         issue.code for issue in validate_target(root, current, load_target(root))}
     assert current == before
+
+
+def _install_shelf_target(root: Path, *, reports: bool = False) -> Path:
+    directory = root / ".flowguard/target"
+    (directory / "models").mkdir(parents=True)
+    (directory / "map.json").write_text(SHELF_TARGET["map_reports.json" if reports else "map.json"],
+                                         encoding="utf-8")
+    if not reports:
+        (directory / "models/lending.py").write_text(SHELF_TARGET["models/lending.py"], encoding="utf-8")
+    return directory
+
+
+def _project_snapshot(root: Path) -> tuple[dict, set]:
+    """Observe the actual check's no-write promise, including newly created caches."""
+    files = {}
+    directories = set()
+    for path in root.rglob("*"):
+        relative = path.relative_to(root).as_posix()
+        if path.is_file():
+            files[relative] = (path.read_bytes(), path.stat().st_mtime_ns)
+        elif path.is_dir():
+            directories.add(relative)
+    return files, directories
+
+
+def _check_without_writes(root: Path, capsys):
+    before = _project_snapshot(root)
+    result = _run(root, capsys, "target", "check")
+    assert _project_snapshot(root) == before
+    return result
+
+
+def _assert_current_lending(root: Path, capsys) -> None:
+    code, output, errors = _run(root, capsys, "map", "check")
+    assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
+    code, output, errors = _run(root, capsys, "map", "models", "lending")
+    assert code == 0 and any(line.split()[:2] == ["PASS", "lending"] for line in output.splitlines()) and not errors, (output, errors)
+    assert "never_over_lent" in output and "limit_respected" in output
+    assert "no_idle_copy_while_held" not in output
+
+
+def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    current_map = (root / ".flowguard/map.json").read_bytes()
+    current_model = (root / ".flowguard/models/lending.py").read_bytes()
+    _assert_current_lending(root, capsys)
+    for arguments in (("target", "start", "holds"), ("target", "add", "loans"),
+                      ("target", "add", "lending")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    directory = root / ".flowguard/target"
+    (directory / "map.json").write_text(SHELF_TARGET["map.json"], encoding="utf-8")
+    (directory / "models/lending.py").write_text(SHELF_TARGET["models/lending.py"], encoding="utf-8")
+
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and not errors, (output, errors)
+    assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
+    assert "TO-DO model lending:" in output and "LoanService.hold" in output
+    assert "test_hold_gets_returned_copy" in output
+    assert "next: write the code and tests" in output
+    _assert_current_lending(root, capsys)
+    code, output, errors = _run(root, capsys, "read")
+    assert code == 0 and not errors
+    assert "model lending" in output.split("## loans", 1)[1].split("\n## ", 1)[0]
+
+    for relative in ("shelf/loans.py", "tests/test_loans.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and not errors, (output, errors)
+    assert "target check: 0 error(s), 0 to-do" in output
+    assert "next: python -m flowguard target promote" in output
+    assert (root / ".flowguard/map.json").read_bytes() == current_map
+    assert (root / ".flowguard/models/lending.py").read_bytes() == current_model
+    _assert_current_lending(root, capsys)
+
+
+def test_target_check_planned_component_is_todo_then_clean(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root, reports=True)
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 3 and not errors, (output, errors)
+    assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
+    for finding in ("component_empty", "anchor_broken", "test_missing", "dep_unused"):
+        assert any(line.startswith("TO-DO ") and finding in line for line in output.splitlines()), output
+    _assert_current_lending(root, capsys)
+    for relative in ("shelf/reports.py", "tests/test_reports.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 0 and "target check: 0 error(s), 0 to-do" in output and not errors, (output, errors)
+    # The real new files are unowned in the CURRENT map; the overlay must not
+    # silently promote them into it just because its own check is now clean.
+    assert not any(component["id"] == "reports" for component in _load_map(root)["components"])
+    code, output, errors = _run(root, capsys, "map", "models", "lending")
+    assert code == 0 and any(line.split()[:2] == ["PASS", "lending"] for line in output.splitlines()) and "no_idle_copy_while_held" not in output, (output, errors)
+
+
+@pytest.mark.parametrize(("mutation", "finding"), [
+    ("passing_bad", "known-bad variant 'return_ignores_holds' passed"),
+    ("unknown_remove", "target_invalid"),
+    ("design_only", "target_design_only"),
+    ("id_clash", "target_model_id_clash"),
+    ("duplicate_responsibility", "duplicate_owner"),
+])
+def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, finding):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    directory = _install_shelf_target(root)
+    map_path, model_path = directory / "map.json", directory / "models/lending.py"
+    original_map, original_model = map_path.read_bytes(), model_path.read_bytes()
+    extra = directory / "models/lending2.py"
+    try:
+        target = json.loads(original_map)
+        if mutation == "passing_bad":
+            source = original_model.decode("utf-8")
+            old = '"return_ignores_holds": _explorer(BorrowBlock(), GiveBackOld())'
+            assert source.count(old) == 1
+            model_path.write_text(source.replace(old, '"return_ignores_holds": _explorer(BorrowBlock())'),
+                                  encoding="utf-8")
+        elif mutation == "unknown_remove":
+            target["remove"] = ["component:nope"]
+        elif mutation == "design_only":
+            model_path.write_bytes(original_model + b'\nDESIGN_ONLY = "x"\n')
+        elif mutation == "id_clash":
+            extra.write_bytes(original_model)
+        else:
+            target["components"][0]["responsibilities"].append("count free copies")
+        map_path.write_text(json.dumps(target), encoding="utf-8")
+        code, output, errors = _check_without_writes(root, capsys)
+        assert code == 1 and not errors, (output, errors)
+        assert any(line.startswith("ERROR ") and finding in line for line in output.splitlines()), output
+        assert "next: fix the target design (ERROR lines)" in output
+    finally:
+        map_path.write_bytes(original_map)
+        model_path.write_bytes(original_model)
+        extra.unlink(missing_ok=True)
+    assert map_path.read_bytes() == original_map and model_path.read_bytes() == original_model
+    _assert_current_lending(root, capsys)
+
+
+def test_target_check_distinguishes_absence_from_malformed_existing_target(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 2 and "no target" in errors and "target start" in errors, (output, errors)
+    directory = root / ".flowguard/target"
+    (directory / "models").mkdir(parents=True)
+    (directory / "map.json").write_text("{", encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "ERROR target: target_invalid" in output, (output, errors)
+    assert "Traceback" not in output + errors
+
+
+def _namespace_project(tmp_path: Path) -> Path:
+    """Two real contracts share a helper and a parent port, without TESTED_BY duplication."""
+    root = shelf_project(tmp_path)
+    (root / "namespace_subject.py").write_text(
+        "def advance(value):\n    return min(1, value + 1)\n", encoding="utf-8")
+    (root / "namespace-marker.txt").write_text("actual project root\n", encoding="utf-8")
+    data = _load_map(root)
+    data["components"].append({
+        "id": "namespace-subject", "layer": "records", "summary": "Advance a bounded counter.",
+        "responsibilities": ["advance the namespace fixture counter"],
+        "files": ["namespace_subject.py", "namespace-marker.txt"],
+        "entrypoints": ["namespace_subject.py:advance"], "state": [], "side_effects": [],
+        "depends_on": [], "tests": [], "models": [], "status": "draft"})
+    _write_map(root, data)
+    common = '''from pathlib import Path
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+from _view_setting import VALUE
+IMPLEMENTED_BY = {"Step": "namespace_subject.py:advance"}
+TESTED_BY = {}
+
+class Step:
+    name = "Step"
+    accepted_input_type = int
+    def apply(self, inp, state):
+        return [FunctionResult("stepped", min(1, state + inp))]
+
+class Bad(Step):
+    def apply(self, inp, state):
+        return [FunctionResult("stepped", 2)]
+
+def _bounded(state, trace):
+    return InvariantResult.pass_() if state in (0, 1) else InvariantResult.fail("counter escaped")
+
+INVARIANTS = (Invariant(f"one_step_{VALUE}", "counter remains bounded", _bounded),)
+
+def _explorer(block, starts=(0,)):
+    return Explorer(workflow=Workflow((block,)), initial_states=starts, external_inputs=(1,),
+                    invariants=INVARIANTS, max_sequence_length=1, progress_steps=0)
+
+def broken_variants():
+    return {"escaped": _explorer(Bad())}
+
+def conformance():
+    from namespace_subject import advance
+    project = Path(__file__).resolve().parents[2]
+    return CodeFactsReport((Fact("real bounded advance", advance(0) == 1 and advance(1) == 1),
+        Fact("canonical project filename", (project / "namespace-marker.txt").read_text() == "actual project root\\n")))
+'''
+    parent = common + '''
+MODEL_ID = "ns_parent"
+PARENT = "namespace-subject"
+import ns_child
+
+def build_explorer():
+    return _explorer(ns_child.Step())
+'''
+    child = common + '''
+MODEL_ID = "ns_child"
+PARENT = "ns_parent"
+
+def project_parent_state(state):
+    return state
+
+def build_explorer():
+    from flowguard.kit import reachable_states
+    return _explorer(Step(), reachable_states(ns_parent.build_explorer(), project_parent_state))
+
+import ns_parent
+'''
+    models = root / ".flowguard/models"
+    (models / "_view_setting.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (models / "ns_parent.py").write_text(parent, encoding="utf-8")
+    (models / "ns_child.py").write_text(child, encoding="utf-8")
+    directory = root / ".flowguard/target"
+    (directory / "models").mkdir(parents=True)
+    (directory / "map.json").write_text(json.dumps({
+        "schema": "flowguard.target.v1", "goal": "replace the child and shared helper",
+        "components": [], "flows": [], "remove": []}), encoding="utf-8")
+    (directory / "models/_view_setting.py").write_text("VALUE = 2\n", encoding="utf-8")
+    target_child = child.replace(
+        'Fact("canonical project filename",',
+        'Fact("loader selects target bytes", "# target child" in __loader__.get_source(__name__)),\n'
+        '        Fact("canonical project filename",')
+    (directory / "models/ns_child.py").write_text(target_child + "\n# target child\n", encoding="utf-8")
+    return root
+
+
+def test_target_view_restores_imports_and_preserves_canonical_root_and_child_port(tmp_path, capsys):
+    import sys
+    from flowguard.map.proof import run_model_in_process
+    from flowguard.map.targetfile import build_target_view, load_target
+
+    root = _namespace_project(tmp_path)
+    capsys.readouterr()
+    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
+    assert code == 0 and "one_step_1" in output and "one_step_2" not in output, (output, errors)
+    view = build_target_view(root, _load_map(root), load_target(root))
+    path_before = list(sys.path)
+    names = ("ns_parent", "ns_child", "_view_setting", "namespace_subject",
+             "_flowguard_model_ns_parent", "_flowguard_model_ns_child")
+    modules_before = {name: sys.modules.get(name) for name in names}
+    for name in ("ns_parent", "ns_child"):
+        result = run_model_in_process(root, root / f".flowguard/models/{name}.py", view=view)
+        assert result.status == "pass", result
+        assert result.rules == ["one_step_2"], result
+        assert not any("child_start_gap" in warning for warning in result.warnings), result
+        assert sys.path == path_before
+        assert {key: sys.modules.get(key) for key in names} == modules_before
+    # The same-process view has gone away; ordinary commands must still load the
+    # current helper and current child, not the target's imported modules.
+    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
+    assert code == 0 and "one_step_1" in output and "one_step_2" not in output, (output, errors)
+    assert (root / ".flowguard/models/_view_setting.py").read_text() == "VALUE = 1\n"
+
+
+def test_target_removed_model_cannot_fall_back_to_current_disk(tmp_path, capsys):
+    root = _namespace_project(tmp_path)
+    capsys.readouterr()
+    directory = root / ".flowguard/target"
+    # Keep the importing current parent and the real old child on disk, but
+    # explicitly remove that child from the requested namespace.
+    (directory / "models/ns_child.py").unlink()
+    (directory / "models/_view_setting.py").unlink()
+    path = directory / "map.json"
+    target = json.loads(path.read_text(encoding="utf-8"))
+    target["remove"] = ["model:ns_child"]
+    path.write_text(json.dumps(target), encoding="utf-8")
+    old_child = (root / ".flowguard/models/ns_child.py").read_bytes()
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith("ERROR ") and "ns_child" in line for line in output.splitlines()), output
+    assert (root / ".flowguard/models/ns_child.py").read_bytes() == old_child
+    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
+    assert code == 0 and "one_step_1" in output, (output, errors)
+
+
+@pytest.mark.parametrize("statement,expected_code", [
+    ("import flowguard_missing_external_dependency\n", 1),
+    ("import shelf.future_feature\n", 3)])
+def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, capsys, statement, expected_code):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _install_shelf_target(root)
+    for relative in ("shelf/loans.py", "tests/test_loans.py"):
+        (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
+    tests = root / "tests/test_loans.py"
+    tests.write_text(statement + tests.read_text(), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == expected_code and not errors, (output, errors)
+    if expected_code == 1:
+        assert "ERROR model lending:" in output and "flowguard_missing_external_dependency" in output
+        assert "TESTED_BY dependency/import error" in output
+    else:
+        assert "TO-DO model lending:" in output and "shelf.future_feature" in output
+        assert not any(line.startswith("ERROR ") for line in output.splitlines())

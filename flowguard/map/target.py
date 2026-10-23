@@ -1,4 +1,4 @@
-"""Start, extend and drop one target draft without running a model or code check."""
+"""Manage one target and check its merged tree against real code and bound tests."""
 
 from __future__ import annotations
 
@@ -10,10 +10,12 @@ from pathlib import Path
 import shutil
 import stat
 import sys
+import re
+from dataclasses import dataclass, field
 
 from .inventory import build_inventory
-from .mapfile import MapError, ignore_patterns, load_map, model_registry, read_model_contract
-from .targetfile import TARGET_RELDIR, TARGET_SCHEMA, load_target, validate_target
+from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract
+from .targetfile import TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_node_changes, validate_target
 from .tree import build_tree
 
 
@@ -27,7 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("node")
     drop = commands.add_parser("drop", help="preview or delete the target")
     drop.add_argument("--yes", action="store_true")
-    for command in (start, add, drop):
+    check = commands.add_parser("check", help="check actual code against the current tree with the target applied")
+    for command in (start, add, drop, check):
         command.add_argument("--root", default=argparse.SUPPRESS)
     return parser
 
@@ -41,6 +44,180 @@ def _remove_readonly(function, path, info):
         raise info[1]
     os.chmod(path, stat.S_IWRITE)
     function(path)
+
+
+TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "test_missing", "model_anchor_broken",
+              "model_test_broken", "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
+              "dep_unused", "layer_violation", "dependency_cycle"}
+ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
+               "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
+               "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
+               "child_outside_parent", "duplicate_child_owner", "duplicate_owner"}
+
+
+@dataclass(frozen=True)
+class TargetFinding:
+    node: str
+    code: str
+    message: str
+
+
+@dataclass
+class TargetReport:
+    goal: str = ""
+    changes: dict = field(default_factory=lambda: {"+": [], "~": [], "-": []})
+    errors: list[TargetFinding] = field(default_factory=list)
+    todos: list[TargetFinding] = field(default_factory=list)
+    warnings: list[TargetFinding] = field(default_factory=list)
+
+
+def _selected_models(root, current, target, view, inv, tree):
+    """Traverse the union of native current/merged edges, in both directions."""
+    old = build_tree(root, current, inv)
+    links = {}
+    for source_tree in (old, tree):
+        for source, destinations in source_tree.imports.items():
+            for destination in destinations:
+                links.setdefault(source, set()).add(destination)
+                links.setdefault(destination, set()).add(source)
+        for node in source_tree.nodes.values():
+            if node.parent_kind == "model" and node.parent in source_tree.nodes:
+                parent = source_tree.nodes[node.parent].path
+                links.setdefault(node.path, set()).add(parent)
+                links.setdefault(parent, set()).add(node.path)
+    reached = {f".flowguard/models/{filename}" for filename in target.models}
+    reached.update(node.path for node in old.nodes.values() if node.id in target.remove["model"])
+    pending = list(reached)
+    while pending:
+        for adjacent in links.get(pending.pop(), set()) - reached:
+            reached.add(adjacent)
+            pending.append(adjacent)
+    return sorted(node.id for node in tree.nodes.values() if node.path in reached)
+
+
+def _finding_node(finding, tree):
+    flow = re.search(r"\bflow ([^ :]+):", finding.message)
+    if flow:
+        return "flow " + flow.group(1)
+    model = re.match(r"(\.flowguard/models/[^:]+\.py):", finding.message)
+    if model:
+        node = next((n for n in tree.nodes.values() if n.path == model.group(1)), None)
+        return "model " + (node.id if node else Path(model.group(1)).stem)
+    return "component " + finding.component if finding.component else "target"
+
+
+def _issue_key(node, code, message, tree):
+    """A code/test reference, not just a model ID or a generic message prefix."""
+    family = {"model_anchor_broken": "anchor", "implemented_by": "anchor", "placeholder_anchor": "anchor", "model_test_broken": "test",
+              "tested_by_failed": "test", "tested_by_misses_anchor": "test"}.get(code, code)
+    contract = tree.nodes[node[6:]].contract if node.startswith("model ") and node[6:] in tree.nodes else {}
+    if family == "anchor":
+        anchors = contract.get("IMPLEMENTED_BY", {})
+        for block, anchor in anchors.items():
+            if f"{block} ->" in message or anchor in message:
+                return node, family, anchor
+    if family == "test":
+        for invariant, anchors in contract.get("TESTED_BY", {}).items():
+            for anchor in anchors:
+                path, _, symbol = anchor.partition(":")
+                if anchor in message or (f"{invariant} ->" in message and path in message
+                                        and ("symbol '" not in message or repr(symbol) in message)):
+                    return node, family, anchor
+    return node, family, message
+
+
+def check_target(root: Path) -> TargetReport:
+    """Fresh native facts and proofs; all engine project-cache writes are disabled."""
+    from .check import run_check
+    from .lint import _rules, _variants, duplicate_owner_findings
+    from .proof import run_models
+
+    root = root.resolve()
+    current = load_map(root)
+    report = TargetReport()
+    try:
+        target = load_target(root)
+    except MapError as exc:
+        report.errors.append(TargetFinding("target", "target_invalid", str(exc)))
+        return report
+    if target is None:
+        raise MapError('no target; start one with python -m flowguard target start "<goal>"')
+    report.goal = target.goal if isinstance(target.goal, str) else ""
+    problems = validate_target(root, current, target)
+    if problems:
+        report.errors.extend(TargetFinding("target", item.code, item.message) for item in problems)
+        return report
+    report.changes = target_node_changes(root, current, target)
+    view = build_target_view(root, current, target)
+    inv = build_inventory(root, ignore_patterns(view.data), write_cache=False)
+    tree = build_tree(root, view.data, inv, view=view)
+    seen = set()
+
+    def add(level, node, code, message):
+        key = (level, *_issue_key(node, code, message, tree))
+        if key not in seen:
+            seen.add(key)
+            getattr(report, level).append(TargetFinding(node, code, message))
+
+    replaced = {c["id"] for c in target.data.get("components", [])}
+    for finding in [*run_check(root, view.data, inv, view=view), *duplicate_owner_findings(view.data)]:
+        if finding.code in {"draft", "stale"} and finding.component in replaced:
+            continue
+        if finding.level == "info":
+            continue
+        placeholder = "placeholder anchor " in finding.message
+        level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
+        add(level, _finding_node(finding, tree), finding.code, finding.message)
+    graph = component_graph(view.data, inv)
+    for name, changed, edges in _variants(view.data, graph):
+        if not any(f.level == "error" for f in _rules(changed, edges)):
+            add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
+    selected = _selected_models(root, current, target, view, inv, tree)
+    # [] means "all" to the ordinary runner; an empty target selection means none.
+    results = run_models(root, selected, tests=True, view=view, inv=inv) if selected else []
+    for result in results:
+        node = "model " + result.model
+        for problem in result.problems:
+            code = ("placeholder_anchor" if problem.startswith("placeholder anchor ") else
+                    "implemented_by" if problem.startswith("IMPLEMENTED_BY ") else
+                    "tested_by_misses_anchor" if problem.startswith("tested_by_misses_anchor ") else
+                    "tested_by_failed" if problem.startswith("tested_by_failed ") else "model_proof")
+            add("todos" if problem in result.code_gaps else "errors", node, code, problem)
+        if result.status != "pass" and not result.problems:
+            add("errors", node, "model_proof", f"model ended with status {result.status}")
+        for invariant in result.uncovered_invariants:
+            add("errors", node, "uncovered_invariant", f"invariant {invariant!r} is violated by no known-bad variant")
+        for warning in result.warnings:
+            if not any(warning.startswith(f"invariant {name!r} is violated by no known-bad variant") for name in result.uncovered_invariants):
+                add("warnings", node, "model_warning", warning)
+    return report
+
+
+def _todo_next(code):
+    if code in {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}:
+        return "write the test the target binds"
+    if code in {"component_empty", "pattern_dead", "file_unmapped", "model_missing"}:
+        return "create the file, or change the target's files"
+    if code in {"dep_undeclared", "dep_unused", "layer_violation", "dependency_cycle"}:
+        return "make the imports match the target's depends_on"
+    if code in {"anchor_broken", "model_anchor_broken", "implemented_by", "flow_step_broken"}:
+        return "write the code the target names"
+    return "change the code until it replays the target model"
+
+
+def render_target_report(report: TargetReport) -> str:
+    changes = report.changes
+    lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
+    for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
+        for finding in findings:
+            suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
+            message = finding.message.replace("\n", "\n  ")
+            lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
+    lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)")
+    lines.append("next: " + ("fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
+                            "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
+                            "python -m flowguard target promote"))
+    return "\n".join(lines)
 
 
 def _add(root: Path, data: dict, target, requested: str) -> None:
@@ -96,6 +273,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     root = Path(args.root).resolve()
     try:
+        if args.command == "check":
+            report = check_target(root)
+            print(render_target_report(report))
+            return 1 if report.errors else 3 if report.todos else 0
         data = load_map(root)
         target = load_target(root)
         if args.command == "start":

@@ -251,21 +251,33 @@ class ModelRegistry:
     issues: list[RegistryIssue] = field(default_factory=list)
 
 
-def model_registry(root: Path, data: dict | None = None) -> ModelRegistry:
+def resolve_model_path(root: Path, logical: str, *, view=None) -> Path | None:
+    """Resolve a canonical model path without falling back outside a supplied view."""
+    return root / logical if view is None else view.resolve(logical)
+
+
+def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelRegistry:
     """The single executable inventory: top-level contracts and declared runners.
 
     Paths outside these conventions are not silently counted as proof. Discovery
     only reads literals; importing and executing belongs to the proof runner.
     """
     if data is None:
-        try:
-            data = load_map(root)
-        except MapError:
-            data = {}
+        if view is not None:
+            data = view.data
+        else:
+            try:
+                data = load_map(root)
+            except MapError:
+                data = {}
     referenced = {m for c in data.get("components", []) for m in c.get("models", [])}
     referenced |= {f["model"] for f in data.get("flows", []) if f.get("model")}
     base = root / ".flowguard/models"
-    paths = {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")}
+    paths = ({rel for rel in view.model_sources
+              if Path(rel).parent.as_posix() == ".flowguard/models" and Path(rel).suffix == ".py"
+              and not Path(rel).name.startswith("_")}
+             if view is not None else
+             {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")})
     registry = ModelRegistry()
     runners = {p.relative_to(root).as_posix()
                for p in (root / ".flowguard/verification/owners").glob("*/run_checks.py")}
@@ -283,8 +295,8 @@ def model_registry(root: Path, data: dict | None = None) -> ModelRegistry:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,
                                   f"{rel}: model paths must stay inside the project"))
             continue
-        path = root / rel
-        if not path.is_file():
+        path = resolve_model_path(root, rel, view=view)
+        if path is None or not path.is_file():
             registry.issues.append(RegistryIssue("model_missing", rel, f"model file {rel} missing"))
             continue
         if path.name == "run_checks.py" and rel in referenced:

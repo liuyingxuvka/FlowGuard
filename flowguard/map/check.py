@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract
+from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -53,7 +53,7 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
     return {anchor: problem for anchor in anchors if (problem := anchor_problem(root, inv, anchor))}
 
 
-def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -> list[Finding]:
+def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None) -> list[Finding]:
     out: list[Finding] = []
     by_id = {c["id"]: c for c in data["components"]}
     owner, owners_all = owner_index(data, inv)
@@ -76,12 +76,12 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
         if path in inv.source and (path in owner or not is_test_file(path)) and info.parse_error:
             out.append(Finding("error", "source_parse_error", owner.get(path, ""),
                                f"cannot parse {path}: {info.parse_error}"))
-    registry = model_registry(root, data)
+    registry = model_registry(root, data, view=view)
     for issue in registry.issues:
         out.append(Finding("error", issue.code, "", f"{issue.path}: {issue.message}"))
 
     from .tree import build_tree
-    tree = build_tree(root, data, inv)
+    tree = build_tree(root, data, inv, view=view)
     out.extend(tree.findings)
 
     for flow in data.get("flows", []):
@@ -95,12 +95,17 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
                 if python_only and not any(symbol_defined(inv, f, symbol) for f in owned):
                     out.append(Finding("error", "flow_step_broken", comp_id,
                                        f"flow {flow['id']}: symbol {symbol!r} not found in component {comp_id}"))
-        if flow.get("model") and not (root / flow["model"]).is_file():
-            out.append(Finding("error", "model_missing", "", f"flow {flow['id']}: model file {flow['model']} missing"))
+        if flow.get("model"):
+            model_path = resolve_model_path(root, flow["model"], view=view)
+            if model_path is None or not model_path.is_file():
+                out.append(Finding("error", "model_missing", "", f"flow {flow['id']}: model file {flow['model']} missing"))
 
     for entry in registry.entries:              # contract models and runners: one binding rule
         rel = entry.path
-        path = root / rel
+        path = resolve_model_path(root, rel, view=view)
+        if path is None:
+            out.append(Finding("error", "model_missing", "", f"model file {rel} missing"))
+            continue
         try:
             contract = read_model_contract(path)
         except (SyntaxError, ValueError) as exc:
@@ -163,7 +168,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             if not any(glob_match(f, pat) for f in inv.files):
                 out.append(Finding("error", "test_missing", cid, f"tests pattern {pat!r} matches nothing"))
         for m in c.get("models", []):
-            if not (root / m).is_file():
+            model_path = resolve_model_path(root, m, view=view)
+            if model_path is None or not model_path.is_file():
                 out.append(Finding("error", "model_missing", cid, f"model file {m} missing"))
         declared, actual = set(c.get("depends_on", [])), graph.get(cid, set())
         for d in sorted(declared - set(by_id)):
@@ -182,10 +188,10 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False) -
             out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
     from .discover import discover_inventory
     from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage, model_writer_findings
-    covered, not_modeled = model_coverage(root, data, registry)
-    raw = discover_inventory(root, inv)
+    covered, not_modeled = model_coverage(root, data, registry, view=view)
+    raw = discover_inventory(root, inv, write_cache=view is None)
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
-    entry_findings.extend(model_writer_findings(raw, data, root, inv, registry))
+    entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
     return out

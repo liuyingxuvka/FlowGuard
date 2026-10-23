@@ -28,6 +28,43 @@ class TargetIssue:
     message: str
 
 
+@dataclass(frozen=True)
+class ModelView:
+    """One operation's complete model namespace; logical paths keep their identity."""
+    root: Path
+    data: dict
+    model_sources: dict[str, str]
+    model_names: set[str]
+
+    def resolve(self, logical: str) -> Path | None:
+        if Path(logical).parts[:2] == (".flowguard", "models"):
+            physical = self.model_sources.get(logical)
+            return self.root / physical if physical is not None else None
+        return self.root / logical
+
+    def to_payload(self) -> dict:
+        return {"root": str(self.root), "data": self.data, "model_sources": self.model_sources,
+                "model_names": sorted(self.model_names)}
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> ModelView:
+        return cls(Path(payload["root"]).resolve(), payload["data"], dict(payload["model_sources"]),
+                   set(payload["model_names"]))
+
+
+def build_target_view(root: Path, current_data: dict, target: Target) -> ModelView:
+    root = root.resolve()
+    files = {p.name: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py") if p.is_file()}
+    names = {Path(filename).stem for filename in files.keys() | target.models.keys()}
+    removed = {entry.path for entry in model_registry(root, current_data).entries
+               if entry.id in target.remove["model"]}
+    sources = {f".flowguard/models/{name}": physical for name, physical in files.items() if physical not in removed}
+    # Applying replacements last also permits removing an old ID and supplying a
+    # different ID in that same filename; the new source is not a tombstone.
+    sources.update({f".flowguard/models/{name}": physical for name, physical in target.models.items()})
+    return ModelView(root, merge_target_map(current_data, target), sources, names)
+
+
 def load_target(root: Path) -> Target | None:
     directory = root / TARGET_RELDIR
     if not directory.exists():

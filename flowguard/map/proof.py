@@ -21,20 +21,24 @@ PASS is always a statement about the current bytes, environment and interpreter.
 
 from __future__ import annotations
 
+import importlib.abc
+import importlib.machinery
 import importlib.util
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
 import time
 import traceback
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .facts import AnchorWatch, PlaceholderAnchorError
-from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files
+from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files, resolve_model_path
 from .tree import build_tree
 from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
 
@@ -52,27 +56,105 @@ class ModelResult:
     uncovered_invariants: list[str] = field(default_factory=list)
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
+    code_gaps: list[str] = field(default_factory=list)
 
 
 def model_files(root: Path) -> list[Path]:
     return [root / e.path for e in model_registry(root).entries if e.kind == "contract"]
 
 
-def _load(root: Path, path: Path):
+class _ViewModelLoader(importlib.machinery.SourceFileLoader):
+    """Compile the selected bytes with their canonical project filename, without pyc."""
+    def __init__(self, view, name: str, logical: str):
+        self.view, self.logical = view, logical
+        super().__init__(name, str(view.root / logical))
+
+    def get_code(self, fullname):
+        return self.source_to_code(self.get_data(self.path), self.path)
+
+    def get_data(self, path):
+        if Path(path) != Path(self.path):
+            return super().get_data(path)
+        physical = self.view.resolve(self.logical)
+        if physical is None:
+            raise ModuleNotFoundError(f"No model named {self.name!r} in the target view", name=self.name)
+        return physical.read_bytes()
+
+
+@contextmanager
+def model_namespace(view):
+    """One temporary namespace for direct model imports and every transitive helper."""
+    if view is None:
+        yield
+        return
+    names = view.model_names
+
+    def belongs(name):
+        # The engine package is not a user model module, even if a model's file
+        # happens to use that basename; its direct anonymous load remains valid.
+        return not (name == "flowguard" or name.startswith("flowguard.")) and (
+            name.split(".")[0] in names or name in {"_flowguard_model_" + stem for stem in names})
+
+    class Finder(importlib.abc.MetaPathFinder):
+        def find_spec(self, fullname, path=None, target=None):
+            if "." in fullname or fullname not in names or fullname == "flowguard":
+                return None
+            logical = f".flowguard/models/{fullname}.py"
+            if view.resolve(logical) is None:
+                raise ModuleNotFoundError(f"No model named {fullname!r} in the target view", name=fullname)
+            loader = _ViewModelLoader(view, fullname, logical)
+            return importlib.util.spec_from_file_location(fullname, view.root / logical, loader=loader)
+
+    before_modules = set(sys.modules)
+    saved = {name: module for name, module in sys.modules.copy().items() if belongs(name)}
+    saved_path, saved_finders, saved_bytecode = sys.path[:], sys.meta_path[:], sys.dont_write_bytecode
+    for name in saved:
+        sys.modules.pop(name, None)
+    sys.meta_path.insert(0, Finder())
+    sys.dont_write_bytecode = True
+    try:
+        yield
+    finally:
+        sys.path[:] = saved_path
+        sys.meta_path[:] = saved_finders
+        sys.dont_write_bytecode = saved_bytecode
+        for name in list(sys.modules):
+            module = sys.modules.get(name)
+            filename = vars(module).get("__file__") if isinstance(module, type(sys)) else None
+            new_project_module = (name not in before_modules and not (name == "flowguard" or name.startswith("flowguard."))
+                                  and isinstance(filename, str) and Path(filename).resolve().is_relative_to(view.root))
+            if belongs(name) or new_project_module:
+                sys.modules.pop(name, None)
+        sys.modules.update(saved)
+
+
+@contextmanager
+def _view_request(view):
+    if view is None:
+        yield []
+        return
+    with tempfile.TemporaryDirectory(prefix="flowguard-model-view-") as directory:
+        path = Path(directory) / "view.json"
+        path.write_text(json.dumps(view.to_payload()), encoding="utf-8")
+        yield [str(path)]
+
+
+def _load(root: Path, path: Path, *, view=None):
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     models_dir = str(root / ".flowguard/models")
     if models_dir not in sys.path:
         sys.path.append(models_dir)
     name = f"_flowguard_model_{path.stem}"
-    spec = importlib.util.spec_from_file_location(name, path)
+    loader = _ViewModelLoader(view, name, path.relative_to(root).as_posix()) if view is not None else None
+    spec = importlib.util.spec_from_file_location(name, path, loader=loader)
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module                    # dataclasses resolve their module through sys.modules
     spec.loader.exec_module(module)
     return module
 
 
-def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: bool = False) -> ModelResult:
+def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: bool = False, view=None) -> ModelResult:
     """Run one model in a fresh subprocess so imports and module state never leak between models."""
     package_parent = Path(__file__).resolve().parents[2]          # directory that contains 'flowguard/'
     env = dict(os.environ)
@@ -82,9 +164,10 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: 
     rel = path.relative_to(root).as_posix()
     started = time.time()
     try:
-        proc, timed_out, cleaned = run_isolated_process(
-            [sys.executable, "-m", "flowguard.map.proof", str(root), str(path)], cwd=root,
-            env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        with _view_request(view) as extra:
+            proc, timed_out, cleaned = run_isolated_process(
+                [sys.executable, "-m", "flowguard.map.proof", str(root), str(path), *extra], cwd=root,
+                env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
         if timed_out or not cleaned or proc.returncode != 0:
             return ModelResult(model=path.stem, file=rel, status="error",
                                problems=[f"model process exit={proc.returncode}; timeout={timed_out}; cleanup_confirmed={cleaned}"],
@@ -100,17 +183,20 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: 
         return ModelResult(model=path.stem, file=rel, status="error", problems=[f"model process crashed:\n{tail}"],
                            seconds=round(time.time() - started, 3))
     if tests:
-        run_bound_tests(root, path, result, timeout=timeout)
+        run_bound_tests(root, path, result, timeout=timeout, view=view)
     return result
 
 
-def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT, statuses: dict[str, str] | None = None) -> None:
+def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT, statuses: dict[str, str] | None = None, view=None) -> None:
     """Run a model's unique bound Python nodes once, then judge every actual item independently."""
     from .inventory import parse_python
 
     started = time.monotonic()
     try:
-        contract = read_model_contract(path)
+        physical = resolve_model_path(root, path.relative_to(root).as_posix(), view=view)
+        if physical is None:
+            raise FileNotFoundError(f"model {path} is absent from the target view")
+        contract = read_model_contract(physical)
         bindings = [(invariant, anchor) for invariant, anchors in contract.get("TESTED_BY", {}).items() for anchor in anchors]
         if statuses is not None:
             statuses.update({anchor: "not_run" for _, anchor in bindings})
@@ -133,7 +219,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             if info.parse_error or len(matches) != 1:
                 if statuses is not None:
                     statuses[anchor] = "failed"
-                _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable")
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable", code_gap=True)
                 continue
             nodes[anchor] = rel + "::" + "::".join(matches[0].split("."))
         if not nodes:
@@ -143,7 +229,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
         with tempfile.TemporaryDirectory(prefix="flowguard-tested-by-") as folder:
             request, output = Path(folder) / "request.json", Path(folder) / "result.json"
-            request.write_text(json.dumps({"anchors": anchors, "nodes": sorted(set(nodes.values()))}), encoding="utf-8")
+            request.write_text(json.dumps({"anchors": anchors, "nodes": sorted(set(nodes.values())),
+                                           **({"view": view.to_payload()} if view is not None else {})}), encoding="utf-8")
             proc, timed_out, cleaned = run_isolated_process(
                 [sys.executable, "-m", "flowguard.map.testreach", str(root), str(request), str(output)],
                 cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
@@ -154,6 +241,13 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         diagnostic = ((proc.stdout or "") + "\n" + (proc.stderr or ""))[-2000:]
         if payload.get("error") or not payload.get("complete"):
             raise RuntimeError(payload.get("error") or "TESTED_BY result was incomplete")
+        imports = payload.get("import_errors", [])
+        external = [item for item in imports if item["type"] != "ModuleNotFoundError"
+                    or not _project_missing(root, item.get("name"), view=view)]
+        if external:
+            raise RuntimeError("TESTED_BY dependency/import error: " + "; ".join(
+                f"{item['type']} {item.get('name')!r} during {item['phase']} at {item['nodeid']}: {item['message']}"
+                for item in external) + "\n" + diagnostic)
         known_failure = False
         for invariant, anchor in bindings:
             if anchor not in nodes:
@@ -164,7 +258,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             if not items or failed:
                 if statuses is not None:
                     statuses[anchor] = "failed"
-                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}")
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}", code_gap=True)
                 known_failure = True
                 continue
             missed = [item["nodeid"] for item in items if not (set(item["consulted"]) & set(anchors))]
@@ -172,10 +266,12 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
                 statuses[anchor] = "misses_anchor" if missed else "passed"
             if missed:
                 _fail(result, f"tested_by_misses_anchor {invariant} -> {anchor}: the test ran but called or read none of IMPLEMENTED_BY; "
-                              + ", ".join(missed))
+                              + ", ".join(missed), code_gap=True)
         if proc.returncode != 0:
             if known_failure:
-                result.problems.append("TESTED_BY pytest output: " + diagnostic)
+                problem = "TESTED_BY pytest output: " + diagnostic
+                result.problems.append(problem)
+                result.code_gaps.append(problem)
             else:
                 _fail(result, f"TESTED_BY pytest process exited {proc.returncode}: " + diagnostic)
     except Exception as exc:
@@ -202,11 +298,32 @@ def _failed_checks(report) -> set[str]:
                if not f.message.startswith("reachability predicate raised ") and f.description != "success predicate raised"})
 
 
+def _project_missing(root: Path, module: str | None, *, view=None) -> bool:
+    """Only an actually inventoried project package can turn a missing import into work."""
+    if not module or (view is not None and module.split(".")[0] in view.model_names):
+        return False
+    from .inventory import build_inventory
+    from .mapfile import ignore_patterns
 
-def _fail(result: ModelResult, problem: str) -> None:
+    try:
+        data = view.data if view is not None else load_map(root)
+        inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
+    except (MapError, OSError):
+        return False
+    names = set()
+    for info in inv.py.values():
+        name = info.module.removeprefix("src.")
+        names.add(name.split(".")[0])
+    return module.split(".")[0] in names
+
+
+
+def _fail(result: ModelResult, problem: str, *, code_gap: bool = False) -> None:
     if result.status != "error":
         result.status = "fail"
     result.problems.append(problem)
+    if code_gap:
+        result.code_gaps.append(problem)
 
 
 def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: AnchorWatch, where: str) -> None:
@@ -221,18 +338,18 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
     problems = anchor_problems(root, anchors.values())
     for name, anchor in sorted(anchors.items()):
         if anchor in problems:
-            _fail(result, f"IMPLEMENTED_BY {name} -> {problems[anchor]}")
+            _fail(result, f"IMPLEMENTED_BY {name} -> {problems[anchor]}", code_gap=True)
     for anchor in watch.missing():
         if anchor not in problems:
             _fail(result, f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read {where}; "
-                          "call that code or read it as code facts")
+                          "call that code or read it as code facts", code_gap=True)
     for anchor in watch.unobserved():
         if anchor not in problems:
             result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
                                    "execution not verified")
 
 
-def _child_start_check(root: Path, path: Path, contract: dict, module, design, result: ModelResult) -> None:
+def _child_start_check(root: Path, path: Path, contract: dict, module, design, result: ModelResult, *, view=None) -> None:
     """Warn about the actual model-parent port, without lending its calls to the child proof."""
     if "project_parent_state" not in contract["functions"]:
         return
@@ -244,10 +361,10 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
         from types import ModuleType
 
         try:
-            data = load_map(root)
+            data = view.data if view is not None else load_map(root)
         except MapError:
             data = {"components": []}
-        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data)))
+        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data), write_cache=(view is None)), view=view)
         node = tree.nodes.get(result.model)
         if node is None or node.parent_kind != "model" or tree.nodes[node.parent].kind != "contract":
             return
@@ -261,7 +378,7 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
                        and isinstance(filename := getattr(m, "__file__", None), str)
                        and Path(filename).resolve() == parent_path), None)
         if parent is None:
-            parent = _load(root, parent_path)
+            parent = _load(root, parent_path, view=view)
         parent_design = parent.build_explorer()
         project = module.project_parent_state
         if not callable(project):
@@ -277,121 +394,133 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
         result.warnings.append(f"child_start_gap not checked: parent '{parent_id}' could not be explored ({detail})")
 
 
-def run_model_in_process(root: Path, path: Path) -> ModelResult:
-    contract = read_model_contract(path)
-    result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
-    if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
-        result.status = "error"
-        result.problems.append("a model file needs MODEL_ID and def build_explorer()")
-        return result
-    started = time.time()
-    try:
-        from flowguard.explorer import Explorer, _invariant_name
-        for anchor in contract.get("IMPLEMENTED_BY", {}).values():
-            if PLACEHOLDER_ANCHOR in anchor:
-                raise PlaceholderAnchorError(anchor_problems(root, [anchor])[anchor])
-        module = _load(root, path)
-        anchors = contract.get("IMPLEMENTED_BY", {})
-        calls = AnchorWatch(root, anchors.values())
-        design = module.build_explorer()
-        if not isinstance(design, Explorer):
-            raise TypeError("build_explorer() must return flowguard.explorer.Explorer; no exploration executed")
-        design_checks = _design_checks(design)
-        if not design_checks:
-            result.status = "fail"
-            result.problems.append("build_explorer() declares no invariants or reachability checks")
-        invariant_names = {_invariant_name(i) for i in design.invariants}
-        result.rules = sorted(invariant_names)
-        for name in sorted(set(contract.get("TESTED_BY", {})) - invariant_names):
-            result.status = "fail"
-            result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
-        with calls:
-            report = design.explore()
-        if not report.explored_sequence_count or not report.transition_count:
-            result.status = "fail"
-            result.problems.append("build_explorer() explored no input transitions; the design proves nothing")
-        for branch in report.exception_branches:
-            if branch.error_type == "PlaceholderAnchorError":
-                raise PlaceholderAnchorError(branch.message)
-        if not report.ok:
-            result.status = "fail"
-            result.problems.append("the intended design violates its invariants:\n" + report.format_text(max_examples=1))
-        _child_start_check(root, path, contract, module, design, result)
-        if "broken_variants" in contract["functions"]:
-            variants = module.broken_variants()
-            if not isinstance(variants, dict) or not variants:
-                raise ValueError("broken_variants() must return a nonempty dictionary; no known-bad proof executed")
-            result.known_bad = sorted(str(name) for name in variants)
-            covered: set[str] = set()
-            for name, explorer in variants.items():
-                if not isinstance(explorer, Explorer):
-                    raise TypeError(f"broken variant {name!r} must be a flowguard.explorer.Explorer")
-                bad = explorer.explore()
-                for branch in bad.exception_branches:
-                    if branch.error_type == "PlaceholderAnchorError":
-                        raise PlaceholderAnchorError(branch.message)
-                if bad.ok:
-                    result.status = "fail"
-                    result.problems.append(f"known-bad variant {name!r} passed: the invariants do not catch it")
-                else:
-                    from flowguard.explorer import _check_invariant
-                    invariant_checks = {_invariant_name(i): i for i in design.invariants}
-                    caught = {v.invariant_name for v in bad.violations
-                              if v.invariant_name in invariant_checks and not v.message.startswith("invariant raised ")
-                              and not (oracle := _check_invariant(invariant_checks[v.invariant_name], v.state, v.trace)).ok
-                              and not oracle.message.startswith("invariant raised ")}
-                    invariant_hits = caught.copy()
-                    caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}
-                    if bad.exploration_status != "budget_exhausted" and (caught & design_checks):
-                        covered |= invariant_hits & invariant_names
-                        continue
-                    result.status = "fail"
-                    result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
-                                           "crashes, unrelated rules and budget exhaustion prove nothing")
-            for name in sorted(invariant_names - covered):
-                result.uncovered_invariants.append(name)
-                result.warnings.append(f"invariant {name!r} is violated by no known-bad variant; "
-                                       "add a variant that breaks it, or say why it cannot be broken")
-        else:
-            raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
-        if "conformance" in contract["functions"]:
+def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
+    with model_namespace(view):
+        physical = resolve_model_path(root, path.relative_to(root).as_posix(), view=view)
+        if physical is None:
+            return ModelResult(path.stem, path.relative_to(root).as_posix(), status="error", problems=["model is absent from the target view"])
+        contract = read_model_contract(physical)
+        result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
+        if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
+            result.status = "error"
+            result.problems.append("a model file needs MODEL_ID and def build_explorer()")
+            return result
+        started = time.time()
+        try:
+            from flowguard.explorer import Explorer, _invariant_name
+            for anchor in contract.get("IMPLEMENTED_BY", {}).values():
+                if PLACEHOLDER_ANCHOR in anchor:
+                    raise PlaceholderAnchorError(anchor_problems(root, [anchor])[anchor])
+            module = _load(root, path, view=view)
+            anchors = contract.get("IMPLEMENTED_BY", {})
+            calls = AnchorWatch(root, anchors.values())
+            design = module.build_explorer()
+            if not isinstance(design, Explorer):
+                raise TypeError("build_explorer() must return flowguard.explorer.Explorer; no exploration executed")
+            design_checks = _design_checks(design)
+            if not design_checks:
+                result.status = "fail"
+                result.problems.append("build_explorer() declares no invariants or reachability checks")
+            invariant_names = {_invariant_name(i) for i in design.invariants}
+            result.rules = sorted(invariant_names)
+            for name in sorted(set(contract.get("TESTED_BY", {})) - invariant_names):
+                result.status = "fail"
+                result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
             with calls:
-                conf = module.conformance()
-            if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):
-                raise ValueError("conformance() must return a report with boolean .ok and format_text(); no real-code proof executed")
-            planned = getattr(conf, "planned", ())
-            if planned:
-                if contract.get("DESIGN_ONLY"):
-                    result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): {len(planned)} planned fact(s) still to make true; remove DESIGN_ONLY after the change")
-                else:
-                    _fail(result, "planned facts without DESIGN_ONLY: " + ", ".join(fact.name for fact in planned))
-            if not conf.ok:
-                environment = [v for v in getattr(conf, "violations", ())
-                               if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}
-                               and ("ModuleNotFoundError:" in v.message or "ImportError:" in v.message)]
-                if environment:
-                    result.status = "error"
-                    result.problems.append(f"model environment/interpreter error: {environment[0].message}; "
-                                           f"interpreter={sys.executable}")
-                else:
-                    result.status = "fail"
-                    result.problems.append("the real code does not conform to the model:\n" + conf.format_text(max_examples=1))
-        elif contract.get("DESIGN_ONLY"):
-            result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): no conformance(); bind it once the code exists")
-        else:
-            _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
-                          "or mark DESIGN_ONLY = '<reason>'")
-        _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
-    except PlaceholderAnchorError as exc:
-        _fail(result, str(exc))
-    except (ImportError, ModuleNotFoundError) as exc:
-        result.status = "error"
-        result.problems.append(f"model environment/interpreter error: {exc}; interpreter={sys.executable}")
-    except Exception:  # noqa: BLE001 - a crashing model is a reported error, not a crash of the runner
-        result.status = "error"
-        result.problems.append(traceback.format_exc(limit=4))
-    result.seconds = round(time.time() - started, 3)
-    return result
+                report = design.explore()
+            if not report.explored_sequence_count or not report.transition_count:
+                result.status = "fail"
+                result.problems.append("build_explorer() explored no input transitions; the design proves nothing")
+            for branch in report.exception_branches:
+                if branch.error_type == "PlaceholderAnchorError":
+                    raise PlaceholderAnchorError(branch.message)
+            if not report.ok:
+                result.status = "fail"
+                result.problems.append("the intended design violates its invariants:\n" + report.format_text(max_examples=1))
+            _child_start_check(root, path, contract, module, design, result, view=view)
+            if "broken_variants" in contract["functions"]:
+                variants = module.broken_variants()
+                if not isinstance(variants, dict) or not variants:
+                    raise ValueError("broken_variants() must return a nonempty dictionary; no known-bad proof executed")
+                result.known_bad = sorted(str(name) for name in variants)
+                covered: set[str] = set()
+                for name, explorer in variants.items():
+                    if not isinstance(explorer, Explorer):
+                        raise TypeError(f"broken variant {name!r} must be a flowguard.explorer.Explorer")
+                    bad = explorer.explore()
+                    for branch in bad.exception_branches:
+                        if branch.error_type == "PlaceholderAnchorError":
+                            raise PlaceholderAnchorError(branch.message)
+                    if bad.ok:
+                        result.status = "fail"
+                        result.problems.append(f"known-bad variant {name!r} passed: the invariants do not catch it")
+                    else:
+                        from flowguard.explorer import _check_invariant
+                        invariant_checks = {_invariant_name(i): i for i in design.invariants}
+                        caught = {v.invariant_name for v in bad.violations
+                                  if v.invariant_name in invariant_checks and not v.message.startswith("invariant raised ")
+                                  and not (oracle := _check_invariant(invariant_checks[v.invariant_name], v.state, v.trace)).ok
+                                  and not oracle.message.startswith("invariant raised ")}
+                        invariant_hits = caught.copy()
+                        caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}
+                        if bad.exploration_status != "budget_exhausted" and (caught & design_checks):
+                            covered |= invariant_hits & invariant_names
+                            continue
+                        result.status = "fail"
+                        result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
+                                               "crashes, unrelated rules and budget exhaustion prove nothing")
+                for name in sorted(invariant_names - covered):
+                    result.uncovered_invariants.append(name)
+                    result.warnings.append(f"invariant {name!r} is violated by no known-bad variant; "
+                                           "add a variant that breaks it, or say why it cannot be broken")
+            else:
+                raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
+            if "conformance" in contract["functions"]:
+                with calls:
+                    conf = module.conformance()
+                if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):
+                    raise ValueError("conformance() must return a report with boolean .ok and format_text(); no real-code proof executed")
+                planned = getattr(conf, "planned", ())
+                if planned:
+                    if contract.get("DESIGN_ONLY"):
+                        result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): {len(planned)} planned fact(s) still to make true; remove DESIGN_ONLY after the change")
+                    else:
+                        _fail(result, "planned facts without DESIGN_ONLY: " + ", ".join(fact.name for fact in planned))
+                if not conf.ok:
+                    environment = [v for v in getattr(conf, "violations", ())
+                                   if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}
+                                   and ("ModuleNotFoundError:" in v.message or "ImportError:" in v.message)]
+                    if environment:
+                        result.status = "error"
+                        problem = f"model environment/interpreter error: {environment[0].message}; interpreter={sys.executable}"
+                        result.problems.append(problem)
+                        missing = re.search(r"No module named [\'\"]([^\'\"]+)", environment[0].message)
+                        if missing and _project_missing(root, missing.group(1), view=view):
+                            result.code_gaps.append(problem)
+                    else:
+                        result.status = "fail"
+                        problem = "the real code does not conform to the model:\n" + conf.format_text(max_examples=1)
+                        result.problems.append(problem)
+                        result.code_gaps.append(problem)
+            elif contract.get("DESIGN_ONLY"):
+                result.warnings.append(f"design only ({contract['DESIGN_ONLY']}): no conformance(); bind it once the code exists")
+            else:
+                _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
+                              "or mark DESIGN_ONLY = '<reason>'")
+            _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
+        except PlaceholderAnchorError as exc:
+            _fail(result, str(exc))
+        except (ImportError, ModuleNotFoundError) as exc:
+            result.status = "error"
+            problem = f"model environment/interpreter error: {exc}; interpreter={sys.executable}"
+            result.problems.append(problem)
+            if isinstance(exc, ModuleNotFoundError) and _project_missing(root, exc.name, view=view):
+                result.code_gaps.append(problem)
+        except Exception:  # noqa: BLE001 - a crashing model is a reported error, not a crash of the runner
+            result.status = "error"
+            result.problems.append(traceback.format_exc(limit=4))
+        result.seconds = round(time.time() - started, 3)
+        return result
 
 
 def model_id_of(path: str | Path) -> str:
@@ -404,7 +533,17 @@ def runner_files(root: Path) -> list[Path]:
     return [root / e.path for e in model_registry(root).entries if e.kind == "runner"]
 
 
-def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files: set[str] | None = None, *, tests: bool = False) -> ModelResult:
+def _runner_view_main() -> int:
+    """Wrap the existing runner probe in the same model namespace, not another runner."""
+    from .targetfile import ModelView
+    from .runner import _probe_main
+
+    view = ModelView.from_payload(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")))
+    with model_namespace(view):
+        return _probe_main()
+
+
+def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files: set[str] | None = None, *, tests: bool = False, view=None) -> ModelResult:
     package_parent = Path(__file__).resolve().parents[2]
     env = dict(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
@@ -419,9 +558,12 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
         result.problems.append(f"cannot read the runner's IMPLEMENTED_BY / TESTED_BY literals: {exc}")
         return result
     try:
-        proc, timed_out, cleaned = run_isolated_process(
-            [sys.executable, "-c", "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())", str(path)],
-            cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        with _view_request(view) as extra:
+            bootstrap = ("from flowguard.map.proof import _runner_view_main; raise SystemExit(_runner_view_main())"
+                         if view is not None else "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())")
+            proc, timed_out, cleaned = run_isolated_process(
+                [sys.executable, "-c", bootstrap, str(path), *extra],
+                cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
         if timed_out or not cleaned:
             result.status = "error"
             result.problems.append(f"timed out={timed_out} after {timeout}s; cleanup_confirmed={cleaned}")
@@ -458,22 +600,23 @@ def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files
         result.problems.append(f"timed out after {timeout}s")
     result.seconds = round(time.time() - started, 3)
     if tests:
-        run_bound_tests(root, path, result, timeout=timeout)
+        run_bound_tests(root, path, result, timeout=timeout, view=view)
     return result
 
 
-def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False) -> list[ModelResult]:
+def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False, view=None, inv=None) -> list[ModelResult]:
     has_map = True
     try:
-        data = load_map(root)
+        data = view.data if view is not None else load_map(root)
     except MapError:
         has_map = False
         data = {"components": []}
-    registry = model_registry(root, data)
+    registry = model_registry(root, data, view=view)
     from .inventory import build_inventory
     from .mapfile import ignore_patterns
-    inv = build_inventory(root, ignore_patterns(data))
-    tree = build_tree(root, data, inv)
+    if inv is None:
+        inv = build_inventory(root, ignore_patterns(data), write_cache=(view is None))
+    tree = build_tree(root, data, inv, view=view)
     issues = [ModelResult(model="registry", file=issue.path, status="error",
                           problems=[f"{issue.code} {issue.path}: {issue.message}"])
               for issue in registry.issues]
@@ -500,11 +643,11 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
         if ids and entry.id not in ids:
             continue
         path = root / entry.path
-        results.append(run_runner(root, path, timeout, own_files.get(entry.path), tests=tests) if entry.kind == "runner"
-                       else run_model(root, path, timeout, tests=tests))
+        results.append(run_runner(root, path, timeout, own_files.get(entry.path), tests=tests, view=view) if entry.kind == "runner"
+                       else run_model(root, path, timeout, tests=tests, view=view))
     if has_map and (not ids or "system" in ids):
         from .system_model import run_system_model
-        results.append(run_system_model(root, data, inv))
+        results.append(run_system_model(root, data, inv, view=view))
     return results + issues
 
 
@@ -528,4 +671,8 @@ def render_results(results: list[ModelResult]) -> str:
 
 if __name__ == "__main__":          # child process entry used by run_model()
     _root, _path = Path(sys.argv[1]).resolve(), Path(sys.argv[2]).resolve()
-    print(json.dumps(run_model_in_process(_root, _path).__dict__))
+    _view = None
+    if len(sys.argv) > 3:
+        from .targetfile import ModelView
+        _view = ModelView.from_payload(json.loads(Path(sys.argv[3]).read_text(encoding="utf-8")))
+    print(json.dumps(run_model_in_process(_root, _path, view=_view).__dict__))

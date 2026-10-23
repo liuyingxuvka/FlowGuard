@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, matches_any, read_source
 from .inventory import Inventory
-from .mapfile import component_files, model_registry, owner_index, read_model_contract, top_level_imports
+from .mapfile import component_files, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
 
 
 @dataclass
@@ -65,26 +65,31 @@ class ModelTree:
 
 
 def build_tree(root: Path, data: dict, inv: Inventory, *,
-               historical_imports: dict[str, list[str]] | None = None) -> ModelTree:
+               historical_imports: dict[str, list[str]] | None = None, view=None) -> ModelTree:
     """Resolve each model's parent once; report invalid nesting and fall back finitely."""
-    registry = model_registry(root, data)
+    registry = model_registry(root, data, view=view)
     components = {c["id"]: c for c in data.get("components", [])}
     owner, _ = owner_index(data, inv)
-    files = {p.stem: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")}
+    files = ({Path(path).stem: path for path in view.model_sources}
+             if view is not None else
+             {p.stem: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")})
     for path in historical_imports or {}:
         files.setdefault(Path(path).stem, path)
     contracts, imports = {}, {}
     registered_paths = {entry.path for entry in registry.entries}
     for path in sorted(set(files.values()) | {e.path for e in registry.entries}):
         try:
-            if path in (historical_imports or {}) and not (root / path).exists():
+            physical = resolve_model_path(root, path, view=view)
+            if path in (historical_imports or {}) and (physical is None or not physical.exists()):
                 contract, names = {}, historical_imports[path]
+            elif physical is None:
+                contract, names = {}, []
             elif path in registered_paths:
-                contract = read_model_contract(root / path)
+                contract = read_model_contract(physical)
                 names = contract["imports"]
             else:
                 contract = {}
-                names = top_level_imports(ast.parse(read_source(root / path)))
+                names = top_level_imports(ast.parse(read_source(physical)))
         except (OSError, SyntaxError, ValueError, TypeError):
             contract, names = {}, []      # the registry/check owner reports malformed contracts
         contracts[path] = contract

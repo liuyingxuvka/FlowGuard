@@ -9,7 +9,7 @@ from .lint import _reachable, _rules, _variants
 from .mapfile import component_graph
 
 
-def run_system_model(root, data, inv):
+def run_system_model(root, data, inv, *, view=None):
     """Run every time in-process; no user model imports, result cache or record."""
     from .proof import ModelResult
 
@@ -26,7 +26,7 @@ def run_system_model(root, data, inv):
         if not any(f.level == "error" for f in _rules(changed_data, changed_graph)):
             result.problems.append(f"generated known-bad variant '{name}' passed: the architecture rules do not catch it")
     result.known_bad.sort()
-    consistency = run_check(root, data, inv)
+    consistency = run_check(root, data, inv, view=view)
     errors = [f for f in consistency if f.level == "error"]
     if errors:
         result.problems.append("the map does not match the code:\n" + "\n".join(
