@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- UI journeys now use the `ui-journey` template and `flowguard.ui_flow`, with automatic recovery, destructive-action, dialog-close and reachability rules. The `ui-flow` alias remains; other UI review knowledge is preserved as eight groups of manual review questions in the recipe.
+
+- Target child models can reference future files already declared by their owning component; missing code remains TO-DO.
+
 - Models now show structural `hazard:` hints automatically. Hints and inference failures are informational and never change PASS/FAIL or release; the separate topology-hazard review model and template are retired.
 
 - Registered runner models now produce a `runner_model` warning while continuing to execute. The skill teaches contract models only.

@@ -64,7 +64,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | model-test | checking rules, code and tests against one another | the tests facet (`python -m flowguard read --component <id>`) and `python -m flowguard map models --tests` (`invariant_untested`, `tested_by_failed`, `tested_by_misses_anchor`); `references/model_recipes.md#Run the bound tests` |
 | topology-hazard | reviewing shared writers, repeated effects and future-use hazards | computed facet: `hazard:` lines under each model in `python -m flowguard map models` (`references/model_recipes.md#Hazards`) |
 | test-mesh | sharding a suite too slow for one command | `references/domains/test-mesh/protocol.md` |
-| ui-flow | UI states, journeys, controls, cancel/recover and operability | `references/domains/ui-flow/protocol.md` |
+| ui-flow | UI states, journeys, controls, cancel/recover and operability | node kind `ui-journey` (`python -m flowguard template ui-journey`; checklist `references/model_recipes.md#UI journey`) |
 
 Read only the matching protocol, not a chain of them. `python -m flowguard template --list`, then `python -m flowguard template <name> --write .` supplies starters; otherwise use plain modeling in `references/model_recipes.md`.
 

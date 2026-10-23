@@ -118,7 +118,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
@@ -155,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7b0400d9575f3d8a51149df5b48ab74577fb479f8b29dc7a8b8d6ffda220bcfd"
+      "fingerprint": "sha256:c9a4ed1d754ba4878ee39b927b8d8608564b03d9fff26990085f816e0904278b"
     },
     {
       "id": "public-api",
@@ -181,15 +181,14 @@
         "engine-properties",
         "engine-scenarios",
         "problem-corpus",
-        "templates",
-        "ui-flow"
+        "templates"
       ],
       "tests": [
         "tests/test_public_api.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:506496d2764b0eb7b4ce2620e3d34555c020215c283f7922e9b681f122136c1d"
+      "fingerprint": "sha256:53579017d00d0698e36861f2da7b4813be0c019dc6e3a2f013c0159de5362b2b"
     },
     {
       "id": "templates",
@@ -218,7 +217,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7bf6a73b91330b1d043c485cb142a82ec926acd1a03b1c20f420042b93425f45"
+      "fingerprint": "sha256:42d4a835fb814de90c6dc060e06aaf3ca8c7a03fd694b69f14c70d9973100966"
     },
     {
       "id": "contract-exhaustion",
@@ -284,36 +283,6 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:a2d32126a9fac2f222d90e60cb95bdab231e39298cddde137d3c7257d474a9a5"
-    },
-    {
-      "id": "ui-flow",
-      "layer": "capabilities",
-      "summary": "Checks controls, UI journeys and runtime observations.",
-      "responsibilities": [
-        "review UI states, journeys, controls and content visibility",
-        "review runnable UI evidence",
-        "model kit: explore control journeys with the reviewer as one invariant and compare control ids and handlers with the UI source"
-      ],
-      "files": [
-        "flowguard/ui_structure.py",
-        "flowguard/ui_implementation_evidence.py"
-      ],
-      "entrypoints": [
-        "flowguard/ui_structure.py:review_ui_interaction_model"
-      ],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core",
-        "engine-explore",
-        "map-proof"
-      ],
-      "tests": [
-        "tests/test_ui_structure.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:a19fc27ae059d6150fefa18ff9a2b30b854e9569d412bf6b6463a8cff8c35a65"
     },
     {
       "id": "map-inventory",
@@ -773,6 +742,35 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:28e4b6bb46eb778182b6000a2c823c49fef19eff9b67d932c86fb4e2999574a8"
+    },
+    {
+      "id": "ui-journey",
+      "layer": "capabilities",
+      "summary": "UI journeys as a model kind: states, controls and transitions explored, checked against the UI source",
+      "responsibilities": [
+        "check actual UI states, controls, displays and transitions, including failure recovery, destructive primary actions, usable dialog exits and declared-state reachability without mandatory rationale or plan text",
+        "explore control journeys using the same structural reviewer and compare declared control identifiers and handler anchors with real UI source through existing code facts; manual rendering, geometry and keyboard checks remain outside those static facts"
+      ],
+      "files": [
+        "flowguard/ui_flow.py"
+      ],
+      "entrypoints": [
+        "flowguard/ui_flow.py:review_ui_interaction_model",
+        "flowguard/ui_flow.py:ui_journey_explorer"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-core",
+        "engine-explore",
+        "map-proof"
+      ],
+      "tests": [
+        "tests/test_ui_flow.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:3e41380d0e8db4cd87652da0c88ea4ffd07f23a404463b1d136667ee582c8ee2"
     }
   ],
   "flows": [

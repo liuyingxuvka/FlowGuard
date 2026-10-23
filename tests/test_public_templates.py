@@ -11,7 +11,7 @@ from pathlib import Path
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
     contract_exhaustion_template_files,
-    ui_flow_structure_template_files,
+    ui_journey_template_files,
     write_template_files,
 )
 
@@ -19,12 +19,12 @@ from flowguard.templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
-    ui_flow_structure_template_files,
+    ui_journey_template_files,
     contract_exhaustion_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
-    "ui-flow-structure-template": "ui_flow_structure",
+    "ui-journey-template": "ui_journey",
     "contract-exhaustion-template": "contract_exhaustion",
 }
 
@@ -103,10 +103,10 @@ class PublicTemplateTests(unittest.TestCase):
         template_text_root = ROOT / "flowguard" / "template_text"
         route_modules = {path.stem for path in template_text_root.glob("*.py") if path.name != "__init__.py"}
 
-        self.assertIn("ui_flow_structure", route_modules)
+        self.assertIn("ui_journey", route_modules)
         self.assertNotIn("model_similarity_consolidation", route_modules)
         self.assertNotIn("risk_evidence_ledger", route_modules)
-        self.assertIn("UIInteractionModel", (template_text_root / "ui_flow_structure.py").read_text(encoding="utf-8"))
+        self.assertIn("UIInteractionModel", (template_text_root / "ui_journey.py").read_text(encoding="utf-8"))
 
     def test_active_ui_guidance_does_not_hardcode_specific_source_technology(self):
         forbidden_terms = (
@@ -173,16 +173,35 @@ class PublicTemplateTests(unittest.TestCase):
 
 
 
-    def test_ui_flow_structure_template_compares_controls_with_the_ui_source(self):
-        files = ui_flow_structure_template_files()
+    def test_ui_journey_template_compares_controls_with_the_ui_source(self):
+        files = ui_journey_template_files()
         ui = {"web/index.html": '<button id="show">Show</button><button id="hide">Hide</button>\n',
               "web/app.js": "function showDetails() {}\nfunction hideDetails() {}\n"}
-        self.assertIn("placeholder anchor", self.run_kit_template(files, "ui_flow_structure", ui, expected_returncode=1))
-        self.assertIn("PASS  ui_flow_structure", self.run_kit_template(files, "ui_flow_structure", ui, fill="web",
-                                                                       expected_returncode=0))
+        self.assertIn("placeholder anchor", self.run_kit_template(files, "ui_journey", ui, expected_returncode=1))
+        filled = self.run_kit_template(files, "ui_journey", ui, fill="web", expected_returncode=0)
+        self.assertIn("PASS  ui_journey", filled)
+        for variant in ("show_opens_an_unknown_state", "details_dialog_cannot_close", "hide_has_no_transition"):
+            self.assertIn(variant, filled)
+        self.assertNotIn("violated by no known-bad variant", filled)
         missing = dict(ui, **{"web/index.html": '<button id="show">Show</button>\n'})
         self.assertIn("control hide is in the UI source",
-                      self.run_kit_template(files, "ui_flow_structure", missing, fill="web", expected_returncode=1))
+                      self.run_kit_template(files, "ui_journey", missing, fill="web", expected_returncode=1))
+        import ast
+        from dataclasses import replace
+
+        # Promote the template's genuine bad close variant to the design;
+        # the real proof runner must reject it rather than merely print its name.
+        model = files[0]
+        build = next(node for node in ast.parse(model.content).body
+                     if isinstance(node, ast.FunctionDef) and node.name == "build_explorer")
+        lines = model.content.splitlines(keepends=True)
+        lines[build.lineno - 1:build.end_lineno] = [
+            "def build_explorer():\n    return broken_variants()['details_dialog_cannot_close']\n"]
+        broken = (replace(model, content="".join(lines)), *files[1:])
+        output = self.run_kit_template(broken, "ui_journey", ui, fill="web", expected_returncode=1)
+        self.assertIn("FAIL  ui_journey", output)
+        self.assertIn("dialog_cannot_close", output)
+
 
 
     def test_every_kit_template_names_its_code_and_its_tests(self):
@@ -266,6 +285,8 @@ class PublicTemplateTests(unittest.TestCase):
             self.assertEqual(1, code)
             self.assertIn("--force", stderr)
         code, _stdout, _stderr = self.run_cli(["template", "no-such-template"])
+        self.assertEqual(2, code)
+        code, _stdout, _stderr = self.run_cli(["template", "ui-flow-structure"])
         self.assertEqual(2, code)
 
 

@@ -54,3 +54,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - Runner models (`run_checks.py`) are retired and receive a `runner_model` warning; rewrite each as a contract model. They still execute during this warning stage.
 
 - Topology-hazard review models are gone; `python -m flowguard map models` now computes `hazard:` hints from each model's structure when landmarks exist, without changing verdicts.
+
+- The `ui-flow-structure` template is retired; use `ui-journey` (`ui-flow` remains an alias) and import from `flowguard.ui_flow`. The remaining UI review questions are in `references/model_recipes.md#UI journey`.

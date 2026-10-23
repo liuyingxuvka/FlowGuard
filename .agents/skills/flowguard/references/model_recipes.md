@@ -73,11 +73,27 @@ Packs bundle invariants and scenarios: `RetryPack`, `DeduplicationPack`, `CacheP
   acknowledged; broken variant = write that does not invalidate.
 - **Multi-step workflow / state machine**: one block per step, a `phase` field in state; invariants
   with `require_label_order`; use `flowguard.loop.check_loops` to find stuck states.
-- **UI journey**: state = screen + form data; inputs = user actions (submit, cancel, back, retry);
-  invariants: every non-terminal screen has an action, cancel always reaches a stable screen, an
-  error screen offers recovery; `require_reachable` for the success screen.
 - **Permissions**: inputs carry a role; invariant: a forbidden role never reaches the protected
   effect; broken variant = check placed after the effect.
+
+## UI journey
+
+Start/add the owner's target first (SKILL.md). For a new model, use `python -m flowguard template ui-journey --write <scratch>` (`ui-flow` is an alias), then copy the starter model into `.flowguard/target/models/`.
+Import `UIInteractionModel`, `UIStateNode`, `UIControl`, `UITransition`, `ui_journey_explorer` and `ui_flow_code_facts` from `flowguard.ui_flow`; declare the initial state, screens/form data, controls and submit/cancel/back/retry transitions.
+Bind real handlers in `IMPLEMENTED_BY`, real UI source in `UI_FILES` and real tests in `TESTED_BY`; `conformance()` checks the source controls and handlers through code facts.
+Keep the `show_opens_an_unknown_state` and `details_dialog_cannot_close` known-bad variants; model reachable success, stable cancel and failure recovery.
+Automatic `ui_review_accepts` checks structure and four operability rules: `missing_failure_recovery`, `destructive_control_too_prominent`, `dialog_cannot_close`, `state_unreachable`.
+Model a close transition to a different registered state using an available control. Finish target design before code; remove every ERROR and TO-DO before promote, then run the selected checks.
+Review these questions against real UI code and click-through/component tests; the model and code facts do not render, click or prove the manual answers:
+
+- **Visibility:** Are internal ids/fields absent, optional details hidden until reveal and closable, rendered items accounted for, and disabled reasons user-facing?
+- **Hierarchy:** Does each screen have one clear main heading/action, stable global/context/local regions and task-owned labels/status/error text without unexplained duplication?
+- **Responsive:** At phone width is there no horizontal overflow, with immediate action feedback, stable layout and protection from stale asynchronous results?
+- **Operability:** Can users finish tasks with keyboard access, visible focus, correct affordances, cancel/Escape/close and focus return, including native dialogs and hover disclosure?
+- **Consistency:** Does one intent use the same term, typography, action grammar, navigation, feedback and recovery across surfaces, with deliberate repeated controls?
+- **Render/geometry:** In the running UI are controls rendered, unclipped and non-overlapping, with correct bounds/scroll/focus and current screenshot, DOM or geometry checks?
+- **Capability:** Does every required user task have a working path from control through its real handler to a visible result, preserving old capabilities or an explicit intentional change?
+- **Journey:** Does every entry route reach success with tested failure/recovery/cancel/exit branches, and do enabled controls and the current implementation match the declared states/transitions?
 
 ## When a green model missed a bug
 
@@ -167,7 +183,7 @@ Hints may be left as information; inference failures are information too. `read`
 
 ## Capability models (kits)
 
-`python -m flowguard template contract-exhaustion | ui-flow-structure --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
+`python -m flowguard template contract-exhaustion | ui-journey --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
 code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
 each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
 explores each allowed feature set once (up to `max_features=2` by default), generates the known-bad variants (`feature_variants`) and, in

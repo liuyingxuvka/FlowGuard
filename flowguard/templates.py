@@ -13,8 +13,8 @@ from .template_text.core import (
 from .template_text.contract_exhaustion import (
     CONTRACT_EXHAUSTION_MODEL_TEMPLATE,
 )
-from .template_text.ui_flow_structure import (
-    UI_FLOW_STRUCTURE_MODEL_TEMPLATE,
+from .template_text.ui_journey import (
+    UI_JOURNEY_MODEL_TEMPLATE,
 )
 
 
@@ -42,9 +42,9 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 
 
 
-def ui_flow_structure_template_files() -> tuple[TemplateFile, ...]:
+def ui_journey_template_files() -> tuple[TemplateFile, ...]:
     return (
-        TemplateFile(".flowguard/models/ui_flow_structure.py", UI_FLOW_STRUCTURE_MODEL_TEMPLATE),
+        TemplateFile(".flowguard/models/ui_journey.py", UI_JOURNEY_MODEL_TEMPLATE),
     )
 
 
@@ -78,6 +78,6 @@ __all__ = [
     "TemplateFile",
     "adoption_template_files",
     "contract_exhaustion_template_files",
-    "ui_flow_structure_template_files",
+    "ui_journey_template_files",
     "write_template_files",
 ]

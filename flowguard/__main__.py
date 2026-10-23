@@ -64,7 +64,7 @@ def _template(ns: argparse.Namespace) -> int:
         return 0
     aliases = {
         "model-test": "model-test-alignment",
-        "ui-flow": "ui-flow-structure",
+        "ui-flow": "ui-journey",
     }
     factory = factories.get(aliases.get(ns.name, ns.name))
     if factory is None:
