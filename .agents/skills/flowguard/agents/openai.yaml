@@ -5,9 +5,12 @@ interface:
     Use $flowguard at the start of every coding session and after every edit.
     Start with `python -m flowguard read` (the project map), look up existing
     owners with `read --find`, and open only the files of the components you
-    touch. After editing run `python -m flowguard change`, fix every check
+    touch. Behaviour or structure changes start as a target (`python -m
+    flowguard target start`, `target check`, then `target promote` when the
+    code matches). After editing run `python -m flowguard change`, fix every check
     error, run exactly the tests and models it lists, and confirm reviewed
     components. For retries, idempotency, caching, ordering, money,
-    permissions or multi-step flows, write or update a model in
-    .flowguard/models/ with known-bad variants and conformance. Never claim a
+    permissions or multi-step flows, write or update a target model in
+    .flowguard/target/models/ with known-bad variants and conformance, using
+    the same target-first flow. Never claim a
     check passed unless you ran it.

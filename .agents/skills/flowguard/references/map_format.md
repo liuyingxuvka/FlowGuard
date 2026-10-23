@@ -62,3 +62,37 @@ A changed resource makes the owner stale; deletion/rename leaves a dead path unt
 the map and its code/model/test bindings are updated. Ignore rules still apply.
 
 A cycle debt covers only its members; a grown cycle stays an ERROR and names the new members.
+
+## Target (.flowguard/target/)
+
+One target at a time; git holds history. The directory contains `map.json` plus optional flat
+`models/<name>.py` contract files and `models/_<name>.py` helpers. A same-named file replaces
+`.flowguard/models/<name>.py`; a new filename adds a model or helper. An absent `models/`
+directory is valid and means no target model files.
+
+`map.json` contains only the changes, with these keys:
+
+| key | meaning |
+| --- | --- |
+| `schema` | exactly `flowguard.target.v1` |
+| `goal` | nonempty description of the planned change |
+| `components` | complete new entries; replace by matching `id` or add a new id; omit `status`, `fingerprint` and `_hint` |
+| `flows` | complete new entries; replace by matching `id` or add a new id |
+| `remove` | current nodes to remove: `component:<id>`, `flow:<id>` or `model:<MODEL_ID>` |
+| `layers` | optional; if present, replaces the entire current list |
+| `accepted_debts` | optional; if present, replaces the entire current list |
+
+An explicit empty optional list replaces the current list with empty; absence retains it.
+All model references use their merged destination, `.flowguard/models/<filename>.py`,
+never a `.flowguard/target/models/` path. Replaced/new components become draft and lose
+fingerprints; unchanged nodes retain their current description and bindings. Merged model ids must be unique. Reusing a current id in a different filename requires
+explicitly removing that old id (`target_model_id_clash`); a same-filename replacement may
+change its id. Conflicting remove/replace entries and invalid target structure are design errors.
+
+`python -m flowguard target start "<goal>"` starts the target; `python -m flowguard target add <id>`
+copies a current node; for a model it copies that single file and only notes static helpers.
+Copy a helper into target `models/` yourself if it needs changes. Edit that copy; `target check`
+checks the merged tree with real code and bound tests, reporting ERROR / TO-DO / WARN.
+`python -m flowguard read --target` and `python -m flowguard read --mermaid --target` show the delta.
+A clean `python -m flowguard target promote` makes it current and removes the target directory;
+confirm the components it lists. `python -m flowguard target drop --yes` discards only the target.

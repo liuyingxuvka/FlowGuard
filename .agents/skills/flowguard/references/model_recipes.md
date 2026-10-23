@@ -9,13 +9,13 @@ IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}   # block -
 def build_explorer(): ...     # REQUIRED: Explorer of the intended design; must pass
 def broken_variants(): ...    # REQUIRED: {name: Explorer}; each must FAIL, and together they should break every invariant (map models warns otherwise; release fails)
 def conformance(): ...        # REQUIRED: replay the real code, or compare it as code facts; .ok must be True
-# DESIGN_ONLY = "reason"      # while planning: anchors name current code; edit-plan conformance may report planned facts
 ```
 
 Selectors are `MODEL_ID` for top-level contract files and the containing directory id for
 registered `run_checks.py`; component ids are for `read --component`. Unknown selectors fail.
 Every selected model executes on every call (no result cache). A model without anchors or
-without conformance fails as "abstract boundary only" unless it is marked `DESIGN_ONLY`.
+without conformance fails as "abstract boundary only".
+A model of code that does not exist yet is a target model: write it under `.flowguard/target/models/` (SKILL.md, target first).
 
 `TESTED_BY = {"invariant_name": ["tests/test_x.py:test_name"]}` binds model rules
 to real test anchors in both directions. Missing or renamed tests fail `map check`; keys must
@@ -88,12 +88,9 @@ model reject the escaped case and keep one real regression test:
 3. Classify the miss: an input the model lacks (timeout, empty list, second click), state too
    coarse to tell the cases apart, an invariant too weak to see the bad state, or a conformance
    adapter that maps the real code wrongly.
-4. Fix the model: add the missing input or state, or strengthen the invariant; add the escaped
-   behavior as a broken variant (`broken_variants()`) that must FAIL. Recurring miss: add one
-   sibling case of the same class.
-5. Rerun `python -m flowguard map models <id>`: the intended design passes, every broken variant fails.
-6. Add or update one regression test for the observed failure and list it in the owner's `tests`;
-   fix the code; run `python -m flowguard change` and the tests and models it lists.
+4. Start the target flow in SKILL.md, then `python -m flowguard target add <id>`. In `.flowguard/target/models/`, add the missing input or state, or strengthen the invariant; add the escaped behavior as a broken variant (`broken_variants()`) that must FAIL. Recurring miss: add one sibling case of the same class.
+5. Run `python -m flowguard target check`: the intended design passes, every broken variant fails, and code/test TO-DO stays visible.
+6. Add or update one regression test and list it in the owner's target `tests`; fix the code until target check is clean, then `python -m flowguard target promote`. Confirm its listed components, run `python -m flowguard change` and the tests and models it lists.
 
 ## Grow a model
 
@@ -103,16 +100,20 @@ Use this when `change` names a model in REVIEW, reports `model_writer_unbound`, 
 2. **Extend** for a new input or rule over the same state: add inputs, state fields or invariants to the existing model, plus a known-bad variant that violates the new rule.
 3. **Add a child** for an independent operation over the same state: write a child model and import its blocks into the parent; imports infer the parent.
 4. **New model** for a different boundary and state: follow Five steps above.
-5. After any choice, bind the new code in `IMPLEMENTED_BY`, cover its path in `conformance()`, and run `python -m flowguard change` and the listed models; importers and ancestors are selected too.
+5. Do the change as a target (`python -m flowguard target add <id>`, after target start in SKILL.md): bind new code in `IMPLEMENTED_BY`, cover it in `conformance()`, check until clean and promote. Then run `python -m flowguard change` and its listed models; importers and ancestors are selected too.
 
 ## Split a model
+
+Apply this split through SKILL.md's target-first flow.
 
 1. Move shared `State`, inputs, invariants and adapter into `_<name>_common.py`; underscore helpers are not models, and editing one reruns its importers.
 2. Give each operation a child model with its own blocks, anchors, known-bad variants and replay.
 3. Import child blocks into the parent with `Workflow((SetBlock(), DelBlock()), mode="choice")`; each declares `accepted_input_type`, so no pass-through steps are needed.
 4. A child that slices parent state declares `project_parent_state(state)` (`return state` when reusing the parent's `State`) and starts from `flowguard.kit.reachable_states(parent.build_explorer(), project_parent_state)`; `map models` warns with `child_start_gap` when it misses parent states. An independent sub-check grouped under a parent needs neither projection nor reachable-state starts.
+In this split, the parent imports its children. A child that imports its parent (for `reachable_states`) must import it inside a function; a top-level import is circular.
+
 5. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
-6. Run `python -m flowguard map models` so parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
+6. Run `python -m flowguard target check` until clean, then `python -m flowguard target promote` and confirm its listed components. Run `python -m flowguard map models` so the now-current parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
 
 ## Conformance (model <-> code)
 
@@ -177,7 +178,8 @@ when any case disagrees with its expectation, and end with `raise SystemExit(run
 ### Parent and child models
 
 `PARENT` may name a component, another model's `MODEL_ID`, or `"system"`.
-An unknown PARENT or a PARENT loop is an error; other nesting findings remain warnings.
+`parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and
+`duplicate_child_owner` are errors; `test_not_nested` and `child_start_gap` remain warnings.
 Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
 the first anchor's owner, a runner's first listed component, or `system`.
 Prefer a parent model importing its child's blocks to compose their behavior.

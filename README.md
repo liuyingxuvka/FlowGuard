@@ -30,6 +30,10 @@ The map and models form one tree. Root and component nodes come from the code an
 behavior models are added beneath components when a task needs them, with tests on the same nodes.
 `python -m flowguard read --mermaid` draws this tree.
 
+The current tree lives in `.flowguard/map.json` and `.flowguard/models/`; planned changes live in one target under `.flowguard/target/` at a time.
+For behaviour or structure changes, write the target first, then make the code and tests match it.
+Once `target check` has no ERROR or TO-DO, `target promote` replaces the current tree and removes the target.
+
 Map and code verify each other: every source file belongs to exactly one component; entrypoints,
 flow steps and model files must exist; every real import must be declared;
 confirming a component records a fingerprint of its files, so any code change marks it STALE until
@@ -64,6 +68,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | when | command | what it does |
 | --- | --- | --- |
 | session start | `python -m flowguard read` / `read --find WORDS` | read the map; find the existing owner before adding code |
+| behaviour or structure change | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | write the target model first, make the code match it, then replace the current model |
 | after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
 | new capability model | `python -m flowguard template --list` | one starter contract model per capability (model-mesh, topology-hazard and model-test also write a runner) |

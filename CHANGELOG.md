@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The skill has one entry flow: read, then target first for behaviour or structure changes, or a direct edit for code-only changes.
+
 - `python -m flowguard target promote` replaces the current tree with the target once its full check is clean and its checked inputs are unchanged, then lists the components to confirm.
 
 - `read --target` and `read --mermaid --target` show what the target adds, changes and removes, node by node; component details include the previous values of changed facets.

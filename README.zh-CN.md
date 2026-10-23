@@ -26,6 +26,10 @@ FlowGuard 在项目里保存三样东西：
 地图和模型是一棵树。根节点和组件节点从代码推出，始终生效；任务需要时才在组件下添加行为模型，测试挂在同样的节点上。
 `python -m flowguard read --mermaid` 画出这棵树。
 
+当前树保存在 `.flowguard/map.json` 和 `.flowguard/models/`；计划中的改动保存在 `.flowguard/target/`，一次只有一个目标。
+行为或结构要变时，先写目标，再让代码和测试符合目标。
+`target check` 没有 ERROR 或 TO-DO 后，用 `target promote` 替换当前树并删除目标目录。
+
 地图和代码互相校验：每个源文件恰好属于一个组件；入口、流程步骤和模型文件必须真实存在；每个真实的 import 都必须声明；确认组件时会记下它文件的指纹，代码一改就自动标成“过期”，直到有人重新读过并确认。
 历史保存在 git 里。
 
@@ -58,6 +62,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | 什么时候 | 命令 | 作用 |
 | --- | --- | --- |
 | 会话开始 | `python -m flowguard read` / `read --find 关键词` | 读地图；加代码前先找已有的负责者 |
+| 改行为或结构 | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 先写目标模型，再让代码追上它，最后替换当前模型 |
 | 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
 | 新的专项模型 | `python -m flowguard template --list` | 每个专项检查一个起步合约模型（model-mesh、topology-hazard、model-test 另写运行脚本） |

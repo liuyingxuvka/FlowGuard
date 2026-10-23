@@ -34,6 +34,22 @@ class SkillPackageTests(unittest.TestCase):
                 lines = (SKILL / "references" / "domains" / name / "protocol.md").read_text(encoding="utf-8").splitlines()
                 self.assertTrue(any(line.startswith("Tree operation:") for line in lines[:3]))
 
+        self.assertNotIn("DESIGN_ONLY", text)
+        self.assertNotIn("10 capability reviews", text)
+        for required in ("## Change behaviour or structure: target first", "## Change code only",
+                         "python -m flowguard target start", "python -m flowguard target check",
+                         "python -m flowguard target promote"):
+            self.assertIn(required, text)
+        labels = ("- Node: ", "- Parent: ", "- Known-bad: ", "- Real binding: ",
+                  "- Test binding: ", "- Readback: ", "- Current vs target: ")
+        shared_lines = [(index, line) for index, line in enumerate(text.splitlines())
+                        if line.startswith(labels)]
+        self.assertEqual(7, len(shared_lines))
+        self.assertEqual(labels, tuple(next(label for label in labels if line.startswith(label))
+                                       for _, line in shared_lines))
+        start = shared_lines[0][0]
+        self.assertEqual(list(range(start, start + 7)), [index for index, _ in shared_lines])
+
     def test_model_recipes_have_short_grow_and_split_sections(self) -> None:
         text = (SKILL / "references" / "model_recipes.md").read_text(encoding="utf-8")
         for title in ("Grow a model", "Split a model"):
