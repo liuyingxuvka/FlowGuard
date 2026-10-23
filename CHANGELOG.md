@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `child_outside_parent`, `duplicate_child_owner` and `parent_import_mismatch` are now errors that fail `map check` and `release`.
 - `child_start_gap` is checked only for child models that declare `project_parent_state`; an independent check grouped under a parent no longer gets a false warning.
 
 ## v0.70.10 - 2026-10-22 - One model tree, real proof flows and simpler contracts

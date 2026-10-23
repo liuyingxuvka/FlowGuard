@@ -624,8 +624,8 @@
         "compute component fingerprints that detect stale descriptions",
         "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED, DESIGN_ONLY) without importing the model; recognize the optional project_parent_state hook",
         "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; warn on invalid nesting; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge",
-        "treat an unknown PARENT or a PARENT loop as an error; keep other nesting findings as warnings"
+        "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home (runners also use listings); distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge",
+        "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -651,7 +651,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f4a1a3f87b12a97f8c8609a2eccda4d5b987dfa515bee5d679f5d5537fe12c35"
+      "fingerprint": "sha256:4612d556b2c3ed29d0494e2b24914c45de99e08f8a6c3f49222fbeb98fda747e"
     },
     {
       "id": "map-discover",

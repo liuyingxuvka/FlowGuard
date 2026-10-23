@@ -65,7 +65,7 @@ class ModelTree:
 
 
 def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
-    """Resolve each model's parent once; invalid nesting warns and falls back finitely."""
+    """Resolve each model's parent once; report invalid nesting and fall back finitely."""
     registry = model_registry(root, data)
     components = {c["id"]: c for c in data.get("components", [])}
     owner, _ = owner_index(data, inv)
@@ -165,7 +165,7 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
                     f"{node.id} binds {path}, which is not in the tests of {', '.join(cids) or '(no components)'}; "
                     "list it there or bind a test that belongs to them"))
     for mid, code, message in pending_findings:
-        level = "error" if code in {"parent_unknown", "parent_cycle"} else "warn"
+        level = "error" if code in {"parent_unknown", "parent_cycle", "parent_import_mismatch"} else "warn"
         tree.findings.append(Finding(level, code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 
     sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
@@ -181,7 +181,7 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
             allowed = {path for cid in cids if cid in components for path in component_files(components[cid], inv)}
         for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
             if anchor.split(":", 1)[0] not in allowed:
-                tree.findings.append(Finding("warn", "child_outside_parent", node.home if node.home_kind == "component" else "",
+                tree.findings.append(Finding("error", "child_outside_parent", node.home if node.home_kind == "component" else "",
                     f"{node.path}: IMPLEMENTED_BY {anchor!r} is outside parent {node.parent!r}'s code"))
             if node.parent_kind == "model":
                 sibling_anchors[(node.parent, anchor)].append(node)
@@ -189,6 +189,6 @@ def build_tree(root: Path, data: dict, inv: Inventory) -> ModelTree:
         unique = {n.id: n for n in siblings}
         if len(unique) > 1:
             node = next(iter(unique.values()))
-            tree.findings.append(Finding("warn", "duplicate_child_owner", node.home if node.home_kind == "component" else "",
+            tree.findings.append(Finding("error", "duplicate_child_owner", node.home if node.home_kind == "component" else "",
                 f"model {parent!r}: children {', '.join(sorted(unique))} anchor the same IMPLEMENTED_BY {anchor!r}"))
     return tree

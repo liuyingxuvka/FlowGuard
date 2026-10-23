@@ -391,7 +391,8 @@ def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     assert main(["read", "--root", str(tmp_path)]) == 0
     assert tree().nodes["child"].parent == "parent"
     write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "app"\n')
-    assert "parent_import_mismatch" in {f.code for f in tree().findings}
+    assert next(f.level for f in tree().findings if f.code == "parent_import_mismatch") == "error"
+    assert main(["map", "--root", str(tmp_path), "check"]) == 1
     write(tmp_path, ".flowguard/models/parent.py", parent + '\nPARENT = "child"\n')
     write(tmp_path, ".flowguard/models/child.py", child + '\nPARENT = "parent"\n')
     current = tree()
@@ -409,11 +410,13 @@ def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     write(tmp_path, ".flowguard/models/child.py", child.replace("app.py:run", "other.py:run"))
     current = tree()
     assert "child_outside_parent" in {f.code for f in current.findings}
-    assert all(f.level == "warn" for f in current.findings)
+    assert next(f.level for f in current.findings if f.code == "child_outside_parent") == "error"
     assert "child_outside_parent" in {f.code for f in findings(tmp_path)}
+    assert main(["map", "--root", str(tmp_path), "check"]) == 1
     write(tmp_path, ".flowguard/models/child.py", child)
     write(tmp_path, ".flowguard/models/second.py", child.replace('"child"', '"second"') + '\nPARENT = "parent"\n')
-    assert "duplicate_child_owner" in {f.code for f in tree().findings}
+    assert next(f.level for f in tree().findings if f.code == "duplicate_child_owner") == "error"
+    assert main(["map", "--root", str(tmp_path), "check"]) == 1
     write(tmp_path, ".flowguard/models/second.py", child.replace('"child"', '"system"'))
     assert "model_contract" in {f.code for f in findings(tmp_path)}
 
