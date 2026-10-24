@@ -1,0 +1,101 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-308: flows can say a step reads the previous step's file",
+  "components": [
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
+      "responsibilities": [
+        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree; resolve one complete optional model view with canonical paths and explicit missing mappings, retaining ordinary registry behavior by default; validate explicit entrypoint, state and side-effect removal intents against the current map without deleting extra content; register only contract models and report each leftover legacy runner location once as a runner_model migration error, including in a target view; accept optional component parent (sub-systems) while keeping direct file ownership and component fingerprints unchanged",
+        "compute component fingerprints that detect stale descriptions",
+        "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED) without importing the model; recognize the optional project_parent_state hook; retain retired design-marker literals solely to diagnose misplaced current models",
+        "count strings as dependency evidence only in import-like contexts",
+        "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home; distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge; only in a target view, keep a missing child anchor inside a component parent when its declared files match that path, while ordinary current, model-parent and unmatched-path containment keep their errors; expand only explicit COMPONENTS protections across component descendants, without expanding placement-only PARENT scope",
+        "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings",
+        "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes",
+        "record model imports made inside functions apart from top-level imports",
+        "count calls through injected attributes as dependency evidence",
+        "accept flow steps that read an earlier step's file"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-analysis",
+      "layer": "map",
+      "summary": "Checks ownership, reviews architecture and selects checks across explicitly protected component sub-systems.",
+      "responsibilities": [
+        "verify the map against code; name the owners next to an unmapped file; every contract model declares IMPLEMENTED_BY anchors that resolve and conformance(); unbuilt behavior belongs in target models; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share type-separated responsibility, state and side-effect duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree; validate optional exact TESTED_BY parameter selectors against their base test symbol without changing other anchor kinds; count selected test items once by their base function in the component tests facet; report each legacy runner location as an error with its contract-model migration path; never register it for execution",
+        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select contract models by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests; treat component parent changes as verification changes and retain still-registered models that explicitly protected the previous sub-system",
+        "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
+        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
+        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details; show what each dependency uses and how much behaviour is explained by a component-subtree model, a matched test name or NOT_MODELED; show declared dependencies and ordered flows in Mermaid, mark flows with no model, and keep these static coverage counts informational; nest optional component parents and roll up subsystem files, tests, dependencies, rules and model facets without changing direct ownership or double-counting global coverage",
+        "compare current owner promises with merged target owners and explicit removal intent when checking a target",
+        "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
+        "show the requested component within the read budget",
+        "read model rules statically from the explorer the model builds",
+        "read feature-kit rules, known-bad and cases without running the model",
+        "list components by layer, parents before children",
+        "select models that import a changed model anywhere in their file",
+        "report writes into another component's injected object",
+        "show the model rules a component relies on",
+        "select models whose anchors a changed file calls",
+        "check file-linked flow steps as command entrypoints"
+      ],
+      "files": [
+        "flowguard/map/check.py",
+        "flowguard/map/lint.py",
+        "flowguard/map/impact.py",
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/check.py:run_check",
+        "flowguard/map/lint.py:run_lint",
+        "flowguard/map/impact.py:compute_impact"
+      ],
+      "state": [],
+      "side_effects": [
+        "reads git history; refreshes disposable analysis cache"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_discover.py",
+        "tests/test_map_views.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
