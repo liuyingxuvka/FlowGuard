@@ -1,56 +1,65 @@
 # Changelog
 
-## Unreleased
+## v0.70.12 - 2026-10-24 - The model shows the architecture
+
+### New
+
+- `python -m flowguard read --review` (also `map show --review`) shows per-component metrics, strengths, defects and a ranked list of what to optimise next, each with its recipe.
+- `python -m flowguard read --budget N` sets the character budget, like `map show --budget`.
+- `read --component` shows `relies on:` lines (the models and rules whose anchored code this component calls directly) and the flows the component takes part in, with each flow's model and rules.
+- `change` also selects the models whose anchors a changed file calls directly, a flow's model when any step's file changes, and lists unexplained entrypoints and state writers in the files you changed (`UNEXPLAINED`).
+- `python -m flowguard change --run` runs the tests and models that `change` selects and prints one PASS/FAIL line for each.
+- A flow step can be written `component:Symbol reads <file>` for a command that reads a file an earlier step wrote; such steps are checked as command entrypoints instead of static call reach (`flow_handoff_invalid`, `flow_handoff_not_entrypoint`).
+- `map lint` reports `flow_unmodeled` (info) for a flow that crosses modeled code without a model, warns `private_cross_component_use` when a component uses another component's `_private` name, and notes responsibilities that pack several duties (`responsibility_compound`, info).
+- `target check` refuses a target that changes nothing (`target_noop`) and a new or changed entrypoint, state or side effect without a new or changed model rule or known-bad variant (`target_goal_untied`); it prints the target's goal rules.
+- `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings, and warns about accepted debts the target makes stale (`debt_stale`); `target promote` lists models, flows and tests to re-read.
+- `read --find` matches common word forms (expire/expired, rotate/rotation) and, when nothing matches, names the three closest owners.
+- `map models <id> --hazards` lists every open and closed hazard hint.
+- `validator`: `execute_contract_features(..., rejects=...)` names the exception types that count as a rejection (default `ValueError`, `TypeError`).
+- `examples/shelf/` shows a small model tree with a current model, a target and the code after the change.
+
+### Changed
 
 - `read --component` always shows the component you asked for; long lists inside it are shortened with `+N more` instead of hiding the whole component.
-- `python -m flowguard read --budget N` sets the character budget, like `map show --budget`.
-- `read` now shows the real rule names and descriptions of models whose invariants live in a `_helper` module or are built by a small wrapper function; it no longer shows `TESTED_BY` keys as rules.
-- A parent model shows the tests its child models bind.
-- `read` shows the rules, known-bad variants and the defect/benign cases of feature-kit models without running them (no more `? known-bad` for them).
+- `read` shows the real rule names and descriptions of models whose invariants live in a `_helper` module or are built by a small wrapper function, the rules, known-bad variants and defect/benign cases of feature-kit models, and known-bad variants built by loops or comprehensions; it no longer shows `TESTED_BY` keys as rules. A parent model shows the tests its child models bind.
 - `read` lists components top-down by layer; `read --target` no longer repeats computed coverage text as a change.
+- The coverage line counts explanations by model, test and `NOT_MODELED` reason; the tests facet suggests unbound tests that already mention a model's anchor.
+- The `read` header counts size and test warnings and every accepted debt that covers one.
 - `change` selects a child model that imports its parent inside a function (the documented split style) when the parent changes.
-- Dependencies passed in through a constructor (a type-annotated parameter, or the same class passed at every call site) now count as real dependencies: `dep_unused` no longer fires for them, `map deps --write` keeps them, and effect reach and `foreign_state_write` see through them.
-- `read --component` shows `relies on:` lines: the models (and their rules) whose anchored code this component calls directly.
-- `change` also selects the models whose anchors a changed file calls directly.
-- A flow step can be written `component:Symbol reads <file>` for a command that reads a file an earlier step wrote; such steps are checked as command entrypoints instead of static call reach.
-- `read --component` lists the flows a component takes part in, with the flow's model and rules; `change` selects a flow's model when any step's file changes; `map lint` reports `flow_unmodeled` for a flow that crosses modeled code without a model.
-- `map lint` warns `private_cross_component_use` when a component uses another component's `_private` name.
-- `map check` and `change` now report `duplicate_owner` every day, not only `map lint` and `release`.
-- Hazard hints match whole words, are deduplicated, show at most three open hints per model plus one summary line, and close themselves when a known-bad variant or an invariant already covers them (`map models <id> --hazards` lists all).
-- The coverage line counts explanations by model, test and `NOT_MODELED` reason; `change` lists unexplained entrypoints and state writers in the files you changed; the tests facet suggests unbound tests that already mention a model's anchor.
-- `python -m flowguard read --review` shows per-component metrics, strengths, defects and a ranked list of what to optimise next, each with its recipe.
-- The `read` header counts size and test warnings.
-- A target that drops a responsibility without a new owner or an explicit `responsibility:` retirement in `remove` now fails `target check` with `owner_dropped`.
-- `target check` refuses a target that changes nothing (`target_noop`) and a new or changed entrypoint, state or side effect without a new or changed model rule or known-bad variant (`target_goal_untied`); it prints the target's goal rules.
+- Dependencies passed in through a constructor (a type-annotated parameter, or the same class passed at every call site) count as real dependencies: `dep_unused` no longer fires for them, `map deps --write` keeps them, and effect reach and `foreign_state_write` see through them.
+- `map check` and `change` report `duplicate_owner` every day, not only `map lint` and `release`.
+- Hazard hints match whole words, are deduplicated, show at most three open hints per model plus one summary line, and close themselves when a known-bad variant or an invariant already covers them.
+- A target that drops a responsibility without a new owner or an explicit `responsibility:` retirement in `remove` fails `target check` with `owner_dropped`.
 - With a target, only breakage of the field the target actually changes is reported as `moving to target`; other breakage of a copied component stays an error.
-- `map models` now fails a model whose invariant no known-bad variant breaks, like `release` and `target check` already did; the message no longer suggests an explanation mechanism that does not exist.
-- `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings; they no longer block promotion.
-- `target check` warns about accepted debts the target makes stale; `target promote` lists models, flows and tests to re-read.
-- `validator`: a bad case may have any name (it must be rejected unless a built-in default says otherwise); only `ValueError`/`TypeError` (or the types passed as `rejects=`) count as a rejection, any other exception is reported as a crash.
-- `read --find` matches common word forms (expire/expired, rotate/rotation) and, when nothing matches, names the three closest owners.
-- `python -m flowguard change --run` runs the tests and models that `change` selects and prints one PASS/FAIL line for each.
+- `map models` fails a model whose invariant no known-bad variant breaks, like `release` and `target check`; the message no longer suggests an explanation mechanism that does not exist.
+- `validator`: a bad case may have any name (it must be rejected unless a built-in default says otherwise); an exception other than the rejection types is reported as a crash.
 - First-map and hint wording: the no-map error names `python -m flowguard map scan` and the first-map guide; `scan` hints splits for large one-directory drafts; `discover` says when it finds nothing; digests list overloads once; removal targets hint deletion for unowned files.
-- `map lint` notes responsibilities that pack several duties (`responsibility_compound`, info).
-- FlowGuard's own map now states one current duty per responsibility.
-- FlowGuard's own map splits the map-analysis hub into map-check, map-read and map-impact; each own flow is one command's call chain.
-- Removed dead code: `flowguard/_hashing.py`, `model_files` / `model_id_of` in `flowguard.map.proof`, the dead `model-test` template alias.
+- The skill starts from the model (`## Start from the model`), states the real PARENT placement rule, lists tasks instead of former capability names and says that `release` and `map models --tests` need pytest.
+- FlowGuard's own tree: 22 components (the map-analysis hub is split into map-check, map-read and map-impact; one present-tense duty per responsibility, at most seven per component), 18 release models including `system` (new domain models `tree_resolution`, `map_binding`, `discovery`, `target_findings`, `target_promotion`, `job_matching_example`), four model-under-model edges, five flows that are each one command's call chain, every entrypoint and state writer explained, `map lint` with no warning (four reasoned accepted debts). `len(flowguard.__all__)` stays 105.
+
+### Removed
+
+- Dead code: `flowguard/_hashing.py`, `model_files` / `model_id_of` in `flowguard.map.proof`, the dead `model-test` template alias.
 - `release --shards` no longer writes `claim_boundary`, `capability_partition` or `symlink_probe`; the unused `flowguard_capability` pytest marker and `flowguard.symlink_capability` are removed.
-- Removed the unused adoption-log and model-notes template texts.
-- `examples/shelf/` shows a small model tree with a current model, a target and the code after the change.
-- The skill starts from the model, states the real PARENT placement rule and lists tasks instead of former capability names.
-- Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
-- Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
-- Projects using FlowGuard: feature-kit models now show counts in `read`.
-- Projects using FlowGuard: may see more `entrypoint_unmodeled` / `foreign_state_write` warnings and fewer `dep_unused` errors.
-- Projects using FlowGuard: command-chain flows (LogicWriting, ResearchGuard) can use it to clear `flow_step_unreached`.
-- Projects using FlowGuard: new lint warnings at the current HEADs: PhysicsGuard 3, ResearchGuard 9, WorldGuard 10, LogicWriting 0.
-- Projects using FlowGuard: `map check` (and CI) fails when two components claim the same responsibility, state or side effect; no project has one today.
-- Projects using FlowGuard: far fewer hazard lines per model (at most three open hints plus one summary line; no `+N more`).
-- Projects using FlowGuard: the coverage line format changes (tools that parse it must read the new form).
-- Projects using FlowGuard: the first `read` line now also prints a warning count.
-- Projects using FlowGuard: `map models` exits 1 for a model with an uncovered invariant (all four projects have none at their current HEADs).
-- Projects using FlowGuard: none of the four projects uses `flowguard.validator` today.
-- Projects using FlowGuard: none of the four projects uses the removed names (`flowguard._hashing`, `flowguard.symlink_capability`, the shard `claim_boundary` / `capability_partition` / `symlink_probe` keys, the `flowguard_capability` marker, the adoption-log and model-notes texts; checked by grep).
+- The unused adoption-log and model-notes template texts.
+
+### Effects on projects that use FlowGuard
+
+- `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
+- Rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
+- Feature-kit models now show their counts in `read`.
+- Projects may see more `entrypoint_unmodeled` / `foreign_state_write` warnings and fewer `dep_unused` errors.
+- Command-chain flows (LogicWriting, ResearchGuard) can use `reads` steps to clear `flow_step_unreached`.
+- New `private_cross_component_use` lint warnings at the current HEADs: PhysicsGuard 3, ResearchGuard 9, WorldGuard 10, LogicWriting 0.
+- `map check` (and CI) fails when two components claim the same responsibility, state or side effect; no project has one today.
+- Far fewer hazard lines per model (at most three open hints plus one summary line; no `+N more`).
+- The coverage line format changes (tools that parse it must read the new form).
+- The first `read` line now also prints a warning count.
+- `map models` exits 1 for a model with an uncovered invariant (all four projects have none at their current HEADs).
+- None of the four projects uses `flowguard.validator` today.
+- None of the four projects uses the removed names (`flowguard._hashing`, `flowguard.symlink_capability`, the shard `claim_boundary` / `capability_partition` / `symlink_probe` keys, the `flowguard_capability` marker, the adoption-log and model-notes texts; checked by grep).
+- `map lint` adds the `responsibility_compound` note (info, never blocks) for long or `;`-joined responsibilities: PhysicsGuard 24, ResearchGuard 25, WorldGuard 14, LogicWriting 15 at their current HEADs.
+- A target that changes nothing now fails `target check`, and a target that changes an entrypoint, state or side effect must add or change a model rule or known-bad variant; name that rule in the target goal.
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 
