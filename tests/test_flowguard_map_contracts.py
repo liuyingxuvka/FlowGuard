@@ -188,7 +188,7 @@ def test_capability_aliases_use_real_template_factories(tmp_path, capsys):
                  "ui-flow"):
         assert main(["template", name, "--write", str(tmp_path / name)]) == 0, name
         out = capsys.readouterr().out
-        assert "then run: python -m flowguard map models " in out and "/docs/" not in out, name
+        assert "next: python -m flowguard map models " in out and "/docs/" not in out, name
     assert main(["template", "architecture-reduction", "--write", str(tmp_path / "architecture-reduction")]) == 2
     assert main(["template", "code-structure", "--write", str(tmp_path / "code-structure")]) == 2
     assert main(["template", "field-lifecycle", "--write", str(tmp_path / "field-lifecycle")]) == 2

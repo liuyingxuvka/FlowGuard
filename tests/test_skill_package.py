@@ -222,6 +222,10 @@ class SkillPackageTests(unittest.TestCase):
         rules = next(f for f in adoption_template_files() if f.path == "docs/flowguard_agents_rules.md")
         self.assertEqual(6, len(re.findall(r"^\d\. ", rules.content, re.M)))
         self.assertIn("python -m flowguard change", rules.content)
+        target_rule = next(line for line in rules.content.splitlines() if line.startswith("2. "))
+        for command in ('python -m flowguard target start "<goal>"', 'python -m flowguard target check',
+                        'python -m flowguard target promote', 'python -m flowguard read --find WORDS'):
+            self.assertIn(command, target_rule)
         self.assertFalse(any(f.path in ("AGENTS.md", "CLAUDE.md") for f in adoption_template_files()))
         self.assertEqual(["docs/flowguard_agents_rules.md"], [f.path for f in adoption_template_files()])
 
@@ -234,6 +238,7 @@ class SkillPackageTests(unittest.TestCase):
             self.assertEqual(0, check.returncode, check.stdout)
             skill = Path(directory) / "flowguard" / "SKILL.md"
             self.assertTrue(skill.is_file())
+            self.assertFalse((skill.parent / "assets").exists())
             original = skill.read_bytes()
             stat = skill.stat()
             skill.write_bytes(bytes([original[0] ^ 1]) + original[1:])

@@ -10,15 +10,15 @@ from __future__ import annotations
 import json
 import os
 import signal
-import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from flowguard.map import cli
+from flowguard.template_text.behaviour import BEHAVIOUR_MODEL_TEMPLATE
 
-MODEL_SOURCE = Path(__file__).resolve().parents[1] / ".agents/skills/flowguard/assets/model_template.py"
+MODEL_SOURCE = BEHAVIOUR_MODEL_TEMPLATE
 
 BUGGY = '''class OrderService:
     def __init__(self):
@@ -59,7 +59,7 @@ def shop(tmp_path: Path) -> Path:
     write(root, "tests/test_orders.py", "from shop.orders import OrderService\n\n"
           "def test_place_once():\n    svc = OrderService()\n    assert svc.place('o1', 5) == 'placed'\n")
     (root / ".flowguard/models").mkdir(parents=True)
-    shutil.copy(MODEL_SOURCE, root / ".flowguard/models/order_placement.py")
+    (root / ".flowguard/models/order_placement.py").write_text(MODEL_SOURCE, encoding="utf-8")
     subprocess.run(["git", "init", "-q"], cwd=root, check=True)
     cli.main(["--root", str(root), "scan"])
     data = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
@@ -219,11 +219,11 @@ def test_registry_errors_block_check_and_model_execution(shop, capsys, invalid):
     data = json.loads((shop / ".flowguard/map.json").read_text())
     if invalid == "unsupported":
         rel = ".flowguard/models/nested/model.py"
-        write(shop, rel, MODEL_SOURCE.read_text())
+        write(shop, rel, MODEL_SOURCE)
         data["components"][0]["models"].append(rel)
         expected = "model_path_unsupported"
     elif invalid == "duplicate":
-        write(shop, ".flowguard/models/duplicate.py", MODEL_SOURCE.read_text())
+        write(shop, ".flowguard/models/duplicate.py", MODEL_SOURCE)
         expected = "model_id_duplicate"
     else:
         data["components"][0]["models"].append(".flowguard/models/missing.py")
@@ -243,7 +243,7 @@ def test_registry_issue_does_not_block_the_requested_model(shop, capsys):
     assert "PASS  order_placement" in output and "runner_model" in output
 
 
-_MINIMAL_MODEL = MODEL_SOURCE.read_text(encoding="utf-8").replace(
+_MINIMAL_MODEL = MODEL_SOURCE.replace(
     'MODEL_ID = "order_placement"', 'MODEL_ID = "minimal"').replace(
     'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}', 'IMPLEMENTED_BY = {}').replace(
     "def conformance():", "def _unused_conformance():")
@@ -589,7 +589,7 @@ def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
         entrypoints=["shop/api.py:handle"], tests=[], models=[], state=[], side_effects=[]))
     # The root checks static consistency; it must never execute a registered user model.
     model_path = shop / ".flowguard/models/order_placement.py"
-    model_path.write_text("raise AssertionError('system imported user model')\n" + MODEL_SOURCE.read_text())
+    model_path.write_text("raise AssertionError('system imported user model')\n" + MODEL_SOURCE)
     if mode in {"layer", "cycle"}:
         write(shop, "shop/orders.py", "from shop.api import handle\n" + FIXED)
         orders["depends_on"] = ["api"]
@@ -653,7 +653,7 @@ def test_tested_by_must_reach_the_anchored_code(shop, capsys, mode, problem):
     write(shop, "shop/orders.py", FIXED)
     write(shop, "shop/other.py", "def marker():\n    return 1\n")
     model_path = shop / ".flowguard/models/order_placement.py"
-    source = MODEL_SOURCE.read_text().replace(
+    source = MODEL_SOURCE.replace(
         'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
         'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Other": "shop/other.py:marker"}')
     source += "\n_base_conformance = conformance\ndef conformance():\n    from shop.other import marker\n    assert marker() == 1\n    return _base_conformance()\n"
@@ -715,7 +715,7 @@ def test_bound_tests_without_pytest_are_an_environment_error(shop, monkeypatch):
 
     write(shop, "shop/orders.py", FIXED)
     path = shop / ".flowguard/models/order_placement.py"
-    path.write_text(MODEL_SOURCE.read_text() +
+    path.write_text(MODEL_SOURCE +
                     "\nTESTED_BY = {'one_charge_per_order': ['tests/test_orders.py:test_bound']}\n")
     write(shop, "tests/test_orders.py", "def test_bound():\n    assert True\n")
     original = proof.run_isolated_process
@@ -736,7 +736,7 @@ def test_bound_test_method_cannot_impersonate_a_top_level_anchor(shop, capsys):
     write(shop, "shop/orders.py", FIXED +
           "\ndef run():\n    return 'top'\n\nclass Other:\n    def run(self):\n        return 'other'\n")
     path = shop / ".flowguard/models/order_placement.py"
-    source = MODEL_SOURCE.read_text().replace("shop/orders.py:OrderService.place", "shop/orders.py:run")
+    source = MODEL_SOURCE.replace("shop/orders.py:OrderService.place", "shop/orders.py:run")
     source += ("\n_base_conformance = conformance\ndef conformance():\n"
                "    from shop.orders import run\n    assert run() == 'top'\n    return _base_conformance()\n"
                "TESTED_BY = {'one_charge_per_order': ['tests/test_orders.py:test_bound']}\n")

@@ -4,7 +4,7 @@
   change    [--root R] [--base REF] [FILES...]               after editing: check the map, list what to run
   release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
-  template  [--list | NAME [--write DIR] [--force]]          starter model files for one capability
+  template  [--list | NAME [--write DIR] [--force]]          starter files for the node kinds
   target    start "<goal>" | add <id> | check | promote | drop   plan a change as a target model, check the code against it, promote it
 """
 
@@ -76,20 +76,37 @@ def _template(ns: argparse.Namespace) -> int:
         return 2
     files = factory()
     if ns.write:
-        from .templates import write_template_files
+        from .map.mapfile import MapError
+        from .map.targetfile import load_target
+        from .templates import TemplateFile, write_template_files
 
+        current_prefix = ".flowguard/models/"
+        target_prefix = ".flowguard/target/models/"
         try:
+            has_target = load_target(Path(ns.write)) is not None
+            if has_target:
+                files = tuple(TemplateFile(target_prefix + file.path[len(current_prefix):], file.content)
+                              if file.path.startswith(current_prefix) else file for file in files)
             written = write_template_files(ns.write, files, overwrite=ns.force)
+        except MapError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
         except FileExistsError as exc:
             print(f"{exc}; use --force to overwrite", file=sys.stderr)
             return 1
         for path in written:
             print(f"wrote {path}")
-        for file in files:
-            if file.path.startswith(".flowguard/models/") and file.path.count("/") == 2:
-                print(f"next: replace every REPLACE_ME anchor and the example with your own code; set COMPONENTS "
-                      f"(and PARENT if it refines another model) in {file.path}; then run: "
-                      f"python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")
+        if has_target:
+            if any(file.path.startswith(target_prefix) for file in files):
+                print("next: python -m flowguard target check")
+        else:
+            for file in files:
+                if file.path.startswith(current_prefix) and file.path.count("/") == 2:
+                    instruction = ("replace every REPLACE_ME anchor and the example with your own code"
+                                   if "REPLACE_ME" in file.content else "replace the example with your own code and behaviour")
+                    print(f"edit {file.path}: {instruction}; set COMPONENTS "
+                          "(and PARENT if it refines another model)")
+                    print(f"next: python -m flowguard map models {file.path.rsplit('/', 1)[-1][:-3]}")
         return 0
     for file in files:
         print(f"===== {file.path} =====")

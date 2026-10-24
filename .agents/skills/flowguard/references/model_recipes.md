@@ -24,7 +24,7 @@ unmodeled entry; it grants no implementation proof. Each implementation anchor m
 file read as code facts (`flowguard.map.facts.CodeFacts`), during exploration or conformance; a bad
 variant must violate the intended design's property. `map lint` warns when a model names no tests.
 
-Run: `python -m flowguard map models <MODEL_ID>`. Copy `assets/model_template.py` to start.
+Run: `python -m flowguard map models <MODEL_ID>`. Start with `python -m flowguard template behaviour --write .`.
 Models import project code; for a src layout, first run `python -m pip install -e .` or set `PYTHONPATH`.
 
 ## Five steps
@@ -194,10 +194,17 @@ A reported accepted case id identifies a bad input the real function failed to r
 A default label saying reject before side effect is not observed timing proof; test the actual function's effects when that ordering matters.
 Finish target design before code and remove ERROR/TO-DO before promote; run the selected checks and report executed case counts and limits.
 
-## Capability models (kits)
+## Node kinds
 
-`python -m flowguard template validator --write .` writes one contract model built from a kit (`flowguard.kit`: `feature_explorer`, `plan_explorer`;
-code facts or replay as conformance). A feature model lists `Feature(name, rejects, codes, apply)` rows:
+`behaviour` starts an ordinary executable contract model.
+`validator` checks a finite input boundary; see `## Validator`.
+`ui-journey` explores interface states, controls and transitions; see `## UI journey`.
+Use `python -m flowguard template <kind> --write .`; `adoption` writes the six project integration rules.
+With a target, model files go into `.flowguard/target/models/`; otherwise they go into `.flowguard/models/`.
+Other template files keep their paths; the CLI prints the next target check or model command. `--force` keeps its overwrite meaning.
+
+Feature kits (`flowguard.kit`: `feature_explorer`, `plan_explorer`; code facts or replay as conformance) reuse the same model contract.
+A feature model lists `Feature(name, rejects, codes, apply)` rows:
 each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
 explores each allowed feature set once (up to `max_features=2` by default), generates the known-bad variants (`feature_variants`) and, in
 `feature_conformance(features, base, review)`, runs each combination on the real code and prints a
@@ -205,12 +212,13 @@ counterexample (features, expected and observed verdict) for each one that disag
 use `codes="first"` for a validator that stops at the first defect in declaration order. `requires=("other",)`
 requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
 `exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
-are omitted; conformance still checks the clean base against the design, including adapter errors. Every capability
-template writes one top-level `.flowguard/models/<name>.py` kit contract model.
-Template code and test anchors contain `REPLACE_ME`
-and fail until you name your code and tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run
-`python -m flowguard map models <name>`: exit code 0 means the intended plan passes and the
+are omitted; conformance still checks the clean base against the design, including adapter errors.
+
+`ui-journey` and `validator` contain `REPLACE_ME` anchors: fill them with real code and tests.
+`behaviour` has sample `shop/orders.py:OrderService.place` and a commented `TESTED_BY` example; replace the sample and bind real tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run
+`python -m flowguard map models <MODEL_ID>`: exit code 0 means the intended plan passes and the
 broken plans are rejected.
+There is no review kind: `hazard:` and `invariant_untested` are computed by `map models`.
 
 ## Helpers
 

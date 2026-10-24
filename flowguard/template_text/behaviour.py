@@ -1,7 +1,12 @@
-"""TEMPLATE - copy to .flowguard/models/<your_model>.py and replace the order example.
+"""Canonical ordinary behaviour model template."""
+from __future__ import annotations
+
+BEHAVIOUR_MODEL_TEMPLATE = '''"""TEMPLATE - generate with python -m flowguard template behaviour --write .
 
 Executable model: placing an order charges the customer at most once per order id.
 Protected failure: a client retry with the same order id charges the card twice.
+For a primary-path plus fallback known-bad variant, see references/tree_operations.md,
+section "External promise (no silent fallback)".
 """
 
 from __future__ import annotations
@@ -100,3 +105,6 @@ def conformance():
         if not last.ok:
             return last
     return last
+'''
+
+__all__ = ["BEHAVIOUR_MODEL_TEMPLATE"]

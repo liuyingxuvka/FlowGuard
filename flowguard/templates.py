@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+from .template_text.behaviour import BEHAVIOUR_MODEL_TEMPLATE
 from .template_text.core import (
     ADOPTION_LOG_TEMPLATE,
     MODEL_NOTES_TEMPLATE,
@@ -31,7 +32,7 @@ def adoption_template_files() -> tuple[TemplateFile, ...]:
 Copy these six rules into the project's AGENTS.md or CLAUDE.md:
 
 1. Start each session with `python -m flowguard read` before opening source.
-2. Before adding behavior, use `python -m flowguard read --find WORDS`; extend its existing owner.
+2. Before changing behaviour or structure: `python -m flowguard target start "<goal>"`, edit the target, `python -m flowguard target check`, then `python -m flowguard target promote`; extend the existing owner (`python -m flowguard read --find WORDS`).
 3. Open only the affected component's files (`python -m flowguard read --component ID`).
 4. After editing, run `python -m flowguard change`, fix errors, and run the affected tests and models it selects.
 5. Re-read each REVIEW component, update its description if behavior changed, then `python -m flowguard map confirm ID`.
@@ -40,6 +41,12 @@ Copy these six rules into the project's AGENTS.md or CLAUDE.md:
     )
 
 
+
+
+def behaviour_template_files() -> tuple[TemplateFile, ...]:
+    return (
+        TemplateFile(".flowguard/models/order_placement.py", BEHAVIOUR_MODEL_TEMPLATE),
+    )
 
 
 def ui_journey_template_files() -> tuple[TemplateFile, ...]:
@@ -77,6 +84,7 @@ __all__ = [
     "MODEL_NOTES_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
+    "behaviour_template_files",
     "validator_template_files",
     "ui_journey_template_files",
     "write_template_files",

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from flowguard.__main__ import main as flowguard_cli_main, template_factories
 from flowguard.templates import (
+    behaviour_template_files,
     validator_template_files,
     ui_journey_template_files,
     write_template_files,
@@ -19,11 +20,13 @@ from flowguard.templates import (
 ROOT = Path(__file__).resolve().parents[1]
 
 PUBLIC_TEMPLATE_FACTORIES = (
+    behaviour_template_files,
     ui_journey_template_files,
     validator_template_files,
 )
 
 TEMPLATE_CLI_COMMANDS = {
+    "behaviour-template": "behaviour",
     "ui-journey-template": "ui_journey",
     "validator-template": "validator",
 }
@@ -210,14 +213,19 @@ class PublicTemplateTests(unittest.TestCase):
         for name, factory in template_factories().items():
             model = factory()[0]
             if not model.path.startswith(".flowguard/models/") or model.path.count("/") != 2:
-                continue                      # adoption rules and the meta-capability runners
+                continue                      # adoption rules have no model
             with self.subTest(template=name), tempfile.TemporaryDirectory() as directory:
                 path = Path(directory) / "model.py"
                 path.write_text(model.content, encoding="utf-8")
                 contract = read_model_contract(path)
-                anchors = [*contract["IMPLEMENTED_BY"].values(), *(a for v in contract["TESTED_BY"].values() for a in v)]
-                self.assertTrue(contract["IMPLEMENTED_BY"] and contract["TESTED_BY"])
-                self.assertTrue(all(anchor.startswith("REPLACE_ME/") for anchor in anchors), anchors)
+                anchors = [*contract["IMPLEMENTED_BY"].values(), *(a for v in contract.get("TESTED_BY", {}).values() for a in v)]
+                if name == "behaviour":
+                    self.assertEqual({"PlaceOrder": "shop/orders.py:OrderService.place"}, contract["IMPLEMENTED_BY"])
+                    self.assertFalse(contract.get("TESTED_BY", {}))  # optional example is not a declared test binding
+                    self.assertNotIn("REPLACE_ME", model.content)
+                else:
+                    self.assertTrue(contract["IMPLEMENTED_BY"] and contract["TESTED_BY"])
+                    self.assertTrue(all(anchor.startswith("REPLACE_ME/") for anchor in anchors), anchors)
 
     def test_no_template_writes_a_runner(self):
         for name, factory in template_factories().items():
@@ -231,7 +239,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual([],
                                  [p for p in paths if p not in models], name)
         self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(3, len(template_factories()))
+        self.assertEqual(4, len(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -242,8 +250,13 @@ class PublicTemplateTests(unittest.TestCase):
                 path = Path(directory) / "model.py"
                 path.write_text(factory()[0].content)
                 model_id = read_model_contract(path)["MODEL_ID"]
-                output = self.run_kit_template(factory(), model_id, {"shop/module.py": "class Owner: pass\n"}, expected_returncode=1)
-                self.assertIn("placeholder anchor", output)
+                if name == "behaviour":
+                    output = self.run_kit_template(factory(), model_id, {"shop/module.py": "class Owner: pass\n"},
+                                                   components={"orders": ["shop/*.py"]}, expected_returncode=1)
+                    self.assertIn("anchor file missing: shop/orders.py", output)
+                else:
+                    output = self.run_kit_template(factory(), model_id, {"shop/module.py": "class Owner: pass\n"}, expected_returncode=1)
+                    self.assertIn("placeholder anchor", output)
                 self.assertNotIn("Traceback", output)
 
 
@@ -271,6 +284,7 @@ class PublicTemplateTests(unittest.TestCase):
         code, stdout, _stderr = self.run_cli(["template", "--list"])
         self.assertEqual(0, code)
         listed = stdout.split()
+        self.assertEqual(["adoption", "behaviour", "ui-journey", "validator"], listed)
         self.assertNotIn("project", listed)
         for name in listed:
             code, stdout, stderr = self.run_cli(["template", name])
@@ -307,6 +321,41 @@ class PublicTemplateTests(unittest.TestCase):
                     for marker in private_markers:
                         self.assertNotIn(marker, file.content)
 
+
+    def test_template_writes_into_the_target_when_one_exists(self):
+        from flowguard.map.targetfile import load_target
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".flowguard").mkdir()
+            (root / ".flowguard/map.json").write_text(json.dumps({
+                "schema": "flowguard.map.v1", "project": "template-target", "components": []}), encoding="utf-8")
+            code, stdout, stderr = self.run_cli(["target", "start", "add an order behaviour model", "--root", directory])
+            self.assertEqual(0, code, stdout + stderr)
+            self.assertIsNotNone(load_target(root))
+            code, stdout, stderr = self.run_cli(["template", "behaviour", "--write", directory])
+            self.assertEqual(0, code, stdout + stderr)
+            target = root / ".flowguard/target/models/order_placement.py"
+            self.assertEqual(behaviour_template_files()[0].content, target.read_text(encoding="utf-8"))
+            self.assertFalse((root / ".flowguard/models/order_placement.py").exists())
+            self.assertIn("next: python -m flowguard target check", stdout)
+            self.assertNotIn("python -m flowguard map models order_placement", stdout)
+
+            # Target relocation happens before the existing no-overwrite/force check.
+            target.write_text("# locally edited target\n", encoding="utf-8")
+            code, _stdout, stderr = self.run_cli(["template", "behaviour", "--write", directory])
+            self.assertEqual(1, code)
+            self.assertIn("--force", stderr)
+            self.assertEqual("# locally edited target\n", target.read_text(encoding="utf-8"))
+            code, stdout, stderr = self.run_cli(["template", "behaviour", "--write", directory, "--force"])
+            self.assertEqual(0, code, stdout + stderr)
+            self.assertEqual(behaviour_template_files()[0].content, target.read_text(encoding="utf-8"))
+            self.assertFalse((root / ".flowguard/models/order_placement.py").exists())
+
+            code, stdout, stderr = self.run_cli(["template", "adoption", "--write", directory])
+            self.assertEqual(0, code, stdout + stderr)
+            self.assertTrue((root / "docs/flowguard_agents_rules.md").is_file())
+            self.assertFalse((root / ".flowguard/target/docs").exists())
 
 if __name__ == "__main__":
     unittest.main()

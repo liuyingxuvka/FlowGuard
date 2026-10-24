@@ -85,40 +85,11 @@
       "fingerprint": "sha256:ad80192704c1b8faa6047a2ca6b2d7338d8059d7b9ec139f9b0d7feab102f3f6"
     },
     {
-      "id": "skill-assets",
-      "layer": "examples",
-      "summary": "Ships copyable model starters for target projects.",
-      "responsibilities": [
-        "ship copyable model files with the skill",
-        "teach choice composition for independent operation blocks with accepted input types"
-      ],
-      "files": [
-        ".agents/skills/flowguard/assets/**/*.py",
-        ".agents/skills/flowguard/assets/*.py"
-      ],
-      "entrypoints": [],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-conformance",
-        "engine-core",
-        "engine-explore",
-        "engine-properties"
-      ],
-      "tests": [
-        "tests/test_flowguard_map_proof.py",
-        "tests/test_skill_package.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:2de31c820c02fd81f3ead055a73c41d456b52601f947f93599590235429dac37"
-    },
-    {
       "id": "cli",
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
@@ -155,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a2108bd9990952ac775e08177c1f23328b969e036a9764eba14cc6e566a37e00"
+      "fingerprint": "sha256:9a324e7d72a8d91f8879ba586ea26eda6ef2d67283dd33de6baa0555611045a5"
     },
     {
       "id": "public-api",
@@ -192,10 +163,10 @@
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates kit contract models without self-reported evidence blocks.",
+      "summary": "Generates ordinary behaviour, validator and UI journey models plus adoption rules.",
       "responsibilities": [
-        "every capability template writes one contract model built from a kit; retain adoption rules",
-        "generated placeholder code and test anchors fail cleanly until replaced with real ones"
+        "generate the behaviour, validator and ui-journey node starters plus six adoption rules; before changing behaviour or structure use a target and extend the existing owner",
+        "UI journey and validator placeholder code and test anchors fail cleanly until filled; behaviour has sample shop code and a commented test binding that callers replace with their real code and tests"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -216,7 +187,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d5c8ec99d8858442d7262e9dcbea1403211ee20528a65a5f25ef66260e71f659"
+      "fingerprint": "sha256:d47e5b35c194ff4566b6e898115a3d64202e1089e31edb66e0abff5dd3d6b36b"
     },
     {
       "id": "test-mesh",
