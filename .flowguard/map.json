@@ -338,7 +338,8 @@
         "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details; show what each dependency uses and how much behaviour is explained by a component-subtree model, a matched test name or NOT_MODELED; show declared dependencies and ordered flows in Mermaid, mark flows with no model, and keep these static coverage counts informational; nest optional component parents and roll up subsystem files, tests, dependencies, rules and model facets without changing direct ownership or double-counting global coverage",
         "compare current owner promises with merged target owners and explicit removal intent when checking a target",
         "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
-        "show the requested component within the read budget"
+        "show the requested component within the read budget",
+        "read model rules statically from the explorer the model builds"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -369,7 +370,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c8b1e2ad58fc27ebf4ae699fff597959ee9f0e054d0343901d03d5caaad8b326"
+      "fingerprint": "sha256:3174f0208e4e472827bf931c846eef18a55d548b55d01be021598441def2a2b6"
     },
     {
       "id": "map-target",

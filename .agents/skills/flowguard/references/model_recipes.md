@@ -226,6 +226,12 @@ There is no review kind: `hazard:` and `invariant_untested` are computed by `map
 - `mermaid_code_block(...)` / `loop_report_to_mermaid_text(...)`: render a model/report;
   see examples/mermaid_export_example.py.
 
+`read` never imports a model: it reads rules from the `invariants=` of the explorer that
+`build_explorer()` returns. Write rules as module-level `Invariant(...)` values, import them
+from a `_helper` file, or build them with a small wrapper returning `Invariant(name, text, ...)`;
+`read` then shows each name and description. When it cannot, it shows `?` and
+`python -m flowguard map models` prints the real names.
+
 
 ### Parent and child models
 

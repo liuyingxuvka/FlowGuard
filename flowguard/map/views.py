@@ -59,11 +59,25 @@ def _shown_lists(facets) -> tuple[tuple[str, ...], tuple[str, ...]]:
     return tuple(code), tuple(shown + tests)
 
 
+def _unreadable(facets) -> str:
+    return f"not readable statically; python -m flowguard map models {facets.model_id or '<id>'} prints them"
+
+
+def _rule_text(facets) -> str:
+    if facets.rules_source == "map":
+        return "; ".join(facets.rules) or "-"
+    if facets.rules_source == "runtime":
+        return _unreadable(facets)
+    if facets.rules_source == "file":
+        return ", ".join(facets.rules) + " (found in the file; map models prints the real ones)"
+    notes = facets.rule_notes or ("",) * len(facets.rules)
+    return "; ".join(name + (": " + (note[:69] + "…" if len(note) > 70 else note) if note else "")
+                     for name, note in zip(facets.rules, notes)) or "-"
+
+
 def _facet_lines(facets, indent: str) -> list[str]:
-    rules = ("; " if facets.rules_source == "map" else ", ").join(facets.rules) or "built at run time"
-    if facets.rules_source == "TESTED_BY":
-        rules += " (from TESTED_BY)"
-    bad = ", ".join(facets.known_bad) or ("built at run time" if facets.known_bad_count is None else "-")
+    rules = _rule_text(facets)
+    bad = ", ".join(facets.known_bad) or (_unreadable(facets) if facets.known_bad_count is None else "-")
     if facets.known_bad_source == "system-root":
         bad = str(facets.known_bad_count)
     if facets.known_bad_source in {"system", "system-root"}:
@@ -78,6 +92,19 @@ def _count(value):
     return "?" if value is None else str(value)
 
 
+def _descendant_tests(tree, mid, facets) -> tuple[int, list[str]]:
+    """Bindings of every model below ``mid``: a parent shows the tests its children bind."""
+    total, names, pending = 0, [], list(tree.children(mid, "model"))
+    while pending:
+        child = pending.pop(0)
+        if child.id in facets:
+            total += facets[child.id].test_count
+            if facets[child.id].test_count:
+                names.append(child.id)
+        pending.extend(tree.children(child.id, "model"))
+    return total, sorted(names)
+
+
 def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, bindings: bool = False,
                  changes=None, previous=None) -> list[str]:
     roots = sorted((tree.nodes[mid] for mid in ids if tree.nodes[mid].parent_kind != "model"
@@ -90,8 +117,11 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
         home = f" (home {node.home})" if component and (node.home_kind != "component" or node.home != component) else ""
         mark = changes.get(("model", node.id), "") if changes is not None else ""
         prefix = mark + " " if mark else ""
+        rolled, child_ids = _descendant_tests(tree, node.id, facets)
+        more = f" +{rolled} in children" if rolled else ""
         lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
-                     f"({_count(fact.rule_count)} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests){home}")
+                     f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){home}")
+        start = len(lines)
         before = previous.get(("model", node.id)) if previous is not None else None
         if mark == "-":
             lines[-1] += " (removed by the target)"
@@ -103,6 +133,10 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
             delta = _node_delta("model", before, (node, fact))
             if delta:
                 lines.append("  " * (depth + 1) + "changes: " + "; ".join(delta))
+        if rolled:
+            for index in range(start, len(lines)):
+                if lines[index].lstrip().startswith("tests: "):
+                    lines[index] += f"; children: {rolled} tests in {', '.join(child_ids)}"
         pending.extend((child, depth + 1) for child in reversed(tree.children(node.id, "model")) if child.id in ids)
     return lines
 
@@ -118,8 +152,8 @@ def _facet_lines_with_was(fact, before, indent):
 
 def _node_fields(kind, record):
     node, fact = record
-    fields = {"purpose": (fact.purpose,), "rules": fact.rules or ("built at run time",),
-              "known-bad": fact.known_bad or (("built at run time",) if fact.known_bad_count is None else ()),
+    fields = {"purpose": (fact.purpose,), "rules": fact.rules or (("not readable statically",) if fact.rule_count is None else ()),
+              "known-bad": fact.known_bad or (("not readable statically",) if fact.known_bad_count is None else ()),
               "code": tuple(value for value in fact.code if value != "STALE"), "tests": fact.tests}
     if kind == "component":
         fields["code"] = tuple(value for value in fields["code"]
@@ -630,7 +664,7 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         lines.append("  end")
     for node in sorted(models, key=lambda n: n.id):
         fact = model_data[node.id]
-        lines.append(f'  {model_ids[node.id]}(["model {label(node.id)}<br/>{_count(fact.rule_count)} rules, '
+        lines.append(f'  {model_ids[node.id]}(["model {label(node.id)}<br/>{fact.rule_count_text} rules, '
                      f'{_count(fact.known_bad_count)} known-bad"])')
     for flow in flows:
         mid = flow_model_id(flow)
