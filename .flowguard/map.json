@@ -19,7 +19,7 @@
     {
       "id": "examples",
       "layer": "examples",
-      "summary": "Runnable examples of models and capability reviews.",
+      "summary": "Runnable examples of executable models.",
       "responsibilities": [
         "teach modeling by runnable examples"
       ],
@@ -165,7 +165,8 @@
       "summary": "Generates ordinary behaviour, validator and UI journey models plus adoption rules.",
       "responsibilities": [
         "generate the behaviour, validator and ui-journey node starters plus six adoption rules; before changing behaviour or structure use a target and extend the existing owner",
-        "UI journey and validator placeholder code and test anchors fail cleanly until filled; behaviour has sample shop code and a commented test binding that callers replace with their real code and tests"
+        "UI journey and validator placeholder code and test anchors fail cleanly until filled; behaviour has sample shop code and a commented test binding that callers replace with their real code and tests",
+        "describe actual model and test outcomes with bounded unresolved cases in generated notes"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -186,7 +187,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d47e5b35c194ff4566b6e898115a3d64202e1089e31edb66e0abff5dd3d6b36b"
+      "fingerprint": "sha256:41a8eb9f6d9139b6a92fd425001ae8edf1eeb0c8f3b544bb3242d1417b5c4112"
     },
     {
       "id": "test-mesh",
