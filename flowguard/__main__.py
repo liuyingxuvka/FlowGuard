@@ -1,7 +1,7 @@
 """python -m flowguard: daily verbs on top of the FlowGuard map.
 
   read      [--root R] [--component ID | --find WORDS... | --review] [--budget N] understand the software (business data read-only; disposable caches may update)
-  change    [--root R] [--base REF] [FILES...]               after editing: check the map, list what to run
+  change    [--root R] [--base REF] [--run] [FILES...]       after editing: check the map, list (and --run) what to run
   release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
   template  [--list | NAME [--write DIR] [--force]]          starter files for the node kinds
@@ -51,6 +51,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
     elif verb == "change":
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
+        p.add_argument("--run", action="store_true", help="then run the selected tests and models, one RAN line each")
     elif verb == "release":
         p.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                        help="after normal checks pass, run the whole suite in 1–32 parallel shards")

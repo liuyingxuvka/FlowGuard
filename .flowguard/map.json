@@ -91,7 +91,8 @@
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; map models and release fail a model with an uncovered invariant, counted once; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids, or name the closest owners when none matches; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget; read --review and map show --review print the same ranked architecture review",
-        "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
+        "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status",
+        "run the selected tests and models on request"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -126,7 +127,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:285e078716ecb30b00db7c14947531f82b8ff4b0f525f607c38be78b90e1d334"
+      "fingerprint": "sha256:c3ee40436b000dc4b43863e17378e23c2ac20e770611c78dfa8f24091b8824a5"
     },
     {
       "id": "public-api",
@@ -397,7 +398,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c3fc71da91b2aacfdd33a60fce4b03cfed68666714dfc5c6e2305801ad9c3b0f"
+      "fingerprint": "sha256:e72fe9f7be0cb053093d37506d563faf85a5a90b369599b42985e933ee3e6bf0"
     },
     {
       "id": "map-target",

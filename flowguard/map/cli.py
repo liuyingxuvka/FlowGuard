@@ -27,7 +27,7 @@ from pathlib import Path
 
 from .check import run_check
 from .common import MAP_RELPATH, print_findings, quiet_broken_pipe, safe_stdio
-from .impact import changed_files, compute_impact, render_impact
+from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
 from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
@@ -229,7 +229,34 @@ def cmd_change(root: Path, a) -> int:
     for debt in data.get("accepted_debts", []):
         if debt.get("component") in affected:
             print(f"DEBT {debt['component']} {debt['code']}: {debt['reason']}")
-    return int(bool(counts["error"] or imp.blocked or unmapped or any(f.level == "error" for f in architecture)))
+    code = int(bool(counts["error"] or imp.blocked or unmapped or any(f.level == "error" for f in architecture)))
+    if not getattr(a, "run", False):
+        return code
+    if code:
+        print("RAN: skipped (fix the errors above first)")
+        return code
+    return _run_selected(root, run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None))
+
+
+def _run_selected(root: Path, commands: list[str]) -> int:
+    """change --run: execute each run: command without a shell; one RAN line per command."""
+    import shlex
+
+    failed = False
+    for command in commands:
+        argv = shlex.split(command)
+        if argv and argv[0] == "python":         # the run: lines name the interpreter running FlowGuard
+            argv[0] = sys.executable
+        result = subprocess.run(argv, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        shown = command[:120]
+        if result.returncode == 0:
+            print(f"RAN PASS {shown}")
+            continue
+        failed = True
+        print(f"RAN FAIL (exit {result.returncode}) {shown}")
+        for line in (result.stdout + result.stderr).splitlines()[-20:]:
+            print("  " + line)
+    return int(failed)
 
 
 def cmd_deps(root: Path, a) -> int:

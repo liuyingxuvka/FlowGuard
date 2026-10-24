@@ -510,6 +510,32 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     )
 
 
+def _test_groups(imp: Impact) -> tuple[dict[str, list[str]], list[str]]:
+    groups: dict[str, list[str]] = defaultdict(list)
+    no_command = []
+    for test in imp.tests:
+        command = next((cmd for pattern, cmd in imp.test_commands.items() if glob_match(test, pattern)), None)
+        if command is None and test.endswith(".py"):
+            command = imp.test_command
+        if command:
+            groups[command].append(test)
+        else:
+            no_command.append(test)
+    return groups, no_command
+
+
+def run_commands(imp: Impact, *, moving_models: set[str] | None = None) -> list[str]:
+    """The exact commands of the ``run:`` lines, in order (tests per command, then the selected models)."""
+    import shlex
+
+    groups, _ = _test_groups(imp)
+    commands = [f"{command} " + " ".join(shlex.quote(t) for t in tests) for command, tests in groups.items()]
+    model_ids = [mid for path, mid in zip(imp.models, imp.model_ids) if path not in (moving_models or set())]
+    if model_ids:
+        commands.append("python -m flowguard map models " + " ".join(model_ids))
+    return commands
+
+
 def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     selected = list(zip(imp.models, imp.model_ids))
     moving = [(path, mid) for path, mid in selected if path in (moving_models or set())]
@@ -541,29 +567,18 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     if moving:
         lines.append("moving to target: " + ", ".join(mid for path, mid in moving)
                      + " (python -m flowguard target check runs their target versions)")
-    groups: dict[str, list[str]] = defaultdict(list)
-    no_command = []
-    for test in imp.tests:
-        command = next((cmd for pattern, cmd in imp.test_commands.items() if glob_match(test, pattern)), None)
-        if command is None and test.endswith(".py"):
-            command = imp.test_command
-        if command:
-            groups[command].append(test)
-        else:
-            no_command.append(test)
+    groups, no_command = _test_groups(imp)
+    commands = run_commands(imp, moving_models=moving_models)
     broad = len(imp.tests) > 30
     if broad:
         lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): broad selection; run commands below (full list: python -m flowguard map impact --json)")
     else:
         # The executable command contains the list once; avoid repeating it above.
         lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): " + ("see run below" if imp.tests else "-"))
-    for command, tests in groups.items():
-        # Keep the executable command scoped even when its display is long.
-        import shlex
-        lines.append(f"run: {command} " + " ".join(shlex.quote(t) for t in tests))
+    # Keep the executable command scoped even when its display is long; change --run executes these.
+    lines.extend("run: " + command for command in commands[:len(groups)])
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
-    if models:
-        lines.append("run: python -m flowguard map models " + " ".join(model_ids))
+    lines.extend("run: " + command for command in commands[len(groups):])
     for cid in imp.needs_review:
         message = f"REVIEW {cid}: its files changed; update its description if behavior changed, then confirm {cid}"
         if imp.review_models.get(cid):
