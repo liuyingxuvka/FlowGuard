@@ -485,3 +485,64 @@ def conformance():
     model.write_text(source.replace("NOT_MODELED = {}", "NOT_MODELED = " + repr(reason)))
     result = map_cli(tmp_path, "check")
     assert result.returncode == 0 and "entrypoint_unmodeled" not in result.stdout, result.stdout + result.stderr
+
+
+def test_attribute_calls_resolve_to_the_assigned_class(tmp_path):
+    marker = tmp_path / "fg232-user-code-imported.txt"
+    sources = {
+        "fg232_shelf/__init__.py": "",
+        "fg232_shelf/members.py": (
+            "class Members:\n"
+            "    def may_borrow(self): return True\n"
+            "    def shared(self): return True\n"),
+        "fg232_shelf/catalog.py": (
+            "class Catalog:\n"
+            "    def take(self): return True\n"
+            "    def flush(self): return True\n"
+            "    def shared(self): return True\n"),
+        "fg232_shelf/decoy.py": (
+            "class Decoy:\n"
+            "    def may_borrow(self): return False\n"
+            "    def take(self): return False\n"
+            "    def shared(self): return False\n"),
+        "fg232_shelf/outside.py": "class Outside:\n    def flush(self): return False\n",
+        "fg232_shelf/loans.py": (
+            "from pathlib import Path\n"
+            f"Path({str(marker)!r}).write_text('imported')\n"
+            "from fg232_shelf.members import Members\n"
+            "import fg232_shelf.catalog as stock\n"
+            "class LoanService:\n"
+            "    def __init__(self, catalog=None, dependency=None):\n"
+            "        self.members = Members()\n"
+            "        self.catalog = catalog or stock.Catalog()\n"
+            "        self.unknown = dependency\n"
+            "    def borrow(self):\n"
+            "        self.members.may_borrow()\n"
+            "        return self.catalog.take()\n"
+            "    def flush(self): return self.unknown.flush()\n"
+            "    def ambiguous(self): return self.unknown.shared()\n"),
+    }
+    for relative, source in sources.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+    data = {"schema": "flowguard.map.v1", "components": [
+        dict(id=name, files=[f"fg232_shelf/{name}.py"], tests=[], models=[],
+             summary=name, responsibilities=[name], status="draft",
+             depends_on=["members", "catalog", "decoy"] if name == "loans" else [])
+        for name in ("loans", "members", "catalog", "decoy", "outside")], "flows": [
+            dict(id="borrow", steps=["loans:LoanService.borrow", "members:Members.may_borrow", "catalog:Catalog.take"]),
+            dict(id="flush", steps=["loans:LoanService.flush", "catalog:Catalog.flush"])],
+        "layers": [], "accepted_debts": []}
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    raw = discover_inventory(tmp_path, inv, data=data)
+    assert set(raw["edges"]["fg232_shelf/loans.py#LoanService.borrow"]) == {
+        "fg232_shelf/members.py#Members.may_borrow", "fg232_shelf/catalog.py#Catalog.take"}
+    # Catalog has no __init__: the qualified constructor still identifies its class exactly.
+    assert raw["edges"]["fg232_shelf/loans.py#LoanService.flush"] == ["fg232_shelf/catalog.py#Catalog.flush"]
+    assert not raw["edges"].get("fg232_shelf/loans.py#LoanService.ambiguous")
+    unscoped = discover_inventory(tmp_path, inv, data=None, write_cache=False)
+    assert not unscoped["edges"].get("fg232_shelf/loans.py#LoanService.flush")
+    assert not [finding for finding in run_lint(tmp_path, data, inv) if finding.code == "flow_step_unreached"]
+    assert not marker.exists()
+    assert not any(name == "fg232_shelf" or name.startswith("fg232_shelf.") for name in sys.modules)

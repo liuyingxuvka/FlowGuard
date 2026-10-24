@@ -8,8 +8,9 @@ from collections import defaultdict
 from pathlib import Path
 
 from .common import Finding, read_source, tokens
-from .inventory import Inventory
-from .facets import _test_function_index, component_facets, model_facets, system_facets
+from .inventory import Inventory, resolve_import
+from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
+from .discover import discover_inventory
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
 from .mapfile import MapError, component_files, component_graph, is_stale, owner_index
@@ -118,18 +119,68 @@ def _node_delta(kind, before, after):
     return parts
 
 
+def _read_facts(root, data, inv, tree, *, raw=None, source_cache=None, view=None):
+    """One discovery graph per view; indexes retain the actual inventory scope."""
+    if raw is None:
+        raw = discover_inventory(root, inv, write_cache=view is None, data=data)
+    cache = source_cache if source_cache is not None else {}
+    functions = _test_function_index(root, inv, source_cache=cache)
+    coverage = coverage_facts(root, data, inv, tree, raw, source_cache=cache)
+    return raw, functions, coverage
+
+
+def _dependency_symbols(data, inv, cid, dep, raw):
+    components = {component["id"]: component for component in data["components"]}
+    sources = set(component_files(components[cid], inv))
+    destinations = set(component_files(components[dep], inv))
+    symbols = {target.partition("#")[2] for source, targets in raw["edges"].items()
+               if source.partition("#")[0] in sources for target in targets
+               if target.partition("#")[0] in destinations}
+    modules = {info.module: path for path, info in inv.py.items()}
+    for path in sources:
+        if path not in inv.py:
+            continue
+        for imported in inv.py[path].imports:
+            module, separator, name = imported.partition(":")
+            if separator and name != "*" and resolve_import(imported, modules) in destinations:
+                symbols.add(name)
+    return sorted(symbols)
+
+
+def _dependency_lines(data, inv, cid, graph, raw):
+    lines = []
+    for dep in sorted(graph.get(cid, ())):
+        symbols = _dependency_symbols(data, inv, cid, dep, raw)
+        shown = ", ".join(symbols[:6]) if symbols else "(module import only)"
+        if len(symbols) > 6:
+            shown += f" (+{len(symbols) - 6} more)"
+        lines.append(f"  uses {dep}: {shown}")
+    return lines
+
+
 def _target_comparison(root, data, inv, target):
     view = build_target_view(root, data, target)
+    # A target can turn an exact source into a test, or the reverse. Keep facts
+    # for both real source sets, while each snapshot retains its own test scope.
+    source_paths = set()
+    for mapping in (data, view.data):
+        owner_index(mapping, inv)
+        source_paths.update(path for component in mapping["components"]
+                            for path in component_files(component, inv) if path in inv.py)
+    raw = discover_inventory(root, inv, write_cache=False, data=view.data, extra_sources=source_paths)
+    source_cache = {}
 
     def snapshot(mapping, selected_view=None):
         tree = build_tree(root, mapping, inv, view=selected_view)
         graph = component_graph(mapping, inv)
-        functions = _test_function_index(root, inv)
-        records = {("component", c["id"]): (c, component_facets(root, mapping, inv, c, tree, graph, functions))
+        _, functions, coverage = _read_facts(root, mapping, inv, tree, raw=raw,
+                                            source_cache=source_cache, view=selected_view)
+        records = {("component", c["id"]): (c, component_facets(root, mapping, inv, c, tree, graph, functions,
+                                                               coverage=coverage[c["id"]]))
                    for c in mapping["components"]}
         records.update({("model", mid): (node, model_facets(root, node, view=selected_view))
                         for mid, node in tree.nodes.items()})
-        return tree, graph, records, system_facets(mapping, inv, tree, graph, functions)
+        return tree, graph, records, system_facets(mapping, inv, tree, graph, functions, coverage=coverage)
 
     old_tree, _, old, old_system = snapshot(data)
     tree, graph, new, new_system = snapshot(view.data, view)
@@ -149,7 +200,7 @@ def _target_comparison(root, data, inv, target):
             key = (kind, identity)
             if key in old and key in new or kind == "flow" and identity in old_flows and identity in new_flows:
                 changes.setdefault(key, "~")
-    return view, old_tree, tree, old, new, changes, graph, old_system, new_system
+    return view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw
 
 
 def _show_header(data, graph, *, architecture=None, debts=None):
@@ -161,7 +212,7 @@ def _show_header(data, graph, *, architecture=None, debts=None):
 
 
 def _render_target_show(root, data, inv, target, *, component, detail, budget):
-    view, old_tree, tree, old, new, changes, graph, old_system, new_system = _target_comparison(root, data, inv, target)
+    view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw = _target_comparison(root, data, inv, target)
     merged = view.data
     component_ids = {cid for kind, cid in old.keys() | new.keys() if kind == "component"}
     if component and component != "system":
@@ -173,6 +224,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
     counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
     lines = [_show_header(merged, graph),
              f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)']
+    lines.append(next(line for line in new_system.code if line.startswith("coverage:")))
     if not component:
         flows = {f["id"]: f for f in [*data.get("flows", []), *merged.get("flows", [])]}
         for kind, fid in sorted(changes):
@@ -180,7 +232,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
                 flow = flows[fid]
                 lines.append(f'> {changes[(kind, fid)]} flow {fid}: {flow.get("summary", "")} :: '
                              + " -> ".join(flow.get("steps", []))
-                             + (f" model: {flow['model']}" if flow.get("model") else "")
+                             + (f" model: {flow['model']}" if flow.get("model") else " (no model)")
                              + (" (removed by the target)" if changes[(kind, fid)] == "-" else ""))
     essential = "\n".join(lines)
     model_data = {mid: record[1] for (kind, mid), record in new.items() if kind == "model"}
@@ -218,6 +270,8 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
             delta = _node_delta("component", before, after)
             if delta:
                 body.append("  changes: " + "; ".join(delta))
+        if component or detail:
+            body.extend(_dependency_lines(merged, inv, cid, graph, raw))
         body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
                                  bindings=bool(component or detail), changes=changes, previous=old))
         body.extend(_model_lines(old_tree, removed, old_model_data, changes=changes, previous=old))
@@ -235,8 +289,9 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     graph = component_graph(data, inv)
     tree = build_tree(root, data, inv)
     model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
-    functions = _test_function_index(root, inv)
-    component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions) for c in data["components"]}
+    raw, functions, coverage = _read_facts(root, data, inv, tree)
+    component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions,
+                                               coverage=coverage[c["id"]]) for c in data["components"]}
     comps = data["components"]
     if component == "system":
         comps = []
@@ -249,7 +304,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     model_ids = {node.path: node.id for node in tree.nodes.values()}
     flows = [] if component else [
         f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
-        + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else "")
+        + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else " (no model)")
         for flow in data.get("flows", [])]
     target_lines = []
     try:
@@ -263,11 +318,11 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                                 'python -m flowguard target check lists what is left')
     except (OSError, ValueError, TypeError, SyntaxError, MapError):
         target_lines.append("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
-    essential = "\n".join([head, *target_lines, *flows])
+    essential = "\n".join([head, *target_lines, coverage_line(coverage, summary=True), *flows])
     root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
                                                    model_data, bindings=detail)
     if component == "system":
-        root_models = _facet_lines(system_facets(data, inv, tree, graph, functions), "  ")
+        root_models = _facet_lines(system_facets(data, inv, tree, graph, functions, coverage=coverage), "  ")
     top = "\n".join([essential, *root_models])
     blocks: list[tuple[str, str]] = []
     for c in comps:
@@ -283,7 +338,10 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             if c.get("state"):
                 lines.append("  state: " + "; ".join(c["state"]))
         if graph.get(c["id"]):
-            lines.append("  uses: " + ", ".join(sorted(graph[c["id"]])))
+            if component or detail:
+                lines.extend(_dependency_lines(data, inv, c["id"], graph, raw))
+            else:
+                lines.append("  uses: " + ", ".join(sorted(graph[c["id"]])))
         declared_only = sorted(set(c.get("depends_on", [])) - graph.get(c["id"], set()))
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))
@@ -326,28 +384,46 @@ def _bounded_show(top, essential, blocks, budget):
             break
         named.append(cid)
     names = ", ".join(named) + (f" +{len(hidden) - len(named)} more" if len(named) < len(hidden) else "")
-    return (shown + f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID")[:budget]
+    notice = f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID"
+    if len(shown) + len(notice) > budget:
+        notice = f"\ntruncated; not shown: {len(hidden)}"
+    return (shown + notice)[:budget]
 
 
 def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | None = None, target=None) -> str:
-    """Export the same home/parent tree, with no dependency hairball or text budget."""
+    """Export containment, declared dependencies and ordered flows without execution."""
+    current_data = data
     changes, old, new = {}, {}, {}
     if target is not None:
-        view, old_tree, tree, old, new, changes, graph, _, _ = _target_comparison(root, data, inv, target)
+        view, old_tree, tree, old, new, changes, graph, _, _, raw = _target_comparison(root, data, inv, target)
         data = view.data
         all_comps = [*data["components"], *[record[0] for key, record in old.items()
                                          if key[0] == "component" and changes.get(key) == "-"]]
     else:
         all_comps = data["components"]
-    comps = [c for c in all_comps if component is None or c["id"] == component]
+    flow_records = {flow["id"]: flow for flow in data.get("flows", [])}
+    if target is not None:
+        flow_records.update({flow["id"]: flow for flow in current_data.get("flows", [])
+                             if changes.get(("flow", flow["id"])) == "-"})
+    flows = sorted(flow_records.values(), key=lambda flow: flow["id"])
+    visible = {c["id"] for c in all_comps} if component is None else {component}
+    if component is not None:
+        flows = [flow for flow in flows if any(step.partition(":")[0] == component for step in flow.get("steps", []))]
+        selected = next((c for c in all_comps if c["id"] == component), None)
+        if selected is None:
+            return f"no component {component!r}; run 'python -m flowguard read' to list components"
+        visible.update(selected.get("depends_on", []))
+        visible.update(step.partition(":")[0] for flow in flows for step in flow.get("steps", []))
+    comps = [c for c in all_comps if c["id"] in visible]
     if component and not comps:
         return f"no component {component!r}; run 'python -m flowguard read' to list components"
     if target is None:
         tree = build_tree(root, data, inv)
         model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
         graph = component_graph(data, inv)
-        functions = _test_function_index(root, inv)
-        component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions) for c in comps}
+        raw, functions, coverage = _read_facts(root, data, inv, tree)
+        component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions,
+                                                   coverage=coverage[c["id"]]) for c in comps}
     else:
         records = {**old, **new}
         model_data = {mid: record[1] for (kind, mid), record in records.items() if kind == "model"}
@@ -357,7 +433,15 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     all_models = list(tree.nodes.values())
     if target is not None:
         all_models.extend(record[0] for key, record in old.items() if key[0] == "model" and changes.get(key) == "-")
-    models = [node for node in all_models if
+    active_model_paths = {node.path: node.id for node in tree.nodes.values()}
+    old_model_paths = {node.path: node.id for node in old_tree.nodes.values()} if target is not None else {}
+
+    def flow_model_id(flow):
+        paths = old_model_paths if changes.get(("flow", flow["id"])) == "-" else active_model_paths
+        return paths.get(flow.get("model"), flow.get("model"))
+
+    required_models = {flow_model_id(flow) for flow in flows if flow.get("model")}
+    models = [node for node in all_models if node.id in required_models or
               (node.home_kind == "component" and node.home in homes) or
               (component is None and node.home_kind == "system")]
     used = set()
@@ -376,6 +460,7 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
 
     components = {c["id"]: identifier("c_", c["id"]) for c in comps}
     model_ids = {node.id: identifier("m_", node.id) for node in sorted(models, key=lambda n: n.id)}
+    flow_ids = {flow["id"]: identifier("f_", flow["id"]) for flow in flows}
     count = sum(("component", c["id"]) in new for c in comps) if target is not None else len(comps)
     lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {count} components"]']
     declared_layers = data.get("layers", []) if component is None else []
@@ -393,6 +478,10 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         fact = model_data[node.id]
         lines.append(f'  {model_ids[node.id]}(["model {label(node.id)}<br/>{_count(fact.rule_count)} rules, '
                      f'{_count(fact.known_bad_count)} known-bad"])')
+    for flow in flows:
+        mid = flow_model_id(flow)
+        status = f"model {mid}" if flow.get("model") else "no model"
+        lines.append(f'  {flow_ids[flow["id"]]}["flow {label(flow["id"])}<br/>{label(status)}"]')
     lines.extend(f"  root_system --> {components[c['id']]}" for c in comps)
     for node in sorted(models, key=lambda n: n.id):
         if node.parent_kind == "model" and node.parent in model_ids:
@@ -402,10 +491,23 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         else:
             parent = "root_system"
         lines.append(f"  {parent} --> {model_ids[node.id]}")
+    for comp in comps:
+        for dep in sorted(comp.get("depends_on", [])):
+            if dep in components:
+                lines.append(f"  {components[comp['id']]} -.-> {components[dep]}")
+    for flow in flows:
+        identity = flow_ids[flow["id"]]
+        for number, step in enumerate(flow.get("steps", []), 1):
+            cid = step.partition(":")[0]
+            if cid in components:
+                lines.append(f'  {identity} -->|"{number}"| {components[cid]}')
+        mid = flow_model_id(flow)
+        if mid in model_ids:
+            lines.append(f"  {identity} --> {model_ids[mid]}")
     if target is not None:
         lines.extend(["  classDef added fill:#e6ffed,stroke:#22863a", "  classDef changed fill:#fff5b1,stroke:#b08800",
                       "  classDef removed fill:#ffeef0,stroke:#cb2431,stroke-dasharray:5 5"])
-        for kind, identities in (("component", components), ("model", model_ids)):
+        for kind, identities in (("component", components), ("model", model_ids), ("flow", flow_ids)):
             for name, identity in identities.items():
                 style = {"+": "added", "~": "changed", "-": "removed"}.get(changes.get((kind, name)))
                 if style:

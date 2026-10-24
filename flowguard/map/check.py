@@ -219,7 +219,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     from .discover import discover_inventory
     from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage, model_writer_findings
     covered, not_modeled = model_coverage(root, data, registry, view=view)
-    raw = discover_inventory(root, inv, write_cache=view is None)
+    raw = discover_inventory(root, inv, write_cache=view is None, data=data)
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))

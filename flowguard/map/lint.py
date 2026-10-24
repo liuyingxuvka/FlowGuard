@@ -315,7 +315,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
             out.append(Finding("warn" if len(hit) > 1 else "info", "duplicate_code", hit[0],
                                f"{len(sites)} identical bodies ({sites[0][2]} AST nodes) in {hit}: {where}"))
 
-    raw = discover_inventory(root, inv, write_cache=view is None)
+    raw = discover_inventory(root, inv, write_cache=view is None, data=data)
     modules = {info.module: path for path, info in inv.py.items()}
     declared_state = {c["id"]: set(c.get("state", [])) for c in comps}
     for path, facts in raw["files"].items():
@@ -538,6 +538,14 @@ def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
                  and finding.code in {"dependency_cycle", "duplicate_code", "duplicate_owner", "possible_duplicate"})]
 
 
+def explained_by(anchor, covered, not_modeled=(), *, tests=""):
+    """One static explanation predicate; lint leaves optional test text empty."""
+    if anchor in covered or anchor in not_modeled:
+        return True
+    name = anchor.partition(":")[2].rsplit(".", 1)[-1]
+    return bool(name and tests and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", tests))
+
+
 def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None, *, view=None) -> list[Finding]:
     """Other exact functions in an anchor's own file that write its modeled state."""
     contracts = []
@@ -564,7 +572,7 @@ def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, reg
         for path, anchors in sorted(by_file.items()):
             for symbol, function in sorted(raw["files"][path].get("functions", {}).items()):
                 writer = f"{path}:{symbol}"
-                if symbol.rsplit(".", 1)[-1] == "__init__" or writer in excluded:
+                if symbol.rsplit(".", 1)[-1] == "__init__" or explained_by(writer, excluded):
                     continue
                 overlap = sorted((state, anchor) for anchor, writes in anchors
                                  for state in writes.intersection(function.get("writes", [])))
@@ -586,7 +594,7 @@ def entrypoint_coverage_findings(raw: dict, data: dict, inv: Inventory,
         paths = models_by_component.get(comp["id"], []) if models_by_component is not None else comp.get("models", [])
         covered = set().union(*(covered_by_model.get(model, set()) for model in paths))
         for anchor in comp.get("entrypoints", []):
-            if anchor in covered or anchor in (not_modeled or set()):
+            if explained_by(anchor, covered, not_modeled or set()):
                 continue
             path, sep, symbol = anchor.partition(":")
             if not sep:

@@ -267,6 +267,17 @@ class _FileVisitor(ast.NodeVisitor):
             ctor = _name(node.value.func) if isinstance(node.value, ast.Call) else ""
             if isinstance(target, ast.Name) and ctor and ctor.rsplit(".", 1)[-1][:1].isupper():
                 self.instances[f"{self._symbol() if self.scope else ''}|{target.id}"] = ctor
+            if (fn is not None and fn["class"] and self._symbol() == f"{fn['class']}.__init__"
+                    and isinstance(target, ast.Attribute) and isinstance(target.value, ast.Name)
+                    and target.value.id == "self"):
+                value = node.value
+                if (isinstance(value, ast.BoolOp) and isinstance(value.op, ast.Or) and len(value.values) == 2
+                        and isinstance(value.values[0], ast.Name)):
+                    value = value.values[1]
+                assigned = _name(value.func) if isinstance(value, ast.Call) else ""
+                key = f"{fn['class']}|self.{target.attr}"
+                previous = self.instances.get(key, assigned)
+                self.instances[key] = assigned if assigned and previous == assigned else "<unresolved>"
         self.generic_visit(node)
 
     def visit_AugAssign(self, node: ast.AugAssign) -> None:
@@ -339,7 +350,8 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
 
 
 def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, dict[str, str]],
-             mod_to_path: dict[str, str]) -> str | None:
+             mod_to_path: dict[str, str], *,
+             dependency_files: dict[str, set[str]] | None = None) -> str | None:
     """Resolve a call to 'path#symbol' inside the repo, or None (external / dynamic)."""
     file = facts[path]
     funcs = file["functions"]
@@ -389,10 +401,36 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
             target = mod_to_path.get(".".join([module, *parts[1:cut]]))
             if target and ".".join(parts[cut:]) in index.get(target, {}):
                 return f"{target}#{'.'.join(parts[cut:])}"
+    if parts[0] == "self" and cls and len(parts) == 3:
+        ctor = instances.get(f"{cls}|self.{parts[1]}", "")
+        if ctor and ctor != "<unresolved>":
+            init = _resolve(ctor, f"{cls}.__init__", path, facts, index, mod_to_path)
+            cls_path, _, cls_symbol = (init or "").partition("#")
+            cls_symbol = cls_symbol.removesuffix(".__init__")
+            if not cls_path:
+                ctor_parts = ctor.split(".")
+                ctor_imports = {**file["imports"], **funcs.get(f"{cls}.__init__", {}).get("local_imports", {})}
+                module = ctor_imports.get(ctor_parts[0], "").replace(":", ".")
+                for cut in range(len(ctor_parts) - 1, 0, -1) if module else ():
+                    target = mod_to_path.get(".".join([module, *ctor_parts[1:cut]]))
+                    symbol = ".".join(ctor_parts[cut:])
+                    if symbol in facts.get(target, {}).get("classes", ()):
+                        cls_path, cls_symbol = target, symbol
+                        break
+            method = f"{cls_symbol}.{parts[2]}"
+            if cls_symbol in facts.get(cls_path, {}).get("classes", ()) and method in index.get(cls_path, {}):
+                return f"{cls_path}#{method}"
+        candidates = {f"{target}#{symbol}"
+                      for target in (dependency_files or {}).get(path, ())
+                      for symbol, function in index.get(target, {}).items()
+                      if function.get("class") and symbol.rsplit(".", 1)[-1] == parts[2]}
+        if len(candidates) == 1:
+            return next(iter(candidates))
     return None
 
 
-def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) -> dict:
+def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
+             dependency_files: dict[str, set[str]] | None = None) -> dict:
     """py_files: path -> module.  Returns {"files": facts, "edges": ..., "reach": ...} (raw)."""
     cache_path = (cache_dir(root) if write_cache else root / CACHE_RELDIR) / "discover.json"
     try:
@@ -417,7 +455,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True) 
     for path, file in facts.items():
         for symbol, fn in file.get("functions", {}).items():
             for call in fn["calls"]:
-                target = _resolve(call, symbol, path, facts, index, mod_to_path)
+                target = _resolve(call, symbol, path, facts, index, mod_to_path, dependency_files=dependency_files)
                 if target and target != f"{path}#{symbol}":
                     edges[f"{path}#{symbol}"].add(target)
                     incoming[target] += 1
@@ -497,14 +535,29 @@ def component_summary(raw: dict, files: list[str]) -> dict:
     }
 
 
-def discover_inventory(root: Path, inv, *, write_cache: bool = True) -> dict:
-    """Run discovery over the inventory's non-test Python files (cached by content digest)."""
+def discover_inventory(root: Path, inv, *, write_cache: bool = True, data: dict | None = None, extra_sources=()) -> dict:
+    """Discover non-test Python, plus supplied source paths already in this inventory.
+
+    Extra sources let one target view retain both real source classifications;
+    they never bypass ignore rules or change ordinary lint/check scope.
+    """
 
     from .inventory import module_name, python_roots
 
     roots = python_roots(list(inv.py))
-    modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f)}
-    raw = discover(root, modules, write_cache=write_cache)
+    dependency_files: dict[str, set[str]] = {}
+    if data is not None:
+        from .mapfile import component_files, owner_index
+
+        owners, _ = owner_index(data, inv)
+        components = {component["id"]: component for component in data.get("components", [])}
+        files = {cid: set(component_files(component, inv)) for cid, component in components.items()}
+        for path, cid in owners.items():
+            dependency_files[path] = {target for dep in components[cid].get("depends_on", ())
+                                      for target in files.get(dep, ())}
+    extra = set(extra_sources)
+    modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f) or f in extra}
+    raw = discover(root, modules, write_cache=write_cache, dependency_files=dependency_files)
     mod_to_path = {module: path for path, module in modules.items()}
     for name, target, via in console_scripts(root):
         module, sep, symbol = target.partition(":")

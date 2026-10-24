@@ -337,3 +337,226 @@ def test_target_snapshots_keep_their_own_inventory_classification(tmp_path, monk
         assert 'was: 0 files: -; 0 functions, 0 bound' in system, system
         assert '(+0 ~1 -0 nodes)' in system, system
     assert len(inventory.source) == 1 and inventory.tests == ['test_reclassified.py']
+
+
+def _fg232_view_project(tmp_path):
+    import json
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+
+    marker = tmp_path / 'fg232-read-imported-code.txt'
+    guarded = f'from pathlib import Path\nPath({str(marker)!r}).write_text("imported")\n'
+    sources = {
+        'view232_members.py': guarded + 'class Members:\n    def may_borrow(self): return True\n',
+        'view232_catalog.py': guarded + 'class Catalog:\n' + ''.join(
+            f'    def {name}(self): return True\n'
+            for name in ('take', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta')),
+        'view232_utils.py': guarded + 'LABEL = "module only"\n',
+        'view232_loans.py': guarded + '''from view232_members import Members
+import view232_catalog as stock
+import view232_utils
+class LoanService:
+    def __init__(self, catalog=None):
+        self.members = Members()
+        self.catalog = catalog or stock.Catalog()
+    def borrow(self):
+        self.members.may_borrow()
+        return self.catalog.take()
+    def inventory(self):
+        self.catalog.alpha()
+        self.catalog.beta()
+        self.catalog.gamma()
+        self.catalog.delta()
+        self.catalog.epsilon()
+        self.catalog.zeta()
+        self.catalog.eta()
+        return self.catalog.alpha()
+''',
+        'view232_subject.py': guarded + '''def by_model(): return True
+def by_scope(): return True
+def by_test(): return True
+def unexplained(): return True
+class Ledger:
+    def __init__(self): self.total = 0
+    def record(self): self.total += 1
+    def purge(self): self.total -= 1
+''',
+        'tests/test_subject.py': guarded + '''from view232_subject import by_test
+def test_by_test(): assert by_test() is True
+''',
+        '.flowguard/models/borrow_contract.py': guarded + '''MODEL_ID = "borrow_contract"
+COMPONENTS = ["loans"]
+IMPLEMENTED_BY = {"Borrow": "view232_loans.py:LoanService.borrow"}
+NOT_MODELED = {"view232_subject.py:by_scope": "Separate integration check"}
+def build_explorer(): raise AssertionError("read explored a user model")
+def conformance(): raise AssertionError("read replayed user code")
+''',
+        '.flowguard/models/subject_contract.py': guarded + '''MODEL_ID = "subject_contract"
+COMPONENTS = ["subject"]
+IMPLEMENTED_BY = {"ByModel": "view232_subject.py:by_model", "Record": "view232_subject.py:Ledger.record"}
+def build_explorer(): raise AssertionError("read explored a user model")
+def conformance(): raise AssertionError("read replayed user code")
+''',
+    }
+    for relative, source in sources.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding='utf-8')
+    data = dict(schema='flowguard.map.v1', project='FG232 read fixture', layers=[], components=[
+        dict(_component('loans', summary='Borrow items', responsibilities=['coordinate borrowing']),
+             files=['view232_loans.py'], tests=[], models=['.flowguard/models/borrow_contract.py'],
+             entrypoints=['view232_loans.py:LoanService.borrow'], depends_on=['catalog', 'members', 'utils']),
+        dict(_component('catalog', summary='Store items', responsibilities=['store catalog']),
+             files=['view232_catalog.py'], tests=[], models=[]),
+        dict(_component('members', summary='Check members', responsibilities=['allow members']),
+             files=['view232_members.py'], tests=[], models=[]),
+        dict(_component('utils', summary='Labels', responsibilities=['label items']),
+             files=['view232_utils.py'], tests=[], models=[]),
+        dict(_component('subject', summary='Coverage examples', responsibilities=['process examples']),
+             files=['view232_subject.py'], tests=['tests/test_subject.py'], models=['.flowguard/models/subject_contract.py'],
+             entrypoints=[f'view232_subject.py:{name}' for name in ('by_model', 'by_scope', 'by_test', 'unexplained')]),
+    ], flows=[
+        dict(id='borrow', summary='Borrow an item', steps=['loans:LoanService.borrow', 'members:Members.may_borrow',
+                                                        'catalog:Catalog.take'], model='.flowguard/models/borrow_contract.py'),
+        dict(id='audit', summary='Audit catalog', steps=['loans:LoanService.inventory', 'catalog:Catalog.alpha']),
+    ], accepted_debts=[])
+    (tmp_path / '.flowguard/map.json').write_text(json.dumps(data), encoding='utf-8')
+    return data, build_inventory(tmp_path, DEFAULT_IGNORE), marker
+
+
+def _fg232_count_discovery(monkeypatch):
+    from flowguard.map import views
+
+    calls = []
+    original = views.discover_inventory
+
+    def _fg232_counted_discovery(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(views, 'discover_inventory', _fg232_counted_discovery)
+    return calls
+
+
+def test_read_component_names_the_symbols_used_on_each_edge(tmp_path, monkeypatch):
+    import sys
+
+    data, inv, marker = _fg232_view_project(tmp_path)
+    calls = _fg232_count_discovery(monkeypatch)
+    focused = render_show(tmp_path, data, inv, component='loans', detail=False, budget=8000)
+    assert len(calls) == 1
+    lines = [line.strip() for line in focused.splitlines()]
+    assert ('uses catalog: Catalog, Catalog.alpha, Catalog.beta, Catalog.delta, '
+            'Catalog.epsilon, Catalog.eta (+3 more)') in lines
+    assert any(line.startswith('uses members: ') and 'Members.may_borrow' in line for line in lines)
+    assert 'uses utils: (module import only)' in lines
+    calls.clear()
+    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert len(calls) == 1
+    assert 'uses: catalog, members, utils' in overview and 'uses catalog:' not in overview
+    assert next(line for line in overview.splitlines() if '> flow audit:' in line).endswith(' (no model)')
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)
+
+
+def test_mermaid_draws_dependencies_and_flows(tmp_path, monkeypatch):
+    import json
+    import sys
+    from flowguard.map.targetfile import load_target
+    from flowguard.map.views import render_mermaid
+
+    data, inv, marker = _fg232_view_project(tmp_path)
+    calls = _fg232_count_discovery(monkeypatch)
+    diagram = render_mermaid(tmp_path, data, inv)
+    assert len(calls) == 1
+    assert 'c_loans -.-> c_catalog' in diagram and 'c_loans -.-> c_members' in diagram
+    assert 'f_borrow["flow borrow<br/>model borrow_contract"]' in diagram
+    assert 'f_audit["flow audit<br/>no model"]' in diagram
+    assert 'f_borrow -->|"1"| c_loans' in diagram
+    assert 'f_borrow -->|"2"| c_members' in diagram
+    assert 'f_borrow -->|"3"| c_catalog' in diagram
+    assert 'f_borrow --> m_borrow_contract' in diagram
+
+    path = tmp_path / '.flowguard/target/map.json'
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps(dict(schema='flowguard.target.v1', goal='plan a future audit', components=[],
+        flows=[dict(id='future', summary='Future audit', steps=['loans:LoanService.inventory', 'catalog:Catalog.alpha'])],
+        remove=[])), encoding='utf-8')
+    target = load_target(tmp_path)
+    assert target is not None
+    calls.clear()
+    merged = render_mermaid(tmp_path, data, inv, target=target)
+    assert len(calls) == 1
+    future = next(line for line in merged.splitlines() if 'flow future' in line)
+    assert 'no model' in future
+    assert 'f_future -->|"1"| c_loans' in merged and 'f_future -->|"2"| c_catalog' in merged
+    calls.clear()
+    current = render_mermaid(tmp_path, data, inv)
+    assert len(calls) == 1 and current == diagram
+    assert 'flow future' not in current
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)
+
+    # A logical filename can retire its old identity and contain the replacement.
+    # An active flow uses the new model; the removed flow keeps the old node.
+    draft = json.loads(path.read_text(encoding='utf-8'))
+    draft['remove'] = ['flow:borrow', 'model:borrow_contract']
+    draft['flows'][0]['model'] = '.flowguard/models/borrow_contract.py'
+    path.write_text(json.dumps(draft), encoding='utf-8')
+    model = tmp_path / '.flowguard/target/models/borrow_contract.py'
+    model.parent.mkdir(parents=True)
+    original_model = (tmp_path / '.flowguard/models/borrow_contract.py').read_text(encoding='utf-8')
+    assert original_model.count('MODEL_ID = "borrow_contract"') == 1
+    model.write_text(original_model.replace('MODEL_ID = "borrow_contract"',
+                                           'MODEL_ID = "borrow_contract_v2"'), encoding='utf-8')
+    calls.clear()
+    replacement = render_mermaid(tmp_path, data, inv, target=load_target(tmp_path))
+    assert len(calls) == 1
+    assert 'f_future["flow future<br/>model borrow_contract_v2"]' in replacement
+    assert 'f_borrow["flow borrow<br/>model borrow_contract"]' in replacement
+    edges = {line.strip() for line in replacement.splitlines()}
+    assert 'f_future --> m_borrow_contract_v2' in edges
+    assert 'f_future --> m_borrow_contract' not in edges
+    assert 'f_borrow --> m_borrow_contract' in edges
+    assert 'f_borrow --> m_borrow_contract_v2' not in edges
+    assert 'class m_borrow_contract removed' in replacement
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)
+
+
+def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
+    import sys
+    import pytest
+    from flowguard.map import proof
+    from flowguard.map.lint import run_lint
+
+    data, inv, marker = _fg232_view_project(tmp_path)
+    before = [(finding.level, finding.code, finding.component, finding.message)
+              for finding in run_lint(tmp_path, data, inv)]
+    calls = _fg232_count_discovery(monkeypatch)
+
+    def _fg232_forbid_execution(*args, **kwargs):
+        raise AssertionError('read must not execute a user model or pytest')
+
+    with monkeypatch.context() as guard:
+        for name in ('run_models', 'run_model', 'run_model_in_process', '_load'):
+            guard.setattr(proof, name, _fg232_forbid_execution)
+        guard.setattr(pytest, 'main', _fg232_forbid_execution)
+        focused = render_show(tmp_path, data, inv, component='subject', detail=False, budget=8000)
+        assert len(calls) == 1
+        line = next(line for line in focused.splitlines()
+                    if 'coverage: entrypoints 3/4, state writers 1/2 explained;' in line)
+        unexplained = line.partition('; unexplained: ')[2]
+        assert 'view232_subject.py:unexplained' in unexplained and 'view232_subject.py:Ledger.purge' in unexplained
+        assert 'view232_subject.py:by_model' not in unexplained and 'view232_subject.py:by_scope' not in unexplained
+        assert 'view232_subject.py:by_test' not in unexplained and 'Ledger.__init__' not in unexplained
+        calls.clear()
+        overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+        assert len(calls) == 1
+    assert ('coverage: entrypoints 4/5, state writers 1/2 explained by a model, a test or NOT_MODELED') in overview
+    assert len(overview) <= 8000 and 'truncated' not in overview
+    after = [(finding.level, finding.code, finding.component, finding.message)
+             for finding in run_lint(tmp_path, data, inv)]
+    assert after == before
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)

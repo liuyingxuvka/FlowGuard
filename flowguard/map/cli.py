@@ -69,7 +69,7 @@ def cmd_discover(root: Path, a) -> int:
     from .discover import component_summary, discover_inventory
 
     data, inv = _context(root)
-    raw = discover_inventory(root, inv)
+    raw = discover_inventory(root, inv, data=data)
     comps = [c for c in data["components"] if not a.component or c["id"] == a.component]
     if a.component and not comps:
         print(f"unknown component {a.component!r}", file=sys.stderr)

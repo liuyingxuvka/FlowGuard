@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
-from .lint import _variants
+from .lint import _variants, explained_by
 from .mapfile import component_files, is_stale, resolve_model_path
 
 
@@ -86,14 +86,67 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
                   sum(len(anchors) for anchors in contract.get("TESTED_BY", {}).values()))
 
 
-def _test_function_index(root: Path, inv: Inventory) -> dict[str, set[str]]:
+def _test_source(root, path, source_cache=None):
+    if source_cache is None:
+        return read_source(root / path)
+    if path not in source_cache:
+        source_cache[path] = read_source(root / path)
+    return source_cache[path]
+
+
+def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
+    """Static explanation counts, scoped to each real component and its subtree."""
+    excluded = {anchor for node in tree.nodes.values() for anchor in node.contract.get("NOT_MODELED", {})}
+    cache = source_cache if source_cache is not None else {}
+    out = {}
+    for component in data["components"]:
+        cid = component["id"]
+        covered = {anchor for node in tree.models_for_component(cid)
+                   for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()}
+        sources = []
+        for path in inv.tests:
+            if matches_any(path, component.get("tests", [])):
+                try:
+                    sources.append(_test_source(root, path, cache))
+                except OSError:
+                    continue
+        tests = "\n".join(sources)
+        entries = set(component.get("entrypoints", []))
+        writers = {f"{path}:{symbol}" for path in component_files(component, inv)
+                   for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
+                   if facts.get("writes") and symbol.rsplit(".", 1)[-1] != "__init__"}
+        explained_entries = {anchor for anchor in entries if explained_by(anchor, covered, excluded, tests=tests)}
+        explained_writers = {anchor for anchor in writers if explained_by(anchor, covered, excluded, tests=tests)}
+        out[cid] = {"entrypoints": (len(explained_entries), len(entries)),
+                    "state_writers": (len(explained_writers), len(writers)),
+                    "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers)))}
+    return out
+
+
+def coverage_line(coverage, *, summary=False):
+    records = list(coverage.values()) if summary else [coverage]
+    entries = tuple(sum(record["entrypoints"][i] for record in records) for i in (0, 1))
+    writers = tuple(sum(record["state_writers"][i] for record in records) for i in (0, 1))
+    line = (f"coverage: entrypoints {entries[0]}/{entries[1]}, "
+            f"state writers {writers[0]}/{writers[1]} explained")
+    if summary:
+        return line + " by a model, a test or NOT_MODELED"
+    missing = coverage["unexplained"]
+    if missing:
+        line += "; unexplained: " + ", ".join(missing[:5])
+        if len(missing) > 5:
+            line += f" (+{len(missing) - 5} more)"
+    return line
+
+
+def _test_function_index(root: Path, inv: Inventory, *, source_cache=None) -> dict[str, set[str]]:
     """One view-local index: inventory symbols alone also include variables and classes."""
     found = {}
     for path in inv.tests:
         if not path.endswith(".py"):
             continue
         try:
-            syntax = ast.parse(read_source(root / path))
+            syntax = ast.parse(_test_source(root, path, source_cache))
         except (OSError, SyntaxError):
             continue
         names, pending = set(), list(syntax.body)
@@ -135,7 +188,7 @@ def _test_facts(paths, nodes, functions):
     return tuple(facts), len(actual)
 
 
-def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tree, graph, functions) -> Facets:
+def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tree, graph, functions, *, coverage=None) -> Facets:
     cid = component["id"]
     files = component_files(component, inv)
     code = [f"{len(files)} files/{sum(inv.loc.get(path, 0) for path in files)} loc"]
@@ -144,6 +197,8 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
     for key, label in (("entrypoints", "entry"), ("state", "state"), ("side_effects", "effects")):
         if component.get(key):
             code.append(label + ": " + "; ".join(component[key]))
+    if coverage is not None:
+        code.append(coverage_line(coverage))
     if is_stale(root, component, inv):
         code.append("STALE")
     paths = {path for path in inv.tests if matches_any(path, component.get("tests", []))}
@@ -155,10 +210,11 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
                   len(component.get("responsibilities", [])), count)
 
 
-def system_facets(data: dict, inv: Inventory, tree, graph, functions) -> Facets:
+def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverage=None) -> Facets:
     tests, count = _test_facts(set(inv.tests), tree.nodes.values(), functions)
     return Facets(f"{data.get('project', '')}: {len(data['components'])} components",
                   ("layers order: " + (" > ".join(data.get("layers", [])) or "none"),
                    "no unaccepted dependency cycle", "one owner per responsibility"), "map",
                   tuple(name for name, _, _ in _variants(data, graph)), "system-root",
-                  (f"{len(data['components'])} components, {len(inv.source)} source files",), tests, 3, count)
+                  (f"{len(data['components'])} components, {len(inv.source)} source files",)
+                  + ((coverage_line(coverage, summary=True),) if coverage is not None else ()), tests, 3, count)

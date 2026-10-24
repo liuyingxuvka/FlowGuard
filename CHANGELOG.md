@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `read --component` names the symbols used on each dependency; `--mermaid` draws dependencies and flows. Flows without a model are marked, and `read` shows how much behaviour is explained by models, tests or explicit exclusions.
+
 - The top-level API now holds the core only (105 names); node kinds and tools are imported from their modules. Original consumer import paths remain supported.
 
 - Removed `flowguard.kit.plan_explorer`, `review_invariant` and `PlanState`. Feature kits and `reachable_states` remain available.

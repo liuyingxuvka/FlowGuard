@@ -126,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9a324e7d72a8d91f8879ba586ea26eda6ef2d67283dd33de6baa0555611045a5"
+      "fingerprint": "sha256:cba0aad92524848ab837df8c738b9ebee7f67d0132e5758959535d8023f3cc1e"
     },
     {
       "id": "public-api",
@@ -300,7 +300,7 @@
       "layer": "map",
       "summary": "Discovers entrypoints, effects and reachable calls.",
       "responsibilities": [
-        "discover entrypoints, side effects and state writers; propagate an explicit no-cache-write mode without creating cache directories",
+        "discover entrypoints, side effects and state writers; propagate an explicit no-cache-write mode without creating cache directories; resolve attribute calls through the class assigned in __init__, with exact constructors before a unique method in declared dependencies; keep supplied current/target source facts in one static graph",
         "del statements count as state writes; expose exact anchor state writes for model checks"
       ],
       "files": [
@@ -315,6 +315,7 @@
         "writes .flowguard/cache/discover.json"
       ],
       "depends_on": [
+        "map-file",
         "map-inventory"
       ],
       "tests": [
@@ -322,7 +323,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b3c3550e29f5616435316f54de5d72ffbb09ee90e53a3e51886dd5c4cdd9be61"
+      "fingerprint": "sha256:84db5aae3565f5e45daeb0b714ac11407f21e95110984ab514920ba41450834b"
     },
     {
       "id": "map-analysis",
@@ -333,7 +334,7 @@
         "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select contract models by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests",
         "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details",
+        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details; show what each dependency uses and how much behaviour is explained by a component-subtree model, a matched test name or NOT_MODELED; show declared dependencies and ordered flows in Mermaid, mark flows with no model, and keep these static coverage counts informational",
         "compare current owner promises with merged target owners and explicit removal intent when checking a target",
         "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it"
       ],
@@ -366,7 +367,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5add6ce84b5ebb8443361ddbf6ea626ed7171c53275241e3dbb6dbf0ea7f8536"
+      "fingerprint": "sha256:aceaa5e931a1a74ee19732ca013e133fccd0a69f971582b82aa9b10242c0530a"
     },
     {
       "id": "map-target",
