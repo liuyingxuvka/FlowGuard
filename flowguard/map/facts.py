@@ -68,6 +68,7 @@ class AnchorWatch:
             self._files.setdefault(real, set()).add(anchor)
             if rel.endswith(".py"):
                 self._symbols.setdefault(real, {})[symbol] = anchor
+        self._python = {anchor for anchors in self._symbols.values() for anchor in anchors.values()}
         self.called: set[str] = set()
         self.read_files: set[str] = set()
         self._opened: set[str] = set()
@@ -115,6 +116,8 @@ class AnchorWatch:
             for watch in _ACTIVE:
                 if watch is not self and watch.test_call:
                     watch._record_call(frame)
+        if self.called >= self._python and all(watch.called >= watch._python for watch in _ACTIVE):
+            sys.settrace(None)            # every anchor is already seen: nothing left to learn in this thread
         return None                       # never trace lines
 
     def __enter__(self) -> "AnchorWatch":

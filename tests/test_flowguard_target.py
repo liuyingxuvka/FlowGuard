@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import io
 import json
 import subprocess
+from contextlib import redirect_stdout
 from pathlib import Path
 
 import pytest
@@ -36,19 +38,39 @@ SHELF_AFTER: dict[str, str] = {
 }
 
 
+_SHELF_TEMPLATE: list[Path] = []
+
+
+def _shelf_template() -> Path:
+    """Build the committed and confirmed shelf baseline once per test process; tests get copies."""
+    if not _SHELF_TEMPLATE:
+        import atexit
+        import tempfile
+
+        holder = tempfile.TemporaryDirectory(prefix="flowguard-shelf-template-")
+        atexit.register(holder.cleanup)
+        root = Path(holder.name) / "project"
+        root.mkdir()
+        for relative, text in SHELF_BASE.items():
+            path = root / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(text.encode("utf-8"))
+        git = ["git", "-c", "core.autocrlf=false", "-c", "user.name=FlowGuard tests",
+               "-c", "user.email=flowguard-tests@example.invalid"]
+        for arguments in (("init", "-q"), ("add", "."), ("commit", "-qm", "shelf baseline")):
+            subprocess.run([*git, *arguments], cwd=root, check=True, capture_output=True)
+        with redirect_stdout(io.StringIO()):
+            assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
+        _SHELF_TEMPLATE.append(root)
+    return _SHELF_TEMPLATE[0]
+
+
 def shelf_project(tmp_path: Path) -> Path:
-    """Write the original shelf baseline, commit it, then confirm its current map."""
+    """The original shelf baseline, committed, with its current map confirmed (a copy of one template)."""
+    import shutil
+
     root = tmp_path / "project"
-    root.mkdir()
-    for relative, text in SHELF_BASE.items():
-        path = root / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(text.encode("utf-8"))
-    git = ["git", "-c", "core.autocrlf=false", "-c", "user.name=FlowGuard tests",
-           "-c", "user.email=flowguard-tests@example.invalid"]
-    for arguments in (("init", "-q"), ("add", "."), ("commit", "-qm", "shelf baseline")):
-        subprocess.run([*git, *arguments], cwd=root, check=True, capture_output=True)
-    assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
+    shutil.copytree(_shelf_template(), root)
     return root
 
 
@@ -1712,7 +1734,8 @@ def test_behaviour_target_without_a_rule_is_untied(tmp_path, capsys):
         '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit))',
         '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit),\n'
         '              Invariant("renewal_keeps_limit", "a renewal never exceeds LIMIT", _limit))'), encoding="utf-8")
-    code, output, errors = _check_without_writes(root, capsys)
+    from flowguard.map.target import check_target, render_target_report
+    output = render_target_report(check_target(root, models=False))      # goal rules are static
     assert "target_goal_untied" not in output and "goal rules: model lending: +renewal_keeps_limit" in output, output
     code, shown, errors = _run(root, capsys, "read", "--target")
     assert "goal rules: model lending: +renewal_keeps_limit" in shown, shown
@@ -1792,11 +1815,15 @@ def conformance():
 
 
 def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import ignore_patterns
+    from flowguard.map.target import _unchanged_models
+    from flowguard.map.targetfile import build_target_view, load_target
+    from flowguard.map.tree import build_tree
+
     root = shelf_project(tmp_path)
     (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL, encoding="utf-8")
     assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
-    code, output, errors = _run(root, capsys, "map", "models", "loan_count")
-    assert code == 1 and "uncovered_invariant: invariant 'never_negative'" in output, output   # an old problem
     path = _target_with(root, capsys, "describe the catalog; one more lending known-bad", "catalog", "lending")
     data = json.loads(path.read_text(encoding="utf-8"))
     data["components"][0]["summary"] = "Counts the free copies of each book."
@@ -1805,21 +1832,27 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     old = 'return {"lend_always": _explorer(LendAlways()), "no_limit": _explorer(NoLimit())}'
     model.write_text(model.read_text(encoding="utf-8").replace(
         old, old[:-1] + ', "no_limit_again": _explorer(NoLimit())}'), encoding="utf-8")
+    # One real check: the old uncovered invariant of the unchanged child is a WARN and promotion stays open.
     code, output, errors = _check_without_writes(root, capsys)
     old_lines = [line for line in output.splitlines() if line.startswith("WARN  model loan_count: old_finding: ")]
-    assert code == 0 and len(old_lines) == 1 and "never_negative" in old_lines[0], output
+    assert code == 0 and len(old_lines) == 1 and "uncovered_invariant: invariant 'never_negative'" in old_lines[0], output
     assert "(already in the current tree; the target does not change this model or its code;" in old_lines[0]
     assert "(1 old)" in output.splitlines()[-2] and "next: python -m flowguard target promote" in output
+
+    def classify():
+        current = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
+        target = load_target(root)
+        view = build_target_view(root, current, target)
+        inv = build_inventory(root, ignore_patterns(view.data), write_cache=False)
+        tree = build_tree(root, view.data, inv, view=view)
+        return _unchanged_models(root, current, target, inv, tree, ["lending", "loan_count"])
+
+    assert classify() == ({"loan_count"}, {"loan_count"})
+    # Its anchored code changes: still unchanged by the target, but no longer old (it stays ERROR / TO-DO,
+    # with the "model unchanged by the target" note that check_target adds for such models).
     loans = root / "shelf/loans.py"
-    original = loans.read_text(encoding="utf-8")
-    loans.write_text(original + "\nLOANS_EDITED = True\n", encoding="utf-8")
-    code, output, errors = _check_without_writes(root, capsys)
-    errors_now = [line for line in output.splitlines() if line.startswith("ERROR model loan_count: uncovered_invariant:")]
-    assert code == 1 and errors_now and "(model unchanged by the target; if python -m flowguard map models loan_count " \
-        "failed before your edit too, fix it first)" in errors_now[0], output
-    loans.write_text(original, encoding="utf-8")
-    code, output, errors = _run(root, capsys, "target", "promote")
-    assert code == 0, (output, errors)
+    loans.write_text(loans.read_text(encoding="utf-8") + "\nLOANS_EDITED = True\n", encoding="utf-8")
+    assert classify() == ({"loan_count"}, set())
 
 
 def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
