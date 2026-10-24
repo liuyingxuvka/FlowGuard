@@ -1333,3 +1333,29 @@ def test_scan_hints_a_split_and_discover_says_when_nothing_is_found(tmp_path, ca
     code, out = run(root, "discover", capsys=capsys)
     assert code == 0 and "no entrypoints, effects or state writers found (a library without commands is normal; " \
         "list its public API in entrypoints by hand)" in out, out
+
+
+def test_lint_notes_compound_responsibilities(project, capsys):
+    run(project, "scan", capsys=capsys)
+    data = fill(project)
+    long_duty = "accept order requests from every client and route them " + "carefully " * 8
+    long_duty = long_duty.strip()[:130].ljust(130, "x")
+    data["components"][0]["responsibilities"] = [long_duty]
+    data["components"][1]["responsibilities"] = ["place an order once; refund it later"]
+    save(project, data)
+    before = cli.main(["--root", str(project), "lint"])
+    capsys.readouterr()
+    cli.main(["--root", str(project), "lint", "--json"])
+    findings = json.loads(capsys.readouterr().out)["findings"]
+    notes = [f for f in findings if f["code"] == "responsibility_compound"]
+    assert sorted(f["component"] for f in notes) == ["api", "orders"]
+    assert all(f["level"] == "info" for f in notes)
+    assert any("(130 chars or ';')" in f["message"] for f in notes)
+    assert all("write one present-tense duty per entry (references/first_map.md)" in f["message"] for f in notes)
+    data["components"][0]["responsibilities"] = ["accept order requests"]
+    data["components"][1]["responsibilities"] = ["place an order once"]
+    save(project, data)
+    assert "responsibility_compound" not in codes(project, "lint", capsys)
+    data["components"][0]["responsibilities"] = [long_duty]
+    save(project, data)
+    assert cli.main(["--root", str(project), "lint"]) == before
