@@ -406,7 +406,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         review_children = {node.path for node in tree.nodes.values()
                            if node.kind == "contract" and node.source == "PARENT" and node.parent_kind == "model"
                            and node.parent in selected_ids and node.parent in tree.nodes
-                           and tree.nodes[node.parent].path in node.import_files}
+                           and tree.nodes[node.parent].path in node.import_files | node.local_import_files}
         expanded = ancestors | review_children
         if expanded <= selected_model_paths:
             break

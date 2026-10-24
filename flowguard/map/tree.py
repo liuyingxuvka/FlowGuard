@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, matches_any, read_source
 from .inventory import Inventory
-from .mapfile import component_ancestors, component_scope, component_subtree, component_files, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
+from .mapfile import component_ancestors, component_scope, component_subtree, component_files, local_imports, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
 
 
 @dataclass
@@ -22,6 +22,7 @@ class ModelNode:
     source: str
     home: str = "system"
     import_files: set[str] = field(default_factory=set)
+    local_import_files: set[str] = field(default_factory=set)     # imports inside functions or blocks
     contract: dict = field(default_factory=dict)
     components: set[str] = field(default_factory=set)
     home_kind: str = "system"
@@ -33,6 +34,7 @@ class ModelTree:
     nodes: dict[str, ModelNode]
     imports: dict[str, set[str]]
     findings: list[Finding] = field(default_factory=list)
+    local_imports: dict[str, set[str]] = field(default_factory=dict)
 
     def ancestors(self, model: str) -> list[str]:
         result, seen = [], {model}
@@ -52,9 +54,10 @@ class ModelTree:
 
     def importers(self, path: str) -> set[str]:
         reverse: dict[str, set[str]] = defaultdict(set)
-        for source, targets in self.imports.items():
-            for target in targets:
-                reverse[target].add(source)
+        for edges in (self.imports, self.local_imports):        # an import anywhere in the file counts
+            for source, targets in edges.items():
+                for target in targets:
+                    reverse[target].add(source)
         pending, reached = [path], set()
         while pending:
             for source in reverse.get(pending.pop(), ()):
@@ -75,30 +78,34 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
              {p.stem: p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")})
     for path in historical_imports or {}:
         files.setdefault(Path(path).stem, path)
-    contracts, imports = {}, {}
+    contracts, imports, nested = {}, {}, {}
     registered_paths = {entry.path for entry in registry.entries}
     for path in sorted(set(files.values()) | {e.path for e in registry.entries}):
         try:
             physical = resolve_model_path(root, path, view=view)
+            inner = []
             if path in (historical_imports or {}) and (physical is None or not physical.exists()):
                 contract, names = {}, historical_imports[path]
             elif physical is None:
                 contract, names = {}, []
             elif path in registered_paths:
                 contract = read_model_contract(physical)
-                names = contract["imports"]
+                names, inner = contract["imports"], contract["local_imports"]
             else:
                 contract = {}
-                names = top_level_imports(ast.parse(read_source(physical)))
+                syntax = ast.parse(read_source(physical))
+                names, inner = top_level_imports(syntax), local_imports(syntax)
         except (OSError, SyntaxError, ValueError, TypeError):
-            contract, names = {}, []      # the registry/check owner reports malformed contracts
+            contract, names, inner = {}, [], []      # the registry/check owner reports malformed contracts
         contracts[path] = contract
         imports[path] = {files[name] for name in names if name in files}
+        nested[path] = {files[name] for name in inner if name in files} - imports[path] - {path}
     nodes = {}
     for entry in registry.entries:
         nodes.setdefault(entry.id, ModelNode(entry.id, entry.path, entry.kind, "system", "system", "default",
-                                            import_files=imports.get(entry.path, set()), contract=contracts[entry.path]))
-    tree = ModelTree(nodes, imports)
+                                            import_files=imports.get(entry.path, set()),
+                                            local_import_files=nested.get(entry.path, set()), contract=contracts[entry.path]))
+    tree = ModelTree(nodes, imports, local_imports=nested)
     pending_findings: list[tuple[str, str, str]] = []
 
     def parent_importers(node: ModelNode) -> list[str]:

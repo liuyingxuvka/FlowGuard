@@ -8,6 +8,7 @@
 - A parent model shows the tests its child models bind.
 - `read` shows the rules, known-bad variants and the defect/benign cases of feature-kit models without running them (no more `? known-bad` for them).
 - `read` lists components top-down by layer; `read --target` no longer repeats computed coverage text as a change.
+- `change` selects a child model that imports its parent inside a function (the documented split style) when the parent changes.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

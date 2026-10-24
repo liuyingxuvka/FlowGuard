@@ -243,6 +243,7 @@ from a `_helper` file, or build them with a small wrapper returning `Invariant(n
 Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
 the first anchor's owner, or `system`.
 Prefer a parent model importing its child's blocks to compose their behavior.
+`change` also selects a child that imports its parent inside a function.
 FlowGuard adds `.flowguard/models` to `sys.path`; sibling imports need no path edits.
 Prefix helper files with `_` so they are not registered as executable models.
 

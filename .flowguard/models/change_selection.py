@@ -28,7 +28,8 @@ TESTED_BY = {
     "underscore_helper_not_blocked": ["tests/test_flowguard_map.py:test_impact_shared_test_binding_and_unknown_helper"],
     "model_importers_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
     "model_ancestors_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
-    "selected_reviews_selected": ["tests/test_flowguard_map.py:test_change_selects_the_review_children_of_a_selected_model"],
+    "selected_reviews_selected": ["tests/test_flowguard_map.py:test_change_selects_the_review_children_of_a_selected_model",
+                                  "tests/test_flowguard_map.py:test_change_selects_a_child_that_imports_its_parent_in_a_function"],
 }
 
 ALL = ("child", "parent", "review")
@@ -39,10 +40,12 @@ EXPECTED = {
     "helper": (ALL, ()),
     "test": (ALL, ("tests/test_child.py",)),
     "unused": ((), ()),
+    # The parent model file really changes; its review child imports it inside a function.
+    "parent_edit": (("parent", "review"), ("tests/test_parent.py",)),
 }
 PATHS = {"code": "core.py", "comment": "core.py", "child": ".flowguard/models/child.py",
          "helper": ".flowguard/models/_helper.py", "test": "tests/test_child.py",
-         "unused": ".flowguard/models/_unused.py"}
+         "unused": ".flowguard/models/_unused.py", "parent_edit": ".flowguard/models/parent.py"}
 
 
 @dataclass(frozen=True)
@@ -86,7 +89,7 @@ INVARIANTS = (
           "the importing parent was omitted"),
     _rule("model_ancestors_selected", {"test"}, lambda state: "parent" in state.selected_models,
           "the selected child's ancestor was omitted"),
-    _rule("selected_reviews_selected", {"code", "child", "helper", "test"},
+    _rule("selected_reviews_selected", {"code", "child", "helper", "test", "parent_edit"},
           lambda state: "review" in state.selected_models, "the explicit importing review child was omitted"),
     _rule("comments_select_no_checks", {"comment"}, lambda state: not state.selected_models and not state.selected_tests,
           "a comment-only edit selected checks"),
@@ -127,7 +130,8 @@ def _build_baseline(root):
                   'def build_explorer(): pass\n')
         source += {"parent": 'PARENT = "core"\nimport child\n',
                    "child": 'PARENT = "parent"\nfrom _helper import VALUE\n',
-                   "review": 'PARENT = "parent"\nimport parent\n'}[mid]
+                   # The documented split style: import the parent inside a function.
+                   "review": 'PARENT = "parent"\ndef _starts():\n    import parent\n    return parent\n'}[mid]
         _write(root, ".flowguard/models/" + mid + ".py", source)
     _write(root, ".flowguard/models/_helper.py", "VALUE = 1\n")
     _write(root, ".flowguard/models/_unused.py", "VALUE = 1\n")

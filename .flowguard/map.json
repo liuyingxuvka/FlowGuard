@@ -267,7 +267,8 @@
         "count strings as dependency evidence only in import-like contexts",
         "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home; distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge; only in a target view, keep a missing child anchor inside a component parent when its declared files match that path, while ordinary current, model-parent and unmatched-path containment keep their errors; expand only explicit COMPONENTS protections across component descendants, without expanding placement-only PARENT scope",
         "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings",
-        "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes"
+        "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes",
+        "record model imports made inside functions apart from top-level imports"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -294,7 +295,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:728ba4705bec917b8d6a450d0d0c592b5b21f864e9e5204b852d1b4300ebc56d"
+      "fingerprint": "sha256:4164d6cebfc4a83c4074f8ed7574ea0f7a05df402afb3ac6dc127dfe6494e638"
     },
     {
       "id": "map-discover",
@@ -341,7 +342,8 @@
         "show the requested component within the read budget",
         "read model rules statically from the explorer the model builds",
         "read feature-kit rules, known-bad and cases without running the model",
-        "list components by layer, parents before children"
+        "list components by layer, parents before children",
+        "select models that import a changed model anywhere in their file"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -373,7 +375,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2b094107dfb2e8adab16f5c4f1af48da676771b53feb97f5867bfc8beffec8ad"
+      "fingerprint": "sha256:01e74df8e78e222178764431abcce2112e681eadd80a76e1b422348cb0b4ecd9"
     },
     {
       "id": "map-target",
