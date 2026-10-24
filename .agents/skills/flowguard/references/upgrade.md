@@ -31,6 +31,10 @@ model-impact freshness and authority snapshot APIs are retired in 0.70.0.
 Component IDs select `read --component`; executable model IDs select `map models`.
 `read` may update disposable caches but does not change project behavior/data.
 
+## From 0.70.11 to 0.70.12
+
+The skill's task table (`## What you want to do` in `SKILL.md`) is ordered by task; each row keeps the former capability name in parentheses: keep an external promise (behavior-commitment); shrink or merge code without changing behaviour (architecture-reduction); place new code or split a component (code-structure); enumerate every bad input of a finite boundary (contract-exhaustion); rename or retire a field (field-lifecycle); fit parent and child models together (model-mesh); check rules, code and tests against each other (model-test); review shared writers and future-use hazards (topology-hazard); run a slow suite in shards (test-mesh); model UI journeys (ui-flow).
+
 ## From 0.70.10 to 0.70.11
 
 The ten capability engines are folded into the model tree. The changes below cover node kinds, computed facets and project migration.

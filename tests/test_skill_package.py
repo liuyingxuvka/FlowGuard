@@ -90,7 +90,7 @@ class SkillPackageTests(unittest.TestCase):
     def test_entry_lists_every_capability_once(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
         for name in CAPABILITIES:
-            self.assertEqual(1, len(re.findall(rf"^\| {re.escape(name)} \|", text, re.M)), name)
+            self.assertEqual(1, len(re.findall(rf"^\| [^|]*\({re.escape(name)}\) \|", text, re.M)), name)
 
     def test_capability_rows_point_to_existing_places(self) -> None:
         text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
@@ -98,13 +98,15 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(1, text.splitlines().count(heading))
         section = text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
         data_rows = [line for line in section.splitlines() if line.startswith("|")
-                     and line not in ("| capability | use when | lives here now |", "| --- | --- | --- |")]
-        self.assertCountEqual(CAPABILITIES, [line.split("|")[1].strip() for line in data_rows])
+                     and line not in ("| task (former capability) | use when | lives here now |", "| --- | --- | --- |")]
+        # The first column is the task, with the former capability name in parentheses.
+        self.assertCountEqual(CAPABILITIES, [re.search(r"\(([^()]+)\)\s*$", line.split("|")[1].strip()).group(1)
+                                             for line in data_rows])
         listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,
                                 capture_output=True, text=True, check=True).stdout.split()
         for name in CAPABILITIES:
             with self.subTest(capability=name):
-                rows = [line for line in section.splitlines() if re.match(rf"^\| {re.escape(name)} \|", line)]
+                rows = [line for line in section.splitlines() if re.match(rf"^\| [^|]*\({re.escape(name)}\) \|", line)]
                 self.assertEqual(1, len(rows), name)
                 cells = [cell.strip() for cell in rows[0].strip().strip("|").split("|")]
                 self.assertEqual(3, len(cells), rows[0])
