@@ -1,0 +1,50 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-332: the target model family uses parent states and handoff closure (rules handoffs_close, changed_components_become_draft, changed_inputs_refuse_promotion, design_mistakes_are_errors ... warnings_never_block)",
+  "components": [
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Holds one target and checks its design, the merged code and tests.",
+      "responsibilities": [
+        "start, extend and drop one target at a time",
+        "check the merged tree: design mistakes are ERROR, missing code is TO-DO",
+        "mark only the breakage of a changed subject as moving to target",
+        "refuse a target that changes nothing, drops a promise or leaves it untied",
+        "promote a clean target and leave changed components draft",
+        "warn about earlier findings, stale debts and untested rules without blocking",
+        "list what to re-read after promotion and which files to delete"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target",
+        "flowguard/map/target.py:start_target",
+        "flowguard/map/target.py:add_to_target",
+        "flowguard/map/target.py:drop_target"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-file",
+        "map-inventory",
+        "map-proof",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
