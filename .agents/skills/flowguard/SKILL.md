@@ -14,7 +14,7 @@ Install the engine only from GitHub: `python -m pip install "flowguard @ git+htt
 
 1. `python -m flowguard read` before opening source. Business data stays read-only; disposable caches may update.
 2. Before adding behavior, `python -m flowguard read --find <words>`; extend the owner it names. Create a new component only when none owns the responsibility; give each new source file exactly one owner.
-3. `python -m flowguard read --component <id>` to read that node's five facets; open only the files of the components you touch.
+3. `python -m flowguard read --component <id>` to read that node's five facets; open only the files of the components you touch; add --budget N to see more.
 4. Does the task change behavior (a rule, input or external promise) or structure (components, file ownership, dependencies or layers)? Yes: target first below. No: follow **Change code only**.
 
 ## Change behaviour or structure: target first

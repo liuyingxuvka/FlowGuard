@@ -672,3 +672,42 @@ def broken_variants(): return {"one": None, "two": None}
         assert not any(isinstance((file := vars(module).get("__file__")), str)
                        and Path(file).resolve().is_relative_to(model_dir)
                        for module in tuple(sys.modules.values()) if module is not None)
+
+
+def test_read_component_never_hides_the_requested_component(tmp_path):
+    """A component larger than the budget is shortened inside its block, never hidden."""
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+
+    def write(relative, source):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+
+    names = [f"test_case_{index:03d}" for index in range(300)]
+    write("big.py", "def run(): return True\n")
+    write("tests/test_big.py", "".join(f"def {name}(): pass\n" for name in names))
+    bound = ", ".join(f'"tests/test_big.py:{name}"' for name in names)
+    write(".flowguard/models/big_model.py", f'''"""Protect the big component."""
+MODEL_ID = "big_model"
+COMPONENTS = ["big"]
+IMPLEMENTED_BY = {{"Run": "big.py:run"}}
+TESTED_BY = {{"works": [{bound}]}}
+RULES = [Invariant("works", "works", None)]
+def build_explorer(): raise RuntimeError("read must not explore")
+def broken_variants(): return {{"one": None}}
+''')
+    data = dict(project="big", layers=[], flows=[], components=[
+        dict(_component("big", summary="Serve the big component " * 20, responsibilities=["serve"]),
+             files=["big.py"], tests=["tests/test_big.py"])])
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
+    labels = ("purpose:", "rules:", "known-bad:", "code:", "tests:")
+    for budget in (8000, 600):
+        output = render_show(tmp_path, data, inv, component="big", detail=False, budget=budget)
+        assert len(output) <= budget
+        assert "## big" in output and "not shown: big" not in output
+        assert all(any(line.lstrip().startswith(label) for line in output.splitlines()) for label in labels)
+    assert "+297 more" in render_show(tmp_path, data, inv, component="big", detail=False, budget=8000)
+    full = render_show(tmp_path, data, inv, component="big", detail=False, budget=200000)
+    assert all(f"tests/test_big.py:{name}" in full for name in names[:3])
+    assert "+297 more" in full and names[3] not in full.split("model big_model", 1)[1]

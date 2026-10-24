@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `read --component` always shows the component you asked for; long lists inside it are shortened with `+N more` instead of hiding the whole component.
+- `python -m flowguard read --budget N` sets the character budget, like `map show --budget`.
+- Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
+
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 
 ### New

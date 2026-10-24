@@ -90,7 +90,7 @@
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
-        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
+        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
       "files": [
@@ -126,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cba0aad92524848ab837df8c738b9ebee7f67d0132e5758959535d8023f3cc1e"
+      "fingerprint": "sha256:c7be07e69c70b5ebbbeace92f8b5b79916b4f3f01e7fe718b6b886b1603fa347"
     },
     {
       "id": "public-api",
@@ -337,7 +337,8 @@
         "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
         "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details; show what each dependency uses and how much behaviour is explained by a component-subtree model, a matched test name or NOT_MODELED; show declared dependencies and ordered flows in Mermaid, mark flows with no model, and keep these static coverage counts informational; nest optional component parents and roll up subsystem files, tests, dependencies, rules and model facets without changing direct ownership or double-counting global coverage",
         "compare current owner promises with merged target owners and explicit removal intent when checking a target",
-        "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it"
+        "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
+        "show the requested component within the read budget"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -368,7 +369,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:18757e859370ad121706dbed93f7c4eb196eabaa012e6125dfbd998ee80e0efb"
+      "fingerprint": "sha256:c8b1e2ad58fc27ebf4ae699fff597959ee9f0e054d0343901d03d5caaad8b326"
     },
     {
       "id": "map-target",

@@ -101,3 +101,27 @@ def test_quiet_pipe_does_not_swallow_command_einval(monkeypatch):
         patch.setattr(sys, "stdout", io.StringIO())
         with pytest.raises(OSError, match="invalid filesystem"):
             quiet_broken_pipe(command)()
+
+
+def test_read_budget_option_matches_map_show(tmp_path):
+    """`read --budget N` is the same budget as `map show --budget N`; tiny budgets are refused."""
+    directory = tmp_path / ".flowguard"
+    directory.mkdir()
+    components = [{"id": f"part{index}", "summary": "Serve part " * 20, "responsibilities": ["serve"],
+                   "files": [f"part{index}.py"], "status": "draft", "fingerprint": "", "layer": ""}
+                  for index in range(12)]
+    for index in range(12):
+        (tmp_path / f"part{index}.py").write_text("def run():\n    return True\n", encoding="utf-8")
+    (directory / "map.json").write_text(json.dumps({
+        "schema": "flowguard.map.v1", "project": "budget", "components": components}), encoding="utf-8")
+
+    def run(*args):
+        return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(tmp_path)],
+                              cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+
+    read = run("read", "--budget", "3000")
+    shown = run("map", "show", "--budget", "3000")
+    assert read.returncode == 0 and shown.returncode == 0, read.stderr + shown.stderr
+    assert len(read.stdout.rstrip("\n")) <= 3000
+    assert read.stdout == shown.stdout
+    assert run("read", "--budget", "100").returncode == 2
