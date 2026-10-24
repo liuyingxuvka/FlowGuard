@@ -16,6 +16,7 @@
 | `effects_undeclared` | info | the code writes files, runs subprocesses, calls the network or a database, but `side_effects` is empty | describe the effects in `side_effects` |
 | `never_imported` | info | a module nobody imports and that has no discovered entrypoint | delete dead code, or list it as an entrypoint |
 | `foreign_state_write` | warn | code writes a state attribute that another component declares in `state`, or writes directly into an object of another component's class (for example an injected collaborator) | move the write into the owner, or call the owner |
+| `private_cross_component_use` | warn | a component imports or uses a `_private` name owned by another component | make it public in the owner (it becomes part of that component's interface) or move the code into the owner |
 | `entrypoint_unmodeled` | warn | a listed precise route/command/console script/handler (excluding argparse), or a listed entrypoint reaching `db`, `network`, `fs_write` or `fs_delete`, lacks a model anchor or `NOT_MODELED` reason; `check` and `change` print it too | model it, declare it in a model's `NOT_MODELED` with a reason, or accept it as a debt |
 | `model_writer_unbound` | warn | an unanchored function in the same file writes state already covered by a model; check, change and lint show it | add its real anchor to IMPLEMENTED_BY or record a NOT_MODELED reason; accepted debts use the usual matching rules |
 | `debt_stale` | warn | an `accepted_debts` entry matches no current finding | delete the debt |

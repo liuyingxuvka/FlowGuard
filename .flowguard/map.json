@@ -353,7 +353,8 @@
         "select models whose anchors a changed file calls",
         "check file-linked flow steps as command entrypoints",
         "select a flow's model when a step's file changes",
-        "list the flows each component takes part in"
+        "list the flows each component takes part in",
+        "warn when a component uses another component's private name"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -385,7 +386,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9d3e25ee534e880c9fda61c8a477e71f4ce91e41d158d1f150e4061847de2ad5"
+      "fingerprint": "sha256:f4054f6e1932a634edef0248f8d6011f511628c9596ff4355a836743b7b6e031"
     },
     {
       "id": "map-target",
@@ -424,7 +425,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fe3a6ab7b465866b00cfdebbe2eb77734bddbcfe58c967746914c235e1d7cd76"
+      "fingerprint": "sha256:de386311b59e261672f5c0ec7afb3dc97e762f844f4d3d385278d3d245303ef4"
     },
     {
       "id": "map-proof",
@@ -470,7 +471,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b347e40666981abefd9d89d3f46d4d1b73f35562ffcc7a90c1ac162ea5be56b2"
+      "fingerprint": "sha256:0891a5da76ef8690b9ac11629d95a17e6e5bdce85acf66397fb30209b68196df"
     },
     {
       "id": "engine-explore",
@@ -511,7 +512,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d5595928df4da85591124a94decc6a12e3dff3338c079c2a591ee0dfade8b7e5"
+      "fingerprint": "sha256:381fbd06a54316404df82ff10a9b05ac8f55bee0fffa7e302d4312c2c7c1dfab"
     },
     {
       "id": "engine-properties",

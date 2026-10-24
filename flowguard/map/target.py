@@ -175,7 +175,7 @@ def _issue_key(node, code, message, tree):
 def check_target(root: Path, *, models: bool = True) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
-    from .lint import _rules, _variants, dropped_owner_findings, duplicate_owner_findings
+    from .lint import architecture_findings, architecture_variants, dropped_owner_findings, duplicate_owner_findings
 
     root = root.resolve()
     current = load_map(root)
@@ -215,8 +215,8 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
         level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
         add(level, _finding_node(finding, tree), finding.code, finding.message)
     graph = component_graph(view.data, inv)
-    for name, changed, edges in _variants(view.data, graph):
-        if not any(f.level == "error" for f in _rules(changed, edges)):
+    for name, changed, edges in architecture_variants(view.data, graph):
+        if not any(f.level == "error" for f in architecture_findings(changed, edges)):
             add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
     if not models:
         return report

@@ -12,7 +12,7 @@ from .inventory import Inventory, resolve_import
 from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
-from .lint import apply_accepted_debts, normalized_debts, structural_findings
+from .lint import apply_accepted_debts, normalized_debts, private_name, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
@@ -228,6 +228,7 @@ def _dependency_lines(data, inv, cid, graph, raw):
     dependencies = {dep for member in members for dep in graph.get(member, ())}
     for dep in sorted(dependencies):
         symbols = _dependency_symbols(data, inv, cid, dep, raw)
+        symbols = [symbol + (" (private)" if private_name(symbol.rsplit(".", 1)[-1]) else "") for symbol in symbols]
         shown = ", ".join(symbols[:6]) if symbols else "(module import only)"
         if len(symbols) > 6:
             shown += f" (+{len(symbols) - 6} more)"

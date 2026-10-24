@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 from ..kit import Feature, feature_model_names
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
-from .lint import _variants, explained_by
+from .lint import architecture_variants, explained_by
 from .mapfile import component_files, component_scope, component_subtree, is_stale, resolve_model_path
 
 
@@ -680,7 +680,7 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
     rules = responsibilities + (
         f"layer {component.get('layer') or '-'} may use: " + (", ".join(scoped.get("depends_on", [])) or "-"),)
     return Facets(component.get("summary") or "(no summary yet)", rules, "map",
-                  tuple(dict.fromkeys(name for member in members for name, _, _ in _variants(data, graph, only=member["id"]))), "system", tuple(code), tests,
+                  tuple(dict.fromkeys(name for member in members for name, _, _ in architecture_variants(data, graph, only=member["id"]))), "system", tuple(code), tests,
                   len(responsibilities), count)
 
 
@@ -689,6 +689,6 @@ def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverag
     return Facets(f"{data.get('project', '')}: {len(data['components'])} components",
                   ("layers order: " + (" > ".join(data.get("layers", [])) or "none"),
                    "no unaccepted dependency cycle", "one owner per responsibility"), "map",
-                  tuple(name for name, _, _ in _variants(data, graph)), "system-root",
+                  tuple(name for name, _, _ in architecture_variants(data, graph)), "system-root",
                   (f"{len(data['components'])} components, {len(inv.source)} source files",)
                   + ((coverage_line(coverage, summary=True),) if coverage is not None else ()), tests, 3, count)

@@ -623,21 +623,21 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
         {"id": "a", "layer": "top", "responsibilities": ["receive requests"]},
         {"id": "b", "layer": "low", "responsibilities": ["persist records"]}]}
     graph = {"a": {"b"}, "b": set()}
-    variants = list(system_model._variants(data, graph))
+    variants = list(system_model.architecture_variants(data, graph))
     assert {name for name, _, _ in variants} == {
         "a_closes_cycle_with_b", "a_duplicates_b", "b_imports_a", "b_duplicates_a"}
-    assert all(any(f.level == "error" for f in system_model._rules(changed, edges))
+    assert all(any(f.level == "error" for f in system_model.architecture_findings(changed, edges))
                for _, changed, edges in variants)
     accepted = {**data, "accepted_debts": [
         {"code": "dependency_cycle", "members": ["a", "b"], "reason": "existing cycle policy"},
         {"code": "layer_violation", "reason": "existing boundary policy"},
         {"code": "duplicate_owner", "reason": "existing shared responsibility"}]}
-    assert list(system_model._variants(accepted, graph)) == []
+    assert list(system_model.architecture_variants(accepted, graph)) == []
     # A missing architecture rule is not evidence that a mutation was debt-accepted.
     monkeypatch.setattr(lint, "structural_findings", lambda *args, **kwargs: [])
-    remaining = list(system_model._variants(data, graph))
+    remaining = list(system_model.architecture_variants(data, graph))
     assert {name for name, _, _ in remaining} >= {"a_closes_cycle_with_b", "b_imports_a"}
-    assert any(not system_model._rules(changed, edges) for _, changed, edges in remaining)
+    assert any(not system_model.architecture_findings(changed, edges) for _, changed, edges in remaining)
 
 
 @pytest.mark.parametrize("mode,problem", [
@@ -949,7 +949,7 @@ def test_system_model_names_follow_one_generated_pass(shop, capsys, monkeypatch)
         files=["shop/api.py"], entrypoints=["shop/api.py:handle"], depends_on=["orders"], tests=[], models=[],
         state=[], side_effects=[]))
     map_path.write_text(json.dumps(data))
-    actual_variants, actual_models = system_model._variants, cli.run_models
+    actual_variants, actual_models = system_model.architecture_variants, cli.run_models
     passes, names, captured = [], [], []
 
     def variants(*args, **kwargs):
@@ -963,7 +963,7 @@ def test_system_model_names_follow_one_generated_pass(shop, capsys, monkeypatch)
         captured.extend(results)
         return results
 
-    monkeypatch.setattr(system_model, "_variants", variants)
+    monkeypatch.setattr(system_model, "architecture_variants", variants)
     monkeypatch.setattr(cli, "run_models", capture)
     code, output = models(shop, capsys, "system")
     assert code == 0, output

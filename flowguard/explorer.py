@@ -86,7 +86,7 @@ def _iter_input_sequences(
         yield from product(inputs, repeat=length)
 
 
-def _invariant_name(invariant: Any) -> str:
+def invariant_name(invariant: Any) -> str:
     return str(getattr(invariant, "name", getattr(invariant, "__name__", type(invariant).__name__)))
 
 
@@ -94,7 +94,7 @@ def _invariant_description(invariant: Any) -> str:
     return str(getattr(invariant, "description", ""))
 
 
-def _check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResult:
+def check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResult:
     check = getattr(invariant, "check", None)
     try:
         if check is not None:
@@ -104,14 +104,14 @@ def _check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResul
     except Exception as exc:
         return InvariantResult.fail(
             f"invariant raised {type(exc).__name__}: {exc}",
-            {"invariant": _invariant_name(invariant)},
+            {"invariant": invariant_name(invariant)},
         )
     if isinstance(result, InvariantResult):
         return result
     passed = bool(result)
     if passed:
         return InvariantResult.pass_()
-    return InvariantResult.fail(f"invariant failed: {_invariant_name(invariant)}")
+    return InvariantResult.fail(f"invariant failed: {invariant_name(invariant)}")
 
 
 @dataclass(frozen=True)
@@ -410,12 +410,12 @@ class Explorer:
     def _check_path_invariants(self, path: WorkflowPath) -> list[InvariantViolation]:
         violations: list[InvariantViolation] = []
         for invariant in self.invariants:
-            result = _check_invariant(invariant, path.state, path.trace)
+            result = check_invariant(invariant, path.state, path.trace)
             if result.ok:
                 continue
             violations.append(
                 InvariantViolation(
-                    invariant_name=_invariant_name(invariant),
+                    invariant_name=invariant_name(invariant),
                     description=_invariant_description(invariant),
                     message=result.message,
                     state=path.state,

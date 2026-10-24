@@ -296,7 +296,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
 
 def _design_checks(explorer) -> set[str]:
     """Names of every property the intended design is judged by: invariants and declared reachability."""
-    # same naming rule as flowguard.explorer._invariant_name, so violation names match
+    # same naming rule as flowguard.explorer.invariant_name, so violation names match
     names = {str(getattr(i, "name", getattr(i, "__name__", type(i).__name__))) for i in getattr(explorer, "invariants", ())}
     names |= {f"label:{label}" for label in getattr(explorer, "required_labels", ())}
     names |= {getattr(c, "name", "") for c in getattr(explorer, "required_reachable", ())}
@@ -421,7 +421,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             return result
         started = time.time()
         try:
-            from flowguard.explorer import Explorer, _invariant_name
+            from flowguard.explorer import Explorer, invariant_name
             for anchor in contract.get("IMPLEMENTED_BY", {}).values():
                 if PLACEHOLDER_ANCHOR in anchor:
                     raise PlaceholderAnchorError(anchor_problems(root, [anchor])[anchor])
@@ -435,7 +435,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             if not design_checks:
                 result.status = "fail"
                 result.problems.append("build_explorer() declares no invariants or reachability checks")
-            invariant_names = {_invariant_name(i) for i in design.invariants}
+            invariant_names = {invariant_name(i) for i in design.invariants}
             result.rules = sorted(invariant_names)
             for name in sorted(set(contract.get("TESTED_BY", {})) - invariant_names):
                 result.status = "fail"
@@ -477,11 +477,11 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                         result.status = "fail"
                         result.problems.append(f"known-bad variant {name!r} passed: the invariants do not catch it")
                     else:
-                        from flowguard.explorer import _check_invariant
-                        invariant_checks = {_invariant_name(i): i for i in design.invariants}
+                        from flowguard.explorer import check_invariant
+                        invariant_checks = {invariant_name(i): i for i in design.invariants}
                         caught = {v.invariant_name for v in bad.violations
                                   if v.invariant_name in invariant_checks and not v.message.startswith("invariant raised ")
-                                  and not (oracle := _check_invariant(invariant_checks[v.invariant_name], v.state, v.trace)).ok
+                                  and not (oracle := check_invariant(invariant_checks[v.invariant_name], v.state, v.trace)).ok
                                   and not oracle.message.startswith("invariant raised ")}
                         invariant_hits = caught.copy()
                         caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}

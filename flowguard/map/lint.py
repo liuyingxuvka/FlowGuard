@@ -195,12 +195,12 @@ def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> lis
     return out
 
 
-def _rules(data, graph, *, root=None, inv=None):
+def architecture_findings(data, graph, *, root=None, inv=None):
     raw = structural_findings(data, graph, root=root, inv=inv) + duplicate_owner_findings(data)
     return apply_accepted_debts(raw, normalized_debts(data))[0]
 
 
-def _reachable(graph, start, target):
+def reachable(graph, start, target):
     pending, seen = [start], set()
     while pending:
         node = pending.pop()
@@ -212,7 +212,7 @@ def _reachable(graph, start, target):
     return False
 
 
-def _variants(data, graph, *, only=None):
+def architecture_variants(data, graph, *, only=None):
     """At most one new layer edge, closing edge and copied claim per component.
 
     Only a positive accepted-debt finding skips a mutation. Missing rule output
@@ -231,18 +231,18 @@ def _variants(data, graph, *, only=None):
                 continue
             changed = {key: set(values) for key, values in graph.items()}
             changed[src].add(dst)
-            matching = [f for f in _rules(data, changed) if f.code == "layer_violation"
+            matching = [f for f in architecture_findings(data, changed) if f.code == "layer_violation"
                         and f.component == src and f"({dst}):" in f.message]
             if matching and all(f.level == "info" for f in matching):
                 continue
             yield f"{src}_imports_{dst}", data, changed
             break
         for dst in sorted(graph[src]):
-            if _reachable(graph, dst, src):
+            if reachable(graph, dst, src):
                 continue
             changed = {key: set(values) for key, values in graph.items()}
             changed[dst].add(src)
-            matching = [f for f in _rules(data, changed) if f.code == "dependency_cycle"
+            matching = [f for f in architecture_findings(data, changed) if f.code == "dependency_cycle"
                         and {src, dst} <= set(f.message.split(";", 1)[0].split(" <-> "))]
             if matching and all(f.level == "info" for f in matching):
                 continue
@@ -259,7 +259,7 @@ def _variants(data, graph, *, only=None):
                 continue
             changed_data = deepcopy(data)
             next(c for c in changed_data["components"] if c["id"] == dst)["responsibilities"].append(claim)
-            matching = [f for f in _rules(changed_data, graph) if f.code == "duplicate_owner"
+            matching = [f for f in architecture_findings(changed_data, graph) if f.code == "duplicate_owner"
                         and repr(" ".join(sorted(tokens(claim)))) in f.message]
             if matching and all(f.level == "info" for f in matching):
                 continue
@@ -364,6 +364,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view))
+    out.extend(private_use_findings(root, data, inv))
     debts = normalized_debts(data)
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
@@ -572,7 +573,43 @@ def dependency_import_sites(root: Path, data: dict, inv: Inventory, src: str, ds
 
 
 ARCHITECTURE_CODES = {"dependency_cycle", "layer_violation", "duplicate_owner", "possible_duplicate",
-                      "duplicate_code", "foreign_state_write", "large_component", "large_file", "too_many_responsibilities", "high_fan_out"}
+                      "duplicate_code", "foreign_state_write", "private_cross_component_use", "large_component", "large_file", "too_many_responsibilities", "high_fan_out"}
+
+
+def private_name(name: str) -> bool:
+    """Exactly one leading underscore: ``_helper`` is private, ``__version__`` is not."""
+    return name.startswith("_") and not name.startswith("__")
+
+
+def private_use_findings(root: Path, data: dict, inv: Inventory) -> list[Finding]:
+    """A component importing or using another component's ``_private`` name (tests and models excluded)."""
+    owner, _ = owner_index(data, inv)
+    modules = {info.module: path for path, info in inv.py.items()}
+    seen, out = set(), []
+    for path, info in sorted(inv.py.items()):
+        user = owner.get(path)
+        if user is None or inv.is_test(path):
+            continue
+        for imported in sorted(info.imports):
+            module, separator, name = imported.partition(":")
+            target = resolve_import(imported, modules) if separator else None
+            holder = owner.get(target or "")
+            if not separator or not private_name(name) or holder is None or holder == user or (user, holder, name) in seen:
+                continue
+            seen.add((user, holder, name))
+            line = info.import_lines.get(imported) or _name_line(root, path, name)
+            out.append(Finding("warn", "private_cross_component_use", user,
+                               f"{user} uses {holder}'s private {name} at {path}:{line}; "
+                               f"make it public in {holder} or move this code into {holder}"))
+    return out
+
+
+def _name_line(root: Path, path: str, name: str) -> int:
+    try:
+        tree = ast.parse(read_source(root / path))
+    except (OSError, SyntaxError, ValueError):
+        return 0
+    return min((node.lineno for node in ast.walk(tree) if isinstance(node, ast.Attribute) and node.attr == name), default=0)
 
 
 def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
