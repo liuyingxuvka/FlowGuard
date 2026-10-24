@@ -30,9 +30,9 @@ def test_show_budget_keeps_flows_and_names_hidden_components(tmp_path):
 
 def test_find_responsibility_breaks_equal_summary_score(tmp_path):
     data = dict(components=[_component('alpha', summary='impact selection'),
-                            _component('map-analysis', responsibilities=['impact selection'])])
+                            _component('records', responsibilities=['impact selection'])])
     scores = find_owners(data, _inventory(tmp_path), ['impact', 'selection'])
-    assert scores[0][1] == 'map-analysis'
+    assert scores[0][1] == 'records'
     assert scores[0][0] == scores[1][0]
 
 
