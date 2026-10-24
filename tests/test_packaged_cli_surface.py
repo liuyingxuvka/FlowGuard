@@ -154,3 +154,52 @@ def test_read_review_matches_map_show_review(tmp_path):
     assert read.stdout.startswith("# review review: 2 components") and "optimise next:" in read.stdout
     assert run("read", "--review", "--component", "app").returncode == 2
     assert run("map", "show", "--review", "--component", "app").returncode == 2
+
+
+def _change_run_project(tmp_path):
+    root = tmp_path / "proj"
+    (root / ".flowguard").mkdir(parents=True)
+    (root / "tests").mkdir()
+    (root / "app.py").write_text("def run():\n    return True\n", encoding="utf-8")
+    (root / "tests/test_app.py").write_text("from app import run\n\ndef test_run():\n    assert run()\n", encoding="utf-8")
+    component = {"id": "app", "summary": "Runs the app", "responsibilities": ["run the app"], "files": ["app.py"],
+                 "tests": ["tests/test_app.py"], "status": "draft", "fingerprint": "", "layer": "", "depends_on": []}
+    (root / ".flowguard/map.json").write_text(json.dumps({
+        "schema": "flowguard.map.v1", "project": "run", "test_command": "python -m pytest -q -p no:cacheprovider",
+        "components": [component]}), encoding="utf-8")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@example.invalid"]
+    for arguments in (("init", "-q"), ("add", "."), ("commit", "-qm", "base")):
+        subprocess.run([*git, *arguments], cwd=root, check=True, capture_output=True)
+    return root
+
+
+def _flowguard(root, *args):
+    environment = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
+    return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(root)], cwd=ROOT,
+                          capture_output=True, text=True, encoding="utf-8", env=environment)
+
+
+def test_change_run_runs_the_selected_checks(tmp_path):
+    root = _change_run_project(tmp_path)
+    (root / "app.py").write_text("def run():\n    return 1 == 1\n", encoding="utf-8")
+    plain = _flowguard(root, "change")
+    assert "run: python -m pytest" in plain.stdout and "RAN" not in plain.stdout, plain.stdout + plain.stderr
+    ran = _flowguard(root, "change", "--run")
+    assert ran.returncode == plain.returncode == 0, ran.stdout + ran.stderr
+    assert ran.stdout.startswith(plain.stdout.rstrip("\n")) and "RAN PASS python -m pytest" in ran.stdout, ran.stdout
+    (root / "tests/test_app.py").write_text("from app import run\n\ndef test_run():\n    assert not run()\n", encoding="utf-8")
+    failed = _flowguard(root, "change", "--run")
+    assert failed.returncode == 1 and "RAN FAIL (exit 1) python -m pytest" in failed.stdout, failed.stdout + failed.stderr
+    assert "  " in failed.stdout.split("RAN FAIL", 1)[1]           # the failing output's tail is indented
+
+
+def test_change_run_skips_when_check_has_errors(tmp_path):
+    root = _change_run_project(tmp_path)
+    (root / "stray.py").write_text("def stray():\n    return 1\n", encoding="utf-8")
+    (root / "app.py").write_text("def run():\n    return 1 == 1\n", encoding="utf-8")
+    marker = root / "tests/test_app.py"
+    marker.write_text("from pathlib import Path\nPath(__file__).with_name('ran.marker').write_text('ran')\n"
+                      "def test_run():\n    pass\n", encoding="utf-8")
+    ran = _flowguard(root, "change", "--run", "app.py", "stray.py")
+    assert ran.returncode == 1 and "RAN: skipped (fix the errors above first)" in ran.stdout, ran.stdout + ran.stderr
+    assert not (root / "tests/ran.marker").exists()
