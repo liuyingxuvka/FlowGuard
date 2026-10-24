@@ -21,9 +21,19 @@ def caught(report):
     return {(violation.rule_name, violation.features) for violation in report.violations}
 
 
+def owner_report(*feature_names):
+    """Keep the full engine check by default; focus an oracle on its named contrast."""
+    if not feature_names:
+        return OWNER.conformance()
+    selected = tuple(feature for feature in OWNER.FEATURES if feature.name in feature_names)
+    if {feature.name for feature in selected} != set(feature_names):
+        raise ValueError("oracle names an unknown engine feature")
+    return OWNER.feature_conformance(selected, OWNER.clean_fixture, OWNER.run_engine)
+
+
 class PythonEngineOwnerTests(unittest.TestCase):
     def test_the_real_engine_reports_every_defect_alone_and_in_pairs(self):
-        report = OWNER.conformance()
+        report = owner_report()
         self.assertTrue(report.ok, report.format_text())
         self.assertEqual(138, report.executed)            # clean fixture, 17 features, 120 nonexclusive pairs
 
@@ -36,7 +46,7 @@ class PythonEngineOwnerTests(unittest.TestCase):
             return original(block, value, state)
 
         with patch.object(workflow_module, "invoke_block", wrong_priority):
-            report = OWNER.conformance()
+            report = owner_report("block_invoked_through_run")
         self.assertIn(("clean_input_accepted", ()), caught(report))
         self.assertIn(("benign_features_neutral", ("block_invoked_through_run",)), caught(report))
 
@@ -47,7 +57,7 @@ class PythonEngineOwnerTests(unittest.TestCase):
             return original(raw)[:1]
 
         with patch.object(workflow_module, "normalize_function_results", lose_branch):
-            report = OWNER.conformance()
+            report = owner_report("unsafe_second_branch", "block_invoked_through_run")
         self.assertIn(("clean_input_accepted", ()), caught(report))             # both:b is never reached
         self.assertIn(("every_defect_reported", ("unsafe_second_branch",)), caught(report))   # right is lost
 
