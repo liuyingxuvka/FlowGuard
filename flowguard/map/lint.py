@@ -176,7 +176,8 @@ def dropped_owner_findings(current_data: dict, merged_data: dict, target) -> lis
     changed = {component["id"] for component in target.data.get("components", [])}
     changed.update(target.remove.get("component", set()))
     out = []
-    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects")):
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects"),
+                        ("responsibility", "responsibilities")):
         def identity(value):
             return value if kind == "entrypoint" else frozenset(tokens(value))
 

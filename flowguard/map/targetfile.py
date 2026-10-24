@@ -76,7 +76,7 @@ def load_target(root: Path) -> Target | None:
         raise MapError(f"cannot read {path}: {exc}") from exc
     if not isinstance(data, dict):
         raise MapError(f"{path} must contain a JSON object")
-    removed = {kind: set() for kind in ("component", "flow", "model", "entrypoint", "state", "side_effect")}
+    removed = {kind: set() for kind in ("component", "flow", "model", "entrypoint", "state", "side_effect", "responsibility")}
     for value in data.get("remove", []) if isinstance(data.get("remove", []), list) else []:
         if isinstance(value, str):
             kind, _, name = value.partition(":")
@@ -167,7 +167,8 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
     current = {"component": {c["id"] for c in current_data["components"]},
                "flow": {f["id"] for f in current_data.get("flows", [])},
                "model": {entry.id for entry in registry.entries}}
-    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects")):
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects"),
+                        ("responsibility", "responsibilities")):
         current[kind] = {value for component in current_data["components"] for value in component.get(field, [])}
     removed = data.get("remove", [])
     if not isinstance(removed, list):

@@ -89,14 +89,14 @@ directory is valid and means no target model files.
 | `goal` | nonempty description of the planned change |
 | `components` | complete new entries; replace by matching `id` or add a new id; omit `status`, `fingerprint` and `_hint` |
 | `flows` | complete new entries; replace by matching `id` or add a new id |
-| `remove` | current nodes to remove: `component:<id>`, `flow:<id>` or `model:<MODEL_ID>`; explicit promise retirement: `entrypoint:<path:Symbol>`, `state:<original text>` or `side_effect:<original text>` |
+| `remove` | current nodes to remove: `component:<id>`, `flow:<id>` or `model:<MODEL_ID>`; explicit promise retirement: `entrypoint:<path:Symbol>`, `state:<original text>`, `side_effect:<original text>` or `responsibility:<original text>` |
 | `layers` | optional; if present, replaces the entire current list |
 | `accepted_debts` | optional; if present, replaces the entire current list |
 
 An explicit empty optional list replaces the current list with empty; absence retains it.
 Every `remove` value must name an item in the current map (or a current model ID); otherwise it is `target_invalid`.
 `entrypoint:`, `state:` and `side_effect:` record deliberate retirement only: they do not edit merged component entries.
-The target check reports ERROR `owner_dropped` when a replaced or removed component's entrypoint, state or side effect has no merged owner and no explicit retirement.
+The target check reports ERROR `owner_dropped` when a replaced or removed component's entrypoint, state, side effect or responsibility has no merged owner and no explicit retirement (responsibilities, like state, compare by their words: a reworded one needs its old text in `remove`).
 All model references use their merged destination, `.flowguard/models/<filename>.py`,
 never a `.flowguard/target/models/` path. Replaced/new components become draft and lose
 fingerprints; unchanged nodes retain their current description and bindings. Merged model ids must be unique. Reusing a current id in a different filename requires

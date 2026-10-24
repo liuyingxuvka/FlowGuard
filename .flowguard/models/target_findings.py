@@ -32,11 +32,13 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
         "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
         "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
+        "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
     ],
     "every_defect_reported": [
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
         "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
         "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
+        "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
     ],
 }
 
@@ -62,6 +64,7 @@ CASES = (
     Case("design_only_model", "real current contract declares DESIGN_ONLY=False", False, "target", "error"),
     Case("runner_model", "actual legacy runner path, never executed", False, "target", "error"),
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
+    Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
 )
 
 
@@ -98,6 +101,8 @@ FEATURES = (
             _wrong_decision("runner_model", "todo")),
     Feature("untested_warning_as_gate", True, ("unbound_invariant",),
             _wrong_decision("unbound_invariant", "error")),
+    Feature("dropped_responsibility_ignored", True, ("responsibility_dropped",),
+            _wrong_decision("responsibility_dropped", "none")),
 )
 
 
@@ -121,12 +126,15 @@ def probe_model_and_target(root):
     return result, report
 
 
-def _unique_bucket(report, *, code, message=None):
+def _unique_bucket(report, *, code, message=None, prefix=None):
     found = []
     for bucket, name in (("errors", "error"), ("todos", "todo"), ("warnings", "warn")):
         for finding in getattr(report, bucket):
-            if finding.code == code and (message is None or finding.message == message):
+            if finding.code == code and (message is None or finding.message == message) \
+                    and (prefix is None or finding.message.startswith(prefix)):
                 found.append(name)
+    if prefix is not None and not found:
+        return "none"
     buckets = set(found)
     return next(iter(buckets)) if len(buckets) == 1 else "absent-or-conflicting:" + repr(found)
 
@@ -181,6 +189,11 @@ def observe_case(case):
             target["remove"] = ["component:catalog"]
             target["components"][0]["depends_on"] = []
             write_json(target_path, target)
+        elif case.name == "responsibility_dropped":
+            target["components"][0]["responsibilities"] = ["lend one book at a time"]
+            write_json(target_path, target)
+            report = native.check_target(root)
+            return _unique_bucket(report, code="owner_dropped", prefix="responsibility 'maintain loans'"), repr(report)
         elif case.name == "entrypoint_owner":
             target["components"][0]["entrypoints"].append("shelf/catalog.py:capacity")
             write_json(target_path, target)

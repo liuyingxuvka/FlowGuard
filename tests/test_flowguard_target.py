@@ -1134,9 +1134,10 @@ def test_merge_a_component_keeps_its_promises(tmp_path, capsys):
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 1 and not errors, (output, errors)
     owner_errors = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped:" in line]
-    assert len(owner_errors) == 2, output
+    assert len(owner_errors) == 3, output
     assert any("entrypoint 'shelf/members.py:Members.may_borrow'" in line for line in owner_errors), output
     assert any("state 'known members'" in line for line in owner_errors), output
+    assert any("responsibility 'enforce the loan limit'" in line for line in owner_errors), output
     all_errors = [line for line in output.splitlines() if line.startswith("ERROR ")]
     code, changed, errors = _run(root, capsys, "change")
     assert code == 0 and not errors, (changed, errors)
@@ -1188,7 +1189,8 @@ def test_dropping_an_entrypoint_on_purpose_is_written_in_remove(tmp_path, capsys
         assert code == 0 and not errors, (output, errors)
     path = root / ".flowguard/target/map.json"
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["remove"] = ["component:members", "entrypoint:shelf/members.py:Members.may_borrow", "state:known members"]
+    data["remove"] = ["component:members", "entrypoint:shelf/members.py:Members.may_borrow", "state:known members",
+                      "responsibility:enforce the loan limit"]
     loans = next(component for component in data["components"] if component["id"] == "loans")
     loans["files"].append("shelf/members.py")
     loans["depends_on"].remove("members")
@@ -1620,3 +1622,35 @@ def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatc
     assert changes and all("coverage" not in line for line in changes), output
     assert any("code + shelf/loans.py:LoanService.hold" in line for line in changes), output
     assert "\n\n\n" not in output
+
+
+def test_dropping_a_responsibility_is_owner_dropped(tmp_path, capsys):
+    """A responsibility needs a new owner or an explicit responsibility:<text> retirement."""
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    for arguments in (("target", "start", "loans lends only"), ("target", "add", "loans"), ("target", "add", "catalog")):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    loans = next(component for component in data["components"] if component["id"] == "loans")
+    loans["responsibilities"] = ["lend a free copy"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    dropped = [line for line in output.splitlines() if line.startswith("ERROR ") and "owner_dropped: responsibility" in line]
+    assert code == 1 and len(dropped) == 1 and "'take a lent copy back'" in dropped[0], output
+    assert '"responsibility:take a lent copy back" in remove' in dropped[0]
+    data["remove"] = ["responsibility:take a lent copy back"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "owner_dropped" not in output and "target_invalid" not in output, output
+    data["remove"] = []
+    catalog = next(component for component in data["components"] if component["id"] == "catalog")
+    catalog["responsibilities"].append("take a lent copy back")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "owner_dropped" not in output, output
+    data["remove"] = ["responsibility:no such duty"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "target_invalid" in output and "remove names no current node" in output, output
