@@ -167,7 +167,7 @@ def conformance():
 A model is done when the intended design passes, its relevant business broken variants
 fail, required conformance passes, and `python -m flowguard map check` reports no
 `model_*` errors. A pure anchor rename reuses the existing model/tests and does not
-need a new adapter. Report model-level confidence when no runtime replay was needed.
+need a new adapter. Report which code facts or real replay ran; do not describe an unrun replay as passed.
 
 ## Hazards
 

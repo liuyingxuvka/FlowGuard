@@ -4,11 +4,11 @@
   <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" />
 </p>
 
-<p align="center"><strong>A "software DNA" for AI-assisted development: a living map of the software that evolves with the code and is verified against it, executable models of the risky flows, and 10 focused reviews for architecture and behavior defects.</strong></p>
+<p align="center"><strong>A "software DNA" for AI-assisted development: one living model tree with code owners, executable models of risky flows, tests and a target for planned changes.</strong></p>
 
 [中文说明](./README.zh-CN.md)
 
-FlowGuard maps and checks its own repository (`.flowguard/map.json`, `.flowguard/models/`). Measured results and known limits: [repair and validation report](docs/flowguard_0_70_2_fix_report.md).
+FlowGuard maps and checks its own repository (`.flowguard/map.json`, `.flowguard/models/`). Its model and boundaries are described in [the concept guide](docs/concept.md).
 
 
 ## What it does
@@ -24,7 +24,8 @@ things in the project:
    (retries, idempotency, caching, ordering, money, permissions, multi-step workflows). FlowGuard
    explores every input sequence within a bound, reports counterexamples, checks that known-bad
    variants fail, and replays model traces against the real code (conformance).
-3. **Capability reviews** - 10 focused checks an agent picks when the task needs one (table below).
+3. **The target** - the intended map and models for one planned behaviour or structure change;
+   implement and check that plan before promoting it to the current model.
 
 The map and models form one tree. Root and component nodes come from the code and stay active;
 behavior models are added beneath components when a task needs them, with tests on the same nodes.
@@ -71,24 +72,25 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | behaviour or structure change | `python -m flowguard target` (`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`) | write the target model first, make the code match it, then replace the current model |
 | after editing | `python -m flowguard change` | verify map vs code; list only the affected tests and models |
 | before release | `python -m flowguard release` | strict check, lint errors, every model re-run |
-| new capability model | `python -m flowguard template --list` | one starter contract model per capability (model-mesh, topology-hazard and model-test also write a runner) |
+| start a model or adopt the workflow | `python -m flowguard template --list` | choose `behaviour`, `validator`, `ui-journey` or repository rules with `adoption` |
 
-## The 10 capabilities
+## What you can do
 
-| capability | catches |
+| former capability | how to do it now |
 | --- | --- |
-| behavior-commitment | external promises without one owner and tests; silent fallback paths |
-| architecture-reduction | unsafe merges or deletions of duplicate code |
-| code-structure | a module layout or split where state, effects or a public entrypoint lose their single owner |
-| contract-exhaustion | bad cases and combinations of a finite boundary nobody tested |
-| field-lifecycle | renamed or replaced fields left without owner, reader or migration |
-| model-mesh | models that do not fit together (owners, reattachment, unconsumed outputs) |
-| model-test | rules, code contracts and tests that do not line up |
-| topology-hazard | future-use hazards in a green model (shared writers, repeatable effects) |
-| test-mesh | large test runs whose results cannot be trusted |
-| ui-flow | controls without events, journeys without an end, hidden or leaking content |
+| behavior-commitment | Give each external promise one owner, a real code anchor and tests; model alternate paths. |
+| architecture-reduction | Remove or merge a node through the target; preserve every public promise and check unreferenced code. |
+| code-structure | Add or split an owner through the target; keep files, state, effects and entrypoints single owned. |
+| contract-exhaustion | Use a `validator` node for finite accepted and rejected cases. |
+| field-lifecycle | Describe renamed or retired fields in the target and check the old and new readers. |
+| model-mesh | Nest models with `PARENT`; use state projection or `flowguard.closure` where children exchange results. |
+| model-test | Bind rules through `IMPLEMENTED_BY` and `TESTED_BY`; run `map models --tests`. |
+| topology-hazard | Read the computed `hazard:` observations from `map models`. |
+| test-mesh | Use `release --shards 4`; each collected test runs once within the whole-suite phase. |
+| ui-flow | Use a `ui-journey` node for states and journeys, plus the manual UI checklist. |
 
-Each capability has a short protocol in `.agents/skills/flowguard/references/domains/<name>/protocol.md`.
+See [tree operations](.agents/skills/flowguard/references/tree_operations.md) and
+[model recipes](.agents/skills/flowguard/references/model_recipes.md).
 
 ## What a model catches (real example)
 
@@ -105,7 +107,7 @@ find the globally best architecture. It keeps its claims fresh, reviewable and b
 
 ## Repository layout
 
-- `flowguard/` engine and capabilities; `flowguard/map/` map, discovery and proof layer
+- `flowguard/` engine, node kinds and computed facets; `flowguard/map/` map, target, discovery and proof layer
 - `.agents/skills/flowguard/` the agent skill
 - `.flowguard/` FlowGuard's own map and models (it maintains itself with itself)
 - `examples/` runnable teaching models; `docs/` long-form notes

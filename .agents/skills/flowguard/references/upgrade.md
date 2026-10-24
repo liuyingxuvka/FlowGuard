@@ -33,15 +33,15 @@ Component IDs select `read --component`; executable model IDs select `map models
 
 ## From 0.70.10 to 0.70.11
 
-The ten capability engines are folded into the model tree; each line below says what replaces one of them.
+The ten capability engines are folded into the model tree. The changes below cover node kinds, computed facets and project migration.
 
 - `FlowGuardCheckPlan` / `run_model_first_checks` / `audit_model` / risk templates are removed; put the checks into a model file and run `python -m flowguard map models` (loops: call `flowguard.loop.check_loops` from the model's conformance or a test).
 
 - The old architecture-reduction engine and template are removed; use `references/tree_operations.md#Remove or merge a node` with target `remove` and `CodeFacts.unreferenced` instead.
 
-- The old `.flowguard/models/code_structure.py` starter no longer imports; plan the split as a target using `references/tree_operations.md#Add or split a component`. A state or side-effect claim shared by multiple components now raises `duplicate_owner` and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard's FlowGuard reference upgrade must give `logicguard`, `sourceguard`, `traceguard` and `experimentguard` specific state/effect descriptions in the same change.
+- The old code-structure starter no longer imports; plan the split as a target using `references/tree_operations.md#Add or split a component`. A state or side-effect claim shared by multiple components now raises `duplicate_owner` and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard's FlowGuard reference upgrade must give `logicguard`, `sourceguard`, `traceguard` and `experimentguard` specific state/effect descriptions in the same change.
 
-- The old `.flowguard/models/field_lifecycle.py` starter no longer imports; use the target-model field operation in `references/tree_operations.md#Rename or retire a field`, with `CodeFacts.absent` / `CodeFacts.present` in real `conformance()`.
+- The old field-lifecycle starter no longer imports; use the target-model field operation in `references/tree_operations.md#Rename or retire a field`, with `CodeFacts.absent` / `CodeFacts.present` in real `conformance()`.
 
 - `.flowguard/behavior/inventory/ledger.json` is no longer read: move each promise into its file-owning component's `entrypoints` and a model's `IMPLEMENTED_BY` / `TESTED_BY` or a reasoned `NOT_MODELED`, then delete the old file. Duplicate or wrong-owner declarations are `entrypoint_owner` errors. `entrypoint_unmodeled` stays WARN for uncovered declared precise entrypoints (excluding argparse-derived ones) and the existing dangerous-effect cases; the old file produces a `retired_file` WARN. Existing ResearchGuard adopters should record the expected additional warning on FlowGuard reference upgrade and resolve it through native model bindings or a reasoned exclusion.
 
@@ -59,4 +59,8 @@ The ten capability engines are folded into the model tree; each line below says 
 
 - The `contract-exhaustion` template is now `validator`; import from `flowguard.validator`. Routes, cross-engine handoffs/adapters, coverage universes and confidence are gone; finite bad-case generation and execution against the real function remain.
 
-- Capability and benchmark names left `import flowguard`; import node kinds from `flowguard.validator` / `flowguard.ui_flow`, closure from `flowguard.closure`, and benchmark helpers from their modules.
+- Node-kind and benchmark names left `import flowguard`; import node kinds from `flowguard.validator` / `flowguard.ui_flow`, closure from `flowguard.closure`, and benchmark helpers from their modules.
+
+- Planning-only helpers are removed; use an ordinary `Explorer` or feature modeling in `flowguard.kit`. `reachable_states`, `feature_explorer`, `feature_variants` and `feature_conformance` remain in that module.
+
+- `read --component` names dependency symbols and shows entrypoint/state-writer coverage; `read --mermaid` draws declared dependencies and flows. Components may use an optional `parent` for a same-layer subsystem; direct file ownership and fingerprints stay on the actual owner. See `map_format.md`.

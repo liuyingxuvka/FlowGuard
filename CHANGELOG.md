@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Documentation now describes one model tree, its five facets, current/target workflow and node templates. FlowGuard's own finite checks cover model placement, static read output, source ownership and target creation, promotion and error reporting through real conformance and bound tests. Retired integration guides, the old acceptance report and the completed roadmap are removed; benchmark, budgeted exploration and conformance examples remain.
+
 - Components may name a `parent` sub-system; `read` rolls up and indents its children, and `--mermaid` nests them. Direct file ownership and fingerprints are unchanged.
 
 - `read --component` names the symbols used on each dependency; `--mermaid` draws dependencies and flows. Flows without a model are marked, and `read` shows how much behaviour is explained by models, tests or explicit exclusions.

@@ -4,11 +4,11 @@
   <img src="./assets/readme-hero/flowguard-icon.png" alt="FlowGuard icon" width="104" />
 </p>
 
-<p align="center"><strong>AI 辅助开发的“软件 DNA”：一张随代码演进、并和代码互相校验的软件地图，加上关键流程的可执行模型，以及 10 个查找架构缺陷和行为缺陷的专项检查。</strong></p>
+<p align="center"><strong>AI 辅助开发的“软件 DNA”：一棵随代码演进的模型树，包含代码归属、关键流程的可执行模型、测试和计划改动的目标。</strong></p>
 
 [English](./README.md)
 
-FlowGuard 用自己的地图和模型维护本仓库（`.flowguard/map.json`、`.flowguard/models/`）。实测结果和保留边界见[修复与验收报告](docs/flowguard_0_70_2_fix_report.md)。
+FlowGuard 用自己的地图和模型维护本仓库（`.flowguard/map.json`、`.flowguard/models/`）。模型和适用边界见[概念说明](docs/concept.md)。
 
 
 ## 它做什么
@@ -21,7 +21,7 @@ FlowGuard 在项目里保存三样东西：
 2. **模型**：关键流程（重试、幂等、缓存、顺序、金额、权限、多步骤流程）的小型可执行模型，形式是
    `输入 x 状态 -> 一组(输出 x 状态)`。FlowGuard 在边界内穷举所有输入序列，给出反例，检查已知的坏版本
    一定会失败，并把模型轨迹放到真实代码上回放比对（一致性检查）。
-3. **专项检查**：10 个有针对性的检查，任务需要时由 AI 选用（见下表）。
+3. **目标**：一次行为或结构改动计划中的地图和模型；先实现并检查计划，再提升为当前模型。
 
 地图和模型是一棵树。根节点和组件节点从代码推出，始终生效；任务需要时才在组件下添加行为模型，测试挂在同样的节点上。
 `python -m flowguard read --mermaid` 画出这棵树。
@@ -65,24 +65,25 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | 改行为或结构 | `python -m flowguard target`（`start "<goal>"` \| `add <id>` \| `check` \| `promote` \| `drop`） | 先写目标模型，再让代码追上它，最后替换当前模型 |
 | 改完代码 | `python -m flowguard change` | 校验地图和代码；只列出受影响的测试和模型 |
 | 发布之前 | `python -m flowguard release` | 严格检查、架构错误、重跑全部模型 |
-| 新的专项模型 | `python -m flowguard template --list` | 每个专项检查一个起步合约模型（model-mesh、topology-hazard、model-test 另写运行脚本） |
+| 新模型或采用流程 | `python -m flowguard template --list` | 选择 `behaviour`、`validator`、`ui-journey`，或用 `adoption` 生成仓库规则 |
 
-## 10 个专项检查
+## 能做的事
 
-| 专项 | 能抓住什么 |
+| 原来的专项名 | 现在怎么做 |
 | --- | --- |
-| behavior-commitment | 对外承诺没有唯一负责者和测试；偷偷走备用路径 |
-| architecture-reduction | 不安全地合并或删除重复代码 |
-| code-structure | 模块划分或拆分让某个状态、副作用或公开入口没有唯一负责者 |
-| contract-exhaustion | 有限边界里没人测过的坏用例和组合 |
-| field-lifecycle | 改名或替换的字段没有负责者、读取方或迁移 |
-| model-mesh | 多个模型拼不起来（负责者、重新挂接、没人消费的输出） |
-| model-test | 规则、代码契约和测试对不上 |
-| topology-hazard | 全绿模型里潜藏的上线隐患（共享写者、可重复的副作用） |
-| test-mesh | 结果不可信的大规模测试运行 |
-| ui-flow | 按钮没有事件、流程没有终点、内容该藏的露了 |
+| behavior-commitment | 给对外承诺唯一负责者、真实代码锚点和测试；建模备用路径。 |
+| architecture-reduction | 在目标中删除或合并节点；保住公开承诺，检查无引用的代码。 |
+| code-structure | 在目标中新增或拆分负责者；文件、状态、副作用和入口各有唯一归属。 |
+| contract-exhaustion | 用 `validator` 节点检查有限的接受和拒绝用例。 |
+| field-lifecycle | 在目标中描述改名或退役字段，检查新旧读取方。 |
+| model-mesh | 用 `PARENT` 嵌套模型；子模型交接时按需用状态投影或 `flowguard.closure`。 |
+| model-test | 用 `IMPLEMENTED_BY` 和 `TESTED_BY` 绑定规则，运行 `map models --tests`。 |
+| topology-hazard | 从 `map models` 读取计算出的 `hazard:` 观察。 |
+| test-mesh | 用 `release --shards 4`；整套测试阶段内，每个收集到的测试只运行一次。 |
+| ui-flow | 用 `ui-journey` 节点检查状态和旅程，再配合人工界面清单。 |
 
-每个专项都有一份简短说明：`.agents/skills/flowguard/references/domains/<名字>/protocol.md`。
+见[树的操作](.agents/skills/flowguard/references/tree_operations.md)和
+[模型配方](.agents/skills/flowguard/references/model_recipes.md)。
 
 ## 模型能抓住什么（真实例子）
 
@@ -97,7 +98,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 
 ## 仓库结构
 
-- `flowguard/` 引擎和各专项；`flowguard/map/` 地图、自动发现和证明层
+- `flowguard/` 引擎、节点种类和计算出的面；`flowguard/map/` 地图、目标、自动发现和证明层
 - `.agents/skills/flowguard/` 给 AI 用的技能
 - `.flowguard/` FlowGuard 自己的地图和模型（它用自己维护自己）
 - `examples/` 可运行的教学模型；`docs/` 长篇说明

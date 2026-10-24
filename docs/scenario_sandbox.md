@@ -31,12 +31,10 @@ The input sequence is exact and deterministic. It can be empty, single input, re
 
 The sandbox does not generate random data.
 
-When scenario patterns are used as "similar bug" or finite-boundary coverage,
-project them through ContractExhaustionMesh with
-`scenario_matrix_to_contract_cases(...)`. The sandbox owns deterministic
-scenario execution and human oracle comparison; ContractExhaustionMesh owns the
-canonical bad-case id, expected reaction, and downstream Model-Test
-Alignment/TestMesh handoff.
+For finite input boundaries, use a `validator` node with declared cases,
+known-bad variants and real conformance. Scenario review continues to compare
+deterministic executions with the caller's expectations; bind its meaningful
+checks through the model's code and tests facets.
 
 ## Human Oracle
 
@@ -123,8 +121,8 @@ These scenarios verify that scoring is cached, records are deduplicated, and rep
 `ScenarioMatrixBuilder.challenge_patterns()` extends the same deterministic
 scenario path with proactive bug-discovery routes. It does not create a new
 test workflow; the generated routes are still ordinary `Scenario` records that
-go through Scenario Sandbox, and later through conformance replay or
-Model-Test Alignment when the project uses them.
+go through scenario review and, when needed, conformance replay against the
+implementation.
 
 Challenge routes cover high-risk shapes such as:
 

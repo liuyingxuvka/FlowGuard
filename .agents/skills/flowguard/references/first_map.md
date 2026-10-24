@@ -38,13 +38,16 @@ project and read components in batches. Default `read` targets 8,000 characters.
    - Add 1-5 `flows` for the most important journeys. Each flow needs `"id"` (not `"name"`),
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and each responsibility under about 8 words, so that
-     `python -m flowguard read` stays within its 8,000-character default budget, including structure problems and model subtrees.
+     `python -m flowguard read` stays within its 8,000-character default budget, including coverage, structure problems and model subtrees.
 4. `python -m flowguard map deps --write` writes dependencies supported by imports, lazy exports, literal import calls, entrypoint or defined-symbol literals, or justified accepted debts; ordinary string values are not dependency evidence; unsupported declarations are removed.
 5. `python -m flowguard map check` and fix until it reports 0 errors (`draft` warnings are expected now).
    For real existing `dependency_cycle` / `layer_violation` problems not being refactored now, record
    a reason in `accepted_debts` (cycle debts name `members`); fix incorrect layer choices instead.
 6. `python -m flowguard map confirm all`, then `python -m flowguard map check` must show 0 errors; review test/model bindings and scoped warnings.
 7. `python -m flowguard map lint` and write the top ERROR and WARN lines into your report.
+   `python -m flowguard read --component <id>` names the symbols used on each dependency and shows
+   explained entrypoints/state writers; `python -m flowguard read --mermaid` draws dependencies and flows.
+   Flows without a model say `(no model)`; coverage describes bindings and is not a new check threshold.
    Review warnings such as `entrypoint_unlisted` and `entrypoint_unmodeled` as findings about existing code.
    Keep structural errors at zero by fixing wrong declarations or explicitly accepting existing debt
    with its reason as in step 5 (`architecture_review.md`); do not silently bypass those errors.

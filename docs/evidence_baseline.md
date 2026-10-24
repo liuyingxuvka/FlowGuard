@@ -1,9 +1,8 @@
 # Evidence Baseline
 
-Phase 10.5 adds an upgrade-readiness baseline before Phase 11. The goal is to
-avoid blind upgrades. Before adding new mathematical or engineering features,
-`flowguard` should know what the current system catches, what it does not
-claim, and what remains a known limitation.
+This is FlowGuard's own regression baseline, rather than a mechanism projects
+need to adopt. It records what the engine catches, what it does not claim, and
+what remains a known limitation before and after an upgrade.
 
 The baseline is not a replacement for unit tests. It is a structured scorecard
 that combines several evidence sources:
@@ -15,18 +14,10 @@ that combines several evidence sources:
 
 ## Why This Exists
 
-Future phases add substantial capability:
-
-- Phase 11 adds benchmark breadth.
-- Phase 12 extends production conformance breadth.
-- Phase 13 adds progress/fairness/temporal checks.
-- Phase 14 adds contract composition and refinement.
-- Phase 15 adds engineering hardening.
-
-Those upgrades should show measurable evidence. A phase is not useful merely
-because it adds code. It is useful when the expected-vs-observed baseline shows
-that new bug classes are caught, known limitations are reduced, or current
-coverage stays stable while the model gets stronger.
+Engine changes should show their effects on actual model checking, replay,
+progress properties, composition and engineering behaviour. The expected versus
+observed baseline makes it possible to see whether new bug classes are caught,
+known limitations are reduced, or existing coverage remains stable.
 
 ## Evidence Case
 
@@ -75,7 +66,7 @@ evidence.
 
 ## Groups
 
-The Phase 10.5 baseline includes:
+The baseline includes:
 
 - `scenario:job_matching`
 - `conformance:job_matching`
@@ -110,7 +101,7 @@ test name. Current bug classes include:
 - terminal semantics;
 - progress/fairness known limitation.
 
-This grouping is what lets future phases prove they helped.
+This grouping helps compare the behaviour of successive engine revisions.
 
 ## How To Run
 
@@ -126,9 +117,9 @@ Run the full test suite:
 python -m pytest -q
 ```
 
-Before Phase 11 or later upgrades, run both commands and save the observed
-scorecard mentally or as an artifact if needed. After the upgrade, run them
-again and compare status counts and bug-class counts.
+When evaluating an engine upgrade, record actual results for the compared
+revisions and compare status counts and bug-class counts. Reuse an already
+completed run on the same source where its scope is sufficient.
 
 ## How To Interpret Changes
 
@@ -149,7 +140,6 @@ Bad changes:
 
 ## Limits
 
-Phase 10.5 is an evidence harness. It does not add new mathematical checking
-power. It does not implement the Phase 11 benchmark zoo, Phase 13 progress
-properties, or Phase 14 contract/refinement checks. It prepares the project to
-measure those upgrades when they happen.
+The baseline runs and summarizes engine examples. It adds no mathematical
+checking power and cannot substitute for the real models, conformance adapters
+or tests that exercise a change.

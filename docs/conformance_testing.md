@@ -1,6 +1,6 @@
 # Conformance Testing
 
-FlowGuard first checks the abstract model. Phase 8 adds a second step: replaying representative abstract traces against production code through an adapter.
+FlowGuard first checks the abstract model, then replays representative abstract traces against production code through an adapter.
 
 ## Model Checking vs Conformance Testing
 
@@ -22,12 +22,11 @@ If replay or real-world evidence diverges from the abstract trace, first decide 
 
 ## Boundary Conformance vs Trace Replay
 
-Code-boundary conformance is the smaller check: for one model-backed code
-surface, current observations must show that the code accepts only declared
-input cases and emits only declared outputs, errors, state writes, and side
-effects. Use `review_code_boundary_conformance(...)` through Model-Test
-Alignment when the risk is a code block becoming wider than its model-declared
-boundary.
+For a finite input boundary, a `validator` node declares accepted and rejected
+cases. Its `conformance()` calls the real implementation and compares its
+response with that declaration; `IMPLEMENTED_BY` and `TESTED_BY` connect the
+rules to code and tests. See the Validator recipe in
+`.agents/skills/flowguard/references/model_recipes.md`.
 
 Conformance replay is the sequence check: it replays ordered abstract traces
 against production code and compares projected state/output across steps. Use
@@ -159,7 +158,7 @@ that model to the changed code and tests.
 
 ## Limits
 
-Phase 8 is intentionally narrow:
+Conformance replay has declared limits:
 
 - deterministic only;
 - no random generation;

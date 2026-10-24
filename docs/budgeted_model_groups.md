@@ -26,13 +26,13 @@ This fits large meta/capability checks, planner state graphs, queue/retry
 graphs, and other FlowGuard models where the next states are generated from the
 current state.
 
-Keep using the formal model-first runner for finite input-sequence workflows:
+Use an ordinary contract model with `flowguard.explorer.Explorer` for finite input-sequence workflows:
 
 ```text
 initial_state x input_sequence -> trace
 ```
 
-The internal finite runner still emits bounded progress, but that progress is
+`Explorer` still emits bounded progress, but that progress is
 only visibility.
 It does not shard a graph model or reduce graph memory use.
 

@@ -29,7 +29,7 @@ While working, `change` marks replaced nodes `moving to target`; other breakage 
 ## Change code only
 
 1. Edit the code, then `python -m flowguard change` (check + impact).
-2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `model_unbound` (an unregistered file under `.flowguard/verification/`: rewrite it as a contract model); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree).
+2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `runner_model` (a retired runner file: move its real checks into a contract model and delete the old file); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree).
 3. Run exactly the tests and models it lists; never claim a test passed unless you ran it.
 4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`.
 
@@ -43,10 +43,10 @@ While working, `change` marks replaced nodes `moving to target`; other breakage 
 - Readback: `python -m flowguard read` (`--component <id>`, `--mermaid`, `--target`).
 - Current vs target: `.flowguard/map.json` and `.flowguard/models/` are the current model; `.flowguard/target/` is the target, and `target promote` makes it current once `target check` shows no error and no to-do.
 
-Nodes nest as `system` > component > model > child model. Each has purpose, rules, known-bad, code and tests: `read --component` prints them; `map models` prints the real rule and known-bad names.
+Components can nest using an optional `parent`; models can nest under other models. Each node has purpose, rules, known-bad, code and tests: `read --component` prints them; `map models` prints the real rule and known-bad names.
 Root `system` is the code-derived component graph: unaccepted cycles, upward layer imports and duplicate owners violate its invariants; `python -m flowguard map models system` generates bad edges, and `map check` is its conformance.
 Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and `duplicate_child_owner` are ERRORs. A child slicing parent state declares `project_parent_state`; independent grouped checks need no projection.
-`python -m flowguard read --mermaid` draws the tree (append `--component ID` to focus); `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
+`python -m flowguard read --mermaid` draws the tree, declared dependencies and flows (append `--component ID` to focus); `read --component` names dependency symbols and shows coverage; `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
 For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`python -m flowguard template behaviour --write .`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models; component ids select `read --component`. Unknown model ids fail.
 
 ## What you want to do
@@ -66,7 +66,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | test-mesh | sharding a suite too slow for one command | tool: `python -m flowguard release --shards 4` (whole suite in parallel shards; every collected test runs exactly once within that suite) |
 | ui-flow | UI states, journeys, controls, cancel/recover and operability | node kind `ui-journey` (`python -m flowguard template ui-journey`; checklist `references/model_recipes.md#UI journey`) |
 
-Read only the matching protocol, not a chain of them. `python -m flowguard template --list`, then `python -m flowguard template <name> --write .` supplies starters; otherwise use plain modeling in `references/model_recipes.md`.
+`python -m flowguard template --list`, then `python -m flowguard template <name> --write .` supplies starters; otherwise use plain modeling in `references/model_recipes.md`.
 
 ## First map of an existing project
 

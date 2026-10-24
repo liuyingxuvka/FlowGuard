@@ -14,15 +14,15 @@ on itself.
 
 ## Layout
 
-- `flowguard/` engine and the 10 capabilities; `flowguard/map/` map, discovery and proof layer.
-- `.agents/skills/flowguard/` the single public skill (SKILL.md, references, one protocol per capability, assets).
+- `flowguard/` engine, node kinds (`validator.py`, `ui_flow.py`), computed facets (`hazards.py`, `closure.py`) and the shard tool; `flowguard/map/` map, target, discovery and proof layer.
+- `.agents/skills/flowguard/` the single public skill (SKILL.md, references).
 - `.flowguard/map.json`, `.flowguard/models/`:
   FlowGuard's own map and models. `.flowguard/cache/` is never committed.
 - `tests/` unit tests; `examples/` runnable teaching models; `docs/` long-form notes.
 
 ## Rules
 
-- No generated evidence, receipts or hashes in git except the `fingerprint` fields written by `confirm`.
+- No generated check outputs, execution records or standalone hashes in git except the `fingerprint` fields written by `confirm`.
 - Do not add a second way to do something that already has an owner; extend the owner.
 - When `map lint` reports a real architecture problem you are not fixing now, record it in
   `accepted_debts` with a reason instead of hiding it.

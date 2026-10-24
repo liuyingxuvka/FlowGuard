@@ -1,114 +1,95 @@
 # FlowGuard Concept
 
-FlowGuard is an AI-agent skill backed by an executable check engine. The skill tells an agent when to model a risky workflow, which of its capabilities applies to the problem, which models and tests have to run, and where a safe claim must stop. The Python engine makes those checks executable before or after production code changes.
+FlowGuard maintains one executable model tree of a software project. Its map
+names the components that own files, entrypoints, state and side effects.
+Models sit under those owners and describe behaviour that matters across paths.
+Real code and test bindings connect those models to the implementation.
 
-It is not a normal test framework, not a prompt-engineering trick, and not an LLM wrapper. It does not call model APIs. Its purpose is to make function-flow behavior, process order, staleness, and claim boundaries explicit, finite, repeatable, and checkable. The installable product surface is the single `flowguard` tree under `.agents/skills/`; each capability's short guide lives below `references/domains/`, while the `flowguard` package and scripts remain the executable support layer.
+## Function Blocks And Finite Exploration
 
-## Three Different Meanings Of Green
-
-FlowGuard keeps three kinds of "green" separate because each answers a different question:
-
-1. **Written guidance:** Does the skill or a capability guide say the right things and point at material that exists? This is a static reading, not a run.
-2. **Executed check:** Did the real model or test actually run against the current code and pass? Only running it shows that.
-3. **Current map:** Does `.flowguard/map.json` still describe the code (`python -m flowguard map check`, which flags a confirmed component as stale when its owned files no longer match the stored fingerprint), and did `python -m flowguard change` or `release` run every model and test the change affects?
-
-Good wording is not a passing run. One passing model is not the whole project. Any changed model, test, or covered source file may make an older result stale. This separation is the practical defense against a local green result being promoted into an unsupported full or release claim.
-
-## Why Agents Need an Executable Model
-
-AI coding agents are good at local edits. That strength also creates a risk: an agent may fix the symptom near the failing line while breaking the global workflow. Common failures include duplicate side effects, missing deduplication, inconsistent caches, retry paths that are not idempotent, and downstream functions receiving objects they cannot consume.
-
-Natural-language reminders help, but they are weak. They do not enumerate branches, they do not replay repeated inputs, and they do not produce counterexample traces. FlowGuard makes those concerns executable.
-
-## Mathematical Model
-
-Each function block is modeled as:
+A function block has the form:
 
 ```text
 F: Input x State -> Set(Output x State)
 ```
 
-This means:
-
-- A block receives one abstract input and one immutable abstract state.
-- It returns every possible `(output, new_state)` pair.
-- One result means deterministic behavior.
-- More than one result means explicit branching behavior.
-- Zero results means a dead branch that must be reported.
-
-A workflow composes blocks:
+The block receives an abstract input and state and returns every possible
+output/new-state pair. Zero results expose a dead branch; one is deterministic;
+several express branching. A workflow composes blocks:
 
 ```text
 Workflow = F_C o F_B o F_A
 ```
 
-Because each block may produce multiple results, workflow execution forms a tree of traces. FlowGuard exhaustively explores that tree up to finite bounds and checks invariants on the reachable paths.
+FlowGuard exhaustively explores the resulting paths inside declared finite
+bounds. It enumerates choices without probabilities or random sampling.
+Repeated inputs expose retry, deduplication, idempotency and cache mistakes.
+Invariants can reject duplicate side effects, contradictory decisions, stuck
+states or outputs a downstream block cannot consume. A failure reports the
+counterexample trace so the broken sequence can be replayed.
 
-## No Probability
+Finite exploration establishes behaviour only within the model and its bounds.
+Conformance replay checks representative model traces against real code through
+an adapter. The adapter projects state and output while preserving the facts
+needed by the rule; deduplicating a real duplicate in that projection would hide
+a bug. Unit tests also remain necessary.
 
-FlowGuard is non-probabilistic. It does not estimate probabilities, sample random paths, or run Monte Carlo. If a block can produce three possible outputs, the model returns all three. This is important because rare paths often contain the bug: repeated scoring, duplicate records, contradictory decisions, or a stale cache branch.
+## One Tree, Five Facets
 
-## Repeated Inputs
+The root is `system`. Components may form sub-systems with an optional `parent`;
+models can nest below components or other models. The read view shows five
+facets at each node: purpose, rules, known-bad variants, code and tests.
 
-Many production bugs only appear when the same external input is processed again. Examples include retries, user double-submit, job re-ingestion, cache refresh mistakes, and repeated agent runs.
+`IMPLEMENTED_BY` names real code anchors exercised by model exploration or
+`conformance()`.
+`TESTED_BY` names tests for each rule. Every model supplies known-bad variants
+that must fail, and each rule must be broken by at least one of those variants.
+These checks make omitted cases visible; they do not establish unbounded
+production correctness.
 
-For `external_inputs = [job_001]` and `max_sequence_length = 2`, FlowGuard explores:
+## Current And Target Models
 
-```text
-[job_001]
-[job_001, job_001]
+The current model is `.flowguard/map.json` plus `.flowguard/models/`.
+Confirmed components store file fingerprints; changed owned code becomes stale
+until its description is reviewed and confirmed.
+
+For a behaviour or structure change, start one target:
+
+```sh
+python -m flowguard read
+python -m flowguard target start "Describe the intended change"
+python -m flowguard target add <node-id>
+python -m flowguard target check
 ```
 
-That repeated sequence is what exposes non-idempotent blocks.
+Edit `.flowguard/target/` until the design has no errors. Implement the code and
+tests until no to-do remains, then use `target promote`, confirm the components
+it lists and run `change`. The target becomes the current model; git keeps its
+history. An edit that changes neither behaviour nor structure uses `change`
+directly. Run the tests and models it selects, and resolve reported errors
+before committing.
 
-## Idempotency
+## Node Kinds And Tree Operations
 
-Idempotency is a design rule, not only a test case. A block that writes state should say what happens when it receives the same input again. For example, `RecordScoredJob` should return `already_exists` instead of adding a second record.
+Templates start ordinary `behaviour` models, finite-input `validator` nodes and
+`ui-journey` nodes. `adoption` supplies repository rules. With a target present,
+model templates write into its model directory.
 
-FlowGuard makes that rule visible in three places:
+Use [tree operations](../.agents/skills/flowguard/references/tree_operations.md)
+to add, split, merge or remove owners, retire fields and preserve external
+promises. [Model recipes](../.agents/skills/flowguard/references/model_recipes.md)
+describe real bindings, child models and the node kinds.
 
-- Function-block metadata such as `reads`, `writes`, and `idempotency`.
-- State transitions in `FunctionResult`.
-- Invariants such as `no_duplicate_application_records`.
+## Computed Facets And Passing Checks
 
-## Invariants Beat Reminders
+`read` reports how models, tests and explicit exclusions explain entrypoints
+and state writers. `map models` computes `hazard:` observations and warns about
+rules without test bindings through `invariant_untested`. These observations
+come from the current tree and code.
 
-An invariant is executable. It checks every explored path and returns a structured violation with a counterexample trace. A reminder says "remember to deduplicate"; an invariant proves whether any explored path creates duplicates.
-
-Good invariants are concrete:
-
-- No duplicate application records.
-- No repeated scoring without refresh.
-- Every downstream object has source traceability.
-- No contradictory final decisions.
-- Cache and source of truth remain consistent.
-
-## What FlowGuard Is Not
-
-FlowGuard is not a complete formal proof system. The MVP explores finite abstract inputs up to finite sequence bounds. It can find counterexamples inside the model, but it cannot prove unbounded production correctness.
-
-FlowGuard is also not a replacement for unit tests. Unit tests still verify production code. FlowGuard sits earlier: it models the intended functional flow before production code is written or changed.
-
-## Map, Check And Release
-
-FlowGuard keeps a map of the project in `.flowguard/map.json` (components, files, entrypoints,
-dependencies, tests and models). `python -m flowguard change` checks the map against the code and
-lists only the tests and models a change affects; `python -m flowguard release` runs the strict
-check, the architecture review and every model. The skill is installed by copying
-`.agents/skills/flowguard/` with `python scripts/install_skill.py --target <skills dir>`.
-
-## MVP Limits
-
-The first version is intentionally small:
-
-- Python standard library only.
-- No LLM API calls.
-- No probability model.
-- No random sampling or Monte Carlo.
-- No GUI.
-- No database.
-- No real job-search product.
-- No complex plugin system.
-- No complete formal proof or unbounded model checking.
-
-The target use is a small, executable model that makes production design safer before implementation starts.
+A passing result means `map models` or `release` actually ran on that source.
+Written guidance, a confirmed fingerprint and a historical pass do not establish
+a new passing result. `change` selects affected checks. By default, `release`
+runs strict checks, all models and their bound tests; `release --shards N` also
+runs the whole collected test suite. Report the command, source revision and
+actual result so its scope remains clear.
