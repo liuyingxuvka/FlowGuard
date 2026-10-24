@@ -1,0 +1,96 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-318: one rule for uncovered invariants; old findings do not block; model_proof feature uncovered_invariant, target_findings case old_finding_in_unchanged_model",
+  "components": [
+    {
+      "id": "map-proof",
+      "layer": "map",
+      "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
+      "responsibilities": [
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints from the contract-model tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification; print computed hazards for every model after its existing design exploration, never gating a verdict or repeating user hooks",
+        "fail a contract model whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
+        "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
+        "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
+        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
+        "check real code facts and keep failed facts visible; place models of unbuilt behavior in the target",
+        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback",
+        "print at most three open hazard hints per model",
+        "fail a model whose rule no known-bad variant breaks"
+      ],
+      "files": [
+        "flowguard/map/proof.py",
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py",
+        "flowguard/map/system_model.py",
+        "flowguard/map/testreach.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
+      ],
+      "state": [],
+      "side_effects": [
+        "runs isolated model subprocesses",
+        "runs one isolated pytest process per model when bound-test checking is requested"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "engine-explore",
+        "engine-properties",
+        "map-analysis",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_facts.py",
+        "tests/test_flowguard_map_proof.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Keeps one target and checks component parent design, merged code and tests.",
+      "responsibilities": [
+        "start, extend and drop one target without executing models or code checks; reject a retired design marker in a current model as an error while preserving the existing target marker rejection; keep component_parent_unknown, component_parent_cycle and component_parent_layer as target design errors",
+        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors; keep independently missing implementation anchors as code to-do when target-declared component containment is valid, with genuine regression coverage for the current and invalid-parent boundaries; retain runner_model retirement errors as errors rather than code to-do",
+        "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
+        "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
+        "stop a target that silently drops an entrypoint, state or side effect",
+        "show invariant_untested as a model warning while retaining proof and known-bad failures",
+        "report a responsibility that loses its owner",
+        "refuse a target that changes nothing",
+        "tie a changed promise to a model rule",
+        "mark only the breakage of a changed subject as moving to target",
+        "report findings of unchanged models as old"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+      ],
+      "depends_on": [
+        "map-analysis",
+        "map-file",
+        "map-inventory",
+        "map-proof"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
