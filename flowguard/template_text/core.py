@@ -19,7 +19,7 @@ Each entry should record:
 - elapsed time;
 - findings and counterexamples;
 - skipped steps and reasons;
-- risk evidence ledger summary for final confidence claims;
+- actual model and test outcomes, with unresolved cases and their bounds;
 - friction points;
 - next actions.
 
