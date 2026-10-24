@@ -6,6 +6,7 @@ import ast
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
+from ..kit import Feature, feature_model_names
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
 from .lint import _variants, explained_by
@@ -25,6 +26,7 @@ class Facets:
     test_count: int
     rule_notes: tuple[str, ...] = ()    # description of each rule, aligned with ``rules``
     model_id: str = ""
+    cases: tuple | None = None          # feature-kit models: (defect names, benign names)
 
     @property
     def known_bad_count(self) -> int | None:
@@ -109,6 +111,7 @@ class _StaticModel:
         self.root, self.view, self.base = root, view, PurePosixPath(logical).parent
         self.main = _Scope(syntax)
         self.modules = {}
+        self.cases = None
 
     # -- names across the model file and its helper files -------------------------------------
     def _module(self, name):
@@ -249,6 +252,79 @@ class _StaticModel:
             return self.rules(found[0], found[1], None, depth + 1) if found else None
         return None
 
+    # -- feature kit --------------------------------------------------------------------------
+    def _features(self, expr, scope, local=None, depth=0):
+        """Literal Feature(...) declarations (``apply`` ignored; non-literal codes become placeholders)."""
+        if depth > 20:
+            return None
+        if isinstance(expr, ast.Name):
+            if local and expr.id in local:
+                return self._features(local[expr.id], scope, None, depth + 1)
+            found = self._lookup(expr.id, scope)
+            return self._features(found[0], found[1], None, depth + 1) if found else None
+        if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
+            left = self._features(expr.left, scope, local, depth + 1)
+            right = self._features(expr.right, scope, local, depth + 1)
+            return None if left is None or right is None else left + right
+        if not isinstance(expr, (ast.Tuple, ast.List)):
+            return None
+        features = []
+        for item in expr.elts:
+            if isinstance(item, ast.Starred):
+                nested = self._features(item.value, scope, local, depth + 1)
+                if nested is None:
+                    return None
+                features += nested
+                continue
+            if isinstance(item, ast.Name):
+                found = self._lookup(item.id, scope)
+                item, scope_item = found if found else (None, scope)
+            else:
+                scope_item = scope
+            if not isinstance(item, ast.Call) or _call_name(item) != "Feature":
+                return None
+            given = dict(zip(("name", "rejects", "codes", "apply", "exclusive", "requires", "conflicts"), item.args))
+            given.update({k.arg: k.value for k in item.keywords if k.arg})
+            name = self.value(given["name"], scope_item, local) if "name" in given else _UNKNOWN
+            rejects = self.value(given["rejects"], scope_item, local) if "rejects" in given else _UNKNOWN
+            codes = given.get("codes")
+            if codes is not None and not isinstance(codes, (ast.Tuple, ast.List)):
+                return None
+            options = {}
+            for key, default in (("exclusive", False), ("requires", ()), ("conflicts", ())):
+                options[key] = self.value(given[key], scope_item, local) if key in given else default
+            if (not isinstance(name, str) or not isinstance(rejects, bool) or not isinstance(options["exclusive"], bool)
+                    or not all(isinstance(options[key], tuple) and all(isinstance(v, str) for v in options[key])
+                               for key in ("requires", "conflicts"))):
+                return None
+            placeholders = tuple(f"\0{name}:{index}" for index in range(len(codes.elts))) if codes is not None else ()
+            try:
+                features.append(Feature(name, rejects, placeholders, None, **options))
+            except ValueError:
+                return None
+        return features
+
+    def kit_names(self, call, scope, local=None):
+        """(rules, known-bad, cases) of feature_explorer/feature_variants(F, ...), or None."""
+        if not call.args:
+            return None
+        features = self._features(call.args[0], scope, local)
+        if not features:
+            return None
+        options = {}
+        for keyword in call.keywords:
+            if keyword.arg not in {"max_features", "codes"}:
+                return None
+            options[keyword.arg] = self.value(keyword.value, scope, local)
+        if len(call.args) > 1 or any(value is _UNKNOWN for value in options.values()):
+            return None
+        try:
+            rules, bad = feature_model_names(features, **options)
+        except (ValueError, TypeError):
+            return None
+        cases = (tuple(f.name for f in features if f.rejects), tuple(f.name for f in features if not f.rejects))
+        return rules, bad, cases
+
     def _explorer_calls(self, function, scope, depth=0):
         """Explorer(...) calls returned by this function, following one same-file call."""
         calls = []
@@ -259,7 +335,7 @@ class _StaticModel:
             if not isinstance(value, ast.Call):
                 return None
             name = _call_name(value)
-            if name == "Explorer":
+            if name in {"Explorer", "feature_explorer"}:
                 calls.append((value, scope, local))
             elif depth == 0 and isinstance(value.func, ast.Name) and value.func.id in scope.functions:
                 inner = self._explorer_calls(scope.functions[value.func.id], scope, 1)
@@ -277,6 +353,13 @@ class _StaticModel:
             return None
         found = []
         for call, scope, local in calls:
+            if _call_name(call) == "feature_explorer":
+                kit = self.kit_names(call, scope, local)
+                if kit is None:
+                    return None
+                self.cases = kit[2]
+                found.append(tuple(kit[0]))
+                continue
             given = next((k.value for k in call.keywords if k.arg == "invariants"), None)
             if given is None and len(call.args) > 3:
                 given = call.args[3]
@@ -384,6 +467,9 @@ class _StaticModel:
                 return keys
             found = self._lookup(expr.id, scope)
             return self.bad_keys(found[0], found[1], None, depth + 1) if found else None
+        if isinstance(expr, ast.Call) and _call_name(expr) == "feature_variants":
+            kit = self.kit_names(expr, scope, local)
+            return list(kit[1]) if kit else None
         return None
 
     def known_bad(self):
@@ -461,7 +547,7 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
     return Facets(purpose, names, source, bad, "literal" if literal_bad else "runtime",
                   tuple(code), tuple(tests), len(rules) if source != "runtime" else None,
                   sum(len(anchors) for anchors in contract.get("TESTED_BY", {}).values()),
-                  tuple(notes[name] for name in names), node.id)
+                  tuple(notes[name] for name in names), node.id, static.cases if source == "explorer" else None)
 
 
 def _test_source(root, path, source_cache=None):

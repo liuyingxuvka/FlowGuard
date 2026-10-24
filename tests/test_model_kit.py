@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
+from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_model_names, feature_variants
 
 
 FEATURES = (Feature("empty_id", True, ("missing_id",), lambda order: {**order, "id": ""}),
@@ -316,3 +316,28 @@ def test_reject_only_conformance_still_checks_the_clean_base(crashes):
     assert not report.ok
     assert any(not v.features and v.rule_name == ("adapter_exception" if crashes else "matches_design")
                for v in report.violations), report.format_text()
+
+
+@pytest.mark.parametrize("features, options", [
+    ((Feature("a", True, ("A",)), Feature("b", True, ("B",)), Feature("c", False)), {}),
+    ((Feature("a", True, ("A",)), Feature("b", True, ("B",)), Feature("c", False)), {"codes": "first"}),
+    ((Feature("a", True, ("A",)), Feature("b", False, exclusive=True), Feature("c", False)), {}),
+    ((Feature("a", True, ("A",)), Feature("b", True, ("B",), requires=("a",))), {}),
+    ((Feature("a", True, ("A",)), Feature("b", True, ("B",)), Feature("c", False, conflicts=("a",))), {"max_features": 1}),
+    ((Feature("a", True), Feature("b", True)), {}),
+    ((Feature("a", True, ("A",)), Feature("b", False), Feature("c", False, exclusive=True)), {"codes": "first"}),
+    ((Feature("a", False), Feature("b", False)), {}),
+    ((Feature("a", True, ("A", "A2")), Feature("b", False, requires=("a",))), {"max_features": 3}),
+])
+def test_feature_model_names_match_generated_variants(features, options):
+    """Static names (no apply needed) equal the real explorer invariants and variant keys."""
+    try:
+        explorer = feature_explorer(features, **options)
+    except ValueError:
+        with pytest.raises(ValueError):
+            feature_model_names(features, **options)
+        return
+    rules, bad = feature_model_names(tuple(Feature(f.name, f.rejects, f.codes, None, f.exclusive, f.requires, f.conflicts)
+                                           for f in features), **options)
+    assert [(rule.name, rule.description) for rule in explorer.invariants] == list(rules)
+    assert list(feature_variants(features, **options)) == list(bad)

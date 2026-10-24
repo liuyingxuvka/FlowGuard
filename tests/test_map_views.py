@@ -857,3 +857,77 @@ def test_static_known_bad_follow_loops_and_tuple_targets(tmp_path):
     assert "model probe_tuple: Probe. (1 rules, 2 known-bad, 0 tests)" in overview
     assert "model probe_items: Probe. (1 rules, 3 known-bad, 0 tests)" in overview
     _assert_static_equals_runtime(tmp_path, data, inv)
+
+
+def test_kit_model_facets_are_static_and_complete(tmp_path):
+    """Feature-kit rules, known-bad and the defect/benign case table are read without importing."""
+    import sys
+    data, inv = _static_project(tmp_path, {".flowguard/models/probe_kit.py": '''"""Probe."""
+from pathlib import Path
+Path(__file__).parents[2].joinpath("model_import.marker").write_text("imported")
+from flowguard.kit import Feature, feature_explorer, feature_variants
+MODEL_ID = "probe_kit"
+IMPLEMENTED_BY = {"Run": "app.py:run"}
+FEATURES = (Feature("d_one", True, ("c1",), lambda plan: plan), Feature("d_two", True, ("c2",), lambda plan: plan),
+            Feature("b_one", False, (), lambda plan: plan))
+def build_explorer(): return feature_explorer(FEATURES, codes="first")
+def broken_variants(): return feature_variants(FEATURES, codes="first")
+'''})
+    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
+    assert not (tmp_path / "model_import.marker").exists()
+    assert not any(isinstance((file := vars(module).get("__file__")), str) and "probe_kit" in file
+                   for module in tuple(sys.modules.values()) if module is not None)
+    assert "model probe_kit: Probe. (4 rules, 3 known-bad, 0 tests)" in overview
+    assert "cases: 2 defects (d_one, d_two), 1 benign (b_one)" in detail
+    assert "cases:" not in overview
+    (tmp_path / "model_import.marker").unlink(missing_ok=True)
+    _assert_kit_matches_runtime(tmp_path, detail)
+
+
+def _assert_kit_matches_runtime(tmp_path, detail):
+    lines = detail.splitlines()
+    for mid, (rules, bads) in _runtime_names(tmp_path).items():
+        at = next(index for index, line in enumerate(lines) if line.strip().startswith(f"model {mid}: "))
+        facets = {line.strip().partition(": ")[0]: line.strip().partition(": ")[2] for line in lines[at + 1:at + 6]}
+        shown = [item for item in facets["rules"].split("; ") if not item.startswith("cases: ")]
+        assert shown == [f"{name}: {text}" for name, text in sorted(rules.items())]
+        assert facets["known-bad"] == ", ".join(bads)
+
+
+def test_static_facets_match_flowguard_self_models():
+    """Every FlowGuard model reads statically the same rule and known-bad names it builds at run time."""
+    import importlib.util
+    import sys
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.facets import model_facets
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.tree import build_tree
+
+    root = Path(__file__).resolve().parents[1]
+    data = load_map(root)
+    tree = build_tree(root, data, build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False))
+    models = str(root / ".flowguard/models")
+    added = models not in sys.path
+    if added:
+        sys.path.append(models)
+    try:
+        checked = 0
+        for mid, node in sorted(tree.nodes.items()):
+            if not node.path.startswith(".flowguard/models/"):
+                continue
+            facets = model_facets(root, node)
+            name = f"_flowguard_model_{Path(node.path).stem}"
+            spec = importlib.util.spec_from_file_location(name, root / node.path)
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            assert facets.rules_source == "explorer", mid
+            assert list(facets.rules) == sorted(rule.name for rule in module.build_explorer().invariants), mid
+            assert list(facets.known_bad) == sorted(module.broken_variants()), mid
+            checked += 1
+        assert checked >= 13
+    finally:
+        if added:
+            sys.path.remove(models)

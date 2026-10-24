@@ -339,7 +339,8 @@
         "compare current owner promises with merged target owners and explicit removal intent when checking a target",
         "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
         "show the requested component within the read budget",
-        "read model rules statically from the explorer the model builds"
+        "read model rules statically from the explorer the model builds",
+        "read feature-kit rules, known-bad and cases without running the model"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -358,6 +359,7 @@
         "reads git history; refreshes disposable analysis cache"
       ],
       "depends_on": [
+        "engine-conformance",
         "map-discover",
         "map-file",
         "map-inventory"
@@ -370,7 +372,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3174f0208e4e472827bf931c846eef18a55d548b55d01be021598441def2a2b6"
+      "fingerprint": "sha256:f0739c3a292cab2835a214dedae13cf202f6f7395ecb9f9d946aa5385ee290fd"
     },
     {
       "id": "map-target",
@@ -574,7 +576,8 @@
       "responsibilities": [
         "replay model traces on the real code",
         "build complete models from each allowed feature set once (codes all or first; requires and conflicts)",
-        "collect first-seen projected initial and retained trace step states for a parent-child port"
+        "collect first-seen projected initial and retained trace step states for a parent-child port",
+        "name feature-kit rules and known-bad from the feature list alone"
       ],
       "files": [
         "flowguard/conformance.py",
@@ -598,7 +601,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cb44003107d3dc19e2387aa67fe4234a9688d6e9d51b1ce758ce8a92c0e87e91"
+      "fingerprint": "sha256:1566e436a178caf790d6bf116e5947b70aed9f517a30950f2dc64c3e50a46fd6"
     },
     {
       "id": "problem-corpus",

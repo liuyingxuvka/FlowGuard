@@ -71,8 +71,13 @@ def _rule_text(facets) -> str:
     if facets.rules_source == "file":
         return ", ".join(facets.rules) + " (found in the file; map models prints the real ones)"
     notes = facets.rule_notes or ("",) * len(facets.rules)
-    return "; ".join(name + (": " + (note[:69] + "…" if len(note) > 70 else note) if note else "")
+    text = "; ".join(name + (": " + (note[:69] + "…" if len(note) > 70 else note) if note else "")
                      for name, note in zip(facets.rules, notes)) or "-"
+    if facets.cases is not None:
+        defects, benign = facets.cases
+        text += (f"; cases: {len(defects)} defects ({_capped(defects, 6)})"
+                 + (f", {len(benign)} benign ({_capped(benign, 6)})" if benign else ", 0 benign"))
+    return text
 
 
 def _facet_lines(facets, indent: str) -> list[str]:

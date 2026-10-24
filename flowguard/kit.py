@@ -128,6 +128,20 @@ class _Universe:
         plain_outcome, plain_codes = (outcome, codes) if plain == names or not self.allowed(plain) else judge(plain)
         return FeatureState(names, outcome, frozenset(codes), plain_outcome, frozenset(plain_codes))
 
+    def rule_specs(self) -> tuple[tuple[str, str], ...]:
+        """Names and descriptions of the kit invariants that have a witness (no ``apply`` needed)."""
+        specs = []
+        if any(not self.rejecting(names) for names in self.combinations):
+            specs.append(("clean_input_accepted", "an input with no defect is accepted"))
+        if any(feature.rejects for feature in self.features):
+            specs.append(("each_defect_rejected", "an input with any defect is rejected"))
+        if any(self.expected(names)[1] for names in self.combinations):
+            specs.append(("first_defect_reported" if self.codes == "first" else "every_defect_reported",
+                          "a rejection reports the declared codes of the expected defects"))
+        if any(self.rejecting(names) != names and self.allowed(self.rejecting(names)) for names in self.combinations):
+            specs.append(("benign_features_neutral", "removing legal benign features does not change the verdict"))
+        return tuple(specs)
+
     def invariants(self) -> tuple[Invariant, ...]:
         def judged(state: FeatureState) -> bool:
             return state.outcome in (ACCEPTED, REJECTED)
@@ -160,18 +174,10 @@ class _Universe:
                                             f"{_verdict(state.outcome, state.codes)}")
             return InvariantResult.pass_()
 
-        checks = []
-        if any(not self.rejecting(names) for names in self.combinations):
-            checks.append(Invariant("clean_input_accepted", "an input with no defect is accepted", clean_input_accepted))
-        if any(feature.rejects for feature in self.features):
-            checks.append(Invariant("each_defect_rejected", "an input with any defect is rejected", each_defect_rejected))
-        if any(self.expected(names)[1] for names in self.combinations):
-            name = "first_defect_reported" if self.codes == "first" else "every_defect_reported"
-            checks.append(Invariant(name, "a rejection reports the declared codes of the expected defects", every_defect_reported))
-        if any(self.rejecting(names) != names and self.allowed(self.rejecting(names)) for names in self.combinations):
-            checks.append(Invariant("benign_features_neutral", "removing legal benign features does not change the verdict",
-                                    benign_features_neutral))
-        return tuple(checks)
+        checks = {"clean_input_accepted": clean_input_accepted, "each_defect_rejected": each_defect_rejected,
+                  "first_defect_reported": every_defect_reported, "every_defect_reported": every_defect_reported,
+                  "benign_features_neutral": benign_features_neutral}
+        return tuple(Invariant(name, text, checks[name]) for name, text in self.rule_specs())
 
     def explorer(self, judge, extra_invariants: Iterable[Invariant] = ()) -> Explorer:
         return Explorer(workflow=Workflow((_AddFeature(self, judge),)), initial_states=(self.state((), judge),),
@@ -202,16 +208,12 @@ def feature_explorer(features: Sequence[Feature], *, max_features: int = 2, code
     return universe.explorer(universe.expected)
 
 
-def feature_variants(features: Sequence[Feature], *, max_features: int = 2, codes: str = "all") -> dict[str, Explorer]:
-    """Generate bad verdicts with real witnesses in the legal feature sets.
-
-    Code masking reports only the first defect in all-code mode, or the last in first-code mode.
-    If neither can mask an expected code, dropping codes supplies the reporting witness instead.
-    """
-    universe = _Universe(features, max_features, codes)
+def _variant_judges(universe: _Universe) -> dict[str, Callable[[tuple[str, ...]], tuple[str, frozenset]]]:
+    """Name each generated bad verdict and its judge; names depend only on names and constraints."""
+    codes = universe.codes
     rejecting = [feature for feature in universe.features if feature.rejects]
     benign = [feature for feature in universe.features if not feature.rejects]
-    variants: dict[str, Explorer] = {}
+    judges: dict[str, Callable] = {}
     if rejecting:
         ignored = rejecting[0].name
         def ignores(names):
@@ -221,10 +223,10 @@ def feature_variants(features: Sequence[Feature], *, max_features: int = 2, code
         # Required co-defects can prevent removal of one defect from accepting an input.
         # In that case an ignoring implementation accepts an input containing that defect.
         if not any(universe.expected(names)[0] != ignores(names)[0] for names in universe.combinations):
-            variants[f"ignores_{ignored}"] = universe.explorer(
+            judges[f"ignores_{ignored}"] = (
                 lambda names: (ACCEPTED, frozenset()) if ignored in names else universe.expected(names))
         else:
-            variants[f"ignores_{ignored}"] = universe.explorer(ignores)
+            judges[f"ignores_{ignored}"] = ignores
     def limited(names):
         outcome, _codes = universe.expected(names)
         defects = universe.rejecting(names)
@@ -233,21 +235,41 @@ def feature_variants(features: Sequence[Feature], *, max_features: int = 2, code
 
     if any(universe.expected(names)[1] - limited(names)[1] for names in universe.combinations):
         key = "reports_last_defect_only" if codes == "first" else "reports_first_defect_only"
-        variants[key] = universe.explorer(limited)
+        judges[key] = limited
     elif any(universe.expected(names)[1] for names in universe.combinations):
         coded = next(feature for feature in universe.features if feature.codes)
-        variants[f"drops_codes_of_{coded.name}"] = universe.explorer(
-            lambda names: (universe.expected(names)[0], frozenset()))
+        judges[f"drops_codes_of_{coded.name}"] = lambda names: (universe.expected(names)[0], frozenset())
     neutral = next((feature for feature in benign
                     if any(feature.name in names and universe.allowed(universe.rejecting(names))
                            for names in universe.combinations)), None)
     if neutral is not None:
         loud = neutral.name
         has_clean_witness = any(loud in names and not universe.rejecting(names) for names in universe.combinations)
-        variants[f"rejects_{loud}"] = universe.explorer(
+        judges[f"rejects_{loud}"] = (
             lambda names: ((REJECTED if has_clean_witness else ACCEPTED), universe.expected(names)[1])
             if loud in names else universe.expected(names))
-    return variants
+    return judges
+
+
+def feature_model_names(features: Sequence[Feature], *, max_features: int = 2,
+                        codes: str = "all") -> tuple[tuple[tuple[str, str], ...], tuple[str, ...]]:
+    """The rule ``(name, description)`` pairs and known-bad names of a feature model.
+
+    Only feature names and constraints are used (``apply`` may be ``None``); the result equals the
+    names of ``feature_explorer(...).invariants`` and the keys of ``feature_variants(...)``.
+    """
+    universe = _Universe(features, max_features, codes)
+    return universe.rule_specs(), tuple(_variant_judges(universe))
+
+
+def feature_variants(features: Sequence[Feature], *, max_features: int = 2, codes: str = "all") -> dict[str, Explorer]:
+    """Generate bad verdicts with real witnesses in the legal feature sets.
+
+    Code masking reports only the first defect in all-code mode, or the last in first-code mode.
+    If neither can mask an expected code, dropping codes supplies the reporting witness instead.
+    """
+    universe = _Universe(features, max_features, codes)
+    return {name: universe.explorer(judge) for name, judge in _variant_judges(universe).items()}
 
 
 @dataclass(frozen=True)
@@ -396,5 +418,5 @@ def reachable_states(explorer: Explorer, project=None) -> tuple:
 
 
 __all__ = ["FEATURE_INVARIANTS", "Feature", "FeatureReport", "FeatureState", "FeatureViolation",
-           "feature_conformance", "feature_explorer", "feature_variants",
+           "feature_conformance", "feature_explorer", "feature_model_names", "feature_variants",
            "reachable_states"]

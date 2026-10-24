@@ -213,6 +213,8 @@ use `codes="first"` for a validator that stops at the first defect in declaratio
 requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
 `exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
 are omitted; conformance still checks the clean base against the design, including adapter errors.
+`read` computes a kit model's rules, known-bad and defect/benign cases from a literal `FEATURES`
+(`feature_model_names` gives the same names without `apply`); a non-literal name or constraint shows `?`.
 
 `ui-journey` and `validator` contain `REPLACE_ME` anchors: fill them with real code and tests.
 `behaviour` has sample `shop/orders.py:OrderService.place` and a commented `TESTED_BY` example; replace the sample and bind real tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run

@@ -31,7 +31,8 @@ TESTED_BY = {
     "missing_summary_prompt": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
-                                 "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets"],
+                                 "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
+                                 "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
 }
 
 PURPOSE = "Explain read probe behavior."
@@ -97,6 +98,15 @@ PROBE_FILES = {
             "    for _, mutation, _ in FEATURES.values():\n        result[mutation] = _explorer(mutation)\n"
             "    for case in EXPECTED:\n        result[f\"ignore_{case}\"] = _explorer(case)\n    return result\n"),
     },
+    "kit": {
+        ".flowguard/models/probe_kit.py": (
+            '"""Probe."""\nfrom flowguard.kit import Feature, feature_explorer, feature_variants\n'
+            'MODEL_ID = "probe_kit"\nIMPLEMENTED_BY = {"Run": "alpha.py:run"}\n'
+            'FEATURES = (Feature("d_one", True, ("c1",), lambda plan: plan), Feature("d_two", True, ("c2",), lambda plan: plan),\n'
+            '            Feature("b_one", False, (), lambda plan: plan))\n'
+            'def build_explorer(): return feature_explorer(FEATURES, codes="first")\n'
+            'def broken_variants(): return feature_variants(FEATURES, codes="first")\n'),
+    },
 }
 # The runtime names of PROBE_FILES (conformance re-derives them by importing the probes).
 PROBE_TRUTH = {
@@ -105,7 +115,13 @@ PROBE_TRUTH = {
     "wrapper": (("probe_wrapper", (("x_rule", "x holds"), ("y_rule", "y holds")), ("x_bad", "y_bad"), ()),),
     "loops": (("probe_loop", (("l_rule", "l holds"),), ("ignore_alpha", "ignore_beta", "m_one", "m_two"), ()),
               ("probe_tuple", (("t_rule", "t holds"),), ("a_bad", "b_bad"), ())),
+    "kit": (("probe_kit", (("benign_features_neutral", "removing legal benign features does not change the verdict"),
+                           ("clean_input_accepted", "an input with no defect is accepted"),
+                           ("each_defect_rejected", "an input with any defect is rejected"),
+                           ("first_defect_reported", "a rejection reports the declared codes of the expected defects")),
+             ("ignores_d_one", "rejects_b_one", "reports_last_defect_only"), ()),),
 }
+KIT_CASES = "cases: 2 defects (d_one, d_two), 1 benign (b_one)"
 
 
 @dataclass(frozen=True)
@@ -128,6 +144,8 @@ FEATURES = (
     Feature("helper_split_model", False, (), lambda case: replace(case, probe="helper_split"), exclusive=True),
     Feature("wrapper_rule_model", False, (), lambda case: replace(case, probe="wrapper"), exclusive=True),
     Feature("loop_built_variants_model", False, (), lambda case: replace(case, probe="loops"), exclusive=True),
+    # A feature-kit model: two defects and one benign feature, codes="first".
+    Feature("kit_model", False, (), lambda case: replace(case, probe="kit"), exclusive=True),
 )
 
 
@@ -182,7 +200,7 @@ def _static(observation):
                 return False
             facets = {line.strip().partition(": ")[0]: line.strip().partition(": ")[2] for line in lines[index + 1:index + 6]}
             if "rules" in facets:
-                shown = {item.partition(": ")[0] for item in facets["rules"].split("; ")}
+                shown = {item.partition(": ")[0] for item in facets["rules"].split("; ") if not item.startswith("cases: ")}
                 if shown != set(rules) or {item for item in facets["known-bad"].split(", ")} != set(bads):
                     return False
     return True
@@ -226,7 +244,8 @@ def _abstract(case):
         for mid, rules, bads, _keys in PROBE_TRUTH[case.probe]:
             row = f"model {mid}: Probe. ({len(rules)} rules, {len(bads)} known-bad, 0 tests)"
             rows.append("  " + row)
-            details += ["  " + row, "    purpose: Probe.", "    rules: " + "; ".join(f"{n}: {d}" for n, d in rules),
+            cases = "; " + KIT_CASES if case.probe == "kit" else ""
+            details += ["  " + row, "    purpose: Probe.", "    rules: " + "; ".join(f"{n}: {d}" for n, d in rules) + cases,
                         "    known-bad: " + ", ".join(bads), "    code: -", "    tests: -"]
         text = ("## alpha [-]\n  Serve alpha\n  " + MODEL_LINE + "\n" + "\n".join(rows) + "\n## beta [-]\n  Serve beta\n\n"
                 "## alpha [-] 1 files/1 loc, 0 rules\n  purpose: Serve alpha\n" + "\n".join(details))
@@ -271,6 +290,8 @@ class Show:
                     text = text.replace(f"({len(rules)} rules", f"({len(keys)} rules").replace(
                         "rules: " + "; ".join(f"{n}: {d}" for n, d in rules), "rules: " + ", ".join(keys) + " (from TESTED_BY)")
             observed = replace(observed, text=text)
+        elif self.fault == "kit_hidden" and case.probe == "kit":
+            observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
         elif self.fault == "hide_focused" and case.component:
             observed = replace(observed, text=f"# read fixture\n... truncated at {case.budget} chars; "
                                               f"not shown: {case.component}; use read --component ID")
@@ -291,7 +312,8 @@ def broken_variants():
             "exceeds_budget": _explorer("overflow"), "drops_model_contract": _explorer("drop_model_contract"),
             "drops_summary_prompt": _explorer("drop_summary_prompt"),
             "hides_focused_component": _explorer("hide_focused"),
-            "counts_tested_by_keys": _explorer("tested_by_keys")}
+            "counts_tested_by_keys": _explorer("tested_by_keys"),
+            "kit_known_bad_hidden": _explorer("kit_hidden")}
 
 
 def _files():
