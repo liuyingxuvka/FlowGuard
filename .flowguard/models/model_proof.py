@@ -27,7 +27,8 @@ NOT_MODELED = {
 }
 TESTED_BY = {
     "each_defect_rejected": [
-        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
+        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant",
+        "tests/test_flowguard_map_proof.py:test_uncovered_invariant_fails_the_model_everywhere"
     ],
     "clean_input_accepted": [
         "tests/test_flowguard_map_proof.py:test_fixed_code_passes_and_every_run_executes"
@@ -85,6 +86,10 @@ FEATURES = (
             _edit('TESTED_BY = {"one_step":', 'TESTED_BY = {"unknown_rule":')),
     Feature("uncaught_known_bad", True, ("uncaught_known_bad",),
             _edit('"wrong_advance": make(Bad())', '"wrong_advance": make(Step())')),
+    # A second rule that no known-bad variant breaks: the model fails (map models, release, target check).
+    Feature("uncovered_invariant", True, ("uncovered_invariant",),
+            _edit("invariants=(RULE,),", 'invariants=(RULE, Invariant("never_negative", "never negative", '
+                                         'lambda state, trace: InvariantResult.pass_())),')),
     Feature("missing_conformance", True, ("missing_conformance",),
             _edit("def conformance():", "def _unused_conformance():")),
     Feature("unconsulted_anchor", True, ("unconsulted_anchor",),
@@ -128,6 +133,7 @@ def _review(source):
     for fragment, category in (
         ("placeholder anchor", "placeholder_anchor"),
         ("TESTED_BY names", "unknown_test_invariant"),
+        ("uncovered_invariant: ", "uncovered_invariant"),     # its text also says "known-bad variant"
         ("known-bad variant", "uncaught_known_bad"),
         ("abstract boundary only", "missing_conformance"),
         ("never ran", "unconsulted_anchor"),

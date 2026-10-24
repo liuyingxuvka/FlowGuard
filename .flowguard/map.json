@@ -89,7 +89,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; map models and release fail a model with an uncovered invariant, counted once; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget; read --review and map show --review print the same ranked architecture review",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
@@ -126,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a8dc5391ccf60bbff1b63f6c7098db753b4f239380318c301af875389f07bbfb"
+      "fingerprint": "sha256:5494d8f711ab3bd11953c8c7d72ff2574f0684eab40e8b2dfed0abb8657fa106"
     },
     {
       "id": "public-api",
@@ -411,7 +411,8 @@
         "report a responsibility that loses its owner",
         "refuse a target that changes nothing",
         "tie a changed promise to a model rule",
-        "mark only the breakage of a changed subject as moving to target"
+        "mark only the breakage of a changed subject as moving to target",
+        "report findings of unchanged models as old"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -438,7 +439,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e01e9f871a0706f3df71c3060848ffcca9b662ee2873b64e64059981d01eff98"
+      "fingerprint": "sha256:5f7b121569ac78d90992a1ac02745f14fa4306cea6c402c4ffbca06a1f3caf7d"
     },
     {
       "id": "map-proof",
@@ -452,7 +453,8 @@
         "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
         "check real code facts and keep failed facts visible; place models of unbuilt behavior in the target",
         "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback",
-        "print at most three open hazard hints per model"
+        "print at most three open hazard hints per model",
+        "fail a model whose rule no known-bad variant breaks"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -485,7 +487,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:37a3672645591ffe2df600672f263c967a103f93f69c22bd1213a849e9e264b7"
+      "fingerprint": "sha256:74cf5e633c8936ea1273cae9257b32d57327ec4c30f426bedb0bb6656790dd60"
     },
     {
       "id": "engine-explore",

@@ -405,6 +405,13 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
         result.warnings.append(f"child_start_gap not checked: parent '{parent_id}' could not be explored ({detail})")
 
 
+def uncovered_message(name: str) -> str:
+    """One wording for an invariant no known-bad variant breaks (map models, release and target check)."""
+    return (f"uncovered_invariant: invariant {name!r} is violated by no known-bad variant; add a known-bad variant "
+            "that breaks it, or remove it from this model's invariants if this model cannot break it "
+            "(a shared rule belongs to the model whose inputs can break it)")
+
+
 def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
     with model_namespace(view):
         physical = resolve_model_path(root, path.relative_to(root).as_posix(), view=view)
@@ -496,8 +503,8 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                                                "crashes, unrelated rules and budget exhaustion prove nothing")
                 for name in sorted(invariant_names - covered):
                     result.uncovered_invariants.append(name)
-                    result.warnings.append(f"invariant {name!r} is violated by no known-bad variant; "
-                                           "add a variant that breaks it, or say why it cannot be broken")
+                    result.status = "fail"
+                    result.problems.append(uncovered_message(name))
             else:
                 raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
             if result.hazards and not result.hazards[0].startswith("inference failed: "):

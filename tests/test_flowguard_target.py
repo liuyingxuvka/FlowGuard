@@ -1762,3 +1762,61 @@ def test_copied_but_unchanged_entry_stays_an_error(tmp_path, capsys):
     code, output, errors = _run(root, capsys, "change")
     broken = [line for line in output.splitlines() if line.split()[1:2] == ["anchor_broken"] and "give_back" in line]
     assert broken and all("moving to target: " in line for line in broken), output
+
+
+OLD_CHILD_MODEL = '''from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "loan_count"
+PARENT = "lending"
+IMPLEMENTED_BY = {"Count": "shelf/loans.py:LoanService.count"}
+class Count:
+    name = "Count"
+    def __init__(self, value=0): self.value = value
+    def apply(self, event, state):
+        return (FunctionResult(self.value, self.value, label="counted"),)
+ZERO = Invariant("starts_at_zero", "a fresh service counts no loans", lambda s, t:
+    InvariantResult.pass_() if s == 0 else InvariantResult.fail("not zero"))
+SANE = Invariant("never_negative", "a count is never negative", lambda s, t:
+    InvariantResult.pass_() if s >= 0 else InvariantResult.fail("negative"))
+def make(value):
+    return Explorer(Workflow((Count(value),)), (0,), ("count",), invariants=(ZERO, SANE),
+                    max_sequence_length=1, progress_steps=0)
+def build_explorer(): return make(0)
+def broken_variants(): return {"counts_one": make(1)}
+def conformance():
+    from shelf.loans import LoanService
+    actual = LoanService().count("ann")
+    return CodeFactsReport((Fact("fresh_count_is_zero", actual == 0, repr(actual)),))
+'''
+
+
+def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL, encoding="utf-8")
+    assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
+    code, output, errors = _run(root, capsys, "map", "models", "loan_count")
+    assert code == 1 and "uncovered_invariant: invariant 'never_negative'" in output, output   # an old problem
+    path = _target_with(root, capsys, "describe the catalog; one more lending known-bad", "catalog", "lending")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["summary"] = "Counts the free copies of each book."
+    path.write_text(json.dumps(data), encoding="utf-8")
+    model = root / ".flowguard/target/models/lending.py"
+    old = 'return {"lend_always": _explorer(LendAlways()), "no_limit": _explorer(NoLimit())}'
+    model.write_text(model.read_text(encoding="utf-8").replace(
+        old, old[:-1] + ', "no_limit_again": _explorer(NoLimit())}'), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    old_lines = [line for line in output.splitlines() if line.startswith("WARN  model loan_count: old_finding: ")]
+    assert code == 0 and len(old_lines) == 1 and "never_negative" in old_lines[0], output
+    assert "(already in the current tree; the target does not change this model or its code;" in old_lines[0]
+    assert "(1 old)" in output.splitlines()[-2] and "next: python -m flowguard target promote" in output
+    loans = root / "shelf/loans.py"
+    original = loans.read_text(encoding="utf-8")
+    loans.write_text(original + "\nLOANS_EDITED = True\n", encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    errors_now = [line for line in output.splitlines() if line.startswith("ERROR model loan_count: uncovered_invariant:")]
+    assert code == 1 and errors_now and "(model unchanged by the target; if python -m flowguard map models loan_count " \
+        "failed before your edit too, fix it first)" in errors_now[0], output
+    loans.write_text(original, encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 0, (output, errors)

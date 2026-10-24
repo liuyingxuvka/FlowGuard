@@ -117,15 +117,24 @@ def test_fixed_code_passes_and_every_run_executes(shop, capsys):
     assert native.status == "pass", native.problems
 
 
-def test_invariant_no_known_bad_variant_violates_is_a_warning(shop, capsys):
+def test_uncovered_invariant_fails_the_model_everywhere(shop, capsys):
+    """map models, release (verify) and target check judge an unbroken invariant the same way: the model fails."""
     write(shop, "shop/orders.py", FIXED)
     _edit_model(shop, "INVARIANTS = (at_most_once_by(",
                 "def orders_are_unique(state, trace):\n    return len(set(state.orders)) == len(state.orders)\n\n\n"
                 "INVARIANTS = (orders_are_unique, at_most_once_by(")
     code, out = models(shop, capsys)
-    assert code == 0, out
-    assert "invariant 'orders_are_unique' is violated by no known-bad variant" in out
+    assert code == 1 and "FAIL" in out, out
+    assert "uncovered_invariant: invariant 'orders_are_unique' is violated by no known-bad variant" in out
+    assert "remove it from this model's invariants" in out and "say why it cannot be broken" not in out
     assert "'one_charge_per_order' is violated by no" not in out
+    native = _native_model(shop, shop / MODEL)
+    assert native.status == "fail" and native.uncovered_invariants == ["orders_are_unique"]
+    assert not any("violated by no known-bad" in warning for warning in native.warnings)
+    code = cli.main(["--root", str(shop), "verify"])
+    out = capsys.readouterr().out
+    assert code == 1 and "uncovered_invariant:" in out and "invariant(s) violated by no known-bad variant" not in out, out
+    assert "say why it cannot be broken" not in out
 
 
 def test_invariants_without_teeth_are_rejected(shop, capsys):
@@ -405,8 +414,8 @@ def test_broken_variant_must_violate_a_design_property(shop, capsys, case):
     native = _native_model(shop, shop / MODEL)
     assert native.status == "fail" and expected in " ".join(native.problems)
     if case != "design_without_invariants":
-        assert any("invariant 'one_charge_per_order' is violated by no known-bad variant" in warning
-                   for warning in native.warnings)
+        assert any("invariant 'one_charge_per_order' is violated by no known-bad variant" in problem
+                   for problem in native.problems)
 
 
 def test_plain_function_invariant_is_accepted(shop, capsys):
@@ -562,12 +571,13 @@ def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, m
 
     monkeypatch.setattr(cli, 'run_models', capture)
     code, output = models(shop, capsys)
-    assert code == 0 and "invariant 'orders_are_unique' is violated by no known-bad variant" in output
+    assert code == 1 and "invariant 'orders_are_unique' is violated by no known-bad variant" in output
     assert cli.main(['--root', str(shop), 'verify']) == 1
     output = capsys.readouterr().out
-    assert 'models: 1 invariant(s) violated by no known-bad variant: order_placement:orders_are_unique' in output
+    assert 'uncovered_invariant: invariant \'orders_are_unique\'' in output
+    assert 'invariant(s) violated by no known-bad variant' not in output     # counted once, by the failed model
     assert 'verify: FAIL' in output
-    assert captured[0].status == 'pass' and captured[0].uncovered_invariants == ['orders_are_unique']
+    assert captured[0].status == 'fail' and captured[0].uncovered_invariants == ['orders_are_unique']
     assert ModelResult(**{'model': 'legacy', 'file': 'legacy.py'}).uncovered_invariants == []
 
 

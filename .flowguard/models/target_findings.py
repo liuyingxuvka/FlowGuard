@@ -35,6 +35,7 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
         "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
         "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
+        "tests/test_flowguard_target.py:test_old_findings_of_unchanged_models_do_not_block",
     ],
     "every_defect_reported": [
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
@@ -68,6 +69,8 @@ CASES = (
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
     Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
     Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
+    Case("old_finding_in_unchanged_model", "a model the target imports but does not change keeps an old uncovered "
+         "invariant over unchanged code", True, "target", "warn"),
     Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
          "current", "error"),
 )
@@ -110,6 +113,8 @@ FEATURES = (
             _wrong_decision("responsibility_dropped", "none")),
     Feature("untied_goal_accepted", True, ("behaviour_without_rule",),
             _wrong_decision("behaviour_without_rule", "none")),
+    Feature("old_finding_blocks", True, ("old_finding_in_unchanged_model",),
+            _wrong_decision("old_finding_in_unchanged_model", "error")),
     Feature("unchanged_subject_downgraded", True, ("unchanged_copy_breakage",),
             _wrong_decision("unchanged_copy_breakage", "info")),
 )
@@ -121,6 +126,33 @@ def build_explorer():
 
 def broken_variants():
     return feature_variants(FEATURES, max_features=1, codes="all")
+
+
+OLD_CONTRACT = '''from pathlib import Path
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact, load_anchor
+MODEL_ID = "shelf_old"
+PARENT = "shelf_rule"
+IMPLEMENTED_BY = {"Capacity": "shelf/loans.py:advance"}
+class Capacity:
+    name = "Capacity"
+    def __init__(self, value=1): self.value = value
+    def apply(self, event, state):
+        return (FunctionResult(self.value, self.value, label="capacity"),)
+ONE = Invariant("one_copy", "capacity is one", lambda s, t:
+    InvariantResult.pass_() if s in (0, 1) else InvariantResult.fail("not one"))
+ANY = Invariant("never_negative", "capacity is never negative", lambda s, t:
+    InvariantResult.pass_() if s >= 0 else InvariantResult.fail("negative"))
+def make(value):
+    return Explorer(Workflow((Capacity(value),)), (0,), ("capacity",), invariants=(ONE, ANY),
+                    max_sequence_length=1, progress_steps=0)
+def build_explorer(): return make(1)
+def broken_variants(): return {"two_copies": make(2)}
+def conformance():
+    actual = load_anchor(IMPLEMENTED_BY["Capacity"], root=Path.cwd())(0)
+    return CodeFactsReport((Fact("native_capacity", actual == 1, repr(actual)),))
+'''
 
 
 def probe_model_and_target(root):
@@ -191,7 +223,7 @@ def observe_case(case):
         root = make_project(Path(directory))
         if case.phase in ("current", "strict-current"):
             return _current_case(root, case)
-        stage_target(root, with_model=case.name in {"code_gap", "design_failure", "unbound_invariant"})
+        stage_target(root, with_model=case.name in {"code_gap", "design_failure", "unbound_invariant", "old_finding_in_unchanged_model"})
         target_path = root / ".flowguard/target/map.json"
         target = load_target(root).data
         if case.name == "owner_dropped":
@@ -203,6 +235,12 @@ def observe_case(case):
             write_json(target_path, target)
             report = native.check_target(root)
             return _unique_bucket(report, code="owner_dropped", prefix="responsibility 'maintain loans'"), repr(report)
+        elif case.name == "old_finding_in_unchanged_model":
+            # A current child of shelf_rule with an old uncovered invariant over unchanged code: the target
+            # changes shelf_rule, so target check selects the child without changing it.
+            (root / ".flowguard/models/shelf_old.py").write_text(OLD_CONTRACT, encoding="utf-8")
+            report = native.check_target(root)
+            return _unique_bucket(report, code="old_finding", prefix="uncovered_invariant"), repr(report)
         elif case.name == "behaviour_without_rule":
             target["components"][0]["entrypoints"].append("shelf/loans.py:hold")
             write_json(target_path, target)

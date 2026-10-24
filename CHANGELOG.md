@@ -23,6 +23,8 @@
 - A target that drops a responsibility without a new owner or an explicit `responsibility:` retirement in `remove` now fails `target check` with `owner_dropped`.
 - `target check` refuses a target that changes nothing (`target_noop`) and a new or changed entrypoint, state or side effect without a new or changed model rule or known-bad variant (`target_goal_untied`); it prints the target's goal rules.
 - With a target, only breakage of the field the target actually changes is reported as `moving to target`; other breakage of a copied component stays an error.
+- `map models` now fails a model whose invariant no known-bad variant breaks, like `release` and `target check` already did; the message no longer suggests an explanation mechanism that does not exist.
+- `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings; they no longer block promotion.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
@@ -33,6 +35,7 @@
 - Projects using FlowGuard: far fewer hazard lines per model (at most three open hints plus one summary line; no `+N more`).
 - Projects using FlowGuard: the coverage line format changes (tools that parse it must read the new form).
 - Projects using FlowGuard: the first `read` line now also prints a warning count.
+- Projects using FlowGuard: `map models` exits 1 for a model with an uncovered invariant (all four projects have none at their current HEADs).
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 

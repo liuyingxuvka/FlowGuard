@@ -302,13 +302,6 @@ def cmd_verify(root: Path, a) -> int:
     results = run_models(root, [], tests=True)
     if results:
         print(render_results(results))
-    contracts = {(entry.id, entry.path) for entry in registry.entries if entry.kind == "contract"}
-    uncovered = [(result.model, invariant) for result in results if (result.model, result.file) in contracts
-                 for invariant in result.uncovered_invariants]
-    if uncovered:
-        print(f"models: {len(uncovered)} invariant(s) violated by no known-bad variant: "
-              + ", ".join(f"{model}:{invariant}" for model, invariant in uncovered)
-              + " (release needs a known-bad variant that breaks each invariant)")
     expected = {(entry.id, entry.path) for entry in registry.entries}
     expected.add(("system", ".flowguard/map.json"))
     executed = [(result.model, result.file) for result in results]
@@ -317,7 +310,7 @@ def cmd_verify(root: Path, a) -> int:
           ("; no model proof" if not expected else ""))
     if not complete:
         print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
-    failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete) + int(bool(uncovered))
+    failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete)
     if a.shards is not None:
         if failed:
             print("suite: not run (fix the failures above first)")

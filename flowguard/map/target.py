@@ -75,6 +75,7 @@ class TargetReport:
     todos: list[TargetFinding] = field(default_factory=list)
     warnings: list[TargetFinding] = field(default_factory=list)
     goal_rules: str = ""
+    old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
 
 
 def target_model_paths(root, data, target):
@@ -273,22 +274,61 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
     selected = _selected_models(root, current, target, view, inv, tree)
     # [] means "all" to model execution; an empty target selection means none.
     results = run_models(root, selected, tests=True, view=view, inv=inv) if selected else []
+    untouched, old = _unchanged_models(root, current, target, inv, tree, selected)
     for result in results:
         node = "model " + result.model
-        for problem in result.problems:
+        problems = list(result.problems)
+        if result.status != "pass" and not problems:
+            problems.append(f"model ended with status {result.status}")
+        for problem in problems:
             code = ("placeholder_anchor" if problem.startswith("placeholder anchor ") else
                     "implemented_by" if problem.startswith("IMPLEMENTED_BY ") else
                     "tested_by_misses_anchor" if problem.startswith("tested_by_misses_anchor ") else
-                    "tested_by_failed" if problem.startswith("tested_by_failed ") else "model_proof")
-            add("todos" if problem in result.code_gaps else "errors", node, code, problem)
-        if result.status != "pass" and not result.problems:
-            add("errors", node, "model_proof", f"model ended with status {result.status}")
-        for invariant in result.uncovered_invariants:
-            add("errors", node, "uncovered_invariant", f"invariant {invariant!r} is violated by no known-bad variant")
+                    "tested_by_failed" if problem.startswith("tested_by_failed ") else
+                    "uncovered_invariant" if problem.startswith("uncovered_invariant: ") else "model_proof")
+            if result.model in old:
+                text = problem if code in ("uncovered_invariant", "tested_by_failed", "tested_by_misses_anchor") else f"{code}: {problem}"
+                add("warnings", node, "old_finding", f"{text} {OLD_NOTE}")
+                report.old += 1
+                continue
+            if result.model in untouched:
+                problem += (f" (model unchanged by the target; if python -m flowguard map models {result.model} "
+                            "failed before your edit too, fix it first)")
+            add("todos" if problem.split(" (model unchanged by the target;")[0] in result.code_gaps else "errors",
+                node, code, problem)
         for warning in result.warnings:
-            if not any(warning.startswith(f"invariant {name!r} is violated by no known-bad variant") for name in result.uncovered_invariants):
-                add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
+            add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
     return report
+
+
+OLD_NOTE = ("(already in the current tree; the target does not change this model or its code; "
+            "fix it in its own change or target)")
+
+
+def _unchanged_models(root, current, target, inv, tree, selected):
+    """(models the target does not change, the subset whose anchored code is also unchanged).
+
+    Unchanged: neither the model file nor a model file it imports is replaced, added or removed by the target.
+    Old: additionally every IMPLEMENTED_BY anchor lies in a component that is not stale."""
+    from .mapfile import is_stale, owner_index
+
+    changed = target_model_paths(root, current, target)      # replaced, added or removed model files
+    owner, _ = owner_index(current, inv)
+    components = {c["id"]: c for c in current["components"]}
+    current_tree = build_tree(root, current, inv)
+    untouched, old = set(), set()
+    for mid in selected:
+        node = tree.nodes.get(mid)
+        if node is None or node.path in changed or any(
+                source.imports.get(node.path, set()) & changed or source.local_imports.get(node.path, set()) & changed
+                for source in (tree, current_tree)):
+            continue
+        untouched.add(mid)
+        anchors = node.contract.get("IMPLEMENTED_BY", {}).values()
+        owners = [owner.get(anchor.partition(":")[0]) for anchor in anchors]
+        if owners and all(cid in components and not is_stale(root, components[cid], inv) for cid in owners):
+            old.add(mid)
+    return untouched, old
 
 
 def _todo_next(code):
@@ -313,7 +353,8 @@ def render_target_report(report: TargetReport) -> str:
             suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
             message = finding.message.replace("\n", "\n  ")
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
-    lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)")
+    lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"
+                 + (f" ({report.old} old)" if report.old else ""))
     lines.append("next: " + ("fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
                             "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
                             "python -m flowguard target promote"))
