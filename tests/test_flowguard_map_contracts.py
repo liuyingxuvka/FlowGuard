@@ -855,3 +855,9 @@ def test_flow_step_can_read_the_previous_steps_file(tmp_path):
         assert [f for f in checked if f.code == "flow_handoff_invalid" and f.level == "error"], (steps, checked)
     _, _, _, linted = mapped(["plan:main", "check:main"])
     assert [f for f in linted if f.code == "flow_step_unreached"], linted
+
+
+def test_retired_workflow_flags_point_to_upgrade_guide(tmp_path, capsys):
+    for flag in ("--request", "--contract", "--owner-current"):
+        assert main(["read", "--root", str(tmp_path), flag, "x"]) == 2
+        assert "0.69 workflow interface retired in 0.70.0" in capsys.readouterr().err

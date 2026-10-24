@@ -1,0 +1,129 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-328: one owner for retirement diagnostics",
+  "components": [
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
+      "responsibilities": [
+        "load, validate and save the map, pointing a missing map at the guide",
+        "accept optional component parents and file-reading flow steps",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions",
+        "register contract models from static literals",
+        "build the model tree and report nesting mistakes as errors",
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "name every removed path, literal, flag and public name in one table"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/retired.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "public-api",
+      "layer": "interface",
+      "summary": "Lazily exposes the core engine API from its owning modules.",
+      "responsibilities": [
+        "expose public names from their owning modules on first use"
+      ],
+      "files": [
+        "flowguard/__init__.py"
+      ],
+      "entrypoints": [
+        "flowguard/__init__.py:__getattr__"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "engine-core",
+        "engine-explore",
+        "engine-properties",
+        "engine-scenarios",
+        "map-file",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_public_api.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Dispatches current-tree commands and reports progress toward one target.",
+      "responsibilities": [
+        "parse command lines and dispatch them to their owners",
+        "show owners, closest owners, target changes, Mermaid and reviews in read",
+        "annotate planned target breakage and ARCH lines in check, change and release",
+        "run release with the system root counted and optional whole-suite shards",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing"
+      ],
+      "files": [
+        "flowguard/__main__.py",
+        "flowguard/map/__init__.py",
+        "flowguard/map/__main__.py",
+        "flowguard/map/cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/__main__.py:main",
+        "flowguard/map/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints to stdout",
+        "writes .flowguard/map.json on scan, deps --write and confirm"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read",
+        "map-target",
+        "public-api",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_packaged_cli_surface.py",
+        "tests/test_public_templates.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": [
+    "responsibility:parse commands and point removed flags at references/upgrade.md",
+    "responsibility:point removed public names at references/upgrade.md",
+    "responsibility:register contract models from static literals and reject runner files"
+  ]
+}
