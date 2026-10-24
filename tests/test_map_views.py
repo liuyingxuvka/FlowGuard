@@ -622,3 +622,53 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
     assert all(re.search(r'\bc_' + name + r'\[', subsystem) for name in ('records', 'catalog', 'loans'))
     assert not marker.exists()
     assert not any(name.startswith('view232_') for name in sys.modules)
+
+
+def test_read_observes_hidden_names_missing_summary_and_model_counts(tmp_path):
+    """Valid adversarial read inputs preserve names, budget, purpose and no-import promises."""
+    import sys
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+
+    def write(relative, source):
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+
+    write("alpha.py", "def run(): return True\n")
+    write("beta.py", "def run(): return True\n")
+    write("tests/test_alpha.py", "def test_run(): pass\n")
+    write(".flowguard/models/read_probe.py", '''"""Explain read probe behavior."""
+from pathlib import Path
+Path(__file__).parents[2].joinpath("model_import.marker").write_text("imported")
+MODEL_ID = "read_probe"
+COMPONENTS = ["alpha"]
+IMPLEMENTED_BY = {"Run": "alpha.py:run"}
+TESTED_BY = {"works": ["tests/test_alpha.py:test_run"]}
+RULES = [Invariant("works", "works", None), Invariant("stable", "stable", None)]
+def build_explorer(): raise RuntimeError("read must not explore")
+def broken_variants(): return {"one": None, "two": None}
+''')
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
+    for budget, missing in ((8000, False), (8000, True), (360, True)):
+        components = [dict(_component(cid, summary=("Serve " + cid) * 30), files=[cid + ".py"],
+                           tests=["tests/test_alpha.py"] if cid == "alpha" else [], models=[])
+                      for cid in ("alpha", "beta")]
+        if missing:
+            components[0].pop("summary")
+        data = dict(project="read fixture", layers=[], components=components, flows=[])
+        output = render_show(tmp_path, data, inv, component=None, detail=False, budget=budget)
+        assert len(output) <= budget
+        if budget == 360:
+            notice = next(line for line in output.splitlines() if "truncated" in line and "not shown:" in line)
+            assert "alpha" in notice.partition("not shown:")[2] and "beta" in notice.partition("not shown:")[2]
+        else:
+            assert "## alpha [" in output and "## beta [" in output and "truncated" not in output
+            assert "model read_probe: Explain read probe behavior. (2 rules, 2 known-bad, 1 tests)" in output
+            if missing:
+                assert "(no summary yet)" in output.split("## alpha [", 1)[1].split("\n## beta [", 1)[0]
+        assert not (tmp_path / "model_import.marker").exists()
+        model_dir = (tmp_path / ".flowguard/models").resolve()
+        assert not any(isinstance((file := vars(module).get("__file__")), str)
+                       and Path(file).resolve().is_relative_to(model_dir)
+                       for module in tuple(sys.modules.values()) if module is not None)

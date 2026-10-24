@@ -729,7 +729,8 @@
         "map-file:load_map",
         "map-inventory:build_inventory",
         "map-analysis:render_show"
-      ]
+      ],
+      "model": ".flowguard/models/read_view.py"
     },
     {
       "id": "after_edit",
@@ -761,7 +762,8 @@
         "map-file:new_map",
         "map-discover:discover",
         "map-analysis:run_lint"
-      ]
+      ],
+      "model": ".flowguard/models/scan_coverage.py"
     },
     {
       "id": "target_work",
