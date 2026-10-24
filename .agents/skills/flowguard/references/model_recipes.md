@@ -193,7 +193,8 @@ Import `ContractDimension`, `ContractExhaustionPlan`, `ContractOracle`, `contrac
 Declare finite dimensions, their values and default mutations. Input/payload defaults include `old_schema_version` and `conflicting_identity`; keep `omitted_family_member` for missing registry members.
 Add `ContractAxis` / `ContractInteractionGroup` only for real interactions; cap the product and inspect the allowed single/pair combinations actually executed.
 Use generated features with real conformance and `execute_contract_features`; preserve the clean-input check and name a rejection oracle for each case.
-Invalid/unbounded dimensions, missing case oracles and excessive products raise `ValueError`; read the named dimension/case in the message.
+A dimension's mutation may have any name: built-in names keep their default reaction, other names must be rejected; a hand-written seed case still names its oracle or expected status, and invalid/unbounded dimensions or excessive products raise `ValueError`.
+Only `ValueError`/`TypeError` (or `rejects=(...)`) count as a rejection; any other exception is reported as `adapter_exception` (a crash).
 A reported accepted case id identifies a bad input the real function failed to reject: reproduce it, fix the code and retain a failing known-bad variant plus a real regression test.
 A default label saying reject before side effect is not observed timing proof; test the actual function's effects when that ordering matters.
 Finish target design before code and remove ERROR/TO-DO before promote; run the selected checks and report executed case counts and limits.

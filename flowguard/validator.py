@@ -261,6 +261,8 @@ def _indexed(items, attribute, noun):
 
 
 def _case_for_dimension(dimension, mutation):
+    # A business-named bad case (outside the built-in vocabulary) must be rejected by default.
+    expected = "" if mutation in _MUTATION_DEFAULT_ORACLE else CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT
     return ContractMutationCase(
         _case_id("contract", dimension.dimension_id, mutation), dimension.dimension_id, mutation,
         source_case_id=dimension.dimension_id, required=dimension.required,
@@ -269,7 +271,7 @@ def _case_for_dimension(dimension, mutation):
         family_id=str(dimension.metadata.get("family_id", "")), member_id=str(dimension.metadata.get("member_id", "")),
         description=dimension.description or f"{dimension.dimension_id} must handle {mutation}",
         metadata={"owner_model_id": dimension.owner_model_id, **dict(dimension.metadata)},
-        dimension_ids=(dimension.dimension_id,), model_id=dimension.owner_model_id,
+        dimension_ids=(dimension.dimension_id,), model_id=dimension.owner_model_id, expected_status=expected,
     )
 
 
@@ -398,21 +400,25 @@ def contract_exhaustion_features(plan: ContractExhaustionPlan, mutate):
                  for case in generate_contract_cases(plan))
 
 
-def execute_contract_features(features, call, valid, *, rejected=None, max_features: int = 2, codes: str = "all"):
+def execute_contract_features(features, call, valid, *, rejected=None, rejects=(ValueError, TypeError),
+                              max_features: int = 2, codes: str = "all"):
     """Run every admissible bad case and combination on the actual function.
 
-    A returned value is rejected only by ``rejected``. Function exceptions count
-    as rejection, except ImportError, which remains an environment/adapter error.
+    A returned value is rejected only by ``rejected``. An exception of a ``rejects`` type (default
+    ``ValueError``/``TypeError``, or a subclass) is a rejection; any other exception is a crash that
+    the kit reports as ``adapter_exception``. ImportError remains an environment/adapter error.
     Mutation errors happen outside this call wrapper and remain adapter errors.
     """
     from .kit import feature_conformance
+
+    rejects = tuple(rejects)
 
     def review(arguments):
         try:
             result = call(**arguments) if isinstance(arguments, dict) else call(*arguments)
         except ImportError:
             raise
-        except Exception:
+        except rejects:
             return False
         return not (rejected(result) if rejected else False)
 

@@ -249,3 +249,48 @@ def test_validator_template_reports_the_unhandled_case_id(tmp_path):
     assert "FAIL  validator" in output
     assert "contract:order_id:empty_value" in output
     assert "expected rejected, observed accepted" in output
+
+
+def _title_cases(limit):
+    plan = ContractExhaustionPlan("title-contract", dimensions=(
+        ContractDimension("title", "input", values=("ok",), mutation_types=("too_long", "blank")),))
+    bad = {"too_long": "x" * 81, "blank": "   "}
+
+    def mutate(arguments, case_id):
+        return {**arguments, "title": bad[case_id.split(":")[2]]}
+
+    def save(title):
+        if not title.strip() or len(title) > limit:
+            raise ValueError("title")
+        return "saved"
+    return plan, mutate, save
+
+
+def test_named_bad_case_uses_the_reject_oracle():
+    plan, mutate, save = _title_cases(80)
+    cases = generate_contract_cases(plan)
+    assert [(case.case_id, case.expected_status) for case in cases] == [
+        ("contract:title:too_long", CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT),
+        ("contract:title:blank", CONTRACT_ORACLE_REJECT_BEFORE_SIDE_EFFECT)]
+    features = contract_exhaustion_features(plan, mutate)
+    assert execute_contract_features(features, save, {"title": "ok"}).ok
+    plan, mutate, lax = _title_cases(800)
+    report = execute_contract_features(contract_exhaustion_features(plan, mutate), lax, {"title": "ok"})
+    assert not report.ok and "contract:title:too_long: expected rejected, observed accepted" in report.format_text()
+
+
+def test_crash_on_bad_input_is_not_a_rejection():
+    plan, mutate, _ = _title_cases(80)
+
+    def save(title):
+        if not title.strip():
+            raise AttributeError("blank title has no words")      # a crash, not a rejection
+        if len(title) > 80:
+            raise ValueError("title")
+        return "saved"
+    features = contract_exhaustion_features(plan, mutate)
+    report = execute_contract_features(features, save, {"title": "ok"})
+    text = report.format_text()
+    assert not report.ok and "adapter_exception" in text and "AttributeError" in text, text
+    assert "- adapter_exception: contract:title:blank: expected rejected, observed error (AttributeError: " in text
+    assert execute_contract_features(features, save, {"title": "ok"}, rejects=(ValueError, AttributeError)).ok

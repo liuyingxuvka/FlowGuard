@@ -385,7 +385,7 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     log = tmp_path / "executions.jsonl"
     (root / "shop/orders.py").write_text(
         "def place(order_id, amount):\n"
-        "    if not isinstance(order_id, str) or not order_id or not isinstance(amount, int):\n"
+        "    if not isinstance(order_id, str) or not order_id or len(order_id) > 80 or not isinstance(amount, int):\n"
         "        raise ValueError('bad input')\n"
         "    return 'placed'\n", encoding="utf-8")
     tests = root / "shop/test_orders.py"

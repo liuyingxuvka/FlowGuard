@@ -187,7 +187,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:41a8eb9f6d9139b6a92fd425001ae8edf1eeb0c8f3b544bb3242d1417b5c4112"
+      "fingerprint": "sha256:cb0c3f6c7904bf2c6c2f7b136ef91a44ab880c164a6babc23dad1b50b4333041"
     },
     {
       "id": "test-mesh",
@@ -737,7 +737,9 @@
       "summary": "Validators as a model kind: a finite input boundary, generated bad cases, each executed against the real function",
       "responsibilities": [
         "generate complete finite bad cases and bounded Cartesian interactions with stable case identifiers and a real oracle for every case; reject invalid, unbounded, missing-oracle or excessive boundaries directly instead of returning partial coverage",
-        "execute every allowed generated bad-case feature combination against the real function, preserving clean-call observations and naming any accepted bad case; mutation labels do not establish arbitrary temporal side-effect behavior"
+        "execute every allowed generated bad-case feature combination against the real function, preserving clean-call observations and naming any accepted bad case; mutation labels do not establish arbitrary temporal side-effect behavior",
+        "reject named bad cases with the default reject oracle",
+        "report a crash on a bad input as an error"
       ],
       "files": [
         "flowguard/validator.py"
@@ -757,7 +759,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8e456a9cb999f55d28b09c1f488b1ce91291bc5fbb90a36bd8dfb9594fcaf20c"
+      "fingerprint": "sha256:7759c56a44a2f13cd24d25774816a053d2c522930b5984f9e43186beb6cda86f"
     }
   ],
   "flows": [

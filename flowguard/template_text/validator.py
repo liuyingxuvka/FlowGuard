@@ -8,6 +8,8 @@ VALIDATOR_MODEL_TEMPLATE = '''# FlowGuard node kind validator: a function's fini
 # An accepted bad case id names the input the function failed to reject; reproduce that case and fix it.
 # Rejection labels do not establish side-effect ordering; test the actual function's effects when needed.
 # Fill REPLACE_ME, VALID and BAD, bind real tests, then run: python -m flowguard map models validator
+# BAD keys may name any bad case: built-in names keep their default reaction, any other name must be rejected.
+# The function rejects with ValueError or TypeError; any other exception is a crash (pass rejects=(...) if needed).
 
 from flowguard.validator import (
     ContractDimension, ContractExhaustionPlan, ContractOracle, contract_exhaustion_features, execute_contract_features,
@@ -19,7 +21,7 @@ MODEL_ID = "validator"
 IMPLEMENTED_BY = {"place": "REPLACE_ME/orders.py:place"}      # the function whose bad inputs must be rejected
 TESTED_BY = {"each_defect_rejected": ["REPLACE_ME/test_orders.py:test_place_rejects_bad_input"]}
 VALID = {"order_id": "o1", "amount": 5}                      # one valid call; each bad case changes one argument
-BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": object()}
+BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": object(), "too_long": "x" * 81}
 
 
 def plan():

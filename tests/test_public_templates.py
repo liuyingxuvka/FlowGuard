@@ -139,7 +139,7 @@ class PublicTemplateTests(unittest.TestCase):
     def test_validator_template_runs_the_bad_cases_against_the_real_function(self):
         files = validator_template_files()
         strict = {"shop/orders.py": "def place(order_id, amount):\n"
-                  "    if not isinstance(order_id, str) or not order_id or not isinstance(amount, int):\n"
+                  "    if not isinstance(order_id, str) or not order_id or len(order_id) > 80 or not isinstance(amount, int):\n"
                   "        raise ValueError('bad input')\n    return 'placed'\n"}
         lax = {"shop/orders.py": "def place(order_id, amount):\n    return 'placed'\n"}
         self.assertIn("placeholder anchor", self.run_kit_template(files, "validator", strict,
@@ -147,8 +147,8 @@ class PublicTemplateTests(unittest.TestCase):
         self.assertIn("PASS  validator", self.run_kit_template(files, "validator", strict,
                                                                          fill="shop", expected_returncode=0))
         output = self.run_kit_template(files, "validator", lax, fill="shop", expected_returncode=1)
-        self.assertIn("executed against code: 22 of 22 feature combinations; declared only: 0; errors: 0; "
-                      "counterexamples: 21", output)
+        self.assertIn("executed against code: 37 of 37 feature combinations; declared only: 0; errors: 0; "
+                      "counterexamples: 36", output)
         self.assertIn("- each_defect_rejected: contract:order_id:missing_required_field: expected rejected, "
                       "observed accepted", output)
 

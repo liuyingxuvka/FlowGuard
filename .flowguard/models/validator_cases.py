@@ -18,7 +18,11 @@ TESTED_BY = {
         "tests/test_validator.py:test_executor_reports_the_unhandled_case_id",
         "tests/test_validator.py:test_unbounded_dimension_is_rejected",
         "tests/test_validator.py:test_case_without_oracle_is_rejected",
+        "tests/test_validator.py:test_named_bad_case_uses_the_reject_oracle",
+        "tests/test_validator.py:test_crash_on_bad_input_is_not_a_rejection",
     ],
+    "clean_input_accepted": ["tests/test_validator.py:test_named_bad_case_uses_the_reject_oracle"],
+    "benign_features_neutral": ["tests/test_validator.py:test_named_bad_case_uses_the_reject_oracle"],
     "first_defect_reported": [
         "tests/test_validator.py:test_executor_reports_the_unhandled_case_id",
         "tests/test_validator.py:test_unbounded_dimension_is_rejected",
@@ -27,8 +31,9 @@ TESTED_BY = {
 }
 
 VALID = {"order_id": "o1", "amount": 5}
-BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": "five"}
+BAD = {"missing_required_field": None, "empty_value": "", "wrong_type": "five", "too_long": "x" * 81}
 ESCAPED_CASE = "contract:order_id:empty_value"
+CRASH_CASE = "contract:amount:wrong_type"
 
 
 def clean_fixture():
@@ -43,6 +48,7 @@ def clean_fixture():
             oracles=(ContractOracle("oracle:reject", expected_status="blocked"),),
         ),
         "leak_empty": False,
+        "crash_wrong_type": False,
     }
 
 
@@ -63,12 +69,27 @@ def _leak_empty(fixture):
     return {**fixture, "leak_empty": True}
 
 
+def _named_bad_case(fixture):
+    """A business-named bad case outside the built-in vocabulary: it must be generated and rejected."""
+    plan = fixture["plan"]
+    first = plan.dimensions[0]
+    dimensions = (replace(first, mutation_types=first.mutation_types + ("too_long",)),) + plan.dimensions[1:]
+    return {**fixture, "plan": replace(plan, dimensions=dimensions)}
+
+
+def _crash(fixture):
+    return {**fixture, "crash_wrong_type": True}
+
+
 # Generation checks finiteness before case reactions; real execution follows
 # generation. Pair combinations must preserve that native error order.
 FEATURES = (
     Feature("nonfinite_dimension", True, ("dimension_not_finite",), _nonfinite),
     Feature("missing_case_oracle", True, ("case_missing_oracle",), _missing_oracle),
     Feature("escaped_empty_case", True, ("unhandled:" + ESCAPED_CASE,), _leak_empty),
+    # The function raises AttributeError (not ValueError/TypeError) on a bad amount: a crash, not a rejection.
+    Feature("crash_on_bad_input", True, ("crashed:" + CRASH_CASE,), _crash),
+    Feature("named_bad_case", False, (), _named_bad_case),
 )
 
 
@@ -86,7 +107,7 @@ def _mutate(arguments, case_id):
 
 
 def _place(order_id, amount):
-    if not isinstance(order_id, str) or not order_id:
+    if not isinstance(order_id, str) or not order_id or len(order_id) > 80:
         raise ValueError("order_id")
     if not isinstance(amount, int) or amount <= 0:
         return None
@@ -108,16 +129,22 @@ def _review(fixture):
     def place(order_id, amount):
         if fixture["leak_empty"] and order_id == "" and isinstance(amount, int) and amount > 0:
             return "placed"
+        if fixture["crash_wrong_type"] and isinstance(amount, str):
+            return amount.as_integer_ratio()      # AttributeError: a crash on this bad input
         return _place(order_id, amount)
 
     report = execute_contract_features(features, place, VALID, rejected=lambda result: result is None)
-    if report.errors or report.declared_only or report.executed != report.combinations:
-        raise RuntimeError("real execution must complete without adapter errors: " + report.format_text())
+    crashes = [v for v in report.violations if v.rule_name == "adapter_exception" and "AttributeError" in v.message]
+    if report.declared_only or len(crashes) != report.errors:
+        raise RuntimeError("real execution must complete without other adapter errors: " + report.format_text())
     if report.ok:
         return True, ()
-    if not report.violations:
+    if not report.counterexamples and crashes:
+        first = min(crashes, key=lambda v: len(v.features))
+        return False, tuple("crashed:" + case_id for case_id in first.features)
+    if not report.counterexamples:
         raise RuntimeError("real execution failed without an observed counterexample")
-    first = report.violations[0]
+    first = report.counterexamples[0]
     if first.rule_name != "each_defect_rejected" or not first.features:
         raise RuntimeError("unexpected first actual execution failure: " + first.format_text())
     # Keep the actual first finding and its actual case ids, without filtering

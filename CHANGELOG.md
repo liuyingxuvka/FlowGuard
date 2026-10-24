@@ -26,6 +26,7 @@
 - `map models` now fails a model whose invariant no known-bad variant breaks, like `release` and `target check` already did; the message no longer suggests an explanation mechanism that does not exist.
 - `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings; they no longer block promotion.
 - `target check` warns about accepted debts the target makes stale; `target promote` lists models, flows and tests to re-read.
+- `validator`: a bad case may have any name (it must be rejected unless a built-in default says otherwise); only `ValueError`/`TypeError` (or the types passed as `rejects=`) count as a rejection, any other exception is reported as a crash.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
@@ -37,6 +38,7 @@
 - Projects using FlowGuard: the coverage line format changes (tools that parse it must read the new form).
 - Projects using FlowGuard: the first `read` line now also prints a warning count.
 - Projects using FlowGuard: `map models` exits 1 for a model with an uncovered invariant (all four projects have none at their current HEADs).
+- Projects using FlowGuard: none of the four projects uses `flowguard.validator` today.
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 
