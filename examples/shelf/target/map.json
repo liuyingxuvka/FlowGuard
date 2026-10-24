@@ -1,0 +1,39 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "holds: a member may reserve a lent-out book; a returned copy goes to the first holder",
+  "components": [
+    {
+      "id": "loans",
+      "layer": "lending",
+      "summary": "Lends and takes back books for members.",
+      "responsibilities": [
+        "lend a free copy",
+        "take a lent copy back",
+        "hold a lent-out book for a member"
+      ],
+      "files": [
+        "shelf/loans.py"
+      ],
+      "entrypoints": [
+        "shelf/loans.py:LoanService.borrow",
+        "shelf/loans.py:LoanService.give_back",
+        "shelf/loans.py:LoanService.hold"
+      ],
+      "state": [
+        "current loans",
+        "holds per book in order"
+      ],
+      "side_effects": [],
+      "depends_on": [
+        "catalog",
+        "members"
+      ],
+      "tests": [
+        "tests/test_loans.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}

@@ -12,7 +12,8 @@
   "ignore": [
     "docs/**",
     "openspec/**",
-    "assets/**"
+    "assets/**",
+    "examples/shelf/**"
   ],
   "test_command": "python -m pytest -q",
   "components": [

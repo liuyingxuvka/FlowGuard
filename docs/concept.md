@@ -4,6 +4,7 @@ FlowGuard maintains one executable model tree of a software project. Its map
 names the components that own files, entrypoints, state and side effects.
 Models sit under those owners and describe behaviour that matters across paths.
 Real code and test bindings connect those models to the implementation.
+`examples/shelf/` shows a small tree with a current model, a target and the code after the change.
 
 ## Function Blocks And Finite Exploration
 

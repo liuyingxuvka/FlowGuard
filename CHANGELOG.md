@@ -36,6 +36,7 @@
 - Removed dead code: `flowguard/_hashing.py`, `model_files` / `model_id_of` in `flowguard.map.proof`, the dead `model-test` template alias.
 - `release --shards` no longer writes `claim_boundary`, `capability_partition` or `symlink_probe`; the unused `flowguard_capability` pytest marker and `flowguard.symlink_capability` are removed.
 - Removed the unused adoption-log and model-notes template texts.
+- `examples/shelf/` shows a small model tree with a current model, a target and the code after the change.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

@@ -99,6 +99,9 @@ the card twice. The unit test is green; the model's conformance replay fails wit
 counterexample `Place(o1), Place(o1) -> charges=('o1','o1')`. Deleting the invariant to get a pass
 fails too: "known-bad variant passed: the invariants do not catch it".
 
+`examples/shelf/` is a whole model tree to copy: a current map and model, a target that adds a
+rule, and the code after the change (its README lists the commands).
+
 ## What it does not prove
 
 A model proves only its declared finite boundary; the map describes the current commit; discovery

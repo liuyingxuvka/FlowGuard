@@ -1958,3 +1958,32 @@ def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkey
     assert native.promote_target(root) == 1
     assert "promote refused: checked inputs changed" in capsys.readouterr().out
     assert (root / ".flowguard/target").is_dir() and (root / ".flowguard/map.json").read_bytes() == current
+
+
+def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path, capsys):
+    """examples/shelf holds the shelf fixture as files; copied out it runs the whole target workflow."""
+    import shutil
+
+    example = Path(__file__).resolve().parents[1] / "examples/shelf"
+    expected = {**SHELF_BASE,
+                **{"target/" + name: SHELF_TARGET[name] for name in ("map.json", "models/lending.py")},
+                **{"after/" + name: SHELF_AFTER[name] for name in ("shelf/loans.py", "tests/test_loans.py")}}
+    found = {path.relative_to(example).as_posix(): path.read_bytes().decode("utf-8").replace("\r\n", "\n")
+             for path in example.rglob("*") if path.is_file() and path.name != "README.md" and "__pycache__" not in path.parts}
+    assert found == {name: text.replace("\r\n", "\n") for name, text in expected.items()}
+    root = tmp_path / "shelf"          # the project is the example without its target/ and after/ folders
+    for part in (".flowguard", "shelf", "tests"):
+        shutil.copytree(example / part, root / part)
+    git = ["git", "-c", "core.autocrlf=false", "-c", "user.name=FlowGuard tests",
+           "-c", "user.email=flowguard-tests@example.invalid"]
+    for arguments in (("init", "-q"), ("add", "."), ("commit", "-qm", "shelf baseline")):
+        subprocess.run([*git, *arguments], cwd=root, check=True, capture_output=True)
+    assert _run(root, capsys, "map", "confirm", "all")[0] == 0
+    shutil.copytree(example / "target", root / ".flowguard/target")
+    code, output, errors = _run(root, capsys, "target", "check")
+    assert code == 3 and "TO-DO" in output and "ERROR" not in output, (output, errors)
+    shutil.copytree(example / "after", root, dirs_exist_ok=True)
+    code, output, errors = _run(root, capsys, "target", "check")
+    assert code == 0, (output, errors)
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 0 and not (root / ".flowguard/target").exists(), (output, errors)

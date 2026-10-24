@@ -1,0 +1,132 @@
+"""Lending model: a member never holds more than LIMIT loans and a book is never lent beyond its copies.
+Protected failures: lending a copy that is not free; exceeding the member limit; returning what was not lent.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, replace
+
+from flowguard import FunctionResult, Invariant, InvariantResult, ReplayObservation, Workflow, replay_trace, select_covering_traces
+from flowguard.conformance import projected_output_matches, projected_state_matches
+from flowguard.explorer import Explorer
+
+MODEL_ID = "lending"
+IMPLEMENTED_BY = {"Borrow": "shelf/loans.py:LoanService.borrow", "GiveBack": "shelf/loans.py:LoanService.give_back"}
+TESTED_BY = {"never_over_lent": ["tests/test_loans.py:test_borrow_and_return"],
+             "limit_respected": ["tests/test_loans.py:test_limit"]}
+STOCK = {"b": 1, "c": 2}
+LIMIT = 2
+
+
+@dataclass(frozen=True)
+class Borrow:
+    member: str
+    book: str
+
+
+@dataclass(frozen=True)
+class GiveBack:
+    member: str
+    book: str
+
+
+@dataclass(frozen=True)
+class State:
+    loans: tuple = ()
+
+
+def _free(state, book):
+    return STOCK.get(book, 0) - sum(1 for _, b in state.loans if b == book)
+
+
+class BorrowBlock:
+    name = "Borrow"
+    accepted_input_type = Borrow
+
+    def apply(self, inp, state):
+        if sum(1 for m, _ in state.loans if m == inp.member) >= LIMIT:
+            return [FunctionResult("refused", state, label="refused")]
+        if _free(state, inp.book) <= 0:
+            return [FunctionResult("unavailable", state, label="unavailable")]
+        return [FunctionResult("lent", replace(state, loans=state.loans + ((inp.member, inp.book),)), label="lent")]
+
+
+class GiveBackBlock:
+    name = "GiveBack"
+    accepted_input_type = GiveBack
+
+    def apply(self, inp, state):
+        if (inp.member, inp.book) not in state.loans:
+            return [FunctionResult("not_lent", state, label="not_lent")]
+        loans = list(state.loans)
+        loans.remove((inp.member, inp.book))
+        return [FunctionResult("returned", replace(state, loans=tuple(loans)), label="returned")]
+
+
+class LendAlways(BorrowBlock):
+    def apply(self, inp, state):
+        return [FunctionResult("lent", replace(state, loans=state.loans + ((inp.member, inp.book),)), label="lent")]
+
+
+class NoLimit(BorrowBlock):
+    def apply(self, inp, state):
+        if _free(state, inp.book) <= 0:
+            return [FunctionResult("unavailable", state, label="unavailable")]
+        return [FunctionResult("lent", replace(state, loans=state.loans + ((inp.member, inp.book),)), label="lent")]
+
+
+def _never_over_lent(state, trace):
+    return InvariantResult.pass_() if all(_free(state, b) >= 0 for b in STOCK) else InvariantResult.fail("a book is lent beyond its copies")
+
+
+def _limit(state, trace):
+    members = {m for m, _ in state.loans}
+    return InvariantResult.pass_() if all(sum(1 for m, _ in state.loans if m == x) <= LIMIT for x in members) else InvariantResult.fail("member over limit")
+
+
+INVARIANTS = (Invariant("never_over_lent", "a book is never lent beyond its copies", _never_over_lent),
+              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit))
+INPUTS = (Borrow("ann", "b"), Borrow("bob", "b"), GiveBack("ann", "b"), Borrow("ann", "c"))
+
+
+def _explorer(borrow) -> Explorer:
+    return Explorer(workflow=Workflow((borrow, GiveBackBlock()), mode="choice"), initial_states=(State(),),
+                    external_inputs=INPUTS, invariants=INVARIANTS, max_sequence_length=4, progress_steps=0)
+
+
+def build_explorer():
+    return _explorer(BorrowBlock())
+
+
+def broken_variants():
+    return {"lend_always": _explorer(LendAlways()), "no_limit": _explorer(NoLimit())}
+
+
+class _Adapter:
+    def reset(self, initial_state):
+        from shelf.loans import LoanService
+        self.svc = LoanService()
+        for m in ("ann", "bob"):
+            self.svc.members.join(m)
+        for book, n in STOCK.items():
+            self.svc.catalog.add(book, n)
+
+    def apply_step(self, step):
+        inp = step.function_input
+        out = self.svc.borrow(inp.member, inp.book) if isinstance(inp, Borrow) else self.svc.give_back(inp.member, inp.book)
+        return ReplayObservation(function_name=step.function_name, observed_output=out, observed_state=self.observe_state())
+
+    def observe_state(self):
+        return State(loans=tuple(self.svc.loans))
+
+    def observe_output(self):
+        return None
+
+
+def conformance():
+    last = None
+    for trace in select_covering_traces(build_explorer().explore().traces):
+        last = replay_trace(trace=trace, adapter=_Adapter(), invariants=INVARIANTS,
+                            rules=(projected_state_matches(), projected_output_matches()))
+        if not last.ok:
+            return last
+    return last

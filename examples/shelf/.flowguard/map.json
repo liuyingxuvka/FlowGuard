@@ -1,0 +1,126 @@
+{
+  "schema": "flowguard.map.v1",
+  "project": "shelf",
+  "layers": [
+    "interface",
+    "lending",
+    "records"
+  ],
+  "ignore": [],
+  "test_command": "python -m pytest -q",
+  "components": [
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Command line demo of lending.",
+      "responsibilities": [
+        "run the demo"
+      ],
+      "files": [
+        "shelf/cli.py",
+        "shelf/__init__.py"
+      ],
+      "entrypoints": [
+        "shelf/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints the result"
+      ],
+      "depends_on": [
+        "loans"
+      ],
+      "tests": [],
+      "models": [],
+      "status": "draft"
+    },
+    {
+      "id": "loans",
+      "layer": "lending",
+      "summary": "Lends and takes back books for members.",
+      "responsibilities": [
+        "lend a free copy",
+        "take a lent copy back"
+      ],
+      "files": [
+        "shelf/loans.py"
+      ],
+      "entrypoints": [
+        "shelf/loans.py:LoanService.borrow",
+        "shelf/loans.py:LoanService.give_back"
+      ],
+      "state": [
+        "current loans"
+      ],
+      "side_effects": [],
+      "depends_on": [
+        "catalog",
+        "members"
+      ],
+      "tests": [
+        "tests/test_loans.py"
+      ],
+      "models": [],
+      "status": "draft"
+    },
+    {
+      "id": "catalog",
+      "layer": "records",
+      "summary": "Counts free copies per book.",
+      "responsibilities": [
+        "count free copies"
+      ],
+      "files": [
+        "shelf/catalog.py"
+      ],
+      "entrypoints": [
+        "shelf/catalog.py:Catalog.take"
+      ],
+      "state": [
+        "free copies per book"
+      ],
+      "side_effects": [],
+      "depends_on": [],
+      "tests": [
+        "tests/test_catalog.py"
+      ],
+      "models": [],
+      "status": "draft"
+    },
+    {
+      "id": "members",
+      "layer": "records",
+      "summary": "Knows members and their loan limit.",
+      "responsibilities": [
+        "enforce the loan limit"
+      ],
+      "files": [
+        "shelf/members.py"
+      ],
+      "entrypoints": [
+        "shelf/members.py:Members.may_borrow"
+      ],
+      "state": [
+        "known members"
+      ],
+      "side_effects": [],
+      "depends_on": [],
+      "tests": [],
+      "models": [],
+      "status": "draft"
+    }
+  ],
+  "flows": [
+    {
+      "id": "borrow",
+      "summary": "member borrows a book",
+      "steps": [
+        "cli:main",
+        "loans:LoanService.borrow",
+        "members:Members.may_borrow",
+        "catalog:Catalog.take"
+      ]
+    }
+  ],
+  "accepted_debts": []
+}
