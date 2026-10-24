@@ -30,6 +30,7 @@ TESTED_BY = {
     "model_purpose_and_three_counts": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
     "missing_summary_prompt": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
+    "components_in_layer_order": ["tests/test_map_views.py:test_read_orders_components_by_layer"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
                                  "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
@@ -131,6 +132,7 @@ class ReadCase:
     missing_summary: bool = False
     component: str | None = None
     probe: str = ""
+    layered: bool = False      # beta (last in map.json) sits in the upper layer "top", alpha in "low"
 
 
 FEATURES = (
@@ -139,6 +141,7 @@ FEATURES = (
     Feature("missing_summary", False, (), lambda case: replace(case, missing_summary=True)),
     # One model binds LARGE_TESTS tests and the reader asks for its component.
     Feature("large_component", False, (), lambda case: replace(case, component="alpha")),
+    Feature("late_upper_component", False, (), lambda case: replace(case, layered=True)),
     # Rules from a _helper module, a wrapper function, and known-bad built by loops: read
     # and read --component alpha are both observed.
     Feature("helper_split_model", False, (), lambda case: replace(case, probe="helper_split"), exclusive=True),
@@ -206,6 +209,15 @@ def _static(observation):
     return True
 
 
+def _layer_order(observation):
+    """Top-level components appear top-down by layer; within a layer the map.json order holds."""
+    if not observation.case.layered:
+        return True
+    rank = {"beta": 0, "alpha": 1}
+    shown = [cid for cid in dict.fromkeys(re.findall(r"^## (\S+) \[", observation.text, re.M)) if cid in rank]
+    return shown == sorted(shown, key=rank.get)
+
+
 def _summary(observation):
     if not observation.case.missing_summary or not re.search(r"^## alpha \[", observation.text, re.M):
         return True
@@ -221,6 +233,8 @@ RULES = (
     Invariant("missing_summary_prompt", "a visible component without summary carries the purpose prompt", lambda state, trace: _summary(state)),
     Invariant("static_rules_match_model", "static rule and known-bad names and counts equal the model's explorer and variants",
               lambda state, trace: _static(state)),
+    Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
+              lambda state, trace: _layer_order(state)),
     Invariant("focused_component_visible", "read --component X fits the budget and always shows X's heading and five facets",
               lambda state, trace: _focused(state) and len(state.text) <= state.case.budget),
 )
@@ -236,7 +250,7 @@ def _cases():
     return tuple(cases)
 
 
-def _abstract(case):
+def _abstract(case, file_order=False):
     # Literal valid witnesses, not a renderer: no file scan or formatting logic
     # is reproduced here.  Native conformance never calls this function.
     if case.probe:
@@ -259,7 +273,9 @@ def _abstract(case):
         text = "# read fixture\n... truncated at 360 chars; not shown: alpha, beta; use read --component ID"
     else:
         purpose = "(no summary yet)" if case.missing_summary else "Serve alpha"
-        text = "## alpha [-]\n  " + purpose + "\n  " + MODEL_LINE + "\n## beta [-]\n  Serve beta"
+        alpha = f"## alpha [{'low' if case.layered else '-'}]\n  " + purpose + "\n  " + MODEL_LINE
+        beta = f"## beta [{'top' if case.layered else '-'}]\n  Serve beta"
+        text = "\n".join((beta, alpha) if case.layered and not file_order else (alpha, beta))
     return ReadObservation(case, text)
 
 
@@ -292,6 +308,8 @@ class Show:
             observed = replace(observed, text=text)
         elif self.fault == "kit_hidden" and case.probe == "kit":
             observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
+        elif self.fault == "map_file_order" and case.layered:
+            observed = _abstract(case, file_order=True)
         elif self.fault == "hide_focused" and case.component:
             observed = replace(observed, text=f"# read fixture\n... truncated at {case.budget} chars; "
                                               f"not shown: {case.component}; use read --component ID")
@@ -313,7 +331,8 @@ def broken_variants():
             "drops_summary_prompt": _explorer("drop_summary_prompt"),
             "hides_focused_component": _explorer("hide_focused"),
             "counts_tested_by_keys": _explorer("tested_by_keys"),
-            "kit_known_bad_hidden": _explorer("kit_hidden")}
+            "kit_known_bad_hidden": _explorer("kit_hidden"),
+            "map_file_order": _explorer("map_file_order")}
 
 
 def _files():
@@ -371,7 +390,9 @@ def _review(template, case):
                            status="draft", fingerprint="", layer="") for cid in ("alpha", "beta")]
         if case.missing_summary:
             components[0].pop("summary")
-        data = dict(project="read fixture", layers=[], components=components, flows=[])
+        if case.layered:
+            components[0]["layer"], components[1]["layer"] = "low", "top"
+        data = dict(project="read fixture", layers=["top", "low"] if case.layered else [], components=components, flows=[])
         inv = build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
         for relative, source in PROBE_FILES.get(case.probe, {}).items():
             _write(root, relative, source)

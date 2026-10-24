@@ -340,7 +340,8 @@
         "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
         "show the requested component within the read budget",
         "read model rules statically from the explorer the model builds",
-        "read feature-kit rules, known-bad and cases without running the model"
+        "read feature-kit rules, known-bad and cases without running the model",
+        "list components by layer, parents before children"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -372,7 +373,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f0739c3a292cab2835a214dedae13cf202f6f7395ecb9f9d946aa5385ee290fd"
+      "fingerprint": "sha256:2b094107dfb2e8adab16f5c4f1af48da676771b53feb97f5867bfc8beffec8ad"
     },
     {
       "id": "map-target",

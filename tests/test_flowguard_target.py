@@ -1601,3 +1601,22 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
         assert snapshot(hard_root) == before
         if marker is not None:
             assert marker.is_absolute() and not marker.exists()
+
+
+def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatch):
+    """A target that adds one entrypoint reports that entrypoint, not recomputed coverage text."""
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    target = json.loads(SHELF_TARGET["map.json"])
+    loans = target["components"][0]
+    loans["responsibilities"] = loans["responsibilities"][:2]
+    loans["state"] = ["current loans"]
+    target["goal"] = "one more loans entrypoint"
+    (root / ".flowguard/target").mkdir()
+    (root / ".flowguard/target/map.json").write_text(json.dumps(target, indent=2) + "\n", encoding="utf-8")
+    code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
+    assert code == 0 and not errors, (output, errors)
+    changes = [line for line in output.splitlines() if line.strip().startswith("changes:")]
+    assert changes and all("coverage" not in line for line in changes), output
+    assert any("code + shelf/loans.py:LoanService.hold" in line for line in changes), output
+    assert "\n\n\n" not in output

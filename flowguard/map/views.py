@@ -157,9 +157,12 @@ def _facet_lines_with_was(fact, before, indent):
 
 def _node_fields(kind, record):
     node, fact = record
+    # Only written facts: computed coverage, STALE and computed test counts are not changes.
     fields = {"purpose": (fact.purpose,), "rules": fact.rules or (("not readable statically",) if fact.rule_count is None else ()),
               "known-bad": fact.known_bad or (("not readable statically",) if fact.known_bad_count is None else ()),
-              "code": tuple(value for value in fact.code if value != "STALE"), "tests": fact.tests}
+              "code": tuple(value for value in fact.code if value != "STALE" and not value.startswith("coverage: ")
+                            and not re.fullmatch(r"\d+ files/\d+ loc", value)),
+              "tests": tuple(value for value in fact.tests if " -> " in value and not value.startswith("unbound: "))}
     if kind == "component":
         fields["code"] = tuple(value for value in fields["code"]
                                if not value.startswith(("entry: ", "state: ", "effects: "))) + tuple(node.get("entrypoints", []))
@@ -285,6 +288,14 @@ def _show_header(data, graph, *, architecture=None, debts=None):
     return head + f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
 
 
+def _layer_order(data: dict, identities: set[str]) -> list[tuple[dict, int]]:
+    """View order: top-level components top-down by layer (unlayered last), map order inside one
+    layer; children stay right under their parent (a child shares its parent's layer)."""
+    layers = {layer: index for index, layer in enumerate(data.get("layers", []))}
+    ranked = sorted(data["components"], key=lambda c: layers.get(c.get("layer"), len(layers)))
+    return component_order({**data, "components": ranked}, identities)
+
+
 def _component_block(lines, depth):
     return "\n".join(("  " * depth + line) if line else line for line in "\n".join(lines).split("\n"))
 
@@ -293,8 +304,9 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
     view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw = _target_comparison(root, data, inv, target)
     merged = view.data
     component_ids = {cid for kind, cid in old.keys() | new.keys() if kind == "component"}
+    ordered = [c["id"] for c in merged["components"]] + [c["id"] for c in data["components"]]
     display_data = {**merged, "components": [(new.get(("component", cid)) or old[("component", cid)])[0]
-                                              for cid in sorted(component_ids)]}
+                                              for cid in dict.fromkeys(ordered) if cid in component_ids]}
     if component and component != "system":
         descendants = {c["id"] for mapping in (data, merged) for c in component_subtree(mapping, component)}
         component_ids = {cid for cid in component_ids if cid in descendants or cid.startswith(component + ".")}
@@ -330,7 +342,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
     relevant.update(node.home for snapshot in (old_tree, tree) for node in snapshot.nodes.values()
                     if node.home_kind == "component" and ("model", node.id) in changes)
     blocks, compacts, musts = [], [], {}
-    for display_comp, depth in component_order(display_data, component_ids):
+    for display_comp, depth in _layer_order(display_data, component_ids):
         cid = display_comp["id"]
         key = ("component", cid)
         before, after = old.get(key), new.get(key)
@@ -434,7 +446,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     blocks: list[tuple[str, str]] = []
     compacts: list[tuple[str, str]] = []
     must: list[str] = []
-    for c, depth in component_order(data, {c["id"] for c in comps}):
+    for c, depth in _layer_order(data, {c["id"] for c in comps}):
         scoped = component_scope(data, c)
         files = component_files(scoped, inv)
         dependencies = {dep for member in component_subtree(data, c["id"]) for dep in graph.get(member["id"], ())}
@@ -480,11 +492,20 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     return _bounded_show(top, essential, blocks, budget)
 
 
+def _tidy(text: str) -> str:
+    """At most one blank line between blocks."""
+    return re.sub(r"\n{3,}", "\n\n", text)
+
+
 def _shorten(line: str, width: int) -> str:
     return line if len(line) <= width else line[:max(0, width - 1)] + "…"
 
 
-def _bounded_focus(top, focus, full, compact, children, compact_children, must, budget):
+def _bounded_focus(*args):
+    return _tidy(_bounded_focus_raw(*args))
+
+
+def _bounded_focus_raw(top, focus, full, compact, children, compact_children, must, budget):
     """read --component X: shorten inside X's block, never hide X itself.
 
     Order: capped lists (always), model facets reduced to model headings, child
@@ -529,6 +550,10 @@ def _bounded_focus(top, focus, full, compact, children, compact_children, must, 
 
 
 def _bounded_show(top, essential, blocks, budget):
+    return _tidy(_bounded_show_raw(_tidy(top), essential, [(cid, _tidy(block)) for cid, block in blocks], budget))
+
+
+def _bounded_show_raw(top, essential, blocks, budget):
     text = top + "\n" + "\n".join(b for _, b in blocks)
     if len(text) <= budget:
         return text

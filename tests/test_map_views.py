@@ -931,3 +931,16 @@ def test_static_facets_match_flowguard_self_models():
     finally:
         if added:
             sys.path.remove(models)
+
+
+def test_read_orders_components_by_layer(tmp_path):
+    """Top-level components are listed top-down by layer, keeping map order inside a layer."""
+    data = dict(project="layers", layers=["upper", "middle", "lower"], flows=[], components=[
+        dict(_component("low", summary="Low"), layer="lower"),
+        dict(_component("mid", summary="Mid"), layer="middle"),
+        dict(_component("low_child", summary="Child"), layer="lower", parent="low"),
+        dict(_component("top", summary="Top"), layer="upper")])
+    output = render_show(tmp_path, data, _inventory(tmp_path), component=None, detail=False, budget=8000)
+    headings = [line.strip().split(" [", 1)[0][3:] for line in output.splitlines() if line.strip().startswith("## ")]
+    assert headings == ["top", "mid", "low", "low_child"], output
+    assert "\n\n\n" not in output

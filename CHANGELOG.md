@@ -7,6 +7,7 @@
 - `read` now shows the real rule names and descriptions of models whose invariants live in a `_helper` module or are built by a small wrapper function; it no longer shows `TESTED_BY` keys as rules.
 - A parent model shows the tests its child models bind.
 - `read` shows the rules, known-bad variants and the defect/benign cases of feature-kit models without running them (no more `? known-bad` for them).
+- `read` lists components top-down by layer; `read --target` no longer repeats computed coverage text as a change.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
