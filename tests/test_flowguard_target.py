@@ -1459,3 +1459,145 @@ def test_target_refuses_to_remove_a_component_parent_with_children(tmp_path, cap
                for line in output.splitlines()), output
     assert (root / '.flowguard/map.json').read_bytes() == before
     assert {component['id'] for component in _load_map(root)['components'] if component.get('parent') == 'records'} == {'catalog', 'loans'}
+
+
+def _target_life_cycle_fixture_helpers():
+    """Load only filesystem builders through the canonical current/target view."""
+    from pathlib import Path
+    import runpy
+    from flowguard.map.mapfile import load_map, resolve_model_path
+    from flowguard.map.targetfile import build_target_view, load_target
+
+    repository = Path(__file__).resolve().parents[1]
+    active = load_target(repository)
+    helper_view = build_target_view(repository, load_map(repository), active) if active is not None else None
+    helper_path = resolve_model_path(repository, ".flowguard/models/target_life_cycle.py", view=helper_view)
+    assert helper_path is not None
+    return runpy.run_path(str(helper_path))
+
+
+def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
+    from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.targetfile import build_target_view, load_target
+
+    helpers = _target_life_cycle_fixture_helpers()
+    make, stage, snapshot = helpers["make_project"], helpers["stage_target"], helpers["snapshot"]
+
+    root = make(tmp_path / "promotion")
+    stage(root)
+    helpers["edit_missing_method"](root)
+    report = native.check_target(root)
+    assert not report.errors and any(f.code == "anchor_broken" for f in report.todos), report
+    before = snapshot(root)
+    assert native.promote_target(root) == 1
+    assert snapshot(root) == before
+
+    helpers["write_method"](root)
+    report = native.check_target(root)
+    assert not report.errors and not report.todos, report
+    current, draft = load_map(root), load_target(root)
+    expected = build_target_view(root, current, draft).data
+    expected_models = {name: (root / rel).read_bytes() for name, rel in draft.models.items()}
+    assert expected_models and expected_models["shelf_rule.py"] != (root / ".flowguard/models/shelf_rule.py").read_bytes()
+    assert native.promote_target(root) == 0
+    assert load_map(root) == expected
+    assert all((root / ".flowguard/models" / name).read_bytes() == content
+               for name, content in expected_models.items())
+    assert not (root / ".flowguard/target").exists()
+    assert not any(flow["id"] == "borrow" for flow in load_map(root)["flows"])
+    loans = next(c for c in load_map(root)["components"] if c["id"] == "loans")
+    assert loans["status"] == "draft" and "fingerprint" not in loans
+
+
+def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
+    import json
+    from flowguard.map import target as native
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.targetfile import build_target_view, load_target
+
+    helpers = _target_life_cycle_fixture_helpers()
+    make, stage, snapshot = helpers["make_project"], helpers["stage_target"], helpers["snapshot"]
+    prove = helpers["probe_regular_model"]
+
+    # Three related provenance cases share a small fixture, not a result.
+    # Every changed artifact is reproved through real run_model_in_process AND a fresh
+    # full check_target. No fabricated ModelResult or mocked model runner.
+    root = make(tmp_path / "provenance")
+    stage(root)
+    code_path = root / "shelf/loans.py"
+    model_path = root / ".flowguard/target/models/shelf_rule.py"
+    original_code, original_model = code_path.read_bytes(), model_path.read_bytes()
+    logical_model = root / ".flowguard/models/shelf_rule.py"
+
+    code_path.write_text(original_code.decode().replace("value + capacity()", "value + capacity() + 1"), encoding="utf-8")
+    view = build_target_view(root, load_map(root), load_target(root))
+    result = prove(root, logical_model, view=view)
+    assert result.status == "fail" and result.code_gaps, result
+    assert set(result.code_gaps) <= set(result.problems)
+    report = native.check_target(root)
+    for message in result.code_gaps:
+        assert any(f.node == "model shelf_rule" and f.message == message for f in report.todos), report
+        assert not any(f.message == message for f in report.errors + report.warnings), report
+
+    code_path.write_bytes(original_code)
+    source = original_model.decode()
+    assert source.count('return {"advance_twice": make(2)}') == 1
+    model_path.write_text(source.replace('return {"advance_twice": make(2)}',
+                                         'return {"advance_twice": make(1)}'), encoding="utf-8")
+    view = build_target_view(root, load_map(root), load_target(root))
+    result = prove(root, logical_model, view=view)
+    assert result.status == "fail" and not result.code_gaps, result
+    design_failures = [p for p in result.problems if "known-bad variant" in p and "passed" in p]
+    assert design_failures, result
+    report = native.check_target(root)
+    for message in design_failures:
+        assert any(f.node == "model shelf_rule" and f.message == message for f in report.errors), report
+        assert not any(f.message == message for f in report.todos + report.warnings), report
+
+    model_path.write_bytes(original_model)
+    view = build_target_view(root, load_map(root), load_target(root))
+    result = prove(root, logical_model, view=view)
+    assert result.status == "pass" and not result.code_gaps and not result.problems, result
+    assert any(w.startswith("invariant_untested:") for w in result.warnings), result
+    report = native.check_target(root)
+    assert not report.errors and not report.todos, report
+    assert any(f.node == "model shelf_rule" and f.code == "invariant_untested" for f in report.warnings), report
+    assert not any(f.code == "invariant_untested" for f in report.errors + report.todos), report
+    assert native.main(["check", "--root", str(root)]) == 0
+    assert code_path.read_bytes() == original_code and model_path.read_bytes() == original_model
+
+
+    # Four actual hard boundaries must remain ERROR, independently of TODO
+    # allowances for missing future code. Each case starts from new real files.
+    # Full check_target is invoked with its normal model selection; no models
+    # flag, runner patch or fabricated Finding/ModelResult supplies a verdict.
+    for code in ("owner_dropped", "entrypoint_owner", "design_only_model", "runner_model"):
+        hard_root = make(tmp_path / ("hard-" + code))
+        stage(hard_root, with_model=False)
+        target_path = hard_root / ".flowguard/target/map.json"
+        draft = json.loads(target_path.read_text(encoding="utf-8"))
+        marker = None
+        if code == "owner_dropped":
+            draft["remove"] = ["component:catalog"]
+            draft["components"][0]["depends_on"] = []
+            target_path.write_text(json.dumps(draft), encoding="utf-8")
+        elif code == "entrypoint_owner":
+            draft["components"][0]["entrypoints"].append("shelf/catalog.py:capacity")
+            target_path.write_text(json.dumps(draft), encoding="utf-8")
+        elif code == "design_only_model":
+            path = hard_root / ".flowguard/models/shelf_rule.py"
+            path.write_text(path.read_text(encoding="utf-8") + "\nDESIGN_ONLY = False\n", encoding="utf-8")
+        else:
+            marker = hard_root / "legacy-runner-was-executed.marker"
+            runner = hard_root / ".flowguard/verification/owners/legacy/run_checks.py"
+            runner.parent.mkdir(parents=True)
+            runner.write_text("from pathlib import Path\nPath(" + repr(str(marker)) +
+                              ").write_text('executed')\nraise RuntimeError('legacy runner executed')\n", encoding="utf-8")
+        before = snapshot(hard_root)
+        report = native.check_target(hard_root)
+        assert any(f.code == code for f in report.errors), (code, report)
+        assert not any(f.code == code for f in report.todos + report.warnings), (code, report)
+        assert snapshot(hard_root) == before
+        if marker is not None:
+            assert marker.is_absolute() and not marker.exists()

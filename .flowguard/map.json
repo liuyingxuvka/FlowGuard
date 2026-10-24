@@ -774,7 +774,8 @@
         "map-target:check_target",
         "map-proof:run_models",
         "map-target:promote_target"
-      ]
+      ],
+      "model": ".flowguard/models/target_life_cycle.py"
     }
   ],
   "accepted_debts": []
