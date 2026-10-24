@@ -67,6 +67,36 @@ class ModelTree:
         return {n.id for n in self.nodes.values() if n.path in reached}
 
 
+def component_parent_findings(data: dict) -> list[Finding]:
+    """Component parents must exist, stay in one layer and never loop (errors)."""
+    out: list[Finding] = []
+    by_id = {c["id"]: c for c in data["components"]}
+    for cid, comp in by_id.items():
+        parent = comp.get("parent")
+        if parent is None:
+            continue
+        if parent not in by_id:
+            out.append(Finding("error", "component_parent_unknown", cid,
+                               f"component {cid}: parent {parent!r} is not a component"))
+        elif (comp.get("layer") or "") != (by_id[parent].get("layer") or ""):
+            out.append(Finding("error", "component_parent_layer", cid,
+                               f"component {cid} is in layer {comp.get('layer')} but its parent {parent} "
+                               f"is in layer {by_id[parent].get('layer')}; a sub-system stays in one layer"))
+    finished = set()
+    for start in by_id:
+        chain, current = [], start
+        while current in by_id and current not in finished:
+            if current in chain:
+                loop = chain[chain.index(current):] + [current]
+                out.append(Finding("error", "component_parent_cycle", current,
+                                   "component parent loop: " + " -> ".join(loop)))
+                break
+            chain.append(current)
+            current = by_id[current].get("parent")
+        finished.update(chain)
+    return out
+
+
 def build_tree(root: Path, data: dict, inv: Inventory, *,
                historical_imports: dict[str, list[str]] | None = None, view=None) -> ModelTree:
     """Resolve each model's parent once; report invalid nesting and fall back finitely."""

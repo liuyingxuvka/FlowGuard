@@ -14,6 +14,7 @@ from .common import Finding, glob_match, is_test_file, read_source, matches_any,
 from .inventory import Inventory
 from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 from .retired import design_only_problem, retired_file_message
+from .tree import component_parent_findings
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -59,31 +60,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     retired = retired_file_message(root)
     if retired:
         out.append(Finding("warn", "retired_file", "", retired))
+    out.extend(component_parent_findings(data))
     by_id = {c["id"]: c for c in data["components"]}
     children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}
-    for cid, comp in by_id.items():
-        parent = comp.get("parent")
-        if parent is None:
-            continue
-        if parent not in by_id:
-            out.append(Finding("error", "component_parent_unknown", cid,
-                               f"component {cid}: parent {parent!r} is not a component"))
-        elif (comp.get("layer") or "") != (by_id[parent].get("layer") or ""):
-            out.append(Finding("error", "component_parent_layer", cid,
-                               f"component {cid} is in layer {comp.get('layer')} but its parent {parent} "
-                               f"is in layer {by_id[parent].get('layer')}; a sub-system stays in one layer"))
-    finished = set()
-    for start in by_id:
-        chain, current = [], start
-        while current in by_id and current not in finished:
-            if current in chain:
-                loop = chain[chain.index(current):] + [current]
-                out.append(Finding("error", "component_parent_cycle", current,
-                                   "component parent loop: " + " -> ".join(loop)))
-                break
-            chain.append(current)
-            current = by_id[current].get("parent")
-        finished.update(chain)
     owner, owners_all = owner_index(data, inv)
     for f, ids in sorted(owners_all.items()):
         if len(ids) > 1:

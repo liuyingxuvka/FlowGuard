@@ -268,7 +268,7 @@
       "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
       "responsibilities": [
         "load, validate and save the map, pointing a missing map at the guide",
-        "accept optional component parents and file-reading flow steps",
+        "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
         "register contract models and build the model tree with its nesting errors",
@@ -297,11 +297,12 @@
       ],
       "tests": [
         "tests/test_flowguard_map.py",
-        "tests/test_flowguard_map_contracts.py"
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_map_views.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7388cea63002fe1bd5a2119d09fc26f6c1ed346501aab2c17588b0bab4b1b071"
+      "fingerprint": "sha256:0403826c3b6cbb352297745a3b884c4d1982115c1d3d6228b012d3be75b5de6d"
     },
     {
       "id": "map-discover",
@@ -726,7 +727,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:39969ac8dcfde4966a3adce1bf5ee2ca55c17c6da8bbbe44e82d8cef60c4d5b1"
+      "fingerprint": "sha256:eb5fb17aec5e477fbc70ea85e4d50ff19866775f40b20a620b5d443eb6cc3cd6"
     },
     {
       "id": "map-read",
