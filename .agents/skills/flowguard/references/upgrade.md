@@ -58,3 +58,5 @@ The ten capability engines are folded into the model tree; each line below says 
 - The `ui-flow-structure` template is retired; use `ui-journey` (`ui-flow` remains an alias) and import from `flowguard.ui_flow`. The remaining UI review questions are in `references/model_recipes.md#UI journey`.
 
 - The `contract-exhaustion` template is now `validator`; import from `flowguard.validator`. Routes, cross-engine handoffs/adapters, coverage universes and confidence are gone; finite bad-case generation and execution against the real function remain.
+
+- Capability and benchmark names left `import flowguard`; import node kinds from `flowguard.validator` / `flowguard.ui_flow`, closure from `flowguard.closure`, and benchmark helpers from their modules.

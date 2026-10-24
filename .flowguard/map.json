@@ -131,7 +131,7 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Lazily exposes native model-tree and computation APIs, with upgrade guidance for retired names.",
+      "summary": "Lazily exposes the core engine API; node kinds and tools are imported from their modules",
       "responsibilities": [
         "expose current public names from their owning modules without importing those modules early",
         "direct retired public API names to references/upgrade.md without changing public name resolution"
@@ -150,7 +150,6 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "problem-corpus",
         "templates"
       ],
       "tests": [
@@ -158,7 +157,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2ab15bacfbb38a3a1c779ae32f4fbe0a586ceae7241d7fb33730c81b6264a223"
+      "fingerprint": "sha256:41a568c87f6a202ef131ab73231b192427ae8e58e5c8b5da4afeb57b14117e7c"
     },
     {
       "id": "templates",

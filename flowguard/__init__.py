@@ -1,9 +1,12 @@
-"""FlowGuard public API.
+"""FlowGuard core engine API.
 
-``import flowguard`` loads only this file.  Each public name below is loaded
-from its owning module the first time it is used.  The table is plain data:
-when a module's public names change, edit the table and run
-``python -m pytest tests/test_public_api.py``.
+``import flowguard`` loads only this facade; core names load lazily from their
+owning modules. Node kinds live in ``flowguard.validator`` and
+``flowguard.ui_flow``; computed hints in ``flowguard.hazards``; parent-child
+handoffs in ``flowguard.closure``; test shards in ``flowguard.pytest_shards_cli``.
+Maps and code facts use ``flowguard.map.*`` (for example
+``flowguard.map.facts.CodeFacts``). FlowGuard's own benchmark corpus uses
+``flowguard.corpus`` and the other benchmark modules directly.
 """
 
 from __future__ import annotations
@@ -15,18 +18,6 @@ __version__ = "0.70.10"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {
-    "flowguard._hashing": (
-        "canonical_fingerprint",
-    ),
-    "flowguard.baseline": (
-        "EvidenceBaselineReport",
-        "EvidenceCaseResult",
-        "build_evidence_baseline_report",
-    ),
-    "flowguard.benchmark": (
-        "BenchmarkScorecard",
-        "build_benchmark_scorecard",
-    ),
     "flowguard.budgeted": (
         "BudgetedGraphConfig",
         "BudgetedGraphFailure",
@@ -48,13 +39,14 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "require_label",
         "require_label_order",
         "require_reachable",
-        "state_invariant",
     ),
     "flowguard.conformance": (
         "ConformanceReport",
         "ConformanceRule",
         "ConformanceViolation",
         "default_conformance_rules",
+        "projected_output_matches",
+        "projected_state_matches",
         "replay_trace",
         "select_covering_traces",
     ),
@@ -71,22 +63,8 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "Invariant",
         "InvariantResult",
     ),
-    "flowguard.corpus": (
-        "ProblemCase",
-        "ProblemCorpus",
-        "ProblemCorpusReport",
-        "build_problem_corpus_report",
-    ),
-    "flowguard.coverage": (
-        "BenchmarkCoverageAudit",
-        "build_benchmark_coverage_audit",
-    ),
-    "flowguard.executable": (
-        "ExecutableCaseResult",
-        "ExecutableCorpusReport",
-        "build_executable_corpus_report",
-    ),
     "flowguard.explorer": (
+        "Explorer",
         "ReachabilityCondition",
         "enumerate_input_sequences",
     ),
@@ -103,6 +81,7 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "feature_conformance",
         "feature_explorer",
         "feature_variants",
+        "reachable_states",
     ),
     "flowguard.loop": (
         "GraphEdge",
@@ -170,7 +149,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "ArtifactEnvelope",
         "SCHEMA_VERSION",
         "make_artifact",
-        "report_artifact",
         "trace_artifact",
     ),
     "flowguard.templates": (

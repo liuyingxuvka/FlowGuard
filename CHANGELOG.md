@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The top-level API now holds the core only (105 names); node kinds and tools are imported from their modules. Original consumer import paths remain supported.
+
 - Removed `flowguard.kit.plan_explorer`, `review_invariant` and `PlanState`. Feature kits and `reachable_states` remain available.
 
 - Templates are the node kinds `behaviour`, `validator` and `ui-journey` (plus `adoption`); with a target, `template` writes models into `.flowguard/target/models/`.

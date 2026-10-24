@@ -73,3 +73,38 @@ def test_no_self_reported_currentness_left():
         if relative not in paths or not (ROOT / relative).is_file() or relative not in matched:
             offenders.append(f"{relative}: {action}: no longer tracked, present and matching; remove from PENDING")
     assert not offenders, "\n".join(offenders)
+
+
+def test_public_names_use_one_vocabulary():
+    import flowguard
+
+    assert len(flowguard.__all__) <= 300
+    forbidden = re.compile(r"EVIDENCE|PROOF|LEDGER|AUTHORIT|CONFIDENCE|CLAIM_SCOPE|CURRENT", re.IGNORECASE)
+    offenders = [name for name in flowguard.__all__ if forbidden.search(name)]
+    assert not offenders, offenders
+    allowed_modules = {
+        'flowguard.core',
+        'flowguard.workflow',
+        'flowguard.explorer',
+        'flowguard.report',
+        'flowguard.trace',
+        'flowguard.replay',
+        'flowguard.conformance',
+        'flowguard.contract',
+        'flowguard.checks',
+        'flowguard.packs',
+        'flowguard.scenario',
+        'flowguard.review',
+        'flowguard.scenario_matrix',
+        'flowguard.minimize',
+        'flowguard.loop',
+        'flowguard.progress',
+        'flowguard.budgeted',
+        'flowguard.mermaid',
+        'flowguard.export',
+        'flowguard.schema',
+        'flowguard.kit',
+        'flowguard.templates',
+    }
+    unexpected = set(flowguard._PUBLIC_API) - allowed_modules
+    assert not unexpected, sorted(unexpected)

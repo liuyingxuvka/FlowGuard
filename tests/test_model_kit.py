@@ -182,7 +182,8 @@ def test_reachable_states_collects_every_state_once(monkeypatch):
     assert reachable_states(explorer, lambda state: state % 2) == (0, 1)
     assert reachable_states(explorer, lambda state: state if state % 2 == 0 else None) == (0, 2)
     assert reachable_states(explorer, lambda state: [state % 2]) == ([0], [1])
-    assert 'reachable_states' not in flowguard.__all__
+    assert 'reachable_states' in flowguard.__all__
+    assert flowguard.reachable_states is reachable_states
 
 
 @pytest.mark.parametrize('initial,following,expected', [(None, 0, (None, 0)), (0, None, (0, None))])
