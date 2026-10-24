@@ -194,8 +194,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     from .discover import discover_inventory
     raw = discover_inventory(root, inv, write_cache=view is None, data=data)
     evidence_graph = dependency_evidence(data, inv, raw)
-    from .lint import apply_accepted_debts, normalized_debts, structural_findings
-    out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv), normalized_debts(data))[0])
+    from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, structural_findings
+    out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv) + duplicate_owner_findings(data),
+                                    normalized_debts(data))[0])
     declared_entries: dict[str, set[str]] = {}
     for component in data["components"]:
         for anchor in component.get("entrypoints", []):

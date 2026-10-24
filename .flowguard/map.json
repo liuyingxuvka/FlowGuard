@@ -354,7 +354,8 @@
         "check file-linked flow steps as command entrypoints",
         "select a flow's model when a step's file changes",
         "list the flows each component takes part in",
-        "warn when a component uses another component's private name"
+        "warn when a component uses another component's private name",
+        "report duplicate owners in every map check"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -386,7 +387,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f4054f6e1932a634edef0248f8d6011f511628c9596ff4355a836743b7b6e031"
+      "fingerprint": "sha256:948a496d092993f89c66aa23905c97587eefd2f46afeee1c8b5556ace876750c"
     },
     {
       "id": "map-target",
@@ -425,7 +426,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:de386311b59e261672f5c0ec7afb3dc97e762f844f4d3d385278d3d245303ef4"
+      "fingerprint": "sha256:7a6653b4a6fbdd49e317ca5d60f14c715d5d23f30d2300bf5c565cd8555a9dd7"
     },
     {
       "id": "map-proof",
@@ -471,7 +472,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0891a5da76ef8690b9ac11629d95a17e6e5bdce85acf66397fb30209b68196df"
+      "fingerprint": "sha256:8d2bf6475adae467966154d34a9eb82373c750840d3c729b5ca1d096e59e4555"
     },
     {
       "id": "engine-explore",

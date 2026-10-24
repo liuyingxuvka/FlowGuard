@@ -3,7 +3,7 @@
 | code | level | meaning | usual fix |
 | --- | --- | --- | --- |
 | `layer_violation` | error | a lower layer imports a higher one | move the code down, invert the dependency (callback/interface), or fix the layer assignment |
-| `duplicate_owner` | error | two components claim the same responsibility | pick one owner; the other delegates to it |
+| `duplicate_owner` | error | two components claim the same responsibility, state or side effect; `map check`, `change` and `map lint` all report it | pick one owner; the other delegates to it |
 | `possible_duplicate` | warn | two responsibilities are worded very similarly | check whether they are the same job; merge or reword |
 | `duplicate_code` | warn | identical function bodies in different components (info when all copies are in one component) | keep one implementation in the owner, call it from the other |
 | `dependency_cycle` | error | components import each other; check and lint show the shortest closing import path and its file:line sites | extract the shared part into a lower component, merge, or record the existing cycle's members as accepted debt |

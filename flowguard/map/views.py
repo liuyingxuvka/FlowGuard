@@ -12,16 +12,19 @@ from .inventory import Inventory, resolve_import
 from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
-from .lint import apply_accepted_debts, normalized_debts, private_name, structural_findings
+from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
 
 def _architecture(data: dict, graph: dict[str, set[str]]):
-    """Only cheap cycle/layer rules; share full debt normalization with lint."""
-    findings, by_component = structural_findings(data, graph), defaultdict(list)
+    """Only cheap cycle/layer/duplicate-owner rules; share full debt normalization with lint."""
+    findings, by_component = structural_findings(data, graph) + duplicate_owner_findings(data), defaultdict(list)
     for finding in findings:
-        members = finding.message.split(";", 1)[0].split(" <-> ") if finding.code == "dependency_cycle" else [finding.component]
+        if finding.code == "duplicate_owner":
+            members = re.findall(r"'([^']+)'", finding.message.rpartition("is claimed by")[2]) or [finding.component]
+        else:
+            members = finding.message.split(";", 1)[0].split(" <-> ") if finding.code == "dependency_cycle" else [finding.component]
         for cid in members:
             by_component[cid].append(finding)
     findings, used = apply_accepted_debts(findings, normalized_debts(data))

@@ -1274,7 +1274,7 @@ def test_check_and_change_report_duplicate_owner(tmp_path, capsys):
     assert code == 1 and out.count("duplicate_owner") == 1 and "ERROR duplicate_owner" in out, out
     assert "duplicate_owner" in run("change")[1]
     assert "architecture: 1 error(s)" in run("read")[1].splitlines()[0]
-    assert run("map", "models", "system")[1].count("duplicate_owner") == 1
+    assert run("map", "models", "system")[1].count("duplicate_owner catalog") == 1
     data["accepted_debts"] = [{"code": "duplicate_owner", "component": "catalog", "contains": "current loans",
                                "reason": "the catalog mirrors loans until the split"}]
     save(root, data)

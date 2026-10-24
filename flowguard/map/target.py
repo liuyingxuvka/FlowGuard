@@ -175,7 +175,7 @@ def _issue_key(node, code, message, tree):
 def check_target(root: Path, *, models: bool = True) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
-    from .lint import architecture_findings, architecture_variants, dropped_owner_findings, duplicate_owner_findings
+    from .lint import architecture_findings, architecture_variants, dropped_owner_findings
 
     root = root.resolve()
     current = load_map(root)
@@ -205,8 +205,8 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
             getattr(report, level).append(TargetFinding(node, code, message))
 
     replaced = {c["id"] for c in target.data.get("components", [])}
-    for finding in [*run_check(root, view.data, inv, view=view), *duplicate_owner_findings(view.data),
-                    *dropped_owner_findings(current, view.data, target)]:
+    # run_check reports duplicate_owner (with accepted debts) once.
+    for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
         if finding.code in {"draft", "stale"} and finding.component in replaced:
             continue
         if finding.level == "info":

@@ -15,12 +15,14 @@
 - A flow step can be written `component:Symbol reads <file>` for a command that reads a file an earlier step wrote; such steps are checked as command entrypoints instead of static call reach.
 - `read --component` lists the flows a component takes part in, with the flow's model and rules; `change` selects a flow's model when any step's file changes; `map lint` reports `flow_unmodeled` for a flow that crosses modeled code without a model.
 - `map lint` warns `private_cross_component_use` when a component uses another component's `_private` name.
+- `map check` and `change` now report `duplicate_owner` every day, not only `map lint` and `release`.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
 - Projects using FlowGuard: may see more `entrypoint_unmodeled` / `foreign_state_write` warnings and fewer `dep_unused` errors.
 - Projects using FlowGuard: command-chain flows (LogicWriting, ResearchGuard) can use it to clear `flow_step_unreached`.
 - Projects using FlowGuard: new lint warnings at the current HEADs: PhysicsGuard 3, ResearchGuard 9, WorldGuard 10, LogicWriting 0.
+- Projects using FlowGuard: `map check` (and CI) fails when two components claim the same responsibility, state or side effect; no project has one today.
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 

@@ -27,7 +27,8 @@ def run_system_model(root, data, inv, *, view=None):
             result.problems.append(f"generated known-bad variant '{name}' passed: the architecture rules do not catch it")
     result.known_bad.sort()
     consistency = run_check(root, data, inv, view=view)
-    errors = [f for f in consistency if f.level == "error"]
+    # Architecture rules (duplicate_owner included) are reported above, once.
+    errors = [f for f in consistency if f.level == "error" and f.code != "duplicate_owner"]
     if errors:
         result.problems.append("the map does not match the code:\n" + "\n".join(
             f"{f.code} {f.component}: {f.message}" for f in errors[:5]))
