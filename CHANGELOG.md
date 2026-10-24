@@ -1,67 +1,47 @@
 # Changelog
 
-## Unreleased
+## v0.70.11 - 2026-10-24 - One model tree for current and target work
 
-- Documentation now describes one model tree, its five facets, current/target workflow and node templates. FlowGuard's own finite checks cover model placement, static read output, source ownership and target creation, promotion and error reporting through real conformance and bound tests. Retired integration guides, the old acceptance report and the completed roadmap are removed; benchmark, budgeted exploration and conformance examples remain.
+### New
 
-- Components may name a `parent` sub-system; `read` rolls up and indents its children, and `--mermaid` nests them. Direct file ownership and fingerprints are unchanged.
+- Plan changes beside the current tree with `target start`, `add`, `check`, `promote` and `drop`. Target checks use fresh code facts, model proofs and bound tests without writing project files or caches. Design mistakes are ERROR; code and tests still needed are TO-DO. Promotion requires a clean complete check and unchanged checked inputs, writes the prepared map and model bytes, and lists components to confirm.
+- Read a target as an overlay with `read --target` or `read --mermaid --target`. Added, changed and removed nodes retain stable identities; focused views show previous values of changed facets. `read` names an unfinished target while current checks keep using the current tree.
+- Project, component and model views share purpose, rules, known-bad cases, code and tests. Rule counts appear in overview and Mermaid labels; focused tests show bound, unbound and nonnested links. These views read static source without importing user models. `map models` and `release` also print real rule and known-bad names, abbreviating long text lists while preserving complete results.
+- Components may name a same-layer `parent` sub-system. Views indent and roll up children, Mermaid nests them, and impact selection retains explicit old and new sub-system protections when a child moves. Direct file ownership and fingerprints are unchanged. Unknown parents, parent cycles and cross-layer parents are errors.
+- Dependency views name the symbols actually used; Mermaid draws dependencies and ordered flows, marking flows without models. Coverage reports how much declared behaviour is explained by model anchors, matched tests or reasoned exclusions. Structural `hazard:` hints are derived automatically; hints and inference failures never change PASS/FAIL or release.
+- FlowGuard's own tree now has 20 components, 14 release models including `system`, five modeled flows and two model-child relationships: `model_proof` → `test_binding`, and `target_life_cycle` → `target_findings`. Finite native conformance and bound tests cover tree placement, static read output, first-map source ownership, target promotion and finding classification.
+- Focused validation, UI, structural hints, closure, test sharding and symlink-capability implementations total 3,417 lines, compared with 37,222 lines in the retired capability engines.
 
-- `read --component` names the symbols used on each dependency; `--mermaid` draws dependencies and flows. Flows without a model are marked, and `read` shows how much behaviour is explained by models, tests or explicit exclusions.
+### Changed
 
-- The top-level API now holds the core only (105 names); node kinds and tools are imported from their modules. Original consumer import paths remain supported.
+- Model starters are `behaviour`, `validator`, `ui-journey` and `adoption`. With an active target, model starters write to `.flowguard/target/models/`; normal overwrite protection and explicit `--force` remain. The ordinary behaviour starter is packaged with the engine. The `ui-flow` and `contract-exhaustion` aliases select the corresponding new node kinds.
+- Validators preserve finite bad-case generation, bounded combinations, stable case IDs and execution against the real function. Default input/payload mutations include old schema versions and conflicting identities. UI journeys preserve automatic failure recovery, destructive-action confirmation, dialog closure and usable reachability; eight groups of manual UI review questions remain in the recipe.
+- Model nesting uses the map tree. `child_outside_parent`, `duplicate_child_owner` and `parent_import_mismatch` are errors. `child_start_gap` applies only when a child declares `project_parent_state`; independent checks grouped under a parent avoid the false warning. `flowguard.closure` supplies a parent `closure_invariant`, preserving token consumption, complete joins, reachable normal exits and loop-progress guards.
+- Target removal protects every entrypoint, state and side effect with `owner_dropped`; explicit `entrypoint:`, `state:` and `side_effect:` removals record deliberate retirement. Removal intent does not delete extra content. Future child anchors inside their component's declared files remain code TO-DO. While a target exists, `change` reports its static work and marks only replaced-node breakage as `moving to target`; unplanned breakage stays an error, and `release` warns about the unfinished target while checking the current tree.
+- A rule without a `TESTED_BY` key produces the informational `invariant_untested` warning. It neither gates release nor proves assertion strength. A binding may select an exact `test_name[param-id]`; a function binding still runs every parameter case. Failed bound tests, missed anchor reach, invalid design proofs and uncovered required known-bad invariants continue to block release.
+- `release --shards N` runs the whole suite after normal checks and bound tests pass; failed prechecks skip it. Every collected ID runs exactly once within the shard-suite phase, whose tests may overlap the earlier bound-test phase. Without `--shards`, the whole suite remains optional. Shard JSON uses `scope`.
+- The lazy top-level API contains 105 core names. Import node-kind classes, benchmark helpers and dedicated tools from their provider modules; the original 19 consumer import paths remain supported. `Explorer`, feature kits, projection helpers and `reachable_states` remain available. Change selection reads removed contracts from Git history without running old code, retaining surviving parents, importers and tests, supporting same-ID moves and rejecting dangling references.
 
-- Removed `flowguard.kit.plan_explorer`, `review_invariant` and `PlanState`. Feature kits and `reachable_states` remain available.
+### Removed
 
-- Templates are the node kinds `behaviour`, `validator` and `ui-journey` (plus `adoption`); with a target, `template` writes models into `.flowguard/target/models/`.
+- Separate architecture-reduction, code-structure, field-lifecycle, behavior-commitment, primary-path, model-mesh, model-test-alignment, topology-hazard and contract-exhaustion engines, their duplicate review/coverage/confidence structures and retired starters. Their retained behaviour lives in tree operations, ordinary models, node kinds, computed facets and recipes. Duplicate partition-map reviews, out-of-scope rationale-only gates, the static assertion audit and the behavior ledger reader are gone.
+- Alternative plan, runner, audit, risk and report frameworks: `flowguard.plan`, `flowguard.runner`, `flowguard.formal_runner`, `flowguard.summary_report`, `flowguard.audit`, `flowguard.risk`, `flowguard.risk_templates`, `flowguard.template_packs`, `flowguard._evidence_status`, `flowguard.model_path_quality`, `flowguard.state_closure` and `flowguard.step_contracts`. `map models` is the one model runner; loop, progress, contract, scenario, minimization and bounded exploration helpers remain usable in conformance or tests. `flowguard.kit.plan_explorer`, `review_invariant` and `PlanState` are removed; feature kits and reachable-state exploration remain.
+- Planned-code fact exemptions are removed; code facts must inspect real source.
+- Finding-ledger and maintenance-obligation memory APIs, including their report types, status/confidence constants and coercion/build helpers. Record planned work in a target and a known unfixed architecture issue in `accepted_debts` with a reason. Old integration guides, the acceptance report and completed roadmap are removed; mathematical examples, benchmarks, budgeted exploration and conformance documentation remain.
 
-- `python -m flowguard release --shards N` now runs the whole test suite in parallel after normal checks pass, verifying that every collected test runs once within that suite. Failed prechecks skip it; omitting `--shards` keeps the whole suite optional. Shard JSON results use `scope`.
+### Upgrade
 
-- The `validator` template and `flowguard.validator` preserve finite bad-case generation, bounded combinations, stable case ids and execution against the real function. Default input/payload cases now include old schema versions and conflicting identities. The separate contract-exhaustion engine, routes, handoffs, coverage universes and confidence are retired.
+- Follow [the upgrade guide](.agents/skills/flowguard/references/upgrade.md). Use one entry flow: read first, then target first for behaviour or structure changes, or edit directly for code-only changes. Recipes and node templates replace the old capability-specific protocols.
+- Use target removal/merge or add/split operations to preserve public promises. Rename or retire fields with target model state and real `CodeFacts.absent` / `CodeFacts.present` checks, covering deletion, migration, rejection or reassignment, missing/null values, persisted readers and privacy. Do not infer that an old field is unused; retain the real code checks and explicit disposition.
+- Rewrite legacy runner checks as ordinary contract models and delete retired files. Move unbuilt behaviour into target models and remove `DESIGN_ONLY` there too. Keep budget checkpoints and business-domain ledgers; they are unrelated to the retired proof/currentness mechanisms.
 
-- UI journeys now use the `ui-journey` template and `flowguard.ui_flow`, with automatic recovery, destructive-action, dialog-close and reachability rules. The `ui-flow` alias remains; other UI review knowledge is preserved as eight groups of manual review questions in the recipe.
+### Effects on projects that use FlowGuard
 
-- Target child models can reference future files already declared by their owning component; missing code remains TO-DO.
-
-- Models now show structural `hazard:` hints automatically. Hints and inference failures are informational and never change PASS/FAIL or release; the separate topology-hazard review model and template are retired.
-
-- Runner models are no longer executed; a leftover `run_checks.py` is a `runner_model` error. Rewrite the check as a contract model and delete the retired file.
-
-- `DESIGN_ONLY` and planned code facts are retired. Any current model declaring `DESIGN_ONLY` now fails, including declarations with false or empty values. Plan unbuilt behaviour as a target model and remove the declaration there too; target models also forbid it.
-
-- Models now warn with `invariant_untested` when a rule has no `TESTED_BY` key. This warning does not gate release or prove assertion strength; failed bound tests, missing anchor reach and uncovered required known-bad invariants still block release. The separate model-test alignment plan and static assertion audit are retired. Test bindings can select one exact `test_name[param-id]` case; a function binding still runs all its parameter cases.
-
-- Model nesting now uses the map tree, and child handoff closure lives in `flowguard.closure` with a parent-model `closure_invariant`. Token consumption, complete joins, reachable normal exits and loop-progress guards remain. Duplicate partition-map reviews and the rationale-only gate for out-of-scope terminals are removed.
-
-- Duplicate or wrong-file-owner entrypoint declarations now fail `map check` with `entrypoint_owner` errors. Declared route, command, console-script and handler entrypoints, excluding argparse-derived subcommands, warn when no model anchor or reasoned `NOT_MODELED` covers them (`entrypoint_unmodeled`); existing dangerous-effect checks remain. The former FlowGuard behavior ledger is no longer read and its presence produces a `retired_file` warning. Existing ResearchGuard projects are expected to gain one additional warning on FlowGuard reference upgrade; record and resolve it through native model bindings or a reasoned exclusion.
-
-- Behavior-changing field edits now use target model state and real `CodeFacts.absent` / `CodeFacts.present` checks in `conformance()`; the former field-lifecycle engine and starter are removed. The rename-or-retire recipe covers deletion, migration, rejection or reassignment, missing/null values, persisted readers and privacy.
-
-- Code structure now uses target components and the add-or-split recipe. A state or side-effect claim shared by multiple components now triggers `duplicate_owner` in lint, the system model and target checks, and makes `release` fail; describe each owner's state and effects specifically. ResearchGuard must specialize the descriptions of `logicguard`, `sourceguard`, `traceguard` and `experimentguard` in the same change as its FlowGuard reference upgrade.
-
-- Architecture reduction now follows a target remove-or-merge operation. Target checks reject silently lost entrypoints, state or side effects (`owner_dropped`); `remove` accepts `entrypoint:`, `state:` and `side_effect:` for deliberate retirement.
-
-- Removed the old check-plan runner and its reports (`flowguard.plan`, `flowguard.runner`, `flowguard.formal_runner`, `flowguard.summary_report`, `flowguard.audit`, `flowguard.risk`, `flowguard.risk_templates`, `flowguard.template_packs`, `flowguard._evidence_status`, `flowguard.model_path_quality`, `flowguard.state_closure`, `flowguard.step_contracts`); `python -m flowguard map models` is the one model runner. Loop, progress, contract and scenario helpers remain available in model conformance or tests.
-
-- The skill has one entry flow: read, then target first for behaviour or structure changes, or a direct edit for code-only changes.
-
-- `python -m flowguard target promote` replaces the current tree with the target once its full check is clean and its checked inputs are unchanged, then lists the components to confirm.
-
-- `read --target` and `read --mermaid --target` show what the target adds, changes and removes, node by node; component details include the previous values of changed facets.
-
-- While a target exists, `change` reports its remaining static work and marks breakage of replaced nodes as `moving to target`; unplanned breakage stays an error, and `release` warns about the unfinished target.
-
-- `python -m flowguard target check` checks real code against the current tree with the target applied, including bound tests. Target design mistakes are errors; code and tests still needed are TO-DO lines. Each check uses fresh results and leaves project files and caches unchanged.
-
-- `python -m flowguard target start | add | drop` keeps one target draft under `.flowguard/target/` next to the current tree. `read` names an existing target while current checks and model proofs continue to use the current tree.
-
-- `map models` and `release` list each model's real rule and known-bad variant names. Long name lists are abbreviated in text while complete names remain in the result.
-
-- Project, component and model views share five static facets: purpose, rules, known-bad cases, code and tests. Overview and Mermaid labels include rule counts; component details distinguish bound, unbound and nonnested tests without running user models.
-
-- Change selection recognizes removed model contracts from Git history without running old code. It keeps surviving parents, importers and tests, supports moves that preserve the model ID, and rejects remaining references to missing models.
-- Removed finding-ledger and maintenance-obligation memory APIs: `MaintenanceObligation`, `MaintenanceObligationReport`, `OBLIGATION_CONFIDENCE_BLOCKED`, `OBLIGATION_CONFIDENCE_FULL`, `OBLIGATION_CONFIDENCE_SCOPED`, `OBLIGATION_STATUSES`, `OBLIGATION_STATUS_OBSERVATION`, `OBLIGATION_STATUS_OPEN`, `OBLIGATION_STATUS_RESOLVED`, `OBLIGATION_STATUS_SCOPED`, `OBLIGATION_STRENGTHS`, `OBLIGATION_STRENGTH_OPTIONAL`, `OBLIGATION_STRENGTH_REQUIRED`, `OBLIGATION_STRENGTH_SUGGESTED`, `build_maintenance_obligation_report`, `coerce_maintenance_obligation`, `obligation_from_finding_ledger_entry`, `obligation_from_maturation_finding`, `obligations_from_finding_ledger`, `obligations_from_maturation_findings`, `FlowGuardFindingLedger`, `FlowGuardFindingLedgerEntry`, `build_finding_ledger`. Known architecture problems belong in `accepted_debts`; planned work belongs in a target.
-- `child_outside_parent`, `duplicate_child_owner` and `parent_import_mismatch` are now errors that fail `map check` and `release`.
-- `child_start_gap` is checked only for child models that declare `project_parent_state`; an independent check grouped under a parent no longer gets a false warning.
+- Sharing the same responsibility, `state` or `side_effects` claim across owners produces `duplicate_owner` in lint, the system model and target checks, and makes release fail. Describe the actual state and effects owned by each component.
+- Duplicate or wrong-file-owner entrypoints produce `entrypoint_owner` errors. Unexplained declared routes, commands, console scripts and handlers produce `entrypoint_unmodeled` warnings; argparse-derived subcommands are excluded and the existing dangerous-effect checks remain. Bind the entrypoint to a model or supply a reasoned `NOT_MODELED`.
+- The three nesting mistakes above are hard errors. A current model declaring `DESIGN_ONLY` is an error even when its value is false or empty; target models also reject the declaration. Leftover runner locations, including `run_checks.py`, produce `runner_model` errors and are never executed.
+- The old behavior ledger is not read; its presence produces `retired_file`. Existing ResearchGuard adopters should record the expected extra entrypoint warning, resolve it through a model or reasoned exclusion, and specialize the state/effect descriptions of `logicguard`, `sourceguard`, `traceguard` and `experimentguard` with their FlowGuard reference upgrade.
+- Retired capability engines are no longer exported from `import flowguard`. Use the tree recipes and provider-module imports above; preserved core consumer paths do not change.
 
 ## v0.70.10 - 2026-10-22 - One model tree, real proof flows and simpler contracts
 
