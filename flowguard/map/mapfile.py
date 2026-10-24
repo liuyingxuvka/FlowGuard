@@ -162,6 +162,17 @@ def component_scope(data: dict, component: dict) -> dict:
                             for key in LIST_KEYS}}
 
 
+def flow_step_parts(step: str) -> tuple[str, str, str | None]:
+    """``component``, ``component:Symbol`` or ``component:Symbol reads <file>`` -> (component, symbol, file).
+
+    ``file`` is None for a call-chain step; a ``reads`` step is a separate command that reads a file an
+    earlier step wrote (an empty string when nothing follows ``reads``).
+    """
+    head, separator, file = step.partition(" reads ")
+    component, _, symbol = head.partition(":")
+    return component, symbol, (file.strip() if separator else None)
+
+
 def component_order(data: dict, identities: set[str] | None = None) -> list[tuple[dict, int]]:
     """Parent-before-child view order, finite even for an invalid parent cycle."""
     visible = {c["id"] for c in data["components"]} if identities is None else identities

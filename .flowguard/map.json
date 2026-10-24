@@ -269,7 +269,8 @@
         "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings",
         "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes",
         "record model imports made inside functions apart from top-level imports",
-        "count calls through injected attributes as dependency evidence"
+        "count calls through injected attributes as dependency evidence",
+        "accept flow steps that read an earlier step's file"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -296,7 +297,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:46f32fd8f7e0d9088cc33d1cd62a14e596c628b44b4724de610bd8b3d9485376"
+      "fingerprint": "sha256:bce1b63b9d4cb0f412b0ca3c5cbbb55fe0833be648756001686ba99857bd863d"
     },
     {
       "id": "map-discover",
@@ -349,7 +350,8 @@
         "select models that import a changed model anywhere in their file",
         "report writes into another component's injected object",
         "show the model rules a component relies on",
-        "select models whose anchors a changed file calls"
+        "select models whose anchors a changed file calls",
+        "check file-linked flow steps as command entrypoints"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -381,7 +383,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b961f2bb8115ddcebe8edf511574ff2019745c2c14330eed1f7c72bae44ef03f"
+      "fingerprint": "sha256:04b9583f232a5a014810a46a6264b2af7b964bcedc8e590d634bbcaaace7b177"
     },
     {
       "id": "map-target",
@@ -420,7 +422,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8b2387ae9f7170663c8edeecb3ae1e52bb434eab5612c85df10667f0c8a52a6d"
+      "fingerprint": "sha256:fe3a6ab7b465866b00cfdebbe2eb77734bddbcfe58c967746914c235e1d7cd76"
     },
     {
       "id": "map-proof",

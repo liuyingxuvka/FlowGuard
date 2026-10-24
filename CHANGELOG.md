@@ -12,10 +12,12 @@
 - Dependencies passed in through a constructor (a type-annotated parameter, or the same class passed at every call site) now count as real dependencies: `dep_unused` no longer fires for them, `map deps --write` keeps them, and effect reach and `foreign_state_write` see through them.
 - `read --component` shows `relies on:` lines: the models (and their rules) whose anchored code this component calls directly.
 - `change` also selects the models whose anchors a changed file calls directly.
+- A flow step can be written `component:Symbol reads <file>` for a command that reads a file an earlier step wrote; such steps are checked as command entrypoints instead of static call reach.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
 - Projects using FlowGuard: may see more `entrypoint_unmodeled` / `foreign_state_write` warnings and fewer `dep_unused` errors.
+- Projects using FlowGuard: command-chain flows (LogicWriting, ResearchGuard) can use it to clear `flow_step_unreached`.
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 

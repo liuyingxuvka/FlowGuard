@@ -34,6 +34,9 @@
 }
 ```
 
+A flow of separate commands that hand over a file writes the later steps as `reads` steps:
+`"steps": ["plan:main", "check:main reads plan.json"]`.
+
 | field | meaning | who writes it |
 | --- | --- | --- |
 | `layers` | allowed dependency direction, top to bottom; a component may import its own or lower layers | human/AI |
@@ -49,7 +52,7 @@
 | `status` | `draft` or `confirmed` | `confirm` |
 | `_hint` | facts written by `scan` to help describe a draft (file count, lines of code, a sample of public symbols); `confirm` deletes it | `scan` |
 | `fingerprint` | hash of the component's files at the last `confirm`; mismatch = STALE | `confirm` only |
-| `flows[].steps` | `component` or `component:Symbol`; symbols must exist in that component (`check`) | human/AI |
+| `flows[].steps` | `component`, `component:Symbol`, or `component:Symbol reads <file>` for a separate command that reads a file an earlier step wrote; symbols must exist in that component (`check`); a `reads` step must name a symbol and cannot be the first step (`flow_handoff_invalid`) | human/AI |
 
 Component containment is separate from a model's `PARENT`. Unknown parents, parent cycles and
 cross-layer parents are ERRORs: `component_parent_unknown`, `component_parent_cycle`, `component_parent_layer`.

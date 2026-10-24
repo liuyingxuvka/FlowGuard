@@ -22,7 +22,7 @@ from .common import Finding, read_source, tokens
 from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
-from .mapfile import component_files, component_graph, dependency_evidence, model_registry, owner_index, read_model_contract, resolve_model_path
+from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, model_registry, owner_index, read_model_contract, resolve_model_path
 
 @dataclass
 class Limits:
@@ -471,11 +471,22 @@ def discovery_findings(raw: dict, data: dict, inv) -> list:
     for flow in data.get("flows", []):
         earlier = set()
         for step in flow.get("steps", []):
-            cid, sep, symbol = step.partition(":")
-            if cid not in by_id or not sep:
+            cid, symbol, handoff = flow_step_parts(step)
+            if cid not in by_id or not symbol:
                 continue
             nodes = {f"{path}#{symbol}" for path in component_files(by_id[cid], inv)}
-            if earlier:
+            if handoff:
+                # A separate command reads an earlier step's file: it must be a listed entrypoint.
+                scoped = component_scope(data, by_id[cid])
+                entries = {entry for entry in scoped.get("entrypoints", []) if entry.partition(":")[2] == symbol}
+                if not entries:
+                    path = next((node.partition("#")[0] for node in sorted(nodes)
+                                 if symbol in raw["files"].get(node.partition("#")[0], {}).get("functions", {})),
+                                (component_files(scoped, inv) or ["<path>"])[0])
+                    out.append(Finding("info", "flow_handoff_not_entrypoint", cid,
+                                       f"flow {flow['id']}: step {step} is reached through a file, so it must be a "
+                                       f"command entrypoint; list {path}:{symbol} in {cid}'s entrypoints"))
+            elif earlier:
                 reached, pending = set(earlier), list(earlier)
                 while pending and len(reached) < 2000:
                     for dst in adjacency.get(pending.pop(), []):

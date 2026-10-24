@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, component_scope, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
+from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -114,8 +114,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     out.extend(tree.findings)
 
     for flow in data.get("flows", []):
-        for step in flow.get("steps", []):
-            comp_id, _, symbol = step.partition(":")
+        for position, step in enumerate(flow.get("steps", [])):
+            comp_id, symbol, handoff = flow_step_parts(step)
+            if handoff is not None and (position == 0 or not handoff or not symbol):
+                reason = ("the first step reads no earlier file" if position == 0 else
+                          "nothing follows 'reads'" if not handoff else "a 'reads' step names a command symbol")
+                out.append(Finding("error", "flow_handoff_invalid", comp_id if comp_id in by_id else "",
+                                   f"flow {flow['id']}: step {step!r}: {reason}; write '<component>:<Symbol> reads <file>'"))
             if comp_id not in by_id:
                 out.append(Finding("error", "flow_step_unknown", "", f"flow {flow['id']}: step {step!r} names no component"))
             elif symbol:

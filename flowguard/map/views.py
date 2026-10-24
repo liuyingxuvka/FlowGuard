@@ -13,7 +13,7 @@ from .facets import _test_function_index, component_facets, coverage_facts, cove
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
-from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, is_stale, owner_index
+from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
 
@@ -627,11 +627,11 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         scope_data = {**data, "components": all_comps}
         descendants = component_subtree(scope_data, component)
         descendant_ids = {c["id"] for c in descendants}
-        flows = [flow for flow in flows if any(step.partition(":")[0] in descendant_ids
+        flows = [flow for flow in flows if any(flow_step_parts(step)[0] in descendant_ids
                                               for step in flow.get("steps", []))]
         visible.update(descendant_ids)
         visible.update(dep for c in descendants for dep in c.get("depends_on", []))
-        visible.update(step.partition(":")[0] for flow in flows for step in flow.get("steps", []))
+        visible.update(flow_step_parts(step)[0] for flow in flows for step in flow.get("steps", []))
     comps = [c for c in all_comps if c["id"] in visible]
     if component and not comps:
         return f"no component {component!r}; run 'python -m flowguard read' to list components"
@@ -738,8 +738,10 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     for flow in flows:
         identity = flow_ids[flow["id"]]
         for number, step in enumerate(flow.get("steps", []), 1):
-            cid = step.partition(":")[0]
-            if cid in components:
+            cid, _, handoff = flow_step_parts(step)
+            if cid in components and handoff:      # a separate command reading an earlier step's file
+                lines.append(f'  {identity} -. "{number}: {label(handoff)}" .-> {components[cid]}')
+            elif cid in components:
                 lines.append(f'  {identity} -->|"{number}"| {components[cid]}')
         mid = flow_model_id(flow)
         if mid in model_ids:
