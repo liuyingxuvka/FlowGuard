@@ -89,12 +89,13 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; map models and release fail a model with an uncovered invariant, counted once; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
-        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids, or name the closest owners when none matches; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget; read --review and map show --review print the same ranked architecture review",
-        "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status",
-        "run the selected tests and models on request",
-        "hint a split for a large one-directory draft",
-        "say when discovery finds nothing"
+        "parse commands and point removed flags at references/upgrade.md",
+        "show owners, closest owners, target changes, Mermaid and reviews in read",
+        "annotate planned target breakage and ARCH lines in check, change and release",
+        "run release with the system root counted and optional whole-suite shards",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -134,10 +135,10 @@
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Lazily exposes the core engine API; node kinds and tools are imported from their modules",
+      "summary": "Lazily exposes the core engine API from its owning modules.",
       "responsibilities": [
-        "expose current public names from their owning modules without importing those modules early",
-        "direct retired public API names to references/upgrade.md without changing public name resolution"
+        "expose public names from their owning modules on first use",
+        "point removed public names at references/upgrade.md"
       ],
       "files": [
         "flowguard/__init__.py"
@@ -167,9 +168,9 @@
       "layer": "interface",
       "summary": "Generates ordinary behaviour, validator and UI journey models plus adoption rules.",
       "responsibilities": [
-        "generate the behaviour, validator and ui-journey node starters plus six adoption rules; before changing behaviour or structure use a target and extend the existing owner",
-        "UI journey and validator placeholder code and test anchors fail cleanly until filled; behaviour has sample shop code and a commented test binding that callers replace with their real code and tests",
-        "describe actual model and test outcomes with bounded unresolved cases in generated notes"
+        "generate behaviour, validator and ui-journey starters plus six adoption rules",
+        "make placeholder code and test anchors fail until the user fills them",
+        "describe model and test outcomes in generated notes"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -195,10 +196,11 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Release tool: collect exact pytest IDs, run bounded parallel shards and derive complete native execution outcomes.",
+      "summary": "Collects exact pytest ids, runs bounded parallel shards and reports each test's outcome.",
       "responsibilities": [
-        "shard tests by exact node id; every shard runs on every invocation; the optional release whole-suite phase uses the same native shard runner and verifies each collected test ran exactly once within that suite",
-        "retain typed capability blockers and bounded process cleanup results"
+        "shard tests by exact node id and run every shard on each invocation",
+        "verify each collected test ran exactly once in the release whole-suite phase",
+        "report typed capability blockers and bounded process cleanup results"
       ],
       "files": [
         "flowguard/pytest_junit.py",
@@ -234,8 +236,10 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports, including literal import calls; share quiet closed-output-pipe handling across CLI entries; allow explicit read-only inventory without cache directory creation or writes, keeping the normal cache default",
-        "parse explicit bound-test item selectors as pure strings for TESTED_BY validation and execution"
+        "inventory files, symbols and imports, including literal import calls",
+        "handle a closed output pipe quietly for every command line entry",
+        "build a read-only inventory without creating or writing caches on request",
+        "parse bound-test item selectors as plain strings"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -264,19 +268,13 @@
       "layer": "map",
       "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
       "responsibilities": [
-        "validate, load and save the map, writing depends_on sorted and deduplicated; read, validate and merge the one target map as a pure overlay without changing the current tree; resolve one complete optional model view with canonical paths and explicit missing mappings, retaining ordinary registry behavior by default; validate explicit entrypoint, state and side-effect removal intents against the current map without deleting extra content; register only contract models and report each leftover legacy runner location once as a runner_model migration error, including in a target view; accept optional component parent (sub-systems) while keeping direct file ownership and component fingerprints unchanged",
+        "load, validate and save the map, pointing a missing map at the guide",
+        "accept optional component parents and file-reading flow steps",
+        "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
-        "read model literals (MODEL_ID, PARENT, COMPONENTS, IMPLEMENTED_BY, TESTED_BY, NOT_MODELED) without importing the model; recognize the optional project_parent_state hook; retain retired design-marker literals solely to diagnose misplaced current models",
-        "count strings as dependency evidence only in import-like contexts",
-        "build the model tree: PARENT, default parents and model imports; nesting mistakes are errors; derive each model's components from COMPONENTS, anchor owners and home; distinguish root home from a component named system; warn when a model's bound test file is outside every component's test patterns; a child import of its explicit model parent does not invert the tree, while impact keeps the real import edge; only in a target view, keep a missing child anchor inside a component parent when its declared files match that path, while ordinary current, model-parent and unmatched-path containment keep their errors; expand only explicit COMPONENTS protections across component descendants, without expanding placement-only PARENT scope",
-        "treat an unknown PARENT, a PARENT loop, parent_import_mismatch, child_outside_parent and duplicate_child_owner as errors; keep test_not_nested and child_start_gap as warnings",
-        "resolve imports through removed model paths supplied by impact without registering historical models as executable nodes",
-        "record model imports made inside functions apart from top-level imports",
-        "count calls through injected attributes as dependency evidence",
-        "accept flow steps that read an earlier step's file",
-        "accept responsibility retirement in target remove",
-        "compare a target with the current tree for no-op and promise changes",
-        "point a missing map at the first-map guide"
+        "register contract models from static literals and reject runner files",
+        "build the model tree and report nesting mistakes as errors",
+        "count import-like strings and injected attribute calls as dependency evidence"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -310,10 +308,12 @@
       "layer": "map",
       "summary": "Discovers entrypoints, effects and reachable calls.",
       "responsibilities": [
-        "discover entrypoints, side effects and state writers; propagate an explicit no-cache-write mode without creating cache directories; resolve attribute calls through the class assigned in __init__, with exact constructors before a unique method in declared dependencies; keep supplied current/target source facts in one static graph",
-        "del statements count as state writes; expose exact anchor state writes for model checks",
-        "resolve injected attributes to their class",
-        "find the model anchors that code calls directly"
+        "discover entrypoints, side effects and state writers",
+        "resolve attribute calls through assigned or injected classes",
+        "count del statements as state writes and expose anchor state writes",
+        "discover without writing caches when asked",
+        "find the model anchors that code calls directly",
+        "build one static call graph from current or target source facts"
       ],
       "files": [
         "flowguard/map/discover.py"
@@ -342,34 +342,13 @@
       "layer": "map",
       "summary": "Checks ownership, reviews architecture and selects checks across explicitly protected component sub-systems.",
       "responsibilities": [
-        "verify the map against code; name the owners next to an unmapped file; every contract model declares IMPLEMENTED_BY anchors that resolve and conformance(); unbuilt behavior belongs in target models; report model-tree nesting warnings; every model's components come from COMPONENTS, anchors and PARENT, with unrelated map listings warned and ignored for selection; check and lint share one structural rule set (cycles, layer violations) and show the shortest import path; share type-separated responsibility, state and side-effect duplicate-owner rules with the root model; warn when unanchored code writes state that a model covers, honoring global anchors and explicit negative scope; accept an explicit merged model view without changing checks on the ordinary current tree; validate optional exact TESTED_BY parameter selectors against their base test symbol without changing other anchor kinds; count selected test items once by their base function in the component tests facet; report each legacy runner location as an error with its contract-model migration path; never register it for execution",
-        "impact selection (depends_on order is irrelevant): retain surviving current and historical tests/models; select contract models by their anchored files and TESTED_BY tests; block missing or ambiguous test commands; select no checks for comment-only edits after normalizing physical newlines; retain the full closure for unchanged and newline-only requests; a changed existing model or model helper also selects every importing model and every ancestor model, without adding their tests; name owning models in REVIEW and impact JSON; expand explicit importing review children of selected model parents to a fixed point; ignore target draft paths before impact analysis, and filter replaced model suggestions without dropping selected tests; treat component parent changes as verification changes and retain still-registered models that explicitly protected the previous sub-system",
-        "recognize real Git-removed contracts through the canonical static registry; omit missing retired paths only when current references are gone, preserve surviving parents, importers and their tests, and select same-id replacement paths",
-        "review architecture; a cycle debt covers its member set, and a grown cycle stays an error; group more than three unlisted entrypoints per owner and strength without changing severity",
-        "rank behavior owners, prioritizing exact symbol definitions; show one system/component/model tree and its Mermaid equivalent; derive purpose, rules, known-bad, code and test facets from static source and map facts without importing user models; count real test functions and subtree bindings, marking nonnested and untested bindings; own the shared structural rules and source-filtered known-bad generator; name an existing target or its invalid-map warning in the current tree header without running checks; compare current and merged target facets from their selected physical model source, show additions, changes and removed-node tombstones with stable identities, and share the same text budget and five-facet details; show what each dependency uses and how much behaviour is explained by a component-subtree model, a matched test name or NOT_MODELED; show declared dependencies and ordered flows in Mermaid, mark flows with no model, and keep these static coverage counts informational; nest optional component parents and roll up subsystem files, tests, dependencies, rules and model facets without changing direct ownership or double-counting global coverage",
-        "compare current owner promises with merged target owners and explicit removal intent when checking a target",
-        "one owner per entrypoint; external promises are modeled or explained; warn about the retired behavior ledger without reading it",
-        "show the requested component within the read budget",
-        "read model rules statically from the explorer the model builds",
-        "read feature-kit rules, known-bad and cases without running the model",
-        "list components by layer, parents before children",
-        "select models that import a changed model anywhere in their file",
-        "report writes into another component's injected object",
-        "show the model rules a component relies on",
-        "select models whose anchors a changed file calls",
-        "check file-linked flow steps as command entrypoints",
-        "select a flow's model when a step's file changes",
-        "list the flows each component takes part in",
-        "warn when a component uses another component's private name",
-        "report duplicate owners in every map check",
-        "count explanations by model, test and reason",
-        "list unexplained functions of changed files",
-        "rank architecture defects and strengths from the tree",
-        "count map-only lint warnings in the read header",
-        "list the rules a target adds or changes",
-        "find accepted debts that match no finding",
-        "match word forms when finding an owner",
-        "list each overloaded name once in digests"
+        "check map anchors, files, flow steps and models against the code",
+        "report one owner per entrypoint, responsibility, state and side effect",
+        "lint cycles, layers, sizes and private names, then apply accepted debts",
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "select the checks a change needs and list its unexplained functions"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -402,27 +381,20 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5daf88699d012a4a10b7d8773e4e663ceab29bcf1c3a5f766484b04c499100ec"
+      "fingerprint": "sha256:b17934d78dcc873b113a4a57ca423ea6e5dc1eb7140d3d30cbcb08fb309a17ed"
     },
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Keeps one target and checks component parent design, merged code and tests.",
+      "summary": "Holds one target and checks its design, the merged code and tests.",
       "responsibilities": [
-        "start, extend and drop one target without executing models or code checks; reject a retired design marker in a current model as an error while preserving the existing target marker rejection; keep component_parent_unknown, component_parent_cycle and component_parent_layer as target design errors",
-        "check the current tree with the target applied using native static checks and fresh model proofs with bound tests; separate design errors from code and test work; write no project files or caches; keep entrypoint_owner findings as design errors; keep independently missing implementation anchors as code to-do when target-declared component containment is valid, with genuine regression coverage for the current and invalid-parent boundaries; retain runner_model retirement errors as errors rather than code to-do",
-        "identify exact current component, model and flow findings covered by the target; preserve unplanned failures and expose the same static target checks without model execution",
-        "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
-        "stop a target that silently drops an entrypoint, state or side effect",
-        "show invariant_untested as a model warning while retaining proof and known-bad failures",
-        "report a responsibility that loses its owner",
-        "refuse a target that changes nothing",
-        "tie a changed promise to a model rule",
+        "start, extend and drop one target at a time",
+        "check the merged tree: design mistakes are ERROR, missing code is TO-DO",
         "mark only the breakage of a changed subject as moving to target",
-        "report findings of unchanged models as old",
-        "warn about accepted debts the target makes stale",
-        "list what to re-read after promotion",
-        "hint deletion for files a target leaves unowned"
+        "refuse a target that changes nothing, drops a promise or leaves it untied",
+        "promote a clean target and leave changed components draft",
+        "warn about earlier findings, stale debts and untested rules without blocking",
+        "list what to re-read after promotion and which files to delete"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -454,17 +426,15 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
+      "summary": "Runs model proofs, bound tests and the system root model.",
       "responsibilities": [
-        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints from the contract-model tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification; print computed hazards for every model after its existing design exploration, never gating a verdict or repeating user hooks",
-        "fail a contract model whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
-        "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
-        "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
-        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
-        "check real code facts and keep failed facts visible; place models of unbuilt behavior in the target",
-        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback",
-        "print at most three open hazard hints per model",
-        "fail a model whose rule no known-bad variant breaks"
+        "run every model, system included, with known-bad and conformance checks",
+        "fail a model whose rule no known-bad variant breaks",
+        "report missing, placeholder or unconsulted anchors as model failures",
+        "give conformance a static code-facts reader",
+        "clean up model and pytest shard subprocesses in bounded time",
+        "run bound tests per item and require each to reach an anchor",
+        "print at most three open hazard hints per model"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -545,7 +515,8 @@
       "layer": "engine",
       "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
       "responsibilities": [
-        "provide reusable invariants and contracts; derive informational hazards from actual model structure and names, anchored to its nodes or edges, without usage-text predictions or verdict changes",
+        "provide reusable invariants and trace contracts",
+        "derive hazard hints from the model's own structure and names",
         "check that handoffs between child models close",
         "close a hazard hint that a known-bad variant or invariant covers"
       ],
@@ -615,9 +586,9 @@
       "layer": "engine",
       "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
-        "replay model traces on the real code",
-        "build complete models from each allowed feature set once (codes all or first; requires and conflicts)",
-        "collect first-seen projected initial and retained trace step states for a parent-child port",
+        "replay model traces on the code",
+        "build one model per allowed feature set, honouring requires and conflicts",
+        "collect projected child start states from parent traces",
         "name feature-kit rules and known-bad from the feature list alone"
       ],
       "files": [
@@ -714,8 +685,8 @@
       "layer": "capabilities",
       "summary": "UI journeys as a model kind: states, controls and transitions explored, checked against the UI source",
       "responsibilities": [
-        "check actual UI states, controls, displays and transitions, including failure recovery, destructive primary actions, usable dialog exits and declared-state reachability without mandatory rationale or plan text",
-        "explore control journeys using the same structural reviewer and compare declared control identifiers and handler anchors with real UI source through existing code facts; manual rendering, geometry and keyboard checks remain outside those static facts"
+        "check UI states, controls, displays and transitions, including recovery and dialog exits",
+        "compare declared controls and handler anchors with the UI source code"
       ],
       "files": [
         "flowguard/ui_flow.py"
@@ -741,10 +712,11 @@
     {
       "id": "validator",
       "layer": "capabilities",
-      "summary": "Validators as a model kind: a finite input boundary, generated bad cases, each executed against the real function",
+      "summary": "Validators as a model kind: a finite input boundary, generated bad cases, each executed against the function.",
       "responsibilities": [
-        "generate complete finite bad cases and bounded Cartesian interactions with stable case identifiers and a real oracle for every case; reject invalid, unbounded, missing-oracle or excessive boundaries directly instead of returning partial coverage",
-        "execute every allowed generated bad-case feature combination against the real function, preserving clean-call observations and naming any accepted bad case; mutation labels do not establish arbitrary temporal side-effect behavior",
+        "generate every finite bad case and bounded interaction with stable ids and an oracle",
+        "reject invalid, unbounded or oversized boundaries instead of partial coverage",
+        "run every allowed bad-case combination on the checked function and name accepted ones",
         "reject named bad cases with the default reject oracle",
         "report a crash on a bad input as an error"
       ],

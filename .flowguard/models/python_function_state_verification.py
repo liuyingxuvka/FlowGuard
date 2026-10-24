@@ -1,4 +1,4 @@
-"""Feature model of the Python function/state verification engine (FlowGuard's own core).
+"""The engine explores blocks, invariants, replay and loops and reports each failure kind.
 
 The engine invokes blocks through their hooks, normalizes their results, explores every
 nondeterministic branch, reports dead, empty and raising paths, checks invariants and required

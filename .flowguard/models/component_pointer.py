@@ -1,4 +1,4 @@
-"""Executable model: a map component's description is never reported current after its code changed.
+"""A component's description is never reported current after its code changed.
 
 The fingerprint written by ``confirm`` is the component's "current pointer".
 Protected failures:

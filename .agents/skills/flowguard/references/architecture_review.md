@@ -9,6 +9,7 @@
 | `dependency_cycle` | error | components import each other; check and lint show the shortest closing import path and its file:line sites | extract the shared part into a lower component, merge, or record the existing cycle's members as accepted debt |
 | `large_file` / `large_component` | warn | above size limits (800 LOC per file, 3000 per component) | split along responsibilities |
 | `too_many_responsibilities` | warn | more than 7 responsibilities | split the component |
+| `responsibility_compound` | info | a responsibility longer than 120 characters or joined by `;` | write one present-tense duty per entry |
 | `high_fan_out` | warn | depends on more than 8 components | introduce a facade or split |
 | `untested_component` | warn | no tests mapped | add tests or map existing ones |
 | `entrypoint_unlisted` | warn | discovery found a route, CLI command or handler that no component lists in `entrypoints` | add it to the owning component's `entrypoints` (or remove the dead route); more than three anchors per component and strength are grouped, with three examples and a full-discovery command |

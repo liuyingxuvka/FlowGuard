@@ -292,6 +292,14 @@ def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limit
     return out
 
 
+def compound_responsibility_findings(data: dict, max_chars: int = 120) -> list[Finding]:
+    """INFO for each responsibility that packs several duties (too long or joined by ';')."""
+    return [Finding("info", "responsibility_compound", c["id"],
+                    f"responsibility of {c['id']} holds several duties ({len(r)} chars or ';'); "
+                    "write one present-tense duty per entry (references/first_map.md)")
+            for c in data["components"] for r in c.get("responsibilities", []) if len(r) > max_chars or ";" in r]
+
+
 def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None,
              write_cache: bool | None = None) -> list[Finding]:
     """All architecture findings; disposable caches are written only for the current tree unless write_cache=False."""
@@ -316,6 +324,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                     out.append(Finding("warn", "possible_duplicate", ca, f"{ra!r} ~ {cb}: {rb!r} (similarity {similarity:.2f})"))
 
     out.extend(shape_findings(data, inv, graph, limits))
+    out.extend(compound_responsibility_findings(data))
 
     owner, _ = owner_index(data, inv)
     by_body: dict[str, list[tuple[str, str, int]]] = defaultdict(list)

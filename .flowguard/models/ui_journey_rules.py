@@ -1,4 +1,4 @@
-"""UI journey rules checked against the real reviewer and real explored journeys.
+"""A UI journey model has no dead control, dead end, stuck dialog or unreachable state.
 
 The clean model opens and closes details and recovers from a reachable failure.
 Every singleton and pair of faults is reviewed and explored afresh.  Neither an

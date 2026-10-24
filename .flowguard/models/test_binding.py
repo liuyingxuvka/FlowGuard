@@ -1,4 +1,4 @@
-"""Native test binding: failures, missed implementation, and unnamed test gaps.
+"""Bound tests must pass, reach an implementation anchor and name the rules they guard.
 
 Each feature uses a fresh copy of one tiny two-rule project.  A missing
 binding is observed as a real warning while native model proof remains green.

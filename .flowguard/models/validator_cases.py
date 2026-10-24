@@ -1,4 +1,4 @@
-"""Real finite generation and real execution, including configuration failures."""
+"""A validator generates every declared bad case and runs each one on the function it guards."""
 from dataclasses import replace
 
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants

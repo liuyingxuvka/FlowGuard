@@ -1,4 +1,4 @@
-"""Independent finding-policy child with fresh native report provenance.
+"""Target check sends design mistakes to ERROR, missing code to TO-DO and planned breakage to INFO.
 
 Exercise check_target's bucket logic and map.cli.cmd_check's strict boundary,
 including real proof code gaps, design failures and unbound-invariant warnings.

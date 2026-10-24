@@ -1,4 +1,4 @@
-"""Finite target lifecycle with direct native replay on a small shelf project.
+"""One target at a time; promote only a clean target and leave current equal to the merge.
 
 Protect single-target storage, clean-only promotion, target removal, and exact
 map/model merging through real target commands and filesystem observations.

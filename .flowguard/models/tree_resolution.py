@@ -1,4 +1,4 @@
-"""Resolve actual model parents and reject independent malformed tree inputs.
+"""Model parents resolve by the placement rules and malformed tree inputs are rejected.
 
 The fixture is copied afresh for each singleton/pair.  Every observation comes
 from build_tree over actual files, with explicit expected parent relations for

@@ -1,4 +1,4 @@
-"""Feature model of native model proof: each malformed proof is rejected.
+"""Model proof rejects every malformed model with the matching failure code.
 
 The first reported problem follows native proof order. Every singleton and pair
 of text edits is executed in process; no cached proof or subprocess can supply

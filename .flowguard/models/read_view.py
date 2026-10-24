@@ -1,4 +1,4 @@
-"""Read exposes bounded component names and model contracts without imports.
+"""Read shows each requested component, its five static facets and model contracts within budget, without imports.
 
 The input features are valid adversarial observations, not rejected requests.
 Literal abstract outputs witness the promises; conformance checks the same

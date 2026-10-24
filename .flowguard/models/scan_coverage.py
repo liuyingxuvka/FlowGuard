@@ -1,4 +1,4 @@
-"""First-map drafts cover finite sources once while honoring ignores and limits.
+"""First-map drafts cover each finite source once, honoring ignores and limits.
 
 All input features are valid source layouts, including syntax errors.  The
 feature kit enumerates tiny layouts; native new_map results feed the same

@@ -1,4 +1,4 @@
-"""Replay a finite after-edit selection model against a real temporary Git project.
+"""After an edit, select exactly the changed models, their importers, ancestors and review children.
 
 The fixture has two components, a parent importing a child and an underscore
 helper, and an explicit review child importing its parent. Test edits exercise
