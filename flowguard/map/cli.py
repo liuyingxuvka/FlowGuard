@@ -264,7 +264,7 @@ def cmd_confirm(root: Path, a) -> int:
 
 def cmd_models(root: Path, a) -> int:
     results = run_models(root, a.ids, timeout=a.timeout, tests=a.tests)
-    print(render_results(results))
+    print(render_results(results, all_hazards=a.hazards))
     return 1 if any(r.status != "pass" for r in results) else 0
 
 
@@ -365,6 +365,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
     s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
     s.add_argument("--timeout", type=int, default=300, help="seconds per model")
+    s.add_argument("--hazards", action="store_true", help="list every open and closed hazard hint of each model")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
     s.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                    help="after normal checks pass, run the whole suite in 1–32 parallel shards")

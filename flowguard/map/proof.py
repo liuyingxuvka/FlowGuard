@@ -31,7 +31,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..hazards import model_hazards
+from ..hazards import hazard_closures, model_hazards
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
@@ -54,7 +54,8 @@ class ModelResult:
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
     code_gaps: list[str] = field(default_factory=list)
-    hazards: list[str] = field(default_factory=list)
+    hazards: list[str] = field(default_factory=list)              # open hazard hints
+    closed_hazards: list[str] = field(default_factory=list)       # "<hint> (closed by known-bad X | invariant Y)"
 
 
 def model_files(root: Path) -> list[Path]:
@@ -446,6 +447,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.hazards = model_hazards(design)
             except Exception as exc:
                 result.hazards = [f"inference failed: {exc}"]
+            caught_variants: dict = {}
             untested = sorted(invariant_names - contract.get("TESTED_BY", {}).keys())
             if untested:
                 result.warnings.append("invariant_untested: " + ", ".join(untested)
@@ -487,6 +489,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                         caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}
                         if bad.exploration_status != "budget_exhausted" and (caught & design_checks):
                             covered |= invariant_hits & invariant_names
+                            caught_variants[name] = explorer
                             continue
                         result.status = "fail"
                         result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
@@ -497,6 +500,13 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                                            "add a variant that breaks it, or say why it cannot be broken")
             else:
                 raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
+            if result.hazards and not result.hazards[0].startswith("inference failed: "):
+                try:     # hints never change the verdict; a model closes them, nothing is recorded
+                    closures = hazard_closures(design, caught_variants)
+                except Exception:
+                    closures = {}
+                result.closed_hazards = [f"{hint} (closed by {closures[hint]})" for hint in result.hazards if hint in closures]
+                result.hazards = [hint for hint in result.hazards if hint not in closures]
             if "conformance" in contract["functions"]:
                 with calls:
                     conf = module.conformance()
@@ -583,7 +593,10 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
     return results + issues
 
 
-def render_results(results: list[ModelResult]) -> str:
+HAZARDS_SHOWN = 3
+
+
+def render_results(results: list[ModelResult], *, all_hazards: bool = False) -> str:
     if not results:
         return "models: 0 declared, 0 executed; no model proof"
     def names(values):
@@ -594,9 +607,13 @@ def render_results(results: list[ModelResult]) -> str:
         lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s")
         if r.rules or r.known_bad:
             lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
-        lines += [f"      hazard: {hazard}" for hazard in r.hazards[:5]]
-        if len(r.hazards) > 5:
-            lines.append(f"      hazard: +{len(r.hazards) - 5} more")
+        shown = r.hazards if all_hazards else r.hazards[:HAZARDS_SHOWN]
+        lines += [f"      hazard: {hazard}" for hazard in shown]
+        if all_hazards:
+            lines += [f"      hazard closed: {hazard}" for hazard in r.closed_hazards]
+        if r.hazards or r.closed_hazards:
+            lines.append(f"      hazards: {len(r.hazards)} open ({len(shown)} shown), {len(r.closed_hazards)} closed "
+                         "by known-bad variants or invariants")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
     failed = sum(r.status != "pass" for r in results)

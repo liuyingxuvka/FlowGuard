@@ -126,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:15d0700d1b962db35289ad829c68ec2bd105f8fa5369fa8c67a876bda59746e9"
+      "fingerprint": "sha256:597a502b5ecda4526b7791cdcd41fe2c9262d150462e5fe96d972f314e46cdcb"
     },
     {
       "id": "public-api",
@@ -439,7 +439,8 @@
         "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
         "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
         "check real code facts and keep failed facts visible; place models of unbuilt behavior in the target",
-        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback"
+        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback",
+        "print at most three open hazard hints per model"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -472,7 +473,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8d2bf6475adae467966154d34a9eb82373c750840d3c729b5ca1d096e59e4555"
+      "fingerprint": "sha256:37a3672645591ffe2df600672f263c967a103f93f69c22bd1213a849e9e264b7"
     },
     {
       "id": "engine-explore",
@@ -521,7 +522,8 @@
       "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
       "responsibilities": [
         "provide reusable invariants and contracts; derive informational hazards from actual model structure and names, anchored to its nodes or edges, without usage-text predictions or verdict changes",
-        "check that handoffs between child models close"
+        "check that handoffs between child models close",
+        "close a hazard hint that a known-bad variant or invariant covers"
       ],
       "files": [
         "flowguard/checks.py",
@@ -551,7 +553,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7ff7b3211a076e2ee2f122e1088be6753dd13ca0a87354a54d400cbbb52b6089"
+      "fingerprint": "sha256:fe22d6d59aabee9b15e807afe7807c2542901bedce1c4365abd8a934b83b6283"
     },
     {
       "id": "engine-scenarios",

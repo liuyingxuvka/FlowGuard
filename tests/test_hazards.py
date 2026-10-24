@@ -127,15 +127,21 @@ class Record:
     reads = ("records",)
     writes = ("records", "status", "done")
     side_effects = ("records_append",)
-    def __init__(self, bad=False): self.bad = bad
     def apply(self, value, state):
-        records = state.records + (("lost",) if self.bad else ("record",))
+        records = state.records + ("record",)
         return [FunctionResult(len(records), RecordState(records, "complete", True))]
+class Lose:
+    # The known-bad variant adds this block; the two anchored writers stay unchanged.
+    name = "Lose"
+    reads = ("records",)
+    writes = ("lost",)
+    def apply(self, value, state):
+        return [FunctionResult(value, RecordState(state.records + ("lost",), state.status, state.done))]
 def ordered(state, trace):
     return (state == RecordState() or state == RecordState(("route",), "routing", False)
             or state == RecordState(("route", "record"), "complete", True))
 def explorer(bad=False):
-    return Explorer(Workflow((Router(), Record(bad)), name="recording"), initial_states=(RecordState(),),
+    return Explorer(Workflow((Router(), Record(), *((Lose(),) if bad else ())), name="recording"), initial_states=(RecordState(),),
                     external_inputs=(0, 1), max_sequence_length=1, progress_steps=0,
                     invariants=(Invariant("recorded_in_order", "route and record complete in order", ordered),))
 def build_explorer(): return explorer()
@@ -178,12 +184,13 @@ def test_two_blocks_writing_one_field_print_a_shared_writer_hazard(tmp_path, cap
     assert "records" in output and "Router" in output and "CompleteRecord" in output, output
     result = next(result for result in captured if result.model == "hazard_recording")
     assert result.status == "pass" and not result.problems
-    # Three real shared fields, both repeatable append effects and a completion
-    # node produce enough actual candidates to exercise the display cap.
-    assert len(result.hazards) > 5
-    lines = [line for line in output.splitlines() if line.startswith("      hazard: ")]
-    assert lines == [f"      hazard: {hazard}" for hazard in result.hazards[:5]] + [
-        f"      hazard: +{len(result.hazards) - 5} more"]
+    # The shared fields (one hint for the one writer set), both repeatable append effects and a
+    # completion node give more open hints than the display cap of three.
+    assert len(result.hazards) > 3
+    lines = [line for line in output.splitlines() if line.startswith("      hazard")]
+    assert lines == [f"      hazard: {hazard}" for hazard in result.hazards[:3]] + [
+        f"      hazards: {len(result.hazards)} open (3 shown), {len(result.closed_hazards)} closed by known-bad "
+        "variants or invariants"]
     payload = json.loads(json.dumps(asdict(result)))
     assert proof.ModelResult(**payload).hazards == result.hazards
     payload.pop("hazards")

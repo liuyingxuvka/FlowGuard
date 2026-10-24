@@ -5,6 +5,7 @@ No exploration, user action, usage description or model import is needed.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field, fields, is_dataclass
 from typing import Any, Mapping, Sequence
 
@@ -144,8 +145,21 @@ def _field_names(value: Any) -> tuple[str, ...]:
     return ()
 
 
+LEGACY_WORDS = frozenset({"legacy", "compat", "compatibility", "fallback", "migration", "migrate", "upgrade", "deprecated"})
+TERMINAL_WORDS = frozenset({"done", "complete", "completed", "success", "succeeded", "final", "finished"})
+EXTERNAL_WORDS = frozenset({"confirm", "confirmation", "external", "callback", "remote", "deploy", "publish", "webhook"})
+PARENT_CHILD_WORDS = frozenset({"parent", "child", "children", "mesh"})
+HAZARD_ORDER = ("shared_writer", "side_effect_repeat", "external_confirmation_boundary", "coarse_terminal_state",
+                "parent_child_compression", "legacy_or_compatibility_path")
+
+
+def _words(text: str) -> set[str]:
+    """Lower-case whole words: split on ``_ . : -``, digits, spaces and camelCase boundaries."""
+    return {word.lower() for word in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+", str(text))}
+
+
 def _contains_any(text, keywords):
-    return any(keyword in text.lower() for keyword in keywords)
+    return bool(_words(text) & set(keywords))
 
 
 def _block_name(block, index):
@@ -177,7 +191,11 @@ def infer_topology_digest(*, workflow: Any, initial_states: Sequence[Any] = (),
                                   _block_name(block, index),
                                   {"reads": _block_tuple(block, "reads"), "writes": _block_tuple(block, "writes")}))
     for kind, values in ((TOPOLOGY_NODE_STATE, initial_states), (TOPOLOGY_NODE_INPUT, external_inputs)):
+        seen_types = set()
         for index, value in enumerate(values):
+            if _type_name(value) in seen_types:      # one node per state or input type, not per value
+                continue
+            seen_types.add(_type_name(value))
             nodes.append(TopologyNode(f"{kind}:{index}:{_type_name(value)}", kind, _type_name(value),
                                       {"fields": _field_names(value)}))
     edges = []
@@ -218,22 +236,22 @@ def _infer_landmarks(nodes, edges) -> tuple[TopologyLandmark, ...]:
                                               TOPOLOGY_LANDMARK_SIDE_EFFECT_REPEAT, (edge.edge_id,),
                                               "repeatable edge owns observable side effects"))
         text = " ".join((edge.edge_id, edge.label, edge.block_name, *edge.reads, *edge.writes, *edge.side_effects))
-        if _contains_any(text, ("confirm", "external", "callback", "remote", "deploy", "publish")):
+        if _contains_any(text, EXTERNAL_WORDS):
             landmarks.append(TopologyLandmark(f"landmark:external-confirmation:{edge.edge_id}",
                                               TOPOLOGY_LANDMARK_EXTERNAL_CONFIRMATION, (edge.edge_id,),
                                               "edge appears to cross an external confirmation boundary"))
-        if _contains_any(text, ("legacy", "old", "compat", "schema", "migration", "upgrade")):
+        if _contains_any(text, LEGACY_WORDS):
             landmarks.append(TopologyLandmark(f"landmark:legacy:{edge.edge_id}",
                                               TOPOLOGY_LANDMARK_LEGACY_COMPATIBILITY, (edge.edge_id,),
                                               "edge appears to involve old-shape or compatibility topology"))
     for node in nodes:
         # Field names are structural; arbitrary example values are deliberately excluded.
         text = " ".join((node.node_id, node.label, *node.metadata.get("fields", ())))
-        if _contains_any(text, ("done", "complete", "success", "final")):
+        if _contains_any(text, TERMINAL_WORDS):
             landmarks.append(TopologyLandmark(f"landmark:coarse-terminal:{node.node_id}",
                                               TOPOLOGY_LANDMARK_COARSE_TERMINAL, (node.node_id,),
                                               "node suggests a broad terminal/success state"))
-        if _contains_any(text, ("parent", "child", "mesh")):
+        if _contains_any(text, PARENT_CHILD_WORDS):
             landmarks.append(TopologyLandmark(f"landmark:parent-child:{node.node_id}",
                                               TOPOLOGY_LANDMARK_PARENT_CHILD_COMPRESSION, (node.node_id,),
                                               "node suggests parent/child model compression"))
@@ -272,7 +290,7 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[HazardCan
     """Turn the six structural landmarks into anchored informational candidates."""
     anchors = {node.node_id for node in digest.nodes} | {edge.edge_id for edge in digest.edges}
     edges = {edge.edge_id: edge for edge in digest.edges}
-    candidates = []
+    candidates, seen = [], {}
     for landmark in digest.landmarks:
         if landmark.landmark_type not in _DESCRIPTIONS or not landmark.anchor_ids:
             continue
@@ -285,15 +303,108 @@ def derive_topology_hazard_candidates(digest: TopologyDigest) -> tuple[HazardCan
                 common = set(writers[0].writes).intersection(*(set(edge.writes) for edge in writers[1:]))
                 names = ", ".join(edge.block_name for edge in writers)
                 summary = f"state {', '.join(repr(name) for name in sorted(common))} is written by blocks {names}"
+        key = (landmark.landmark_type, tuple(landmark.anchor_ids))
+        if key in seen:                 # one hazard per type and anchor set; shared writers merge their fields
+            if landmark.landmark_type == TOPOLOGY_LANDMARK_SHARED_WRITER:
+                index = seen[key]
+                previous = candidates[index]
+                fields_text = previous.summary.partition(" is written by ")
+                merged = sorted(set(re.findall(r"'([^']+)'", fields_text[0])) | set(re.findall(r"'([^']+)'", summary)))
+                candidates[index] = HazardCandidate(previous.hazard_id, "state " + ", ".join(repr(n) for n in merged)
+                                                    + " is written by " + fields_text[2], previous.rationale,
+                                                    previous.future_failure_mode, previous.topology_anchor_ids,
+                                                    previous.source_landmark_ids + (landmark.landmark_id,),
+                                                    previous.landmark_type)
+            continue
+        seen[key] = len(candidates)
         candidates.append(HazardCandidate(f"hazard:{landmark.landmark_type}:{landmark.landmark_id}", summary,
                                           advice, failure, landmark.anchor_ids, (landmark.landmark_id,),
                                           landmark.landmark_type))
-    return tuple(candidates)
+    order = {kind: index for index, kind in enumerate(HAZARD_ORDER)}
+    return tuple(sorted(candidates, key=lambda item: order.get(item.landmark_type, len(order))))
 
 
-def model_hazards(explorer) -> list[str]:
-    """Compute messages from an already-built Explorer, without exploring it again."""
+def _candidates(explorer):
     digest = infer_topology_digest(workflow=explorer.workflow, initial_states=explorer.initial_states,
                                    external_inputs=explorer.external_inputs)
-    return [f"{candidate.landmark_type}: {candidate.summary} [{', '.join(candidate.topology_anchor_ids)}]; "
-            f"{candidate.rationale}" for candidate in derive_topology_hazard_candidates(digest)]
+    return digest, derive_topology_hazard_candidates(digest)
+
+
+def _message(candidate) -> str:
+    return (f"{candidate.landmark_type}: {candidate.summary} [{', '.join(candidate.topology_anchor_ids)}]; "
+            f"{candidate.rationale}")
+
+
+def _block_changed(design_block, variant_block) -> bool:
+    """A known-bad variant changes a block when the same-named block is another class or configured differently."""
+    if type(design_block) is not type(variant_block):
+        return True
+    try:
+        return vars(design_block) != vars(variant_block)
+    except TypeError:
+        return design_block is not variant_block
+
+
+def _subjects(candidate, digest) -> set[str]:
+    """Names an invariant may mention to cover this hazard: state fields or block names."""
+    edges = {edge.edge_id: edge for edge in digest.edges}
+    nodes = {node.node_id: node for node in digest.nodes}
+    if candidate.landmark_type == TOPOLOGY_LANDMARK_SHARED_WRITER:
+        return set(re.findall(r"'([^']+)'", candidate.summary.partition(" is written by ")[0]))
+    if candidate.landmark_type == TOPOLOGY_LANDMARK_COARSE_TERMINAL:
+        found = set()
+        for anchor in candidate.topology_anchor_ids:
+            node = nodes.get(anchor)
+            if node is not None:
+                found |= {name for name in node.metadata.get("fields", ()) if _words(name) & TERMINAL_WORDS}
+        return found
+    if candidate.landmark_type in (TOPOLOGY_LANDMARK_SIDE_EFFECT_REPEAT, TOPOLOGY_LANDMARK_EXTERNAL_CONFIRMATION):
+        return {edges[anchor].block_name for anchor in candidate.topology_anchor_ids if anchor in edges}
+    return set()
+
+
+def _mentions(subject: str, text: str) -> bool:
+    tokens = set(re.findall(r"[a-z0-9_]+", text.lower()))
+    return subject.lower() in tokens or (len(_words(subject)) > 1 and _words(subject) <= _words(text))
+
+
+def hazard_closures(explorer, variants: Mapping[str, Any] | None = None) -> dict[str, str]:
+    """{hazard message: what closes it}: a caught known-bad variant changing its block, or an invariant naming it.
+
+    ``variants`` are the known-bad explorers already shown to be caught. Nothing is stored anywhere.
+    """
+    digest, candidates = _candidates(explorer)
+    design_blocks = tuple(getattr(explorer.workflow, "blocks", ()) or ())
+    invariants = [(str(getattr(item, "name", "")), str(getattr(item, "description", "")))
+                  for item in getattr(explorer, "invariants", ())]
+    closed = {}
+    for candidate in candidates:
+        indexes = {int(anchor.split(":")[1]) for anchor in candidate.topology_anchor_ids
+                   if anchor.split(":")[0] in {"edge", "effect", "block", "output"} and anchor.split(":")[1].isdigit()}
+        for name, variant in sorted((variants or {}).items()):
+            blocks = tuple(getattr(getattr(variant, "workflow", None), "blocks", ()) or ())
+            if any(index < len(blocks) and index < len(design_blocks)
+                   and _block_name(blocks[index], index) == _block_name(design_blocks[index], index)
+                   and _block_changed(design_blocks[index], blocks[index]) for index in indexes):
+                closed[_message(candidate)] = f"known-bad {name}"
+                break
+        else:
+            for subject in sorted(_subjects(candidate, digest)):
+                rule = next((title for title, text in invariants if _mentions(subject, f"{title} {text}")), None)
+                if rule:
+                    closed[_message(candidate)] = f"invariant {rule}"
+                    break
+    return closed
+
+
+def model_hazards(explorer, *, variants: Mapping[str, Any] | None = None) -> list[str]:
+    """Compute messages from an already-built Explorer, without exploring it again.
+
+    With ``variants`` (caught known-bad explorers), hazards they or the invariants close are left out.
+    """
+    _, candidates = _candidates(explorer)
+    found = [_message(candidate) for candidate in candidates]
+    if variants is None:
+        return found
+    closed = hazard_closures(explorer, variants)
+    return [message for message in found if message not in closed]

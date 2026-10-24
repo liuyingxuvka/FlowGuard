@@ -179,7 +179,10 @@ Every concern must identify an actual node or edge in the model; otherwise it is
 - `legacy_or_compatibility_path`: a named node keeps an old path; add a compatibility regression or leave the hint as information.
 - `coarse_terminal_state`: a terminal-looking node may hide distinct outcomes; check its success/failure invariant.
 - `parent_child_compression`: a parent/child or mesh node hides detail; check the handoff or a broken child variant.
-Hints may be left as information; inference failures are information too. `read` stays static; `target check` does not print hazards.
+Hints match whole words, are deduplicated, and show at most three open per model plus one summary line.
+Close a hint from the model: add a known-bad variant that changes the named block, or an invariant whose name or
+description names the field; `map models <id> --hazards` lists open and closed hints. Inference failures are information.
+`read` stays static; `target check` does not print hazards.
 
 ## Validator
 
