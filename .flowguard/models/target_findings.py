@@ -1,21 +1,26 @@
 """Target check sends design mistakes to ERROR, missing code to TO-DO and planned breakage to INFO.
 
-Exercise check_target's bucket logic and map.cli.cmd_check's strict boundary,
-including real proof code gaps, design failures and unbound-invariant warnings.
+Each event is one source of a finding (a CASES row). Route sends it to error,
+todo, info, warn or no finding; the rules say which kind of finding goes where.
+Conformance builds each case fresh on the small shelf project and reads the bucket
+that the real check_target, moving_to_target and map check --strict give it.
+Independent check under the parent (no project_parent_state): routing does not
+start from a parent state.
 """
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from io import StringIO
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 
-from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
+from flowguard import FunctionResult, Invariant, InvariantResult, ReplayObservation, Workflow, replay_trace, select_covering_traces
+from flowguard.conformance import projected_output_matches, projected_state_matches
+from flowguard.explorer import Explorer
 from flowguard.map import cli as map_cli
 from flowguard.map import target as native
 from flowguard.map.check import run_check
-from flowguard.map.facts import CodeFactsReport, Fact
 from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import ignore_patterns, load_map
 from flowguard.map.targetfile import build_target_view, load_target
@@ -28,21 +33,25 @@ IMPLEMENTED_BY = {
     "Classify": "flowguard/map/target.py:check_target",
 }
 TESTED_BY = {
-    "each_defect_rejected": [
-        "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
-        "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
-        "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
+    "design_mistakes_are_errors": [
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
         "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
-        "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
-        "tests/test_flowguard_target.py:test_old_findings_of_unchanged_models_do_not_block",
-        "tests/test_flowguard_target.py:test_target_check_warns_about_debts_it_makes_stale",
     ],
-    "every_defect_reported": [
-        "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
+    "missing_code_is_todo": [
+        "tests/test_flowguard_target.py:test_target_check_reports_unwritten_code_as_todo",
+    ],
+    "only_changed_subjects_move": [
         "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
-        "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
-        "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
+        "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
+    ],
+    "strict_never_moves": [
+        "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
+    ],
+    "old_findings_do_not_block": [
+        "tests/test_flowguard_target.py:test_old_findings_of_unchanged_models_do_not_block",
+    ],
+    "warnings_never_block": [
+        "tests/test_flowguard_target.py:test_target_check_warns_about_debts_it_makes_stale",
     ],
 }
 
@@ -79,58 +88,81 @@ CASES = (
 )
 
 
+# Each known-bad variant routes one case to the wrong bucket.
+DEFECTS = {
+    "unplanned_error_downgraded": ("unplanned_current", "info"),
+    "strict_error_downgraded": ("strict_current", "info"),
+    "design_error_as_todo": ("design_failure", "todo"),
+    "code_gap_as_error": ("code_gap", "error"),
+    "dropped_owner_as_todo": ("owner_dropped", "todo"),
+    "entrypoint_owner_as_todo": ("entrypoint_owner", "todo"),
+    "design_only_as_todo": ("design_only_model", "todo"),
+    "runner_as_todo": ("runner_model", "todo"),
+    "untested_warning_as_gate": ("unbound_invariant", "error"),
+    "dropped_responsibility_ignored": ("responsibility_dropped", "none"),
+    "untied_goal_accepted": ("behaviour_without_rule", "none"),
+    "unchanged_subject_downgraded": ("unchanged_copy_breakage", "info"),
+    "old_finding_blocks": ("old_finding_in_unchanged_model", "error"),
+    "stale_debt_hidden": ("debt_made_stale", "none"),
+}
+BY_NAME = {case.name: case for case in CASES}
+DESIGN = {"design_failure", "owner_dropped", "responsibility_dropped", "entrypoint_owner", "design_only_model",
+          "runner_model", "behaviour_without_rule"}
+CHANGED = {"planned_current": "info", "unplanned_current": "error", "unchanged_copy_breakage": "error"}
+
+
 @dataclass(frozen=True)
-class Policy:
-    decisions: tuple = ()
-
-    def route(self, case):
-        return dict(self.decisions).get(case.name, case.disposition)
+class State:
+    event: str = ""
+    bucket: str = ""
 
 
-def _wrong_decision(case, disposition):
-    def apply(policy):
-        return replace(policy, decisions=policy.decisions + ((case, disposition),))
-    return apply
+class Route:
+    name = "Route"
+
+    def __init__(self, defect=""):
+        self.defect = defect
+
+    def apply(self, event, state):
+        bucket = BY_NAME[event].disposition
+        if self.defect and DEFECTS[self.defect][0] == event:
+            bucket = DEFECTS[self.defect][1]
+        return (FunctionResult(bucket, State(event, bucket), label=event),)
 
 
-FEATURES = (
-    Feature("unplanned_error_downgraded", True, ("unplanned_current",),
-            _wrong_decision("unplanned_current", "info")),
-    Feature("strict_error_downgraded", True, ("strict_current",),
-            _wrong_decision("strict_current", "info")),
-    Feature("design_error_as_todo", True, ("design_failure",),
-            _wrong_decision("design_failure", "todo")),
-    Feature("code_gap_as_error", True, ("code_gap",),
-            _wrong_decision("code_gap", "error")),
-    Feature("dropped_owner_as_todo", True, ("owner_dropped",),
-            _wrong_decision("owner_dropped", "todo")),
-    Feature("entrypoint_owner_as_todo", True, ("entrypoint_owner",),
-            _wrong_decision("entrypoint_owner", "todo")),
-    Feature("design_only_as_todo", True, ("design_only_model",),
-            _wrong_decision("design_only_model", "todo")),
-    Feature("runner_as_todo", True, ("runner_model",),
-            _wrong_decision("runner_model", "todo")),
-    Feature("untested_warning_as_gate", True, ("unbound_invariant",),
-            _wrong_decision("unbound_invariant", "error")),
-    Feature("dropped_responsibility_ignored", True, ("responsibility_dropped",),
-            _wrong_decision("responsibility_dropped", "none")),
-    Feature("untied_goal_accepted", True, ("behaviour_without_rule",),
-            _wrong_decision("behaviour_without_rule", "none")),
-    Feature("old_finding_blocks", True, ("old_finding_in_unchanged_model",),
-            _wrong_decision("old_finding_in_unchanged_model", "error")),
-    Feature("stale_debt_hidden", True, ("debt_made_stale",),
-            _wrong_decision("debt_made_stale", "none")),
-    Feature("unchanged_subject_downgraded", True, ("unchanged_copy_breakage",),
-            _wrong_decision("unchanged_copy_breakage", "info")),
+def _rule(name, events, predicate, message):
+    return Invariant(name, message, lambda state, trace:
+                     InvariantResult.pass_() if state.event not in events or predicate(state)
+                     else InvariantResult.fail(message))
+
+
+INVARIANTS = (
+    _rule("design_mistakes_are_errors", DESIGN, lambda state: state.bucket == "error",
+          "a design mistake of the target was not an ERROR"),
+    _rule("missing_code_is_todo", {"code_gap"}, lambda state: state.bucket == "todo",
+          "code the target still needs was not a TO-DO"),
+    _rule("only_changed_subjects_move", set(CHANGED), lambda state: state.bucket == CHANGED[state.event],
+          "breakage was moved to target although the target does not change its subject, or planned breakage was not"),
+    _rule("strict_never_moves", {"strict_current"}, lambda state: state.bucket == "error",
+          "map check --strict downgraded a current error"),
+    _rule("old_findings_do_not_block", {"old_finding_in_unchanged_model"}, lambda state: state.bucket == "warn",
+          "an old finding of a model the target does not change blocked the target"),
+    _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale"}, lambda state: state.bucket == "warn",
+          "an untested rule or a stale debt was not a warning"),
 )
 
 
+def _explorer(defect=""):
+    return Explorer(Workflow((Route(defect),)), (State(),), tuple(BY_NAME), invariants=INVARIANTS,
+                    max_sequence_length=1, progress_steps=0)
+
+
 def build_explorer():
-    return feature_explorer(FEATURES, max_features=1, codes="all")
+    return _explorer()
 
 
 def broken_variants():
-    return feature_variants(FEATURES, max_features=1, codes="all")
+    return {name: _explorer(name) for name in DEFECTS}
 
 
 OLD_CONTRACT = '''from pathlib import Path
@@ -306,20 +338,25 @@ def observe_case(case):
         return _unique_bucket(report, code=case.name), repr(report)
 
 
+class RealRouting:
+    def reset(self, initial_state):
+        self.state = initial_state
+
+    def apply_step(self, step):
+        bucket, _detail = observe_case(BY_NAME[step.function_input])
+        self.state = State(step.function_input, bucket)
+        return ReplayObservation(function_name=step.function_name, observed_output=bucket, observed_state=self.state)
+
+    def observe_state(self):
+        return self.state
+
+
 def conformance():
-    # Each concrete row is executed fresh once in this operation. The policy
-    # feature comparison below consumes these observed report buckets; it never
-    # supplies a stored verdict to a native check or skips native proof work.
-    observed, facts = {}, []
-    for case in CASES:
-        bucket, detail = observe_case(case)
-        observed[case.name] = bucket
-        facts.append(Fact(case.name, bucket == case.disposition, detail))
-
-    def review(policy):
-        wrong = tuple(case.name for case in CASES if policy.route(case) != observed[case.name])
-        return not wrong, wrong
-
-    report = feature_conformance(FEATURES, Policy, review, max_features=1, codes="all")
-    facts.append(Fact("actual_buckets_reject_wrong_policies", report.ok, report.format_text()))
-    return CodeFactsReport(tuple(facts))
+    # Every case is built fresh and checked by the real code; no stored verdict is reused.
+    last = None
+    for trace in select_covering_traces(build_explorer().explore().traces):
+        last = replay_trace(trace=trace, adapter=RealRouting(), invariants=INVARIANTS,
+                            rules=(projected_output_matches(), projected_state_matches()))
+        if not last.ok:
+            return last
+    return last

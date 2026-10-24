@@ -1918,3 +1918,43 @@ def test_removed_component_file_hint_says_delete(tmp_path, capsys):
     unmapped = [line for line in output.splitlines() if line.startswith("TO-DO ") and "file_unmapped" in line
                 and "shelf/members.py" in line]
     assert unmapped and unmapped[0].endswith("(delete the file, or give it an owner in the target)"), output
+
+
+def test_target_check_reports_unwritten_code_as_todo(tmp_path, capsys):
+    """An entrypoint the target plans but the code does not have yet is a TO-DO, never an ERROR."""
+    from flowguard.map.target import check_target
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "loans can renew", "loans")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["entrypoints"].append("shelf/loans.py:LoanService.renew")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    report = check_target(root, models=False)
+    assert any(f.code == "anchor_broken" and "renew" in f.message for f in report.todos), report
+    assert not any(f.code == "anchor_broken" for f in report.errors), report
+
+
+def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkeypatch):
+    """promote_target checks once; when a checked input changes afterwards it refuses and writes nothing."""
+    from flowguard.map import target as native
+
+    helpers = _target_life_cycle_fixture_helpers()
+    root = helpers["make_project"](tmp_path / "promotion")
+    helpers["stage_target"](root)
+    helpers["edit_missing_method"](root)
+    helpers["write_method"](root)
+    original = native.check_target
+
+    def check_then_edit(checked_root, **options):
+        report = original(checked_root, **options)
+        model = Path(checked_root) / ".flowguard/target/models/shelf_rule.py"
+        model.write_text(model.read_text(encoding="utf-8") + "\n# edited after the check\n", encoding="utf-8")
+        return report
+
+    monkeypatch.setattr(native, "check_target", check_then_edit)
+    current = (root / ".flowguard/map.json").read_bytes()
+    capsys.readouterr()
+    assert native.promote_target(root) == 1
+    assert "promote refused: checked inputs changed" in capsys.readouterr().out
+    assert (root / ".flowguard/target").is_dir() and (root / ".flowguard/map.json").read_bytes() == current

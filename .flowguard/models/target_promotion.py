@@ -1,4 +1,4 @@
-"""Promotion writes exactly the checked merge, removes the target, leaves changed components draft and refuses changed inputs.
+"""Promotion writes the checked merge, removes the target, leaves changed components draft, refuses changed inputs.
 
 It starts where the parent target_life_cycle stands right after a clean check
 (project_parent_state). Conformance replays each covering trace on a fresh small
@@ -30,7 +30,7 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
     "changed_inputs_refuse_promotion": [
-        "tests/test_flowguard_target.py:test_target_promote_refuses_a_model_that_edits_its_checked_source",
+        "tests/test_flowguard_target.py:test_promote_refuses_inputs_changed_after_its_check",
     ],
 }
 

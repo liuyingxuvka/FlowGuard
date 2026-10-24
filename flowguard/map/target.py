@@ -542,6 +542,55 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
         print(f"added {kind} {name} to .flowguard/target/map.json")
 
 
+def start_target(root: Path, goal: str) -> int:
+    """Create the one target draft; refuse a second target or an empty goal."""
+    target = load_target(root)
+    if target is not None:
+        raise MapError(f'a target already exists: "{target.goal}"; promote it (python -m flowguard target promote) '
+                       'or drop it (python -m flowguard target drop --yes)')
+    if not goal.strip():
+        raise MapError("the goal must be a nonempty sentence")
+    directory = root / TARGET_RELDIR
+    directory.mkdir(parents=True)
+    (directory / "models").mkdir()
+    _save(root, dict(schema=TARGET_SCHEMA, goal=goal, components=[], flows=[], remove=[]))
+    print(f'target started: "{goal}"')
+    print("next: python -m flowguard target add <component-or-model-id>, edit the files under "
+          ".flowguard/target/, then python -m flowguard target check")
+    return 0
+
+
+def _require_target(root: Path):
+    target = load_target(root)
+    if target is None:
+        raise MapError('no target; start one with python -m flowguard target start "<goal>"')
+    return target
+
+
+def add_to_target(root: Path, node_id: str) -> int:
+    """Copy one current component or model into a valid target."""
+    data = load_map(root)
+    target = _require_target(root)
+    problems = validate_target(root, data, target)
+    if problems:
+        raise MapError("; ".join(f"{issue.code}: {issue.message}" for issue in problems))
+    _add(root, data, target, node_id)
+    return 0
+
+
+def drop_target(root: Path, *, yes: bool) -> int:
+    """Preview the target deletion, or delete .flowguard/target/ with yes."""
+    target = _require_target(root)
+    directory = root / TARGET_RELDIR
+    if not yes:
+        count = sum(path.is_file() for path in directory.rglob("*"))
+        print(f'would delete .flowguard/target/ ("{target.goal}", {count} file(s)); re-run with --yes')
+        return 1
+    shutil.rmtree(directory, onerror=_remove_readonly)
+    print(f'dropped target "{target.goal}"')
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -556,38 +605,12 @@ def main(argv: list[str] | None = None) -> int:
             report = check_target(root)
             print(render_target_report(report))
             return 1 if report.errors else 3 if report.todos else 0
-        data = load_map(root)
-        target = load_target(root)
+        load_map(root)
         if args.command == "start":
-            if target is not None:
-                raise MapError(f'a target already exists: "{target.goal}"; promote it (python -m flowguard target promote) '
-                               'or drop it (python -m flowguard target drop --yes)')
-            if not args.goal.strip():
-                raise MapError("the goal must be a nonempty sentence")
-            directory = root / TARGET_RELDIR
-            directory.mkdir(parents=True)
-            (directory / "models").mkdir()
-            _save(root, dict(schema=TARGET_SCHEMA, goal=args.goal, components=[], flows=[], remove=[]))
-            print(f'target started: "{args.goal}"')
-            print("next: python -m flowguard target add <component-or-model-id>, edit the files under "
-                  ".flowguard/target/, then python -m flowguard target check")
-            return 0
-        if target is None:
-            raise MapError('no target; start one with python -m flowguard target start "<goal>"')
+            return start_target(root, args.goal)
         if args.command == "drop":
-            directory = root / TARGET_RELDIR
-            if not args.yes:
-                count = sum(path.is_file() for path in directory.rglob("*"))
-                print(f'would delete .flowguard/target/ ("{target.goal}", {count} file(s)); re-run with --yes')
-                return 1
-            shutil.rmtree(directory, onerror=_remove_readonly)
-            print(f'dropped target "{target.goal}"')
-            return 0
-        problems = validate_target(root, data, target)
-        if problems:
-            raise MapError("; ".join(f"{issue.code}: {issue.message}" for issue in problems))
-        _add(root, data, target, args.node)
-        return 0
+            return drop_target(root, yes=args.yes)
+        return add_to_target(root, args.node)
     except (MapError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

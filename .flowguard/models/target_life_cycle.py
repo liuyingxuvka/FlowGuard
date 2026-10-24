@@ -1,7 +1,10 @@
 """One target at a time; promote only a clean target and leave current equal to the merge.
 
-Protect single-target storage, clean-only promotion, target removal, and exact
-map/model merging through real target commands and filesystem observations.
+Protect single-target storage, clean-only promotion and target removal through real
+target commands and filesystem observations. MESH states the handoffs between the
+child models: target check (target_findings) turns a written target into a report,
+and only a clean report reaches promotion (target_promotion, which starts from this
+model's clean checked states and owns the merge rules).
 """
 from contextlib import chdir, redirect_stderr, redirect_stdout
 from copy import deepcopy
@@ -13,6 +16,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.closure import (MESH_CLOSURE_FAILURE_EXIT, MeshClosureModel, MeshClosureTerminal,
+                               MeshClosureTransition, review_mesh_closure_model)
 from flowguard.explorer import Explorer
 from flowguard.map import target as native
 from flowguard.map.facts import CodeFactsReport, Fact
@@ -23,11 +28,15 @@ from flowguard.map.targetfile import build_target_view, load_target
 MODEL_ID = "target_life_cycle"
 PARENT = "map-target"
 IMPLEMENTED_BY = {
-    "Start": "flowguard/map/target.py:main",
-    "Add": "flowguard/map/target.py:main",
+    "Start": "flowguard/map/target.py:start_target",
+    "Add": "flowguard/map/target.py:add_to_target",
     "Check": "flowguard/map/target.py:check_target",
     "Promote": "flowguard/map/target.py:promote_target",
-    "Drop": "flowguard/map/target.py:main",
+    "Drop": "flowguard/map/target.py:drop_target",
+}
+NOT_MODELED = {
+    "flowguard/map/target.py:main": "Argument parsing only; it calls start_target, add_to_target, check_target, "
+                                    "promote_target and drop_target, which this model anchors.",
 }
 TESTED_BY = {
     "one_target_at_a_time": [
@@ -36,10 +45,7 @@ TESTED_BY = {
     "promote_only_when_clean": [
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
-    "promote_leaves_no_target": [
-        "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
-    ],
-    "promote_makes_current_equal_merged": [
+    "handoffs_close": [
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
     "noop_target_never_promoted": [
@@ -73,6 +79,7 @@ class State:
     status: str = ""
     before: tuple = ()
     changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
+    pending: tuple = ()        # MESH tokens handed over and not yet consumed
 
 
 def _revisions(state):
@@ -109,6 +116,7 @@ class Advance:
         elif action == "CHECK":
             if not state.changed and self.defect != "promotes_unchanged_copy":
                 new = replace(new, errors=max(state.errors, 1))
+            new = replace(new, pending=("design_error",) if new.errors else ("code_todo",) if new.todos else ("clean_report",))
         elif action == "WRITE_CODE":
             new = replace(new, todos=0)
         elif action == "DROP_PREVIEW":
@@ -118,21 +126,50 @@ class Advance:
         elif action == "PROMOTE":
             if (state.errors or state.todos) and self.defect != "unclean_promote":
                 new = replace(new, status="refused")
+            elif self.defect == "clean_report_unconsumed":
+                new = replace(new, status="skipped")
             else:
                 merged = state.target_revision
-                new = replace(new, status="promoted", target_count=0,
+                new = replace(new, status="promoted", target_count=0, pending=("current_equals_merged",),
                               expected_map_revision=merged,
                               current_map_revision=merged,
                               current_model_revision=state.expected_model_revision)
-                if self.defect == "retained_target":
-                    new = replace(new, target_count=1)
-                if self.defect == "models_only":
-                    new = replace(new, current_map_revision=state.current_map_revision)
         return (FunctionResult(new.status, new, label=action),)
 
 
 def _holds(condition, message):
     return InvariantResult.pass_() if condition else InvariantResult.fail(message)
+
+
+def _mesh():
+    """Check turns a written target into one report kind; only a clean report is promoted."""
+    transitions = (MeshClosureTransition("check", consumes=("target_written",),
+                                         emits=("design_error", "code_todo", "warning", "clean_report"),
+                                         consumer_model_id="target_findings"),
+                   MeshClosureTransition("promote", consumes=("clean_report",), emits=("current_equals_merged",),
+                                         consumer_model_id="target_promotion"))
+    return MeshClosureModel(
+        parent_model_id=MODEL_ID, root_entries=("target_written",), transitions=transitions,
+        terminals=(MeshClosureTerminal("refused", consumes=("design_error", "code_todo"),
+                                       terminal_kind=MESH_CLOSURE_FAILURE_EXIT),
+                   MeshClosureTerminal("reported", consumes=("warning",)),
+                   MeshClosureTerminal("promoted", consumes=("current_equals_merged",))))
+    # No required_outputs: the closure review treats a transition's outputs as produced together, so a
+    # required clean_report would "leak" at the refused exit. Every consumed token must still be produced,
+    # and a normal exit must be reachable.
+
+
+MESH = _mesh()
+EXITS = {token for terminal in MESH.terminals for token in terminal.consumes}
+
+
+def _handoffs_close(state):
+    """MESH closes (review_mesh_closure_model), and at the end of a program every handed-over token is at an exit."""
+    if not review_mesh_closure_model(MESH).ok:
+        return InvariantResult.fail("the target handoff mesh does not close")
+    if state.position == len(dict(PROGRAMS)[state.scenario]) and set(state.pending) - EXITS:
+        return InvariantResult.fail(f"handed-over {', '.join(sorted(set(state.pending) - EXITS))} was never consumed")
+    return InvariantResult.pass_()
 
 
 INVARIANTS = (
@@ -144,19 +181,15 @@ INVARIANTS = (
               lambda s, t: _holds(s.action != "PROMOTE" or not (s.errors or s.todos) or
                                   (s.status == "refused" and _revisions(s) == s.before),
                                   "an unclean target was promoted")),
-    Invariant("promote_leaves_no_target", "successful promotion removes the target",
-              lambda s, t: _holds(s.status != "promoted" or s.target_count == 0,
-                                  "promotion retained the target")),
-    Invariant("promote_makes_current_equal_merged", "both current map and models equal the prepared merge",
-              lambda s, t: _holds(s.status != "promoted" or
-                                  (s.current_map_revision == s.expected_map_revision and
-                                   s.current_model_revision == s.expected_model_revision),
-                                  "current map or model differs from the merge")),
     Invariant("noop_target_never_promoted", "a target equal to the current tree fails its check and is never promoted",
               lambda s, t: _holds(s.changed or (s.action != "CHECK" or s.errors) and
                                   (s.action != "PROMOTE" or (s.status == "refused" and _revisions(s) == s.before)),
                                   "an unchanged target passed its check or was promoted")),
+    Invariant("handoffs_close", "every report a check hands over reaches an exit of MESH; a clean report is promoted",
+              lambda s, t: _handoffs_close(s)),
 )
+
+
 
 
 def _explorer(defect=""):
@@ -165,13 +198,17 @@ def _explorer(defect=""):
                     invariants=INVARIANTS, max_sequence_length=7, progress_steps=0)
 
 
+
+
+
 def build_explorer():
     return _explorer()
 
 
 def broken_variants():
-    return {name: _explorer(name) for name in
-            ("second_target", "unclean_promote", "retained_target", "models_only", "promotes_unchanged_copy")}
+    return {"second_target": _explorer("second_target"), "unclean_promote": _explorer("unclean_promote"),
+            "promotes_unchanged_copy": _explorer("promotes_unchanged_copy"),
+            "clean_report_unconsumed": _explorer("clean_report_unconsumed")}
 
 
 # This is an executable regular contract, not a runner, DTO or design-only model.
@@ -179,11 +216,17 @@ def broken_variants():
 # observations. It invokes the actual shelf anchor to obtain its conformance.
 REGULAR_CONTRACT = '''from pathlib import Path
 from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard.closure import (MESH_CLOSURE_FAILURE_EXIT, MeshClosureModel, MeshClosureTerminal,
+                               MeshClosureTransition, review_mesh_closure_model)
 from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact, load_anchor
 MODEL_ID = "shelf_rule"
 PARENT = "loans"
 IMPLEMENTED_BY = {"Advance": "shelf/loans.py:advance"}
+NOT_MODELED = {
+    "flowguard/map/target.py:main": "Argument parsing only; it calls start_target, add_to_target, check_target, "
+                                    "promote_target and drop_target, which this model anchors.",
+}
 TESTED_BY = {}
 class Advance:
     name = "Advance"

@@ -357,7 +357,10 @@
       ],
       "entrypoints": [
         "flowguard/map/target.py:main",
-        "flowguard/map/target.py:promote_target"
+        "flowguard/map/target.py:promote_target",
+        "flowguard/map/target.py:start_target",
+        "flowguard/map/target.py:add_to_target",
+        "flowguard/map/target.py:drop_target"
       ],
       "state": [
         ".flowguard/target/ (at most one target)"
@@ -378,7 +381,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e1052534e420e24c1542b7b6804604d83ef9a9e88ba8f0d69214073af9629c86"
+      "fingerprint": "sha256:b4b2faab2978f2460e7dd4ada070a2436a51ed0d6d1d9cedd51dfaab3f0dbeb0"
     },
     {
       "id": "map-proof",
@@ -424,7 +427,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:290ad9ad1491d74b8a7d4adbfe6665def12200c80937cfaa106787c23d3dc55b"
+      "fingerprint": "sha256:ee8d3744d358586ad32a5d7320c6b41d8d4f0f2f33886567cc76f766ac8a1bd9"
     },
     {
       "id": "engine-explore",

@@ -116,9 +116,13 @@ class AnchorWatch:
             for watch in _ACTIVE:
                 if watch is not self and watch.test_call:
                     watch._record_call(frame)
-        if self.called >= self._python and all(watch.called >= watch._python for watch in _ACTIVE):
-            sys.settrace(None)            # every anchor is already seen: nothing left to learn in this thread
+        if all(watch._satisfied() for watch in _ACTIVE):
+            sys.settrace(None)            # nothing left to learn in this thread
         return None                       # never trace lines
+
+    def _satisfied(self) -> bool:
+        """A bound test needs one consulted anchor; a model run needs every Python anchor."""
+        return bool(self.called) if self.test_call else self.called >= self._python
 
     def __enter__(self) -> "AnchorWatch":
         global _HOOKED
