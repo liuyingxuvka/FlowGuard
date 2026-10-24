@@ -331,6 +331,13 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                     out.append(Finding("warn", "foreign_state_write", owner.get(path, ""),
                                        f"{path}:{symbol} line {function['line']} mutates {target_owner}'s declared state {state_name}; "
                                        "route the update through its owner"))
+    for write in raw.get("foreign_writes", ()):
+        path, _, symbol = write["source"].partition("#")
+        writer, holder = owner.get(path), owner.get(write["class_path"])
+        if writer and holder and writer != holder and not inv.is_test(path):
+            out.append(Finding("warn", "foreign_state_write", writer,
+                               f"{path}:{symbol} line {write['line']} writes {write['class']}.{write['attr']} owned by "
+                               f"{holder}; route the update through its owner"))
     imported = {t for deps in inv.file_deps.values() for t in deps}
     modules = {info.module: path for path, info in inv.py.items()}
     # Registered contract models are real importers even though they are outside source ownership.
@@ -359,7 +366,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     debts = normalized_debts(data)
     out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
-    bare = dependency_evidence({**data, "accepted_debts": []}, inv)
+    bare = dependency_evidence({**data, "accepted_debts": []}, inv, raw)
     declared = {c["id"]: set(c.get("depends_on", [])) for c in comps}
     used |= {index for index, debt in enumerate(debts) if debt.get("code") == "dep_unused"
              and debt.get("contains") in declared.get(debt.get("component"), set())

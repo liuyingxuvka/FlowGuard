@@ -39,7 +39,7 @@ project and read components in batches. Default `read` targets 8,000 characters.
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and each responsibility under about 8 words, so that
      `python -m flowguard read` stays within its 8,000-character default budget, including coverage, structure problems and model subtrees.
-4. `python -m flowguard map deps --write` writes dependencies supported by imports, lazy exports, literal import calls, entrypoint or defined-symbol literals, or justified accepted debts; ordinary string values are not dependency evidence; unsupported declarations are removed.
+4. `python -m flowguard map deps --write` writes dependencies supported by imports, lazy exports, literal import calls, entrypoint or defined-symbol literals, or justified accepted debts; ordinary string values are not dependency evidence; unsupported declarations are removed. An injected collaborator (a constructor parameter with a type annotation, or the same class passed at every call site) is evidence too.
 5. `python -m flowguard map check` and fix until it reports 0 errors (`draft` warnings are expected now).
    For real existing `dependency_cycle` / `layer_violation` problems not being refactored now, record
    a reason in `accepted_debts` (cycle debts name `members`); fix incorrect layer choices instead.

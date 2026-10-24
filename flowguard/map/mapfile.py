@@ -277,10 +277,11 @@ def design_only_problem(contract: dict, path: str) -> str | None:
             'move this file to .flowguard/target/models/ (python -m flowguard target start "<goal>")')
 
 
-def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
-    """Actual imports plus import-like literals and explicitly justified debts.
+def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> dict[str, set[str]]:
+    """Actual imports plus import-like literals, injected collaborators and explicitly justified debts.
 
-    Literal evidence validates declarations; it is not itself a caller edge.
+    Literal evidence validates declarations; it is not itself a caller edge. ``raw`` (discovery) adds
+    calls through constructor-injected attributes; they never enter the import graph.
     """
     graph = component_graph(data, inv)
     owner, _ = owner_index(data, inv)
@@ -300,6 +301,12 @@ def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
                     target = modules.get(base)
             if target is not None and target != cid:
                 graph[cid].add(target)
+    for source, targets in (raw or {}).get("injected_edges", {}).items():
+        cid = owner.get(source.partition("#")[0])
+        for target in targets:
+            other = owner.get(target.partition("#")[0])
+            if cid is not None and other is not None and other != cid:
+                graph[cid].add(other)
     for debt in data.get("accepted_debts", []):
         if debt.get("code") == "dep_unused" and debt.get("component") in graph and debt.get("reason"):
             cid = debt["component"]

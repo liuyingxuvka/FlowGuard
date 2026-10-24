@@ -131,6 +131,8 @@ class _FileVisitor(ast.NodeVisitor):
         self.state: dict[str, set[str]] = defaultdict(set)
         self.main_calls: list[str] = []
         self.instances: dict[str, str] = {}       # "scope|var" -> constructor call name ("Cls" / "mod.Cls")
+        self.injected: dict[str, str] = {}        # "Cls|self.attr" -> the __init__ parameter assigned to it
+        self.annotations: dict[str, str] = {}     # "Cls|self.attr" -> class-body annotation name
 
     # ---- scope bookkeeping -------------------------------------------------
     def _symbol(self) -> str:
@@ -150,7 +152,13 @@ class _FileVisitor(ast.NodeVisitor):
         symbol = self._symbol()
         owner_class = ".".join(self.scope[:-1]) if ".".join(self.scope[:-1]) in self.classes else ""
         self.functions[symbol] = {"line": node.lineno, "class": owner_class, "calls": set(), "effects": [],
-                                  "raises": set(), "dynamic": set(), "writes": set(), "locals": set(), "local_imports": {}}
+                                  "raises": set(), "dynamic": set(), "writes": set(), "locals": set(), "local_imports": {},
+                                  "deep_writes": set(), "direct_writes": set(), "attr_writes": [], "ctor_calls": []}
+        if owner_class and node.name == "__init__":
+            arguments = [*node.args.posonlyargs, *node.args.args][1:] + list(node.args.kwonlyargs)
+            self.functions[symbol]["params"] = [argument.arg for argument in arguments]
+            self.functions[symbol]["annotations"] = {
+                argument.arg: name for argument in arguments if (name := _annotation_class(argument.annotation))}
         for deco in node.decorator_list:
             self._decorator_entrypoint(deco, symbol, node)
         for stmt in node.body:
@@ -158,6 +166,23 @@ class _FileVisitor(ast.NodeVisitor):
         self.scope.pop()
 
     visit_FunctionDef = visit_AsyncFunctionDef = _visit_function
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        cls = ".".join(self.scope)
+        if cls in self.classes and isinstance(node.target, ast.Name):      # class-body attribute annotation
+            if (name := _annotation_class(node.annotation)):
+                self.annotations[f"{cls}|self.{node.target.id}"] = name
+        fn = self._fn()
+        if (fn is not None and fn["class"] and isinstance(node.target, ast.Attribute)
+                and isinstance(node.target.value, ast.Name) and node.target.value.id == "self"
+                and (name := _annotation_class(node.annotation))):
+            self.annotations[f"{fn['class']}|self.{node.target.attr}"] = name
+        if (node.value is not None and fn is not None and fn["class"] and self._symbol() == f"{fn['class']}.__init__"
+                and isinstance(node.target, ast.Attribute)):
+            self.visit_Assign(ast.Assign(targets=[node.target], value=node.value, lineno=node.lineno,
+                                         col_offset=node.col_offset))
+        else:
+            self.generic_visit(node)
 
     # ---- entrypoints -------------------------------------------------------
     def _decorator_entrypoint(self, deco: ast.AST, symbol: str, fn: ast.AST) -> None:
@@ -219,7 +244,15 @@ class _FileVisitor(ast.NodeVisitor):
                 and isinstance(node.args[0].value, str) and not self.scope):
             self.entrypoints.append({"kind": "http_route", "name": "/" + _str_arg(node).lstrip("/"),
                                      "symbol": _name(node.args[1]) or "<view>", "line": node.lineno, "via": name})
+        if fn is not None and name and leaf[:1].isupper():
+            arguments = [[index, self._argument_class(arg)] for index, arg in enumerate(node.args)]
+            arguments += [[keyword.arg, self._argument_class(keyword.value)] for keyword in node.keywords if keyword.arg]
+            if arguments:
+                fn["ctor_calls"].append([name, arguments])
         if fn is not None and name:
+            parts = name.split(".")
+            if len(parts) == 4 and parts[0] == "self" and parts[3] in MUTATORS and fn["class"]:
+                fn["attr_writes"].append([parts[1], parts[2], node.lineno])
             fn["calls"].add(name)
             # Named function arguments are conservative may-call edges; unresolved values stay outside the graph.
             fn["calls"].update(_name(arg) for arg in [*node.args, *(kw.value for kw in node.keywords)]
@@ -234,6 +267,15 @@ class _FileVisitor(ast.NodeVisitor):
             if name in DYNAMIC or leaf in {"import_module", "entry_points"}:
                 fn["dynamic"].add(name)
         self.generic_visit(node)
+
+    def _argument_class(self, value: ast.AST) -> str:
+        """The class a constructor argument visibly carries: Other(...) or a local x = Other(...)."""
+        if isinstance(value, ast.Call):
+            ctor = _name(value.func)
+            return ctor if ctor.rsplit(".", 1)[-1][:1].isupper() else ""
+        if isinstance(value, ast.Name):
+            return self.instances.get(f"{self._symbol()}|{value.id}", "")
+        return ""
 
     def _write_target(self, target: ast.AST) -> None:
         fn = self._fn()
@@ -251,6 +293,12 @@ class _FileVisitor(ast.NodeVisitor):
             attr = f"{fn['class']}.{name[5:].split('.')[0]}"
             self.state[attr].add(self._symbol())
             fn["writes"].add(attr)
+            parts = name.split(".")
+            if len(parts) >= 3:          # self.attr.field = ...: a write into the object held by attr
+                fn["deep_writes"].add(attr)
+                fn["attr_writes"].append([parts[1], parts[2], getattr(target, "lineno", 0)])
+            else:
+                fn["direct_writes"].add(attr)
         elif name == "os.environ":
             fn["effects"].append(["env_write", "os.environ[...]", getattr(target, "lineno", 0)])
         elif isinstance(target, ast.Subscript) and name and name.split(".")[0] not in fn["locals"]:
@@ -276,6 +324,10 @@ class _FileVisitor(ast.NodeVisitor):
                     value = value.values[1]
                 assigned = _name(value.func) if isinstance(value, ast.Call) else ""
                 key = f"{fn['class']}|self.{target.attr}"
+                if isinstance(node.value, ast.Name) and node.value.id in fn.get("params", ()):
+                    # Constructor injection: the class comes from an annotation or from the call sites.
+                    self.injected[key] = node.value.id
+                    assigned = fn["annotations"].get(node.value.id, "")
                 previous = self.instances.get(key, assigned)
                 self.instances[key] = assigned if assigned and previous == assigned else "<unresolved>"
         self.generic_visit(node)
@@ -303,18 +355,40 @@ class _FileVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+MUTATORS = {"append", "extend", "insert", "pop", "remove", "clear", "update", "add", "discard", "setdefault"}
+
+
+def _annotation_class(annotation) -> str:
+    """``Cls``, ``"Cls"``, ``mod.Cls``, ``Optional[Cls]`` or ``Cls | None`` -> the class name."""
+    if annotation is None:
+        return ""
+    if isinstance(annotation, ast.Constant) and isinstance(annotation.value, str):
+        try:
+            annotation = ast.parse(annotation.value, mode="eval").body
+        except SyntaxError:
+            return ""
+    if isinstance(annotation, ast.Subscript) and _name(annotation.value).rsplit(".", 1)[-1] == "Optional":
+        return _annotation_class(annotation.slice)
+    if isinstance(annotation, ast.BinOp) and isinstance(annotation.op, ast.BitOr):
+        sides = [side for side in (annotation.left, annotation.right)
+                 if not (isinstance(side, ast.Constant) and side.value is None)]
+        return _annotation_class(sides[0]) if len(sides) == 1 else ""
+    name = _name(annotation) if isinstance(annotation, (ast.Name, ast.Attribute)) else ""
+    return name if name.rsplit(".", 1)[-1][:1].isupper() else ""
+
+
 def _mutating_method_writes(visitor: _FileVisitor) -> None:
     """self.items.append(x) mutates state just like self.items = ..."""
-    mutators = {"append", "extend", "insert", "pop", "remove", "clear", "update", "add", "discard", "setdefault"}
     for symbol, fn in visitor.functions.items():
         if not fn["class"]:
             continue
         for call in fn["calls"]:
             parts = call.split(".")
-            if len(parts) == 3 and parts[0] == "self" and parts[2] in mutators:
+            if len(parts) == 3 and parts[0] == "self" and parts[2] in MUTATORS:
                 attr = f"{fn['class']}.{parts[1]}"
                 visitor.state[attr].add(symbol)
                 fn["writes"].add(attr)
+                fn["deep_writes"].add(attr)
 
 
 def file_facts(text: str, module: str, package: str, path: str) -> dict:
@@ -325,6 +399,9 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
     visitor = _FileVisitor(module, package)
     visitor.visit(tree)
     _mutating_method_writes(visitor)
+    for key, param in visitor.injected.items():            # class-body annotations seen after __init__
+        if visitor.instances.get(key) == "<unresolved>" and key in visitor.annotations:
+            visitor.instances[key] = visitor.annotations[key]
     # Constructor-only initialization is not a changing state lifecycle.
     initialized_only = {attr for attr, writers in visitor.state.items() if all(w.endswith(".__init__") for w in writers)}
     for attr in initialized_only:
@@ -338,13 +415,17 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
         "module": module,
         "imports": visitor.imports,
         "instances": visitor.instances,
+        "injected": visitor.injected,
         "classes": visitor.classes,
         "entrypoints": visitor.entrypoints,
         "state": {k: sorted(v) for k, v in sorted(visitor.state.items())},
         "functions": {s: {"line": f["line"], "class": f["class"], "calls": sorted(f["calls"]),
                           "effects": f["effects"], "raises": sorted(x for x in f["raises"] if x),
                           "dynamic": sorted(f["dynamic"]), "writes": sorted(f["writes"]),
-                          "local_imports": dict(sorted(f["local_imports"].items()))}
+                          "local_imports": dict(sorted(f["local_imports"].items())),
+                          "deep_writes": sorted(f["deep_writes"] - f["direct_writes"]),
+                          "attr_writes": f["attr_writes"], "ctor_calls": f["ctor_calls"],
+                          **({"params": f["params"]} if "params" in f else {})}
                       for s, f in visitor.functions.items()},
     }
 
@@ -448,14 +529,23 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
         text = read_source(root / path)
         package = module if path.endswith("__init__.py") else module.rpartition(".")[0]
         facts[path] = {"digest": digest, **file_facts(text, module, package, path)}
+    # Per-file facts are cached as parsed; cross-file injection results are recomputed every run.
+    cached = json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": facts}, sort_keys=True) if write_cache else ""
     mod_to_path = {f.get("module", ""): p for p, f in facts.items()}
     index = {p: f.get("functions", {}) for p, f in facts.items()}
+    injected = _injected_classes(facts, index, mod_to_path)
+    foreign_writes = _apply_injected_writes(facts, injected)
     edges: dict[str, set[str]] = defaultdict(set)
+    injected_edges: dict[str, set[str]] = defaultdict(set)
     incoming: dict[str, int] = defaultdict(int)
     for path, file in facts.items():
         for symbol, fn in file.get("functions", {}).items():
             for call in fn["calls"]:
-                target = _resolve(call, symbol, path, facts, index, mod_to_path, dependency_files=dependency_files)
+                target = _resolve_injected(call, symbol, path, file, index, injected)
+                if target:
+                    injected_edges[f"{path}#{symbol}"].add(target)
+                else:
+                    target = _resolve(call, symbol, path, facts, index, mod_to_path, dependency_files=dependency_files)
                 if target and target != f"{path}#{symbol}":
                     edges[f"{path}#{symbol}"].add(target)
                     incoming[target] += 1
@@ -464,11 +554,109 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
     if write_cache:
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps(raw, sort_keys=True), encoding="utf-8")
+            cache_path.write_text(cached, encoding="utf-8")
         except OSError:
             pass
     raw["incoming"] = dict(incoming)
+    raw["injected_edges"] = {k: sorted(v) for k, v in sorted(injected_edges.items())}
+    raw["foreign_writes"] = foreign_writes
     return raw
+
+
+def _class_ref(name: str, caller: str, path: str, facts: dict, index: dict, mod_to_path: dict) -> str:
+    """'path#Cls' for a class name as seen from one function, or ''."""
+    if not name or name == "<unresolved>":
+        return ""
+    target = _resolve(name, caller, path, facts, index, mod_to_path)
+    cls_path, _, symbol = (target or "").partition("#")
+    symbol = symbol.removesuffix(".__init__")
+    if cls_path and symbol in facts.get(cls_path, {}).get("classes", ()):
+        return f"{cls_path}#{symbol}"
+    parts = name.split(".")
+    imports = {**facts[path].get("imports", {}), **facts[path].get("functions", {}).get(caller, {}).get("local_imports", {})}
+    module = imports.get(parts[0], "").replace(":", ".")
+    for cut in range(len(parts) - 1, 0, -1) if module else ():
+        target = mod_to_path.get(".".join([module, *parts[1:cut]]))
+        symbol = ".".join(parts[cut:])
+        if symbol in facts.get(target, {}).get("classes", ()):
+            return f"{target}#{symbol}"
+    return ""
+
+
+def _injected_classes(facts: dict, index: dict, mod_to_path: dict) -> dict[str, dict[str, str]]:
+    """path -> {"Cls|self.attr": "class_path#Other"} for constructor-injected attributes.
+
+    An annotated parameter (or class-body annotation) names the class; without one, every static
+    constructor call must pass the same class (or a local instance of it), otherwise it stays unresolved.
+    """
+    evidence: dict[tuple[str, str, str], set[str]] = defaultdict(set)
+    for path, file in facts.items():
+        for symbol, fn in file.get("functions", {}).items():
+            for callee, arguments in fn.get("ctor_calls", ()):
+                cls = _class_ref(callee, symbol, path, facts, index, mod_to_path)
+                if not cls:
+                    continue
+                cls_path, cls_name = cls.split("#", 1)
+                params = index.get(cls_path, {}).get(f"{cls_name}.__init__", {}).get("params", [])
+                for slot, argument in arguments:
+                    param = params[slot] if isinstance(slot, int) and slot < len(params) else slot
+                    if isinstance(param, str):
+                        evidence[(cls_path, cls_name, param)].add(
+                            _class_ref(argument, symbol, path, facts, index, mod_to_path) or "?")
+    found: dict[str, dict[str, str]] = {}
+    for path, file in facts.items():
+        for key, param in file.get("injected", {}).items():
+            cls_name = key.split("|", 1)[0]
+            ref = _class_ref(file.get("instances", {}).get(key, ""), f"{cls_name}.__init__", path, facts, index, mod_to_path)
+            seen = evidence.get((path, cls_name, param), set())
+            if not ref and len(seen) == 1 and "?" not in seen:
+                ref = next(iter(seen))
+            if ref:
+                found.setdefault(path, {})[key] = ref
+    return found
+
+
+def _resolve_injected(call: str, caller: str, path: str, file: dict, index: dict, injected: dict) -> str | None:
+    parts = call.split(".")
+    cls = file.get("functions", {}).get(caller, {}).get("class", "")
+    if len(parts) != 3 or parts[0] != "self" or not cls:
+        return None
+    ref = injected.get(path, {}).get(f"{cls}|self.{parts[1]}")
+    if not ref:
+        return None
+    cls_path, cls_name = ref.split("#", 1)
+    method = f"{cls_name}.{parts[2]}"
+    return f"{cls_path}#{method}" if method in index.get(cls_path, {}) else None
+
+
+def _apply_injected_writes(facts: dict, injected: dict) -> list[dict]:
+    """Calls on or writes into an injected object are not writes of the holder's attribute.
+
+    Writes into such an object's own attributes are returned for foreign_state_write.
+    """
+    foreign = []
+    for path, keys in injected.items():
+        file = facts[path]
+        resolved = {key.replace("|self.", "."): ref for key, ref in keys.items()}
+        for symbol, fn in file.get("functions", {}).items():
+            for attr, field, line in fn.get("attr_writes", ()):
+                ref = resolved.get(f"{fn['class']}.{attr}")
+                if ref:
+                    cls_path, cls_name = ref.split("#", 1)
+                    foreign.append({"source": f"{path}#{symbol}", "line": line, "class_path": cls_path,
+                                    "class": cls_name, "attr": field})
+            for attr in set(fn.get("deep_writes", ())) & set(resolved):
+                fn["writes"] = [write for write in fn["writes"] if write != attr]
+                writers = [writer for writer in file.get("state", {}).get(attr, []) if writer != symbol]
+                file["state"][attr] = writers
+        for attr in resolved:
+            writers = file.get("state", {}).get(attr)
+            if writers is not None and all(writer.endswith(".__init__") for writer in writers):
+                del file["state"][attr]
+                for writer in writers:
+                    function = file["functions"].get(writer, {})
+                    function["writes"] = [write for write in function.get("writes", []) if write != attr]
+    return foreign
 
 
 def anchor_state_writes(raw: dict, anchor: str) -> set[str]:

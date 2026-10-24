@@ -218,8 +218,9 @@ def cmd_change(root: Path, a) -> int:
 
 
 def cmd_deps(root: Path, a) -> int:
+    from .discover import discover_inventory
     data, inv = _context(root)
-    graph = dependency_evidence(data, inv)
+    graph = dependency_evidence(data, inv, discover_inventory(root, inv, data=data))
     changed = 0
     for c in data["components"]:
         actual = sorted(graph.get(c["id"], ()))
@@ -236,7 +237,7 @@ def cmd_deps(root: Path, a) -> int:
             c["depends_on"], changed = retained, changed + 1
     if a.write:
         save_map(root, data)
-        print(f"updated depends_on of {changed} component(s); kept only dependencies supported by imports, import-like literals or accepted debts")
+        print(f"updated depends_on of {changed} component(s); kept only dependencies supported by imports, import-like literals, injected collaborators or accepted debts")
     return 0
 
 

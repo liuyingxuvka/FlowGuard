@@ -186,7 +186,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                                    or ".test." in test or ".spec." in test) and not matches_any(test, bound_tests):
             out.append(Finding("warn", "test_unbound", "", f"{test}: no component lists this test in tests"))
     graph = component_graph(data, inv)
-    evidence_graph = dependency_evidence(data, inv)
+    from .discover import discover_inventory
+    raw = discover_inventory(root, inv, write_cache=view is None, data=data)
+    evidence_graph = dependency_evidence(data, inv, raw)
     from .lint import apply_accepted_debts, normalized_debts, structural_findings
     out.extend(apply_accepted_debts(structural_findings(data, graph, root=root, inv=inv), normalized_debts(data))[0])
     declared_entries: dict[str, set[str]] = {}
@@ -234,17 +236,15 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                              declared - evidence_graph.get(cid, set())) & set(by_id))
         if unverified:
             out.append(Finding("error", "dep_unused", cid,
-                               f"no import, module literal or accepted debt evidence for: {', '.join(unverified)}"))
+                               f"no import, module literal, injected collaborator or accepted debt evidence for: {', '.join(unverified)}"))
         if c["status"] == "draft":
             out.append(Finding(stale_level, "draft", cid, "description not confirmed yet"))
         elif not c.get("summary") or not c.get("responsibilities"):
             out.append(Finding("error", "confirmed_but_empty", cid, "a confirmed component needs summary and responsibilities"))
         elif is_stale(root, c, inv):
             out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
-    from .discover import discover_inventory
     from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage, model_writer_findings
     covered, not_modeled = model_coverage(root, data, registry, view=view)
-    raw = discover_inventory(root, inv, write_cache=view is None, data=data)
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
