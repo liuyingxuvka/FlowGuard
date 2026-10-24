@@ -127,3 +127,14 @@ class RealModelCorpusTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_case_variant_map_assigns_every_case_once():
+    """The corpus-level assignment gives every problem case one variant of its own workflow family."""
+    from examples.problem_corpus.real_models import _case_variant_map
+
+    mapping = _case_variant_map()
+    cases = build_problem_corpus().cases
+    assert set(mapping) == {case.case_id for case in cases}
+    assert all(mapping[case.case_id] in VARIANT_SPECS[case.workflow_family] for case in cases)
+    assert _case_variant_map() is mapping

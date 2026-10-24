@@ -165,7 +165,8 @@ def _node_fields(kind, record):
               "known-bad": fact.known_bad or (("not readable statically",) if fact.known_bad_count is None else ()),
               "code": tuple(value for value in fact.code if value != "STALE" and not value.startswith("coverage: ")
                             and not re.fullmatch(r"\d+ files/\d+ loc", value)),
-              "tests": tuple(value for value in fact.tests if " -> " in value and not value.startswith("unbound: "))}
+              "tests": tuple(value for value in fact.tests if " -> " in value
+                             and not value.startswith(("unbound: ", "bindable: ")))}
     if kind == "component":
         fields["code"] = tuple(value for value in fields["code"]
                                if not value.startswith(("entry: ", "state: ", "effects: "))) + tuple(node.get("entrypoints", []))

@@ -68,3 +68,16 @@ class PublicApiTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_lazy_getattr_resolves_public_names_and_rejects_unknown_ones():
+    import flowguard
+    from flowguard.explorer import Explorer
+
+    assert flowguard.__getattr__("Explorer") is Explorer
+    for name, error in (("not_a_flowguard_name", AttributeError), ("RuntimeGateway", ImportError)):
+        try:
+            flowguard.__getattr__(name)
+        except error:
+            continue
+        raise AssertionError(f"{name} should raise {error.__name__}")

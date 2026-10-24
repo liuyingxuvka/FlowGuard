@@ -355,7 +355,9 @@
         "select a flow's model when a step's file changes",
         "list the flows each component takes part in",
         "warn when a component uses another component's private name",
-        "report duplicate owners in every map check"
+        "report duplicate owners in every map check",
+        "count explanations by model, test and reason",
+        "list unexplained functions of changed files"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -387,7 +389,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:948a496d092993f89c66aa23905c97587eefd2f46afeee1c8b5556ace876750c"
+      "fingerprint": "sha256:09e724345ce8042858e0f081d83911e1cbe7f53307298e7665caf881d0648af5"
     },
     {
       "id": "map-target",

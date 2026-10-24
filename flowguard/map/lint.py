@@ -626,11 +626,14 @@ def scoped_architecture_findings(root: Path, data: dict, inv: Inventory,
 
 
 def explained_by(anchor, covered, not_modeled=(), *, tests=""):
-    """One static explanation predicate; lint leaves optional test text empty."""
-    if anchor in covered or anchor in not_modeled:
-        return True
+    """One static explanation: "model" (an IMPLEMENTED_BY anchor), "reason" (NOT_MODELED), "test"
+    (its name is a whole word in the component's tests) or None. Lint leaves the test text empty."""
+    if anchor in covered:
+        return "model"
+    if anchor in not_modeled:
+        return "reason"
     name = anchor.partition(":")[2].rsplit(".", 1)[-1]
-    return bool(name and tests and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", tests))
+    return "test" if name and tests and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", tests) else None
 
 
 def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None, *, view=None) -> list[Finding]:

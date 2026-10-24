@@ -43,6 +43,7 @@ class Impact:
     review_models: dict[str, list[str]] = field(default_factory=dict)
     relied_models: list[str] = field(default_factory=list)     # "<model> via <owner>:<anchor symbol>"
     flow_models: list[str] = field(default_factory=list)       # "flow <id>: step <n> changed; model <M>"
+    unexplained: list[str] = field(default_factory=list)       # "<component>: <path:symbol> (<entrypoint|state writer>)"
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -338,11 +339,17 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         else:
             blocked.append(f"{path}: removed model is still referenced by the current map, model tree or code anchors")
     # Rules travel along direct calls: an edit that calls another component's anchored code selects its model.
-    relied = []
+    relied, unexplained = [], []
     edited_sources = [f for f in changed if f in inv.py and f not in comment_only and not inv.is_test(f)]
     if edited_sources:
         from .discover import discover_inventory, relied_models
+        from .facets import coverage_facts
         raw = discover_inventory(root, inv, data=data)
+        # Functions of the edited files that no model anchor, test or NOT_MODELED reason explains.
+        for cid, record in sorted(coverage_facts(root, data, inv, tree, raw).items()):
+            entries = set(record.get("unexplained_entries", ()))
+            unexplained.extend(f"{cid}: {anchor} ({'entrypoint' if anchor in entries else 'state writer'})"
+                               for anchor in record["unexplained"] if anchor.partition(":")[0] in edited_sources)
         anchors = {mid: list(node.contract.get("IMPLEMENTED_BY", {}).values()) for mid, node in tree.nodes.items()}
         for mid, sites in sorted(relied_models(raw, data, inv, anchors, files=edited_sources).items()):
             node = tree.nodes[mid]
@@ -499,6 +506,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
         comment_only=comment_only, relied_models=relied, flow_models=flow_lines,
+        unexplained=list(dict.fromkeys(unexplained)),
     )
 
 
@@ -520,6 +528,10 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
     if imp.comment_only:
         lines.append("comment-only edits (no tests or models selected): " + ", ".join(imp.comment_only))
+    lines.extend(f"UNEXPLAINED {item} has no model anchor, test or NOT_MODELED reason" for item in imp.unexplained[:5])
+    if len(imp.unexplained) > 5:
+        lines.append(f"UNEXPLAINED +{len(imp.unexplained) - 5} more "
+                     f"(python -m flowguard read --component {imp.unexplained[5].partition(':')[0]})")
     lines.extend(imp.flow_models[:5])
     lines.extend("relies on: " + item for item in imp.relied_models[:5])
     if len(imp.relied_models) > 5:

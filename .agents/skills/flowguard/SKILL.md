@@ -31,7 +31,7 @@ While working, `change` marks replaced nodes `moving to target`; other breakage 
 1. Edit the code, then `python -m flowguard change` (check + impact).
 2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `runner_model` (a retired runner file: move its real checks into a contract model and delete the old file); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree); `duplicate_owner` (two components claim one responsibility, state or side effect: keep one owner; the other calls it).
 3. Run exactly the tests and models it lists; never claim a test passed unless you ran it. `relies on:` lines name rules of other components that this code calls; keep them true.
-4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`.
+4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`; for each `UNEXPLAINED` line, add the anchor, bind a test or write a `NOT_MODELED` reason.
 
 ## The tree
 

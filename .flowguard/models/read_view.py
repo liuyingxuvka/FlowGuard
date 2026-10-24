@@ -23,6 +23,12 @@ from flowguard.workflow import Workflow
 MODEL_ID = "read_view"
 PARENT = "map-analysis"
 IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show"}
+NOT_MODELED = {
+    "flowguard/map/facets.py:_StaticModel._module": "memoizes one parsed helper file per read; the names it yields "
+        "are what static_rules_match_model checks on real render_show output",
+    "flowguard/map/facets.py:_StaticModel.explorer_rules": "remembers the kit case table found while reading rules; "
+        "the cases line is checked by static_rules_match_model through the kit probe",
+}
 TESTED_BY = {
     "no_model_import": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
     "components_visible_or_named": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
@@ -32,6 +38,7 @@ TESTED_BY = {
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
     "components_in_layer_order": ["tests/test_map_views.py:test_read_orders_components_by_layer"],
     "relied_rules_shown": ["tests/test_map_views.py:test_read_component_lists_the_rules_it_relies_on"],
+    "coverage_counts_by_source": ["tests/test_map_views.py:test_coverage_line_counts_by_source"],
     "component_flows_shown": ["tests/test_map_views.py:test_read_component_lists_its_flows_and_their_rules"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
@@ -137,6 +144,7 @@ class ReadCase:
     layered: bool = False      # beta (last in map.json) sits in the upper layer "top", alpha in "low"
     relied: bool = False       # beta.py calls alpha.py:run, the anchor of read_probe; read --component beta
     flowing: bool = False      # flow chain = beta:run -> alpha:run with model read_probe; read --component beta
+    sources: bool = False      # alpha lists four entrypoints: model-anchored, test-named, NOT_MODELED, unexplained
 
 
 FEATURES = (
@@ -148,6 +156,7 @@ FEATURES = (
     Feature("late_upper_component", False, (), lambda case: replace(case, layered=True)),
     Feature("relied_component", False, (), lambda case: replace(case, relied=True, component="beta"),
             conflicts=("large_component",)),
+    Feature("coverage_sources", False, (), lambda case: replace(case, sources=True), exclusive=True),
     Feature("component_in_flow", False, (), lambda case: replace(case, flowing=True, component="beta"),
             conflicts=("large_component",)),
     # Rules from a _helper module, a wrapper function, and known-bad built by loops: read
@@ -229,6 +238,20 @@ def _relied(observation):
     return any(line.strip() == RELIED_LINE for line in observation.text.splitlines())
 
 
+COVERAGE_LINE = ("coverage: entrypoints 3/4 explained (model 1, test 1, reason 1); "
+                 "state writers 0/0 explained (model 0, test 0, reason 0)")
+
+
+def _by_source(observation):
+    """The coverage line counts explanations by model, test and reason; they add up to the explained count."""
+    if not observation.case.sources:
+        return True
+    line = next((row for row in observation.text.splitlines() if row.startswith("coverage:")), "")
+    parts = re.findall(r"(\d+)/(\d+) explained \(model (\d+), test (\d+), reason (\d+)\)", line)
+    return line == COVERAGE_LINE and len(parts) == 2 and all(
+        int(done) == int(model) + int(test) + int(reason) for done, _, model, test, reason in parts)
+
+
 FLOW_LINE = "flows: chain (step 1 of 2; model read_probe: stable, works)"
 
 
@@ -265,6 +288,8 @@ RULES = (
               lambda state, trace: _static(state)),
     Invariant("relied_rules_shown", "read --component X lists the other components' model rules X's code calls",
               lambda state, trace: _relied(state)),
+    Invariant("coverage_counts_by_source", "the coverage line counts explanations by model, test and reason",
+              lambda state, trace: _by_source(state)),
     Invariant("component_flows_shown", "read --component X lists the flows that have a step in X, with model and rules",
               lambda state, trace: _flows(state)),
     Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
@@ -299,6 +324,9 @@ def _abstract(case, file_order=False):
                 "## alpha [-] 1 files/1 loc, 0 rules\n  purpose: Serve alpha\n" + "\n".join(details))
         runtime = tuple((mid, tuple(n for n, _ in rules), bads) for mid, rules, bads, _keys in PROBE_TRUTH[case.probe])
         return ReadObservation(case, text, runtime=runtime)
+    if case.sources:
+        text = "# read fixture\n" + COVERAGE_LINE + "\n\n## alpha [-]\n  Serve alpha\n  " + MODEL_LINE + "\n## beta [-]\n  Serve beta"
+        return ReadObservation(case, text)
     if case.relied or case.flowing:
         text = ("## beta [-] 1 files/2 loc, 0 rules\n  purpose: Serve beta\n  rules: -\n  known-bad: -\n"
                 "  code: 1 files/2 loc\n  tests: -" + ("\n  uses alpha: run\n  " + RELIED_LINE if case.relied else "")
@@ -347,6 +375,9 @@ class Show:
             observed = replace(observed, text=text)
         elif self.fault == "kit_hidden" and case.probe == "kit":
             observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
+        elif self.fault == "no_sources" and case.sources:
+            observed = replace(observed, text=observed.text.replace(
+                COVERAGE_LINE, "coverage: entrypoints 3/4, state writers 0/0 explained by a model, a test or NOT_MODELED"))
         elif self.fault == "hide_flows" and case.flowing:
             observed = replace(observed, text=observed.text.replace("\n  " + FLOW_LINE, ""))
         elif self.fault == "hide_relied" and case.relied:
@@ -377,7 +408,8 @@ def broken_variants():
             "kit_known_bad_hidden": _explorer("kit_hidden"),
             "map_file_order": _explorer("map_file_order"),
             "hides_relied_rules": _explorer("hide_relied"),
-            "hides_component_flows": _explorer("hide_flows")}
+            "hides_component_flows": _explorer("hide_flows"),
+            "coverage_without_sources": _explorer("no_sources")}
 
 
 def _files():
@@ -437,6 +469,16 @@ def _review(template, case):
             components[0].pop("summary")
         if case.layered:
             components[0]["layer"], components[1]["layer"] = "low", "top"
+        if case.sources:
+            _write(root, "alpha.py", "def run(): return True\ndef tested(): return True\n"
+                                     "def skipped(): return True\ndef loose(): return True\n")
+            _write(root, "tests/test_alpha.py", "from alpha import tested\ndef test_run(): pass\n"
+                                                "def test_tested_function(): assert tested()\n")
+            components[0]["entrypoints"] = ["alpha.py:run", "alpha.py:tested", "alpha.py:skipped", "alpha.py:loose"]
+            model_source = model_source.replace(
+                'IMPLEMENTED_BY = {"Run": "alpha.py:run"}\n',
+                'IMPLEMENTED_BY = {"Run": "alpha.py:run"}\nNOT_MODELED = {"alpha.py:skipped": "a deliberate no-op"}\n')
+            _write(root, ".flowguard/models/read_probe.py", model_source)
         if case.relied:
             _write(root, "beta.py", "import alpha\ndef run(): return alpha.run()\n")
             components[1]["depends_on"] = ["alpha"]       # with layers, beta ("top") may use alpha ("low")

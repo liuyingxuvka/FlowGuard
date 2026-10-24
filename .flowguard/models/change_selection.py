@@ -28,6 +28,7 @@ TESTED_BY = {
     "underscore_helper_not_blocked": ["tests/test_flowguard_map.py:test_impact_shared_test_binding_and_unknown_helper"],
     "model_importers_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
     "model_ancestors_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
+    "unexplained_functions_listed": ["tests/test_flowguard_map.py:test_change_lists_unexplained_functions_of_changed_files"],
     "flow_models_selected": ["tests/test_flowguard_map.py:test_change_selects_the_model_of_a_flow_whose_step_changed"],
     "relied_models_selected": ["tests/test_flowguard_map.py:test_change_selects_models_whose_anchors_the_edit_calls"],
     "selected_reviews_selected": ["tests/test_flowguard_map.py:test_change_selects_the_review_children_of_a_selected_model",
@@ -35,6 +36,7 @@ TESTED_BY = {
 }
 
 ALL = ("child", "parent", "review")
+UNEXPLAINED = {"flow_step_edit": ("jobs: jobs.py:run (entrypoint)",)}
 EXPECTED = {
     "code": (ALL, ("tests/test_api.py", "tests/test_child.py", "tests/test_core.py", "tests/test_parent.py", "tests/test_review.py")),
     "comment": ((), ()),
@@ -61,6 +63,7 @@ class State:
     selected_models: tuple[str, ...] = ()
     selected_tests: tuple[str, ...] = ()
     blocked: tuple[str, ...] = ()
+    unexplained: tuple[str, ...] = ()
 
 
 class Select:
@@ -71,7 +74,8 @@ class Select:
 
     def apply(self, event, state):
         models, tests = EXPECTED[event]
-        result = State(event, models, tests)
+        # jobs.py:run is a listed entrypoint with no model anchor, test or NOT_MODELED reason.
+        result = State(event, models, tests, unexplained=UNEXPLAINED.get(event, ()))
         if self.defect == "ignore_importers" and event in {"child", "helper"}:
             result = replace(result, selected_models=tuple(x for x in models if x != "parent"))
         elif self.defect == "ignore_ancestors" and event == "test":
@@ -82,6 +86,8 @@ class Select:
             result = replace(result, selected_tests=("tests/test_core.py",))
         elif self.defect == "ignore_relied_models" and event == "caller_edit":
             result = replace(result, selected_models=(), selected_tests=("tests/test_api.py",))
+        elif self.defect == "hides_unexplained" and event == "flow_step_edit":
+            result = replace(result, unexplained=())
         elif self.defect == "ignore_flow_models" and event == "flow_step_edit":
             result = replace(result, selected_models=(), selected_tests=("tests/test_jobs.py",))
         elif self.defect == "block_helper" and event == "helper":
@@ -106,6 +112,9 @@ INVARIANTS = (
           "a comment-only edit selected checks"),
     _rule("relied_models_selected", {"caller_edit"}, lambda state: set(ALL) <= set(state.selected_models),
           "a model whose anchor the edited file calls was omitted"),
+    _rule("unexplained_functions_listed", {"flow_step_edit"},
+          lambda state: "jobs: jobs.py:run (entrypoint)" in state.unexplained,
+          "an unexplained entrypoint of the changed file was not listed"),
     _rule("flow_models_selected", {"flow_step_edit"}, lambda state: "child" in state.selected_models,
           "the model of a flow whose step changed was omitted"),
     _rule("underscore_helper_not_blocked", {"helper", "unused"}, lambda state: not state.blocked,
@@ -125,7 +134,7 @@ def build_explorer():
 def broken_variants():
     return {name: _explorer(name) for name in
             ("ignore_importers", "ignore_ancestors", "ignore_reviews", "select_comments", "block_helper",
-             "ignore_relied_models", "ignore_flow_models")}
+             "ignore_relied_models", "ignore_flow_models", "hides_unexplained")}
 
 
 def _write(root, path, text):
@@ -190,7 +199,8 @@ class RealSelection:
                    text + "\nEDITED = True\n")
         path.write_text(changed, encoding="utf-8")
         impact = compute_impact(self.root, self.data, build_inventory(self.root, DEFAULT_IGNORE), [PATHS[event]], base="HEAD")
-        self.state = State(event, tuple(impact.model_ids), tuple(impact.tests), tuple(impact.blocked))
+        self.state = State(event, tuple(impact.model_ids), tuple(impact.tests), tuple(impact.blocked),
+                           tuple(getattr(impact, "unexplained", ())))
         return ReplayObservation(function_name=step.function_name, observed_output=event, observed_state=self.state)
 
     def observe_state(self):

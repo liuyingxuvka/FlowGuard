@@ -171,3 +171,11 @@ class ScenarioMatrixBuilderTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_add_pattern_keeps_one_pattern_per_kind_and_sequence():
+    builder = ScenarioMatrixBuilder(name_prefix="p", initial_states=(0,), inputs=(1,), max_sequence_length=2)
+    for _ in range(2):
+        builder._add_pattern(kind="repeat", sequence=(1, 1), token="r", description="repeat once", tags=("t",))
+    builder._add_pattern(kind="repeat", sequence=(1, 1, 1), token="long", description="too long", tags=())
+    assert len(builder._patterns) == 1 and builder._patterns[0].sequence == (1, 1)

@@ -580,33 +580,45 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
         writers = {f"{path}:{symbol}" for path in component_files(scoped, inv)
                    for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
                    if facts.get("writes") and symbol.rsplit(".", 1)[-1] != "__init__"}
-        explained_entries = {anchor for anchor in entries if explained_by(anchor, covered, excluded, tests=tests)}
-        explained_writers = {anchor for anchor in writers if explained_by(anchor, covered, excluded, tests=tests)}
+        kinds = {anchor: explained_by(anchor, covered, excluded, tests=tests) for anchor in entries | writers}
+        explained_entries = {anchor for anchor in entries if kinds[anchor]}
+        explained_writers = {anchor for anchor in writers if kinds[anchor]}
+
+        def sources(anchors):
+            return tuple(sum(kinds[anchor] == kind for anchor in anchors) for kind in ("model", "test", "reason"))
         out[cid] = {"entrypoints": (len(explained_entries), len(entries)),
                     "state_writers": (len(explained_writers), len(writers)),
-                    "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers)))}
+                    "entry_sources": sources(entries), "writer_sources": sources(writers),
+                    "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers))),
+                    "unexplained_entries": tuple(sorted(entries - explained_entries))}
         if len(component_subtree(data, cid)) > 1:
             own_entries = set(component.get("entrypoints", []))
             own_files = set(component_files(component, inv))
             own_writers = {anchor for anchor in writers if anchor.partition(":")[0] in own_files}
             out[cid]["_direct"] = {"entrypoints": (len(own_entries & explained_entries), len(own_entries)),
-                                   "state_writers": (len(own_writers & explained_writers), len(own_writers))}
+                                   "state_writers": (len(own_writers & explained_writers), len(own_writers)),
+                                   "entry_sources": sources(own_entries & entries), "writer_sources": sources(own_writers)}
     return out
 
 
 def coverage_line(coverage, *, summary=False):
+    """Explained counts split by source: a model anchor, a test naming it, or a NOT_MODELED reason."""
     records = [record.get("_direct", record) for record in coverage.values()] if summary else [coverage]
-    entries = tuple(sum(record["entrypoints"][i] for record in records) for i in (0, 1))
-    writers = tuple(sum(record["state_writers"][i] for record in records) for i in (0, 1))
-    line = (f"coverage: entrypoints {entries[0]}/{entries[1]}, "
-            f"state writers {writers[0]}/{writers[1]} explained")
+
+    def part(label, key, sources):
+        done, total = (sum(record[key][i] for record in records) for i in (0, 1))
+        model, test, reason = (sum(record.get(sources, (0, 0, 0))[i] for record in records) for i in (0, 1, 2))
+        return f"{label} {done}/{total} explained (model {model}, test {test}, reason {reason})"
+    line = ("coverage: " + part("entrypoints", "entrypoints", "entry_sources") + "; "
+            + part("state writers", "state_writers", "writer_sources"))
     if summary:
-        return line + " by a model, a test or NOT_MODELED"
+        return line
     missing = coverage["unexplained"]
     if missing:
         line += "; unexplained: " + ", ".join(missing[:5])
         if len(missing) > 5:
-            line += f" (+{len(missing) - 5} more)"
+            line += f" +{len(missing) - 5} more"
+        line += " (explain: add it to a model's IMPLEMENTED_BY, bind a TESTED_BY test, or add NOT_MODELED with a reason)"
     return line
 
 
@@ -637,7 +649,44 @@ def _test_function_index(root: Path, inv: Inventory, *, source_cache=None) -> di
     return found
 
 
-def _test_facts(paths, nodes, functions):
+def _bindable(root, unbound, nodes, source_cache, limit=3):
+    """Unbound tests whose body names a model anchor symbol as a whole word: ready to bind in TESTED_BY."""
+    import re
+    anchors = sorted({(node.id, anchor.partition(":")[2].rsplit(".", 1)[-1]) for node in nodes
+                      for anchor in node.contract.get("IMPLEMENTED_BY", {}).values() if ":" in anchor})
+    found, parsed = [], {}
+    for item in unbound:
+        path, _, name = item.partition(":")
+        if path not in parsed:
+            try:
+                source = _test_source(root, path, source_cache)
+                parsed[path] = (source, {f"{owner}.{n.name}" if owner else n.name: n
+                                         for owner, n in _test_functions(ast.parse(source))})
+            except (OSError, SyntaxError, ValueError):
+                parsed[path] = ("", {})
+        source, functions = parsed[path]
+        node = functions.get(name)
+        body = ast.get_source_segment(source, node) or "" if node is not None else ""
+        for mid, symbol in anchors:
+            if symbol and re.search(rf"(?<!\w){re.escape(symbol)}(?!\w)", body.partition(":")[2]):
+                found.append(f"{item} -> model {mid} (mentions {symbol})")
+                break
+        if len(found) >= limit:
+            break
+    return found
+
+
+def _test_functions(syntax):
+    for node in syntax.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test"):
+            yield "", node
+        elif isinstance(node, ast.ClassDef):
+            for method in node.body:
+                if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name.startswith("test"):
+                    yield node.name, method
+
+
+def _test_facts(paths, nodes, functions, *, root=None, source_cache=None):
     actual = {(path, name) for path in paths for name in functions.get(path, ())}
     bound = set()
     for node in nodes:
@@ -656,6 +705,9 @@ def _test_facts(paths, nodes, functions):
     facts = [f"{len(paths)} files: " + (", ".join(sorted(paths)) or "-"), f"{len(actual)} functions, {len(bound)} bound"]
     if unbound:
         facts.append("unbound: " + ", ".join(unbound[:5]) + (f" +{len(unbound) - 5} more" if len(unbound) > 5 else ""))
+        bindable = _bindable(root, unbound, nodes, source_cache) if root is not None else []
+        if bindable:
+            facts.append("bindable: " + ", ".join(bindable))
     return tuple(facts), len(actual)
 
 
@@ -676,7 +728,7 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
     if is_stale(root, component, inv):
         code.append("STALE")
     paths = {path for path in inv.tests if matches_any(path, scoped.get("tests", []))}
-    tests, count = _test_facts(paths, tree.models_for_component(cid), functions)
+    tests, count = _test_facts(paths, tree.models_for_component(cid), functions, root=root, source_cache={})
     rules = responsibilities + (
         f"layer {component.get('layer') or '-'} may use: " + (", ".join(scoped.get("depends_on", [])) or "-"),)
     return Facets(component.get("summary") or "(no summary yet)", rules, "map",

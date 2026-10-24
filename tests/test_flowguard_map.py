@@ -1280,3 +1280,34 @@ def test_check_and_change_report_duplicate_owner(tmp_path, capsys):
     save(root, data)
     code, out = run("map", "check")
     assert code == 0 and "INFO  duplicate_owner" in out, out
+
+
+def test_change_lists_unexplained_functions_of_changed_files(tmp_path, capsys):
+    """A real edit lists the edited file's unexplained entrypoints; the exit code does not change."""
+    import flowguard.__main__ as flowguard_cli
+    from test_flowguard_target import shelf_project
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = root / "shelf/members.py"
+    original = path.read_text(encoding="utf-8")
+    path.write_text(original + "\nLIMIT_NOTE = 'members may borrow up to the limit'\n", encoding="utf-8")
+    code = flowguard_cli.main(["change", "--root", str(root)])
+    output = capsys.readouterr().out
+    assert "UNEXPLAINED members: shelf/members.py:Members.may_borrow (entrypoint)" in output, output
+    path.write_text(original + "# a comment only\n", encoding="utf-8")
+    comment_code = flowguard_cli.main(["change", "--root", str(root)])
+    assert "UNEXPLAINED" not in capsys.readouterr().out
+    assert code == comment_code
+
+
+def test_load_map_reads_a_bom_map_and_rejects_missing_or_invalid_ones(tmp_path):
+    from flowguard.map.mapfile import MapError, load_map
+
+    with pytest.raises(MapError, match="no map"):
+        load_map(tmp_path)
+    write(tmp_path, ".flowguard/map.json", "{not json")
+    with pytest.raises(MapError, match="not valid JSON"):
+        load_map(tmp_path)
+    (tmp_path / ".flowguard/map.json").write_text('﻿{"schema": "flowguard.map.v1", "components": []}', encoding="utf-8")
+    assert load_map(tmp_path)["components"] == []

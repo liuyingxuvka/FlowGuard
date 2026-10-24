@@ -14,6 +14,11 @@ from flowguard.map.proof import run_bound_tests, run_model_in_process
 
 MODEL_ID = "test_binding"
 PARENT = "model_proof"
+NOT_MODELED = {
+    "flowguard/map/testreach.py:main.Reach.pytest_exception_interact": "pytest hook inside the reach-recording "
+        "subprocess; it only marks a failed call, and the failed-binding verdict it feeds is this model's "
+        "each_defect_rejected rule replayed on real bound tests",
+}
 IMPLEMENTED_BY = {
     "BoundTests": "flowguard/map/proof.py:run_bound_tests",
     "RuleWarnings": "flowguard/map/proof.py:run_model_in_process",

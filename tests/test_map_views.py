@@ -21,8 +21,8 @@ def test_show_budget_keeps_flows_and_names_hidden_components(tmp_path):
     inv = _inventory(tmp_path)
     full = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert '> flow checkout' in full and 'truncated' not in full
-    bounded = render_show(tmp_path, data, inv, component=None, detail=False, budget=260)
-    assert len(bounded) <= 260
+    bounded = render_show(tmp_path, data, inv, component=None, detail=False, budget=330)
+    assert len(bounded) <= 330
     assert '> flow checkout' in bounded and 'not shown:' in bounded
     for budget in (0, 20, 80, 100, 400):
         assert len(render_show(tmp_path, data, inv, component=None, detail=False, budget=budget)) <= budget
@@ -546,7 +546,7 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
         focused = render_show(tmp_path, data, inv, component='subject', detail=False, budget=8000)
         assert len(calls) == 1
         line = next(line for line in focused.splitlines()
-                    if 'coverage: entrypoints 3/4, state writers 1/2 explained;' in line)
+                    if 'coverage: entrypoints 3/4 explained (model 1, test 1, reason 1); state writers 1/2 explained (model 1, test 0, reason 0);' in line)
         unexplained = line.partition('; unexplained: ')[2]
         assert 'view232_subject.py:unexplained' in unexplained and 'view232_subject.py:Ledger.purge' in unexplained
         assert 'view232_subject.py:by_model' not in unexplained and 'view232_subject.py:by_scope' not in unexplained
@@ -554,7 +554,7 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
         calls.clear()
         overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
         assert len(calls) == 1
-    assert ('coverage: entrypoints 4/5, state writers 1/2 explained by a model, a test or NOT_MODELED') in overview
+    assert ('coverage: entrypoints 4/5 explained (model 2, test 1, reason 1); state writers 1/2 explained (model 1, test 0, reason 0)') in overview
     assert len(overview) <= 8000 and 'truncated' not in overview
     after = [(finding.level, finding.code, finding.component, finding.message)
              for finding in run_lint(tmp_path, data, inv)]
@@ -607,7 +607,8 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
     child_paths = ('view232_catalog.py', 'view232_loans.py')
     expected_loc = sum(inv.loc[path] for path in child_paths)
     assert f'2 files/{expected_loc} loc' in parent_line and ', 3 rules' in parent_line
-    assert 'coverage: entrypoints 4/5, state writers 1/2 explained by a model, a test or NOT_MODELED' in overview
+    assert ('coverage: entrypoints 4/5 explained (model 2, test 1, reason 1); '
+            'state writers 1/2 explained (model 1, test 0, reason 0)') in overview
     assert len(overview) <= 8000 and 'truncated' not in overview
 
     focused = render_show(tmp_path, data, inv, component='records', detail=False, budget=8000)
@@ -972,3 +973,44 @@ def test_read_component_lists_its_flows_and_their_rules(tmp_path):
     data, inv = _context(root)
     members = render_show(root, data, inv, component="members", detail=False, budget=8000)
     assert "flows: borrow (step 3 of 4; model lending: limit_respected, never_over_lent)" in members, members
+
+
+def _coverage_project(tmp_path):
+    """Four entrypoints: model-anchored, named by a test, NOT_MODELED, and unexplained."""
+    write = lambda relative, text: (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True) or \
+        (tmp_path / relative).write_text(text, encoding="utf-8")
+    write("app.py", "def run(): return True\ndef tested(): return True\ndef skipped(): return True\ndef loose(): return True\n")
+    write("tests/test_app.py", "from app import run, tested\n\ndef test_tested_function():\n    assert tested()\n\n"
+          "def test_unbound_run():\n    assert run()\n")
+    write(".flowguard/models/app_model.py", '''"""Protect the app."""
+MODEL_ID = "app_model"
+IMPLEMENTED_BY = {"Run": "app.py:run"}
+NOT_MODELED = {"app.py:skipped": "a deliberate no-op kept for the command line"}
+TESTED_BY = {}
+RULES = (Invariant("works", "works", None),)
+def build_explorer(): return Explorer(Workflow(()), (0,), (), invariants=RULES)
+def broken_variants(): return {"bad": None}
+''')
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    data = dict(project="coverage", layers=[], flows=[], components=[
+        dict(_component("app", summary="Serve app", responsibilities=["serve"]), files=["app.py"],
+             tests=["tests/test_app.py"], entrypoints=["app.py:run", "app.py:tested", "app.py:skipped", "app.py:loose"])])
+    return data, build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
+
+
+def test_coverage_line_counts_by_source(tmp_path):
+    data, inv = _coverage_project(tmp_path)
+    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert overview.splitlines()[1].startswith("coverage: entrypoints 3/4 explained (model 1, test 1, reason 1); "
+                                               "state writers 0/0 explained (model 0, test 0, reason 0)"), overview
+    detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
+    code = next(line for line in detail.splitlines() if line.strip().startswith("code:"))
+    assert "unexplained: app.py:loose" in code and "(explain: add it to a model's IMPLEMENTED_BY" in code, code
+
+
+def test_tests_facet_lists_bindable_tests(tmp_path):
+    data, inv = _coverage_project(tmp_path)
+    detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
+    tests = next(line for line in detail.splitlines() if line.strip().startswith("tests:") and "functions" in line)
+    assert "bindable: tests/test_app.py:test_unbound_run -> model app_model (mentions run)" in tests, tests

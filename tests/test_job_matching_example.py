@@ -55,3 +55,30 @@ class JobMatchingExampleTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_production_systems_score_record_decide_and_reset():
+    """The simulated production systems behave as the abstract model expects (and the broken ones do not)."""
+    from examples.job_matching.model import Job, State
+    from examples.job_matching.production import (BrokenDuplicateRecordSystem, BrokenRepeatedScoringSystem,
+                                                  CorrectJobMatchingSystem)
+
+    job = Job("j1", "high", "near", "high")
+    system = CorrectJobMatchingSystem()
+    system.reset(State())
+    scored = system.score_job(job)
+    assert scored.score_bucket == "medium" and system.score_job(job) == scored
+    assert system.score_attempts == ["j1"] and system.last_label == "score_cached"
+    recorded = system.record_scored_job(scored)
+    assert recorded.status == "added" and system.record_scored_job(scored).status == "already_exists"
+    assert system.decide_next_action(recorded).action == "apply"
+    system.reset(State())
+    assert system.project_state() == State()
+    duplicate = BrokenDuplicateRecordSystem()
+    duplicate.record_scored_job(scored)
+    duplicate.record_scored_job(scored)
+    assert duplicate.application_records == ["j1", "j1"]
+    repeated = BrokenRepeatedScoringSystem()
+    repeated.score_job(job)
+    repeated.score_job(job)
+    assert repeated.score_attempts == ["j1", "j1"]

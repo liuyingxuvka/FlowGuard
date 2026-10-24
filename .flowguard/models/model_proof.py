@@ -15,6 +15,16 @@ from flowguard.map.proof import run_model_in_process
 MODEL_ID = "model_proof"
 PARENT = "map-proof"
 IMPLEMENTED_BY = {"RunModel": "flowguard/map/proof.py:run_model_in_process"}
+NOT_MODELED = {
+    "flowguard/map/facts.py:AnchorWatch.__enter__": "context-manager entry of the anchor call recorder; its observable "
+        "result, an anchor reached or missed, is the anchor rule this model replays through run_model_in_process",
+    "flowguard/map/facts.py:AnchorWatch.__exit__": "context-manager exit that restores the patched anchors; covered "
+        "by the same replay and by tests/test_flowguard_map_facts.py",
+    "flowguard/map/facts.py:AnchorWatch._record_call": "records one call of an anchored function for the reach verdict; "
+        "the verdict, not the bookkeeping, is the modeled behaviour",
+    "flowguard/map/facts.py:CodeFacts._sources": "per-instance cache of parsed source text for CodeFacts queries; no "
+        "behaviour of its own, exercised by tests/test_flowguard_map_facts.py",
+}
 TESTED_BY = {
     "each_defect_rejected": [
         "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
