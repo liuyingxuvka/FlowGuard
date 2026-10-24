@@ -114,7 +114,6 @@ class PublicTemplateTests(unittest.TestCase):
         }
         ignored_names = {
             "CHANGELOG.md",
-            "flowguard_adoption_log.md",
         }
         offenders = []
         for root in roots:
@@ -216,8 +215,7 @@ class PublicTemplateTests(unittest.TestCase):
                 self.assertEqual(1, len(models), name)
                 self.assertEqual([],
                                  [p for p in paths if p not in models], name)
-        self.assertNotIn("model-test-alignment-full", template_factories())
-        self.assertEqual(4, len(template_factories()))
+        self.assertEqual(["adoption", "behaviour", "ui-journey", "validator"], sorted(template_factories()))
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract

@@ -1,6 +1,6 @@
 interface:
   display_name: "FlowGuard"
-  short_description: "Living code map plus executable models of risky flows"
+  short_description: "Living model tree: map, executable models, tests bound to code"
   default_prompt: >-
     Use $flowguard at the start of every coding session and after every edit.
     Start with `python -m flowguard read` (the project map), look up existing

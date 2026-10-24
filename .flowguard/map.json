@@ -132,7 +132,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a6de69390eb6118cbd6211a9b45a3ba436db75c3d1a659706106a4d313fd1ed8"
+      "fingerprint": "sha256:b53083a6304c5fba8c7a252d4c9fb01d92a543d6736470fc9ede971357e987d9"
     },
     {
       "id": "public-api",
@@ -171,8 +171,7 @@
       "summary": "Generates ordinary behaviour, validator and UI journey models plus adoption rules.",
       "responsibilities": [
         "generate behaviour, validator and ui-journey starters plus six adoption rules",
-        "make placeholder code and test anchors fail until the user fills them",
-        "describe model and test outcomes in generated notes"
+        "make placeholder code and test anchors fail until the user fills them"
       ],
       "files": [
         "flowguard/template_text/*.py",
@@ -193,7 +192,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:cb0c3f6c7904bf2c6c2f7b136ef91a44ab880c164a6babc23dad1b50b4333041"
+      "fingerprint": "sha256:fb07084eaf013fb14396c0d499e19bceef059a14cfc3f1cc9966c7cf88c6bec9"
     },
     {
       "id": "test-mesh",
@@ -201,16 +200,14 @@
       "summary": "Collects exact pytest ids, runs bounded parallel shards and reports each test's outcome.",
       "responsibilities": [
         "shard tests by exact node id and run every shard on each invocation",
-        "verify each collected test ran exactly once in the release whole-suite phase",
-        "report typed capability blockers and bounded process cleanup results"
+        "verify each collected test ran exactly once in the release whole-suite phase"
       ],
       "files": [
         "flowguard/pytest_junit.py",
         "flowguard/pytest_nodeid_recorder.py",
         "flowguard/pytest_shard_plugin.py",
         "flowguard/pytest_shards.py",
-        "flowguard/pytest_shards_cli.py",
-        "flowguard/symlink_capability.py"
+        "flowguard/pytest_shards_cli.py"
       ],
       "entrypoints": [
         "flowguard/pytest_shards.py:partition_nodeids",
@@ -231,7 +228,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a550daaea33bcc0f3dfdf6431069c8547411f9d5f284b6a31c016913d216d30e"
+      "fingerprint": "sha256:58cdb69840a4012916e61a57e5003f26c4192ff890edb788b47d424884714f08"
     },
     {
       "id": "map-inventory",
@@ -424,7 +421,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:045dbc130f9cd1f2fde1346548e241cfe9a8e5d8b8f90130f045e5ae41bd8278"
+      "fingerprint": "sha256:5d8507311f6447c653036ea4c656c3faf059c9d7977540b7f475d26705c29f6c"
     },
     {
       "id": "engine-explore",
@@ -618,8 +615,7 @@
         "flowguard/schema.py",
         "flowguard/mermaid.py",
         "flowguard/_normalization.py",
-        "flowguard/_runtime_progress.py",
-        "flowguard/_hashing.py"
+        "flowguard/_runtime_progress.py"
       ],
       "entrypoints": [
         "flowguard/workflow.py:Workflow"
@@ -635,7 +631,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:15003c3829f80a384ed2689b97779a2b70642e3504d0f6057e710b515b27de82"
+      "fingerprint": "sha256:1e783c42e948ff508c0287eabc1b88cac10f97d201976b7c5a243ea50e62f8d7"
     },
     {
       "id": "ui-journey",

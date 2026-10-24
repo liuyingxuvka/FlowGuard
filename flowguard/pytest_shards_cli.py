@@ -22,92 +22,8 @@ from flowguard.pytest_shards import (  # noqa: E402
     partition_nodeids,
     validate_partition,
 )
-from flowguard.symlink_capability import (  # noqa: E402
-    CAPABILITY_PATH_ESCAPE_POSIX,
-    CAPABILITY_PATH_ESCAPE_WINDOWS,
-    SYMLINK_CAPABILITY_BLOCKER,
-    capability_satisfies,
-    probe_symlink_capability,
-)
 from flowguard.map.runner import run_isolated_process
 from flowguard.pytest_junit import _pytest_junit_projection  # noqa: E402
-
-
-def _probe_symlink_capability() -> dict[str, Any]:
-    """Observe filesystem-link capability for the path-sensitive node subset.
-
-    The runner collects first and invokes this probe only when the collection
-    explicitly declares a path capability.  It deliberately uses a private
-    scratch directory and verifies both the link bit and, on Windows, the
-    reparse-point attribute; an MSYS text-link file therefore cannot satisfy a
-    Windows reparse requirement.
-    """
-
-    return probe_symlink_capability()
-
-
-def partition_nodeids_by_capability(
-    nodeids: tuple[str, ...] | list[str],
-    node_capabilities: Mapping[str, Any],
-    probe: Mapping[str, Any] | None,
-) -> dict[str, Any]:
-    """Partition collected ids into runnable and typed not-run sets.
-
-    Nodes without an explicit capability are ordinary core nodes.  Capability
-    names are never inferred from a filename; an unknown name is a closed
-    blocker for that node.  The returned rows are display-safe JSON values and
-    keep the full planned denominator separate from the executable subset.
-    """
-
-    normalized = normalize_nodeids(tuple(nodeids))
-    if not isinstance(node_capabilities, Mapping):
-        raise ValueError("pytest collection has no node capability mapping")
-    runnable: list[str] = []
-    blocked: list[str] = []
-    blocked_reasons: dict[str, list[str]] = {}
-    required: set[str] = set()
-    for nodeid in normalized:
-        raw_required = node_capabilities.get(nodeid, ())
-        if isinstance(raw_required, str) or not isinstance(raw_required, (list, tuple)):
-            blocked.append(nodeid)
-            blocked_reasons[nodeid] = ["capability_metadata_invalid"]
-            continue
-        capabilities = tuple(
-            str(item).strip()
-            for item in raw_required
-            if isinstance(item, str) and str(item).strip()
-        )
-        if len(capabilities) != len(raw_required):
-            blocked.append(nodeid)
-            blocked_reasons[nodeid] = ["capability_metadata_invalid"]
-            continue
-        required.update(capabilities)
-        unmet: list[str] = []
-        for capability in capabilities:
-            if capability not in {
-                CAPABILITY_PATH_ESCAPE_POSIX,
-                CAPABILITY_PATH_ESCAPE_WINDOWS,
-            }:
-                unmet.append(f"unknown_capability:{capability}")
-            elif probe is None or not capability_satisfies(probe, capability):
-                unmet.append(
-                    f"{capability}:{str((probe or {}).get('failure_code') or SYMLINK_CAPABILITY_BLOCKER)}"
-                )
-        if unmet:
-            blocked.append(nodeid)
-            blocked_reasons[nodeid] = unmet
-        else:
-            runnable.append(nodeid)
-    return {
-        "planned_nodeids": list(normalized),
-        "runnable_nodeids": runnable,
-        "blocked_nodeids": blocked,
-        "blocked_reasons": blocked_reasons,
-        "required_capabilities": sorted(required),
-        "planned_count": len(normalized),
-        "runnable_count": len(runnable),
-        "not_run_count": len(blocked),
-    }
 
 
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
@@ -176,18 +92,12 @@ def _blocked_payload(
     output_root: Path,
     reason: str,
     collection: Mapping[str, Any] | None = None,
-    symlink_probe: Mapping[str, Any] | None = None,
-    capability_partition: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     payload = {
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": "blocked",
         "ok": False,
         "scope": "full",
-        "claim_boundary": (
-            "The pytest owner is finite and exact-node-id based, but this run "
-            "did not produce a complete terminal shard observation."
-        ),
         "blockers": [reason],
         "shards": [],
         "pytest_execution": {
@@ -207,66 +117,7 @@ def _blocked_payload(
     }
     if collection is not None:
         payload["collection"] = dict(collection)
-    if symlink_probe is not None:
-        payload["symlink_probe"] = dict(symlink_probe)
-    if capability_partition is not None:
-        payload["capability_partition"] = dict(capability_partition)
     return payload
-
-
-def _core_scope_partition(
-    nodeids: tuple[str, ...],
-    node_capabilities: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Return a scoped core-only partition without probing platform links.
-
-    Core mode is an explicit local qualification lane.  It executes only
-    collected nodes that declare no platform capability and records every
-    excluded path-sensitive node and its declared requirements.  The omitted
-    denominator stays visible, so this result can never be mistaken for the
-    required full platform qualification.
-    """
-
-    runnable: list[str] = []
-    excluded: list[str] = []
-    excluded_reasons: dict[str, list[str]] = {}
-    for nodeid in nodeids:
-        raw_required = node_capabilities.get(nodeid, ())
-        if isinstance(raw_required, str) or not isinstance(raw_required, (list, tuple)):
-            excluded.append(nodeid)
-            excluded_reasons[nodeid] = ["capability_metadata_invalid"]
-            continue
-        capabilities = tuple(
-            str(item).strip()
-            for item in raw_required
-            if isinstance(item, str) and str(item).strip()
-        )
-        if len(capabilities) != len(raw_required):
-            excluded.append(nodeid)
-            excluded_reasons[nodeid] = ["capability_metadata_invalid"]
-        elif capabilities:
-            excluded.append(nodeid)
-            excluded_reasons[nodeid] = [
-                "core_scope_excluded:" + capability for capability in capabilities
-            ]
-        else:
-            runnable.append(nodeid)
-    return {
-        "scope": "scoped-core",
-        "source_planned_nodeids": list(nodeids),
-        "planned_nodeids": runnable,
-        "runnable_nodeids": runnable,
-        "blocked_nodeids": [],
-        "blocked_reasons": {},
-        "excluded_nodeids": excluded,
-        "excluded_reasons": excluded_reasons,
-        "required_capabilities": [],
-        "source_planned_count": len(nodeids),
-        "planned_count": len(runnable),
-        "runnable_count": len(runnable),
-        "not_run_count": 0,
-        "excluded_count": len(excluded),
-    }
 
 
 def _deadline_remaining(deadline: float) -> float:
@@ -598,105 +449,8 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         _write_json(output_root / "aggregate.json", payload)
         return 70, payload
 
-    raw_capabilities = collection.get("node_capabilities")
-    raw_capability_errors = collection.get("capability_errors", {})
-    if not isinstance(raw_capabilities, Mapping) or not isinstance(
-        raw_capability_errors, Mapping
-    ):
-        payload = _blocked_payload(
-            output_root=output_root,
-            reason="pytest collection has no valid capability metadata",
-            collection=collection,
-        )
-        _write_json(output_root / "aggregate.json", payload)
-        return 70, payload
-    capability_errors = {
-        str(nodeid): str(reason)
-        for nodeid, reason in raw_capability_errors.items()
-        if str(nodeid).strip() and str(reason).strip()
-    }
-    missing_capability_rows = sorted(
-        nodeid for nodeid in collected_nodeids if nodeid not in raw_capabilities
-    )
-    if capability_errors or missing_capability_rows:
-        reasons = {
-            **capability_errors,
-            **{
-                nodeid: "capability_metadata_missing"
-                for nodeid in missing_capability_rows
-            },
-        }
-        capability_partition = {
-            "planned_nodeids": list(collected_nodeids),
-            "runnable_nodeids": [],
-            "blocked_nodeids": list(collected_nodeids),
-            "blocked_reasons": reasons,
-            "required_capabilities": [],
-            "planned_count": len(collected_nodeids),
-            "runnable_count": 0,
-            "not_run_count": len(collected_nodeids),
-        }
-        payload = _blocked_payload(
-            output_root=output_root,
-            reason="pytest collection capability metadata is invalid",
-            collection=collection,
-            capability_partition=capability_partition,
-        )
-        _write_json(output_root / "aggregate.json", payload)
-        return 70, payload
-
-    capability_scope = str(getattr(args, "capability_scope", "full") or "full").strip()
-    if capability_scope == "core":
-        capability_partition = _core_scope_partition(collected_nodeids, raw_capabilities)
-        nodeids = tuple(capability_partition["runnable_nodeids"])
-        symlink_probe = None
-    else:
-        nodeids = collected_nodeids
-        required_capabilities = {
-            str(capability).strip()
-            for values in raw_capabilities.values()
-            if isinstance(values, (list, tuple))
-            for capability in values
-            if isinstance(capability, str) and capability.strip()
-        }
-        symlink_probe = (
-            _probe_symlink_capability() if required_capabilities else None
-        )
-        try:
-            capability_partition = partition_nodeids_by_capability(
-                nodeids,
-                raw_capabilities,
-                symlink_probe,
-            )
-        except ValueError as exc:
-            payload = _blocked_payload(
-                output_root=output_root,
-                reason=f"pytest capability partition is invalid: {exc}",
-                collection=collection,
-                symlink_probe=symlink_probe,
-            )
-            _write_json(output_root / "aggregate.json", payload)
-            return 70, payload
-
-    runnable_nodeids = tuple(capability_partition["runnable_nodeids"])
-    blocked_nodeids = tuple(capability_partition["blocked_nodeids"])
-    if not runnable_nodeids:
-        payload = _blocked_payload(
-            output_root=output_root,
-            reason=(
-                SYMLINK_CAPABILITY_BLOCKER
-                if blocked_nodeids
-                else "pytest capability partition returned no runnable node ids"
-            ),
-            collection=collection,
-            symlink_probe=symlink_probe,
-            capability_partition=capability_partition,
-        )
-        payload["planned_count"] = len(nodeids)
-        payload["executed_count"] = 0
-        payload["not_run_count"] = len(blocked_nodeids)
-        _write_json(output_root / "aggregate.json", payload)
-        return 70, payload
+    nodeids = collected_nodeids
+    runnable_nodeids = collected_nodeids
 
     shards = partition_nodeids(runnable_nodeids, int(args.shards))
     partition_audit = validate_partition(runnable_nodeids, shards)
@@ -789,20 +543,13 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         status = "fail"
     elif any(row["status"] == "partial" for row in shard_rows):
         status = "partial"
-    if blocked_nodeids:
-        status = "blocked"
     if deadline_expired:
         status = "blocked"
     payload = {
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": status,
         "ok": status == "pass",
-        "scope": "scoped-core" if capability_scope == "core" else "full",
-        "claim_boundary": (
-            "This owner executes one exact collected pytest inventory through a "
-            "fixed finite node-id partition. It does not prove tests outside "
-            "that collection or external release/install parity."
-        ),
+        "scope": "full",
         "output_root": str(output_root),
         "collection": dict(collection),
         "collection_run": collect_run,
@@ -825,11 +572,9 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "leaf_collections": len(shards),
             "additional_full_collections": 0,
         },
-        "capability_partition": capability_partition,
-        "symlink_probe": dict(symlink_probe) if symlink_probe is not None else None,
         "planned_count": len(nodeids),
         "executed_count": len(runnable_nodeids),
-        "not_run_count": len(blocked_nodeids),
+        "not_run_count": 0,
         "partition": {
             **partition_audit,
             "requested_shard_count": int(args.shards),
@@ -865,15 +610,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=4,
         help="maximum number of independent shard leaves running concurrently",
-    )
-    parser.add_argument(
-        "--capability-scope",
-        choices=("core", "full"),
-        default="full",
-        help=(
-            "qualify only non-platform core nodes, or require every collected "
-            "platform capability (default: full)"
-        ),
     )
     parser.add_argument("--json", action="store_true")
     return parser

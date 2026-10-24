@@ -33,6 +33,9 @@
 - `map lint` notes responsibilities that pack several duties (`responsibility_compound`, info).
 - FlowGuard's own map now states one current duty per responsibility.
 - FlowGuard's own map splits the map-analysis hub into map-check, map-read and map-impact; each own flow is one command's call chain.
+- Removed dead code: `flowguard/_hashing.py`, `model_files` / `model_id_of` in `flowguard.map.proof`, the dead `model-test` template alias.
+- `release --shards` no longer writes `claim_boundary`, `capability_partition` or `symlink_probe`; the unused `flowguard_capability` pytest marker and `flowguard.symlink_capability` are removed.
+- Removed the unused adoption-log and model-notes template texts.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
@@ -45,6 +48,7 @@
 - Projects using FlowGuard: the first `read` line now also prints a warning count.
 - Projects using FlowGuard: `map models` exits 1 for a model with an uncovered invariant (all four projects have none at their current HEADs).
 - Projects using FlowGuard: none of the four projects uses `flowguard.validator` today.
+- Projects using FlowGuard: none of the four projects uses the removed names (`flowguard._hashing`, `flowguard.symlink_capability`, the shard `claim_boundary` / `capability_partition` / `symlink_probe` keys, the `flowguard_capability` marker, the adoption-log and model-notes texts; checked by grep).
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 

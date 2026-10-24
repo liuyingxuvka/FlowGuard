@@ -58,10 +58,6 @@ class ModelResult:
     closed_hazards: list[str] = field(default_factory=list)       # "<hint> (closed by known-bad X | invariant Y)"
 
 
-def model_files(root: Path) -> list[Path]:
-    return [root / e.path for e in model_registry(root).entries if e.kind == "contract"]
-
-
 class _ViewModelLoader(importlib.machinery.SourceFileLoader):
     """Compile the selected bytes with their canonical project filename, without pyc."""
     def __init__(self, view, name: str, logical: str):
@@ -552,11 +548,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             result.problems.append(traceback.format_exc(limit=4))
         result.seconds = round(time.time() - started, 3)
         return result
-
-
-def model_id_of(path: str | Path) -> str:
-    path = Path(path)
-    return read_model_contract(path).get("MODEL_ID", path.stem)
 
 
 def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False, view=None, inv=None) -> list[ModelResult]:

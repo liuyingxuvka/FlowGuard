@@ -155,7 +155,6 @@ def pytest_junit_projection(
                         "required": required,
                         "impact": "pytest node was not executed",
                         "owner_id": "pytest",
-                        "claim_boundary": "Pytest child evidence only; broad closure requires zero required skips.",
                     }
                 )
         elif tag == "failure":

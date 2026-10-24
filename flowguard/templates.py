@@ -7,10 +7,6 @@ from pathlib import Path
 
 
 from .template_text.behaviour import BEHAVIOUR_MODEL_TEMPLATE
-from .template_text.core import (
-    ADOPTION_LOG_TEMPLATE,
-    MODEL_NOTES_TEMPLATE,
-)
 from .template_text.validator import (
     VALIDATOR_MODEL_TEMPLATE,
 )
@@ -80,8 +76,6 @@ def write_template_files(
 
 
 __all__ = [
-    "ADOPTION_LOG_TEMPLATE",
-    "MODEL_NOTES_TEMPLATE",
     "TemplateFile",
     "adoption_template_files",
     "behaviour_template_files",

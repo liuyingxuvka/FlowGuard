@@ -7,33 +7,6 @@ import os
 from pathlib import Path
 from typing import Any, Mapping
 
-from .symlink_capability import SYMLINK_CAPABILITY_IDS
-
-
-CAPABILITY_MARKER = "flowguard_capability"
-
-
-def _item_capabilities(item: Any) -> tuple[tuple[str, ...], str]:
-    """Read explicit capability markers without guessing from node names."""
-
-    values: list[str] = []
-    for marker in item.iter_markers(name=CAPABILITY_MARKER):
-        if len(marker.args) != 1 or not isinstance(marker.args[0], str):
-            return (), "capability_marker_requires_one_string"
-        capability = marker.args[0].strip()
-        if capability not in SYMLINK_CAPABILITY_IDS:
-            return (), f"unknown_capability:{capability}"
-        values.append(capability)
-    return tuple(sorted(set(values))), ""
-
-
-def pytest_configure(config: Any) -> None:
-    config.addinivalue_line(
-        "markers",
-        "flowguard_capability(name): declare a platform capability required by a node",
-    )
-
-
 def _safe_target(raw: str) -> Path | None:
     text = str(raw or "").strip()
     if not text:
@@ -96,16 +69,6 @@ def pytest_collection_modifyitems(session: Any, config: Any, items: list[Any]) -
         if deselected:
             config.hook.pytest_deselected(items=deselected)
         items[:] = [item for item in items if item not in deselected]
-    node_capabilities: dict[str, list[str]] = {}
-    capability_errors: dict[str, str] = {}
-    for item in items:
-        nodeid = str(getattr(item, "nodeid", "")).strip()
-        if not nodeid:
-            continue
-        capabilities, error = _item_capabilities(item)
-        node_capabilities[nodeid] = list(capabilities)
-        if error:
-            capability_errors[nodeid] = error
     config._flowguard_collection_payload = {
         "schema_version": "flowguard.pytest_collection.v1",
         "collected_nodeids": list(collected),
@@ -113,8 +76,6 @@ def pytest_collection_modifyitems(session: Any, config: Any, items: list[Any]) -
         "requested_nodeids": list(requested),
         "unknown_requested_nodeids": list(unknown),
         "selection_error": selection_error,
-        "node_capabilities": node_capabilities,
-        "capability_errors": capability_errors,
         "exit_status": None,
     }
 
@@ -131,8 +92,6 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
                 "requested_nodeids": [],
                 "unknown_requested_nodeids": [],
                 "selection_error": "collection_hook_not_called",
-                "node_capabilities": {},
-                "capability_errors": {},
             },
         )
     )

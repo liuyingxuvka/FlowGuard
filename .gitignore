@@ -24,6 +24,3 @@ env/
 .flowguard/cache/
 .flowguard/**/__pycache__/
 kb/
-docs/flowguard_adoption_log.md
-docs/adoption_review_*.md
-/SLIM_LOG.md

@@ -103,7 +103,7 @@ fails too: "known-bad variant passed: the invariants do not catch it".
 
 A model proves only its declared finite boundary; the map describes the current commit; discovery
 is a heuristic. FlowGuard does not replace tests, review or production monitoring, and does not
-find the globally best architecture. It keeps its claims fresh, reviewable and bound to the code.
+find the globally best architecture. It keeps one model tree bound to the code and tests.
 
 ## Repository layout
 
