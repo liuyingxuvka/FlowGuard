@@ -25,7 +25,7 @@ from flowguard.explorer import Explorer
 
 MODEL_ID = "component_pointer"
 PARENT = "system"
-COMPONENTS = ["map-file", "map-analysis", "cli"]
+COMPONENTS = ["map-file", "map-check", "cli"]
 IMPLEMENTED_BY = {
     "Confirm": "flowguard/map/cli.py:cmd_confirm",
     "Check": "flowguard/map/check.py:run_check",

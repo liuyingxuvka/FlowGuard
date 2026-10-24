@@ -21,7 +21,7 @@ from flowguard.map.views import render_show
 from flowguard.workflow import Workflow
 
 MODEL_ID = "read_view"
-PARENT = "map-analysis"
+PARENT = "map-read"
 IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show", "Review": "flowguard/map/review.py:render_review",
                   "Find": "flowguard/map/views.py:find_owners"}
 NOT_MODELED = {

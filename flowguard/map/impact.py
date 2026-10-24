@@ -343,7 +343,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     edited_sources = [f for f in changed if f in inv.py and f not in comment_only and not inv.is_test(f)]
     if edited_sources:
         from .discover import discover_inventory, relied_models
-        from .facets import coverage_facts
+        from .lint import coverage_facts
         raw = discover_inventory(root, inv, data=data)
         # Functions of the edited files that no model anchor, test or NOT_MODELED reason explains.
         for cid, record in sorted(coverage_facts(root, data, inv, tree, raw).items()):

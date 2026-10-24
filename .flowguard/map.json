@@ -113,11 +113,13 @@
         "writes .flowguard/map.json on scan, deps --write and confirm"
       ],
       "depends_on": [
-        "map-analysis",
+        "map-check",
         "map-discover",
         "map-file",
+        "map-impact",
         "map-inventory",
         "map-proof",
+        "map-read",
         "map-target",
         "public-api",
         "templates"
@@ -338,52 +340,6 @@
       "fingerprint": "sha256:25630a1696caf18d4c34c37cefcedf4324d162581d86d2f74c840dc35b68ba61"
     },
     {
-      "id": "map-analysis",
-      "layer": "map",
-      "summary": "Checks ownership, reviews architecture and selects checks across explicitly protected component sub-systems.",
-      "responsibilities": [
-        "check map anchors, files, flow steps and models against the code",
-        "report one owner per entrypoint, responsibility, state and side effect",
-        "lint cycles, layers, sizes and private names, then apply accepted debts",
-        "show the tree, Mermaid and digests with static facets and coverage",
-        "find owners by word form and rank architecture defects and strengths",
-        "compare current and target facets and list the rules a target changes",
-        "select the checks a change needs and list its unexplained functions"
-      ],
-      "files": [
-        "flowguard/map/check.py",
-        "flowguard/map/lint.py",
-        "flowguard/map/impact.py",
-        "flowguard/map/views.py",
-        "flowguard/map/facets.py",
-        "flowguard/map/review.py"
-      ],
-      "entrypoints": [
-        "flowguard/map/check.py:run_check",
-        "flowguard/map/lint.py:run_lint",
-        "flowguard/map/impact.py:compute_impact"
-      ],
-      "state": [],
-      "side_effects": [
-        "reads git history; refreshes disposable analysis cache"
-      ],
-      "depends_on": [
-        "engine-conformance",
-        "map-discover",
-        "map-file",
-        "map-inventory"
-      ],
-      "tests": [
-        "tests/test_flowguard_map.py",
-        "tests/test_flowguard_map_contracts.py",
-        "tests/test_flowguard_map_discover.py",
-        "tests/test_map_views.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:b17934d78dcc873b113a4a57ca423ea6e5dc1eb7140d3d30cbcb08fb309a17ed"
-    },
-    {
       "id": "map-target",
       "layer": "map",
       "summary": "Holds one target and checks its design, the merged code and tests.",
@@ -411,10 +367,11 @@
         "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
       ],
       "depends_on": [
-        "map-analysis",
+        "map-check",
         "map-file",
         "map-inventory",
-        "map-proof"
+        "map-proof",
+        "map-read"
       ],
       "tests": [
         "tests/test_flowguard_target.py"
@@ -456,7 +413,7 @@
         "engine-conformance",
         "engine-explore",
         "engine-properties",
-        "map-analysis",
+        "map-check",
         "map-file",
         "map-inventory"
       ],
@@ -739,6 +696,103 @@
       "models": [],
       "status": "confirmed",
       "fingerprint": "sha256:7759c56a44a2f13cd24d25774816a053d2c522930b5984f9e43186beb6cda86f"
+    },
+    {
+      "id": "map-check",
+      "layer": "map",
+      "summary": "Checks the map against the code and lints the architecture.",
+      "responsibilities": [
+        "check map anchors, files, flow steps and models against the code",
+        "report one owner per entrypoint, responsibility, state and side effect",
+        "lint cycles, layers, sizes and private names, then apply accepted debts",
+        "explain entrypoints and state writers by model, test or reason"
+      ],
+      "files": [
+        "flowguard/map/check.py",
+        "flowguard/map/lint.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/check.py:run_check",
+        "flowguard/map/lint.py:run_lint"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_discover.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:b3bbac30960608d81abea52ab9c874f51f164e325f31450af55bb9980177b2f0"
+    },
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Renders the static model tree with its facets, owner search and architecture review.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_map_views.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:d753c93d66c2b2eadcfa74cbca4ca9aaf0b16b31998fe95817a6ec1d7409d74e"
+    },
+    {
+      "id": "map-impact",
+      "layer": "map",
+      "summary": "Selects the tests and models that a change needs.",
+      "responsibilities": [
+        "select the checks a change needs and list its unexplained functions",
+        "select the models of relied anchors and flows a change touches"
+      ],
+      "files": [
+        "flowguard/map/impact.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/impact.py:compute_impact"
+      ],
+      "state": [],
+      "side_effects": [
+        "reads git history; refreshes disposable analysis cache"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py"
+      ],
+      "models": [],
+      "status": "confirmed",
+      "fingerprint": "sha256:87707a39392ff755094dbe288ff0a1cf6df30374043fcaed7494c16618601869"
     }
   ],
   "flows": [
@@ -746,10 +800,9 @@
       "id": "session_read",
       "summary": "an AI session reads the map",
       "steps": [
-        "cli:main",
+        "cli:cmd_show",
         "map-file:load_map",
-        "map-inventory:build_inventory",
-        "map-analysis:render_show"
+        "map-read:render_show"
       ],
       "model": ".flowguard/models/read_view.py"
     },
@@ -757,10 +810,9 @@
       "id": "after_edit",
       "summary": "check the map and list what to run after editing code",
       "steps": [
-        "cli:cmd_check",
-        "map-analysis:run_check",
-        "cli:cmd_impact",
-        "map-analysis:compute_impact"
+        "cli:cmd_change",
+        "map-check:run_check",
+        "map-impact:compute_impact"
       ],
       "model": ".flowguard/models/change_selection.py"
     },
@@ -769,9 +821,7 @@
       "summary": "run models with known-bad and conformance checks",
       "steps": [
         "cli:cmd_models",
-        "map-proof:run_models",
-        "engine-explore:Explorer.explore",
-        "engine-conformance:replay_trace"
+        "map-proof:run_models"
       ],
       "model": ".flowguard/models/model_proof.py"
     },
@@ -780,9 +830,7 @@
       "summary": "reverse-wrap an existing project into a first map",
       "steps": [
         "cli:cmd_scan",
-        "map-file:new_map",
-        "map-discover:discover",
-        "map-analysis:run_lint"
+        "map-file:new_map"
       ],
       "model": ".flowguard/models/scan_coverage.py"
     },
@@ -793,7 +841,6 @@
         "cli:main",
         "map-target:main",
         "map-target:check_target",
-        "map-proof:run_models",
         "map-target:promote_target"
       ],
       "model": ".flowguard/models/target_life_cycle.py"

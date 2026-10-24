@@ -21,7 +21,7 @@ from flowguard.map.impact import compute_impact
 from flowguard.map.inventory import build_inventory
 
 MODEL_ID = "change_selection"
-PARENT = "map-analysis"
+PARENT = "map-impact"
 IMPLEMENTED_BY = {"Impact": "flowguard/map/impact.py:compute_impact"}
 TESTED_BY = {
     "comments_select_no_checks": ["tests/test_flowguard_map.py:test_comment_only_edit_keeps_review_but_selects_no_checks"],

@@ -52,7 +52,7 @@ A flow of separate commands that hand over a file writes the later steps as `rea
 | `status` | `draft` or `confirmed` | `confirm` |
 | `_hint` | facts written by `scan` to help describe a draft (file count, lines of code, a sample of public symbols); `confirm` deletes it | `scan` |
 | `fingerprint` | hash of the component's files at the last `confirm`; mismatch = STALE | `confirm` only |
-| `flows[].steps` | `component`, `component:Symbol`, or `component:Symbol reads <file>` for a separate command that reads a file an earlier step wrote; symbols must exist in that component (`check`); a `reads` step must name a symbol and cannot be the first step (`flow_handoff_invalid`) | human/AI |
+| `flows[].steps` | `component`, `component:Symbol`, or `component:Symbol reads <file>` for a separate command that reads a file an earlier step wrote; symbols must exist in that component (`check`); a `reads` step must name a symbol and cannot be the first step (`flow_handoff_invalid`); a flow is one command's call chain (each step reached from an earlier one); for a journey across commands that hand over a file, use the `reads` step form | human/AI |
 | `flows[].model` | optional model protecting the whole flow; it is selected whenever a step's file changes, and `read --component` shows it on every component of the flow | human/AI |
 
 Component containment is separate from a model's `PARENT`. Unknown parents, parent cycles and

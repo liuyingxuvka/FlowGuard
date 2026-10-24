@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 from ..kit import Feature, feature_model_names
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
-from .lint import architecture_variants, explained_by
+from .lint import architecture_variants, coverage_facts, explained_by, test_source
 from .mapfile import component_files, component_scope, component_subtree, is_stale, resolve_model_path
 
 
@@ -558,57 +558,6 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
                   tuple(notes[name] for name in names), node.id, static.cases if source == "explorer" else None)
 
 
-def _test_source(root, path, source_cache=None):
-    if source_cache is None:
-        return read_source(root / path)
-    if path not in source_cache:
-        source_cache[path] = read_source(root / path)
-    return source_cache[path]
-
-
-def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
-    """Static explanation counts, scoped to each real component and its subtree."""
-    excluded = {anchor for node in tree.nodes.values() for anchor in node.contract.get("NOT_MODELED", {})}
-    cache = source_cache if source_cache is not None else {}
-    out = {}
-    for component in data["components"]:
-        cid = component["id"]
-        scoped = component_scope(data, component)
-        covered = {anchor for node in tree.models_for_component(cid)
-                   for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()}
-        sources = []
-        for path in inv.tests:
-            if matches_any(path, scoped.get("tests", [])):
-                try:
-                    sources.append(_test_source(root, path, cache))
-                except OSError:
-                    continue
-        tests = "\n".join(sources)
-        entries = set(scoped.get("entrypoints", []))
-        writers = {f"{path}:{symbol}" for path in component_files(scoped, inv)
-                   for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
-                   if facts.get("writes") and symbol.rsplit(".", 1)[-1] != "__init__"}
-        kinds = {anchor: explained_by(anchor, covered, excluded, tests=tests) for anchor in entries | writers}
-        explained_entries = {anchor for anchor in entries if kinds[anchor]}
-        explained_writers = {anchor for anchor in writers if kinds[anchor]}
-
-        def sources(anchors):
-            return tuple(sum(kinds[anchor] == kind for anchor in anchors) for kind in ("model", "test", "reason"))
-        out[cid] = {"entrypoints": (len(explained_entries), len(entries)),
-                    "state_writers": (len(explained_writers), len(writers)),
-                    "entry_sources": sources(entries), "writer_sources": sources(writers),
-                    "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers))),
-                    "unexplained_entries": tuple(sorted(entries - explained_entries))}
-        if len(component_subtree(data, cid)) > 1:
-            own_entries = set(component.get("entrypoints", []))
-            own_files = set(component_files(component, inv))
-            own_writers = {anchor for anchor in writers if anchor.partition(":")[0] in own_files}
-            out[cid]["_direct"] = {"entrypoints": (len(own_entries & explained_entries), len(own_entries)),
-                                   "state_writers": (len(own_writers & explained_writers), len(own_writers)),
-                                   "entry_sources": sources(own_entries & entries), "writer_sources": sources(own_writers)}
-    return out
-
-
 def coverage_line(coverage, *, summary=False):
     """Explained counts split by source: a model anchor, a test naming it, or a NOT_MODELED reason."""
     records = [record.get("_direct", record) for record in coverage.values()] if summary else [coverage]
@@ -637,7 +586,7 @@ def _test_function_index(root: Path, inv: Inventory, *, source_cache=None) -> di
         if not path.endswith(".py"):
             continue
         try:
-            syntax = ast.parse(_test_source(root, path, source_cache))
+            syntax = ast.parse(test_source(root, path, source_cache))
         except (OSError, SyntaxError):
             continue
         names, pending = set(), list(syntax.body)
@@ -667,7 +616,7 @@ def _bindable(root, unbound, nodes, source_cache, limit=3):
         path, _, name = item.partition(":")
         if path not in parsed:
             try:
-                source = _test_source(root, path, source_cache)
+                source = test_source(root, path, source_cache)
                 parsed[path] = (source, {f"{owner}.{n.name}" if owner else n.name: n
                                          for owner, n in _test_functions(ast.parse(source))})
             except (OSError, SyntaxError, ValueError):

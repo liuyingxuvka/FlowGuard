@@ -18,11 +18,11 @@ from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 
-from .common import Finding, read_source, tokens
+from .common import Finding, matches_any, read_source, tokens
 from .discover import anchor_state_writes, discover_inventory, reachable_effects
 from .inventory import Inventory, is_type_checking_guard, parse_python, resolve_import
 from .tree import build_tree
-from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, model_registry, owner_index, read_model_contract, resolve_model_path
+from .mapfile import component_files, component_graph, component_scope, component_subtree, dependency_evidence, flow_step_parts, model_registry, owner_index, read_model_contract, resolve_model_path
 
 @dataclass
 class Limits:
@@ -405,6 +405,57 @@ def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int]) -
                         and debt.get("contains") not in bare.get(debt.get("component"), set())}
     return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
             for index, debt in enumerate(debts) if index not in used]
+
+
+def test_source(root, path, source_cache=None):
+    if source_cache is None:
+        return read_source(root / path)
+    if path not in source_cache:
+        source_cache[path] = read_source(root / path)
+    return source_cache[path]
+
+
+def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
+    """Static explanation counts, scoped to each real component and its subtree."""
+    excluded = {anchor for node in tree.nodes.values() for anchor in node.contract.get("NOT_MODELED", {})}
+    cache = source_cache if source_cache is not None else {}
+    out = {}
+    for component in data["components"]:
+        cid = component["id"]
+        scoped = component_scope(data, component)
+        covered = {anchor for node in tree.models_for_component(cid)
+                   for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()}
+        sources = []
+        for path in inv.tests:
+            if matches_any(path, scoped.get("tests", [])):
+                try:
+                    sources.append(test_source(root, path, cache))
+                except OSError:
+                    continue
+        tests = "\n".join(sources)
+        entries = set(scoped.get("entrypoints", []))
+        writers = {f"{path}:{symbol}" for path in component_files(scoped, inv)
+                   for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
+                   if facts.get("writes") and symbol.rsplit(".", 1)[-1] != "__init__"}
+        kinds = {anchor: explained_by(anchor, covered, excluded, tests=tests) for anchor in entries | writers}
+        explained_entries = {anchor for anchor in entries if kinds[anchor]}
+        explained_writers = {anchor for anchor in writers if kinds[anchor]}
+
+        def sources(anchors):
+            return tuple(sum(kinds[anchor] == kind for anchor in anchors) for kind in ("model", "test", "reason"))
+        out[cid] = {"entrypoints": (len(explained_entries), len(entries)),
+                    "state_writers": (len(explained_writers), len(writers)),
+                    "entry_sources": sources(entries), "writer_sources": sources(writers),
+                    "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers))),
+                    "unexplained_entries": tuple(sorted(entries - explained_entries))}
+        if len(component_subtree(data, cid)) > 1:
+            own_entries = set(component.get("entrypoints", []))
+            own_files = set(component_files(component, inv))
+            own_writers = {anchor for anchor in writers if anchor.partition(":")[0] in own_files}
+            out[cid]["_direct"] = {"entrypoints": (len(own_entries & explained_entries), len(own_entries)),
+                                   "state_writers": (len(own_writers & explained_writers), len(own_writers)),
+                                   "entry_sources": sources(own_entries & entries), "writer_sources": sources(own_writers)}
+    return out
 
 
 def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *, view=None) -> list[Finding]:
