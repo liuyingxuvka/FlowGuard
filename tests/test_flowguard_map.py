@@ -1311,3 +1311,25 @@ def test_load_map_reads_a_bom_map_and_rejects_missing_or_invalid_ones(tmp_path):
         load_map(tmp_path)
     (tmp_path / ".flowguard/map.json").write_text('﻿{"schema": "flowguard.map.v1", "components": []}', encoding="utf-8")
     assert load_map(tmp_path)["components"] == []
+
+
+def test_missing_map_points_at_scan_and_the_first_map_guide(tmp_path, capsys):
+    from flowguard.__main__ import main
+
+    write(tmp_path, "app.py", "def run():\n    return True\n")
+    assert main(["read", "--root", str(tmp_path)]) == 2
+    error = capsys.readouterr().err
+    assert "run python -m flowguard map scan first" in error and "references/first_map.md" in error, error
+
+
+def test_scan_hints_a_split_and_discover_says_when_nothing_is_found(tmp_path, capsys):
+    root = tmp_path / "lib"
+    for index in range(6):
+        write(root, f"pkg/part{index}.py", f"def value{index}():\n    return {index}\n")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    code, out = run(root, "scan", capsys=capsys)
+    assert code == 0 and "hint: draft pkg holds 6 files of one directory; split it by responsibility " \
+        "(python -m flowguard map digest pkg lists each file's API)" in out, out
+    code, out = run(root, "discover", capsys=capsys)
+    assert code == 0 and "no entrypoints, effects or state writers found (a library without commands is normal; " \
+        "list its public API in entrypoints by hand)" in out, out

@@ -1871,3 +1871,17 @@ def test_promote_lists_what_to_re_read(tmp_path, capsys):
     assert "re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it" in lines
     assert lines.index("re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it") \
         < next(index for index, line in enumerate(lines) if line.startswith("next: "))
+
+
+def test_removed_component_file_hint_says_delete(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "retire members", "loans")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["remove"] = ["component:members"]
+    data["components"][0]["depends_on"].remove("members")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    unmapped = [line for line in output.splitlines() if line.startswith("TO-DO ") and "file_unmapped" in line
+                and "shelf/members.py" in line]
+    assert unmapped and unmapped[0].endswith("(delete the file, or give it an owner in the target)"), output

@@ -1127,3 +1127,20 @@ def test_find_miss_names_the_closest_owners(tmp_path, capsys):
     assert code == 1 and output.startswith('no existing owner found;'), output
     assert 'closest owners (check these before creating a new component):' in output
     assert '  timed: rejects expired tokens' in output and 'signing' not in output
+
+
+def test_digest_lists_overloads_once(tmp_path):
+    from flowguard.map.views import file_outline
+
+    (tmp_path / 'serializer.py').write_text(
+        'from typing import overload\nimport typing\n\n\nclass Serializer:\n'
+        '    @overload\n    def __init__(self, key: str) -> None: ...\n'
+        '    @typing.overload\n    def __init__(self, key: bytes) -> None: ...\n'
+        '    def __init__(self, key):\n        self.key = key\n\n\n'
+        '@overload\ndef dumps(value: int) -> str: ...\n@overload\ndef dumps(value: str) -> str: ...\n'
+        'def dumps(value):\n    return str(value)\n')
+    outline = file_outline(tmp_path, 'serializer.py')
+    inits = [line for line in outline if '.__init__(' in line]
+    dumps = [line for line in outline if 'def dumps(' in line]
+    assert len(inits) == 1 and inits[0].endswith(' (+2 overloads)'), outline
+    assert len(dumps) == 1 and dumps[0].endswith(' (+2 overloads)'), outline
