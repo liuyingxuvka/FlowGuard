@@ -792,9 +792,40 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     return "\n".join(lines)
 
 
+_STEM_ENDINGS = (("ations", ""), ("ation", ""), ("ions", ""), ("ion", ""), ("ings", ""), ("ing", ""),
+                 ("ies", "y"), ("ied", "y"), ("es", ""), ("ed", ""), ("er", ""), ("s", ""), ("e", ""))
+
+
+def _stem(word: str) -> str:
+    """Drop one common English ending when at least four letters remain (expire/expired/expires -> expir)."""
+    word = word.lower()
+    for ending, replacement in _STEM_ENDINGS:
+        if word.endswith(ending) and len(word) - len(ending) >= 4:
+            return word[: -len(ending)] + replacement
+    return word
+
+
 def _find_words(words: set[str]) -> set[str]:
-    """Owner lookup also matches the singular of a plural word ("orders" ~ "order")."""
-    return words | {w[:-1] for w in words if len(w) > 3 and w.endswith("s")}
+    """Owner lookup matches each word, its singular and its stem ("orders" ~ "order", "rotation" ~ "rotate")."""
+    return words | {w[:-1] for w in words if len(w) > 3 and w.endswith("s")} | {_stem(w) for w in words}
+
+
+def closest_owners(data: dict, words: list[str], limit: int = 3) -> list[tuple[str, str]]:
+    """(component, one duty) for the components with most words sharing a 4+ letter prefix with the query."""
+    import os.path
+
+    query = tokens(" ".join(words))
+    scored = []
+    for c in data["components"]:
+        texts = [*c.get("responsibilities", []), c.get("summary", "")]
+
+        def near(text):
+            return sum(1 for word in tokens(text) for asked in query if len(os.path.commonprefix([word, asked])) >= 4)
+        count = sum(near(text) for text in texts)
+        if count:
+            duty = next((text for text in texts if near(text)), "")
+            scored.append((-count, c["id"], duty))
+    return [(cid, duty) for _, cid, duty in sorted(scored)[:limit]]
 
 
 def defined_symbols(component: dict, inv: Inventory, words: list[str]) -> list[tuple[str, str]]:

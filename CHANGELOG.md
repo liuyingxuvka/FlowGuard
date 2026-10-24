@@ -27,6 +27,7 @@
 - `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings; they no longer block promotion.
 - `target check` warns about accepted debts the target makes stale; `target promote` lists models, flows and tests to re-read.
 - `validator`: a bad case may have any name (it must be rejected unless a built-in default says otherwise); only `ValueError`/`TypeError` (or the types passed as `rejects=`) count as a rejection, any other exception is reported as a crash.
+- `read --find` matches common word forms (expire/expired, rotate/rotation) and, when nothing matches, names the three closest owners.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

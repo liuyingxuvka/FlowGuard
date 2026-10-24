@@ -34,7 +34,7 @@ from .mapfile import MapError, component_files, component_graph, dependency_evid
 from .proof import render_results, run_models
 from .scan import new_map
 from .tree import build_tree
-from .views import defined_symbols, find_owners, render_digest, render_mermaid, render_show
+from .views import closest_owners, defined_symbols, find_owners, render_digest, render_mermaid, render_show
 from .target import check_target, moving_to_target, target_model_paths, target_owns_file
 from .targetfile import TARGET_RELDIR, load_target, validate_target
 
@@ -130,6 +130,11 @@ def cmd_find(root: Path, a) -> int:
     hits = find_owners(data, inv, a.words)
     if not hits:
         print("no existing owner found; decide which component should own this before writing code")
+        closest = closest_owners(data, a.words)
+        if closest:
+            print("closest owners (check these before creating a new component):")
+            for cid, duty in closest:
+                print(f"  {cid}: {duty}")
         return 1
     by_id = {c["id"]: c for c in data["components"]}
     for score, cid, owned in hits:

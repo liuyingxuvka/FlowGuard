@@ -1093,3 +1093,37 @@ def test_review_of_a_clean_project_lists_its_strengths(tmp_path):
     assert 'no accepted debts' in text and 'debts:' not in text
     steps = text.split('optimise next:', 1)[1]
     assert steps.startswith(' nothing to rank') or not any(word in steps for word in (' fix ', ' split '))
+
+
+def test_find_matches_word_forms(tmp_path):
+    data = dict(components=[_component('timed', responsibilities=['rejects expired tokens']),
+                            _component('signing', responsibilities=['rotation of signing keys']),
+                            _component('orders', responsibilities=['promotion of orders'])])
+    inv = _inventory(tmp_path)
+    assert find_owners(data, inv, ['expire'])[0][1] == 'timed'
+    assert find_owners(data, inv, ['rotate'])[0][1] == 'signing'
+    assert find_owners(data, inv, ['rotating'])[0][1] == 'signing'
+    assert find_owners(data, inv, ['promote'])[0][1] == 'orders'
+    assert find_owners(data, inv, ['order'])[0][1] == 'orders'
+    from flowguard.map.views import _stem
+    assert len({_stem(word) for word in ('expire', 'expired', 'expires')}) == 1
+    assert len({_stem(word) for word in ('rotate', 'rotation', 'rotating')}) == 1
+    assert _stem('order') == _stem('orders') and _stem('promote') == _stem('promotion')
+
+
+def test_find_miss_names_the_closest_owners(tmp_path, capsys):
+    import json
+    from flowguard.map import cli
+
+    (tmp_path / '.flowguard').mkdir()
+    components = [dict(_component('timed', responsibilities=['rejects expired tokens']), files=['timed.py']),
+                  dict(_component('signing', responsibilities=['sign payloads']), files=['signing.py'])]
+    for cid in ('timed', 'signing'):
+        (tmp_path / f'{cid}.py').write_text('def run(): return True\n')
+    (tmp_path / '.flowguard/map.json').write_text(json.dumps({'schema': 'flowguard.map.v1', 'project': 'p',
+                                                             'components': components}))
+    code = cli.main(['--root', str(tmp_path), 'find', 'expiry'])
+    output = capsys.readouterr().out
+    assert code == 1 and output.startswith('no existing owner found;'), output
+    assert 'closest owners (check these before creating a new component):' in output
+    assert '  timed: rejects expired tokens' in output and 'signing' not in output

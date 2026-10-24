@@ -22,7 +22,8 @@ from flowguard.workflow import Workflow
 
 MODEL_ID = "read_view"
 PARENT = "map-analysis"
-IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show", "Review": "flowguard/map/review.py:render_review"}
+IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show", "Review": "flowguard/map/review.py:render_review",
+                  "Find": "flowguard/map/views.py:find_owners"}
 NOT_MODELED = {
     "flowguard/map/facets.py:_StaticModel._module": "memoizes one parsed helper file per read; the names it yields "
         "are what static_rules_match_model checks on real render_show output",
@@ -43,6 +44,7 @@ TESTED_BY = {
     "review_ranks_errors_first": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
     "review_strengths_are_true": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
     "review_steps_name_a_recipe": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
+    "find_matches_word_forms": ["tests/test_map_views.py:test_find_matches_word_forms"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
                                  "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
@@ -149,6 +151,7 @@ class ReadCase:
     flowing: bool = False      # flow chain = beta:run -> alpha:run with model read_probe; read --component beta
     sources: bool = False      # alpha lists four entrypoints: model-anchored, test-named, NOT_MODELED, unexplained
     review: bool = False       # read --review on REVIEW_FILES: a cycle, a hub, an unexplained writer, a flow with no model
+    query: str = ""            # read --find <query>: alpha owns "reject expired tokens", the query is another word form
 
 
 FEATURES = (
@@ -173,6 +176,8 @@ FEATURES = (
     # read --review on a project with an unaccepted cycle (ERROR), a hub component (used by 3,
     # uses 3, 7 duties), an unexplained state writer and a flow with no model.
     Feature("review_fixture", False, (), lambda case: replace(case, review=True), exclusive=True),
+    # read --find expire: alpha's duty says "expired"; the owner must still be found.
+    Feature("inflected_query", False, (), lambda case: replace(case, query="expire"), exclusive=True),
 )
 
 
@@ -185,7 +190,7 @@ class ReadObservation:
 
 
 def _names(observation):
-    if observation.case.review:
+    if observation.case.review or observation.case.query:
         return True
     notice = next((line.partition("not shown:")[2] for line in observation.text.splitlines()
                    if "truncated" in line and "not shown:" in line), "")
@@ -207,7 +212,7 @@ def _focused(observation):
 
 
 def _model_contract(observation):
-    if observation.case.review:
+    if observation.case.review or observation.case.query:
         return True
     rows = tuple(line.strip() for line in observation.text.splitlines() if line.lstrip().startswith("model read_probe:"))
     # A fully hidden component also hides its models.  Any displayed model must
@@ -354,6 +359,16 @@ def _recipes(observation):
     return bool(steps) and all("references/" in row or "python -m flowguard" in row for row in steps)
 
 
+FIND_DUTY = "reject expired tokens"
+
+
+def _word_forms(observation):
+    """read --find ranks the component whose duty differs from the query only by a common word ending first."""
+    if not observation.case.query:
+        return True
+    return observation.text.splitlines()[:1] == ["alpha"]
+
+
 def _summary(observation):
     if not observation.case.missing_summary or not re.search(r"^## alpha \[", observation.text, re.M):
         return True
@@ -383,6 +398,8 @@ RULES = (
               lambda state, trace: _true_strengths(state)),
     Invariant("review_steps_name_a_recipe", "every optimise next step names a references recipe or a flowguard command",
               lambda state, trace: _recipes(state)),
+    Invariant("find_matches_word_forms", "a query word matches a duty word that differs only by a common ending",
+              lambda state, trace: _word_forms(state)),
     Invariant("focused_component_visible", "read --component X fits the budget and always shows X's heading and five facets",
               lambda state, trace: _focused(state) and len(state.text) <= state.case.budget),
 )
@@ -403,6 +420,8 @@ def _abstract(case, file_order=False):
     # is reproduced here.  Native conformance never calls this function.
     if case.review:
         return ReadObservation(case, REVIEW_TEXT)
+    if case.query:
+        return ReadObservation(case, "alpha")
     if case.probe:
         rows, details = [], []
         for mid, rules, bads, _keys in PROBE_TRUTH[case.probe]:
@@ -481,6 +500,8 @@ class Show:
             observed = replace(observed, text=observed.text.replace("strengths: ", "strengths: no dependency cycles; "))
         elif self.fault == "review_no_recipe" and case.review:
             observed = replace(observed, text=observed.text.replace("; references/map_format.md", ""))
+        elif self.fault == "exact_words_only" and case.query:
+            observed = replace(observed, text="")
         elif self.fault == "hide_focused" and case.component:
             observed = replace(observed, text=f"# read fixture\n... truncated at {case.budget} chars; "
                                               f"not shown: {case.component}; use read --component ID")
@@ -509,7 +530,8 @@ def broken_variants():
             "coverage_without_sources": _explorer("no_sources"),
             "review_hides_error": _explorer("review_hides_error"),
             "review_claims_false_strength": _explorer("review_false_strength"),
-            "review_step_without_recipe": _explorer("review_no_recipe")}
+            "review_step_without_recipe": _explorer("review_no_recipe"),
+            "exact_words_only": _explorer("exact_words_only")}
 
 
 def _files():
@@ -605,7 +627,11 @@ def _review(template, case):
         inv = build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
         for relative, source in PROBE_FILES.get(case.probe, {}).items():
             _write(root, relative, source)
-        if case.review:
+        if case.query:
+            from flowguard.map.views import find_owners
+            data["components"][0]["responsibilities"] = [FIND_DUTY]
+            text = "\n".join(cid for _, cid, _ in find_owners(data, inv, [case.query]))
+        elif case.review:
             from flowguard.map.review import render_review
             text = render_review(root, data, inv, budget=case.budget)
         else:
