@@ -351,7 +351,9 @@
         "report writes into another component's injected object",
         "show the model rules a component relies on",
         "select models whose anchors a changed file calls",
-        "check file-linked flow steps as command entrypoints"
+        "check file-linked flow steps as command entrypoints",
+        "select a flow's model when a step's file changes",
+        "list the flows each component takes part in"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -383,7 +385,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:04b9583f232a5a014810a46a6264b2af7b964bcedc8e590d634bbcaaace7b177"
+      "fingerprint": "sha256:9d3e25ee534e880c9fda61c8a477e71f4ce91e41d158d1f150e4061847de2ad5"
     },
     {
       "id": "map-target",

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
 from .inventory import Inventory
-from .mapfile import component_files, component_subtree, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
+from .mapfile import component_files, component_scope, component_subtree, component_graph, dependency_evidence, flow_step_parts, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
 
 from .tree import build_tree
 
@@ -42,6 +42,7 @@ class Impact:
     comment_only: list[str] = field(default_factory=list)
     review_models: dict[str, list[str]] = field(default_factory=dict)
     relied_models: list[str] = field(default_factory=list)     # "<model> via <owner>:<anchor symbol>"
+    flow_models: list[str] = field(default_factory=list)       # "flow <id>: step <n> changed; model <M>"
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -348,6 +349,24 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             selected_model_paths.add(node.path)
             tests.update(contract_tests.get(node.path, ()))
             relied.extend(f"{mid} via {owner}:{symbol}" for owner, symbol in sorted(sites))
+    # A flow's model protects every step: a real edit to a step's code selects it.
+    flow_lines = []
+    registered_ids = {entry.path: entry.id for entry in registry.entries}
+    for flow in data.get("flows", []):
+        if not flow.get("model"):
+            continue
+        for number, step in enumerate(flow.get("steps", []), 1):
+            cid, symbol, _ = flow_step_parts(step)
+            if cid not in by_id:
+                continue
+            owned = set(component_files(component_scope(data, by_id[cid]), inv))
+            hit = [f for f in changed if f in owned and f not in comment_only
+                   and (not symbol or f in inv.py and symbol in inv.py[f].symbols)]
+            if hit:
+                selected_model_paths.add(flow["model"])
+                tests.update(contract_tests.get(flow["model"], ()))
+                flow_lines.append(f"flow {flow['id']}: step {number} changed; model "
+                                  f"{registered_ids.get(flow['model'], flow['model'])}")
     top_model_files = [f for f in changed if Path(f).parent.as_posix() == ".flowguard/models" and f.endswith(".py")]
     importers = {f: tree.importers(f) for f in top_model_files}
     for f in top_model_files:
@@ -479,7 +498,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         map_changed=".flowguard/map.json" in changed, depth=depth,
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
-        comment_only=comment_only, relied_models=relied,
+        comment_only=comment_only, relied_models=relied, flow_models=flow_lines,
     )
 
 
@@ -501,6 +520,7 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
     if imp.comment_only:
         lines.append("comment-only edits (no tests or models selected): " + ", ".join(imp.comment_only))
+    lines.extend(imp.flow_models[:5])
     lines.extend("relies on: " + item for item in imp.relied_models[:5])
     if len(imp.relied_models) > 5:
         lines.append(f"relies on: +{len(imp.relied_models) - 5} more")

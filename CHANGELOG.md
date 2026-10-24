@@ -13,6 +13,7 @@
 - `read --component` shows `relies on:` lines: the models (and their rules) whose anchored code this component calls directly.
 - `change` also selects the models whose anchors a changed file calls directly.
 - A flow step can be written `component:Symbol reads <file>` for a command that reads a file an earlier step wrote; such steps are checked as command entrypoints instead of static call reach.
+- `read --component` lists the flows a component takes part in, with the flow's model and rules; `change` selects a flow's model when any step's file changes; `map lint` reports `flow_unmodeled` for a flow that crosses modeled code without a model.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

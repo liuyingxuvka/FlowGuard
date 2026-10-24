@@ -253,6 +253,29 @@ def _relied_lines(data, inv, raw, tree, facets, cid, limit=5):
     return lines
 
 
+def _flow_lines(data, tree, facets, cid, limit=5):
+    """``flows:`` lines: every flow with a step in this component's subtree, its model and rules."""
+    members = {c["id"] for c in component_subtree(data, cid)}
+    model_ids = {node.path: node.id for node in tree.nodes.values()}
+    lines = []
+    flows = [flow for flow in data.get("flows", [])
+             if any(flow_step_parts(step)[0] in members for step in flow.get("steps", []))]
+    for flow in flows[:limit]:
+        steps = flow.get("steps", [])
+        numbers = ", ".join(str(index) for index, step in enumerate(steps, 1) if flow_step_parts(step)[0] in members)
+        if flow.get("model"):
+            mid = model_ids.get(flow["model"], flow["model"])
+            fact = facets.get(mid)
+            rules = ", ".join(fact.rules) if fact is not None and fact.rule_count is not None and fact.rules else "?"
+            about = f"model {mid}: {rules}"
+        else:
+            about = "no model"
+        lines.append(f"  flows: {flow['id']} (step {numbers} of {len(steps)}; {about})")
+    if len(flows) > limit:
+        lines.append(f"  flows: +{len(flows) - limit} more")
+    return lines
+
+
 def _target_comparison(root, data, inv, target):
     view = build_target_view(root, data, target)
     # A target can turn an exact source into a test, or the reverse. Keep facts
@@ -390,6 +413,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
         if component or detail:
             body.extend(_dependency_lines(merged, inv, cid, graph, raw))
             body.extend(_relied_lines(merged, inv, raw, tree, model_data, cid))
+            body.extend(_flow_lines(merged, tree, model_data, cid))
         compact = [*body, *_model_lines(tree, ids, model_data, component=cid if component or detail else None,
                                         changes=changes, previous=old)]
         body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
@@ -488,6 +512,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                 lines.append("  uses: " + ", ".join(sorted(dependencies)))
         if component or detail:
             lines.extend(_relied_lines(data, inv, raw, tree, model_data, c["id"]))
+            lines.extend(_flow_lines(data, tree, model_data, c["id"]))
         declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))

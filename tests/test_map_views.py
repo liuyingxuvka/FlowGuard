@@ -1,4 +1,5 @@
 """Finite checks for the human/agent map views, including strict output budgets."""
+import json
 from pathlib import Path
 
 from flowguard.map.inventory import Inventory, PyInfo
@@ -957,3 +958,17 @@ def test_read_component_lists_the_rules_it_relies_on(tmp_path):
     assert "relies on: model lending (limit_respected, never_over_lent) via loans: LoanService.borrow" in cli, cli
     loans = render_show(root, data, inv, component="loans", detail=False, budget=8000)
     assert "relies on: model lending" not in loans
+
+
+def test_read_component_lists_its_flows_and_their_rules(tmp_path):
+    """Every component on a flow shows the flow, its step number, the flow's model and its rules."""
+    from test_flowguard_target import shelf_project
+    from flowguard.map.cli import _context
+
+    root = shelf_project(tmp_path)
+    data = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
+    data["flows"][0]["model"] = ".flowguard/models/lending.py"
+    (root / ".flowguard/map.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+    data, inv = _context(root)
+    members = render_show(root, data, inv, component="members", detail=False, budget=8000)
+    assert "flows: borrow (step 3 of 4; model lending: limit_respected, never_over_lent)" in members, members

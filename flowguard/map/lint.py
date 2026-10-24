@@ -359,6 +359,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(discovery_findings(raw, data, inv))
     covered_by_model, not_modeled = model_coverage(root, data, registry, view=view)
     tree = build_tree(root, data, inv, view=view)
+    out.extend(flow_unmodeled_findings(raw, data, inv, tree))
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
@@ -497,6 +498,37 @@ def discovery_findings(raw: dict, data: dict, inv) -> list:
                     out.append(Finding("info", "flow_step_unreached", cid,
                                        f"flow {flow['id']}: step {step} is not reached from earlier steps in the static call graph; verify or reorder"))
             earlier.update(nodes)
+    return out
+
+
+def flow_unmodeled_findings(raw: dict, data: dict, inv: Inventory, tree) -> list[Finding]:
+    """A flow without a model that crosses modeled code or reaches a durable effect."""
+    by_id = {comp["id"]: comp for comp in data["components"]}
+    out = []
+    for flow in data.get("flows", []):
+        if flow.get("model"):
+            continue
+        message = ""
+        for step in flow.get("steps", []):
+            cid, symbol, _ = flow_step_parts(step)
+            if cid not in by_id:
+                continue
+            models = tree.models_for_component(cid)
+            if models:
+                message = (f"flow {flow['id']} crosses {cid} (model {models[0].id}) but has no model; give the flow a "
+                           f'model, for example "model": "{models[0].path}"')
+                break
+            for path in component_files(by_id[cid], inv) if symbol else ():
+                if symbol in raw["files"].get(path, {}).get("functions", {}):
+                    effects = sorted(set(reachable_effects(raw, f"{path}#{symbol}")) & {"db", "network", "fs_write", "fs_delete"})
+                    if effects:
+                        message = (f"flow {flow['id']} reaches {effects[0]} in {cid} but has no model; give the flow a "
+                                   'model, for example "model": ".flowguard/models/<model>.py"')
+                        break
+            if message:
+                break
+        if message:
+            out.append(Finding("info", "flow_unmodeled", "", message))
     return out
 
 

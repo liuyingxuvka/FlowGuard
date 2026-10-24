@@ -1181,3 +1181,42 @@ def test_change_selects_models_whose_anchors_the_edit_calls(tmp_path, capsys):
     path.write_text(original + "# a comment only\n", encoding="utf-8")
     flowguard_cli.main(["change", "--root", str(root)])
     assert "models to run: -" in capsys.readouterr().out
+
+
+def test_change_selects_the_model_of_a_flow_whose_step_changed(impact_project):
+    """A flow's model protects every step: editing a step's file selects it, a comment does not."""
+    root, data = impact_project
+    write(root, "shop/jobs.py", "def run():\n    return 'done'\n")
+    write(root, ".flowguard/models/journey.py", 'MODEL_ID = "journey"\nCOMPONENTS = ["storage"]\n'
+          'IMPLEMENTED_BY = {"save": "shop/storage.py:save"}\ndef build_explorer(): pass\ndef conformance(): pass\n')
+    data["components"].append({"id": "jobs", "summary": "jobs", "responsibilities": ["run jobs"], "files": ["shop/jobs.py"],
+                               "entrypoints": ["shop/jobs.py:run"], "depends_on": [], "tests": [], "models": [],
+                               "status": "draft", "layer": data["components"][0].get("layer", "")})
+    data.setdefault("flows", []).append({"id": "chain", "summary": "store then run the job",
+                                         "steps": ["storage:save", "jobs:run reads out.json"],
+                                         "model": ".flowguard/models/journey.py"})
+    save(root, data)
+    git(root, "add", "-A")
+    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "flow chain")
+    from flowguard.map.impact import render_impact
+    path = root / "shop/jobs.py"
+    path.write_text("def run():\n    return 'finished'\n", encoding="utf-8")
+    impact = impact_of(root, data, ["shop/jobs.py"], base="HEAD")
+    assert "journey" in impact.model_ids, impact
+    assert "flow chain: step 2 changed; model journey" in render_impact(impact)
+    path.write_text("def run():\n    return 'done'\n# a comment\n", encoding="utf-8")
+    assert "journey" not in impact_of(root, data, ["shop/jobs.py"], base="HEAD").model_ids
+
+
+def test_flow_without_model_across_modeled_code_is_reported(tmp_path):
+    """flow_unmodeled: a flow crossing a modeled component has no model of its own."""
+    from flowguard.map.cli import _context
+    from flowguard.map.lint import run_lint
+    from test_flowguard_target import shelf_project
+
+    root = shelf_project(tmp_path)
+    data, inv = _context(root)
+    found = [f for f in run_lint(root, data, inv) if f.code == "flow_unmodeled"]
+    assert found and "borrow" in found[0].message and "lending" in found[0].message and found[0].level == "info"
+    data["flows"][0]["model"] = ".flowguard/models/lending.py"
+    assert not [f for f in run_lint(root, data, inv) if f.code == "flow_unmodeled"]

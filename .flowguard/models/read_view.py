@@ -32,6 +32,7 @@ TESTED_BY = {
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
     "components_in_layer_order": ["tests/test_map_views.py:test_read_orders_components_by_layer"],
     "relied_rules_shown": ["tests/test_map_views.py:test_read_component_lists_the_rules_it_relies_on"],
+    "component_flows_shown": ["tests/test_map_views.py:test_read_component_lists_its_flows_and_their_rules"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
                                  "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
@@ -135,6 +136,7 @@ class ReadCase:
     probe: str = ""
     layered: bool = False      # beta (last in map.json) sits in the upper layer "top", alpha in "low"
     relied: bool = False       # beta.py calls alpha.py:run, the anchor of read_probe; read --component beta
+    flowing: bool = False      # flow chain = beta:run -> alpha:run with model read_probe; read --component beta
 
 
 FEATURES = (
@@ -145,6 +147,8 @@ FEATURES = (
     Feature("large_component", False, (), lambda case: replace(case, component="alpha")),
     Feature("late_upper_component", False, (), lambda case: replace(case, layered=True)),
     Feature("relied_component", False, (), lambda case: replace(case, relied=True, component="beta"),
+            conflicts=("large_component",)),
+    Feature("component_in_flow", False, (), lambda case: replace(case, flowing=True, component="beta"),
             conflicts=("large_component",)),
     # Rules from a _helper module, a wrapper function, and known-bad built by loops: read
     # and read --component alpha are both observed.
@@ -225,6 +229,16 @@ def _relied(observation):
     return any(line.strip() == RELIED_LINE for line in observation.text.splitlines())
 
 
+FLOW_LINE = "flows: chain (step 1 of 2; model read_probe: stable, works)"
+
+
+def _flows(observation):
+    """read --component X lists each flow with a step in X, with the flow's model and its rules."""
+    if not observation.case.flowing or "shortened" in observation.text or "truncated" in observation.text:
+        return True
+    return any(line.strip() == FLOW_LINE for line in observation.text.splitlines())
+
+
 def _layer_order(observation):
     """Top-level components appear top-down by layer; within a layer the map.json order holds."""
     if not observation.case.layered:
@@ -251,6 +265,8 @@ RULES = (
               lambda state, trace: _static(state)),
     Invariant("relied_rules_shown", "read --component X lists the other components' model rules X's code calls",
               lambda state, trace: _relied(state)),
+    Invariant("component_flows_shown", "read --component X lists the flows that have a step in X, with model and rules",
+              lambda state, trace: _flows(state)),
     Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
               lambda state, trace: _layer_order(state)),
     Invariant("focused_component_visible", "read --component X fits the budget and always shows X's heading and five facets",
@@ -283,9 +299,10 @@ def _abstract(case, file_order=False):
                 "## alpha [-] 1 files/1 loc, 0 rules\n  purpose: Serve alpha\n" + "\n".join(details))
         runtime = tuple((mid, tuple(n for n, _ in rules), bads) for mid, rules, bads, _keys in PROBE_TRUTH[case.probe])
         return ReadObservation(case, text, runtime=runtime)
-    if case.relied:
+    if case.relied or case.flowing:
         text = ("## beta [-] 1 files/2 loc, 0 rules\n  purpose: Serve beta\n  rules: -\n  known-bad: -\n"
-                "  code: 1 files/2 loc\n  tests: -\n  uses alpha: run\n  " + RELIED_LINE)
+                "  code: 1 files/2 loc\n  tests: -" + ("\n  uses alpha: run\n  " + RELIED_LINE if case.relied else "")
+                + ("\n  " + FLOW_LINE if case.flowing else ""))
         return ReadObservation(case, text)
     if case.component:
         purpose = "(no summary yet)" if case.missing_summary else "Serve alpha"
@@ -330,6 +347,8 @@ class Show:
             observed = replace(observed, text=text)
         elif self.fault == "kit_hidden" and case.probe == "kit":
             observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
+        elif self.fault == "hide_flows" and case.flowing:
+            observed = replace(observed, text=observed.text.replace("\n  " + FLOW_LINE, ""))
         elif self.fault == "hide_relied" and case.relied:
             observed = replace(observed, text=observed.text.replace("\n  " + RELIED_LINE, ""))
         elif self.fault == "map_file_order" and case.layered:
@@ -357,7 +376,8 @@ def broken_variants():
             "counts_tested_by_keys": _explorer("tested_by_keys"),
             "kit_known_bad_hidden": _explorer("kit_hidden"),
             "map_file_order": _explorer("map_file_order"),
-            "hides_relied_rules": _explorer("hide_relied")}
+            "hides_relied_rules": _explorer("hide_relied"),
+            "hides_component_flows": _explorer("hide_flows")}
 
 
 def _files():
@@ -420,7 +440,9 @@ def _review(template, case):
         if case.relied:
             _write(root, "beta.py", "import alpha\ndef run(): return alpha.run()\n")
             components[1]["depends_on"] = ["alpha"]       # with layers, beta ("top") may use alpha ("low")
-        data = dict(project="read fixture", layers=["top", "low"] if case.layered else [], components=components, flows=[])
+        flows = [dict(id="chain", summary="beta then alpha", steps=["beta:run", "alpha:run"],
+                      model=".flowguard/models/read_probe.py")] if case.flowing else []
+        data = dict(project="read fixture", layers=["top", "low"] if case.layered else [], components=components, flows=flows)
         inv = build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
         for relative, source in PROBE_FILES.get(case.probe, {}).items():
             _write(root, relative, source)

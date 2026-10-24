@@ -19,6 +19,7 @@
 | `entrypoint_unmodeled` | warn | a listed precise route/command/console script/handler (excluding argparse), or a listed entrypoint reaching `db`, `network`, `fs_write` or `fs_delete`, lacks a model anchor or `NOT_MODELED` reason; `check` and `change` print it too | model it, declare it in a model's `NOT_MODELED` with a reason, or accept it as a debt |
 | `model_writer_unbound` | warn | an unanchored function in the same file writes state already covered by a model; check, change and lint show it | add its real anchor to IMPLEMENTED_BY or record a NOT_MODELED reason; accepted debts use the usual matching rules |
 | `debt_stale` | warn | an `accepted_debts` entry matches no current finding | delete the debt |
+| `flow_unmodeled` | info | a flow without `model` crosses a component that has a model, or a step reaches `db`, `network`, `fs_write` or `fs_delete` | give the flow a model (an existing one is enough) |
 | `flow_handoff_not_entrypoint` | info | a flow step `component:Symbol reads <file>` names a symbol that is not in the component's `entrypoints` | list the command in `entrypoints` (it runs on its own) or write the step as a call |
 
 Limits can be changed per run: `--max-file-loc 1200` etc.
