@@ -2,7 +2,7 @@
 
   read      [--root R] [--component ID | --find WORDS...]   understand the software (business data read-only; disposable caches may update)
   change    [--root R] [--base REF] [FILES...]               after editing: check the map, list what to run
-  release   [--root R]                                       release gate: strict check + lint errors + all models
+  release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
   template  [--list | NAME [--write DIR] [--force]]          starter model files for one capability
   target    start "<goal>" | add <id> | check | promote | drop   plan a change as a target model, check the code against it, promote it
@@ -40,6 +40,9 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
     elif verb == "change":
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
+    elif verb == "release":
+        p.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
+                       help="after normal checks pass, run the whole suite in 1–32 parallel shards")
     return p
 
 
@@ -143,7 +146,7 @@ def main(argv: list[str] | None = None) -> int:
         except (MapError, RuntimeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-    return map_main([*root, "verify"])
+    return map_main([*root, "verify", *(["--shards", str(ns.shards)] if ns.shards is not None else [])])
 
 
 if __name__ == "__main__":

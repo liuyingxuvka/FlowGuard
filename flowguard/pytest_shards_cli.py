@@ -183,7 +183,7 @@ def _blocked_payload(
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": "blocked",
         "ok": False,
-        "claim_scope": "full",
+        "scope": "full",
         "claim_boundary": (
             "The pytest owner is finite and exact-node-id based, but this run "
             "did not produce a complete terminal shard observation."
@@ -252,7 +252,7 @@ def _core_scope_partition(
         else:
             runnable.append(nodeid)
     return {
-        "claim_scope": "scoped-core",
+        "scope": "scoped-core",
         "source_planned_nodeids": list(nodeids),
         "planned_nodeids": runnable,
         "runnable_nodeids": runnable,
@@ -797,7 +797,7 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
         "schema_version": "flowguard.pytest_shard_run.v1",
         "status": status,
         "ok": status == "pass",
-        "claim_scope": "scoped-core" if capability_scope == "core" else "full",
+        "scope": "scoped-core" if capability_scope == "core" else "full",
         "claim_boundary": (
             "This owner executes one exact collected pytest inventory through a "
             "fixed finite node-id partition. It does not prove tests outside "

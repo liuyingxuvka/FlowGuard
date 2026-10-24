@@ -24,6 +24,7 @@ def test_partition_is_finite_disjoint_and_stable_when_unrelated_nodes_are_added(
     expanded = partition_nodeids(nodeids + ("tests/test_new.py::test_new",), 4)
 
     assert first == second
+    assert len(first) <= 4
     assert validate_partition(nodeids, first)["exact_union"] is True
     assert all(set(left).isdisjoint(right) for index, left in enumerate(first) for right in first[index + 1 :])
     owners = {

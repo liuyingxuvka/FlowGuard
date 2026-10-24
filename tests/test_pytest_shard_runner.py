@@ -91,7 +91,7 @@ def test_core_scope_excludes_platform_nodes_without_needing_a_probe():
         },
     )
 
-    assert result["claim_scope"] == "scoped-core"
+    assert result["scope"] == "scoped-core"
     assert result["runnable_nodeids"] == [core]
     assert result["excluded_nodeids"] == [path]
     assert result["excluded_reasons"][path] == [
@@ -371,3 +371,111 @@ def test_inaccessible_process_inventory_does_not_claim_cleanup(monkeypatch):
     monkeypatch.setattr(runner.Path, "iterdir", lambda self: (_ for _ in ()).throw(PermissionError()))
     monkeypatch.setattr(runner.os, "killpg", lambda *args: None)
     assert runner._group_active(12345)
+
+
+def test_release_runs_the_whole_suite_in_shards(tmp_path):
+    """Whole-suite nodes run once per shard invocation; TESTED_BY remains a separate phase."""
+    from collections import Counter
+
+    from flowguard.templates import validator_template_files, write_template_files
+
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "shop").mkdir()
+    log = tmp_path / "executions.jsonl"
+    (root / "shop/orders.py").write_text(
+        "def place(order_id, amount):\n"
+        "    if not isinstance(order_id, str) or not order_id or not isinstance(amount, int):\n"
+        "        raise ValueError('bad input')\n"
+        "    return 'placed'\n", encoding="utf-8")
+    tests = root / "shop/test_orders.py"
+    tests.write_text(
+        "import json\nimport os\nfrom pathlib import Path\nimport pytest\nfrom shop.orders import place\n\n"
+        "def record():\n"
+        "    phase = 'suite' if os.environ.get('FLOWGUARD_PYTEST_SHARD_NODEIDS') else 'binding'\n"
+        "    node = os.environ['PYTEST_CURRENT_TEST'].rsplit(' (', 1)[0]\n"
+        "    with Path(os.environ['FLOWGUARD_RELEASE_TEST_LOG']).open('a', encoding='utf-8') as stream:\n"
+        "        stream.write(json.dumps({'phase': phase, 'node': node}) + '\\n')\n\n"
+        "def test_place_rejects_bad_input():\n"
+        "    record()\n"
+        "    assert place('o1', 5) == 'placed'\n"
+        "    for order_id, amount in ((None, 5), ('', 5), ('o1', None)):\n"
+        "        with pytest.raises(ValueError):\n            place(order_id, amount)\n\n"
+        "def test_first():\n    record()\n    assert place('o2', 6) == 'placed'\n\n"
+        "def test_second():\n    record()\n    assert place('o3', 7) == 'placed'\n\n"
+        "def test_third():\n    record()\n    assert place('o4', 8) == 'placed'\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+    files = validator_template_files()
+    write_template_files(root, files)
+    for file in files:
+        path = root / file.path
+        source = path.read_text(encoding="utf-8").replace("REPLACE_ME", "shop")
+        path.write_text(source, encoding="utf-8")
+    data = {"schema": "flowguard.map.v1", "project": "release-shards", "components": [{
+        "id": "orders", "summary": "Validate order inputs", "responsibilities": ["reject invalid order inputs"],
+        "files": ["shop/orders.py"], "entrypoints": ["shop/orders.py:place"],
+        "tests": ["shop/test_orders.py"], "models": [files[0].path], "depends_on": [], "status": "draft"}]}
+    map_path = root / ".flowguard/map.json"
+    map_path.write_text(json.dumps(data), encoding="utf-8")
+    env = os.environ.copy()
+    for control in ("FLOWGUARD_PYTEST_COLLECTION_NODEIDS", "FLOWGUARD_PYTEST_SHARD_NODEIDS",
+                    "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS"):
+        env.pop(control, None)
+    env["PYTHONPATH"] = str(Path(shard_runner.__file__).resolve().parents[1]) + os.pathsep + env.get("PYTHONPATH", "")
+    env["FLOWGUARD_RELEASE_TEST_LOG"] = str(log)
+
+    def invoke(*args):
+        return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(root)],
+                              cwd=root, env=env, text=True, capture_output=True, check=False)
+
+    confirmed = subprocess.run([sys.executable, "-m", "flowguard", "map", "--root", str(root), "confirm", "all"],
+                               cwd=root, env=env, text=True, capture_output=True, check=False)
+    assert confirmed.returncode == 0, confirmed.stdout + confirmed.stderr
+    expected = {"shop/test_orders.py::" + name for name in (
+        "test_place_rejects_bad_input", "test_first", "test_second", "test_third")}
+    bound = "shop/test_orders.py::test_place_rejects_bad_input"
+
+    def records():
+        return [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+
+    def assert_phases():
+        observed = records()
+        assert Counter(row["node"] for row in observed if row["phase"] == "suite") == Counter(expected)
+        # The real bound test calls place under testreach, separately from its one whole-suite call.
+        assert Counter(row["node"] for row in observed if row["phase"] == "binding") == Counter({bound: 1})
+
+    env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-pass")
+    passed = invoke("release", "--shards", "2")
+    output = passed.stdout + passed.stderr
+    assert passed.returncode == 0, output
+    assert "suite: status: pass  executed 4 of 4" in output and "verify: PASS" in output
+    assert output.index("suite: ") < output.index("verify: PASS")
+    assert_phases()
+    aggregate = json.loads((tmp_path / "suite-pass/aggregate.json").read_text(encoding="utf-8"))
+    assert aggregate["partition"]["exact_union"] and aggregate["partition"]["disjoint"]
+    assert set(aggregate["pytest_execution"]["node_ids"]) == expected
+    assert aggregate["executed_count"] == 4 and aggregate["pytest_execution"]["selected"] == 4
+
+    tests.write_text(tests.read_text(encoding="utf-8").replace(
+        "assert place('o4', 8) == 'placed'", "assert place('o4', 8) == 'wrong'"), encoding="utf-8")
+    log.write_text("", encoding="utf-8")
+    env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-fail")
+    failed = invoke("release", "--shards", "2")
+    output = failed.stdout + failed.stderr
+    assert failed.returncode == 1, output
+    assert "suite: status: fail  executed 4 of 4" in output and "verify: FAIL" in output
+    assert_phases()
+    aggregate = json.loads((tmp_path / "suite-fail/aggregate.json").read_text(encoding="utf-8"))
+    assert aggregate["pytest_execution"]["failed"] == 1 and aggregate["executed_count"] == 4
+
+    data = json.loads(map_path.read_text(encoding="utf-8"))
+    data["components"][0]["status"] = "draft"
+    map_path.write_text(json.dumps(data), encoding="utf-8")
+    log.write_text("", encoding="utf-8")
+    env["FLOWGUARD_PYTEST_SHARDS_DIR"] = str(tmp_path / "suite-not-run")
+    blocked = invoke("release", "--shards", "2")
+    output = blocked.stdout + blocked.stderr
+    assert blocked.returncode == 1, output
+    assert "suite: not run (fix the failures above first)" in output and "verify: FAIL" in output
+    assert not (tmp_path / "suite-not-run").exists()
+    assert all(row["phase"] == "binding" for row in records())

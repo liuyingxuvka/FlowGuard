@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -306,8 +307,23 @@ def cmd_verify(root: Path, a) -> int:
     if not complete:
         print(f"model execution mismatch: missing={sorted(expected - set(executed))}, unexpected={sorted(set(executed) - expected)}")
     failed = check["error"] + lint["error"] + sum(r.status != "pass" for r in results) + int(not complete) + int(bool(uncovered))
-    print(f"verify: {'PASS' if not failed else 'FAIL'}"
-           f" (only TESTED_BY tests ran; run {data.get('test_command') or 'python -m pytest -q'} separately for the full suite)")
+    if a.shards is not None:
+        if failed:
+            print("suite: not run (fix the failures above first)")
+        else:
+            suite = subprocess.run(
+                [sys.executable, "-m", "flowguard.pytest_shards_cli", "--root", str(root),
+                 "--shards", str(a.shards)], capture_output=True, text=True,
+            )
+            for line in suite.stdout.splitlines():
+                print(f"suite: {line}")
+            for line in suite.stderr.splitlines():
+                print(f"suite: {line}", file=sys.stderr)
+            failed += int(suite.returncode != 0)
+        print(f"verify: {'PASS' if not failed else 'FAIL'}")
+    else:
+        print(f"verify: {'PASS' if not failed else 'FAIL'}"
+              " (only TESTED_BY tests ran; run the whole suite with python -m flowguard release --shards 4, or in CI)")
     return 1 if failed else 0
 
 
@@ -349,6 +365,8 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
     s.add_argument("--timeout", type=int, default=300, help="seconds per model")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
+    s.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
+                   help="after normal checks pass, run the whole suite in 1–32 parallel shards")
     for command in sub.choices.values():   # --root is accepted before or after the command
         command.add_argument("--root", default=argparse.SUPPRESS, help="project root (default: current directory)")
     return p

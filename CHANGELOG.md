@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `python -m flowguard release --shards N` now runs the whole test suite in parallel after normal checks pass, verifying that every collected test runs once within that suite. Failed prechecks skip it; omitting `--shards` keeps the whole suite optional. Shard JSON results use `scope`.
+
 - The `validator` template and `flowguard.validator` preserve finite bad-case generation, bounded combinations, stable case ids and execution against the real function. Default input/payload cases now include old schema versions and conflicting identities. The separate contract-exhaustion engine, routes, handoffs, coverage universes and confidence are retired.
 
 - UI journeys now use the `ui-journey` template and `flowguard.ui_flow`, with automatic recovery, destructive-action, dialog-close and reachability rules. The `ui-flow` alias remains; other UI review knowledge is preserved as eight groups of manual review questions in the recipe.

@@ -63,7 +63,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | model-mesh | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `child_outside_parent`; `flowguard.closure` for handoffs between children) |
 | model-test | checking rules, code and tests against one another | the tests facet (`python -m flowguard read --component <id>`) and `python -m flowguard map models --tests` (`invariant_untested`, `tested_by_failed`, `tested_by_misses_anchor`); `references/model_recipes.md#Run the bound tests` |
 | topology-hazard | reviewing shared writers, repeated effects and future-use hazards | computed facet: `hazard:` lines under each model in `python -m flowguard map models` (`references/model_recipes.md#Hazards`) |
-| test-mesh | sharding a suite too slow for one command | `references/domains/test-mesh/protocol.md` |
+| test-mesh | sharding a suite too slow for one command | tool: `python -m flowguard release --shards 4` (whole suite in parallel shards; every collected test runs exactly once within that suite) |
 | ui-flow | UI states, journeys, controls, cancel/recover and operability | node kind `ui-journey` (`python -m flowguard template ui-journey`; checklist `references/model_recipes.md#UI journey`) |
 
 Read only the matching protocol, not a chain of them. `python -m flowguard template --list`, then `python -m flowguard template <name> --write .` supplies starters; otherwise use plain modeling in `references/model_recipes.md`.
@@ -75,7 +75,7 @@ Use `references/first_map.md`: scan -> digest -> describe -> deps -> check -> co
 
 ## Architecture review and release
 
-Use `python -m flowguard map lint` (`references/architecture_review.md`). Routine checkpoints run the affected tests/models from `change`. At final release, freeze source and run `python -m flowguard release` and the full suite once on that revision; same-SHA CI can provide this evidence.
+Use `python -m flowguard map lint` (`references/architecture_review.md`). Routine checkpoints run the affected tests/models from `change`. At final release, freeze source and run `python -m flowguard release --shards 4` once on that revision, or use successful CI for that exact source SHA.
 
 ## Honesty rules
 

@@ -118,7 +118,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory",
+        "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
@@ -155,7 +155,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f0d87ca2a7da120b6ee8d6670a2dd12db0daed8f0515fbdc009d5d6304f8cb41"
+      "fingerprint": "sha256:a2108bd9990952ac775e08177c1f23328b969e036a9764eba14cc6e566a37e00"
     },
     {
       "id": "public-api",
@@ -221,9 +221,9 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Collects exact test IDs, runs bounded pytest shards and reports ordinary test results.",
+      "summary": "Release tool: collect exact pytest IDs, run bounded parallel shards and derive complete native execution outcomes.",
       "responsibilities": [
-        "shard tests by exact node id; every shard runs on every invocation",
+        "shard tests by exact node id; every shard runs on every invocation; the optional release whole-suite phase uses the same native shard runner and verifies each collected test ran exactly once within that suite",
         "retain typed capability blockers and bounded process cleanup results"
       ],
       "files": [
@@ -235,7 +235,8 @@
         "flowguard/symlink_capability.py"
       ],
       "entrypoints": [
-        "flowguard/pytest_shards.py:partition_nodeids"
+        "flowguard/pytest_shards.py:partition_nodeids",
+        "flowguard/pytest_shards_cli.py:main"
       ],
       "state": [
         "test collection and shard outcomes"
@@ -252,7 +253,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a2d32126a9fac2f222d90e60cb95bdab231e39298cddde137d3c7257d474a9a5"
+      "fingerprint": "sha256:a550daaea33bcc0f3dfdf6431069c8547411f9d5f284b6a31c016913d216d30e"
     },
     {
       "id": "map-inventory",
