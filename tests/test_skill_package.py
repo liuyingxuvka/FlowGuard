@@ -1,4 +1,4 @@
-"""The public skill: one entry, one short protocol per capability, real commands only."""
+"""The public skill: one entry, one model tree, real commands and references."""
 
 from __future__ import annotations
 
@@ -19,7 +19,6 @@ CAPABILITIES = (
     "contract-exhaustion", "field-lifecycle", "model-mesh",
     "model-test", "topology-hazard", "test-mesh", "ui-flow",
 )
-SECTIONS = ("## Use when", "## Do not use when", "## Inputs", "## Steps", "## What blocks", "## Done when", "## Limits")
 
 
 def _parse_documented_command_arguments(command: str) -> None:
@@ -53,11 +52,6 @@ class SkillPackageTests(unittest.TestCase):
         self.assertEqual(1, text.splitlines().count("## The tree"))
         for retired in ("## Binding", "L0 ", "L1:", "L2", "keep runners"):
             self.assertNotIn(retired, text)
-        for path in sorted((SKILL / "references" / "domains").glob("*/protocol.md")):
-            with self.subTest(protocol=path.parent.name):
-                lines = path.read_text(encoding="utf-8").splitlines()
-                self.assertTrue(any(line.startswith("Tree operation:") for line in lines[:3]))
-
         self.assertNotIn("DESIGN_ONLY", text)
         self.assertNotIn("10 capability reviews", text)
         for required in ("## Change behaviour or structure: target first", "## Change code only",
@@ -88,9 +82,7 @@ class SkillPackageTests(unittest.TestCase):
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
             self.assertIn("git+https://github.com/liuyingxuvka/FlowGuard.git", path.read_text(encoding="utf-8"))
         markdown = subprocess.check_output(["git", "ls-files", "-z", "--", "*.md"], cwd=ROOT).decode("utf-8")
-        paths = [ROOT / relative for relative in filter(None, markdown.split("\0"))
-                 if not re.fullmatch(r"\.agents/skills/flowguard/references/domains/[^/]+/protocol\.md", relative)]
-        paths.extend(sorted((SKILL / "references" / "domains").glob("*/protocol.md")))
+        paths = [ROOT / relative for relative in filter(None, markdown.split("\0"))]
         for path in paths:
             self.assertIsNone(re.search(r"\bpip\s+install\s+flowguard(?=\s|$)",
                                         path.read_text(encoding="utf-8"), re.M), path.relative_to(ROOT).as_posix())
@@ -137,19 +129,10 @@ class SkillPackageTests(unittest.TestCase):
                         places += 1
                 self.assertGreater(places, 0, cells[2])
 
-    def test_every_capability_has_a_short_complete_protocol(self) -> None:
-        for path in sorted((SKILL / "references" / "domains").glob("*/protocol.md")):
-            with self.subTest(name=path.parent.name):
-                text = path.read_text(encoding="utf-8")
-                self.assertLessEqual(len(text.splitlines()), 130)
-                for section in SECTIONS:
-                    self.assertIn(section, text)
-
-    def test_template_names_in_protocols_exist(self) -> None:
+    def test_template_names_in_references_exist(self) -> None:
         listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,
                                 capture_output=True, text=True, check=True).stdout.split()
-        docs = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md")),
-                *sorted((SKILL / "references" / "domains").glob("*/protocol.md"))]
+        docs = [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md"))]
         for path in docs:
             for name in re.findall(r"python -m flowguard template ([a-z][a-z-]+)", path.read_text(encoding="utf-8")):
                 with self.subTest(document=path.relative_to(SKILL).as_posix(), template=name):

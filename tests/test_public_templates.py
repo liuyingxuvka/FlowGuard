@@ -39,28 +39,6 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
-    def run_written_template(self, files, run_dir_parts, expected_returncode=0, fill=True):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            write_template_files(root, files)
-            if fill:        # name real code where the template ships REPLACE_ME placeholder anchors
-                for path in root.rglob("*"):
-                    if path.is_file() and "REPLACE_ME" in path.read_text(encoding="utf-8"):
-                        path.write_text(path.read_text(encoding="utf-8").replace("REPLACE_ME", "app"), encoding="utf-8")
-                (root / "app").mkdir()
-                (root / "app/module.py").write_text("class Owner:\n    pass\n", encoding="utf-8")
-                (root / "app/request.py").write_text("def parse_request(data):\n    return data\n", encoding="utf-8")
-            result = subprocess.run(
-                [sys.executable, "run_checks.py"],
-                cwd=root.joinpath(*run_dir_parts),
-                env=_template_env(),
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-        self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
-        return result.stdout
-
     def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None, components=None):
         """Write a model-kit template into a tiny git project, list it in the map and run it.
 
