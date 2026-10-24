@@ -25,6 +25,22 @@
 
 Limits can be changed per run: `--max-file-loc 1200` etc.
 
+## Review view
+
+`python -m flowguard read --review` (same as `map show --review`) ranks what `map lint` finds, read-only and without running models:
+header (components, models, flows; errors, warnings, accepted debts), `strengths:` (only claims that hold), `defects:` (one line per
+ERROR/WARN code, INFO as one count), a `components:` table (files/loc, duties, uses/used-by, models with rules/known-bad, bound/test
+functions, unexplained), `optimise next:` (top five) and `debts:`. Ranking, highest weight first (ties: larger size, then id):
+
+| candidate | weight | step |
+| --- | --- | --- |
+| any lint ERROR | 1000 | `fix <code>`, this file |
+| hub: used by >= 3, uses >= 3, and >= 1500 loc or >= 7 duties | 500 | `split`, `references/tree_operations.md#Add or split a component` |
+| `entrypoint_unmodeled`, `model_writer_unbound` / `foreign_state_write`, `private_cross_component_use` | 300 | `model` (template) / `move` |
+| unexplained entrypoints and state writers (200 + count); state or effects with no model (150); other WARN (100); flow with no model (80); models with 0 bound tests (60); `never_imported` (50) | | `explain`, `model`, `<code>`, `model flow`, `bind tests`, `delete or list` |
+
+Accepted debts are not ranked. Make each step a target. The `read` header counts only warnings that need no code scan (`large_file`, `large_component`, `too_many_responsibilities`, `high_fan_out`, `untested_component`); `read --review` and `map lint` count all.
+
 The `entrypoint_*`, `effects_undeclared`, `never_imported`, `foreign_state_write` and `model_writer_unbound` rows come from discovery (`python -m flowguard map discover` shows the raw
 facts per component: entrypoints, side-effect counts, which effects each entrypoint can
 reach, and which functions write each state attribute). Discovery is static: direct constructor assignments and `parameter or Class(...)` in `__init__`

@@ -18,6 +18,8 @@
 - `map check` and `change` now report `duplicate_owner` every day, not only `map lint` and `release`.
 - Hazard hints match whole words, are deduplicated, show at most three open hints per model plus one summary line, and close themselves when a known-bad variant or an invariant already covers them (`map models <id> --hazards` lists all).
 - The coverage line counts explanations by model, test and `NOT_MODELED` reason; `change` lists unexplained entrypoints and state writers in the files you changed; the tests facet suggests unbound tests that already mention a model's anchor.
+- `python -m flowguard read --review` shows per-component metrics, strengths, defects and a ranked list of what to optimise next, each with its recipe.
+- The `read` header counts size and test warnings.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
@@ -27,6 +29,7 @@
 - Projects using FlowGuard: `map check` (and CI) fails when two components claim the same responsibility, state or side effect; no project has one today.
 - Projects using FlowGuard: far fewer hazard lines per model (at most three open hints plus one summary line; no `+N more`).
 - Projects using FlowGuard: the coverage line format changes (tools that parse it must read the new form).
+- Projects using FlowGuard: the first `read` line now also prints a warning count.
 
 ## v0.70.11 - 2026-10-24 - One model tree for current and target work
 

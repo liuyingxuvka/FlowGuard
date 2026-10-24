@@ -21,8 +21,8 @@ def test_show_budget_keeps_flows_and_names_hidden_components(tmp_path):
     inv = _inventory(tmp_path)
     full = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert '> flow checkout' in full and 'truncated' not in full
-    bounded = render_show(tmp_path, data, inv, component=None, detail=False, budget=330)
-    assert len(bounded) <= 330
+    bounded = render_show(tmp_path, data, inv, component=None, detail=False, budget=390)
+    assert len(bounded) <= 390
     assert '> flow checkout' in bounded and 'not shown:' in bounded
     for budget in (0, 20, 80, 100, 400):
         assert len(render_show(tmp_path, data, inv, component=None, detail=False, budget=budget)) <= budget
@@ -108,7 +108,7 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
     monkeypatch.setattr(lint, 'run_lint', forbidden)
     monkeypatch.setattr(proof, 'run_models', forbidden)
     text = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    assert text.startswith('# demo: system, 3 components, layers (top > bottom) entry > domain; architecture: 1 error(s), 1 accepted debt(s)')
+    assert text.startswith('# demo: system, 3 components, layers (top > bottom) entry > domain; architecture: 1 error(s), 3 warning(s), 1 accepted debt(s); python -m flowguard read --review ranks them')
     lines = text.splitlines()
     parent = next(line for line in lines if 'model parent:' in line)
     child = next(line for line in lines if 'model child:' in line)
@@ -120,7 +120,7 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
     assert 'model parent:' in detail and '(home app)' in detail
     assert 'works -> tests/test_app.py:test_run' in detail
     data['accepted_debts'].append(dict(code='dependency_cycle', members=['app', 'store'], reason='Exact scope'))
-    assert '1 error(s), 2 accepted debt(s)' in render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert '1 error(s), 3 warning(s), 2 accepted debt(s)' in render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
 
 
 def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
@@ -652,7 +652,7 @@ def build_explorer(): return Explorer(Workflow(()), (0,), (), invariants=RULES)
 def broken_variants(): return {"one": None, "two": None}
 ''')
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
-    for budget, missing in ((8000, False), (8000, True), (360, True)):
+    for budget, missing in ((8000, False), (8000, True), (420, True)):
         components = [dict(_component(cid, summary=("Serve " + cid) * 30), files=[cid + ".py"],
                            tests=["tests/test_alpha.py"] if cid == "alpha" else [], models=[])
                       for cid in ("alpha", "beta")]
@@ -661,7 +661,7 @@ def broken_variants(): return {"one": None, "two": None}
         data = dict(project="read fixture", layers=[], components=components, flows=[])
         output = render_show(tmp_path, data, inv, component=None, detail=False, budget=budget)
         assert len(output) <= budget
-        if budget == 360:
+        if budget == 420:
             notice = next(line for line in output.splitlines() if "truncated" in line and "not shown:" in line)
             assert "alpha" in notice.partition("not shown:")[2] and "beta" in notice.partition("not shown:")[2]
         else:
@@ -1014,3 +1014,82 @@ def test_tests_facet_lists_bindable_tests(tmp_path):
     detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
     tests = next(line for line in detail.splitlines() if line.strip().startswith("tests:") and "functions" in line)
     assert "bindable: tests/test_app.py:test_unbound_run -> model app_model (mentions run)" in tests, tests
+
+
+def _review_project(tmp_path, *, clean=False):
+    """A cycle (ERROR), a hub (used by 3, uses 3, 7 duties), an unexplained writer, a flow with no model."""
+    files = {
+        'hub.py': 'import lib1\nimport lib2\nimport lib3\ndef run(): return lib1.run() and lib2.run() and lib3.run()\n',
+        'lib1.py': 'class Box:\n    def put(self, value):\n        self.value = value\ndef run(): return Box()\n',
+        'lib2.py': 'def run(): return True\n', 'lib3.py': 'def run(): return True\n',
+        'u1.py': 'import hub\ndef run(): return hub.run()\n', 'u2.py': 'import hub\ndef run(): return hub.run()\n',
+        'u3.py': 'import hub\ndef run(): return hub.run()\n',
+        'app.py': 'import store\ndef run(): return store.save()\n', 'store.py': 'import app\ndef save(): return True\n',
+        '.flowguard/models/probe.py': ('from pathlib import Path\n'
+                                       'Path(__file__).parents[2].joinpath("model_import.marker").write_text("imported")\n'
+                                       'MODEL_ID = "probe"\nCOMPONENTS = ["lib2"]\nIMPLEMENTED_BY = {"Run": "lib2.py:run"}\n'
+                                       'def build_explorer(): pass\ndef broken_variants(): return {"bad": None}\n'),
+    }
+    if clean:
+        files = {'app.py': 'import store\ndef run(): return store.save()\n', 'store.py': 'def save(): return True\n',
+                 'tests/test_app.py': 'from app import run\ndef test_run(): assert run()\n'}
+    for path, text in files.items():
+        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / path).write_text(text)
+    if clean:
+        components = [dict(_component('app', summary='Serve app'), files=['app.py'], depends_on=['store'],
+                           tests=['tests/test_app.py'], layer='entry'),
+                      dict(_component('store', summary='Store'), files=['store.py'], tests=['tests/test_app.py'], layer='domain')]
+        return dict(project='clean', layers=['entry', 'domain'], components=components)
+    duties = [f'serve hub duty {word}' for word in ('one', 'two', 'three', 'four', 'five', 'six', 'seven')]
+    components = [dict(_component(cid), files=[cid + '.py']) for cid in ('app', 'store', 'hub', 'lib1', 'lib2', 'lib3', 'u1', 'u2', 'u3')]
+    by_id = {c['id']: c for c in components}
+    by_id['app']['depends_on'], by_id['store']['depends_on'] = ['store'], ['app']
+    by_id['hub']['depends_on'], by_id['hub']['responsibilities'] = ['lib1', 'lib2', 'lib3'], duties
+    for cid in ('u1', 'u2', 'u3'):
+        by_id[cid]['depends_on'] = ['hub']
+    return dict(project='demo', components=components, flows=[dict(id='trip', steps=['u1:run', 'hub:run'])])
+
+
+def test_review_ranks_defects_and_states_true_strengths(tmp_path):
+    import sys
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.review import render_review
+
+    data = _review_project(tmp_path)
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
+    text = render_review(tmp_path, data, inv, budget=8000)
+    lines = text.splitlines()
+    assert lines[0].startswith('# demo review: 9 components, 2 models (with system), 1 flows; architecture: 1 error(s)')
+    strengths = next(line for line in lines if line.startswith('strengths: '))
+    assert 'no dependency cycles' not in strengths and 'every flow has a model' not in strengths
+    assert 'every state writer explained' not in strengths and 'no layer violations' in strengths
+    assert any(line.startswith('  ERROR dependency_cycle x1: ') for line in lines)
+    steps = lines[lines.index('optimise next:') + 1:]
+    numbered = [line for line in steps if line.lstrip()[:2].rstrip('.').isdigit()]
+    assert numbered[0].startswith('  1. fix dependency_cycle ')
+    split = next(index for index, line in enumerate(numbered) if 'split hub: hub (used by 3, uses 3, 7 duties' in line)
+    explain = next(index for index, line in enumerate(numbered) if 'explain lib1' in line)
+    assert split < explain
+    assert all('references/' in line or 'python -m flowguard' in line for line in steps)
+    assert len(text) <= 8000
+    assert not (tmp_path / 'model_import.marker').exists()
+    assert not any(getattr(module, '__file__', None) and str(tmp_path) in str(module.__file__)
+                   for module in list(sys.modules.values()))
+    small = render_review(tmp_path, data, inv, budget=1500)
+    assert len(small) <= 1500 and 'more components (python -m flowguard read)' in small and 'optimise next:' in small
+
+
+def test_review_of_a_clean_project_lists_its_strengths(tmp_path):
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.review import render_review
+
+    data = _review_project(tmp_path, clean=True)
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
+    text = render_review(tmp_path, data, inv)
+    assert 'strengths: no dependency cycles; no layer violations' in text
+    assert 'no accepted debts' in text and 'debts:' not in text
+    steps = text.split('optimise next:', 1)[1]
+    assert steps.startswith(' nothing to rank') or not any(word in steps for word in (' fix ', ' split '))

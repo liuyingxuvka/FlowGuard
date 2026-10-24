@@ -12,7 +12,7 @@ from .inventory import Inventory, resolve_import
 from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
-from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, structural_findings
+from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
@@ -326,12 +326,16 @@ def _target_comparison(root, data, inv, target):
     return view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw
 
 
-def _show_header(data, graph, *, architecture=None, debts=None):
+def _show_header(data, graph, inv, *, architecture=None, debts=None):
+    """Errors from the cheap structural rules; warnings only from the map-and-size checks (no code scan)."""
     if architecture is None:
         architecture, debts, _ = _architecture(data, graph)
+    shapes, _ = apply_accepted_debts(shape_findings(data, inv, graph), normalized_debts(data))
     head = f"# {data.get('project', '')}: system, {len(data['components'])} components"
     head += ", layers (top > bottom) " + " > ".join(data["layers"]) if data.get("layers") else ", layers: none"
-    return head + f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
+    errors, warnings = sum(f.level == "error" for f in architecture), sum(f.level == "warn" for f in shapes)
+    return head + (f"; architecture: {errors} error(s), {warnings} warning(s), {len(debts)} accepted debt(s)"
+                   + ("; python -m flowguard read --review ranks them" if errors or warnings else ""))
 
 
 def _layer_order(data: dict, identities: set[str]) -> list[tuple[dict, int]]:
@@ -361,7 +365,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
     elif component == "system":
         component_ids = set()
     counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
-    lines = [_show_header(merged, graph),
+    lines = [_show_header(merged, graph, inv),
              f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)']
     lines.append(next(line for line in new_system.code if line.startswith("coverage:")))
     if not component:
@@ -465,7 +469,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         if not comps:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
     architecture, debts, problems = _architecture(data, graph)
-    head = _show_header(data, graph, architecture=architecture, debts=debts)
+    head = _show_header(data, graph, inv, architecture=architecture, debts=debts)
     model_ids = {node.path: node.id for node in tree.nodes.values()}
     flows = [] if component else [
         f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))

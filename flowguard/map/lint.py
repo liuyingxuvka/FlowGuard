@@ -267,6 +267,30 @@ def architecture_variants(data, graph, *, only=None):
             break
 
 
+SHAPE_CODES = ("large_component", "too_many_responsibilities", "untested_component", "high_fan_out", "large_file")
+
+
+def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limits: Limits | None = None) -> list[Finding]:
+    """Size and test warnings computed from the map and line counts alone (no code scan); debts not applied."""
+    limits = limits or Limits()
+    out = []
+    for c in data["components"]:
+        files = component_files(c, inv)
+        loc = sum(inv.loc.get(f, 0) for f in files)
+        if loc > limits.max_component_loc:
+            out.append(Finding("warn", "large_component", c["id"], f"{loc} LOC in {len(files)} files (limit {limits.max_component_loc}); consider splitting"))
+        if len(c.get("responsibilities", [])) > limits.max_responsibilities:
+            out.append(Finding("warn", "too_many_responsibilities", c["id"], f"{len(c['responsibilities'])} responsibilities (limit {limits.max_responsibilities})"))
+        if not c.get("tests"):
+            out.append(Finding("warn", "untested_component", c["id"], "no tests mapped"))
+        if len(graph.get(c["id"], ())) > limits.max_fan_out:
+            out.append(Finding("warn", "high_fan_out", c["id"], f"depends on {len(graph[c['id']])} components (limit {limits.max_fan_out})"))
+        for f in files:
+            if inv.loc.get(f, 0) > limits.max_file_loc:
+                out.append(Finding("warn", "large_file", c["id"], f"{f}: {inv.loc[f]} LOC (limit {limits.max_file_loc})"))
+    return out
+
+
 def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None) -> list[Finding]:
     limits = limits or Limits()
     comps = data["components"]
@@ -287,20 +311,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                 if 0.6 <= similarity < 1.0:
                     out.append(Finding("warn", "possible_duplicate", ca, f"{ra!r} ~ {cb}: {rb!r} (similarity {similarity:.2f})"))
 
-    for c in comps:
-        files = component_files(c, inv)
-        loc = sum(inv.loc.get(f, 0) for f in files)
-        if loc > limits.max_component_loc:
-            out.append(Finding("warn", "large_component", c["id"], f"{loc} LOC in {len(files)} files (limit {limits.max_component_loc}); consider splitting"))
-        if len(c.get("responsibilities", [])) > limits.max_responsibilities:
-            out.append(Finding("warn", "too_many_responsibilities", c["id"], f"{len(c['responsibilities'])} responsibilities (limit {limits.max_responsibilities})"))
-        if not c.get("tests"):
-            out.append(Finding("warn", "untested_component", c["id"], "no tests mapped"))
-        if len(graph.get(c["id"], ())) > limits.max_fan_out:
-            out.append(Finding("warn", "high_fan_out", c["id"], f"depends on {len(graph[c['id']])} components (limit {limits.max_fan_out})"))
-        for f in files:
-            if inv.loc.get(f, 0) > limits.max_file_loc:
-                out.append(Finding("warn", "large_file", c["id"], f"{f}: {inv.loc[f]} LOC (limit {limits.max_file_loc})"))
+    out.extend(shape_findings(data, inv, graph, limits))
 
     owner, _ = owner_index(data, inv)
     by_body: dict[str, list[tuple[str, str, int]]] = defaultdict(list)

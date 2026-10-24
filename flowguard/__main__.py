@@ -1,6 +1,6 @@
 """python -m flowguard: daily verbs on top of the FlowGuard map.
 
-  read      [--root R] [--component ID | --find WORDS...] [--budget N] understand the software (business data read-only; disposable caches may update)
+  read      [--root R] [--component ID | --find WORDS... | --review] [--budget N] understand the software (business data read-only; disposable caches may update)
   change    [--root R] [--base REF] [FILES...]               after editing: check the map, list what to run
   release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
@@ -44,6 +44,8 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         group.add_argument("--find", nargs="+", metavar="WORD", help="which component owns this responsibility")
         p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
         p.add_argument("--target", action="store_true", help="show changes made by the target (incompatible with --find)")
+        p.add_argument("--review", action="store_true",
+                       help="rank architecture strengths, defects and next steps (incompatible with the other views)")
         p.add_argument("--budget", type=_budget, default=8000, metavar="N",
                        help="max characters printed (default 8000, like map show --budget; at least 200)")
     elif verb == "change":
@@ -151,6 +153,8 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--mermaid cannot be used with --find")
     if verb == "read" and ns.target and ns.find:
         parser.error("--target cannot be used with --find")
+    if verb == "read" and ns.review and (ns.component or ns.find or ns.mermaid or ns.target):
+        parser.error("--review cannot be used with --component, --find, --mermaid or --target")
     if verb == "template":
         return _template(ns)
     root = ["--root", ns.root]
@@ -163,7 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         if ns.find:
             return map_main([*root, "find", *ns.find])
         return map_main([*root, "show", "--budget", str(ns.budget), *(["--component", ns.component] if ns.component else []),
-                         *(["--mermaid"] if ns.mermaid else []), *(["--target"] if ns.target else [])])
+                         *(["--mermaid"] if ns.mermaid else []), *(["--target"] if ns.target else []),
+                         *(["--review"] if ns.review else [])])
     if verb == "change":
         from .map.cli import cmd_change
         from .map.mapfile import MapError

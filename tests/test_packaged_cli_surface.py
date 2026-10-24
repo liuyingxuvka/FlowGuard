@@ -128,3 +128,29 @@ def test_read_budget_option_matches_map_show(tmp_path):
     assert len(read.stdout.rstrip("\n")) <= 3000
     assert read.stdout == shown.stdout
     assert run("read", "--budget", "100").returncode == 2
+
+
+def test_read_review_matches_map_show_review(tmp_path):
+    """`read --review` is `map show --review`; it cannot be combined with the other views."""
+    directory = tmp_path / ".flowguard"
+    directory.mkdir()
+    (tmp_path / "app.py").write_text("import store\ndef run():\n    return store.save()\n", encoding="utf-8")
+    (tmp_path / "store.py").write_text("def save():\n    return True\n", encoding="utf-8")
+    components = [{"id": cid, "summary": "Serve " + cid, "responsibilities": ["serve " + cid], "files": [cid + ".py"],
+                   "status": "draft", "fingerprint": "", "layer": "", "depends_on": deps}
+                  for cid, deps in (("app", ["store"]), ("store", []))]
+    (directory / "map.json").write_text(json.dumps({
+        "schema": "flowguard.map.v1", "project": "review", "components": components}), encoding="utf-8")
+
+    def run(*args):
+        environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(tmp_path)],
+                              cwd=ROOT, capture_output=True, text=True, encoding="utf-8", env=environment)
+
+    read = run("read", "--review")
+    shown = run("map", "show", "--review")
+    assert read.returncode == 0 and shown.returncode == 0, read.stderr + shown.stderr
+    assert read.stdout == shown.stdout
+    assert read.stdout.startswith("# review review: 2 components") and "optimise next:" in read.stdout
+    assert run("read", "--review", "--component", "app").returncode == 2
+    assert run("map", "show", "--review", "--component", "app").returncode == 2

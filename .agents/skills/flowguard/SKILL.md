@@ -75,7 +75,7 @@ Use `references/first_map.md`: scan -> digest -> describe -> deps -> check -> co
 
 ## Architecture review and release
 
-Use `python -m flowguard map lint` (`references/architecture_review.md`). Routine checkpoints run the affected tests/models from `change`. At final release, freeze source and run `python -m flowguard release --shards 4` once on that revision, or use successful CI for that exact source SHA.
+Use `python -m flowguard read --review` for the ranked view (strengths, defects, optimise next) and `python -m flowguard map lint` for the full list (`references/architecture_review.md`); propose each refactor as a target. Routine checkpoints run the affected tests/models from `change`. At final release, freeze source and run `python -m flowguard release --shards 4` once on that revision, or use successful CI for that exact source SHA.
 
 ## Honesty rules
 

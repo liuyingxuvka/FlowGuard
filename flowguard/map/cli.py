@@ -1,7 +1,7 @@
 """Command line: python -m flowguard.map <command> [--root PATH] ...
 
 Daily commands (read-only unless stated):
-  show      the map as compact text (start every session with this)
+  show      the map as compact text (start every session with this); --review ranks the architecture
   find      which component already owns a responsibility
   check     map <-> code verification (exit 1 on errors)
   impact    changed files -> components -> tests and models to run
@@ -94,6 +94,16 @@ def cmd_discover(root: Path, a) -> int:
 
 
 def cmd_show(root: Path, a) -> int:
+    if getattr(a, "review", False):
+        clash = [flag for flag, on in (("--component", a.component), ("--mermaid", getattr(a, "mermaid", False)),
+                                       ("--target", getattr(a, "target", False)), ("--detail", a.detail)) if on]
+        if clash:
+            print(f"error: --review cannot be used with {', '.join(clash)}", file=sys.stderr)
+            return 2
+        from .review import render_review
+        data, inv = _context(root, with_bodies=False)
+        print(render_review(root, data, inv, budget=a.budget))
+        return 0
     data, inv = _context(root, with_bodies=False)
     target = None
     if getattr(a, "target", False):
@@ -347,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--budget", type=int, default=8000, help="max characters printed")
     s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
     s.add_argument("--target", action="store_true", help="show the target's node-by-node changes")
+    s.add_argument("--review", action="store_true", help="architecture review: metrics, strengths, defects, optimise next")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s.add_argument("--max-lines", type=int, default=60, help="max outline lines per file")

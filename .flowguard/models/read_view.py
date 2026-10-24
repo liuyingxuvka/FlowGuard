@@ -22,7 +22,7 @@ from flowguard.workflow import Workflow
 
 MODEL_ID = "read_view"
 PARENT = "map-analysis"
-IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show"}
+IMPLEMENTED_BY = {"Show": "flowguard/map/views.py:render_show", "Review": "flowguard/map/review.py:render_review"}
 NOT_MODELED = {
     "flowguard/map/facets.py:_StaticModel._module": "memoizes one parsed helper file per read; the names it yields "
         "are what static_rules_match_model checks on real render_show output",
@@ -40,6 +40,9 @@ TESTED_BY = {
     "relied_rules_shown": ["tests/test_map_views.py:test_read_component_lists_the_rules_it_relies_on"],
     "coverage_counts_by_source": ["tests/test_map_views.py:test_coverage_line_counts_by_source"],
     "component_flows_shown": ["tests/test_map_views.py:test_read_component_lists_its_flows_and_their_rules"],
+    "review_ranks_errors_first": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
+    "review_strengths_are_true": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
+    "review_steps_name_a_recipe": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
                                  "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
@@ -145,10 +148,11 @@ class ReadCase:
     relied: bool = False       # beta.py calls alpha.py:run, the anchor of read_probe; read --component beta
     flowing: bool = False      # flow chain = beta:run -> alpha:run with model read_probe; read --component beta
     sources: bool = False      # alpha lists four entrypoints: model-anchored, test-named, NOT_MODELED, unexplained
+    review: bool = False       # read --review on REVIEW_FILES: a cycle, a hub, an unexplained writer, a flow with no model
 
 
 FEATURES = (
-    Feature("small_budget", False, (), lambda case: replace(case, budget=360)),
+    Feature("small_budget", False, (), lambda case: replace(case, budget=420)),
     Feature("import_time_marker", False, (), lambda case: replace(case, import_marker=True)),
     Feature("missing_summary", False, (), lambda case: replace(case, missing_summary=True)),
     # One model binds LARGE_TESTS tests and the reader asks for its component.
@@ -166,6 +170,9 @@ FEATURES = (
     Feature("loop_built_variants_model", False, (), lambda case: replace(case, probe="loops"), exclusive=True),
     # A feature-kit model: two defects and one benign feature, codes="first".
     Feature("kit_model", False, (), lambda case: replace(case, probe="kit"), exclusive=True),
+    # read --review on a project with an unaccepted cycle (ERROR), a hub component (used by 3,
+    # uses 3, 7 duties), an unexplained state writer and a flow with no model.
+    Feature("review_fixture", False, (), lambda case: replace(case, review=True), exclusive=True),
 )
 
 
@@ -178,6 +185,8 @@ class ReadObservation:
 
 
 def _names(observation):
+    if observation.case.review:
+        return True
     notice = next((line.partition("not shown:")[2] for line in observation.text.splitlines()
                    if "truncated" in line and "not shown:" in line), "")
     wanted = (observation.case.component,) if observation.case.component else ("alpha", "beta")
@@ -198,6 +207,8 @@ def _focused(observation):
 
 
 def _model_contract(observation):
+    if observation.case.review:
+        return True
     rows = tuple(line.strip() for line in observation.text.splitlines() if line.lstrip().startswith("model read_probe:"))
     # A fully hidden component also hides its models.  Any displayed model must
     # retain purpose and all three literal counts; an untruncated view shows it.
@@ -271,6 +282,78 @@ def _layer_order(observation):
     return shown == sorted(shown, key=rank.get)
 
 
+# The review fixture: what read --review must find, and the strengths that are false there.
+REVIEW_FALSE_STRENGTHS = ("no dependency cycles", "every flow has a model", "every state writer explained")
+REVIEW_HUB = "hub"
+REVIEW_FILES = {
+    "app.py": "import store\ndef run(): return store.save()\n",
+    "store.py": "import app\ndef save(): return True\n",
+    "hub.py": "import lib1\nimport lib2\nimport lib3\ndef run(): return lib1.run() and lib2.run() and lib3.run()\n",
+    "lib1.py": "class Box:\n    def put(self, value):\n        self.value = value\ndef run(): return Box()\n",
+    "lib2.py": "def run(): return True\n",
+    "lib3.py": "def run(): return True\n",
+    "u1.py": "import hub\ndef run(): return hub.run()\n",
+    "u2.py": "import hub\ndef run(): return hub.run()\n",
+    "u3.py": "import hub\ndef run(): return hub.run()\n",
+}
+REVIEW_TEXT = (
+    "# read fixture review: 11 components, 1 models, 1 flows; architecture: 1 error(s), 3 warning(s), 0 accepted debt(s)\n"
+    "strengths: no layer violations; one owner per responsibility, state and side effect; no accepted debts\n"
+    "defects:\n  ERROR dependency_cycle x1: app: app <-> store\n  WARN  untested_component x10: app: no tests mapped\n"
+    "components: id layer files/loc duties uses/used-by models(rules/known-bad) tests(bound/functions) unexplained\n"
+    "  hub - 1/4 7 3/3 0(0/0) 0/0 0\n"
+    "optimise next:\n"
+    "  1. fix dependency_cycle app: app <-> store; references/architecture_review.md (dependency_cycle)\n"
+    "  2. split hub: hub (used by 3, uses 3, 7 duties, 4 loc); references/tree_operations.md#Add or split a component, as a target\n"
+    "  3. explain lib1: 1 unexplained entrypoints and state writers; python -m flowguard read --component lib1\n"
+    "  4. model flow trip: no model; references/map_format.md")
+
+
+def _review_section(text, heading):
+    lines = text.splitlines()
+    start = next((index for index, line in enumerate(lines) if line.startswith(heading)), None)
+    if start is None:
+        return None
+    rows = []
+    for line in lines[start + 1:]:
+        if not line.startswith("  "):
+            break
+        rows.append(line.strip())
+    return rows
+
+
+def _ranked(observation):
+    """Every ERROR defect is a `fix <code>` step, and every fix step comes before any other step."""
+    if not observation.case.review:
+        return True
+    defects, steps = _review_section(observation.text, "defects:"), _review_section(observation.text, "optimise next:")
+    if defects is None or steps is None:
+        return False
+    errors = {row.split()[1] for row in defects if row.startswith("ERROR ")}
+    fixes = [index for index, row in enumerate(steps) if re.match(r"\d+\. fix ", row)]
+    named = {row.split()[2] for row in steps if re.match(r"\d+\. fix ", row)}
+    return bool(errors) and errors <= named and fixes == list(range(len(fixes)))
+
+
+def _true_strengths(observation):
+    """No strength line claims what the fixture contradicts."""
+    if not observation.case.review:
+        return True
+    line = next((row for row in observation.text.splitlines() if row.startswith("strengths: ")), None)
+    if line is None:
+        return False
+    claimed = {item.strip() for item in line[len("strengths: "):].split(";")}
+    return not claimed & set(REVIEW_FALSE_STRENGTHS)
+
+
+def _recipes(observation):
+    """Every optimise-next step names a references/... recipe or a python -m flowguard command."""
+    if not observation.case.review:
+        return True
+    steps = _review_section(observation.text, "optimise next:")
+    return bool(steps) and all("references/" in row or "python -m flowguard" in row for row in steps)
+
+
 def _summary(observation):
     if not observation.case.missing_summary or not re.search(r"^## alpha \[", observation.text, re.M):
         return True
@@ -294,6 +377,12 @@ RULES = (
               lambda state, trace: _flows(state)),
     Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
               lambda state, trace: _layer_order(state)),
+    Invariant("review_ranks_errors_first", "every ERROR finding is in optimise next, before every non-ERROR step",
+              lambda state, trace: _ranked(state)),
+    Invariant("review_strengths_are_true", "every strength read --review claims holds on the project",
+              lambda state, trace: _true_strengths(state)),
+    Invariant("review_steps_name_a_recipe", "every optimise next step names a references recipe or a flowguard command",
+              lambda state, trace: _recipes(state)),
     Invariant("focused_component_visible", "read --component X fits the budget and always shows X's heading and five facets",
               lambda state, trace: _focused(state) and len(state.text) <= state.case.budget),
 )
@@ -312,6 +401,8 @@ def _cases():
 def _abstract(case, file_order=False):
     # Literal valid witnesses, not a renderer: no file scan or formatting logic
     # is reproduced here.  Native conformance never calls this function.
+    if case.review:
+        return ReadObservation(case, REVIEW_TEXT)
     if case.probe:
         rows, details = [], []
         for mid, rules, bads, _keys in PROBE_TRUTH[case.probe]:
@@ -336,8 +427,8 @@ def _abstract(case, file_order=False):
         purpose = "(no summary yet)" if case.missing_summary else "Serve alpha"
         text = ("## alpha [-] 1 files/1 loc, 0 rules\n  purpose: " + purpose + "\n  rules: -\n  known-bad: -\n"
                 "  code: 1 files/1 loc\n  tests: 1 files: tests/test_alpha.py; 300 functions, 300 bound\n  " + LARGE_MODEL_LINE)
-    elif case.budget == 360:
-        text = "# read fixture\n... truncated at 360 chars; not shown: alpha, beta; use read --component ID"
+    elif case.budget == 420:
+        text = "# read fixture\n... truncated at 420 chars; not shown: alpha, beta; use read --component ID"
     else:
         purpose = "(no summary yet)" if case.missing_summary else "Serve alpha"
         alpha = f"## alpha [{'low' if case.layered else '-'}]\n  " + purpose + "\n  " + MODEL_LINE
@@ -356,13 +447,13 @@ class Show:
 
     def apply(self, case, state):
         observed = _abstract(case)
-        if self.fault == "drop_component" and case.budget != 360:
+        if self.fault == "drop_component" and case.budget != 420:
             observed = replace(observed, text=observed.text.split("\n## beta [", 1)[0])
         elif self.fault == "import_model":
             observed = replace(observed, imported=True)
         elif self.fault == "overflow":
             observed = replace(observed, text=observed.text + "x" * (case.budget + 1))
-        elif self.fault == "drop_model_contract" and case.budget != 360:
+        elif self.fault == "drop_model_contract" and case.budget != 420:
             observed = replace(observed, text=observed.text.replace(MODEL_LINE, "model read_probe: "))
         elif self.fault == "drop_summary_prompt" and case.missing_summary:
             observed = replace(observed, text=observed.text.replace("(no summary yet)", ""))
@@ -384,6 +475,12 @@ class Show:
             observed = replace(observed, text=observed.text.replace("\n  " + RELIED_LINE, ""))
         elif self.fault == "map_file_order" and case.layered:
             observed = _abstract(case, file_order=True)
+        elif self.fault == "review_hides_error" and case.review:
+            observed = replace(observed, text=re.sub(r"  1\. fix [^\n]*\n", "", observed.text))
+        elif self.fault == "review_false_strength" and case.review:
+            observed = replace(observed, text=observed.text.replace("strengths: ", "strengths: no dependency cycles; "))
+        elif self.fault == "review_no_recipe" and case.review:
+            observed = replace(observed, text=observed.text.replace("; references/map_format.md", ""))
         elif self.fault == "hide_focused" and case.component:
             observed = replace(observed, text=f"# read fixture\n... truncated at {case.budget} chars; "
                                               f"not shown: {case.component}; use read --component ID")
@@ -409,7 +506,10 @@ def broken_variants():
             "map_file_order": _explorer("map_file_order"),
             "hides_relied_rules": _explorer("hide_relied"),
             "hides_component_flows": _explorer("hide_flows"),
-            "coverage_without_sources": _explorer("no_sources")}
+            "coverage_without_sources": _explorer("no_sources"),
+            "review_hides_error": _explorer("review_hides_error"),
+            "review_claims_false_strength": _explorer("review_false_strength"),
+            "review_step_without_recipe": _explorer("review_no_recipe")}
 
 
 def _files():
@@ -451,6 +551,18 @@ def _runtime(root):
             sys.modules.pop(name, None)
 
 
+def _review_components():
+    def component(cid, **extra):
+        return {**dict(id=cid, summary="Serve " + cid, responsibilities=[], files=[cid + ".py"], tests=[], models=[],
+                       depends_on=[], status="draft", fingerprint="", layer=""), **extra}
+    duties = [f"serve hub duty {word}" for word in ("one", "two", "three", "four", "five", "six", "seven")]
+    return ([component("alpha", tests=["tests/test_alpha.py"]), component("beta"),
+             component("app", depends_on=["store"]), component("store", depends_on=["app"]),
+             dict(component(REVIEW_HUB, depends_on=["lib1", "lib2", "lib3"]), responsibilities=duties)]
+            + [component(cid) for cid in ("lib1", "lib2", "lib3")]
+            + [component(cid, depends_on=[REVIEW_HUB]) for cid in ("u1", "u2", "u3")])
+
+
 def _review(template, case):
     with tempfile.TemporaryDirectory(prefix="flowguard-read-case-") as directory:
         root = Path(directory) / "project"
@@ -485,10 +597,19 @@ def _review(template, case):
         flows = [dict(id="chain", summary="beta then alpha", steps=["beta:run", "alpha:run"],
                       model=".flowguard/models/read_probe.py")] if case.flowing else []
         data = dict(project="read fixture", layers=["top", "low"] if case.layered else [], components=components, flows=flows)
+        if case.review:
+            for relative, source in REVIEW_FILES.items():
+                _write(root, relative, source)
+            data = dict(project="read fixture", layers=[], components=_review_components(),
+                        flows=[dict(id="trip", summary="u1 calls the hub", steps=["u1:run", "hub:run"])])
         inv = build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
         for relative, source in PROBE_FILES.get(case.probe, {}).items():
             _write(root, relative, source)
-        text = render_show(root, data, inv, component=case.component, detail=False, budget=case.budget)
+        if case.review:
+            from flowguard.map.review import render_review
+            text = render_review(root, data, inv, budget=case.budget)
+        else:
+            text = render_show(root, data, inv, component=case.component, detail=False, budget=case.budget)
         if case.probe:
             text += "\n\n" + render_show(root, data, inv, component="alpha", detail=False, budget=case.budget)
         models = (root / ".flowguard/models").resolve()

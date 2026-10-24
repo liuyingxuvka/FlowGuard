@@ -90,7 +90,7 @@
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; release rejects uncovered contract invariants while map models only warns; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
-        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget",
+        "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget; read --review and map show --review print the same ranked architecture review",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status"
       ],
       "files": [
@@ -126,7 +126,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:597a502b5ecda4526b7791cdcd41fe2c9262d150462e5fe96d972f314e46cdcb"
+      "fingerprint": "sha256:a8dc5391ccf60bbff1b63f6c7098db753b4f239380318c301af875389f07bbfb"
     },
     {
       "id": "public-api",
@@ -357,14 +357,17 @@
         "warn when a component uses another component's private name",
         "report duplicate owners in every map check",
         "count explanations by model, test and reason",
-        "list unexplained functions of changed files"
+        "list unexplained functions of changed files",
+        "rank architecture defects and strengths from the tree",
+        "count map-only lint warnings in the read header"
       ],
       "files": [
         "flowguard/map/check.py",
         "flowguard/map/lint.py",
         "flowguard/map/impact.py",
         "flowguard/map/views.py",
-        "flowguard/map/facets.py"
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py"
       ],
       "entrypoints": [
         "flowguard/map/check.py:run_check",
@@ -389,7 +392,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:09e724345ce8042858e0f081d83911e1cbe7f53307298e7665caf881d0648af5"
+      "fingerprint": "sha256:5631a802616802bb45c70703371180916343da52a7512b31c88c1b1d84d4adeb"
     },
     {
       "id": "map-target",
