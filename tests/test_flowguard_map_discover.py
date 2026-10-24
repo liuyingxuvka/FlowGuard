@@ -546,3 +546,105 @@ def test_attribute_calls_resolve_to_the_assigned_class(tmp_path):
     assert not [finding for finding in run_lint(tmp_path, data, inv) if finding.code == "flow_step_unreached"]
     assert not marker.exists()
     assert not any(name == "fg232_shelf" or name.startswith("fg232_shelf.") for name in sys.modules)
+
+
+_INJECTED_STORE = '''import json
+
+
+class NoteStore:
+    def __init__(self, path):
+        self.path = path
+        self.notes = {}
+
+    def save(self, note_id, text):
+        self.notes[note_id] = text
+        with open(self.path, "w") as handle:
+            json.dump(self.notes, handle)
+
+    def delete(self, note_id):
+        self.notes.pop(note_id, None)
+        with open(self.path, "w") as handle:
+            json.dump(self.notes, handle)
+'''
+_INJECTED_SERVICE = '''class NoteService:
+    def __init__(self, store):
+        self.store = store
+
+    def add(self, note_id, text):
+        self.store.save(note_id, text)
+
+    def delete(self, note_id):
+        self.store.delete(note_id)
+'''
+_INJECTED_CLI = '''from notes.service import NoteService
+from notes.store import NoteStore
+
+
+def main():
+    service = NoteService(NoteStore("notes.json"))
+    service.add("a", "first note")
+'''
+
+
+def _injected_project(root: Path, *, service: str = _INJECTED_SERVICE, cli: str | None = _INJECTED_CLI) -> dict:
+    """The constructor-injection shape: cli builds NoteService(NoteStore(...)); service never imports store."""
+    files = {"notes/__init__.py": "", "notes/store.py": _INJECTED_STORE, "notes/service.py": service}
+    if cli is not None:
+        files["notes/cli.py"] = cli
+    for relative, source in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding="utf-8")
+
+    def component(cid, path, layer, depends_on, entrypoints):
+        return dict(id=cid, layer=layer, summary=f"{cid} notes", responsibilities=[f"{cid} notes"], files=[path],
+                    entrypoints=entrypoints, state=[], side_effects=[], depends_on=depends_on, tests=[], models=[],
+                    status="draft")
+    components = [dict(component("store", "notes/store.py", "storage", [], []), files=["notes/store.py", "notes/__init__.py"]),
+                  component("service", "notes/service.py", "domain", ["store"], ["notes/service.py:NoteService.add"])]
+    if cli is not None:
+        components.append(component("cli", "notes/cli.py", "interface", ["service", "store"], ["notes/cli.py:main"]))
+    data = {"schema": "flowguard.map.v1", "project": "notes", "layers": ["interface", "domain", "storage"],
+            "ignore": [], "components": components, "flows": [], "accepted_debts": []}
+    (root / ".flowguard").mkdir(exist_ok=True)
+    (root / ".flowguard/map.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return data
+
+
+def test_injected_collaborator_resolves_to_its_class(tmp_path):
+    """An attribute assigned from a constructor parameter resolves through the class passed at every call site."""
+    for variant, service, cli in (
+            ("call-site", _INJECTED_SERVICE, _INJECTED_CLI),
+            ("annotation", "from notes.store import NoteStore\n\n\n" + _INJECTED_SERVICE.replace(
+                "def __init__(self, store):", "def __init__(self, store: NoteStore):"), None)):
+        root = tmp_path / variant
+        data = _injected_project(root, service=service, cli=cli)
+        inv = build_inventory(root, DEFAULT_IGNORE)
+        for scoped in (None, data):
+            raw = discover_inventory(root, inv, data=scoped, write_cache=False)
+            assert "notes/store.py#NoteStore.save" in raw["edges"].get("notes/service.py#NoteService.add", []), variant
+            writes = raw["files"]["notes/service.py"]["functions"]["NoteService.delete"]["writes"]
+            assert "NoteService.store" not in writes, (variant, writes)
+
+
+def test_deps_write_keeps_an_injected_dependency(tmp_path):
+    """dep_unused does not fire for an injected collaborator, deps --write keeps it, effect reach still sees it."""
+    _injected_project(tmp_path)
+    check = map_cli(tmp_path, "check")
+    assert not [line for line in check.stdout.splitlines() if "dep_unused" in line and "service" in line], check.stdout
+    written = map_cli(tmp_path, "deps", "--write")
+    assert written.returncode == 0, written.stderr
+    data = json.loads((tmp_path / ".flowguard/map.json").read_text(encoding="utf-8"))
+    assert "store" in next(c for c in data["components"] if c["id"] == "service")["depends_on"], written.stdout
+    after = map_cli(tmp_path, "check").stdout
+    assert any("entrypoint_unmodeled" in line and ("notes/cli.py:main" in line or "NoteService.add" in line)
+               for line in after.splitlines()), after
+
+
+def test_write_into_an_injected_object_is_a_foreign_state_write(tmp_path):
+    """Writing an attribute of another component's injected object is foreign_state_write."""
+    service = _INJECTED_SERVICE + "\n    def clear(self):\n        self.store.notes = {}\n"
+    data = _injected_project(tmp_path, service=service)
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE)
+    found = [f for f in run_lint(tmp_path, data, inv) if f.code == "foreign_state_write"]
+    assert any("NoteStore.notes" in f.message and f.component == "service" for f in found), found
