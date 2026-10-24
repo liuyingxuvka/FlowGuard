@@ -76,6 +76,7 @@ class TargetReport:
     warnings: list[TargetFinding] = field(default_factory=list)
     goal_rules: str = ""
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
+    deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
 
 
 def target_model_paths(root, data, target):
@@ -263,6 +264,8 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
         placeholder = "placeholder anchor " in finding.message
         level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
         add(level, _finding_node(finding, tree), finding.code, finding.message)
+        if finding.code == "file_unmapped" and level == "todos" and _left_by_target(finding, current, target, inv):
+            report.deleting.append(report.todos[-1])
     if view.data.get("accepted_debts"):
         from .lint import run_lint
 
@@ -339,9 +342,23 @@ def _unchanged_models(root, current, target, inv, tree, selected):
     return untouched, old
 
 
-def _todo_next(code):
+def _left_by_target(finding, current, target, inv):
+    """The unowned file belonged to a component the target removes or whose files the target changes."""
+    from .mapfile import owner_index
+
+    path = finding.message.split(" has no owning component", 1)[0]
+    owner = owner_index(current, inv)[0].get(path)
+    planned = {c["id"]: c for c in target.data.get("components", [])}
+    before = {c["id"]: c for c in current["components"]}
+    return owner in target.remove["component"] or (
+        owner in planned and planned[owner].get("files") != before.get(owner, {}).get("files"))
+
+
+def _todo_next(code, deleting=False):
     if code in {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}:
         return "write the test the target binds"
+    if code == "file_unmapped" and deleting:
+        return "delete the file, or give it an owner in the target"
     if code in {"component_empty", "pattern_dead", "file_unmapped", "model_missing"}:
         return "create the file, or change the target's files"
     if code in {"dep_undeclared", "dep_unused", "layer_violation", "dependency_cycle"}:
@@ -358,7 +375,7 @@ def render_target_report(report: TargetReport) -> str:
         lines.append(report.goal_rules)
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
         for finding in findings:
-            suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
+            suffix = f" ({_todo_next(finding.code, finding in report.deleting)})" if label == "TO-DO" else ""
             message = finding.message.replace("\n", "\n  ")
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
     lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"

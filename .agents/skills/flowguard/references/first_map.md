@@ -1,7 +1,7 @@
 # First map of an existing project (reverse wrapping)
 
 Goal: a confirmed map with 5-30 components, 0 check errors, and a written list of the main
-architecture findings. Measured on FlowGuard's own map during the 0.70.2 work: about 112k nonblank,
+architecture findings. With no map yet, start with `python -m flowguard map scan`. Measured on FlowGuard's own map during the 0.70.2 work: about 112k nonblank,
 noncomment source lines (5.2 MB) produced a 158k-character digest with a
 40-line-per-file limit, about 3.1% of source bytes. These are character/byte counts,
 not token estimates. API density and the line limit change this ratio; measure your

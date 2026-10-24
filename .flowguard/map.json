@@ -92,7 +92,9 @@
         "parse command lines and dispatch to map, proof and template commands; keep scan project ignores untouched and print one empty-model release summary; contract template setup names COMPONENTS and PARENT; export read --mermaid, optionally focused by component; map models and release fail a model with an uncovered invariant, counted once; show each scoped cycle or layer violation once as an ARCH line in change; include the built-in system root in release declared/executed counts; models --tests runs bound tests and release always checks their individual implementation reach; non-strict check and change annotate only planned breakage, report static target work without running target models, and release warns about a target while checking only the strict current tree; keep the ui-flow capability template entrypoint as the same native ui-journey factory while retiring the old ui-flow-structure template name; keep the contract-exhaustion capability template command as the same validator factory; after normal release checks and bound tests pass, optionally invoke the exact whole-suite shard tool once, keeping normal TESTED_BY execution separate from within-suite exactness; template writes model files into the active target when present, preserving other output paths and force semantics and naming target check as the next step",
         "show the existing owner of a behavior and the component that defines an exact symbol, with files, state and side effects (read --find) and owning model ids, or name the closest owners when none matches; read --target shows static node changes and supports component details or Mermaid, while --find remains a separate mode; read --budget N passes the same character budget as map show --budget; read --review and map show --review print the same ranked architecture review",
         "direct retired workflow flags and legacy project detection to references/upgrade.md while preserving their rejection status",
-        "run the selected tests and models on request"
+        "run the selected tests and models on request",
+        "hint a split for a large one-directory draft",
+        "say when discovery finds nothing"
       ],
       "files": [
         "flowguard/__main__.py",
@@ -127,7 +129,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c3ee40436b000dc4b43863e17378e23c2ac20e770611c78dfa8f24091b8824a5"
+      "fingerprint": "sha256:a6de69390eb6118cbd6211a9b45a3ba436db75c3d1a659706106a4d313fd1ed8"
     },
     {
       "id": "public-api",
@@ -273,7 +275,8 @@
         "count calls through injected attributes as dependency evidence",
         "accept flow steps that read an earlier step's file",
         "accept responsibility retirement in target remove",
-        "compare a target with the current tree for no-op and promise changes"
+        "compare a target with the current tree for no-op and promise changes",
+        "point a missing map at the first-map guide"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -300,7 +303,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:88a071158749a352da57d4af51db37755eb23736be3e89fedeed889fa311b95d"
+      "fingerprint": "sha256:492bb56f5ef1dbd94e6da7f063ce6fdae9af2a6b0255847316c4e4ae7f5fb4bb"
     },
     {
       "id": "map-discover",
@@ -365,7 +368,8 @@
         "count map-only lint warnings in the read header",
         "list the rules a target adds or changes",
         "find accepted debts that match no finding",
-        "match word forms when finding an owner"
+        "match word forms when finding an owner",
+        "list each overloaded name once in digests"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -398,7 +402,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e72fe9f7be0cb053093d37506d563faf85a5a90b369599b42985e933ee3e6bf0"
+      "fingerprint": "sha256:5daf88699d012a4a10b7d8773e4e663ceab29bcf1c3a5f766484b04c499100ec"
     },
     {
       "id": "map-target",
@@ -417,7 +421,8 @@
         "mark only the breakage of a changed subject as moving to target",
         "report findings of unchanged models as old",
         "warn about accepted debts the target makes stale",
-        "list what to re-read after promotion"
+        "list what to re-read after promotion",
+        "hint deletion for files a target leaves unowned"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -444,7 +449,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:94c5d8da0b80c770b4caa874fc22a0748ecb1d552b56a55800bb0afef9a5b41b"
+      "fingerprint": "sha256:e1052534e420e24c1542b7b6804604d83ef9a9e88ba8f0d69214073af9629c86"
     },
     {
       "id": "map-proof",

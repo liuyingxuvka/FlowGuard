@@ -61,6 +61,11 @@ def cmd_scan(root: Path, a) -> int:
     save_map(root, data)
     print(f"created {MAP_RELPATH}: {len(data['components'])} draft components from "
           f"{len(inv.source) - len(inv.tests)} source files and {len(inv.tests)} test files")
+    for component in data["components"]:
+        files = component_files(component, inv)
+        if len(files) >= 6 and len({Path(path).parent.as_posix() for path in files}) == 1:
+            print(f"hint: draft {component['id']} holds {len(files)} files of one directory; split it by responsibility "
+                  f"(python -m flowguard map digest {component['id']} lists each file's API)")
     print("next: digest all -> merge/describe components -> deps --write -> check -> confirm")
     return 0
 
@@ -78,9 +83,11 @@ def cmd_discover(root: Path, a) -> int:
     if a.json:
         print(json.dumps(out, indent=1, ensure_ascii=False))
         return 0
+    printed = False
     for cid, found in out.items():
         if not (found["entrypoints"] or found["effects"] or found["state_writers"]):
             continue
+        printed = True
         print(f"{cid}:")
         for line in found["entrypoints"]:
             print(f"  entry   {line}")
@@ -90,6 +97,9 @@ def cmd_discover(root: Path, a) -> int:
             print(f"  reach   {entry} -> {', '.join(kinds)}")
         for attr, writers in found["state_writers"].items():
             print(f"  state   {attr} <- {', '.join(writers)}")
+    if not printed:
+        print("no entrypoints, effects or state writers found (a library without commands is normal; "
+              "list its public API in entrypoints by hand)")
     return 0
 
 

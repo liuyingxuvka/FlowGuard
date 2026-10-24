@@ -29,6 +29,7 @@
 - `validator`: a bad case may have any name (it must be rejected unless a built-in default says otherwise); only `ValueError`/`TypeError` (or the types passed as `rejects=`) count as a rejection, any other exception is reported as a crash.
 - `read --find` matches common word forms (expire/expired, rotate/rotation) and, when nothing matches, names the three closest owners.
 - `python -m flowguard change --run` runs the tests and models that `change` selects and prints one PASS/FAIL line for each.
+- First-map and hint wording: the no-map error names `python -m flowguard map scan` and the first-map guide; `scan` hints splits for large one-directory drafts; `discover` says when it finds nothing; digests list overloads once; removal targets hint deletion for unowned files.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

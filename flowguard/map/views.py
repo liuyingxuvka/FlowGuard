@@ -868,6 +868,20 @@ def _doc(node: ast.AST) -> str:
     return f"  # {doc.strip().splitlines()[0][:120]}" if doc else ""
 
 
+def _overloaded(functions) -> dict[str, list]:
+    """name -> its definitions, for names with a typing.overload stub (listed once in a digest)."""
+    by_name: dict[str, list] = {}
+    for function in functions:
+        by_name.setdefault(function.name, []).append(function)
+    return {name: defs for name, defs in by_name.items() if len(defs) > 1 and any(
+        (decorator.id if isinstance(decorator, ast.Name) else decorator.attr if isinstance(decorator, ast.Attribute) else "")
+        == "overload" for item in defs for decorator in item.decorator_list)}
+
+
+def _overload_note(overloads, node) -> str:
+    return f" (+{len(overloads[node.name]) - 1} overloads)" if node.name in overloads else ""
+
+
 def file_outline(root: Path, path: str) -> list[str]:
     """Public API outline of a Python file: docstrings and signatures, never bodies."""
     try:
@@ -893,6 +907,8 @@ def file_outline(root: Path, path: str) -> list[str]:
         return []
 
     assignments = []
+    module_overloads = {"": _overloaded([node for node in module_nodes(tree.body)
+                                         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))])}
     for node in module_nodes(tree.body):
         if isinstance(node, (ast.Assign, ast.AnnAssign)):
             targets = node.targets if isinstance(node, ast.Assign) else [node.target]
@@ -901,12 +917,15 @@ def file_outline(root: Path, path: str) -> list[str]:
                 value = ast.unparse(node.value) if node.value is not None else "<annotation>"
                 assignments.append(f"{', '.join(names)} = {value[:32]}" + ("..." if len(value) > 32 else ""))
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_"):
-            lines.append(f"  def {_signature(node)}{_doc(node)}")
+            if node.name not in module_overloads.get("", {}) or module_overloads[""][node.name][0] is node:
+                lines.append(f"  def {_signature(node)}{_doc(node)}{_overload_note(module_overloads.get('', {}), node)}")
         elif isinstance(node, ast.ClassDef) and not node.name.startswith("_"):
             lines.append(f"  class {node.name}{_doc(node)}")
-            lines += [f"    .{_signature(s)}" for s in node.body
-                      if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))
-                      and (not s.name.startswith("_") or s.name == "__init__")]
+            methods = [s for s in node.body if isinstance(s, (ast.FunctionDef, ast.AsyncFunctionDef))
+                       and (not s.name.startswith("_") or s.name == "__init__")]
+            overloads = _overloaded(methods)
+            lines += [f"    .{_signature(s)}{_overload_note(overloads, s)}" for s in methods
+                      if s.name not in overloads or overloads[s.name][0] is s]
     if assignments:
         joined = "; ".join(assignments)
         lines.insert(0, "  vars: " + joined[:110] + ("..." if len(joined) > 110 else ""))

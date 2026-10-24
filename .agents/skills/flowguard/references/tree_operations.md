@@ -14,6 +14,14 @@ Use when `map lint` reports `duplicate_code`, `never_imported` or `possible_dupl
 3. Move its `files`, `entrypoints`, `state`, `side_effects` and `responsibilities` into the recipient's target entry; update real dependencies and flow steps.
 4. For a promise deliberately retired, list `entrypoint:<path:Symbol>`, `state:<original text>`, `side_effect:<original text>` or `responsibility:<original text>` in `remove`. Each must exist in the current map; these entries record intent without editing merged components.
 5. Copy the recipient model with `python -m flowguard target add <model-id>`, then add each removed symbol as a real `CodeFacts(root).unreferenced("path:Symbol")` fact in that target model's `conformance()`; while callers remain, it is TO-DO.
+   `unreferenced` returns a bool and records the fact; combine it with the replay (`replay_trace` as in `## Conformance` of `references/model_recipes.md`):
+   ```python
+   facts = CodeFacts(root)
+   facts.unreferenced("shelf/members.py:Members.may_borrow")
+   replay = replay_trace(trace=trace, adapter=Adapter(), invariants=INVARIANTS)
+   facts.check("the replay still conforms", replay.ok, replay.format_text())
+   return facts.report()                                  # ok only when every recorded fact holds
+   ```
 6. Run `python -m flowguard target check` until the design has no ERROR and only code/test TO-DO remains, then remove the code and its callers.
 7. Use `python -m flowguard change` to inspect affected current checks and static target work. It does not execute target models.
 8. Run `python -m flowguard target check` again: it executes changed target models and related models with bound tests in the merged tree. All ERROR and TO-DO must be gone.

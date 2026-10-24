@@ -90,7 +90,8 @@ def validate_map(data: object) -> list[str]:
 def load_map(root: Path) -> dict:
     path = map_path(root)
     if not path.is_file():
-        raise MapError(f"no map at {path}; run 'python -m flowguard.map scan' first")
+        raise MapError(f"no map at {path}; run python -m flowguard map scan first "
+                       "(references/first_map.md in the FlowGuard skill explains the first map)")
     try:
         data = json.loads(path.read_text(encoding="utf-8-sig"))   # editors on Windows may add a BOM
     except ValueError as exc:
