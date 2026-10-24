@@ -1,4 +1,4 @@
-"""Map check binds the map to code: broken anchors, unowned files, undeclared or unused imports and two owners are reported.
+"""Map check reports broken anchors, unowned files, undeclared or unused imports, two owners and bad flow steps.
 
 The base project has four components (app uses api and core; api uses core; util is free) and one flow.
 Each event makes one edit to a copy; the state is the set of binding codes that

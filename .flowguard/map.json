@@ -700,7 +700,7 @@
       "layer": "map",
       "summary": "Checks the map against the code and lints the architecture.",
       "responsibilities": [
-        "check map anchors, files, flow steps and models against the code",
+        "check anchors, files, imports, flow steps and models against the code",
         "report one owner per entrypoint, responsibility, state and side effect",
         "lint cycles, layers, sizes and private names, then apply accepted debts",
         "explain entrypoints and state writers by model, test or reason"

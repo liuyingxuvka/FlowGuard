@@ -1376,3 +1376,28 @@ def test_retired_table_is_the_only_owner():
     tests_text = "\n".join(path.read_text(encoding="utf-8") for path in (root / "tests").glob("test_*.py"))
     for entry in RETIRED:
         assert entry.code in tests_text, entry
+
+
+def test_map_check_binding_codes(tmp_path):
+    """A declared dependency with no evidence is dep_unused; one used only through an injected object is not."""
+    from flowguard.map.check import run_check
+
+    write(tmp_path, "core.py", "class Store:\n    def save(self):\n        return 1\n")
+    write(tmp_path, "api.py", "class Service:\n    def __init__(self, store):\n        self.store = store\n\n"
+          "    def run(self):\n        return self.store.save()\n")
+    write(tmp_path, "app.py", "from api import Service\nfrom core import Store\n\n\ndef main():\n    return Service(Store()).run()\n")
+
+    def component(cid, layer, depends_on):
+        return {"id": cid, "layer": layer, "summary": cid, "responsibilities": [cid + " duty"], "files": [cid + ".py"],
+                "entrypoints": [], "state": [], "side_effects": [], "depends_on": depends_on, "tests": [], "models": [],
+                "status": "draft", "fingerprint": ""}
+    data = {"schema": "flowguard.map.v1", "project": "binding", "layers": ["interface", "core"], "ignore": [],
+            "components": [component("app", "interface", ["api", "core"]), component("api", "interface", ["core"]),
+                           component("core", "core", [])], "flows": [], "accepted_debts": []}
+
+    def unused():
+        inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+        return [f.component for f in run_check(tmp_path, data, inv) if f.code == "dep_unused"]
+    assert unused() == []                       # api reaches core only through the injected store
+    write(tmp_path, "app.py", "from api import Service\nfrom core import Store\n\n\ndef main():\n    return 1\n")
+    assert unused() == ["api"]                  # nothing passes a Store any more: the declared edge has no evidence
