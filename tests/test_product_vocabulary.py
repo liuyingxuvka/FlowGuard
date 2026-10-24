@@ -22,10 +22,6 @@ def test_no_receipt_vocabulary_left():
     assert not offenders, "\n".join(offenders)
 
 
-PENDING = {
-}
-
-
 def test_no_self_reported_currentness_left():
     paths = set(filter(None, subprocess.check_output(
         ["git", "ls-files", "-z", "--", "flowguard", ".agents/skills/flowguard", ".flowguard", "examples", "tests", "docs"],
@@ -51,27 +47,20 @@ def test_no_self_reported_currentness_left():
         "result_status",
     )
     pattern = re.compile(r"\b(?:" + "|".join(names) + r")\b|\brow\.current\b")
-    matched = set()
     offenders = []
     for relative in sorted(paths):
         if relative == "tests/test_product_vocabulary.py":
             continue
         path = ROOT / relative
         if not path.is_file():
-            if relative not in PENDING:
-                offenders.append(f"{relative}: tracked file is missing")
+            offenders.append(f"{relative}: tracked file is missing")
             continue
         content = path.read_text(encoding="utf-8")
         matches = list(pattern.finditer(content))
         if matches:
-            matched.add(relative)
-            if relative not in PENDING:
-                for match in matches:
-                    line = content[:match.start()].count("\n") + 1
-                    offenders.append(f"{relative}:{line}: {match.group()}: no retirement action in PENDING")
-    for relative, action in sorted(PENDING.items()):
-        if relative not in paths or not (ROOT / relative).is_file() or relative not in matched:
-            offenders.append(f"{relative}: {action}: no longer tracked, present and matching; remove from PENDING")
+            for match in matches:
+                line = content[:match.start()].count("\n") + 1
+                offenders.append(f"{relative}:{line}: {match.group()}: obsolete currentness vocabulary")
     assert not offenders, "\n".join(offenders)
 
 
