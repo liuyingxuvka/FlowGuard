@@ -203,7 +203,7 @@ Use `python -m flowguard template <kind> --write .`; `adoption` writes the six p
 With a target, model files go into `.flowguard/target/models/`; otherwise they go into `.flowguard/models/`.
 Other template files keep their paths; the CLI prints the next target check or model command. `--force` keeps its overwrite meaning.
 
-Feature kits (`flowguard.kit`: `feature_explorer`, `plan_explorer`; code facts or replay as conformance) reuse the same model contract.
+Feature kits (`flowguard.kit`: `feature_explorer`; code facts or replay as conformance) reuse the same model contract.
 A feature model lists `Feature(name, rejects, codes, apply)` rows:
 each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
 explores each allowed feature set once (up to `max_features=2` by default), generates the known-bad variants (`feature_variants`) and, in

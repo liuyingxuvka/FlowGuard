@@ -100,12 +100,9 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "FeatureReport",
         "FeatureState",
         "FeatureViolation",
-        "PlanState",
         "feature_conformance",
         "feature_explorer",
         "feature_variants",
-        "plan_explorer",
-        "review_invariant",
     ),
     "flowguard.loop": (
         "GraphEdge",

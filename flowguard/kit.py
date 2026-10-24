@@ -1,26 +1,13 @@
-"""Model kits: build a complete FlowGuard model from a concern's features or edits and an existing review.
+"""Feature kits model acceptance and rejection of finite input variations.
+A Feature declares a defect or a benign variation; feature_explorer and
+feature_variants describe and challenge the design, while feature_conformance
+runs those inputs on the real code. Combinations default to max_features=2,
+respect requires/conflicts/exclusive, and report all codes or codes="first".
 
-Every model has the same five abilities: a state model, counterexamples from
-bounded exploration, known-bad variants that must fail, a binding to the real
-code (anchors plus conformance) and a binding to tests.  Two generic shapes
-give a capability or a self-model all five with little code:
-
-* **Features** - a feature is one named property of an input (``Feature``): a
-  rejecting feature is a defect the code must reject and report, a benign
-  feature is a variation that must not change the verdict, and ``apply``
-  changes a clean base input to have the property.  The state is the set of
-  applied features; exploration reaches each allowed set once, up to
-  ``max_features=2`` by default.  The design rejects exactly when a rejecting feature
-  is present and reports all codes, or the first defect's codes with ``codes="first"``. The kit owns
-  invariants (``clean_input_accepted``, ``each_defect_rejected``,
-  ``every_defect_reported``, ``benign_features_neutral``) and generates the
-  known-bad variants (``feature_variants``).  ``feature_conformance`` explores
-  the same universe on the real code: it builds each input from the clean base,
-  runs the real review and reports a counterexample trace (the feature
-  sequence, the expected and the observed verdict) for every combination that
-  breaks an invariant or differs from the design.
-* **Plan edits** - the state is a capability plan reached by named edits;
-  ``plan_explorer`` checks every reachable plan against existing review invariants.
+reachable_states supplies parent-state slices to children with
+project_parent_state: initial states and each retained trace-step state are
+collected in first-seen order. Incomplete reports bound the available states;
+collecting them never expands or reruns missing traces.
 """
 
 from __future__ import annotations
@@ -393,68 +380,6 @@ def _observe(universe: _Universe, names: tuple[str, ...], base, review) -> tuple
     return (ACCEPTED if accepted else REJECTED), frozenset(codes) & universe.vocabulary, ""
 
 
-@dataclass(frozen=True)
-class PlanState:
-    """State of a plan-edit model: the edits applied so far (the plan itself is rebuilt from them)."""
-
-    edits: tuple[str, ...] = ()
-
-
-class _PlanEdit:
-    name = "PlanEdit"
-    reads = ("edits",)
-    writes = ("edits",)
-
-    def apply(self, edit: str, state: PlanState):
-        return (FunctionResult(edit, PlanState(state.edits + (edit,)), label=edit),)
-
-
-def review_invariant(name: str, review: Callable[[Any], Any], plan_of: Callable[[Any], Any] | None = None,
-                     description: str = "") -> Invariant:
-    """An existing capability review used as a model invariant: every reachable plan must pass it."""
-
-    def check(state, trace) -> InvariantResult:
-        report = review(plan_of(state) if plan_of else state)
-        if getattr(report, "ok", False):
-            return InvariantResult.pass_()
-        findings = list(getattr(report, "findings", ()))
-        codes = [getattr(finding, "code", "") for finding in findings]
-        first = next((getattr(f, "message", "") for f in findings if getattr(f, "severity", "blocker") == "blocker"), "")
-        return InvariantResult.fail(f"the review rejects the plan: {', '.join(c for c in codes[:5] if c) or 'not ok'}"
-                                    + (f" ({first})" if first else ""))
-
-    return Invariant(name, description or f"{name}: the capability review accepts every reachable plan", check)
-
-
-def plan_explorer(initial: Callable[[], Any], edits: Mapping[str, Callable[[Any], Any]], review: Callable[[Any], Any],
-                  *, explore: Sequence[str] | None = None, invariant_name: str = "review_accepts_plan",
-                  max_sequence_length: int = 2, extra_invariants: Iterable[Invariant] = (),
-                  extra_reviews: Mapping[str, Callable[[Any], Any]] | None = None) -> Explorer:
-    """Explore every sequence of the named edits in ``explore`` (default: all) from the initial plan.
-
-    The review (invariant ``invariant_name``) and each of ``extra_reviews`` ({invariant name: review}) must
-    accept every plan reached.  Give the design and its known-bad variants the same ``edits`` mapping and
-    different ``explore`` lists, so each can rebuild the other's plans.
-    """
-    edits = dict(edits)
-    cache: dict[tuple, Any] = {}
-
-    def plan_of(state: PlanState):
-        if state.edits not in cache:
-            plan = initial()
-            for edit in state.edits:
-                plan = edits[edit](plan)
-            cache[state.edits] = plan
-        return cache[state.edits]
-
-    invariants = (review_invariant(invariant_name, review, plan_of),
-                  *(review_invariant(name, check, plan_of) for name, check in (extra_reviews or {}).items()),
-                  *extra_invariants)
-    return Explorer(workflow=Workflow((_PlanEdit(),)), initial_states=(PlanState(),),
-                    external_inputs=tuple(edits if explore is None else explore),
-                    invariants=invariants, max_sequence_length=max_sequence_length, progress_steps=0)
-
-
 def reachable_states(explorer: Explorer, project=None) -> tuple:
     """Initial states and every step state in the report's retained traces, in first-seen order.
 
@@ -470,6 +395,6 @@ def reachable_states(explorer: Explorer, project=None) -> tuple:
     return tuple(states)
 
 
-__all__ = ["FEATURE_INVARIANTS", "Feature", "FeatureReport", "FeatureState", "FeatureViolation", "PlanState",
-           "feature_conformance", "feature_explorer", "feature_variants", "plan_explorer", "review_invariant",
+__all__ = ["FEATURE_INVARIANTS", "Feature", "FeatureReport", "FeatureState", "FeatureViolation",
+           "feature_conformance", "feature_explorer", "feature_variants",
            "reachable_states"]

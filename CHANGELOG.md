@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Removed `flowguard.kit.plan_explorer`, `review_invariant` and `PlanState`. Feature kits and `reachable_states` remain available.
+
 - Templates are the node kinds `behaviour`, `validator` and `ui-journey` (plus `adoption`); with a target, `template` writes models into `.flowguard/target/models/`.
 
 - `python -m flowguard release --shards N` now runs the whole test suite in parallel after normal checks pass, verifying that every collected test runs once within that suite. Failed prechecks skip it; omitting `--shards` keeps the whole suite optional. Shard JSON results use `scope`.

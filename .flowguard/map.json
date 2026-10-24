@@ -158,7 +158,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:be42619d7e4a656841dc2c59195c8778218a03474f19bedd76036a8f729c7c98"
+      "fingerprint": "sha256:2ab15bacfbb38a3a1c779ae32f4fbe0a586ceae7241d7fb33730c81b6264a223"
     },
     {
       "id": "templates",
@@ -570,7 +570,7 @@
       "summary": "Replays modeled traces and feature combinations against real implementations.",
       "responsibilities": [
         "replay model traces on the real code",
-        "build complete models from each allowed feature set once (codes all or first; requires and conflicts), or from plan edits checked by existing reviews (model kits)",
+        "build complete models from each allowed feature set once (codes all or first; requires and conflicts)",
         "collect first-seen projected initial and retained trace step states for a parent-child port"
       ],
       "files": [
@@ -595,7 +595,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e1e608b595a21d54d0a76761eb3b398819baab167778c3fcdb6511ac5291082a"
+      "fingerprint": "sha256:cb44003107d3dc19e2387aa67fe4234a9688d6e9d51b1ce758ce8a92c0e87e91"
     },
     {
       "id": "problem-corpus",
