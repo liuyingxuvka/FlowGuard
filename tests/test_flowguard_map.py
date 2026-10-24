@@ -1253,3 +1253,30 @@ def test_lint_reports_private_names_used_across_components(tmp_path):
     assert any(f.level == "info" and "_helper" in f.message for f in found), found
     shown = render_show(tmp_path, data, inv, component="a", detail=False, budget=8000)
     assert "_helper (private)" in next(line for line in shown.splitlines() if "uses b:" in line), shown
+
+
+def test_check_and_change_report_duplicate_owner(tmp_path, capsys):
+    """Two components claiming one state is an error in map check, change, read and system, once each."""
+    import flowguard.__main__ as flowguard_cli
+    from test_flowguard_target import shelf_project
+
+    root = shelf_project(tmp_path)
+    data = load(root)
+    next(c for c in data["components"] if c["id"] == "catalog")["state"].append("current loans")
+    save(root, data)
+    capsys.readouterr()
+
+    def run(*args):
+        code = flowguard_cli.main([*args, "--root", str(root)])
+        return code, capsys.readouterr().out
+
+    code, out = run("map", "check")
+    assert code == 1 and out.count("duplicate_owner") == 1 and "ERROR duplicate_owner" in out, out
+    assert "duplicate_owner" in run("change")[1]
+    assert "architecture: 1 error(s)" in run("read")[1].splitlines()[0]
+    assert run("map", "models", "system")[1].count("duplicate_owner") == 1
+    data["accepted_debts"] = [{"code": "duplicate_owner", "component": "catalog", "contains": "current loans",
+                               "reason": "the catalog mirrors loans until the split"}]
+    save(root, data)
+    code, out = run("map", "check")
+    assert code == 0 and "INFO  duplicate_owner" in out, out
