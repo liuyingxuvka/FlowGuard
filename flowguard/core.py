@@ -246,3 +246,19 @@ __all__ = [
     "normalize_function_results",
     "replace",
 ]
+
+
+def evaluate_invariant(invariant: Any, state: Any, trace: Any) -> InvariantResult:
+    """Run one invariant (an object with check() or a plain callable) and normalize its result."""
+    check = getattr(invariant, "check", None)
+    try:
+        result = check(state, trace) if check is not None else invariant(state, trace)
+    except Exception as exc:
+        return InvariantResult.fail(f"invariant raised {type(exc).__name__}: {exc}")
+    if isinstance(result, InvariantResult):
+        return result
+    if bool(result):
+        return InvariantResult.pass_()
+    name = getattr(invariant, "name", getattr(invariant, "__name__", type(invariant).__name__))
+    return InvariantResult.fail(f"invariant failed: {name}")
+

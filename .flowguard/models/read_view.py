@@ -29,6 +29,10 @@ NOT_MODELED = {
         "are what static_rules_match_model checks on real render_show output",
     "flowguard/map/facets.py:_StaticModel.explorer_rules": "remembers the kit case table found while reading rules; "
         "the cases line is checked by static_rules_match_model through the kit probe",
+    "flowguard/map/facets.py:_StaticModel._defined": "records the AST of each rule's defining call so goal rules can "
+        "compare versions; tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied checks that line",
+    "flowguard/map/facets.py:_StaticModel.bad_keys": "collects known-bad names written by loops and comprehensions; "
+        "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets checks them",
 }
 TESTED_BY = {
     "no_model_import": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],

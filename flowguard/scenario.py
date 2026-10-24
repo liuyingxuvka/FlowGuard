@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Sequence
 
-from .core import FrozenMetadata, InvariantResult, freeze_metadata
+from .core import FrozenMetadata, InvariantResult, evaluate_invariant, freeze_metadata
 from .export import to_json_text, to_jsonable
 from .report import CheckReport, DeadBranch, ExceptionBranch, InvariantViolation
 from .trace import Trace
@@ -138,19 +138,6 @@ def _invariant_description(invariant: Any) -> str:
     return str(getattr(invariant, "description", ""))
 
 
-def _check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResult:
-    check = getattr(invariant, "check", None)
-    try:
-        result = check(state, trace) if check is not None else invariant(state, trace)
-    except Exception as exc:
-        return InvariantResult.fail(f"invariant raised {type(exc).__name__}: {exc}")
-    if isinstance(result, InvariantResult):
-        return result
-    if bool(result):
-        return InvariantResult.pass_()
-    return InvariantResult.fail(f"invariant failed: {_invariant_name(invariant)}")
-
-
 def _collect_violations(
     invariants: Sequence[Any],
     state: Any,
@@ -158,7 +145,7 @@ def _collect_violations(
 ) -> list[InvariantViolation]:
     violations: list[InvariantViolation] = []
     for invariant in invariants:
-        result = _check_invariant(invariant, state, trace)
+        result = evaluate_invariant(invariant, state, trace)
         if result.ok:
             continue
         violations.append(

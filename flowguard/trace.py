@@ -9,6 +9,14 @@ from .core import FrozenMetadata, freeze_metadata
 from .export import trace_step_to_dict, trace_to_dict, to_json_text, trace_to_json_text
 
 
+def freeze_step_fields(step: Any) -> None:
+    """Normalize the text and metadata fields shared by a trace step and a replay observation (frozen dataclasses)."""
+    object.__setattr__(step, "function_name", str(step.function_name))
+    object.__setattr__(step, "label", str(step.label or ""))
+    object.__setattr__(step, "reason", str(step.reason or ""))
+    object.__setattr__(step, "metadata", freeze_metadata(step.metadata))
+
+
 @dataclass(frozen=True)
 class TraceStep:
     """One function-block transition inside a workflow path."""
@@ -24,10 +32,7 @@ class TraceStep:
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "function_name", str(self.function_name))
-        object.__setattr__(self, "label", str(self.label or ""))
-        object.__setattr__(self, "reason", str(self.reason or ""))
-        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+        freeze_step_fields(self)
 
     @property
     def block_name(self) -> str:

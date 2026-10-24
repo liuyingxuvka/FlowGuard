@@ -1144,3 +1144,15 @@ def test_digest_lists_overloads_once(tmp_path):
     dumps = [line for line in outline if 'def dumps(' in line]
     assert len(inits) == 1 and inits[0].endswith(' (+2 overloads)'), outline
     assert len(dumps) == 1 and dumps[0].endswith(' (+2 overloads)'), outline
+
+
+def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
+    busy = _component('busy', responsibilities=[f'duty {n}' for n in range(9)], summary='Busy')
+    busy['tests'] = ['tests/test_busy.py']
+    data = dict(project='demo', components=[busy], flows=[])
+    inv = _inventory(tmp_path)
+    head = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000).splitlines()[0]
+    assert '1 warning(s), 0 accepted debt(s)' in head, head
+    data['accepted_debts'] = [dict(code='too_many_responsibilities', component='busy', reason='one table of duties')]
+    head = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000).splitlines()[0]
+    assert '0 warning(s), 1 accepted debt(s)' in head, head

@@ -21,7 +21,8 @@
       "layer": "examples",
       "summary": "Runnable examples of executable models.",
       "responsibilities": [
-        "teach modeling by runnable examples"
+        "teach modeling by runnable examples",
+        "replay the job-matching model on its production code"
       ],
       "files": [
         "examples/**/*.py",
@@ -390,8 +391,7 @@
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks",
         "fail a model whose rule no known-bad variant breaks",
-        "report missing, placeholder or unconsulted anchors as model failures",
-        "give conformance a static code-facts reader",
+        "read code facts for conformance and fail missing or unconsulted anchors",
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
         "print at most three open hazard hints per model"
@@ -539,7 +539,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:731191c10840a952d679de14fe499869eef46d80687d4d4f8e628ea1e1e5626d"
+      "fingerprint": "sha256:d7835fba5391cef4df70abcc3b79e2d6f8f567d22357365d5777d5161f2ae7d7"
     },
     {
       "id": "engine-conformance",
@@ -573,7 +573,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1566e436a178caf790d6bf116e5947b70aed9f517a30950f2dc64c3e50a46fd6"
+      "fingerprint": "sha256:d51519ac74e8fe9c2a086dfd4e767c80ea8949a3e9b1ee53cf0aa30204f66b16"
     },
     {
       "id": "problem-corpus",
@@ -637,7 +637,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1e783c42e948ff508c0287eabc1b88cac10f97d201976b7c5a243ea50e62f8d7"
+      "fingerprint": "sha256:bba30a7d2275664e50d9c571068b8e006cb9f56f9a2dec08e7e62b42406794a4"
     },
     {
       "id": "ui-journey",
@@ -746,7 +746,8 @@
       "files": [
         "flowguard/map/views.py",
         "flowguard/map/facets.py",
-        "flowguard/map/review.py"
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -763,7 +764,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d753c93d66c2b2eadcfa74cbca4ca9aaf0b16b31998fe95817a6ec1d7409d74e"
+      "fingerprint": "sha256:c8bb3a88e17113d0c141fb2399b1e502468d0414361154af65ef7bf710b54157"
     },
     {
       "id": "map-impact",
@@ -848,5 +849,28 @@
       "model": ".flowguard/models/target_life_cycle.py"
     }
   ],
-  "accepted_debts": []
+  "accepted_debts": [
+    {
+      "code": "large_component",
+      "component": "examples",
+      "reason": "teaching examples and the problem corpus; their size does not affect the package"
+    },
+    {
+      "code": "large_file",
+      "component": "examples",
+      "contains": "examples/problem_corpus/real_models.py",
+      "reason": "corpus data written as code"
+    },
+    {
+      "code": "large_file",
+      "component": "engine-explore",
+      "contains": "flowguard/budgeted.py",
+      "reason": "one bounded explorer keeps its checkpoint writer and reader together"
+    },
+    {
+      "code": "high_fan_out",
+      "component": "cli",
+      "reason": "the command entry dispatches each command family to the component that owns it"
+    }
+  ]
 }

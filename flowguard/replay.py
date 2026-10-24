@@ -7,7 +7,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from .core import FrozenMetadata, freeze_metadata
 from .export import to_json_text, to_jsonable
-from .trace import TraceStep
+from .trace import TraceStep, freeze_step_fields
 
 
 @dataclass(frozen=True)
@@ -42,10 +42,7 @@ class ReplayObservation:
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "function_name", str(self.function_name))
-        object.__setattr__(self, "label", str(self.label or ""))
-        object.__setattr__(self, "reason", str(self.reason or ""))
-        object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
+        freeze_step_fields(self)
 
     def to_dict(self) -> dict[str, Any]:
         return {

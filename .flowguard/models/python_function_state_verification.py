@@ -32,8 +32,12 @@ from flowguard.replay import ReplayInput, ReplayObservation
 from flowguard.workflow import Workflow
 
 MODEL_ID = "python_function_state_verification"
-PARENT = "system"
-COMPONENTS = ["engine-properties"]
+COMPONENTS = ["engine-core", "engine-conformance", "engine-explore", "engine-properties", "engine-scenarios"]
+NOT_MODELED = {
+    "flowguard/scenario_matrix.py:ScenarioMatrixBuilder._add_pattern":
+        "Scenario-matrix bookkeeping; tests/test_scenario_matrix.py:test_add_pattern_keeps_one_pattern_per_kind_and_sequence "
+        "calls it directly and every matrix test builds patterns through it.",
+}
 IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
                   "Replay": "flowguard/conformance.py:replay_trace",
                   "TraceContracts": "flowguard/contract.py:check_trace_contracts",

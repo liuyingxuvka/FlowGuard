@@ -6,7 +6,7 @@ import json
 from dataclasses import dataclass, field, replace
 from typing import Any, Callable, Sequence
 
-from .core import FrozenMetadata, InvariantResult, freeze_metadata
+from .core import FrozenMetadata, InvariantResult, evaluate_invariant, freeze_metadata
 from .export import to_jsonable, trace_step_to_dict, trace_to_dict
 from .replay import ReplayInput, ReplayObservation, coerce_observation
 from .trace import Trace, TraceStep
@@ -184,19 +184,6 @@ def _invariant_name(invariant: Any) -> str:
     return str(getattr(invariant, "name", getattr(invariant, "__name__", type(invariant).__name__)))
 
 
-def _check_invariant(invariant: Any, state: Any, trace: Trace) -> InvariantResult:
-    check = getattr(invariant, "check", None)
-    try:
-        result = check(state, trace) if check is not None else invariant(state, trace)
-    except Exception as exc:
-        return InvariantResult.fail(f"invariant raised {type(exc).__name__}: {exc}")
-    if isinstance(result, InvariantResult):
-        return result
-    if bool(result):
-        return InvariantResult.pass_()
-    return InvariantResult.fail(f"invariant failed: {_invariant_name(invariant)}")
-
-
 def replay_trace(
     trace: Trace,
     adapter: Any,
@@ -244,7 +231,7 @@ def replay_trace(
         replayed_steps.append(observation)
 
         for invariant in invariants:
-            result = _check_invariant(invariant, observation.observed_state, trace)
+            result = evaluate_invariant(invariant, observation.observed_state, trace)
             if not result.ok:
                 violations.append(
                     ConformanceViolation(
