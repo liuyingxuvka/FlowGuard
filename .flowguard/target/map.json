@@ -1,0 +1,105 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-327: remove dead code and retired shard machinery",
+  "components": [
+    {
+      "id": "engine-core",
+      "layer": "foundation",
+      "summary": "Defines function blocks, workflows, traces and reports.",
+      "responsibilities": [
+        "define function blocks, workflows and traces",
+        "compose a sequence of blocks or a choice of blocks by accepted input type"
+      ],
+      "files": [
+        "flowguard/core.py",
+        "flowguard/workflow.py",
+        "flowguard/trace.py",
+        "flowguard/report.py",
+        "flowguard/export.py",
+        "flowguard/schema.py",
+        "flowguard/mermaid.py",
+        "flowguard/_normalization.py",
+        "flowguard/_runtime_progress.py"
+      ],
+      "entrypoints": [
+        "flowguard/workflow.py:Workflow"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [],
+      "tests": [
+        "tests/test_core_abstractions.py",
+        "tests/test_python_function_state_verification_owner.py",
+        "tests/test_shared_normalization.py",
+        "tests/test_workflow_execution.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "test-mesh",
+      "layer": "capabilities",
+      "summary": "Collects exact pytest ids, runs bounded parallel shards and reports each test's outcome.",
+      "responsibilities": [
+        "shard tests by exact node id and run every shard on each invocation",
+        "verify each collected test ran exactly once in the release whole-suite phase"
+      ],
+      "files": [
+        "flowguard/pytest_junit.py",
+        "flowguard/pytest_nodeid_recorder.py",
+        "flowguard/pytest_shard_plugin.py",
+        "flowguard/pytest_shards.py",
+        "flowguard/pytest_shards_cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/pytest_shards.py:partition_nodeids",
+        "flowguard/pytest_shards_cli.py:main"
+      ],
+      "state": [
+        "test collection and shard outcomes"
+      ],
+      "side_effects": [
+        "runs pytest shards; writes run-local cache"
+      ],
+      "depends_on": [
+        "map-proof"
+      ],
+      "tests": [
+        "tests/test_pytest_shard_runner.py",
+        "tests/test_pytest_shards.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "templates",
+      "layer": "interface",
+      "summary": "Generates ordinary behaviour, validator and UI journey models plus adoption rules.",
+      "responsibilities": [
+        "generate behaviour, validator and ui-journey starters plus six adoption rules",
+        "make placeholder code and test anchors fail until the user fills them"
+      ],
+      "files": [
+        "flowguard/template_text/*.py",
+        "flowguard/templates.py"
+      ],
+      "entrypoints": [
+        "flowguard/templates.py:write_template_files"
+      ],
+      "state": [],
+      "side_effects": [
+        "writes template files when asked"
+      ],
+      "depends_on": [],
+      "tests": [
+        "tests/test_engineering_hardening.py",
+        "tests/test_project_integration.py",
+        "tests/test_public_templates.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": [
+    "responsibility:describe model and test outcomes in generated notes",
+    "responsibility:report typed capability blockers and bounded process cleanup results"
+  ]
+}
