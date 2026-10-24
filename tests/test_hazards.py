@@ -213,3 +213,97 @@ def test_hazards_never_change_the_verdict(tmp_path, monkeypatch):
     assert result.status == "pass" and not result.problems, result
     assert result.hazards == ["inference failed: inference probe failed"]
     assert "      hazard: inference failed: inference probe failed" in proof.render_results([result])
+
+
+def test_hazard_words_match_whole_words_only():
+    """`ValidateSystem` reading `threshold` and `schema` is no legacy path; `LegacyImport` is."""
+    from flowguard.hazards import derive_topology_hazard_candidates
+
+    class ValidateSystem:
+        name = "ValidateSystem"
+        reads = ("threshold", "schema")
+        writes = ("verdict",)
+
+    class LegacyImport(ValidateSystem):
+        name = "LegacyImport"
+
+    def kinds(block):
+        digest = infer_topology_digest(workflow=Workflow((block,), name="check"), initial_states=(), external_inputs=())
+        return {candidate.landmark_type for candidate in derive_topology_hazard_candidates(digest)}
+
+    assert "legacy_or_compatibility_path" not in kinds(ValidateSystem())
+    assert "legacy_or_compatibility_path" in kinds(LegacyImport())
+
+
+def test_same_type_nodes_give_one_hazard():
+    """Three inputs of one type are one node: a single parent_child_compression hazard."""
+    from flowguard.hazards import derive_topology_hazard_candidates
+
+    @dataclass(frozen=True)
+    class Request:
+        parent: str = ""
+
+    digest = infer_topology_digest(workflow=Workflow((SaveRecord(),), name="save"), initial_states=(State(),),
+                                   external_inputs=(Request("a"), Request("b"), Request("c")))
+    found = [c for c in derive_topology_hazard_candidates(digest) if c.landmark_type == "parent_child_compression"]
+    assert len(found) == 1, found
+
+
+_TOTAL_MODEL = '''from dataclasses import dataclass
+from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+MODEL_ID = "hazard_total"
+COMPONENTS = ["app"]
+IMPLEMENTED_BY = {"AddOne": "hazard_total_app.py:add_one"}
+class AddOne:
+    name = "AddOne"
+    reads = ("total",)
+    writes = ("total",)
+    def apply(self, value, state):
+        return [FunctionResult(value, state + 1)]
+class AddTwo(AddOne):
+    name = "AddTwo"
+    def apply(self, value, state):
+        return [FunctionResult(value, state + 2)]
+class WrongAddTwo(AddTwo):
+    def apply(self, value, state):
+        return [FunctionResult(value, state + 5)]
+def explorer(second=None):
+    return Explorer(Workflow((AddOne(), second or AddTwo()), name="adding"), initial_states=(0,), external_inputs=(0,),
+                    max_sequence_length=1, progress_steps=0,
+                    invariants=(Invariant("small_steps", "each step adds at most two", lambda state, trace: state <= 3),))
+def build_explorer(): return explorer()
+def broken_variants(): return {"adds_five": explorer(WrongAddTwo())}
+def conformance():
+    import hazard_total_app as app
+    return CodeFactsReport((Fact("adds one", app.add_one(0) == 1),))
+'''
+
+
+def test_known_bad_on_the_block_closes_its_hazard(tmp_path, capsys):
+    """Two blocks write `total`; a caught known-bad variant replacing one of them closes the shared_writer hint."""
+    (tmp_path / "hazard_total_app.py").write_text("def add_one(value):\n    return value + 1\n", encoding="utf-8")
+    (tmp_path / ".flowguard/models").mkdir(parents=True)
+    (tmp_path / ".flowguard/models/hazard_total.py").write_text(_TOTAL_MODEL, encoding="utf-8")
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [dict(
+        id="app", summary="Adds", responsibilities=["add numbers"], files=["hazard_total_app.py"], entrypoints=[],
+        tests=[], models=[], depends_on=[], status="draft")]}), encoding="utf-8")
+    assert cli.main(["--root", str(tmp_path), "models", "hazard_total"]) == 0
+    output = capsys.readouterr().out
+    assert "hazard: shared_writer" not in output, output
+    assert "hazards: 0 open (0 shown), 1 closed by known-bad variants or invariants" in output, output
+    assert cli.main(["--root", str(tmp_path), "models", "hazard_total", "--hazards"]) == 0
+    listed = capsys.readouterr().out
+    assert "shared_writer" in listed and "closed by known-bad adds_five" in listed, listed
+
+
+def test_hazard_output_is_capped_with_one_summary_line():
+    """At most three open hints plus one summary line; --hazards lists every hint."""
+    result = proof.ModelResult(model="m", file="m.py", status="pass",
+                               hazards=[f"shared_writer: hint {index}" for index in range(5)])
+    lines = [line.strip() for line in proof.render_results([result]).splitlines() if "hazard" in line]
+    assert lines == ["hazard: shared_writer: hint 0", "hazard: shared_writer: hint 1", "hazard: shared_writer: hint 2",
+                     "hazards: 5 open (3 shown), 0 closed by known-bad variants or invariants"], lines
+    full = proof.render_results([result], all_hazards=True)
+    assert all(f"hint {index}" in full for index in range(5)) and "+" not in full

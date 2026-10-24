@@ -1,0 +1,90 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-312: hazard hints are few, distinct and closable",
+  "components": [
+    {
+      "id": "engine-properties",
+      "layer": "engine",
+      "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
+      "responsibilities": [
+        "provide reusable invariants and contracts; derive informational hazards from actual model structure and names, anchored to its nodes or edges, without usage-text predictions or verdict changes",
+        "check that handoffs between child models close",
+        "close a hazard hint that a known-bad variant or invariant covers"
+      ],
+      "files": [
+        "flowguard/checks.py",
+        "flowguard/packs/*.py",
+        "flowguard/contract.py",
+        "flowguard/closure.py",
+        "flowguard/hazards.py"
+      ],
+      "entrypoints": [
+        "flowguard/checks.py:at_most_once_by",
+        "flowguard/closure.py:review_mesh_closure_model",
+        "flowguard/closure.py:closure_invariant"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-core",
+        "engine-explore",
+        "engine-scenarios"
+      ],
+      "tests": [
+        "tests/test_contract_core.py",
+        "tests/test_packs.py",
+        "tests/test_property_factories.py",
+        "tests/test_closure.py",
+        "tests/test_hazards.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-proof",
+      "layer": "map",
+      "summary": "Runs model proofs, precise placeholder failures, individual bound-test reach and native architecture rules with ordinary result messages.",
+      "responsibilities": [
+        "run models and their known-bad and conformance checks; warn about every invariant that no known-bad variant violates; load sibling model imports from the model directory; derive component model hints from the contract-model tree; release fails on them; check a child's start states only when it declares project_parent_state, without lending parent-check calls to child anchors; report the actual design invariant and known-bad variant names without rerunning proof hooks, abbreviating only their text display; run models on the current tree with the target applied in one temporary model namespace with canonical filenames, selected sibling sources and finally restoration; keep default proof judgments and tag actual code gaps for target classification; print computed hazards for every model after its existing design exploration, never gating a verdict or repeating user hooks",
+        "fail a contract model whose IMPLEMENTED_BY anchors are missing, unresolved or never consulted (called or read); give conformance a static code-facts reader (anchors, words, imports of or references to a symbol outside its own file) and load the code an anchor names",
+        "own bounded subprocess cleanup shared by models and pytest shards; nested POSIX helpers share one session",
+        "run the built-in root model 'system' using the shared static architecture rules and known-bad generator from map analysis, with map check as conformance; reject shared state or side-effect ownership through that same architecture rule owner",
+        "run each model's TESTED_BY tests under the anchor watch; each bound test and parameter case must pass and call or explicitly read at least one implementation anchor in its own call window; name the rules that no bound test guards; run explicitly selected bound parameter items without weakening per-item code reach",
+        "check real code facts and keep failed facts visible; place models of unbuilt behavior in the target",
+        "return optional per-test statuses from the existing bound-test execution and report exact placeholder anchor failures without a traceback",
+        "print at most three open hazard hints per model"
+      ],
+      "files": [
+        "flowguard/map/proof.py",
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py",
+        "flowguard/map/system_model.py",
+        "flowguard/map/testreach.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
+      ],
+      "state": [],
+      "side_effects": [
+        "runs isolated model subprocesses",
+        "runs one isolated pytest process per model when bound-test checking is requested"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "engine-explore",
+        "engine-properties",
+        "map-analysis",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_facts.py",
+        "tests/test_flowguard_map_proof.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
