@@ -314,7 +314,8 @@
         "count del statements as state writes and expose anchor state writes",
         "discover without writing caches when asked",
         "find the model anchors that code calls directly",
-        "build one static call graph from current or target source facts"
+        "build one static call graph from current or target source facts",
+        "report no entrypoint or effect from words inside strings"
       ],
       "files": [
         "flowguard/map/discover.py"

@@ -648,3 +648,28 @@ def test_write_into_an_injected_object_is_a_foreign_state_write(tmp_path):
     inv = build_inventory(tmp_path, DEFAULT_IGNORE)
     found = [f for f in run_lint(tmp_path, data, inv) if f.code == "foreign_state_write"]
     assert any("NoteStore.notes" in f.message and f.component == "service" for f in found), found
+
+
+def test_discovery_finds_each_entry_and_effect_shape(tmp_path):
+    """Console scripts and main guards are entrypoints, writes belong to their writer, string words invent nothing."""
+    from flowguard.map.discover import reachable_effects
+
+    files = {
+        "tool.py": "def run():\n    return 0\n",
+        "pyproject.toml": "[project]\nname = 'probe'\n[project.scripts]\nprobe-tool = 'tool:run'\n",
+        "save.py": "def save(text):\n    with open('out.txt', 'w') as handle:\n        handle.write(text)\n\n\n"
+                   "if __name__ == '__main__':\n    save('x')\n",
+        "counter.py": "class Counter:\n    def __init__(self):\n        self.count = 0\n\n    def bump(self):\n        self.count += 1\n",
+        "words.py": "HELP = 'run subprocess or open a socket'\n\n\ndef describe():\n    return 'subprocess.run and requests.post'\n",
+    }
+    for relative, source in files.items():
+        (tmp_path / relative).write_text(source, encoding="utf-8")
+    raw = discover_inventory(tmp_path, build_inventory(tmp_path, [], write_cache=False), write_cache=False)
+    entries = {(e["kind"], path, e["symbol"]) for path, facts in raw["files"].items() for e in facts["entrypoints"]}
+    assert ("console_script", "tool.py", "run") in entries
+    assert ("main_guard", "save.py", "<module>") in entries and ("main_call", "save.py", "save") in entries
+    assert set(reachable_effects(raw, "save.py#save")) == {"fs_write"}
+    assert raw["files"]["counter.py"]["state"]["Counter.count"] == ["Counter.__init__", "Counter.bump"]
+    words = raw["files"]["words.py"]
+    assert not words["entrypoints"] and not any(fn["effects"] for fn in words["functions"].values())
+    assert not (tmp_path / ".flowguard").exists()
