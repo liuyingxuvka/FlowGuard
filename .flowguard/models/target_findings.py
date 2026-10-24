@@ -35,13 +35,11 @@ IMPLEMENTED_BY = {
 TESTED_BY = {
     "design_mistakes_are_errors": [
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
-        "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
     ],
     "missing_code_is_todo": [
         "tests/test_flowguard_target.py:test_target_check_reports_unwritten_code_as_todo",
     ],
     "only_changed_subjects_move": [
-        "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
         "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
     ],
     "strict_never_moves": [
