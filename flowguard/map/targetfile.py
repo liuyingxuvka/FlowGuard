@@ -205,8 +205,13 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
                 issues.append(TargetIssue("target_model_id_clash", f"{rel}: model id {mid!r} belongs to another filename; "
                                           f"use the same filename, or add model:{mid} to remove"))
     if not issues:
-        for error in validate_map(merge_target_map(current_data, target)):
+        merged = merge_target_map(current_data, target)
+        for error in validate_map(merged):
             invalid(error)
+        for component in merged["components"]:
+            if component.get("parent") in target.remove["component"]:
+                invalid(f"cannot remove component {component['parent']!r} while child {component['id']!r} "
+                        "still names it; remove or reparent the child")
     return issues
 
 

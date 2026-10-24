@@ -40,6 +40,7 @@
 | `ignore` | globs excluded from the inventory (in addition to `.flowguard/**`, `.git/**`, build dirs) | human/AI |
 | `test_command` | how to run tests; `impact` appends the selected test files | human/AI |
 | `id` | lowercase `[a-z0-9][a-z0-9_.-]*`, unique | human/AI |
+| `parent` | optional id of a parent component (a sub-system); it must be in the same layer; file ownership stays direct | human/AI |
 | `files` | globs (`*` = one directory level, `**` = any depth); every non-test source file must match exactly one component | human/AI |
 | `entrypoints` | `path:Symbol` or `path:Class.method`; must exist (`check`) | human/AI |
 | `depends_on` | edges supported by parsed imports, lazy exports, literal import_module/__import__ calls, entrypoint literals or defined symbol literals or an accepted `dep_unused` debt; undeclared imports and unsupported declarations are errors; `deps --write` replaces `depends_on` with the supported edges | tool, then reviewed |
@@ -49,6 +50,12 @@
 | `_hint` | facts written by `scan` to help describe a draft (file count, lines of code, a sample of public symbols); `confirm` deletes it | `scan` |
 | `fingerprint` | hash of the component's files at the last `confirm`; mismatch = STALE | `confirm` only |
 | `flows[].steps` | `component` or `component:Symbol`; symbols must exist in that component (`check`) | human/AI |
+
+Component containment is separate from a model's `PARENT`. Unknown parents, parent cycles and
+cross-layer parents are ERRORs: `component_parent_unknown`, `component_parent_cycle`, `component_parent_layer`.
+A parent with children may have no direct files; its `depends_on` must then be empty (`dep_unused`).
+Displayed files, tests, dependencies and facets roll up the subtree; direct ownership and fingerprints do not change.
+Before removing a parent in a target, remove or reparent its children; otherwise the target is invalid.
 
 Tests are files whose name starts with `test_`, ends with `_test.py`, contains `.test.`/`.spec.`,
 or that live in a `tests/`, `test/` or `__tests__/` directory. Tests are not owned by components;

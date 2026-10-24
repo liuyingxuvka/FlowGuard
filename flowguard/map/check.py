@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
+from .mapfile import component_files, component_graph, component_scope, dependency_evidence, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -61,6 +61,30 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                            f"{retired} is no longer read; move each promise to its component's entrypoints "
                            "and a model, then delete the file (see references/upgrade.md)"))
     by_id = {c["id"]: c for c in data["components"]}
+    children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}
+    for cid, comp in by_id.items():
+        parent = comp.get("parent")
+        if parent is None:
+            continue
+        if parent not in by_id:
+            out.append(Finding("error", "component_parent_unknown", cid,
+                               f"component {cid}: parent {parent!r} is not a component"))
+        elif (comp.get("layer") or "") != (by_id[parent].get("layer") or ""):
+            out.append(Finding("error", "component_parent_layer", cid,
+                               f"component {cid} is in layer {comp.get('layer')} but its parent {parent} "
+                               f"is in layer {by_id[parent].get('layer')}; a sub-system stays in one layer"))
+    finished = set()
+    for start in by_id:
+        chain, current = [], start
+        while current in by_id and current not in finished:
+            if current in chain:
+                loop = chain[chain.index(current):] + [current]
+                out.append(Finding("error", "component_parent_cycle", current,
+                                   "component parent loop: " + " -> ".join(loop)))
+                break
+            chain.append(current)
+            current = by_id[current].get("parent")
+        finished.update(chain)
     owner, owners_all = owner_index(data, inv)
     for f, ids in sorted(owners_all.items()):
         if len(ids) > 1:
@@ -95,7 +119,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             if comp_id not in by_id:
                 out.append(Finding("error", "flow_step_unknown", "", f"flow {flow['id']}: step {step!r} names no component"))
             elif symbol:
-                owned = component_files(by_id[comp_id], inv)
+                owned = component_files(component_scope(data, by_id[comp_id]), inv)
                 python_only = all(f in inv.py for f in owned)
                 if python_only and not any(symbol_defined(inv, f, symbol) for f in owned):
                     out.append(Finding("error", "flow_step_broken", comp_id,
@@ -177,7 +201,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     stale_level = "error" if strict else "warn"
     for c in data["components"]:
         cid, files = c["id"], component_files(c, inv)
-        if not files:
+        if not files and not (cid in children and not c.get("files")):
             out.append(Finding("error", "component_empty", cid, f"files {c.get('files')} match no source file"))
         for pat in c.get("files", []):
             if not any(glob_match(f, pat) for f in inv.source):
@@ -206,7 +230,8 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             out.append(Finding("error", "dep_unknown", cid, f"depends_on {d!r} is not a component"))
         for d in sorted(actual - declared):
             out.append(Finding("error", "dep_undeclared", cid, f"imports {d} but depends_on does not list it"))
-        unverified = sorted((declared - evidence_graph.get(cid, set())) & set(by_id))
+        unverified = sorted((declared if not files and cid in children else
+                             declared - evidence_graph.get(cid, set())) & set(by_id))
         if unverified:
             out.append(Finding("error", "dep_unused", cid,
                                f"no import, module literal or accepted debt evidence for: {', '.join(unverified)}"))

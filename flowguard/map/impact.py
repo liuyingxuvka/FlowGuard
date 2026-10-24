@@ -13,11 +13,11 @@ from pathlib import Path
 
 from .common import DEFAULT_TEST_COMMAND, SOURCE_EXTS, git_paths, glob_match, is_collectable_test, is_product_file, is_test_file, matches_any, norm, normalize_newlines, read_source
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
+from .mapfile import component_files, component_subtree, component_graph, dependency_evidence, ignore_patterns, is_stale, model_registry, read_model_contract, top_level_imports
 
 from .tree import build_tree
 
-VERIFICATION_FIELDS = ("files", "entrypoints", "depends_on", "tests", "models", "state", "side_effects")
+VERIFICATION_FIELDS = ("files", "entrypoints", "depends_on", "tests", "models", "state", "side_effects", "parent")
 
 
 @dataclass
@@ -362,6 +362,13 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 elif {k: v for k, v in now.items() if k not in {"status", "fingerprint"}} != \
                      {k: v for k, v in old.items() if k not in {"status", "fingerprint"}}:
                     map_review.append(cid)
+                if now is not None and old is not None and now.get("parent") != old.get("parent"):
+                    # Keep a still-registered model whose explicitly protected old
+                    # subsystem lost this member. Placement alone does not claim siblings.
+                    for node in tree.nodes.values():
+                        if any(cid in {member["id"] for member in component_subtree(previous, protected)}
+                               for protected in node.contract.get("COMPONENTS", [])):
+                            selected_model_paths.add(node.path)
     affected, traversed = set(seeds), set(seeds)
     queue = deque((cid, 0) for cid in sorted(seeds))
     while queue:

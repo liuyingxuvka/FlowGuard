@@ -1431,3 +1431,31 @@ def conformance():
     assert code == 1 and not errors, (output, errors)
     assert any(line.startswith("ERROR ") and "model_anchor_broken" in line and "missing_borrow" in line
                for line in output.splitlines()), output
+
+
+def test_target_refuses_to_remove_a_component_parent_with_children(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    current = _load_map(root)
+    for component in current['components']:
+        if component['id'] in {'catalog', 'loans'}:
+            component['parent'] = 'records'
+            component['layer'] = 'records'
+    current['components'].append(dict(
+        id='records', layer='records', summary='Record subsystem', responsibilities=['group records'],
+        files=[], tests=[], models=[], depends_on=[], status='draft'))
+    _write_map(root, current)
+    assert _run(root, capsys, 'map', 'check')[0] == 0
+    assert _run(root, capsys, 'map', 'confirm', 'all')[0] == 0
+    before = (root / '.flowguard/map.json').read_bytes()
+    assert _run(root, capsys, 'target', 'start', 'remove the records parent')[0] == 0
+    path = root / '.flowguard/target/map.json'
+    draft = json.loads(path.read_text(encoding='utf-8'))
+    draft['remove'] = ['component:records']
+    path.write_text(json.dumps(draft), encoding='utf-8')
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and not errors, (output, errors)
+    assert any(line.startswith('ERROR') and 'target_invalid' in line and 'parent' in line and 'records' in line
+               for line in output.splitlines()), output
+    assert (root / '.flowguard/map.json').read_bytes() == before
+    assert {component['id'] for component in _load_map(root)['components'] if component.get('parent') == 'records'} == {'catalog', 'loans'}

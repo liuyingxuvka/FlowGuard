@@ -560,3 +560,65 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
     assert after == before
     assert not marker.exists()
     assert not any(name.startswith('view232_') for name in sys.modules)
+
+
+def _fg233_nested_project(tmp_path):
+    import json
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+
+    data, _inv, marker = _fg232_view_project(tmp_path)
+    data['layers'] = ['records']
+    for component in data['components']:
+        component['layer'] = 'records'
+        if component['id'] in {'catalog', 'loans'}:
+            component['parent'] = 'records'
+        if component['id'] == 'loans':
+            component['tests'] = ['tests/test_parent233_loans.py']
+    parent = dict(_component('records', summary='Inventory subsystem', responsibilities=['group inventory']),
+                  layer='records', tests=[], models=[])
+    data['components'].insert(0, parent)
+    path = tmp_path / 'tests/test_parent233_loans.py'
+    path.write_text('from view232_loans import LoanService\ndef test_borrow(): assert LoanService().borrow() is True\n',
+                    encoding='utf-8')
+    (tmp_path / '.flowguard/map.json').write_text(json.dumps(data), encoding='utf-8')
+    return data, build_inventory(tmp_path, DEFAULT_IGNORE), marker
+
+
+def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
+    import re
+    import sys
+    from flowguard.__main__ import main
+    from flowguard.map.views import render_mermaid
+
+    data, inv, marker = _fg233_nested_project(tmp_path)
+    assert main(['map', '--root', str(tmp_path), 'check']) == 0
+    output = capsys.readouterr().out
+    assert '0 error(s)' in output and 'component_empty' not in output
+    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    headings = [line for line in overview.splitlines() if line.lstrip().startswith('## ')]
+    ids = [line.lstrip().split()[1] for line in headings]
+    parent_index = ids.index('records')
+    assert set(ids[parent_index + 1:parent_index + 3]) == {'catalog', 'loans'}
+    parent_line = headings[parent_index]
+    assert parent_line.startswith('## records ')
+    assert all(line.startswith('  ## ') for line in headings[parent_index + 1:parent_index + 3])
+    child_paths = ('view232_catalog.py', 'view232_loans.py')
+    expected_loc = sum(inv.loc[path] for path in child_paths)
+    assert f'2 files/{expected_loc} loc' in parent_line and ', 3 rules' in parent_line
+    assert 'coverage: entrypoints 4/5, state writers 1/2 explained by a model, a test or NOT_MODELED' in overview
+    assert len(overview) <= 8000 and 'truncated' not in overview
+
+    focused = render_show(tmp_path, data, inv, component='records', detail=False, budget=8000)
+    assert '## records ' in focused and '  ## catalog ' in focused and '  ## loans ' in focused
+    assert '## subject ' not in focused and 'model borrow_contract:' in focused
+    parent_block = focused.split('## records ', 1)[1].split('  ## ', 1)[0]
+    assert '1 functions' in parent_block and 'test_borrow' in parent_block
+    diagram = render_mermaid(tmp_path, data, inv, component='records')
+    assert 'subgraph sg_c_records["records"]' in diagram
+    start = diagram.index('subgraph sg_c_records["records"]')
+    # Both children are leaves, so the next subgraph end closes records.
+    subsystem = re.split(r'\n\s*end(?:\n|$)', diagram[start:], maxsplit=1)[0]
+    assert all(re.search(r'\bc_' + name + r'\[', subsystem) for name in ('records', 'catalog', 'loans'))
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)

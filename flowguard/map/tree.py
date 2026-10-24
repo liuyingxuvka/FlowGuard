@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, matches_any, read_source
 from .inventory import Inventory
-from .mapfile import component_files, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
+from .mapfile import component_ancestors, component_scope, component_subtree, component_files, model_registry, owner_index, read_model_contract, resolve_model_path, top_level_imports
 
 
 @dataclass
@@ -155,15 +155,19 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
         top = nodes[tree.ancestors(node.id)[-1]] if tree.ancestors(node.id) else node
         node.home_kind = "component" if top.parent_kind == "component" and top.parent in components else "system"
         node.home = top.parent if node.home_kind == "component" else "system"
-        node.components = set(node.contract.get("COMPONENTS", []))
+        explicit_components = set(node.contract.get("COMPONENTS", []))
+        node.components = explicit_components | {
+            member["id"] for cid in explicit_components for member in component_subtree(data, cid)
+        }
         node.components.update(owner[a.split(":", 1)[0]] for a in node.contract.get("IMPLEMENTED_BY", {}).values()
                                if a.split(":", 1)[0] in owner)
         if node.home_kind == "component":
             node.components.add(node.home)
+        node.components.update(parent for cid in list(node.components) for parent in component_ancestors(data, cid))
         cids = sorted(cid for cid in node.components if cid in components)
         tests = {anchor.split(":", 1)[0] for anchors in node.contract.get("TESTED_BY", {}).values() for anchor in anchors}
         for path in sorted(tests):
-            if not any(matches_any(path, components[cid].get("tests", [])) for cid in cids):
+            if not any(matches_any(path, component_scope(data, components[cid]).get("tests", [])) for cid in cids):
                 node.nonnested_tests.add(path)
                 tree.findings.append(Finding("warn", "test_not_nested", node.home if node.home_kind == "component" else "",
                     f"{node.id} binds {path}, which is not in the tests of {', '.join(cids) or '(no components)'}; "
@@ -177,18 +181,18 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
         if node.source not in {"PARENT", "import"} or node.parent_kind == "system":
             continue
         if node.parent_kind == "component":
-            allowed = set(component_files(components[node.parent], inv))
+            allowed = set(component_files(component_scope(data, components[node.parent]), inv))
         else:
             parent = nodes[node.parent]
             cids = set(parent.contract.get("COMPONENTS", []))
             cids.update(owner.get(a.split(":", 1)[0]) for a in parent.contract.get("IMPLEMENTED_BY", {}).values())
-            allowed = {path for cid in cids if cid in components for path in component_files(components[cid], inv)}
+            allowed = {path for cid in cids if cid in components for path in component_files(component_scope(data, components[cid]), inv)}
         for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
             anchor_path = anchor.split(":", 1)[0]
             planned_component_anchor = (
                 view is not None and node.parent_kind == "component"
                 and not (root / anchor_path).exists()
-                and matches_any(anchor_path, components[node.parent].get("files", []))
+                and matches_any(anchor_path, component_scope(data, components[node.parent]).get("files", []))
             )
             if anchor_path not in allowed and not planned_component_anchor:
                 tree.findings.append(Finding("error", "child_outside_parent", node.home if node.home_kind == "component" else "",

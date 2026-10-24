@@ -9,7 +9,7 @@ from pathlib import Path
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
 from .lint import _variants, explained_by
-from .mapfile import component_files, is_stale, resolve_model_path
+from .mapfile import component_files, component_scope, component_subtree, is_stale, resolve_model_path
 
 
 @dataclass(frozen=True)
@@ -101,18 +101,19 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
     out = {}
     for component in data["components"]:
         cid = component["id"]
+        scoped = component_scope(data, component)
         covered = {anchor for node in tree.models_for_component(cid)
                    for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()}
         sources = []
         for path in inv.tests:
-            if matches_any(path, component.get("tests", [])):
+            if matches_any(path, scoped.get("tests", [])):
                 try:
                     sources.append(_test_source(root, path, cache))
                 except OSError:
                     continue
         tests = "\n".join(sources)
-        entries = set(component.get("entrypoints", []))
-        writers = {f"{path}:{symbol}" for path in component_files(component, inv)
+        entries = set(scoped.get("entrypoints", []))
+        writers = {f"{path}:{symbol}" for path in component_files(scoped, inv)
                    for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
                    if facts.get("writes") and symbol.rsplit(".", 1)[-1] != "__init__"}
         explained_entries = {anchor for anchor in entries if explained_by(anchor, covered, excluded, tests=tests)}
@@ -120,11 +121,17 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
         out[cid] = {"entrypoints": (len(explained_entries), len(entries)),
                     "state_writers": (len(explained_writers), len(writers)),
                     "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers)))}
+        if len(component_subtree(data, cid)) > 1:
+            own_entries = set(component.get("entrypoints", []))
+            own_files = set(component_files(component, inv))
+            own_writers = {anchor for anchor in writers if anchor.partition(":")[0] in own_files}
+            out[cid]["_direct"] = {"entrypoints": (len(own_entries & explained_entries), len(own_entries)),
+                                   "state_writers": (len(own_writers & explained_writers), len(own_writers))}
     return out
 
 
 def coverage_line(coverage, *, summary=False):
-    records = list(coverage.values()) if summary else [coverage]
+    records = [record.get("_direct", record) for record in coverage.values()] if summary else [coverage]
     entries = tuple(sum(record["entrypoints"][i] for record in records) for i in (0, 1))
     writers = tuple(sum(record["state_writers"][i] for record in records) for i in (0, 1))
     line = (f"coverage: entrypoints {entries[0]}/{entries[1]}, "
@@ -190,24 +197,27 @@ def _test_facts(paths, nodes, functions):
 
 def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tree, graph, functions, *, coverage=None) -> Facets:
     cid = component["id"]
-    files = component_files(component, inv)
+    members = component_subtree(data, cid)
+    responsibilities = tuple(rule for member in members for rule in member.get("responsibilities", []))
+    scoped = component_scope(data, component)
+    files = component_files(scoped, inv)
     code = [f"{len(files)} files/{sum(inv.loc.get(path, 0) for path in files)} loc"]
-    if component.get("files"):
-        code.append("files: " + ", ".join(component["files"]))
+    if scoped.get("files"):
+        code.append("files: " + ", ".join(scoped["files"]))
     for key, label in (("entrypoints", "entry"), ("state", "state"), ("side_effects", "effects")):
-        if component.get(key):
-            code.append(label + ": " + "; ".join(component[key]))
+        if scoped.get(key):
+            code.append(label + ": " + "; ".join(scoped[key]))
     if coverage is not None:
         code.append(coverage_line(coverage))
     if is_stale(root, component, inv):
         code.append("STALE")
-    paths = {path for path in inv.tests if matches_any(path, component.get("tests", []))}
+    paths = {path for path in inv.tests if matches_any(path, scoped.get("tests", []))}
     tests, count = _test_facts(paths, tree.models_for_component(cid), functions)
-    rules = tuple(component.get("responsibilities", [])) + (
-        f"layer {component.get('layer') or '-'} may use: " + (", ".join(component.get("depends_on", [])) or "-"),)
+    rules = responsibilities + (
+        f"layer {component.get('layer') or '-'} may use: " + (", ".join(scoped.get("depends_on", [])) or "-"),)
     return Facets(component.get("summary") or "(no summary yet)", rules, "map",
-                  tuple(name for name, _, _ in _variants(data, graph, only=cid)), "system", tuple(code), tests,
-                  len(component.get("responsibilities", [])), count)
+                  tuple(dict.fromkeys(name for member in members for name, _, _ in _variants(data, graph, only=member["id"]))), "system", tuple(code), tests,
+                  len(responsibilities), count)
 
 
 def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverage=None) -> Facets:

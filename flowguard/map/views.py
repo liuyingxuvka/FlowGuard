@@ -13,7 +13,7 @@ from .facets import _test_function_index, component_facets, coverage_facts, cove
 from .discover import discover_inventory
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
-from .mapfile import MapError, component_files, component_graph, is_stale, owner_index
+from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
 
 
@@ -94,6 +94,7 @@ def _node_fields(kind, record):
                                if not value.startswith(("entry: ", "state: ", "effects: "))) + tuple(node.get("entrypoints", []))
         fields["state"] = tuple(node.get("state", []))
         fields["effects"] = tuple(node.get("side_effects", []))
+        fields["parent"] = (f"component {node['parent']}" if node.get("parent") else "system",)
         for field, label in (("files", "files"), ("depends_on", "uses"), ("tests", "tests"), ("layer", "layer")):
             value = node.get(field, []) if field != "layer" else (node.get(field) or "unlayered",)
             fields[label] = tuple(dict.fromkeys((*fields.get(label, ()), *value)))
@@ -131,8 +132,8 @@ def _read_facts(root, data, inv, tree, *, raw=None, source_cache=None, view=None
 
 def _dependency_symbols(data, inv, cid, dep, raw):
     components = {component["id"]: component for component in data["components"]}
-    sources = set(component_files(components[cid], inv))
-    destinations = set(component_files(components[dep], inv))
+    sources = set(component_files(component_scope(data, components[cid]), inv))
+    destinations = set(component_files(component_scope(data, components[dep]), inv))
     symbols = {target.partition("#")[2] for source, targets in raw["edges"].items()
                if source.partition("#")[0] in sources for target in targets
                if target.partition("#")[0] in destinations}
@@ -149,7 +150,9 @@ def _dependency_symbols(data, inv, cid, dep, raw):
 
 def _dependency_lines(data, inv, cid, graph, raw):
     lines = []
-    for dep in sorted(graph.get(cid, ())):
+    members = {comp["id"] for comp in component_subtree(data, cid)}
+    dependencies = {dep for member in members for dep in graph.get(member, ())}
+    for dep in sorted(dependencies):
         symbols = _dependency_symbols(data, inv, cid, dep, raw)
         shown = ", ".join(symbols[:6]) if symbols else "(module import only)"
         if len(symbols) > 6:
@@ -211,12 +214,19 @@ def _show_header(data, graph, *, architecture=None, debts=None):
     return head + f"; architecture: {sum(f.level == 'error' for f in architecture)} error(s), {len(debts)} accepted debt(s)"
 
 
+def _component_block(lines, depth):
+    return "\n".join(("  " * depth + line) if line else line for line in "\n".join(lines).split("\n"))
+
+
 def _render_target_show(root, data, inv, target, *, component, detail, budget):
     view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw = _target_comparison(root, data, inv, target)
     merged = view.data
     component_ids = {cid for kind, cid in old.keys() | new.keys() if kind == "component"}
+    display_data = {**merged, "components": [(new.get(("component", cid)) or old[("component", cid)])[0]
+                                              for cid in sorted(component_ids)]}
     if component and component != "system":
-        component_ids = {cid for cid in component_ids if cid == component or cid.startswith(component + ".")}
+        descendants = {c["id"] for mapping in (data, merged) for c in component_subtree(mapping, component)}
+        component_ids = {cid for cid in component_ids if cid in descendants or cid.startswith(component + ".")}
         if not component_ids:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
     elif component == "system":
@@ -245,13 +255,18 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
         top += "\n" + "\n".join(_model_lines(tree, roots, model_data, bindings=bool(component or detail), changes=changes, previous=old))
         removed_roots = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "system" and changes.get(("model", mid)) == "-"}
         top += "\n" + "\n".join(_model_lines(old_tree, removed_roots, old_model_data, changes=changes, previous=old))
+    relevant = {cid for kind, cid in changes if kind == "component"}
+    relevant.update(node.home for snapshot in (old_tree, tree) for node in snapshot.nodes.values()
+                    if node.home_kind == "component" and ("model", node.id) in changes)
     blocks = []
-    for cid in sorted(component_ids):
+    for display_comp, depth in component_order(display_data, component_ids):
+        cid = display_comp["id"]
         key = ("component", cid)
         before, after = old.get(key), new.get(key)
         ids = {mid for mid, node in tree.nodes.items() if node.home_kind == "component" and node.home == cid and ("model", mid) in changes}
         removed = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "component" and node.home == cid and changes.get(("model", mid)) == "-"}
-        if not component and key not in changes and not ids and not removed:
+        if not component and key not in changes and not ids and not removed and not any(
+                child["id"] in relevant for child in component_subtree(display_data, cid)):
             continue
         record = after or before
         comp, fact = record
@@ -259,7 +274,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
         heading = f"\n## {mark + ' ' if mark else ''}{cid} [{comp.get('layer') or '-'}] {fact.code[0]}, {fact.rule_count} rules"
         if mark == "-":
             removed_lines = _model_lines(old_tree, removed, old_model_data, changes=changes, previous=old)
-            blocks.append((cid, "\n".join([heading + " (removed by the target)", *removed_lines])))
+            blocks.append((cid, _component_block([heading + " (removed by the target)", *removed_lines], depth)))
             continue
         body = [heading]
         if component or detail:
@@ -275,7 +290,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
         body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
                                  bindings=bool(component or detail), changes=changes, previous=old))
         body.extend(_model_lines(old_tree, removed, old_model_data, changes=changes, previous=old))
-        blocks.append((cid, "\n".join(body)))
+        blocks.append((cid, _component_block(body, depth)))
     if component is None:
         unchanged = sum(("component", c["id"]) not in changes for c in data["components"])
         blocks.append(("unchanged", f"unchanged: {unchanged} component(s); python -m flowguard read shows them"))
@@ -296,7 +311,8 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     if component == "system":
         comps = []
     elif component:
-        comps = [c for c in comps if c["id"] == component or c["id"].startswith(component + ".")]
+        descendants = {c["id"] for c in component_subtree(data, component)}
+        comps = [c for c in comps if c["id"] in descendants or c["id"].startswith(component + ".")]
         if not comps:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
     architecture, debts, problems = _architecture(data, graph)
@@ -325,8 +341,10 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         root_models = _facet_lines(system_facets(data, inv, tree, graph, functions, coverage=coverage), "  ")
     top = "\n".join([essential, *root_models])
     blocks: list[tuple[str, str]] = []
-    for c in comps:
-        files = component_files(c, inv)
+    for c, depth in component_order(data, {c["id"] for c in comps}):
+        scoped = component_scope(data, c)
+        files = component_files(scoped, inv)
+        dependencies = {dep for member in component_subtree(data, c["id"]) for dep in graph.get(member["id"], ())}
         flag = "STALE" if is_stale(root, c, inv) else c["status"]
         tag = "" if flag == "confirmed" else f" [{flag}]"
         fact = component_data[c["id"]]
@@ -335,14 +353,14 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             lines.extend(_facet_lines(fact, "  "))
         else:
             lines.append("  " + fact.purpose[:90] + ("…" if len(fact.purpose) > 90 else ""))
-            if c.get("state"):
-                lines.append("  state: " + "; ".join(c["state"]))
-        if graph.get(c["id"]):
+            if scoped.get("state"):
+                lines.append("  state: " + "; ".join(scoped["state"]))
+        if dependencies:
             if component or detail:
                 lines.extend(_dependency_lines(data, inv, c["id"], graph, raw))
             else:
-                lines.append("  uses: " + ", ".join(sorted(graph[c["id"]])))
-        declared_only = sorted(set(c.get("depends_on", [])) - graph.get(c["id"], set()))
+                lines.append("  uses: " + ", ".join(sorted(dependencies)))
+        declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))
         if component or detail:
@@ -357,7 +375,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             n.id for n in tree.nodes.values() if n.home_kind == "component" and n.home == c["id"]}
         lines.extend(_model_lines(tree, models, model_data, component=c["id"] if component or detail else None,
                                   bindings=bool(component or detail)))
-        blocks.append((c["id"], "\n".join(lines)))
+        blocks.append((c["id"], _component_block(lines, depth)))
     return _bounded_show(top, essential, blocks, budget)
 
 
@@ -408,11 +426,16 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     flows = sorted(flow_records.values(), key=lambda flow: flow["id"])
     visible = {c["id"] for c in all_comps} if component is None else {component}
     if component is not None:
-        flows = [flow for flow in flows if any(step.partition(":")[0] == component for step in flow.get("steps", []))]
         selected = next((c for c in all_comps if c["id"] == component), None)
         if selected is None:
             return f"no component {component!r}; run 'python -m flowguard read' to list components"
-        visible.update(selected.get("depends_on", []))
+        scope_data = {**data, "components": all_comps}
+        descendants = component_subtree(scope_data, component)
+        descendant_ids = {c["id"] for c in descendants}
+        flows = [flow for flow in flows if any(step.partition(":")[0] in descendant_ids
+                                              for step in flow.get("steps", []))]
+        visible.update(descendant_ids)
+        visible.update(dep for c in descendants for dep in c.get("depends_on", []))
         visible.update(step.partition(":")[0] for flow in flows for step in flow.get("steps", []))
     comps = [c for c in all_comps if c["id"] in visible]
     if component and not comps:
@@ -468,11 +491,32 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     for index, layer in enumerate(groups):
         members = [c for c in comps if c.get("layer", "") == layer]
         lines.append(f'  subgraph l_{index}["{label(layer or "unlayered")}"]')
+        member_ids = {c["id"] for c in members}
+        children = defaultdict(list)
         for comp in members:
+            children[comp.get("parent")].append(comp["id"])
+        pending = [(comp, 0, False) for comp, depth in reversed(component_order({"components": members})) if depth == 0]
+        emitted = set()
+        while pending:
+            comp, depth, closing = pending.pop()
+            indent = "    " + "  " * depth
+            if closing:
+                lines.append(indent + "end")
+                continue
+            if comp["id"] in emitted:
+                continue
+            emitted.add(comp["id"])
+            descendants = [child for child in children.get(comp["id"], []) if child in member_ids and child not in emitted]
+            if descendants:
+                lines.append(f'{indent}subgraph sg_{components[comp["id"]]}["{label(comp["id"])}"]')
+                pending.append((comp, depth, True))
+                pending.extend((next(c for c in members if c["id"] == child), depth + 1, False)
+                               for child in reversed(descendants))
+                indent += "  "
             codes = sorted({("cycle" if f.code == "dependency_cycle" else f.code)
                             + (" (debt)" if f.level == "info" else "") for f in problems.get(comp["id"], [])})
             title = label(comp["id"]) + f"<br/>{component_data[comp['id']].rule_count} rules" + ("<br/>" + ", ".join(codes) if codes else "")
-            lines.append(f'    {components[comp["id"]]}["{title}"]')
+            lines.append(f'{indent}{components[comp["id"]]}["{title}"]')
         lines.append("  end")
     for node in sorted(models, key=lambda n: n.id):
         fact = model_data[node.id]
@@ -482,7 +526,8 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
         mid = flow_model_id(flow)
         status = f"model {mid}" if flow.get("model") else "no model"
         lines.append(f'  {flow_ids[flow["id"]]}["flow {label(flow["id"])}<br/>{label(status)}"]')
-    lines.extend(f"  root_system --> {components[c['id']]}" for c in comps)
+    lines.extend(f"  {components[c['parent']] if c.get('parent') in components else 'root_system'} --> {components[c['id']]}"
+                 for c in comps)
     for node in sorted(models, key=lambda n: n.id):
         if node.parent_kind == "model" and node.parent in model_ids:
             parent = model_ids[node.parent]

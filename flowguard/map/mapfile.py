@@ -22,7 +22,7 @@ from .inventory import Inventory
 
 TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
-                  "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint"}
+                  "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
 ID_RE = re.compile(r"[a-z0-9][a-z0-9_.-]*")
 
@@ -67,6 +67,8 @@ def validate_map(data: object) -> list[str]:
             errors.append(f"duplicate component id {cid!r}")
         else:
             seen.add(cid)
+        if "parent" in c and (not isinstance(c["parent"], str) or not ID_RE.fullmatch(c["parent"])):
+            errors.append(f"{where}.parent must name a component id")
         if c.get("status") not in {"draft", "confirmed"}:
             errors.append(f"{where}.status must be 'draft' or 'confirmed'")
         errors += [f"{where}.{k} must be a list of strings" for k in LIST_KEYS
@@ -123,6 +125,62 @@ def component_files(comp: dict, inv: Inventory) -> list[str]:
     return [f for f in candidates if matches_any(f, pats)
             and (Path(f).suffix in SOURCE_EXTS or f in exact)
             and (f in exact or not is_test_file(f))]
+
+
+def component_subtree(data: dict, component: str) -> list[dict]:
+    """Derived containment only; never add descendant files to direct ownership."""
+    by_id = {c["id"]: c for c in data["components"]}
+    children = defaultdict(list)
+    for comp in data["components"]:
+        children[comp.get("parent")].append(comp["id"])
+    pending, seen, result = [component], set(), []
+    while pending:
+        cid = pending.pop()
+        if cid not in by_id or cid in seen:
+            continue
+        seen.add(cid)
+        result.append(by_id[cid])
+        pending.extend(reversed(children.get(cid, [])))
+    return result
+
+
+def component_ancestors(data: dict, component: str) -> list[str]:
+    """Component containment is distinct from a model's PARENT relationship."""
+    by_id = {c["id"]: c for c in data["components"]}
+    result, seen = [], {component}
+    while component in by_id and (parent := by_id[component].get("parent")) in by_id and parent not in seen:
+        result.append(parent)
+        seen.add(parent)
+        component = parent
+    return result
+
+
+def component_scope(data: dict, component: dict) -> dict:
+    """View/model scope: ordered unions, without modifying the map or fingerprints."""
+    members = component_subtree(data, component["id"]) or [component]
+    return {**component, **{key: list(dict.fromkeys(value for member in members for value in member.get(key, [])))
+                            for key in LIST_KEYS}}
+
+
+def component_order(data: dict, identities: set[str] | None = None) -> list[tuple[dict, int]]:
+    """Parent-before-child view order, finite even for an invalid parent cycle."""
+    visible = {c["id"] for c in data["components"]} if identities is None else identities
+    by_id = {c["id"]: c for c in data["components"] if c["id"] in visible}
+    children = defaultdict(list)
+    for comp in by_id.values():
+        children[comp.get("parent")].append(comp["id"])
+    roots = [cid for cid, comp in by_id.items() if comp.get("parent") not in by_id]
+    result, seen = [], set()
+    for root in [*roots, *by_id]:
+        pending = [(root, 0)]
+        while pending:
+            cid, depth = pending.pop()
+            if cid in seen:
+                continue
+            seen.add(cid)
+            result.append((by_id[cid], depth))
+            pending.extend((child, depth + 1) for child in reversed(children.get(cid, [])))
+    return result
 
 
 def owner_index(data: dict, inv: Inventory) -> tuple[dict[str, str], dict[str, list[str]]]:

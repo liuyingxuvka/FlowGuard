@@ -721,3 +721,101 @@ def conformance():
     assert main(["map", "models", "--root", str(tmp_path), "retired_design"]) == 1
     output = capsys.readouterr().out
     assert "FAIL  retired_design" in output and message in output, output
+
+
+def _fg233_parent_project(tmp_path):
+    marker = tmp_path / 'parent233-imported-code.txt'
+    guarded = f'from pathlib import Path\nPath({str(marker)!r}).write_text("imported")\n'
+    write(tmp_path, 'parent233_loans.py', guarded + 'def borrow(): return True\n')
+    write(tmp_path, 'parent233_catalog.py', guarded + 'def available(): return True\n')
+    write(tmp_path, 'tests/test_parent233.py', guarded +
+          'from parent233_loans import borrow\ndef test_borrow(): assert borrow() is True\n')
+    write(tmp_path, '.flowguard/models/parent233_rules.py', guarded +
+          'MODEL_ID="parent233_rules"\nPARENT="records"\n'
+          'IMPLEMENTED_BY={"Borrow":"parent233_loans.py:borrow"}\n'
+          'def build_explorer(): raise AssertionError("static check explored a model")\n'
+          'def conformance(): raise AssertionError("static check replayed user code")\n')
+    data = dict(schema='flowguard.map.v1', layers=['records', 'other'], components=[
+        dict(id='records', layer='records', summary='Record subsystem', responsibilities=['group records'],
+             files=[], tests=[], models=[], depends_on=[], status='draft'),
+        dict(id='loans', parent='records', layer='records', summary='Borrow items', responsibilities=['borrow items'],
+             files=['parent233_loans.py'], entrypoints=['parent233_loans.py:borrow'],
+             tests=['tests/test_parent233.py'], models=[], depends_on=[], status='draft'),
+        dict(id='catalog', parent='records', layer='records', summary='Available items', responsibilities=['count availability'],
+             files=['parent233_catalog.py'], tests=[], models=[], depends_on=[], status='draft'),
+    ], flows=[], accepted_debts=[])
+    save(tmp_path, data)
+    return data, marker
+
+
+def test_component_parent_mistakes_are_errors(tmp_path, capsys):
+    import sys
+
+    data, marker = _fg233_parent_project(tmp_path)
+    assert main(['map', '--root', str(tmp_path), 'check']) == 0
+    output = capsys.readouterr().out
+    assert '0 error(s)' in output
+    # This real model names the parent but anchors a child's directly owned source.
+    assert 'child_outside_parent' not in output and 'file_multi_owner' not in output
+
+    # COMPONENTS names the whole protected subsystem; placement alone does not.
+    from flowguard.map.impact import compute_impact
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import ignore_patterns
+
+    path = tmp_path / '.flowguard/models/parent233_rules.py'
+    scope_source = path.read_text(encoding='utf-8')
+    assert scope_source.count('MODEL_ID="parent233_rules"') == 1
+    assert scope_source.count('PARENT="records"') == 1
+    scope_source = scope_source.replace('MODEL_ID="parent233_rules"', 'MODEL_ID="parent233_scope"').replace(
+        'PARENT="records"', 'COMPONENTS=["records"]')
+    write(tmp_path, '.flowguard/models/parent233_scope.py', scope_source)
+    inv = build_inventory(tmp_path, ignore_patterns(data), write_cache=False)
+    changed = compute_impact(tmp_path, data, inv, ['parent233_catalog.py'])
+    assert changed.direct == ['catalog']
+    assert changed.models == ['.flowguard/models/parent233_scope.py']
+    assert '.flowguard/models/parent233_rules.py' not in changed.models
+
+    # A map-only reparent changes verification scope too, including the old group.
+    import subprocess
+
+    git = ['git', '-C', str(tmp_path)]
+    subprocess.run([*git, 'init', '-q'], check=True)
+    subprocess.run([*git, 'add', '--', '.flowguard/map.json', '.flowguard/models',
+                    'parent233_loans.py', 'parent233_catalog.py', 'tests/test_parent233.py'], check=True)
+    subprocess.run([*git, '-c', 'user.name=FlowGuard test', '-c', 'user.email=test@example.invalid',
+                    '-c', 'commit.gpgsign=false', 'commit', '-qm', 'parent scope baseline'], check=True)
+    data['components'][2].pop('parent')
+    save(tmp_path, data)
+    inv = build_inventory(tmp_path, ignore_patterns(data), write_cache=False)
+    moved = compute_impact(tmp_path, data, inv, ['.flowguard/map.json'], base='HEAD')
+    assert moved.direct == ['catalog']
+    assert moved.models == ['.flowguard/models/parent233_scope.py']
+    assert '.flowguard/models/parent233_rules.py' not in moved.models
+    assert 'catalog' not in moved.map_review
+    data['components'][2]['parent'] = 'records'
+    save(tmp_path, data)
+
+    def _fg233_assert_error(code):
+        save(tmp_path, data)
+        assert main(['map', '--root', str(tmp_path), 'check']) == 1
+        output = capsys.readouterr().out
+        assert any(line.split()[:2] == ['ERROR', code] for line in output.splitlines()), output
+        assert not marker.exists()
+
+    data['components'][1]['parent'] = 'missing'
+    _fg233_assert_error('component_parent_unknown')
+    data['components'][1]['parent'] = 'records'
+    data['components'][0]['parent'] = 'loans'
+    _fg233_assert_error('component_parent_cycle')
+    data['components'][0].pop('parent')
+    data['components'][1]['layer'] = 'other'
+    _fg233_assert_error('component_parent_layer')
+    data['components'][1]['layer'] = 'records'
+    data['components'][0]['depends_on'] = ['loans']
+    _fg233_assert_error('dep_unused')
+    data['components'][0]['depends_on'] = []
+    data['components'][0]['files'] = ['missing.py']
+    _fg233_assert_error('component_empty')
+    assert not marker.exists()
+    assert not any(name.startswith('parent233_') for name in sys.modules)
