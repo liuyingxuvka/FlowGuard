@@ -1820,3 +1820,54 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     loans.write_text(original, encoding="utf-8")
     code, output, errors = _run(root, capsys, "target", "promote")
     assert code == 0, (output, errors)
+
+
+def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    data = _load_map(root)
+    data["accepted_debts"] = [{"code": "untested_component", "component": "members",
+                               "reason": "members are tested through the loans tests"}]
+    _write_map(root, data)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "merge members into loans", "loans", "cli", "flow:borrow")
+    target = json.loads(path.read_text(encoding="utf-8"))
+    target["remove"] = ["component:members", "entrypoint:shelf/members.py:Members.may_borrow", "state:known members",
+                        "responsibility:enforce the loan limit"]
+    loans = next(component for component in target["components"] if component["id"] == "loans")
+    loans["files"].append("shelf/members.py")
+    loans["depends_on"].remove("members")
+    target["flows"][0]["steps"] = [step.replace("members:", "loans:", 1) for step in target["flows"][0]["steps"]]
+    path.write_text(json.dumps(target), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    stale = [line for line in output.splitlines() if line.startswith("WARN ") and "debt_stale" in line]
+    assert code == 0 and len(stale) == 1, output
+    assert "members are tested through the loans tests" in stale[0]
+    assert stale[0].endswith("(remove the debt in the target's accepted_debts)")
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 0 and "promoted" in output, (output, errors)
+
+
+def test_promote_lists_what_to_re_read(tmp_path, capsys):
+    import re
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "lending under a shelf policy", "catalog", "lending")
+    target = json.loads(path.read_text(encoding="utf-8"))
+    target["components"][0]["summary"] = "Counts the free copies of each book."
+    path.write_text(json.dumps(target), encoding="utf-8")
+    models = root / ".flowguard/target/models"
+    source = (models / "lending.py").read_text(encoding="utf-8")
+    policy = re.sub(r'TESTED_BY = \{.*?\}\n', '', source, flags=re.S).replace('MODEL_ID = "lending"', 'MODEL_ID = "shelf_policy"')
+    (models / "shelf_policy.py").write_text(policy, encoding="utf-8")
+    source = source.replace('MODEL_ID = "lending"', 'MODEL_ID = "lending"\nPARENT = "shelf_policy"')
+    source = source.replace(',\n             "limit_respected": ["tests/test_loans.py:test_limit"]}', '}')
+    (models / "lending.py").write_text(source, encoding="utf-8")
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 0, (output, errors)
+    lines = output.splitlines()
+    assert "re-read: model lending: its parent changed from loans to shelf_policy; check its purpose" in lines, output
+    assert "re-read: flow borrow: it crosses changed component catalog; check its steps and model" in lines, output
+    assert "re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it" in lines
+    assert lines.index("re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it") \
+        < next(index for index, line in enumerate(lines) if line.startswith("next: "))

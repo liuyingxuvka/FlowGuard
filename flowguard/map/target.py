@@ -263,6 +263,14 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
         placeholder = "placeholder anchor " in finding.message
         level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
         add(level, _finding_node(finding, tree), finding.code, finding.message)
+    if view.data.get("accepted_debts"):
+        from .lint import run_lint
+
+        before = {f.message for f in run_lint(root, current, inv, write_cache=False) if f.code == "debt_stale"}
+        for finding in run_lint(root, view.data, inv, view=view):
+            if finding.code == "debt_stale" and finding.message not in before:
+                add("warnings", "component " + finding.component if finding.component else "target", "debt_stale",
+                    finding.message + " (remove the debt in the target's accepted_debts)")
     graph = component_graph(view.data, inv)
     for name, changed, edges in architecture_variants(view.data, graph):
         if not any(f.level == "error" for f in architecture_findings(changed, edges)):
@@ -402,6 +410,7 @@ def promote_target(root: Path) -> int:
                        if entry.id in target.remove["model"] and view.resolve(entry.path) is None]
             changes = target_node_changes(root, current, target)
             drafts = sorted(c["id"] for c in target.data.get("components", []))
+            reread = _re_read(root, current, target, view)
         # The same full proof and TESTED_BY path as `target check`, exactly once.
         report = check_target(root)
         if report.errors or report.todos:
@@ -429,6 +438,8 @@ def promote_target(root: Path) -> int:
                      for entry in changes[symbol] if entry.startswith(kind + ":")]
             summaries.append(label + " " + (" ".join(items) or "-"))
         print(f'promoted "{target.goal}": ' + "; ".join(summaries))
+        for line in reread:
+            print(line)
         if drafts:
             print("next: python -m flowguard map confirm " + " ".join(drafts))
         print("next: python -m flowguard change")
@@ -440,6 +451,33 @@ def promote_target(root: Path) -> int:
     except MapError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
+
+
+def _re_read(root, current, target, view, limit=5):
+    """Drift hints for promotion: re-parented models, flows crossing changed components, tests losing their binding."""
+    from .mapfile import flow_step_parts
+
+    inv = build_inventory(root, ignore_patterns(view.data), with_bodies=False, write_cache=False)
+    old, new = build_tree(root, current, inv), build_tree(root, view.data, inv, view=view)
+    groups = [[f"re-read: model {mid}: its parent changed from {old.nodes[mid].parent} to {node.parent}; check its purpose"
+               for mid, node in sorted(new.nodes.items()) if mid in old.nodes and old.nodes[mid].parent != node.parent]]
+    changed = {c["id"] for c in target.data.get("components", [])} | target.remove["component"]
+    flows = []
+    for flow in view.data.get("flows", []):
+        crossed = [part for part in dict.fromkeys(flow_step_parts(step)[0] for step in flow.get("steps", [])) if part in changed]
+        if crossed:
+            flows.append(f"re-read: flow {flow['id']}: it crosses changed component {crossed[0]}; check its steps and model")
+    groups.append(flows)
+
+    def bound(tree):
+        return {anchor for node in tree.nodes.values() for anchors in node.contract.get("TESTED_BY", {}).values()
+                for anchor in anchors}
+    groups.append([f"re-read: test {anchor}: no longer bound by any TESTED_BY; bind it or delete it"
+                   for anchor in sorted(bound(old) - bound(new))])
+    lines = []
+    for group in groups:
+        lines += group[:limit] + ([f"re-read: +{len(group) - limit} more"] if len(group) > limit else [])
+    return lines
 
 
 def _add(root: Path, data: dict, target, requested: str) -> None:

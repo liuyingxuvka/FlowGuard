@@ -362,7 +362,8 @@
         "list unexplained functions of changed files",
         "rank architecture defects and strengths from the tree",
         "count map-only lint warnings in the read header",
-        "list the rules a target adds or changes"
+        "list the rules a target adds or changes",
+        "find accepted debts that match no finding"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -395,7 +396,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:57ce64ed636aed870d51622510ebac47ccd8e00fbe90e23987d441e8b6b07f6b"
+      "fingerprint": "sha256:428148f56920c74cbe47fe4930f1c53caaf98d577dc0995c527a88914b9f0fe2"
     },
     {
       "id": "map-target",
@@ -412,7 +413,9 @@
         "refuse a target that changes nothing",
         "tie a changed promise to a model rule",
         "mark only the breakage of a changed subject as moving to target",
-        "report findings of unchanged models as old"
+        "report findings of unchanged models as old",
+        "warn about accepted debts the target makes stale",
+        "list what to re-read after promotion"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -439,7 +442,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5f7b121569ac78d90992a1ac02745f14fa4306cea6c402c4ffbca06a1f3caf7d"
+      "fingerprint": "sha256:94c5d8da0b80c770b4caa874fc22a0748ecb1d552b56a55800bb0afef9a5b41b"
     },
     {
       "id": "map-proof",

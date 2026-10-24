@@ -292,7 +292,10 @@ def shape_findings(data: dict, inv: Inventory, graph: dict[str, set[str]], limit
     return out
 
 
-def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None) -> list[Finding]:
+def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None,
+             write_cache: bool | None = None) -> list[Finding]:
+    """All architecture findings; disposable caches are written only for the current tree unless write_cache=False."""
+    write_cache = view is None if write_cache is None else write_cache
     limits = limits or Limits()
     comps = data["components"]
     graph = component_graph(data, inv)
@@ -327,7 +330,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
             out.append(Finding("warn" if len(hit) > 1 else "info", "duplicate_code", hit[0],
                                f"{len(sites)} identical bodies ({sites[0][2]} AST nodes) in {hit}: {where}"))
 
-    raw = discover_inventory(root, inv, write_cache=view is None, data=data)
+    raw = discover_inventory(root, inv, write_cache=write_cache, data=data)
     modules = {info.module: path for path, info in inv.py.items()}
     declared_state = {c["id"]: set(c.get("state", [])) for c in comps}
     for path, facts in raw["files"].items():
@@ -377,19 +380,22 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view))
     out.extend(private_use_findings(root, data, inv))
+    out, used = apply_accepted_debts(out, normalized_debts(data))
+    out.extend(stale_debt_findings(data, inv, raw, used))
+    return out
+
+
+def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int]) -> list[Finding]:
+    """WARN debt_stale for each accepted debt that matched no finding (``used`` from apply_accepted_debts)."""
     debts = normalized_debts(data)
-    out, used = apply_accepted_debts(out, debts)
     # A dep_unused debt is used by check while its declared edge has no other evidence.
     bare = dependency_evidence({**data, "accepted_debts": []}, inv, raw)
-    declared = {c["id"]: set(c.get("depends_on", [])) for c in comps}
-    used |= {index for index, debt in enumerate(debts) if debt.get("code") == "dep_unused"
-             and debt.get("contains") in declared.get(debt.get("component"), set())
-             and debt.get("contains") not in bare.get(debt.get("component"), set())}
-    for index, debt in enumerate(debts):
-        if index not in used:
-            out.append(Finding("warn", "debt_stale", debt.get("component", ""),
-                               f"accepted debt matches no finding: {debt['reason']}"))
-    return out
+    declared = {c["id"]: set(c.get("depends_on", [])) for c in data["components"]}
+    used = set(used) | {index for index, debt in enumerate(debts) if debt.get("code") == "dep_unused"
+                        and debt.get("contains") in declared.get(debt.get("component"), set())
+                        and debt.get("contains") not in bare.get(debt.get("component"), set())}
+    return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
+            for index, debt in enumerate(debts) if index not in used]
 
 
 def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *, view=None) -> list[Finding]:

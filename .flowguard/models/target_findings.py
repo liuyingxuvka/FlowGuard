@@ -36,6 +36,7 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
         "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
         "tests/test_flowguard_target.py:test_old_findings_of_unchanged_models_do_not_block",
+        "tests/test_flowguard_target.py:test_target_check_warns_about_debts_it_makes_stale",
     ],
     "every_defect_reported": [
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
@@ -71,6 +72,8 @@ CASES = (
     Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
     Case("old_finding_in_unchanged_model", "a model the target imports but does not change keeps an old uncovered "
          "invariant over unchanged code", True, "target", "warn"),
+    Case("debt_made_stale", "the target gives catalog tests, so its accepted untested_component debt matches nothing",
+         True, "target", "warn"),
     Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
          "current", "error"),
 )
@@ -115,6 +118,8 @@ FEATURES = (
             _wrong_decision("behaviour_without_rule", "none")),
     Feature("old_finding_blocks", True, ("old_finding_in_unchanged_model",),
             _wrong_decision("old_finding_in_unchanged_model", "error")),
+    Feature("stale_debt_hidden", True, ("debt_made_stale",),
+            _wrong_decision("debt_made_stale", "none")),
     Feature("unchanged_subject_downgraded", True, ("unchanged_copy_breakage",),
             _wrong_decision("unchanged_copy_breakage", "info")),
 )
@@ -241,6 +246,17 @@ def observe_case(case):
             (root / ".flowguard/models/shelf_old.py").write_text(OLD_CONTRACT, encoding="utf-8")
             report = native.check_target(root)
             return _unique_bucket(report, code="old_finding", prefix="uncovered_invariant"), repr(report)
+        elif case.name == "debt_made_stale":
+            current = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
+            current["accepted_debts"] = [dict(code="untested_component", component="catalog",
+                                              reason="catalog is covered through the loans tests")]
+            write_json(root / ".flowguard/map.json", current)
+            catalog = dict(next(c for c in current["components"] if c["id"] == "catalog"), tests=["tests/test_shelf.py"])
+            catalog.pop("status", None)
+            target["components"].append(catalog)
+            write_json(target_path, target)
+            report = native.check_target(root, models=False)
+            return _unique_bucket(report, code="debt_stale", prefix="accepted debt matches no finding"), repr(report)
         elif case.name == "behaviour_without_rule":
             target["components"][0]["entrypoints"].append("shelf/loans.py:hold")
             write_json(target_path, target)

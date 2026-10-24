@@ -25,6 +25,7 @@
 - With a target, only breakage of the field the target actually changes is reported as `moving to target`; other breakage of a copied component stays an error.
 - `map models` now fails a model whose invariant no known-bad variant breaks, like `release` and `target check` already did; the message no longer suggests an explanation mechanism that does not exist.
 - `target check` reports problems of related models that the target does not change and whose code is unchanged as `old_finding` warnings; they no longer block promotion.
+- `target check` warns about accepted debts the target makes stale; `target promote` lists models, flows and tests to re-read.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.
