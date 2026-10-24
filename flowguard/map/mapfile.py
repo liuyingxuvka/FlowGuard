@@ -241,7 +241,7 @@ def dependency_evidence(data: dict, inv: Inventory) -> dict[str, set[str]]:
 class ModelEntry:
     id: str
     path: str
-    kind: str                         # contract | runner
+    kind: str = field(default="contract", init=False)
 
 
 @dataclass(frozen=True)
@@ -263,7 +263,7 @@ def resolve_model_path(root: Path, logical: str, *, view=None) -> Path | None:
 
 
 def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelRegistry:
-    """The single executable inventory: top-level contracts and declared runners.
+    """The single executable inventory: contract models, with explicit legacy errors.
 
     Paths outside these conventions are not silently counted as proof. Discovery
     only reads literals; importing and executing belongs to the proof runner.
@@ -285,29 +285,39 @@ def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelR
              if view is not None else
              {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")})
     registry = ModelRegistry()
-    runners = {p.relative_to(root).as_posix()
-               for p in (root / ".flowguard/verification/owners").glob("*/run_checks.py")}
-    for rel in sorted(runners - referenced):
-        registry.issues.append(RegistryIssue("model_unbound", rel,
-                              "unregistered runner: add it to its owning component's models or remove it"))
-    for directory in sorted((root / ".flowguard/models/owners").glob("*")):
-        if directory.is_dir() and any(directory.glob("*.py")):
-            runner = f".flowguard/verification/owners/{directory.name}/run_checks.py"
-            if runner not in referenced:
-                registry.issues.append(RegistryIssue("model_unbound", directory.relative_to(root).as_posix(),
-                                      "unregistered owner model: add its runner to the owning component's models or remove it"))
+    retired_paths = {p.relative_to(root).as_posix()
+                     for p in (root / ".flowguard/verification/owners").glob("*/run_checks.py") if p.is_file()}
+    retired_paths.update(directory.relative_to(root).as_posix()
+                         for directory in (root / ".flowguard/models/owners").glob("*")
+                         if directory.is_dir() and any(p.is_file() for p in directory.rglob("*.py")))
+    logical_sources = set(view.model_sources) if view is not None else set()
+    for logical in referenced | logical_sources:
+        path = Path(logical)
+        if path.is_absolute() or ".." in path.parts:
+            continue             # the ordinary path validation below owns this diagnostic
+        if len(path.parts) >= 5 and path.parts[:3] == (".flowguard", "models", "owners") and path.suffix == ".py":
+            retired_paths.add(Path(*path.parts[:4]).as_posix())
+        elif logical in referenced and path.name == "run_checks.py":
+            retired_paths.add(path.as_posix())
+    for rel in sorted(retired_paths):
+        registry.issues.append(RegistryIssue(
+            "runner_model", rel,
+            "runner models are no longer run; rewrite it as a contract model in .flowguard/models/ "
+            "and delete this file (references/upgrade.md)"))
     for rel in sorted(paths | referenced):
         if Path(rel).is_absolute() or ".." in Path(rel).parts:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,
                                   f"{rel}: model paths must stay inside the project"))
             continue
+        parts = Path(rel).parts
+        place = Path(*parts[:4]).as_posix() if len(parts) >= 4 and parts[:3] == (".flowguard", "models", "owners") else Path(rel).as_posix()
+        if place in retired_paths:
+            continue
         path = resolve_model_path(root, rel, view=view)
         if path is None or not path.is_file():
             registry.issues.append(RegistryIssue("model_missing", rel, f"model file {rel} missing"))
             continue
-        if path.name == "run_checks.py" and rel in referenced:
-            entry = ModelEntry(path.parent.name, rel, "runner")
-        elif rel in paths:
+        if rel in paths:
             try:
                 contract = read_model_contract(path)
                 mid = contract.get("MODEL_ID")
@@ -322,13 +332,13 @@ def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelR
                 if not isinstance(anchors, dict) or not all(isinstance(k, str) and isinstance(v, str)
                                                            for k, v in anchors.items()):
                     raise ValueError("IMPLEMENTED_BY must map block names to string anchors")
-                entry = ModelEntry(mid, rel, "contract")
+                entry = ModelEntry(mid, rel)
             except (OSError, SyntaxError, ValueError, TypeError) as exc:
                 registry.issues.append(RegistryIssue("model_contract", rel, f"{rel}: {exc}"))
                 continue
         else:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,
-                                  f"{rel}: expected a top-level .flowguard/models/*.py contract or declared run_checks.py"))
+                                  f"{rel}: expected a top-level .flowguard/models/*.py contract"))
             continue
         registry.entries.append(entry)
     by_id: dict[str, list[str]] = defaultdict(list)

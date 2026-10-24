@@ -39,15 +39,24 @@ def findings(root):
     return run_check(root, data, inv)
 
 
-def test_unlisted_owner_runner_is_an_error_until_registered(tmp_path):
+def test_legacy_owner_python_files_are_runner_model_errors(tmp_path):
     data = project(tmp_path)
-    runner = ".flowguard/verification/owners/app/run_checks.py"
-    write(tmp_path, runner, "from flowguard.map.runner import run_owner\nraise SystemExit(run_owner(lambda: 0))\n")
-    write(tmp_path, ".flowguard/models/owners/app/model.py", "VALUE = 1\n")
-    assert "model_unbound" in {f.code for f in findings(tmp_path)}
-    data["components"][0]["models"] = [runner]
+    directory = tmp_path / ".flowguard/models/owners/app"
+    directory.mkdir(parents=True)
+    assert not any(f.code == "runner_model" for f in findings(tmp_path))
+    legacy = ".flowguard/models/owners/app/model.py"
+    marker = tmp_path / "legacy-owner-executed.txt"
+    write(tmp_path, legacy, f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\n')
+    errors = [f for f in findings(tmp_path) if f.code == "runner_model"]
+    assert len(errors) == 1 and errors[0].level == "error"
+    assert ".flowguard/models/owners/app" in errors[0].message
+    assert "rewrite it as a contract model" in errors[0].message
+    assert not marker.exists()
+    data["components"][0]["models"] = [legacy]
     save(tmp_path, data)
-    assert "model_unbound" not in {f.code for f in findings(tmp_path)}
+    errors = [f for f in findings(tmp_path) if f.code == "runner_model"]
+    assert len(errors) == 1 and errors[0].level == "error"
+    assert not marker.exists()
 
 
 CONTRACT = '''MODEL_ID = "one"
@@ -456,20 +465,20 @@ def test_parent_literal_validation_and_sibling_loading(tmp_path):
         sys.modules.pop("_flowguard_model_load_probe", None)
 
 
-def test_model_tree_legacy_anchor_runner_and_root_defaults(tmp_path):
+def test_model_tree_anchor_components_and_root_defaults(tmp_path):
     from flowguard.map.tree import build_tree
 
     data = project(tmp_path)
     write(tmp_path, ".flowguard/models/anchored.py", CONTRACT.replace('"one"', '"anchored"').replace('COMPONENTS = ["app"]', 'COMPONENTS = []'))
     write(tmp_path, ".flowguard/models/rooted.py", 'MODEL_ID = "rooted"\nIMPLEMENTED_BY = {"Probe": "tests/test_app.py:test_run"}\ndef build_explorer(): pass\ndef conformance(): pass\n')
-    runner = ".flowguard/verification/owners/native/run_checks.py"
-    write(tmp_path, runner, "VALUE = 1\n")
-    data["components"][0]["models"] = [runner]
+    native = ".flowguard/models/native.py"
+    write(tmp_path, native, CONTRACT.replace('"one"', '"native"') + '\ndef conformance(): pass\n')
+    data["components"][0]["models"] = [native]
     save(tmp_path, data)
     current, inv = _context(tmp_path)
     tree = build_tree(tmp_path, current, inv)
     assert (tree.nodes["anchored"].parent, tree.nodes["anchored"].source) == ("app", "anchor")
-    assert (tree.nodes["native"].parent, tree.nodes["native"].source) == ("app", "listed")
+    assert (tree.nodes["native"].parent, tree.nodes["native"].source) == ("app", "COMPONENTS")
     assert (tree.nodes["rooted"].parent, tree.nodes["rooted"].source) == ("system", "default")
     assert not tree.findings
 

@@ -240,7 +240,7 @@ def test_registry_issue_does_not_block_the_requested_model(shop, capsys):
     write(shop, ".flowguard/verification/owners/stray/run_checks.py", "raise SystemExit(0)\n")
     code, output = models(shop, capsys, "order_placement")
     assert code == 1
-    assert "PASS  order_placement" in output and "model_unbound" in output
+    assert "PASS  order_placement" in output and "runner_model" in output
 
 
 _MINIMAL_MODEL = MODEL_SOURCE.read_text(encoding="utf-8").replace(
@@ -289,21 +289,6 @@ def test_component_selector_reports_its_registered_model_ids(shop, capsys):
     assert code == 1 and "is a component id" in output and "registered model ids: order_placement" in output
 
 
-def test_runner_output_in_any_language_never_breaks_the_verdict(tmp_path, monkeypatch):
-    from flowguard.map.proof import run_runner
-    monkeypatch.setenv("PYTHONIOENCODING", "cp1252")          # the code page a Windows pipe gives a child
-    runner = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    runner.parent.mkdir(parents=True)
-    write(tmp_path, "app.py", "def run():\n    return 1\n")
-    runner.write_text("from flowguard.map.runner import run_owner\nimport app\nIMPLEMENTED_BY = {'App': 'app.py:run'}\n"
-                      "from flowguard.explorer import Explorer\nfrom flowguard.workflow import Workflow\n"
-                      "def main():\n    print('运行检查 ✓', app.run())\n"
-                      "    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
-                      "raise SystemExit(run_owner(main))\n", encoding="utf-8")
-    assert run_runner(tmp_path, runner).status == "pass"
-    runner.write_text("print('失败 ✗')\nraise SystemExit(1)\n", encoding="utf-8")
-    result = run_runner(tmp_path, runner)
-    assert result.status == "fail" and "失败 ✗" in result.problems[0], result.problems
 
 
 def test_out_of_boundary_inputs_never_report_a_stale_pass(shop, capsys, monkeypatch):
@@ -440,18 +425,6 @@ def test_plain_function_invariant_is_accepted(shop, capsys):
     assert (neutral.status, neutral.problems, neutral.warnings) == (native.status, native.problems, native.warnings)
 
 
-@pytest.mark.parametrize("body,status", [("raise SystemExit(0)", "pass"), ("raise SystemExit(run_owner(lambda: 0))", "pass"),
-                                         ("raise SystemExit(run_owner(lambda: None))", "error"),
-                                         ("raise SystemExit(run_owner(lambda: []))", "fail")])
-def test_runner_verdict_is_its_exit_code(tmp_path, body, status):
-    from flowguard.map.proof import run_runner
-    path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    write(tmp_path, "app.py", "def run():\n    return 0\n")
-    write(tmp_path, path.relative_to(tmp_path).as_posix(), "from flowguard.map.runner import run_owner\nimport app\n"
-          "IMPLEMENTED_BY = {'App': 'app.py:run'}\napp.run()\n" + body + "\n")
-    result = run_runner(tmp_path, path)
-    assert result.status == status, result.problems
-    assert any("run_owner(main)" in w for w in result.warnings) == ("run_owner(" not in body)
 
 
 def test_non_explorer_proves_nothing(tmp_path):
@@ -501,27 +474,6 @@ def test_conformance_import_error_reports_interpreter_environment(shop, capsys, 
     assert "does not conform" not in out
 
 
-def test_runner_must_call_or_read_its_anchored_code(tmp_path):
-    from flowguard.map.proof import run_runner
-    write(tmp_path, "app.py", "def run():\n    return 1\n")
-    source = ("from flowguard.map.runner import run_owner\nIMPLEMENTED_BY = {'App': 'app.py:run'}\n"
-              "def main():\n    return 0\n"
-              "raise SystemExit(run_owner(main))\n")
-    path = tmp_path / ".flowguard/verification/owners/shop/run_checks.py"
-    rel = path.relative_to(tmp_path).as_posix()
-    write(tmp_path, rel, source)
-    result = run_runner(tmp_path, path, own_files={"app.py"})
-    problems = " ".join(result.problems)
-    assert result.status == "fail" and "abstract boundary only" in problems and "never ran" in problems
-    write(tmp_path, rel, "import app\n" + source)
-    result = run_runner(tmp_path, path, own_files={"app.py"})
-    assert result.status == "fail" and "never ran" in " ".join(result.problems)       # importing is not consulting
-    write(tmp_path, rel, "import app\napp.run()\n" + source)
-    result = run_runner(tmp_path, path, own_files={"app.py"})
-    assert result.status == "pass" and not result.warnings, result.problems
-    write(tmp_path, rel, "from flowguard.map.facts import CodeFacts\nCodeFacts().present('run', ['app.py'])\n" + source)
-    result = run_runner(tmp_path, path, own_files={"app.py"})
-    assert result.status == "pass", result.problems                                   # read as code facts
 
 
 def test_explorer_with_no_initial_states_proves_nothing(shop, capsys):
@@ -534,21 +486,17 @@ def test_explorer_with_no_initial_states_proves_nothing(shop, capsys):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="POSIX process-group cleanup")
-@pytest.mark.parametrize("kind", ["runner", "contract"])
+@pytest.mark.parametrize("kind", ["contract"])
 def test_model_timeout_cleans_its_spawned_child(tmp_path, kind):
-    from flowguard.map.proof import run_model, run_runner
+    from flowguard.map.proof import run_model
     body = (
         "import subprocess,sys,time\nfrom pathlib import Path\n"
         "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'])\n"
         "Path('child.pid').write_text(str(child.pid))\ntime.sleep(30)\n"
     )
-    if kind == "runner":
-        path = tmp_path / ".flowguard" / "probe" / "run_checks.py"
-        function = run_runner
-    else:
-        path = tmp_path / ".flowguard" / "models" / "probe.py"
-        body = "MODEL_ID='probe'\ndef build_explorer(): pass\n" + body
-        function = run_model
+    path = tmp_path / ".flowguard" / "models" / "probe.py"
+    body = "MODEL_ID='probe'\ndef build_explorer(): pass\n" + body
+    function = run_model
     path.parent.mkdir(parents=True)
     path.write_text(body)
     result = function(tmp_path, path, timeout=.5)
@@ -568,56 +516,13 @@ def test_model_timeout_cleans_its_spawned_child(tmp_path, kind):
             pass
 
 
-RUNNER = ".flowguard/verification/owners/orders_check/run_checks.py"
-RUNNER_SOURCE = ('"""Runner model: places an order through the real OrderService."""\n'
-                 'from flowguard.map.runner import run_owner\n\n'
-                 'IMPLEMENTED_BY = {"Place": "ANCHOR"}\n'
-                 'TESTED_BY = {"places_once": ["tests/test_orders.py:test_place_once"]}\n\n\n'
-                 'def main():\n    from shop.orders import OrderService\n'
-                 '    return 0 if OrderService().place("o1", 5) == "placed" else 1\n\n\n'
-                 'if __name__ == "__main__":\n    raise SystemExit(run_owner(main))\n')
-
-
-def _runner_project(shop, anchor):
-    write(shop, "shop/orders.py", FIXED)
-    write(shop, RUNNER, RUNNER_SOURCE.replace("ANCHOR", anchor))
-    data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
-    data["components"][0]["models"].append(RUNNER)
-    (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
-
-
 def _check_codes(shop, capsys):
     cli.main(["--root", str(shop), "check"])
     return capsys.readouterr().out
 
 
-def test_runner_models_follow_the_same_binding_rule(shop, capsys):
-    _runner_project(shop, "REPLACE_ME/orders.py:place")
-    out = _check_codes(shop, capsys)
-    assert "model_anchor_broken" in out and "placeholder anchor 'REPLACE_ME/orders.py:place'" in out
-    code, output = models(shop, capsys, "orders_check")
-    assert code == 1 and "placeholder anchor" in output
-    _runner_project(shop, "shop/orders.py:OrderService.place")
-    out = _check_codes(shop, capsys)
-    expected = (f"{'WARN':5} {'runner_model':24} {'-':26} {RUNNER}: runner models are retired; "
-                "rewrite it as a contract model in .flowguard/models/ "
-                "(MODEL_ID, build_explorer, broken_variants, conformance; see references/model_recipes.md)")
-    assert [line for line in out.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"] == [expected]
-    assert not any(line.startswith("ERROR") and RUNNER in line for line in out.splitlines())
-    assert models(shop, capsys, "orders_check")[0] == 0
-    write(shop, "shop/orders.py", FIXED.replace("def place(", "def place_order(").replace("return \"placed\"", "return 'placed'"))
-    out = _check_codes(shop, capsys)
-    assert "model_anchor_broken" in out and "symbol 'OrderService.place' not found in shop/orders.py" in out
 
 
-def test_runner_is_selected_by_its_anchored_file_and_its_tests(shop, capsys):
-    _runner_project(shop, "shop/orders.py:OrderService.place")
-    cli.main(["--root", str(shop), "confirm", "orders"])
-    capsys.readouterr()
-    assert cli.main(["--root", str(shop), "impact", "shop/orders.py"]) == 0
-    assert "orders_check" in capsys.readouterr().out
-    assert cli.main(["--root", str(shop), "impact", "tests/test_orders.py"]) == 0
-    assert "orders_check" in capsys.readouterr().out
 
 
 def test_unbound_models_are_errors_in_check(shop, capsys):
@@ -803,26 +708,6 @@ def test_tested_by_must_reach_the_anchored_code(shop, capsys, mode, problem):
         assert "[False]" in output
 
 
-@pytest.mark.parametrize("hit", [True, False])
-def test_runner_bound_tests_observe_their_own_call(tmp_path, hit):
-    from flowguard.map.proof import run_runner
-
-    write(tmp_path, "app.py", "def run():\n    return 1\n")
-    write(tmp_path, "tests/test_app.py", "def test_app():\n" + (
-        "    import app\n    assert app.run() == 1\n" if hit else "    assert True\n"))
-    runner = tmp_path / ".flowguard/verification/owners/app/run_checks.py"
-    write(tmp_path, runner.relative_to(tmp_path).as_posix(),
-          "from flowguard.map.runner import run_owner\nimport app\n"
-          "from flowguard.explorer import Explorer\nfrom flowguard.workflow import Workflow\n"
-          "IMPLEMENTED_BY = {'App': 'app.py:run'}\n"
-          "TESTED_BY = {'app_result': ['tests/test_app.py:test_app']}\n"
-          "def main():\n    assert app.run() == 1\n"
-          "    return Explorer(Workflow(()), (0,), (1,), progress_steps=0).explore()\n"
-          "raise SystemExit(run_owner(main))\n")
-    result = run_runner(tmp_path, runner, tests=True)
-    assert result.status == ("pass" if hit else "fail"), result.problems
-    if not hit:
-        assert any("tested_by_misses_anchor app_result" in p for p in result.problems)
 
 
 def test_bound_tests_without_pytest_are_an_environment_error(shop, monkeypatch):
@@ -1253,25 +1138,41 @@ def test_bound_parameter_selection_preserves_each_item_guard(shop, capsys, suffi
 
 
 
-def test_runner_model_is_warned(shop, capsys):
-    _runner_project(shop, "shop/orders.py:OrderService.place")
+def test_runner_model_is_an_error(shop, capsys):
+    from flowguard.__main__ import main
+
+    write(shop, "shop/orders.py", FIXED)
+    assert cli.main(["--root", str(shop), "confirm", "orders"]) == 0
+    capsys.readouterr()
     marker = shop / "runner-result.txt"
-    source = (shop / RUNNER).read_text(encoding="utf-8")
-    original = '    return 0 if OrderService().place("o1", 5) == "placed" else 1'
-    replacement = ('    from pathlib import Path\n'
-                   '    result = OrderService().place("o1", 5)\n'
-                   '    Path("runner-result.txt").write_text(result, encoding="utf-8")\n'
-                   '    return 0 if result == "placed" else 1')
-    assert original in source
-    write(shop, RUNNER, source.replace(original, replacement, 1))
-    assert not marker.exists()
-    assert cli.main(["--root", str(shop), "check"]) == 0
+    runner = ".flowguard/verification/owners/orders_check/run_checks.py"
+    write(shop, runner, f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\n')
+    assert cli.main(["--root", str(shop), "check"]) == 1
     output = capsys.readouterr().out
-    expected = (f"{'WARN':5} {'runner_model':24} {'-':26} {RUNNER}: runner models are retired; "
-                "rewrite it as a contract model in .flowguard/models/ "
-                "(MODEL_ID, build_explorer, broken_variants, conformance; see references/model_recipes.md)")
-    assert [line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"] == [expected]
+    lines = [line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"]
+    assert len(lines) == 1 and lines[0].startswith("ERROR") and runner in lines[0], output
+    assert "runner models are no longer run; rewrite it as a contract model" in output
     assert not marker.exists()
-    code, output = models(shop, capsys, "orders_check")
-    assert code == 0 and "PASS  orders_check" in output, output
-    assert marker.read_text(encoding="utf-8") == "placed"
+
+    data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
+    data["components"][0]["models"].append(runner)
+    (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
+    assert cli.main(["--root", str(shop), "check"]) == 1
+    output = capsys.readouterr().out
+    assert len([line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"]) == 1
+    assert not marker.exists()
+    code, output = models(shop, capsys)
+    assert code == 1 and "runner_model" in output and "PASS  order_placement" in output, output
+    assert not marker.exists()
+    assert main(["release", "--root", str(shop)]) == 1
+    output = capsys.readouterr().out
+    assert "runner_model" in output and "verify: FAIL" in output, output
+    assert not marker.exists()
+
+    assert main(["target", "start", "reject a leftover runner", "--root", str(shop)]) == 0
+    capsys.readouterr()
+    assert main(["target", "check", "--root", str(shop)]) == 1
+    output = capsys.readouterr().out
+    errors = [line for line in output.splitlines() if "runner_model" in line]
+    assert errors and all(line.startswith("ERROR") for line in errors), output
+    assert not marker.exists()

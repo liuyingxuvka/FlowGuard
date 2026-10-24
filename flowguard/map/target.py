@@ -55,7 +55,7 @@ TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "test_missing"
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
-               "child_outside_parent", "duplicate_child_owner", "duplicate_owner", "owner_dropped", "entrypoint_owner", "design_only_model"}
+               "child_outside_parent", "duplicate_child_owner", "duplicate_owner", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model"}
 
 
 @dataclass(frozen=True)
@@ -222,7 +222,7 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
     from .proof import run_models
 
     selected = _selected_models(root, current, target, view, inv, tree)
-    # [] means "all" to the ordinary runner; an empty target selection means none.
+    # [] means "all" to model execution; an empty target selection means none.
     results = run_models(root, selected, tests=True, view=view, inv=inv) if selected else []
     for result in results:
         node = "model " + result.model

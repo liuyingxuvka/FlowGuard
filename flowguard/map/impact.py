@@ -158,10 +158,6 @@ def _binding_indexes(data: dict, tree=None) -> tuple[dict[str, set[str]], dict[s
 
 
 def _owner_model_paths(path: str, declared: dict[str, set[str]]) -> set[str]:
-    parts = Path(path).parts
-    if len(parts) >= 5 and parts[:3] == (".flowguard", "models", "owners"):
-        runner = f".flowguard/verification/owners/{parts[3]}/run_checks.py"
-        return {runner} if runner in declared else set()
     return {path} if path in declared else set()
 
 
@@ -240,7 +236,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     registered = {entry.path: entry for entry in registry.entries}
     contract_inputs: dict[str, set[str]] = defaultdict(set)
     contract_tests: dict[str, set[str]] = defaultdict(set)
-    for entry in registry.entries:               # contract models and runners bind the same way
+    for entry in registry.entries:               # contract models bind code and tests in one way
         try:
             contract = read_model_contract(root / entry.path)
         except (OSError, SyntaxError, ValueError, TypeError):
@@ -291,7 +287,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 if not Path(f).name.startswith("_"):
                     selected_model_paths.add(f)
             else:
-                blocked.append(f"{f}: no registered executable model/runner binding; declare its owner runner")
+                blocked.append(f"{f}: no registered executable model binding; declare a contract model or remove this file")
         if f not in inv.source and not f.startswith(".flowguard/models/") and f != ".flowguard/map.json":
             referenced = set()
             for t in inv.tests:

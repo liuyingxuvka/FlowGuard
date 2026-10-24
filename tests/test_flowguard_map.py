@@ -281,17 +281,6 @@ def impact_project(tmp_path: Path, _impact_project_template: Path):
     return root, load(root)
 
 
-def _legacy_order_checks(root, data):
-    """Restore the original isolated runner fixture for tests of its retiring behavior."""
-    (root / ".flowguard/models/orders_check.py").unlink()
-    runner = ".flowguard/verification/owners/orders/run_checks.py"
-    data["components"][1]["models"] = [runner]
-    write(root, runner, "raise SystemExit(0)\n")
-    write(root, ".flowguard/models/owners/orders/model.py", "VALUE = True\n")
-    write(root, ".flowguard/models/owners/orders/helper.py", "VALUE = True\n")
-    save(root, data)
-    git(root, "add", "-A")
-    git(root, "-c", "user.email=a@b", "-c", "user.name=t", "commit", "-qm", "legacy runner check baseline")
 
 
 def impact_of(root, data, changed, **kwargs):
@@ -436,12 +425,10 @@ def test_impact_declared_edges_bridge_unsupported_imports(impact_project, surfac
         assert any(f"{expected} -> orders: declared but unverified" in message for message in imp.uncertainty)
 
 
-@pytest.mark.parametrize("change", ["delete", "rename", "contract", "nested", "helper", "runner", "test", "mapping"])
+@pytest.mark.parametrize("change", ["delete", "rename", "contract", "test", "mapping"])
 def test_impact_verification_backreferences_and_old_paths(impact_project, change):
     from flowguard.map.impact import changed_files, render_impact
     root, data = impact_project
-    if change in {"nested", "helper", "runner"}:
-        _legacy_order_checks(root, data)
     changed = []
     if change == "delete":
         (root / "shop/storage.py").unlink()
@@ -458,9 +445,7 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
         save(root, data)
         changed = [".flowguard/map.json"]
     else:
-        changed = [{"contract": ".flowguard/models/persistence.py", "nested": ".flowguard/models/owners/orders/model.py",
-                    "helper": ".flowguard/models/owners/orders/helper.py", "runner": ".flowguard/verification/owners/orders/run_checks.py",
-                    "test": "tests/test_orders.py"}[change]]
+        changed = [{"contract": ".flowguard/models/persistence.py", "test": "tests/test_orders.py"}[change]]
     imp = impact_of(root, data, changed, base="HEAD")
     if change in {"delete", "rename", "mapping"}:
         assert {"tests/test_orders.py", "tests/test_api.py"} <= set(imp.tests)
@@ -468,14 +453,13 @@ def test_impact_verification_backreferences_and_old_paths(impact_project, change
     else:
         assert imp.direct == [] and imp.dependents == []
         assert imp.tests == (["tests/test_orders.py"] if change == "test" else [])
-        expected_models = {"contract": ["storage-proof"], "nested": ["orders"], "helper": ["orders"],
-                           "runner": ["orders"], "test": []}
+        expected_models = {"contract": ["storage-proof"], "test": []}
         assert imp.model_ids == expected_models[change]
     assert "tests/test_web.py" not in imp.tests
     assert " models model" not in render_impact(imp)
     if change == "mapping":
         assert {"new-storage-proof", "storage-proof"} <= set(imp.model_ids)
-    elif change not in {"nested", "helper", "runner", "test"}:
+    elif change != "test":
         assert "storage-proof" in imp.model_ids
     assert not imp.blocked
 
@@ -802,19 +786,6 @@ def test_deleted_owner_without_surviving_checks_is_visible(impact_project):
     assert "shop/storage.py" in imp.no_checks
 
 
-@pytest.mark.parametrize("registered", [False, True])
-def test_old_runner_requires_current_registration(impact_project, registered):
-    root, data = impact_project
-    _legacy_order_checks(root, data)
-    owner = data["components"][1]
-    path = owner["models"][0]
-    data["components"].remove(owner)
-    if registered:
-        data["components"][0]["models"] = [path]
-    save(root, data)
-    imp = impact_of(root, data, [".flowguard/map.json"], base="HEAD")
-    assert (path in imp.models) is registered
-    assert any(path in item for item in imp.blocked) is not registered
 
 
 @pytest.mark.parametrize("mode", ["historical", "override", "ambiguous", "missing", "retired"])

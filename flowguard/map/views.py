@@ -55,11 +55,10 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
         fact = facets[node.id]
         purpose = fact.purpose[:50] + ("…" if len(fact.purpose) > 50 else "")
         home = f" (home {node.home})" if component and (node.home_kind != "component" or node.home != component) else ""
-        kind = " [runner]" if node.kind == "runner" else ""
         mark = changes.get(("model", node.id), "") if changes is not None else ""
         prefix = mark + " " if mark else ""
         lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
-                     f"({_count(fact.rule_count)} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests){kind}{home}")
+                     f"({_count(fact.rule_count)} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests){home}")
         before = previous.get(("model", node.id)) if previous is not None else None
         if mark == "-":
             lines[-1] += " (removed by the target)"

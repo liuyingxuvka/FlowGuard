@@ -84,11 +84,6 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
     registry = model_registry(root, data, view=view)
     for issue in registry.issues:
         out.append(Finding("error", issue.code, "", f"{issue.path}: {issue.message}"))
-    for entry in registry.entries:
-        if entry.kind == "runner":
-            out.append(Finding("warn", "runner_model", "",
-                               f"{entry.path}: runner models are retired; rewrite it as a contract model in .flowguard/models/ "
-                               "(MODEL_ID, build_explorer, broken_variants, conformance; see references/model_recipes.md)"))
 
     from .tree import build_tree
     tree = build_tree(root, data, inv, view=view)
@@ -110,7 +105,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             if model_path is None or not model_path.is_file():
                 out.append(Finding("error", "model_missing", "", f"flow {flow['id']}: model file {flow['model']} missing"))
 
-    for entry in registry.entries:              # contract models and runners: one binding rule
+    for entry in registry.entries:              # contract models share one binding rule
         rel = entry.path
         path = resolve_model_path(root, rel, view=view)
         if path is None:

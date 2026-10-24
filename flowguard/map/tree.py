@@ -117,10 +117,6 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
         anchors = list(node.contract.get("IMPLEMENTED_BY", {}).values())
         if anchors and (cid := owner.get(anchors[0].split(":", 1)[0])):
             return cid, "component", "anchor"
-        if node.kind == "runner":
-            for cid, comp in components.items():
-                if node.path in comp.get("models", []):
-                    return cid, "component", "listed"
         return "system", "system", "default"
 
     for node in nodes.values():
@@ -164,8 +160,6 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
                                if a.split(":", 1)[0] in owner)
         if node.home_kind == "component":
             node.components.add(node.home)
-        if node.kind == "runner":
-            node.components.update(cid for cid, comp in components.items() if node.path in comp.get("models", []))
         cids = sorted(cid for cid in node.components if cid in components)
         tests = {anchor.split(":", 1)[0] for anchors in node.contract.get("TESTED_BY", {}).values() for anchor in anchors}
         for path in sorted(tests):

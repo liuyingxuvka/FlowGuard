@@ -12,7 +12,7 @@
 
 - Models now show structural `hazard:` hints automatically. Hints and inference failures are informational and never change PASS/FAIL or release; the separate topology-hazard review model and template are retired.
 
-- Registered runner models now produce a `runner_model` warning while continuing to execute. The skill teaches contract models only.
+- Runner models are no longer executed; a leftover `run_checks.py` is a `runner_model` error. Rewrite the check as a contract model and delete the retired file.
 
 - `DESIGN_ONLY` and planned code facts are retired. Any current model declaring `DESIGN_ONLY` now fails, including declarations with false or empty values. Plan unbuilt behaviour as a target model and remove the declaration there too; target models also forbid it.
 

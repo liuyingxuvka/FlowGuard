@@ -9,11 +9,6 @@ A model file is a plain Python module:
     def broken_variants(): ...    # required: {name: Explorer}; every variant must FAIL
     def conformance(): ...        # optional: replay model traces against the real code; .ok must be True
 
-A second kind, *runner models*, is any ``run_checks.py`` listed in a map
-component's ``models`` (for example ``.flowguard/verification/owners/<id>/run_checks.py``
-next to ``.flowguard/models/owners/<id>/model.py``).  A runner model passes when
-the script completes a nonempty check via run_owner and exits with 0; its id is its directory name.
-
 Each model runs in its own Python subprocess (fresh imports, no shared state).
 Every requested model executes on every call: results are never cached, so a
 PASS is always a statement about the current bytes, environment and interpreter.
@@ -40,9 +35,9 @@ from ..hazards import model_hazards
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
-from .mapfile import MapError, load_map, model_registry, read_model_contract, component_files, resolve_model_path, design_only_problem
+from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path, design_only_problem
 from .tree import build_tree
-from .runner import COMPLETION_LINE, CONSULTED_LINE, LOADED_LINE, run_isolated_process
+from .runner import run_isolated_process
 
 DEFAULT_TIMEOUT = 300          # seconds per model
 
@@ -544,85 +539,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
 
 def model_id_of(path: str | Path) -> str:
     path = Path(path)
-    return path.parent.name if path.name == "run_checks.py" else read_model_contract(path).get("MODEL_ID", path.stem)
-
-
-def runner_files(root: Path) -> list[Path]:
-    """run_checks.py scripts listed in map components' ``models`` (if a map exists)."""
-    return [root / e.path for e in model_registry(root).entries if e.kind == "runner"]
-
-
-def _runner_view_main() -> int:
-    """Wrap the existing runner probe in the same model namespace, not another runner."""
-    from .targetfile import ModelView
-    from .runner import _probe_main
-
-    view = ModelView.from_payload(json.loads(Path(sys.argv[2]).read_text(encoding="utf-8")))
-    with model_namespace(view):
-        return _probe_main()
-
-
-def run_runner(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, own_files: set[str] | None = None, *, tests: bool = False, view=None) -> ModelResult:
-    package_parent = Path(__file__).resolve().parents[2]
-    env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    env["PYTHONIOENCODING"] = "utf-8"
-    result = ModelResult(model=model_id_of(path), file=path.relative_to(root).as_posix())
-    started = time.time()
-    try:
-        contract = read_model_contract(path)
-    except (OSError, SyntaxError, ValueError) as exc:
-        result.status = "error"
-        result.problems.append(f"cannot read the runner's IMPLEMENTED_BY / TESTED_BY literals: {exc}")
-        return result
-    retired = design_only_problem(contract, result.file)
-    if retired:
-        _fail(result, retired)
-        return result
-    try:
-        with _view_request(view) as extra:
-            bootstrap = ("from flowguard.map.proof import _runner_view_main; raise SystemExit(_runner_view_main())"
-                         if view is not None else "from flowguard.map.runner import _probe_main; raise SystemExit(_probe_main())")
-            proc, timed_out, cleaned = run_isolated_process(
-                [sys.executable, "-c", bootstrap, str(path), *extra],
-                cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        if timed_out or not cleaned:
-            result.status = "error"
-            result.problems.append(f"timed out={timed_out} after {timeout}s; cleanup_confirmed={cleaned}")
-            result.seconds = round(time.time() - started, 3)
-            return result
-        loaded, consulted = set(), {"anchors": [], "read": []}
-        stderr = []
-        for line in proc.stderr.splitlines():
-            if line.startswith(LOADED_LINE):
-                loaded.update(json.loads(line[len(LOADED_LINE):]))
-            elif line.startswith(CONSULTED_LINE):
-                consulted = json.loads(line[len(CONSULTED_LINE):])
-            else:
-                stderr.append(line)
-        if proc.returncode != 0:
-            result.status = "error" if proc.returncode == 3 and "no checks completed" in proc.stderr else "fail"
-            tail = "\n".join((proc.stdout + "\n" + "\n".join(stderr)).strip().splitlines()[-15:])
-            result.problems.append(f"runner exited with {proc.returncode}:\n{tail}")
-        else:
-            lines = proc.stdout.strip().splitlines()
-            if not (lines and lines[-1].startswith(COMPLETION_LINE)):
-                result.warnings.append("runner does not end with raise SystemExit(run_owner(main)); "
-                                       "its exit code 0 is taken as the result")
-        watch = AnchorWatch(root, contract.get("IMPLEMENTED_BY", {}).values())
-        watch.called = set(consulted["anchors"])
-        watch.read_files = {os.path.realpath(root / rel) for rel in consulted["read"]}
-        if own_files is not None and not ((loaded | set(consulted["read"])) & own_files):
-            _fail(result, "abstract boundary only: runner loaded no code of its bound components")
-        _anchor_verdict(result, root, contract, watch, "by the runner")
-    except subprocess.TimeoutExpired:
-        result.status = "error"
-        result.problems.append(f"timed out after {timeout}s")
-    result.seconds = round(time.time() - started, 3)
-    if tests:
-        run_bound_tests(root, path, result, timeout=timeout, view=view)
-    return result
+    return read_model_contract(path).get("MODEL_ID", path.stem)
 
 
 def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False, view=None, inv=None) -> list[ModelResult]:
@@ -655,17 +572,11 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
     if errors:
         return errors + issues
     results = []
-    own_files = {}
-    for entry in registry.entries:
-        if entry.kind == "runner":
-            own_files[entry.path] = {f for c in data.get("components", [])
-                                    if c["id"] in tree.nodes[entry.id].components for f in component_files(c, inv)}
     for entry in registry.entries:
         if ids and entry.id not in ids:
             continue
         path = root / entry.path
-        results.append(run_runner(root, path, timeout, own_files.get(entry.path), tests=tests, view=view) if entry.kind == "runner"
-                       else run_model(root, path, timeout, tests=tests, view=view))
+        results.append(run_model(root, path, timeout, tests=tests, view=view))
     if has_map and (not ids or "system" in ids):
         from .system_model import run_system_model
         results.append(run_system_model(root, data, inv, view=view))

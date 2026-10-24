@@ -333,7 +333,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                                        "route the update through its owner"))
     imported = {t for deps in inv.file_deps.values() for t in deps}
     modules = {info.module: path for path, info in inv.py.items()}
-    # Registered executable models/runners are real importers even though they are outside source ownership.
+    # Registered contract models are real importers even though they are outside source ownership.
     registry = model_registry(root, data, view=view)
     for entry in registry.entries:
         physical = resolve_model_path(root, entry.path, view=view)

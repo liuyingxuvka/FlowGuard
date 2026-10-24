@@ -273,17 +273,18 @@ class DiscoveryBoundaryTests(unittest.TestCase):
             self.assertIn("['a', 'b']", duplicates[0].message)
             self.assertNotIn("c.py", duplicates[0].message)
 
-    def test_registered_runners_and_pytest_hooks_are_real_external_importers(self) -> None:
+    def test_registered_contracts_and_pytest_hooks_are_real_external_importers(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "library.py").write_text("def work(): return 1\n", encoding="utf-8")
             (root / "plugin.py").write_text("def pytest_sessionstart(session): pass\n", encoding="utf-8")
-            runner = root / ".flowguard/verification/owners/sample/run_checks.py"
-            runner.parent.mkdir(parents=True)
-            runner.write_text("from library import work\n", encoding="utf-8")
+            model = root / ".flowguard/models/sample.py"
+            model.parent.mkdir(parents=True)
+            model.write_text('MODEL_ID="sample"\nIMPLEMENTED_BY={"Work":"library.py:work"}\n'
+                             'from library import work\ndef build_explorer(): pass\ndef conformance(): pass\n', encoding="utf-8")
             inv = build_inventory(root, DEFAULT_IGNORE)
             data = {"components": [{"id": "library", "files": ["library.py", "plugin.py"], "tests": [],
-                                   "models": [runner.relative_to(root).as_posix()]}], "flows": [], "layers": [], "accepted_debts": []}
+                                   "models": [model.relative_to(root).as_posix()]}], "flows": [], "layers": [], "accepted_debts": []}
             findings = run_lint(root, data, inv)
             self.assertFalse(any(finding.code == "never_imported" for finding in findings))
 
@@ -401,14 +402,14 @@ class Other:
     assert len([f for f in lint if f.code == 'model_writer_unbound' and f.level == 'info']) == 2
     assert not any(f.code == 'debt_stale' for f in lint)
 
-    # Exclusions come from every registered model, including a separate runner.
+    # Exclusions come from every registered model, including a separate contract.
     data.pop('accepted_debts')
-    runner = '.flowguard/verification/owners/proxy_writer/run_checks.py'
-    data['components'][0]['models'] = [runner]
-    write(runner, 'from flowguard.map.runner import run_owner\n'
+    separate = '.flowguard/models/proxy_writer.py'
+    data['components'][0]['models'] = [separate]
+    write(separate, 'MODEL_ID="proxy_writer"\n'
           'IMPLEMENTED_BY={"Delete":"pkg/proxy.py:Proxy.__delitem__"}\n'
           'NOT_MODELED={"pkg/proxy.py:Proxy.move_to_end":"Ordering is covered by its direct test"}\n'
-          'raise SystemExit(run_owner(lambda:0))\n')
+          'def build_explorer(): pass\ndef conformance(): pass\n')
     write('.flowguard/map.json', json.dumps(data))
     current, inv = _context(tmp_path)
     assert not any(f.code == 'model_writer_unbound' for f in run_check(tmp_path, current, inv))
