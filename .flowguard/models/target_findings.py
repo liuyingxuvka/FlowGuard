@@ -34,6 +34,7 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
         "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
+        "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
     ],
     "every_defect_reported": [
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
@@ -67,6 +68,8 @@ CASES = (
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
     Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
     Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
+    Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
+         "current", "error"),
 )
 
 
@@ -107,6 +110,8 @@ FEATURES = (
             _wrong_decision("responsibility_dropped", "none")),
     Feature("untied_goal_accepted", True, ("behaviour_without_rule",),
             _wrong_decision("behaviour_without_rule", "none")),
+    Feature("unchanged_subject_downgraded", True, ("unchanged_copy_breakage",),
+            _wrong_decision("unchanged_copy_breakage", "info")),
 )
 
 
@@ -145,9 +150,9 @@ def _unique_bucket(report, *, code, message=None, prefix=None):
 
 def _current_case(root, case):
     stage_target(root)
-    planned = case.name != "unplanned_current"
-    path = root / ("shelf/loans.py" if planned else "shelf/catalog.py")
-    old, new = ("advance", "advance_next") if planned else ("capacity", "capacity_next")
+    planned = case.name not in ("unplanned_current", "unchanged_copy_breakage")
+    path = root / ("shelf/catalog.py" if case.name == "unplanned_current" else "shelf/loans.py")
+    old, new = ("capacity", "capacity_next") if case.name == "unplanned_current" else ("advance", "advance_next")
     path.write_text(path.read_text(encoding="utf-8").replace("def " + old + "(", "def " + new + "("), encoding="utf-8")
     if planned:
         target = load_target(root).data
@@ -165,7 +170,7 @@ def _current_case(root, case):
     downgraded = native.moving_to_target(findings, root, data, load_target(root))
     after = [f for f in downgraded if f.code == "anchor_broken" and old in f.message]
     assert after
-    if not planned:
+    if case.name == "unplanned_current":
         assert after == relevant, "unplanned Finding identities or contents changed"
     output = StringIO()
     with redirect_stdout(output), redirect_stderr(StringIO()):

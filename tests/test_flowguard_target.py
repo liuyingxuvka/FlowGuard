@@ -1741,3 +1741,24 @@ def test_structure_only_target_prints_structure_goal(tmp_path, capsys):
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
     assert "target_goal_untied" not in output and "goal rules: none (no promise changes" in output, output
+
+
+def test_copied_but_unchanged_entry_stays_an_error(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "describe loans better", "loans")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["summary"] = "Lends books to members and takes them back."
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code_path = root / "shelf/loans.py"
+    source = code_path.read_text(encoding="utf-8")
+    assert source.count("def give_back(") == 1
+    code_path.write_text(source.replace("def give_back(", "def hand_back("), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "change")
+    broken = [line for line in output.splitlines() if line.split()[1:2] == ["anchor_broken"] and "give_back" in line]
+    assert code == 1 and broken and all(line.startswith("ERROR") and "moving to target" not in line for line in broken), output
+    data["components"][0]["entrypoints"] = [entry.replace("give_back", "hand_back") for entry in data["components"][0]["entrypoints"]]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _run(root, capsys, "change")
+    broken = [line for line in output.splitlines() if line.split()[1:2] == ["anchor_broken"] and "give_back" in line]
+    assert broken and all("moving to target: " in line for line in broken), output

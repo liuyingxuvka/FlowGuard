@@ -90,11 +90,42 @@ def target_owns_file(path, target):
                for component in target.data.get("components", []))
 
 
+_FIELD_CODES = {"pattern_dead": ("files",), "component_empty": ("files",), "test_missing": ("tests",),
+                "dep_undeclared": ("depends_on", "layer"), "dep_unused": ("depends_on", "layer"),
+                "layer_violation": ("depends_on", "layer"), "dependency_cycle": ("depends_on", "layer")}
+_VOLATILE = {"status", "fingerprint", "_hint"}
+
+
+def _changed_fields(current, planned) -> set[str]:
+    """Field names whose values differ between a current component and its target entry."""
+    keys = (set(current) | set(planned)) - _VOLATILE
+    return {key for key in keys if current.get(key) != planned.get(key)}
+
+
+def _subject_changed(finding, current, planned, layers_changed) -> bool:
+    """Whether the target changes what this component finding is about (FG-317 table)."""
+    changed = _changed_fields(current, planned)
+    if finding.code in ("anchor_broken", "entrypoint_unmodeled"):
+        anchors = [anchor for anchor in current.get("entrypoints", [])
+                   if anchor in finding.message or (anchor.partition(":")[0] in finding.message
+                                                    and repr(anchor.partition(":")[2]) in finding.message)
+                   or finding.message == f"anchor file missing: {anchor.partition(':')[0]}"]
+        if anchors:
+            return any(anchor not in planned.get("entrypoints", []) for anchor in anchors)
+        return "entrypoints" in changed
+    if finding.code in _FIELD_CODES:
+        return bool(changed & set(_FIELD_CODES[finding.code])) or (
+            layers_changed and _FIELD_CODES[finding.code][-1] == "layer")
+    return bool(changed)
+
+
 def moving_to_target(findings, root, data, target):
-    """Annotate only current breakage of a node the target actually replaces."""
+    """Annotate only current breakage of what the target actually changes."""
     if target is None:
         return findings
-    components = {c["id"] for c in target.data.get("components", [])} | target.remove["component"]
+    current_components = {c["id"]: c for c in data["components"]}
+    planned_components = {c["id"]: c for c in target.data.get("components", [])}
+    layers_changed = "layers" in target.data and target.data["layers"] != data.get("layers", [])
     flows = {f["id"] for f in target.data.get("flows", [])} | target.remove["flow"]
     models = target_model_paths(root, data, target)
     model_codes = {"model_anchor_broken", "model_test_broken", "model_anchor_missing",
@@ -112,8 +143,11 @@ def moving_to_target(findings, root, data, target):
                 planned = bool(model and finding.code in model_codes and model.group(1) in models)
             elif finding.code == "file_unmapped":
                 planned = target_owns_file(finding.message.split(" has no owning component", 1)[0], target)
-            else:
-                planned = finding.component in components
+            elif finding.component in target.remove["component"]:
+                planned = True
+            elif finding.component in planned_components:
+                planned = _subject_changed(finding, current_components.get(finding.component, {}),
+                                           planned_components[finding.component], layers_changed)
         result.append(replace(finding, level="info", message="moving to target: " + finding.message)
                       if planned else finding)
     return result

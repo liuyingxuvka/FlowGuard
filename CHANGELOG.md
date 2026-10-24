@@ -22,6 +22,7 @@
 - The `read` header counts size and test warnings.
 - A target that drops a responsibility without a new owner or an explicit `responsibility:` retirement in `remove` now fails `target check` with `owner_dropped`.
 - `target check` refuses a target that changes nothing (`target_noop`) and a new or changed entrypoint, state or side effect without a new or changed model rule or known-bad variant (`target_goal_untied`); it prints the target's goal rules.
+- With a target, only breakage of the field the target actually changes is reported as `moving to target`; other breakage of a copied component stays an error.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

@@ -410,7 +410,8 @@
         "show invariant_untested as a model warning while retaining proof and known-bad failures",
         "report a responsibility that loses its owner",
         "refuse a target that changes nothing",
-        "tie a changed promise to a model rule"
+        "tie a changed promise to a model rule",
+        "mark only the breakage of a changed subject as moving to target"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -437,7 +438,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:43af54cd6297751252f398425ac8a95e2596975b64c7ef73070e86b92cc4d07c"
+      "fingerprint": "sha256:e01e9f871a0706f3df71c3060848ffcca9b662ee2873b64e64059981d01eff98"
     },
     {
       "id": "map-proof",
