@@ -41,6 +41,7 @@ class Impact:
     no_checks: list[str] = field(default_factory=list)
     comment_only: list[str] = field(default_factory=list)
     review_models: dict[str, list[str]] = field(default_factory=dict)
+    relied_models: list[str] = field(default_factory=list)     # "<model> via <owner>:<anchor symbol>"
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -335,6 +336,18 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             matched.add(path)
         else:
             blocked.append(f"{path}: removed model is still referenced by the current map, model tree or code anchors")
+    # Rules travel along direct calls: an edit that calls another component's anchored code selects its model.
+    relied = []
+    edited_sources = [f for f in changed if f in inv.py and f not in comment_only and not inv.is_test(f)]
+    if edited_sources:
+        from .discover import discover_inventory, relied_models
+        raw = discover_inventory(root, inv, data=data)
+        anchors = {mid: list(node.contract.get("IMPLEMENTED_BY", {}).values()) for mid, node in tree.nodes.items()}
+        for mid, sites in sorted(relied_models(raw, data, inv, anchors, files=edited_sources).items()):
+            node = tree.nodes[mid]
+            selected_model_paths.add(node.path)
+            tests.update(contract_tests.get(node.path, ()))
+            relied.extend(f"{mid} via {owner}:{symbol}" for owner, symbol in sorted(sites))
     top_model_files = [f for f in changed if Path(f).parent.as_posix() == ".flowguard/models" and f.endswith(".py")]
     importers = {f: tree.importers(f) for f in top_model_files}
     for f in top_model_files:
@@ -466,7 +479,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         map_changed=".flowguard/map.json" in changed, depth=depth,
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
-        comment_only=comment_only,
+        comment_only=comment_only, relied_models=relied,
     )
 
 
@@ -488,6 +501,9 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     lines.extend("NO CHECKS for: " + path for path in imp.no_checks)
     if imp.comment_only:
         lines.append("comment-only edits (no tests or models selected): " + ", ".join(imp.comment_only))
+    lines.extend("relies on: " + item for item in imp.relied_models[:5])
+    if len(imp.relied_models) > 5:
+        lines.append(f"relies on: +{len(imp.relied_models) - 5} more")
     lines.append(f"models to run: {len(models)} selected (full list: python -m flowguard map impact --json)" if len(models) > 8
                  else f"models to run: {', '.join(models) or '-'}")
     if moving:

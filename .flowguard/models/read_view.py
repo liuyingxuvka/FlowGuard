@@ -31,6 +31,7 @@ TESTED_BY = {
     "missing_summary_prompt": ["tests/test_map_views.py:test_read_observes_hidden_names_missing_summary_and_model_counts"],
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
     "components_in_layer_order": ["tests/test_map_views.py:test_read_orders_components_by_layer"],
+    "relied_rules_shown": ["tests/test_map_views.py:test_read_component_lists_the_rules_it_relies_on"],
     "static_rules_match_model": ["tests/test_map_views.py:test_static_rules_follow_helpers_and_wrappers",
                                  "tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets",
                                  "tests/test_map_views.py:test_kit_model_facets_are_static_and_complete"],
@@ -133,6 +134,7 @@ class ReadCase:
     component: str | None = None
     probe: str = ""
     layered: bool = False      # beta (last in map.json) sits in the upper layer "top", alpha in "low"
+    relied: bool = False       # beta.py calls alpha.py:run, the anchor of read_probe; read --component beta
 
 
 FEATURES = (
@@ -142,6 +144,8 @@ FEATURES = (
     # One model binds LARGE_TESTS tests and the reader asks for its component.
     Feature("large_component", False, (), lambda case: replace(case, component="alpha")),
     Feature("late_upper_component", False, (), lambda case: replace(case, layered=True)),
+    Feature("relied_component", False, (), lambda case: replace(case, relied=True, component="beta"),
+            conflicts=("large_component",)),
     # Rules from a _helper module, a wrapper function, and known-bad built by loops: read
     # and read --component alpha are both observed.
     Feature("helper_split_model", False, (), lambda case: replace(case, probe="helper_split"), exclusive=True),
@@ -185,6 +189,8 @@ def _model_contract(observation):
     # A fully hidden component also hides its models.  Any displayed model must
     # retain purpose and all three literal counts; an untruncated view shows it.
     expected = LARGE_MODEL_LINE if observation.case.component else MODEL_LINE
+    if observation.case.component not in (None, "alpha"):
+        return not rows                 # read_probe lives in alpha
     return all(row == expected for row in rows) and (bool(rows) or "truncated" in observation.text
                                                      or "shortened" in observation.text)
 
@@ -207,6 +213,16 @@ def _static(observation):
                 if shown != set(rules) or {item for item in facets["known-bad"].split(", ")} != set(bads):
                     return False
     return True
+
+
+RELIED_LINE = "relies on: model read_probe (stable, works) via alpha: run"
+
+
+def _relied(observation):
+    """read --component beta names the rules of alpha's model that beta's code calls."""
+    if not observation.case.relied or "shortened" in observation.text or "truncated" in observation.text:
+        return True
+    return any(line.strip() == RELIED_LINE for line in observation.text.splitlines())
 
 
 def _layer_order(observation):
@@ -233,6 +249,8 @@ RULES = (
     Invariant("missing_summary_prompt", "a visible component without summary carries the purpose prompt", lambda state, trace: _summary(state)),
     Invariant("static_rules_match_model", "static rule and known-bad names and counts equal the model's explorer and variants",
               lambda state, trace: _static(state)),
+    Invariant("relied_rules_shown", "read --component X lists the other components' model rules X's code calls",
+              lambda state, trace: _relied(state)),
     Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
               lambda state, trace: _layer_order(state)),
     Invariant("focused_component_visible", "read --component X fits the budget and always shows X's heading and five facets",
@@ -265,6 +283,10 @@ def _abstract(case, file_order=False):
                 "## alpha [-] 1 files/1 loc, 0 rules\n  purpose: Serve alpha\n" + "\n".join(details))
         runtime = tuple((mid, tuple(n for n, _ in rules), bads) for mid, rules, bads, _keys in PROBE_TRUTH[case.probe])
         return ReadObservation(case, text, runtime=runtime)
+    if case.relied:
+        text = ("## beta [-] 1 files/2 loc, 0 rules\n  purpose: Serve beta\n  rules: -\n  known-bad: -\n"
+                "  code: 1 files/2 loc\n  tests: -\n  uses alpha: run\n  " + RELIED_LINE)
+        return ReadObservation(case, text)
     if case.component:
         purpose = "(no summary yet)" if case.missing_summary else "Serve alpha"
         text = ("## alpha [-] 1 files/1 loc, 0 rules\n  purpose: " + purpose + "\n  rules: -\n  known-bad: -\n"
@@ -308,6 +330,8 @@ class Show:
             observed = replace(observed, text=text)
         elif self.fault == "kit_hidden" and case.probe == "kit":
             observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
+        elif self.fault == "hide_relied" and case.relied:
+            observed = replace(observed, text=observed.text.replace("\n  " + RELIED_LINE, ""))
         elif self.fault == "map_file_order" and case.layered:
             observed = _abstract(case, file_order=True)
         elif self.fault == "hide_focused" and case.component:
@@ -332,7 +356,8 @@ def broken_variants():
             "hides_focused_component": _explorer("hide_focused"),
             "counts_tested_by_keys": _explorer("tested_by_keys"),
             "kit_known_bad_hidden": _explorer("kit_hidden"),
-            "map_file_order": _explorer("map_file_order")}
+            "map_file_order": _explorer("map_file_order"),
+            "hides_relied_rules": _explorer("hide_relied")}
 
 
 def _files():
@@ -392,6 +417,9 @@ def _review(template, case):
             components[0].pop("summary")
         if case.layered:
             components[0]["layer"], components[1]["layer"] = "low", "top"
+        if case.relied:
+            _write(root, "beta.py", "import alpha\ndef run(): return alpha.run()\n")
+            components[1]["depends_on"] = ["alpha"]       # with layers, beta ("top") may use alpha ("low")
         data = dict(project="read fixture", layers=["top", "low"] if case.layered else [], components=components, flows=[])
         inv = build_inventory(root, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
         for relative, source in PROBE_FILES.get(case.probe, {}).items():

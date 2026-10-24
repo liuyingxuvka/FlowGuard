@@ -10,7 +10,7 @@ from pathlib import Path
 from .common import Finding, read_source, tokens
 from .inventory import Inventory, resolve_import
 from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
-from .discover import discover_inventory
+from .discover import discover_inventory, relied_models
 from .tree import build_tree
 from .lint import apply_accepted_debts, normalized_debts, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, is_stale, owner_index
@@ -235,6 +235,24 @@ def _dependency_lines(data, inv, cid, graph, raw):
     return lines
 
 
+def _relied_lines(data, inv, raw, tree, facets, cid, limit=5):
+    """``relies on:`` lines: models of other components whose anchored code this component calls."""
+    anchors = {mid: list(node.contract.get("IMPLEMENTED_BY", {}).values()) for mid, node in tree.nodes.items()}
+    found = relied_models(raw, data, inv, anchors, component=cid)
+    lines = []
+    for mid in sorted(found)[:limit]:
+        fact = facets.get(mid)
+        rules = ", ".join(fact.rules) if fact is not None and fact.rule_count is not None and fact.rules else "?"
+        owners = defaultdict(set)
+        for owner, symbol in found[mid]:
+            owners[owner].add(symbol)
+        via = "; ".join(f"{owner}: {', '.join(sorted(symbols))}" for owner, symbols in sorted(owners.items()))
+        lines.append(f"  relies on: model {mid} ({rules}) via {via}")
+    if len(found) > limit:
+        lines.append(f"  relies on: +{len(found) - limit} more models")
+    return lines
+
+
 def _target_comparison(root, data, inv, target):
     view = build_target_view(root, data, target)
     # A target can turn an exact source into a test, or the reverse. Keep facts
@@ -371,6 +389,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
                 body.append("  changes: " + "; ".join(delta))
         if component or detail:
             body.extend(_dependency_lines(merged, inv, cid, graph, raw))
+            body.extend(_relied_lines(merged, inv, raw, tree, model_data, cid))
         compact = [*body, *_model_lines(tree, ids, model_data, component=cid if component or detail else None,
                                         changes=changes, previous=old)]
         body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
@@ -467,6 +486,8 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                 lines.extend(_dependency_lines(data, inv, c["id"], graph, raw))
             else:
                 lines.append("  uses: " + ", ".join(sorted(dependencies)))
+        if component or detail:
+            lines.extend(_relied_lines(data, inv, raw, tree, model_data, c["id"]))
         declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)
         if declared_only and (component or detail):
             lines.append("  declared, unverified: " + ", ".join(declared_only))

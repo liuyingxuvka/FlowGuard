@@ -803,3 +803,44 @@ def console_scripts(root: Path) -> list[tuple[str, str, str]]:
                             if eq and name.strip():
                                 found.add((name.strip(), target.strip(), "setup.py"))
     return sorted(found)
+
+
+def relied_models(raw: dict, data: dict, inv, anchors: dict[str, list[str]], *, component: str | None = None,
+                  files=None) -> dict[str, set[tuple[str, str]]]:
+    """Models whose ``IMPLEMENTED_BY`` anchors the given code calls directly: {model id: {(owner, symbol)}}.
+
+    The callers are the files of ``component``'s subtree, or the given changed ``files``. Anchors in the
+    caller's own component, its subtree or its ancestors do not count. Only direct calls (one step in the
+    discovered call graph) are followed, never a transitive closure. A class anchor matches its
+    constructor and every method.
+    """
+    from .mapfile import component_ancestors, component_files, component_subtree, owner_index
+
+    owner, _ = owner_index(data, inv)
+    by_id = {c["id"]: c for c in data.get("components", [])}
+
+    def related_files(cid):
+        members = [c["id"] for c in component_subtree(data, cid)] + list(component_ancestors(data, cid))
+        return {path for member in members if member in by_id for path in component_files(by_id[member], inv)}
+
+    if component is not None:
+        sources = {path: related_files(component) for path in
+                   {p for c in component_subtree(data, component) for p in component_files(c, inv)}}
+    else:
+        sources = {path: related_files(owner[path]) for path in files or () if path in owner}
+    found: dict[str, set[tuple[str, str]]] = defaultdict(set)
+    targets = [(mid, anchor.partition(":")[0], anchor.partition(":")[2]) for mid, values in anchors.items()
+               for anchor in values if ":" in anchor]
+    for source, excluded in sources.items():
+        prefix = source + "#"
+        for caller, callees in raw.get("edges", {}).items():
+            if not caller.startswith(prefix):
+                continue
+            for callee in callees:
+                path, _, symbol = callee.partition("#")
+                if path in excluded or path not in owner:
+                    continue
+                for mid, anchor_path, anchor_symbol in targets:
+                    if path == anchor_path and (symbol == anchor_symbol or symbol.startswith(anchor_symbol + ".")):
+                        found[mid].add((owner[path], anchor_symbol))
+    return dict(found)

@@ -944,3 +944,16 @@ def test_read_orders_components_by_layer(tmp_path):
     headings = [line.strip().split(" [", 1)[0][3:] for line in output.splitlines() if line.strip().startswith("## ")]
     assert headings == ["top", "mid", "low", "low_child"], output
     assert "\n\n\n" not in output
+
+
+def test_read_component_lists_the_rules_it_relies_on(tmp_path):
+    """cli calls loans' LoanService.borrow, the anchor of model lending: cli relies on lending's rules."""
+    from test_flowguard_target import shelf_project
+    from flowguard.map.cli import _context
+
+    root = shelf_project(tmp_path)
+    data, inv = _context(root)
+    cli = render_show(root, data, inv, component="cli", detail=False, budget=8000)
+    assert "relies on: model lending (limit_respected, never_over_lent) via loans: LoanService.borrow" in cli, cli
+    loans = render_show(root, data, inv, component="loans", detail=False, budget=8000)
+    assert "relies on: model lending" not in loans

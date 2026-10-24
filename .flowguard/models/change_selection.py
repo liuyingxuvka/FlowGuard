@@ -28,6 +28,7 @@ TESTED_BY = {
     "underscore_helper_not_blocked": ["tests/test_flowguard_map.py:test_impact_shared_test_binding_and_unknown_helper"],
     "model_importers_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
     "model_ancestors_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
+    "relied_models_selected": ["tests/test_flowguard_map.py:test_change_selects_models_whose_anchors_the_edit_calls"],
     "selected_reviews_selected": ["tests/test_flowguard_map.py:test_change_selects_the_review_children_of_a_selected_model",
                                   "tests/test_flowguard_map.py:test_change_selects_a_child_that_imports_its_parent_in_a_function"],
 }
@@ -42,10 +43,13 @@ EXPECTED = {
     "unused": ((), ()),
     # The parent model file really changes; its review child imports it inside a function.
     "parent_edit": (("parent", "review"), ("tests/test_parent.py",)),
+    # api.py calls core.py:work, the anchor of all three models; api owns no model itself.
+    "caller_edit": (ALL, ("tests/test_api.py", "tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
 }
 PATHS = {"code": "core.py", "comment": "core.py", "child": ".flowguard/models/child.py",
          "helper": ".flowguard/models/_helper.py", "test": "tests/test_child.py",
-         "unused": ".flowguard/models/_unused.py", "parent_edit": ".flowguard/models/parent.py"}
+         "unused": ".flowguard/models/_unused.py", "parent_edit": ".flowguard/models/parent.py",
+         "caller_edit": "api.py"}
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,8 @@ class Select:
             result = replace(result, selected_models=tuple(x for x in models if x != "review"))
         elif self.defect == "select_comments" and event == "comment":
             result = replace(result, selected_tests=("tests/test_core.py",))
+        elif self.defect == "ignore_relied_models" and event == "caller_edit":
+            result = replace(result, selected_models=(), selected_tests=("tests/test_api.py",))
         elif self.defect == "block_helper" and event == "helper":
             result = replace(result, blocked=("underscore helper has no owner",))
         return (FunctionResult(event, result, label=event),)
@@ -93,6 +99,8 @@ INVARIANTS = (
           lambda state: "review" in state.selected_models, "the explicit importing review child was omitted"),
     _rule("comments_select_no_checks", {"comment"}, lambda state: not state.selected_models and not state.selected_tests,
           "a comment-only edit selected checks"),
+    _rule("relied_models_selected", {"caller_edit"}, lambda state: set(ALL) <= set(state.selected_models),
+          "a model whose anchor the edited file calls was omitted"),
     _rule("underscore_helper_not_blocked", {"helper", "unused"}, lambda state: not state.blocked,
           "a legitimate underscore helper was BLOCKED"),
 )
@@ -109,7 +117,8 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("ignore_importers", "ignore_ancestors", "ignore_reviews", "select_comments", "block_helper")}
+            ("ignore_importers", "ignore_ancestors", "ignore_reviews", "select_comments", "block_helper",
+             "ignore_relied_models")}
 
 
 def _write(root, path, text):
@@ -167,6 +176,7 @@ class RealSelection:
                    text.replace("return 1", "return 2", 1) if event == "code" else
                    text.replace("VALUE = 1", "VALUE = 2", 1) if event in {"helper", "unused"} else
                    text.replace("assert True", "assert 1 == 1", 1) if event == "test" else
+                   text.replace("return work()", "return work() + 0", 1) if event == "caller_edit" else
                    text + "\nEDITED = True\n")
         path.write_text(changed, encoding="utf-8")
         impact = compute_impact(self.root, self.data, build_inventory(self.root, DEFAULT_IGNORE), [PATHS[event]], base="HEAD")

@@ -10,6 +10,8 @@
 - `read` lists components top-down by layer; `read --target` no longer repeats computed coverage text as a change.
 - `change` selects a child model that imports its parent inside a function (the documented split style) when the parent changes.
 - Dependencies passed in through a constructor (a type-annotated parameter, or the same class passed at every call site) now count as real dependencies: `dep_unused` no longer fires for them, `map deps --write` keeps them, and effect reach and `foreign_state_write` see through them.
+- `read --component` shows `relies on:` lines: the models (and their rules) whose anchored code this component calls directly.
+- `change` also selects the models whose anchors a changed file calls directly.
 - Projects using FlowGuard: `read --component` on a large component (for example PhysicsGuard `simulation`) now prints it.
 - Projects using FlowGuard: rule counts in `read` may change; `(from TESTED_BY)` is gone; known-bad variants built by a loop or a tuple comprehension now show their names instead of `?`.
 - Projects using FlowGuard: feature-kit models now show counts in `read`.

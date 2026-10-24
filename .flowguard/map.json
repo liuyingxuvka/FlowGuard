@@ -305,7 +305,8 @@
       "responsibilities": [
         "discover entrypoints, side effects and state writers; propagate an explicit no-cache-write mode without creating cache directories; resolve attribute calls through the class assigned in __init__, with exact constructors before a unique method in declared dependencies; keep supplied current/target source facts in one static graph",
         "del statements count as state writes; expose exact anchor state writes for model checks",
-        "resolve injected attributes to their class"
+        "resolve injected attributes to their class",
+        "find the model anchors that code calls directly"
       ],
       "files": [
         "flowguard/map/discover.py"
@@ -327,7 +328,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:01becd0104ff0462388f6d39e0c7abfe529daa4d2f8db3064083b38eafd08af3"
+      "fingerprint": "sha256:25630a1696caf18d4c34c37cefcedf4324d162581d86d2f74c840dc35b68ba61"
     },
     {
       "id": "map-analysis",
@@ -346,7 +347,9 @@
         "read feature-kit rules, known-bad and cases without running the model",
         "list components by layer, parents before children",
         "select models that import a changed model anywhere in their file",
-        "report writes into another component's injected object"
+        "report writes into another component's injected object",
+        "show the model rules a component relies on",
+        "select models whose anchors a changed file calls"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -378,7 +381,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7c7a4e9f9fff0b161a110934363876bbe77dec226296703ce681cbc364603a33"
+      "fingerprint": "sha256:b961f2bb8115ddcebe8edf511574ff2019745c2c14330eed1f7c72bae44ef03f"
     },
     {
       "id": "map-target",

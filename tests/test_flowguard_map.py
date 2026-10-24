@@ -1162,3 +1162,22 @@ def test_change_selects_a_child_that_imports_its_parent_in_a_function(impact_pro
     assert (tree.nodes["child"].parent, tree.nodes["child"].parent_kind) == ("parent", "model")
     assert tree.nodes["child"].local_import_files == {".flowguard/models/parent.py"}
     assert not [f for f in tree.findings if f.code == "parent_import_mismatch"]
+
+
+def test_change_selects_models_whose_anchors_the_edit_calls(tmp_path, capsys):
+    """Editing a file that calls another component's anchored code selects that model and its tests."""
+    import flowguard.__main__ as flowguard_cli
+    from test_flowguard_target import shelf_project
+
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = root / "shelf/cli.py"
+    original = path.read_text(encoding="utf-8")
+    path.write_text(original + "X = 1\n", encoding="utf-8")
+    flowguard_cli.main(["change", "--root", str(root)])
+    output = capsys.readouterr().out
+    assert "relies on: lending via loans:LoanService.borrow" in output, output
+    assert "models to run: .flowguard/models/lending.py" in output, output
+    path.write_text(original + "# a comment only\n", encoding="utf-8")
+    flowguard_cli.main(["change", "--root", str(root)])
+    assert "models to run: -" in capsys.readouterr().out
