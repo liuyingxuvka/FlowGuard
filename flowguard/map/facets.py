@@ -112,6 +112,7 @@ class _StaticModel:
         self.main = _Scope(syntax)
         self.modules = {}
         self.cases = None
+        self.rule_defs, self.bad_defs = {}, {}    # name -> ast.dump of the expression that defines it
 
     # -- names across the model file and its helper files -------------------------------------
     def _module(self, name):
@@ -201,10 +202,10 @@ class _StaticModel:
             given.update({k.arg: k.value for k in call.keywords if k.arg in {"name", "description"}})
             title = self.value(given["name"], scope, local) if "name" in given else _UNKNOWN
             note = self.value(given["description"], scope, local) if "description" in given else ""
-            return [(title, note if isinstance(note, str) else "")] if isinstance(title, str) else None
+            return self._defined([(title, note if isinstance(note, str) else "")], call) if isinstance(title, str) else None
         if name in BUILTIN_RULE_HELPERS:
             title = self.value(call.args[0], scope, local) if call.args else _UNKNOWN
-            return [(title, "")] if isinstance(title, str) else None
+            return self._defined([(title, "")], call) if isinstance(title, str) else None
         found = self._lookup(name, scope, "functions") if isinstance(call.func, ast.Name) else None
         if not found:
             return None
@@ -227,7 +228,13 @@ class _StaticModel:
             return self.value(expr, home, _locals(function))
         title = resolve(given["name"]) if "name" in given else _UNKNOWN
         note = resolve(given["description"]) if "description" in given else ""
-        return [(title, note if isinstance(note, str) else "")] if isinstance(title, str) else None
+        return self._defined([(title, note if isinstance(note, str) else "")], call) if isinstance(title, str) else None
+
+    def _defined(self, found, call):
+        """Remember the call that defines each rule (goal rules compare these between versions)."""
+        for title, _ in found:
+            self.rule_defs.setdefault(title, ast.dump(call))
+        return found
 
     def rules(self, expr, scope, local=None, depth=0):
         if depth > 20:
@@ -427,6 +434,7 @@ class _StaticModel:
                     if key is None:
                         return None
                     keys.append(key)
+                    self.bad_defs.setdefault(key, ast.dump(value))
             return keys
         if isinstance(expr, ast.DictComp):
             if len(expr.generators) != 1 or expr.generators[0].ifs or expr.generators[0].is_async:
@@ -744,3 +752,64 @@ def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverag
                   tuple(name for name, _, _ in architecture_variants(data, graph)), "system-root",
                   (f"{len(data['components'])} components, {len(inv.source)} source files",)
                   + ((coverage_line(coverage, summary=True),) if coverage is not None else ()), tests, 3, count)
+
+
+def _definitions(root: Path, logical: str, syntax, view=None):
+    """Static rule and known-bad names, each with its defining expression (None when not located)."""
+    static = _StaticModel(root, logical, syntax, view=view)
+    found = static.explorer_rules()
+    rules = [name for name, _ in found] if found is not None else _file_rules(syntax)
+    bad = static.known_bad() or ()
+    return ({name: static.rule_defs.get(name) for name in rules}, {name: static.bad_defs.get(name) for name in bad})
+
+
+def target_goal_rules(root: Path, target, view=None) -> list[str]:
+    """Rules and known-bad variants a target adds (+) or changes (~), per target model, read statically.
+
+    A name is changed when its defining expression's AST differs; when a definition cannot be
+    located, every name of a model whose file AST changed counts as changed.  Nothing is run.
+    """
+    out = []
+    for filename, physical in sorted(target.models.items()):
+        if filename.startswith("_"):
+            continue
+        logical = f".flowguard/models/{filename}"
+        try:
+            new_syntax = ast.parse(read_source(root / physical))
+        except (OSError, SyntaxError, ValueError):
+            continue
+        current = root / logical
+        try:
+            old_syntax = ast.parse(read_source(current)) if current.is_file() else None
+        except (OSError, SyntaxError, ValueError):
+            old_syntax = None
+        new_rules, new_bad = _definitions(root, logical, new_syntax, view)
+        old_rules, old_bad = _definitions(root, logical, old_syntax, None) if old_syntax is not None else ({}, {})
+        changed_file = old_syntax is None or ast.dump(new_syntax) != ast.dump(old_syntax)
+        items = []
+        for new, old, label in ((new_rules, old_rules, ""), (new_bad, old_bad, " (known-bad)")):
+            for name in sorted(new):
+                if name not in old:
+                    items.append(f"+{name}{label}")
+                elif (new[name] is None or old[name] is None) and changed_file or \
+                        None not in (new[name], old[name]) and new[name] != old[name]:
+                    items.append(f"~{name}{label}")
+        if items:
+            mid = next((node.value.value for node in new_syntax.body if isinstance(node, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == "MODEL_ID" for t in node.targets)
+                        and isinstance(node.value, ast.Constant)), Path(filename).stem)
+            out.append(f"model {mid}: " + ", ".join(items))
+    return out
+
+
+NO_PROMISE_GOAL = "goal rules: none (no promise changes: structure and descriptions only; system rules apply)"
+
+
+def goal_rules_line(root: Path, current_data: dict, target, view) -> tuple[str, list, list]:
+    """(the ``goal rules:`` line, goal items, promise changes) shared by target check and read --target."""
+    from .targetfile import target_promise_changes
+
+    goal = target_goal_rules(root, target, view)
+    promises = target_promise_changes(current_data, view.data, target)
+    line = "goal rules: " + "; ".join(goal) if goal else "goal rules: none" if promises else NO_PROMISE_GOAL
+    return line, goal, promises

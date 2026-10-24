@@ -102,6 +102,7 @@ never a `.flowguard/target/models/` path. Replaced/new components become draft a
 fingerprints; unchanged nodes retain their current description and bindings. Merged model ids must be unique. Reusing a current id in a different filename requires
 explicitly removing that old id (`target_model_id_clash`); a same-filename replacement may
 change its id. Conflicting remove/replace entries and invalid target structure are design errors.
+A target that changes nothing yet (same map apart from status/fingerprint, empty `remove`, model files with the same AST) is ERROR `target_noop`. `target check` and `read --target` print `goal rules:`, the rules and known-bad variants the target adds (+) or changes (~), read statically; a target that changes the project's entrypoints, state or side effects with no goal rule is ERROR `target_goal_untied`.
 
 `python -m flowguard target start "<goal>"` starts the target; `python -m flowguard target add <id>`
 copies a current node; for a model it copies that single file and only notes static helpers.

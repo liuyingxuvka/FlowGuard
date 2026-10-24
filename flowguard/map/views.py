@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, read_source, tokens
 from .inventory import Inventory, resolve_import
-from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, model_facets, system_facets
+from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
 from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
@@ -366,7 +366,8 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
         component_ids = set()
     counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
     lines = [_show_header(merged, graph, inv),
-             f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)']
+             f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)',
+             goal_rules_line(root, data, target, view)[0]]
     lines.append(next(line for line in new_system.code if line.startswith("coverage:")))
     if not component:
         flows = {f["id"]: f for f in [*data.get("flows", []), *merged.get("flows", [])]}

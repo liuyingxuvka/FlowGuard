@@ -42,6 +42,9 @@ TESTED_BY = {
     "promote_makes_current_equal_merged": [
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
+    "noop_target_never_promoted": [
+        "tests/test_flowguard_target.py:test_unchanged_target_is_target_noop",
+    ],
 }
 
 PROGRAMS = (
@@ -49,6 +52,8 @@ PROGRAMS = (
     ("todo", ("START", "ADD_COMPONENT", "ADD_MODEL", "EDIT_MISSING", "CHECK", "PROMOTE")),
     ("error", ("START", "ADD_COMPONENT", "EDIT_ERROR", "CHECK", "PROMOTE")),
     ("clean", ("START", "ADD_COMPONENT", "ADD_MODEL", "EDIT_MISSING", "WRITE_CODE", "CHECK", "PROMOTE")),
+    # A copied component and nothing else changed: CHECK reports target_noop, PROMOTE is refused.
+    ("noop", ("START", "ADD_COMPONENT", "CHECK", "PROMOTE")),
 )
 
 
@@ -67,6 +72,7 @@ class State:
     action: str = ""
     status: str = ""
     before: tuple = ()
+    changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
 
 
 def _revisions(state):
@@ -97,9 +103,12 @@ class Advance:
             if action == "ADD_MODEL":
                 new = replace(new, expected_model_revision=1)
             if action == "EDIT_MISSING":
-                new = replace(new, todos=1)
+                new = replace(new, todos=1, changed=True)
             if action == "EDIT_ERROR":
-                new = replace(new, errors=1)
+                new = replace(new, errors=1, changed=True)
+        elif action == "CHECK":
+            if not state.changed and self.defect != "promotes_unchanged_copy":
+                new = replace(new, errors=max(state.errors, 1))
         elif action == "WRITE_CODE":
             new = replace(new, todos=0)
         elif action == "DROP_PREVIEW":
@@ -143,6 +152,10 @@ INVARIANTS = (
                                   (s.current_map_revision == s.expected_map_revision and
                                    s.current_model_revision == s.expected_model_revision),
                                   "current map or model differs from the merge")),
+    Invariant("noop_target_never_promoted", "a target equal to the current tree fails its check and is never promoted",
+              lambda s, t: _holds(s.changed or (s.action != "CHECK" or s.errors) and
+                                  (s.action != "PROMOTE" or (s.status == "refused" and _revisions(s) == s.before)),
+                                  "an unchanged target passed its check or was promoted")),
 )
 
 
@@ -158,7 +171,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("second_target", "unclean_promote", "retained_target", "models_only")}
+            ("second_target", "unclean_promote", "retained_target", "models_only", "promotes_unchanged_copy")}
 
 
 # This is an executable regular contract, not a runner, DTO or design-only model.
@@ -239,7 +252,9 @@ def stage_target(root, *, with_model=True):
     if with_model:
         assert call_target(root, "add", "model:shelf_rule") == 0
         path = root / ".flowguard/target/models/shelf_rule.py"
-        path.write_text(path.read_text(encoding="utf-8") + "\n# revised target shelf contract\n", encoding="utf-8")
+        # A real (non-comment) revision, so the target is not a no-op copy.
+        path.write_text(path.read_text(encoding="utf-8") + "\nTARGET_REVISION = 2  # revised target shelf contract\n",
+                        encoding="utf-8")
 
 
 def edit_missing_method(root):
@@ -250,6 +265,11 @@ def edit_missing_method(root):
     loans["responsibilities"].append("record a reservation")
     target["remove"].append("flow:borrow")
     write_json(path, target)
+    model = root / ".flowguard/target/models/shelf_rule.py"
+    if model.is_file():      # the new entrypoint is tied to a new known-bad variant of the target model
+        source = model.read_text(encoding="utf-8")
+        model.write_text(source.replace('return {"advance_twice": make(2)}',
+                                        'return {"advance_twice": make(2), "advance_thrice": make(3)}'), encoding="utf-8")
 
 
 def write_method(root):
@@ -311,6 +331,7 @@ def _native_replay(scenario, program):
                 report = native.check_target(root)
                 ok = (bool(report.todos) and not report.errors if scenario == "todo" else
                       bool(report.errors) if scenario == "error" else
+                      any(f.code == "target_noop" for f in report.errors) if scenario in ("storage", "noop") else
                       not report.errors and not report.todos)
                 facts.append(Fact(scenario + ":actual_check_buckets", ok,
                                   repr((report.errors, report.todos, report.warnings))))
@@ -328,7 +349,7 @@ def _native_replay(scenario, program):
                 models = {name: (root / rel).read_bytes() for name, rel in target.models.items()}
                 with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                     code = native.promote_target(root)
-                if scenario in ("todo", "error"):
+                if scenario in ("todo", "error", "noop"):
                     ok = code == 1 and snapshot(root) == before
                 else:
                     ok = (code == 0 and load_map(root) == expected and

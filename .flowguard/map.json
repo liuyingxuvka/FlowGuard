@@ -271,7 +271,8 @@
         "record model imports made inside functions apart from top-level imports",
         "count calls through injected attributes as dependency evidence",
         "accept flow steps that read an earlier step's file",
-        "accept responsibility retirement in target remove"
+        "accept responsibility retirement in target remove",
+        "compare a target with the current tree for no-op and promise changes"
       ],
       "files": [
         "flowguard/map/mapfile.py",
@@ -298,7 +299,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4925ea5c11712dd2d80c754135c21a04939c3acd3baf0a5fac6b9eff4c6fce92"
+      "fingerprint": "sha256:88a071158749a352da57d4af51db37755eb23736be3e89fedeed889fa311b95d"
     },
     {
       "id": "map-discover",
@@ -360,7 +361,8 @@
         "count explanations by model, test and reason",
         "list unexplained functions of changed files",
         "rank architecture defects and strengths from the tree",
-        "count map-only lint warnings in the read header"
+        "count map-only lint warnings in the read header",
+        "list the rules a target adds or changes"
       ],
       "files": [
         "flowguard/map/check.py",
@@ -393,7 +395,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:74cd6c0e71477478caa2aa8b95da643f522b9b3cff61d9655f60c50102db1202"
+      "fingerprint": "sha256:57ce64ed636aed870d51622510ebac47ccd8e00fbe90e23987d441e8b6b07f6b"
     },
     {
       "id": "map-target",
@@ -406,7 +408,9 @@
         "promote a target after one complete check and unchanged checked inputs, writing its prepared map and model bytes, leaving changed components draft, and reporting partial I/O failures without automatic recovery",
         "stop a target that silently drops an entrypoint, state or side effect",
         "show invariant_untested as a model warning while retaining proof and known-bad failures",
-        "report a responsibility that loses its owner"
+        "report a responsibility that loses its owner",
+        "refuse a target that changes nothing",
+        "tie a changed promise to a model rule"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -433,7 +437,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7a6653b4a6fbdd49e317ca5d60f14c715d5d23f30d2300bf5c565cd8555a9dd7"
+      "fingerprint": "sha256:43af54cd6297751252f398425ac8a95e2596975b64c7ef73070e86b92cc4d07c"
     },
     {
       "id": "map-proof",

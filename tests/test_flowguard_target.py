@@ -295,6 +295,13 @@ def _install_shelf_target(root: Path, *, reports: bool = False) -> Path:
                                          encoding="utf-8")
     if not reports:
         (directory / "models/lending.py").write_text(SHELF_TARGET["models/lending.py"], encoding="utf-8")
+    else:
+        # The new reports entrypoint is a promise: tie it to one more known-bad variant of lending.
+        source = SHELF_BASE[".flowguard/models/lending.py"]
+        old = 'return {"lend_always": _explorer(LendAlways()), "no_limit": _explorer(NoLimit())}'
+        assert source.count(old) == 1
+        (directory / "models/lending.py").write_text(source.replace(
+            old, old[:-1] + ', "lend_always_again": _explorer(LendAlways())}'), encoding="utf-8")
     return directory
 
 
@@ -829,6 +836,7 @@ def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read
     code, detail, errors = _static_target_read(root, capsys, monkeypatch,
                                               "read", "--target", "--component", "loans")
     assert code == 0 and not errors, (detail, errors)
+    detail = "\n".join(line for line in detail.splitlines() if not line.startswith("goal rules:"))
     component, model_text = detail.split("model lending:", 1)
     labels = ("purpose:", "rules:", "known-bad:", "code:", "tests:")
     for section in (component, model_text):
@@ -905,6 +913,8 @@ def test_read_target_comments_do_not_invent_facet_changes(tmp_path, capsys, monk
         SHELF_BASE[".flowguard/models/lending.py"] + "\n# Explanation only, no declared fact changed.\n", encoding="utf-8")
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
     assert code == 0 and "model lending" in output and not errors, (output, errors)
+    assert "goal rules: none (no promise changes" in output
+    output = "\n".join(line for line in output.splitlines() if not line.startswith("goal rules:"))
     assert "changes:" not in output and "was:" not in output
     (directory / "models/lending.py").unlink()
     (directory / "map.json").write_text(json.dumps({"schema": "flowguard.target.v1", "goal": "retire lending",
@@ -913,6 +923,7 @@ def test_read_target_comments_do_not_invent_facet_changes(tmp_path, capsys, monk
     assert code == 0 and not errors, (removed, errors)
     assert "## - loans" in removed and "\n  - model lending:" in removed, removed
     assert removed.count("(removed by the target)") == 2, removed
+    removed = "\n".join(line for line in removed.splitlines() if not line.startswith("goal rules:"))
     assert not any(label in removed for label in ("purpose:", "rules:", "known-bad:", "code:", "tests:")), removed
 
 
@@ -1325,7 +1336,8 @@ def test_rename_a_field_through_the_target(tmp_path, capsys):
         code, output, errors = _run(root, capsys, *arguments)
         assert code == 0 and not errors, (output, errors)
     code, output, errors = _check_without_writes(root, capsys)
-    assert code == 0 and "0 error(s), 0 to-do" in output and not errors, (output, errors)
+    # A fresh copy changes nothing yet.
+    assert code == 1 and "target_noop" in output and "1 error(s), 0 to-do" in output and not errors, (output, errors)
 
     model = root / ".flowguard/target/models/lending.py"
     source = model.read_text(encoding="utf-8")
@@ -1654,3 +1666,78 @@ def test_dropping_a_responsibility_is_owner_dropped(tmp_path, capsys):
     path.write_text(json.dumps(data), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 1 and "target_invalid" in output and "remove names no current node" in output, output
+
+
+def _target_with(root, capsys, goal, *nodes):
+    for arguments in (("target", "start", goal), *(("target", "add", node) for node in nodes)):
+        code, output, errors = _run(root, capsys, *arguments)
+        assert code == 0 and not errors, (output, errors)
+    return root / ".flowguard/target/map.json"
+
+
+def test_unchanged_target_is_target_noop(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    _target_with(root, capsys, "copy loans", "loans")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "ERROR target: target_noop: the target changes nothing yet" in output, output
+    before = (root / ".flowguard/map.json").read_bytes()
+    code, refused, errors = _run(root, capsys, "target", "promote")
+    assert code == 1 and "promote refused:" in refused + errors
+    assert (root / ".flowguard/map.json").read_bytes() == before
+    code, output, errors = _run(root, capsys, "target", "add", "lending")
+    assert code == 0, (output, errors)
+    model = root / ".flowguard/target/models/lending.py"
+    model.write_text(model.read_text(encoding="utf-8") + "\n# only a comment\n", encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "target_noop" in output, output
+
+
+def test_behaviour_target_without_a_rule_is_untied(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "loans can renew", "loans")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["components"][0]["entrypoints"].append("shelf/loans.py:LoanService.renew")
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert code == 1 and "ERROR target: target_goal_untied: the target changes a promise (entrypoints: " \
+        "shelf/loans.py:LoanService.renew)" in output, output
+    assert "goal rules: none\n" in output and "target_noop" not in output
+    code, output, errors = _run(root, capsys, "target", "add", "lending")
+    assert code == 0, (output, errors)
+    model = root / ".flowguard/target/models/lending.py"
+    source = model.read_text(encoding="utf-8")
+    model.write_text(source.replace(
+        '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit))',
+        '              Invariant("limit_respected", "a member holds at most LIMIT loans", _limit),\n'
+        '              Invariant("renewal_keeps_limit", "a renewal never exceeds LIMIT", _limit))'), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "target_goal_untied" not in output and "goal rules: model lending: +renewal_keeps_limit" in output, output
+    code, shown, errors = _run(root, capsys, "read", "--target")
+    assert "goal rules: model lending: +renewal_keeps_limit" in shown, shown
+
+
+def test_structure_only_target_prints_structure_goal(tmp_path, capsys):
+    root = shelf_project(tmp_path)
+    capsys.readouterr()
+    path = _target_with(root, capsys, "reword and move", "loans", "catalog")
+    data = json.loads(path.read_text(encoding="utf-8"))
+    loans, catalog = data["components"]
+    loans["summary"] = "Lends books and takes them back."
+    code, output, errors = _check_without_writes(root, capsys)
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "target_goal_untied" not in output and "target_noop" not in output, output
+    assert "goal rules: none (no promise changes" in output
+    # moving an entrypoint between components keeps the project-wide set
+    catalog["entrypoints"].append(loans["entrypoints"].pop())
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "target_goal_untied" not in output, output
+    # retiring an entrypoint explicitly is governed by owner_dropped, not by goal rules
+    catalog["entrypoints"].pop()
+    data["remove"] = ["entrypoint:shelf/loans.py:LoanService.give_back"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    code, output, errors = _check_without_writes(root, capsys)
+    assert "target_goal_untied" not in output and "goal rules: none (no promise changes" in output, output

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import ast
 import copy
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from .common import read_source, tokens
 from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model_contract, validate_map
 
 TARGET_RELDIR = ".flowguard/target"
@@ -232,3 +234,47 @@ def target_node_changes(root: Path, current_data: dict, target: Target) -> dict[
         names = target.remove[kind]
         changes["-"].extend(f"{kind}:{name}" for name in sorted(names))
     return {symbol: sorted(values) for symbol, values in changes.items()}
+
+
+_VOLATILE = ("status", "fingerprint", "_hint")
+
+
+def _comparable(data: dict) -> dict:
+    out = copy.deepcopy({key: data.get(key, []) for key in ("components", "flows", "layers", "accepted_debts")})
+    for component in out["components"]:
+        for key in _VOLATILE:
+            component.pop(key, None)
+    return out
+
+
+def target_is_noop(root: Path, current_data: dict, target: Target) -> bool:
+    """The merged map equals the current one (ignoring status, fingerprint, _hint), nothing is removed,
+    and every target model file has the same AST as the current file of that name (comments do not count)."""
+    if any(target.remove.values()) or _comparable(merge_target_map(current_data, target)) != _comparable(current_data):
+        return False
+    for filename, physical in target.models.items():
+        current = root / ".flowguard/models" / filename
+        try:
+            if not current.is_file() or ast.dump(ast.parse(read_source(root / physical))) != \
+                    ast.dump(ast.parse(read_source(current))):
+                return False
+        except (OSError, SyntaxError, ValueError):
+            return False
+    return True
+
+
+def target_promise_changes(current_data: dict, merged_data: dict, target: Target) -> list[tuple[str, str]]:
+    """(field, first item) for each of entrypoints, state and side effects whose project-wide set the
+    target changes, apart from items explicitly retired in remove (owner_dropped governs those)."""
+    out = []
+    for kind, field in (("entrypoint", "entrypoints"), ("state", "state"), ("side_effect", "side_effects")):
+        def identity(value):
+            return value if kind == "entrypoint" else frozenset(tokens(value))
+
+        before = {identity(v): v for c in current_data["components"] for v in c.get(field, [])}
+        after = {identity(v): v for c in merged_data["components"] for v in c.get(field, [])}
+        retired = {identity(v) for v in target.remove.get(kind, set())}
+        differ = sorted({**before, **after}[key] for key in (before.keys() ^ after.keys()) - retired)
+        if differ:
+            out.append((field, differ[0]))
+    return out

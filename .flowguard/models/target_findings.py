@@ -33,6 +33,7 @@ TESTED_BY = {
         "tests/test_flowguard_target.py:test_unplanned_catalog_breakage_stays_an_error_with_a_target",
         "tests/test_flowguard_target.py:test_target_real_proof_dispositions_and_hard_boundaries",
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
+        "tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied",
     ],
     "every_defect_reported": [
         "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
@@ -65,6 +66,7 @@ CASES = (
     Case("runner_model", "actual legacy runner path, never executed", False, "target", "error"),
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
     Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
+    Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
 )
 
 
@@ -103,6 +105,8 @@ FEATURES = (
             _wrong_decision("unbound_invariant", "error")),
     Feature("dropped_responsibility_ignored", True, ("responsibility_dropped",),
             _wrong_decision("responsibility_dropped", "none")),
+    Feature("untied_goal_accepted", True, ("behaviour_without_rule",),
+            _wrong_decision("behaviour_without_rule", "none")),
 )
 
 
@@ -194,6 +198,11 @@ def observe_case(case):
             write_json(target_path, target)
             report = native.check_target(root)
             return _unique_bucket(report, code="owner_dropped", prefix="responsibility 'maintain loans'"), repr(report)
+        elif case.name == "behaviour_without_rule":
+            target["components"][0]["entrypoints"].append("shelf/loans.py:hold")
+            write_json(target_path, target)
+            report = native.check_target(root, models=False)
+            return _unique_bucket(report, code="target_goal_untied", prefix="the target changes a promise"), repr(report)
         elif case.name == "entrypoint_owner":
             target["components"][0]["entrypoints"].append("shelf/catalog.py:capacity")
             write_json(target_path, target)

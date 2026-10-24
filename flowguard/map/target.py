@@ -17,7 +17,8 @@ from dataclasses import dataclass, field, replace
 from .common import matches_any
 from .inventory import build_inventory
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
-from .targetfile import TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_node_changes, validate_target
+from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
+                         validate_target)
 from .tree import build_tree
 
 
@@ -56,7 +57,7 @@ ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_co
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
                "child_outside_parent", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model", "component_parent_unknown", "component_parent_cycle",
-               "component_parent_layer"}
+               "component_parent_layer", "target_noop", "target_goal_untied"}
 
 
 @dataclass(frozen=True)
@@ -73,6 +74,7 @@ class TargetReport:
     errors: list[TargetFinding] = field(default_factory=list)
     todos: list[TargetFinding] = field(default_factory=list)
     warnings: list[TargetFinding] = field(default_factory=list)
+    goal_rules: str = ""
 
 
 def target_model_paths(root, data, target):
@@ -204,6 +206,18 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
             seen.add(key)
             getattr(report, level).append(TargetFinding(node, code, message))
 
+    from .facets import goal_rules_line
+
+    report.goal_rules, goal, promises = goal_rules_line(root, current, target, view)
+    if target_is_noop(root, current, target):
+        report.errors.append(TargetFinding("target", "target_noop", "the target changes nothing yet: edit .flowguard/target/ "
+                                           "(components, models or remove) or drop it with python -m flowguard target drop --yes"))
+    elif promises and not goal:
+        field_name, item = promises[0]
+        report.errors.append(TargetFinding("target", "target_goal_untied", f"the target changes a promise ({field_name}: {item}) "
+                                           "but adds or changes no model rule or known-bad; add the rule that holds the goal to a "
+                                           "target model (python -m flowguard target add <model> or python -m flowguard template "
+                                           "behaviour --write .)"))
     replaced = {c["id"] for c in target.data.get("components", [])}
     # run_check reports duplicate_owner (with accepted debts) once.
     for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
@@ -258,6 +272,8 @@ def _todo_next(code):
 def render_target_report(report: TargetReport) -> str:
     changes = report.changes
     lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
+    if report.goal_rules:
+        lines.append(report.goal_rules)
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
         for finding in findings:
             suffix = f" ({_todo_next(finding.code)})" if label == "TO-DO" else ""
