@@ -181,10 +181,10 @@ def __getattr__(name: str) -> Any:
         except ModuleNotFoundError as exc:
             if exc.name != f"{__name__}.{name}":
                 raise
-            retired = {"ModelAuthoritySnapshot", "ModelRevisionSet", "ModelAuthority", "ModelAuthorityStore",
-                       "model_authority_snapshot", "RuntimeGateway"}
-            if name in retired:
-                raise ImportError(f"{name} retired in 0.70.0; see references/upgrade.md") from None
+            from .map.retired import retired_public_name_message
+            retired = retired_public_name_message(name)
+            if retired:
+                raise ImportError(retired) from None
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = module
         return module

@@ -89,7 +89,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse commands and point removed flags at references/upgrade.md",
+        "parse command lines and dispatch them to their owners",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
         "annotate planned target breakage and ARCH lines in check, change and release",
         "run release with the system root counted and optional whole-suite shards",
@@ -132,15 +132,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b53083a6304c5fba8c7a252d4c9fb01d92a543d6736470fc9ede971357e987d9"
+      "fingerprint": "sha256:74221875ca34f12f5c935a4648f38cdbc4d8be6b5b05d04d0660186504c8da13"
     },
     {
       "id": "public-api",
       "layer": "interface",
       "summary": "Lazily exposes the core engine API from its owning modules.",
       "responsibilities": [
-        "expose public names from their owning modules on first use",
-        "point removed public names at references/upgrade.md"
+        "expose public names from their owning modules on first use"
       ],
       "files": [
         "flowguard/__init__.py"
@@ -156,6 +155,7 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
+        "map-file",
         "templates"
       ],
       "tests": [
@@ -163,7 +163,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f507413da291a22cdeba1190ed2bf2374bd5dd529bafec64c969f5b2f58d0c57"
+      "fingerprint": "sha256:acf674ca8b818ca3e511bc152b1b807dd61c0375788a398f35418038e521249a"
     },
     {
       "id": "templates",
@@ -271,15 +271,16 @@
         "accept optional component parents and file-reading flow steps",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
-        "register contract models from static literals and reject runner files",
-        "build the model tree and report nesting mistakes as errors",
-        "count import-like strings and injected attribute calls as dependency evidence"
+        "register contract models and build the model tree with its nesting errors",
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "name every removed path, literal, flag and public name in one table"
       ],
       "files": [
         "flowguard/map/mapfile.py",
         "flowguard/map/scan.py",
         "flowguard/map/tree.py",
-        "flowguard/map/targetfile.py"
+        "flowguard/map/targetfile.py",
+        "flowguard/map/retired.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -300,7 +301,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:492bb56f5ef1dbd94e6da7f063ce6fdae9af2a6b0255847316c4e4ae7f5fb4bb"
+      "fingerprint": "sha256:7388cea63002fe1bd5a2119d09fc26f6c1ed346501aab2c17588b0bab4b1b071"
     },
     {
       "id": "map-discover",
@@ -421,7 +422,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5d8507311f6447c653036ea4c656c3faf059c9d7977540b7f475d26705c29f6c"
+      "fingerprint": "sha256:290ad9ad1491d74b8a7d4adbfe6665def12200c80937cfaa106787c23d3dc55b"
     },
     {
       "id": "engine-explore",
@@ -725,7 +726,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b3bbac30960608d81abea52ab9c874f51f164e325f31450af55bb9980177b2f0"
+      "fingerprint": "sha256:39969ac8dcfde4966a3adce1bf5ee2ca55c17c6da8bbbe44e82d8cef60c4d5b1"
     },
     {
       "id": "map-read",

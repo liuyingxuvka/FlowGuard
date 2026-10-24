@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, is_test_file, matches_any, read_source
 from .inventory import Inventory
+from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
 TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
@@ -262,7 +263,7 @@ def read_model_contract(path: Path) -> dict:
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
-                                           "DESIGN_ONLY", "PARENT"}:
+                                           DESIGN_MARKER, "PARENT"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance",
                                                                "project_parent_state"}:
@@ -279,14 +280,6 @@ def read_model_contract(path: Path) -> dict:
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):
         raise ValueError("TESTED_BY must map invariant names to lists of test anchors")
     return found
-
-
-def design_only_problem(contract: dict, path: str) -> str | None:
-    """The one retirement diagnostic; the reader keeps the literal for target validation."""
-    if "DESIGN_ONLY" not in contract:
-        return None
-    return (f'{path}: DESIGN_ONLY is retired; a model of code that does not exist yet is a target model: '
-            'move this file to .flowguard/target/models/ (python -m flowguard target start "<goal>")')
 
 
 def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> dict[str, set[str]]:
@@ -376,25 +369,11 @@ def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelR
              if view is not None else
              {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")})
     registry = ModelRegistry()
-    retired_paths = {p.relative_to(root).as_posix()
-                     for p in (root / ".flowguard/verification/owners").glob("*/run_checks.py") if p.is_file()}
-    retired_paths.update(directory.relative_to(root).as_posix()
-                         for directory in (root / ".flowguard/models/owners").glob("*")
-                         if directory.is_dir() and any(p.is_file() for p in directory.rglob("*.py")))
     logical_sources = set(view.model_sources) if view is not None else set()
-    for logical in referenced | logical_sources:
-        path = Path(logical)
-        if path.is_absolute() or ".." in path.parts:
-            continue             # the ordinary path validation below owns this diagnostic
-        if len(path.parts) >= 5 and path.parts[:3] == (".flowguard", "models", "owners") and path.suffix == ".py":
-            retired_paths.add(Path(*path.parts[:4]).as_posix())
-        elif logical in referenced and path.name == "run_checks.py":
-            retired_paths.add(path.as_posix())
+    retired_paths = runner_model_paths(root, referenced, logical_sources)
     for rel in sorted(retired_paths):
         registry.issues.append(RegistryIssue(
-            "runner_model", rel,
-            "runner models are no longer run; rewrite it as a contract model in .flowguard/models/ "
-            "and delete this file (references/upgrade.md)"))
+            "runner_model", rel, runner_model_message()))
     for rel in sorted(paths | referenced):
         if Path(rel).is_absolute() or ".." in Path(rel).parts:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,

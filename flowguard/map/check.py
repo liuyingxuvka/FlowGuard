@@ -12,7 +12,8 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path, design_only_problem
+from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
+from .retired import design_only_problem, retired_file_message
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
 
@@ -55,11 +56,9 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
 
 def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None) -> list[Finding]:
     out: list[Finding] = []
-    retired = ".flowguard/behavior/inventory/ledger.json"
-    if (root / retired).is_file():
-        out.append(Finding("warn", "retired_file", "",
-                           f"{retired} is no longer read; move each promise to its component's entrypoints "
-                           "and a model, then delete the file (see references/upgrade.md)"))
+    retired = retired_file_message(root)
+    if retired:
+        out.append(Finding("warn", "retired_file", "", retired))
     by_id = {c["id"]: c for c in data["components"]}
     children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}
     for cid, comp in by_id.items():

@@ -35,7 +35,8 @@ from ..hazards import hazard_closures, model_hazards
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
-from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path, design_only_problem
+from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path
+from .retired import design_only_problem
 from .tree import build_tree
 from .runner import run_isolated_process
 

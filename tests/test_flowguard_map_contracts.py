@@ -857,7 +857,10 @@ def test_flow_step_can_read_the_previous_steps_file(tmp_path):
     assert [f for f in linted if f.code == "flow_step_unreached"], linted
 
 
-def test_retired_workflow_flags_point_to_upgrade_guide(tmp_path, capsys):
+def test_retired_flags_and_project_marker_point_to_upgrade_guide(tmp_path, capsys):
     for flag in ("--request", "--contract", "--owner-current"):
         assert main(["read", "--root", str(tmp_path), flag, "x"]) == 2
         assert "0.69 workflow interface retired in 0.70.0" in capsys.readouterr().err
+    write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
+    assert main(["read", "--root", str(tmp_path)]) == 2
+    assert "0.69 project detected" in capsys.readouterr().err

@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .common import read_source, tokens
 from .mapfile import COMPONENT_KEYS, ID_RE, MapError, model_registry, read_model_contract, validate_map
+from .retired import has_design_marker, target_design_only_message
 
 TARGET_RELDIR = ".flowguard/target"
 TARGET_SCHEMA = "flowguard.target.v1"
@@ -197,8 +198,8 @@ def validate_target(root: Path, current_data: dict, target: Target) -> list[Targ
             invalid(f"{rel}: {exc}")
             continue
         mid = contract.get("MODEL_ID")
-        if "DESIGN_ONLY" in contract:
-            issues.append(TargetIssue("target_design_only", f"{rel}: a target is already a future design; remove DESIGN_ONLY"))
+        if has_design_marker(contract):
+            issues.append(TargetIssue("target_design_only", target_design_only_message(rel)))
         if isinstance(mid, str):
             if mid in target_ids:
                 invalid(f"target model id {mid!r} is shared by {target_ids[mid]} and {filename}")
