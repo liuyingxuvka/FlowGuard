@@ -6,6 +6,7 @@ import ast
 import json
 import errno
 import io
+import os
 import subprocess
 import sys
 
@@ -116,8 +117,10 @@ def test_read_budget_option_matches_map_show(tmp_path):
         "schema": "flowguard.map.v1", "project": "budget", "components": components}), encoding="utf-8")
 
     def run(*args):
+        # Shortened lines end with "…"; read the child's output as UTF-8 on every platform.
+        environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
         return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(tmp_path)],
-                              cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+                              cwd=ROOT, capture_output=True, text=True, encoding="utf-8", env=environment)
 
     read = run("read", "--budget", "3000")
     shown = run("map", "show", "--budget", "3000")
