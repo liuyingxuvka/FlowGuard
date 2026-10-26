@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-412: Change names the consumers of removed literals and the removed promises",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
