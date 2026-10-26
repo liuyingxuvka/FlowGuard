@@ -35,18 +35,18 @@ TESTED_BY = {
 ALL = ("child", "parent", "review")
 UNEXPLAINED = {"flow_step_edit": ("jobs: jobs.py:run (entrypoint)",)}
 EXPECTED = {
-    "code": (ALL, ("tests/test_api.py", "tests/test_child.py", "tests/test_core.py", "tests/test_parent.py", "tests/test_review.py")),
+    "code": (ALL, ("tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
     "comment": ((), ()),
-    "child": (ALL, ("tests/test_child.py",)),
-    "helper": (ALL, ()),
+    "child": (ALL, ("tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
+    "helper": (ALL, ("tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
     "test": (("child",), ("tests/test_child.py",)),
     "unused": ((), ()),
     # The parent model file really changes; its review child imports it inside a function.
-    "parent_edit": (("parent", "review"), ("tests/test_parent.py",)),
+    "parent_edit": (("parent", "review"), ("tests/test_parent.py", "tests/test_review.py")),
     # api.py calls core.py:work, the anchor of all three models; api owns no model itself.
-    "caller_edit": (ALL, ("tests/test_api.py", "tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
+    "caller_edit": (("child",), ("tests/test_child.py",)),
     # jobs.py is the second step of flow chain (model child); jobs imports nothing from core.
-    "flow_step_edit": (("child",), ("tests/test_child.py", "tests/test_jobs.py")),
+    "flow_step_edit": (("child",), ("tests/test_child.py",)),
 }
 PATHS = {"code": "core.py", "comment": "core.py", "child": ".flowguard/models/child.py",
          "helper": ".flowguard/models/_helper.py", "test": "tests/test_child.py",
@@ -61,6 +61,7 @@ class State:
     selected_tests: tuple[str, ...] = ()
     blocked: tuple[str, ...] = ()
     unexplained: tuple[str, ...] = ()
+    relied: tuple[str, ...] = ()
 
 
 class Select:
@@ -72,13 +73,14 @@ class Select:
     def apply(self, event, state):
         models, tests = EXPECTED[event]
         # jobs.py:run is a listed entrypoint with no model anchor, test or NOT_MODELED reason.
-        result = State(event, models, tests, unexplained=UNEXPLAINED.get(event, ()))
+        result = State(event, models, tests, unexplained=UNEXPLAINED.get(event, ()),
+                       relied=tuple(mid+" via core:work" for mid in ALL) if event=="caller_edit" else ())
         if self.defect == "ignore_importers" and event in {"child", "helper"}:
             result = replace(result, selected_models=tuple(x for x in models if x != "parent"))
         elif self.defect == "select_comments" and event == "comment":
             result = replace(result, selected_tests=("tests/test_core.py",))
         elif self.defect == "ignore_relied_models" and event == "caller_edit":
-            result = replace(result, selected_models=(), selected_tests=("tests/test_api.py",))
+            result = replace(result, relied=())
         elif self.defect == "hides_unexplained" and event == "flow_step_edit":
             result = replace(result, unexplained=())
         elif self.defect == "ignore_flow_models" and event == "flow_step_edit":
@@ -99,8 +101,8 @@ INVARIANTS = (
           "the importing parent was omitted"),
     _rule("comments_select_no_checks", {"comment"}, lambda state: not state.selected_models and not state.selected_tests,
           "a comment-only edit selected checks"),
-    _rule("relied_models_selected", {"caller_edit"}, lambda state: set(ALL) <= set(state.selected_models),
-          "a model whose anchor the edited file calls was omitted"),
+    _rule("relied_models_selected", {"caller_edit"}, lambda state: state.selected_models == ("child",) and set(mid+" via core:work" for mid in ALL) <= set(state.relied),
+          "relied models are printed; only the directly edited flow selects child"),
     _rule("unexplained_functions_listed", {"flow_step_edit"},
           lambda state: "jobs: jobs.py:run (entrypoint)" in state.unexplained,
           "an unexplained entrypoint of the changed file was not listed"),
@@ -189,7 +191,7 @@ class RealSelection:
         path.write_text(changed, encoding="utf-8")
         impact = compute_impact(self.root, self.data, build_inventory(self.root, DEFAULT_IGNORE), [PATHS[event]], base="HEAD")
         self.state = State(event, tuple(impact.model_ids), tuple(impact.tests), tuple(impact.blocked),
-                           tuple(getattr(impact, "unexplained", ())))
+                           tuple(getattr(impact, "unexplained", ())), tuple(impact.relied_models))
         return ReplayObservation(function_name=step.function_name, observed_output=event, observed_state=self.state)
 
     def observe_state(self):

@@ -826,6 +826,12 @@ def test_target_keeps_ambiguous_test_command_blocked(tmp_path, capsys):
                              "tests/test_*.py": "python -m pytest -v"}
     expected = "ambiguous test commands"
     _write_map(root, data)
+    import ast
+    source=root/"shelf/loans.py"
+    lines=source.read_text().splitlines(True)
+    method=next(n for n in ast.walk(ast.parse(''.join(lines))) if isinstance(n,ast.FunctionDef) and n.name=='borrow')
+    lines.insert(method.body[0].lineno-1,' '*(method.col_offset+4)+'pass\n')
+    source.write_text(''.join(lines))
     code, output, errors = _run(root, capsys, "change", "shelf/loans.py")
     assert code == 1 and not errors, (output, errors)
     assert any(line.startswith("BLOCKED ") and expected in line for line in output.splitlines()), output
@@ -2298,3 +2304,16 @@ def test_port_change_without_parent_is_an_error(tmp_path):
     assert not (tmp_path/".flowguard/target/models/desk.py").exists()
     assert call(tmp_path,"add","desk") == 0
     assert not any(f.code == "port_changed_parent_missing" for f in check_target(tmp_path,models=False).errors)
+
+
+def test_promote_runs_what_function_selection_reaches(tmp_path):
+    """A real direct-calling test outside TESTED_BY must prevent promotion on failure."""
+    from flowguard.map import target as native
+    helpers=_target_life_cycle_fixture_helpers()
+    root=helpers['make_project'](tmp_path/'selection')
+    helpers['stage_target'](root);helpers['edit_missing_method'](root);helpers['write_method'](root)
+    path=root/'tests/test_extra.py'
+    path.write_text('from shelf.loans import advance\ndef test_extra():\n    advance(0)\n    assert False, "direct caller failed"\n')
+    # No git uses the conservative file fallback; this test actually calls an anchor.
+    assert native.promote_target(root)==1
+    assert (root/'.flowguard/target').exists()

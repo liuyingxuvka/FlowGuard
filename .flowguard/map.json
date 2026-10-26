@@ -89,7 +89,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch commands, including optional broad change selection, and show quiet findings and scoped verification commands.",
+      "summary": "Dispatch daily commands and run function-scoped or explicitly broad change checks.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8957e9c4cb615343318108942ca45cbdab846d96991cd0549b313d33460ecfc4"
+      "fingerprint": "sha256:a273a47c208bb1c0667515971dc006395d3e1c90fc0d4d3bbadf20b941bf44a8"
     },
     {
       "id": "public-api",
@@ -238,12 +238,13 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventory files and resolve imports; group repeated informational findings without hiding warnings or errors.",
+      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
         "build a read-only inventory without creating or writing caches on request",
-        "parse bound-test item selectors as plain strings"
+        "parse bound-test item selectors as plain strings",
+        "derive lexical function, class and module-binding digests from source on demand"
       ],
       "files": [
         "flowguard/map/common.py",
@@ -265,7 +266,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a8f434ce1ecbb3483f67a901c4a60ea5a07dd94fb6a188284a66cb7ccc3a3b02"
+      "fingerprint": "sha256:e07b5880a402f739b24772af8c66ae1065224ff25f8a0e4264da4270380c3675"
     },
     {
       "id": "map-file",
@@ -353,7 +354,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Compare target ports without git, select direct consumers, and require an output-changing child's parent in the target before promotion.",
+      "summary": "Check a target and its interface consumers; promotion also verifies function-selected models and tests without changing checked sources.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -361,7 +362,8 @@
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm",
         "warn about earlier findings, stale debts and untested rules without blocking",
-        "list what to re-read after promotion and which files to delete"
+        "list what to re-read after promotion and which files to delete",
+        "include function-selected models and tests in the single promotion check"
       ],
       "files": [
         "flowguard/map/target.py"
@@ -384,6 +386,7 @@
         "map-check",
         "map-discover",
         "map-file",
+        "map-impact",
         "map-inventory",
         "map-proof",
         "map-read"
@@ -396,7 +399,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b5cfc251be1ad502e51564731ae88b92ea02d38426bd29554e6c6fe9f4943e21"
+      "fingerprint": "sha256:4388eba26ab2e1e2ebdbcab0a428010d6075b2757b7995fe680197310ac2a6c1"
     },
     {
       "id": "map-proof",
@@ -785,10 +788,11 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select changed models and importers, escalating only changed ports to direct consumers; broad mode includes all ancestors and review children.",
+      "summary": "Select owned or closest reachable changed functions and their bound/direct-calling test functions, with conservative uncertainty and no-git fallback.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
-        "select the models of relied anchors and flows a change touches"
+        "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
+        "select bound and directly calling test functions, with conservative whole-file fallback"
       ],
       "files": [
         "flowguard/map/impact.py"
@@ -811,7 +815,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:55eeb2937fe2747a9635dc38ff09aa481336f38f80051d56dbc9812c53b0b106"
+      "fingerprint": "sha256:e666eb431add3341657b1374d7b09891b57bde090953d09dc4d9558eb2b8d2c8"
     }
   ],
   "flows": [
@@ -902,10 +906,11 @@
   "fingerprint_format": 2,
   "model_digests": {
     ".flowguard/models/anchor_watch.py": "7afcca6ffe9083ac7b4080d7e2fdeb683093cc3efb347d28fcfeba92feee44be",
-    ".flowguard/models/change_selection.py": "19247ddf4f47431b1aa7504436ad1296793ed72dd6cc1b91a696e44254b98152",
+    ".flowguard/models/change_selection.py": "8b71397c8f2f7da365773b2cf60f7fba5ed93fa4f6f8be1486187ad9b54111f3",
     ".flowguard/models/component_pointer.py": "aa31cbb91704d1e777b61efeff18388425b6096b506b2a6eaa5b0132f9d32858",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
+    ".flowguard/models/function_selection.py": "31096a69aa5bbe6580843059828eaa6e36ed966b39db1e0ab629f10e36812563",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",
@@ -928,6 +933,7 @@
     ".flowguard/models/target_life_cycle.py": "0fe92df6ae8811de836088088772a6358de363116e0db0d17c44c080a54bf19a",
     ".flowguard/models/target_promotion.py": "4c10ab6e51a21afa0c78dc4e39595c40ee58f2b401f3aa3c380651e0f38c5d11",
     ".flowguard/models/test_binding.py": "d20c3f9b65569e8f1382d17ea6400f423b547c538e97cbf817d44361041abd45",
+    ".flowguard/models/test_selection.py": "61cee504f404f1e5928b7373a27be0d567c656bf61578deac9b0d1a9a06bdf24",
     ".flowguard/models/tree_resolution.py": "1497c44ece4ed74d28b6c4148cec850845194785d8fbf2cf7124eb85609037d5",
     ".flowguard/models/ui_journey_rules.py": "2dedf4809f58f7d2919ee8f026135829b083ccfa26f61d717b1f7148371e0f8a",
     ".flowguard/models/validator_cases.py": "9b42a19b56ad0476bdeff77c1c60e1745232b25f99648253214968123209b824"

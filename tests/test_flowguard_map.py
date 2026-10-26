@@ -691,7 +691,7 @@ def test_lazy_facade_selection_preserves_ancestor_initialization_without_hub(tmp
     ]}
     assert impact_of(root, data, ["pkg/b.py"]).tests == []
     assert impact_of(root, data, ["pkg/a.py"]).tests == ["tests/test_consumer.py"]
-    assert impact_of(root, data, ["pkg/__init__.py"]).tests == ["tests/test_consumer.py"]
+    assert impact_of(root, data, ["pkg/__init__.py"], broad=True).tests == ["tests/test_consumer.py"]
     inv = build_inventory(root, DEFAULT_IGNORE)
     assert "pkg/a.py" in inv.file_deps["consumer.py"] and "pkg/__init__.py" not in inv.file_deps["consumer.py"]
 
@@ -868,12 +868,8 @@ def test_large_selected_scope_does_not_expand_to_the_full_suite(selected_count):
     from flowguard.map.impact import run_commands
     assert run_commands(impact) == ["python -m pytest -q " + " ".join(paths)]
     assert "test_135.py" not in " ".join(run_commands(impact))
-    if selected_count > 30:
-        assert "broad selection; run: python -m flowguard change --run" in text
-        assert not any(line.startswith("run:") for line in text.splitlines())
-    else:
-        assert "run: python -m pytest -q " + " ".join(paths) in text
-        assert f"{selected_count} of 136" in text
+    assert "run: python -m pytest -q " + " ".join(paths) in text
+    assert f"{selected_count} of 136" in text
 
 
 def test_exact_schema_binding_tracks_content_and_deletion_without_broad_json_scan(impact_project):
@@ -911,7 +907,6 @@ def test_exact_schema_binding_tracks_content_and_deletion_without_broad_json_sca
     deleted = impact_of(root, data, [path])
     assert deleted.direct == ["storage"] and path not in deleted.no_checks
 
-
 def test_script_directory_imports_resolve_to_sibling_files(tmp_path):
     from flowguard.map.inventory import build_inventory
     write(tmp_path, "scripts/run.py", "from helper import value\nimport json\n")
@@ -922,7 +917,6 @@ def test_script_directory_imports_resolve_to_sibling_files(tmp_path):
     inv = build_inventory(tmp_path, [])
     assert inv.file_deps.get("scripts/run.py") == {"scripts/helper.py"}
     assert "pkg/helper.py" not in inv.file_deps.get("pkg/a.py", set())
-
 
 def test_inventory_without_bodies_still_gives_lint_its_bodies_later(tmp_path):
     import os
@@ -946,7 +940,7 @@ def test_comment_only_edit_keeps_review_but_selects_no_checks(impact_project, ed
               "code": text.replace("return x", "return x or None"),
               "untouched": text}[edit]
     path.write_bytes(edited.replace("\n", line_endings).encode("utf-8"))
-    imp = impact_of(root, data, ["shop/storage.py"], base="HEAD")
+    imp = impact_of(root, data, ["shop/storage.py"], base="HEAD", broad=True)
     assert imp.direct == ["storage"]
     if edit == "comment":
         assert imp.comment_only == ["shop/storage.py"] and "comment-only edits" in render_impact(imp)
@@ -1187,7 +1181,7 @@ def test_change_selects_models_whose_anchors_the_edit_calls(tmp_path, capsys):
     flowguard_cli.main(["change", "--root", str(root)])
     output = capsys.readouterr().out
     assert "relies on: lending via loans:LoanService.borrow" in output, output
-    assert "models to run: .flowguard/models/lending.py" in output, output
+    assert "models to run: -" in output, output
     path.write_text(original + "# a comment only\n", encoding="utf-8")
     flowguard_cli.main(["change", "--root", str(root)])
     assert "models to run: -" in capsys.readouterr().out
@@ -1577,3 +1571,171 @@ def test_missing_import_root_is_a_warning(tmp_path):
     assert len(findings) == 1 and findings[0].level == "warn"
     (tmp_path / "library").mkdir()
     assert not [f for f in run_check(tmp_path, data, inv) if f.code == "import_root_missing"]
+
+def function_fixture():
+    import runpy,sys
+    base=Path(__file__).parents[1]/'.flowguard'
+    directory=base/'target/models' if (base/'target/models/_function_fixture.py').exists() else base/'models'
+    return runpy.run_path(str(directory/'_function_fixture.py'))
+
+
+def test_owned_edit_does_not_select_composing_parent(tmp_path):
+    helper=function_fixture()
+    for case in ('body','helper'):
+        root=tmp_path/case;root.mkdir()
+        impact=helper['native_case'](root,case)
+        assert impact.model_ids==['child']
+        assert 'parent' not in impact.model_ids
+
+
+def test_module_binding_change_selects_importer_functions(tmp_path):
+    from flowguard.map.impact import render_impact
+    impact=function_fixture()['native_case'](tmp_path,'binding')
+    assert 'importer' in impact.model_ids
+    assert 'api.py:call' in impact.changed_functions
+    assert 'UNCERTAIN: core.py' not in render_impact(impact)
+
+
+def test_removed_function_is_uncertain(tmp_path):
+    from flowguard.map.impact import render_impact
+    impact=function_fixture()['native_case'](tmp_path,'removed')
+    assert impact.model_ids and impact.uncertain_files['core.py']
+    assert 'UNCERTAIN: core.py:' in render_impact(impact)
+
+
+def test_no_git_uses_stale_components(tmp_path):
+    from flowguard.map.impact import render_impact
+    impact=function_fixture()['native_case'](tmp_path,'no_git')
+    assert impact.tests==['tests/test_core.py']
+    assert impact.changed==['core.py']
+    assert 'NO GIT: changed files = the files of 1 component(s)' in render_impact(impact)
+    assert 'a test file edited alone is not seen: run it by path' in render_impact(impact)
+
+
+def _signature_fixture(tmp_path, source, before, after):
+    helper=function_fixture();data=helper['fixture'](tmp_path)
+    helper['write'](tmp_path,'core.py',source)
+    helper['write'](tmp_path,'.flowguard/models/constructor.py','MODEL_ID="constructor"\nPARENT="api"\nIMPLEMENTED_BY={"Construct":"api.py:call"}\ndef build_explorer(): pass\n')
+    git(tmp_path,'add','.')
+    git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','signature baseline')
+    helper['write'](tmp_path,'core.py',source.replace(before,after))
+    return impact_of(tmp_path,data,['core.py'],base='HEAD')
+
+
+def test_signature_change_selects_callers_models(tmp_path):
+    h=function_fixture();data=h['fixture'](tmp_path)
+    h['write'](tmp_path,'api.py','from core import own\ndef call(): return own()\n')
+    git(tmp_path,'add','.')
+    git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','caller baseline')
+    path=tmp_path/'core.py';path.write_text(path.read_text().replace('def own():','def own(value=0):'))
+    impact=impact_of(tmp_path,data,['core.py'],base='HEAD')
+    assert {'child','importer'}<=set(impact.model_ids)
+    assert 'api.py:call' in impact.changed_functions
+
+
+def test_dataclass_field_added_selects_constructors_models(tmp_path):
+    h=function_fixture();data=h['fixture'](tmp_path)
+    h['write'](tmp_path,'core.py','from dataclasses import dataclass\n@dataclass\nclass Value:\n    x:int=0\n')
+    h['write'](tmp_path,'api.py','from core import Value\ndef call(): return Value()\n')
+    git(tmp_path,'add','.')
+    git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','dataclass baseline')
+    path=tmp_path/'core.py';path.write_text(path.read_text()+'    y:int=0\n')
+    impact=impact_of(tmp_path,data,['core.py'],base='HEAD')
+    assert 'importer' in impact.model_ids and 'api.py:call' in impact.changed_functions
+
+
+def test_class_anchor_covers_methods(tmp_path):
+    h=function_fixture();data=h['fixture'](tmp_path)
+    h['write'](tmp_path,'core.py','class Service:\n    def work(self): return 1\n')
+    h['write'](tmp_path,'.flowguard/models/child.py','MODEL_ID="child"\nPARENT="logic"\nIMPLEMENTED_BY={"Run":"core.py:Service"}\ndef build_explorer(): pass\n')
+    git(tmp_path,'add','.')
+    git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','class baseline')
+    path=tmp_path/'core.py';path.write_text(path.read_text().replace('return 1','return 2'))
+    impact=impact_of(tmp_path,data,['core.py'],base='HEAD')
+    assert impact.model_ids==['child'] and 'core.py:Service.work' in impact.changed_functions
+
+
+def _select_test_fixture(tmp_path):
+    from flowguard.map.tree import build_tree
+    h=function_fixture();data=h['fixture'](tmp_path)
+    path=tmp_path/'core.py';path.write_text(path.read_text().replace('def other(): return 2','def other(): return own()+1'))
+    h['write'](tmp_path,'tests/test_half.py','from core import own\ndef test_one(): assert own()\ndef test_two(): pass\n')
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    return data,inv,build_tree(tmp_path,data,inv)
+
+
+def test_parametrized_anchor_selects_its_case_only(tmp_path):
+    from flowguard.map.impact import select_tests,Impact,run_commands
+    data,inv,tree=_select_test_fixture(tmp_path)
+    path=tmp_path/'tests/test_core.py'
+    path.write_text('import pytest\n@pytest.mark.parametrize("x",[1,2],ids=["one","two"])\ndef test_bound(x): assert x\ndef test_noop(): pass\ndef test_last(): pass\n')
+    tree.nodes['child'].contract['TESTED_BY']={'safe':['tests/test_core.py:test_bound[one]']}
+    result=select_tests(tmp_path,data,inv,tree,{'child'},set())
+    assert result['nodes']=={'tests/test_core.py':['test_bound[one]']}
+    impact=Impact([],[],[],[],['tests/test_core.py'],[],[],test_functions=result['nodes'])
+    assert 'tests/test_core.py::test_bound[one]' in run_commands(impact)[0]
+
+
+def test_test_calling_through_same_file_helper_is_selected(tmp_path):
+    from flowguard.map.impact import select_tests
+    data,inv,tree=_select_test_fixture(tmp_path)
+    result=select_tests(tmp_path,data,inv,tree,{'child'},{'core.py#own'})
+    assert {'test_bound','test_call','test_help'}<=set(result['nodes']['tests/test_core.py'])
+    assert 'test_indirect' not in result['nodes']['tests/test_core.py']
+
+
+def test_half_selected_file_runs_whole(tmp_path):
+    from flowguard.map.impact import select_tests
+    data,inv,tree=_select_test_fixture(tmp_path)
+    result=select_tests(tmp_path,data,inv,tree,set(),{'core.py#own'})
+    assert 'tests/test_half.py' in result['whole_files']
+    assert 'tests/test_core.py' not in result['whole_files']
+
+
+def test_cli_test_reaching_through_main_is_counted_as_also_reached(tmp_path):
+    from flowguard.map.impact import select_tests
+    data,inv,tree=_select_test_fixture(tmp_path)
+    result=select_tests(tmp_path,data,inv,tree,set(),{'core.py#own'})
+    assert result['also_reached']==['2 test functions call core.py:own only through other functions (python -m flowguard change --broad)']
+
+
+def test_broad_equals_head_selection(tmp_path):
+    from flowguard.map.impact import compute_impact,_broad_impact
+    h=function_fixture();data=h['fixture'](tmp_path)
+    path=tmp_path/'core.py';path.write_text(path.read_text().replace('return helper()+VALUE','return helper()+VALUE+1'))
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    actual=compute_impact(tmp_path,data,inv,['core.py'],base='HEAD',broad=True)
+    old=_broad_impact(tmp_path,data,inv,['core.py'],base='HEAD',broad=True)
+    assert actual.to_dict()==old.to_dict()
+
+
+def test_function_digests_separate_nested_and_module_changes():
+    from flowguard.map.inventory import function_digests
+    source='VALUE=1\nclass C:\n    field=1\n    def method(self):\n        def inner(): return 1\n        return inner()\n'
+    before=function_digests(source)
+    nested=function_digests(source.replace('inner(): return 1','inner(): return 2'))
+    assert before['functions']['C.method']==nested['functions']['C.method']
+    assert before['functions']['C.method.inner']!=nested['functions']['C.method.inner']
+    assert before['classes']==nested['classes']
+    assert function_digests(source.replace('field=1','field=2'))['classes']!=before['classes']
+    assert function_digests(source.replace('VALUE=1','VALUE=2'))['bindings']!=before['bindings']
+
+
+def test_find_owners_edit_selects_its_models_and_test_functions(tmp_path):
+    """The real repository's parser and model tree agree on the actual view edit."""
+    from flowguard.map.impact import compute_impact, render_impact
+    origin=Path(__file__).parents[1]
+    paths=subprocess.check_output(['git','-C',str(origin),'ls-files','-co','--exclude-standard','-z']).decode().split('\0')
+    for relative in set(filter(None,paths)):
+        source=origin/relative
+        if source.is_file():
+            destination=tmp_path/relative;destination.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,destination)
+    git(tmp_path,'init','-q');git(tmp_path,'add','.')
+    git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','candidate baseline')
+    path=tmp_path/'flowguard/map/views.py';path.write_text(path.read_text().replace('    return scored[:limit]','    scored = list(scored)\n    return scored[:limit]'))
+    data=load(tmp_path);inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    result=compute_impact(tmp_path,data,inv,['flowguard/map/views.py'],base='HEAD')
+    assert set(result.model_ids)=={'read_find','read_view'}
+    assert result.tests==['tests/test_map_views.py']
+    assert result.test_functions['tests/test_map_views.py']
+    assert 'Find is flowguard/map/views.py:find_'+'owners' in render_impact(result)

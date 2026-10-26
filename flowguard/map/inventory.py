@@ -378,3 +378,55 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
                 dynamic_files.add(f)
     return Inventory(root, files, source, tests, py, dict(deps), loc, dynamic_files=dynamic_files,
                      mod_to_path=mod_to_path, import_roots=tuple(import_roots))
+
+def function_digests(text):
+    """AST identities for lexical functions, classes and module bindings; never persisted."""
+    tree = ast.parse(text)
+    result = {'functions': {}, 'classes': {}, 'bindings': {}, 'statements': []}
+    def digest(value):
+        if isinstance(value, ast.AST): value = ast.dump(value, include_attributes=False)
+        return sha256_bytes(repr(value).encode())
+    class WithoutDefinitions(ast.NodeTransformer):
+        def visit_FunctionDef(self, node): return None
+        visit_AsyncFunctionDef = visit_FunctionDef
+        def visit_ClassDef(self, node): return None
+    def body(nodes):
+        syntax = ast.Module(body=copy.deepcopy(nodes), type_ignores=[])
+        return WithoutDefinitions().visit(syntax)
+    def visit(nodes, prefix=''):
+        for node in nodes:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                symbol = prefix + node.name
+                result['functions'][symbol] = {
+                    'sig_digest': digest((ast.dump(node.args), tuple(ast.dump(d) for d in node.decorator_list), ast.dump(node.returns) if node.returns else '', tuple(ast.dump(p) for p in getattr(node, 'type_params', ())))),
+                    'body_digest': digest(body(node.body)),
+                }
+                visit(node.body, symbol + '.')
+            elif isinstance(node, ast.ClassDef):
+                symbol = prefix + node.name
+                names = {target.id for item in node.body for target in
+                         (item.targets if isinstance(item, ast.Assign) else [item.target] if isinstance(item, ast.AnnAssign) else []) if isinstance(target, ast.Name)}
+                result['classes'][symbol] = {'class_digest': digest((tuple(ast.dump(b) for b in node.bases), tuple(ast.dump(k) for k in node.keywords), tuple(ast.dump(d) for d in node.decorator_list), ast.dump(body(node.body)))), 'names': sorted(names)}
+                visit(node.body, symbol + '.')
+            elif isinstance(node, (ast.If, ast.Try, ast.With, ast.AsyncWith, ast.For, ast.While, ast.Match)):
+                for child in ast.iter_child_nodes(node):
+                    if isinstance(child, ast.stmt): visit([child], prefix)
+                    elif isinstance(child, (ast.ExceptHandler, ast.match_case)): visit(child.body, prefix)
+    visit(tree.body)
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                result['bindings'][alias.asname or alias.name.split('.')[0]] = ('import', alias.name, '', 0)
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                result['bindings'][alias.asname or alias.name] = ('import', node.module or '', alias.name, node.level)
+        elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+            value = ast.dump(node.value) if node.value is not None else ''
+            for target in targets:
+                for item in ast.walk(target):
+                    if isinstance(item, ast.Name): result['bindings'][item.id] = ('value', value)
+        elif not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str)):
+                result['statements'].append(ast.dump(node))
+    return result

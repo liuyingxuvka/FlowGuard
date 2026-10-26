@@ -207,7 +207,7 @@ def cmd_lint(root: Path, a) -> int:
 
 def cmd_impact(root: Path, a) -> int:
     data, inv = _context(root)
-    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), a.depth, base=a.base)
+    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), a.depth, base=a.base, broad=True)
     print(json.dumps(imp.to_dict(), indent=1) if a.json else render_impact(imp))
     return 1 if imp.blocked or imp.unmapped else 0
 
@@ -218,7 +218,7 @@ def cmd_change(root: Path, a) -> int:
     from .lint import scoped_architecture_findings
 
     data, inv = _context(root)
-    changes = a.files or changed_files(root, a.base)
+    changes = a.files or changed_files(root, a.base, data=data, inv=inv)
     findings = run_check(root, data, inv)
     imp = compute_impact(root, data, inv, changes, base=a.base, broad=getattr(a, "broad", False))
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)

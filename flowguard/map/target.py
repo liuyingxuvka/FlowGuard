@@ -224,7 +224,7 @@ def _issue_key(node, code, message, tree):
     return node, family, message
 
 
-def check_target(root: Path, *, models: bool = True, tests: bool = False) -> TargetReport:
+def check_target(root: Path, *, models: bool = True, tests: bool = False, impact=None) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
     from .lint import architecture_findings, architecture_variants, dropped_owner_findings
@@ -321,6 +321,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False) -> Tar
     from .proof import run_models
 
     selected = _selected_models(root, current, target, view, inv, tree)
+    if impact is not None:
+        selected = sorted(set(selected) | (set(impact.model_ids) & set(tree.nodes)))
     # [] means "all" to model execution; an empty target selection means none.
     results = run_models(root, selected, tests=tests, view=view, inv=inv) if selected else []
     untouched, old = _unchanged_models(root, current, target, inv, tree, selected)
@@ -521,7 +523,48 @@ def promote_target(root: Path) -> int:
             drafts = sorted(c["id"] for c in target.data.get("components", []))
             reread = _re_read(root, current, target, view)
         # The same full proof and TESTED_BY path as `target check`, exactly once.
-        report = check_target(root, tests=True)
+        from .impact import changed_files, compute_impact, _test_groups
+        inventory = build_inventory(root, ignore_patterns(current), write_cache=False, import_roots=tuple(current.get('import_roots', ())))
+        impact = compute_impact(root, current, inventory, changed_files(root, 'HEAD', data=current, inv=inventory), base='HEAD')
+        report = check_target(root, tests=True, impact=impact)
+        if not report.errors and not report.todos:
+            # Bound nodes were already checked, with anchor reach, by run_models.
+            # Run the additional selected test nodes once without rerunning those bindings.
+            tested = set()
+            if prepared:
+                from .testtree import resolve_test_anchor
+                merged_tree = build_tree(root, merged, inventory, view=view)
+                combined = set(_selected_models(root,current,target,view,inventory,merged_tree)) | set(impact.model_ids)
+                for mid in combined & set(merged_tree.nodes):
+                    for anchors in merged_tree.nodes[mid].contract.get('TESTED_BY', {}).values():
+                        for anchor in anchors:
+                            path, _, symbol = anchor.partition(':')
+                            found = resolve_test_anchor(root/path,symbol)
+                            if found:
+                                suffix = '['+symbol.split('[',1)[1] if '[' in symbol else ''
+                                tested.add(path+'::'+found.replace('.', '::')+suffix)
+            groups, missing = _test_groups(impact)
+            import shlex
+            for command, nodes in groups.items():
+                remaining = []
+                for node in nodes:
+                    if '::' in node:
+                        if node not in tested and node.split('[',1)[0] not in tested: remaining.append(node)
+                    elif node.endswith('.py'):
+                        from .testtree import test_functions
+                        remaining.extend(node+'::'+name.replace('.', '::') for name in test_functions((root/node).read_text(encoding='utf-8'))
+                                         if node+'::'+name.replace('.', '::') not in tested)
+                    else: remaining.append(node)
+                if not remaining: continue
+                argv=shlex.split(command)
+                if argv and argv[0]=='python': argv[0]=sys.executable
+                if 'pytest' in argv: argv += ['-p','no:cacheprovider']
+                for offset in range(0,len(remaining),50):
+                    result=subprocess.run(argv+remaining[offset:offset+50],cwd=root,capture_output=True,text=True,encoding='utf-8',errors='replace',env=dict(os.environ,PYTHONDONTWRITEBYTECODE='1',GIT_OPTIONAL_LOCKS='0'))
+                    if result.returncode:
+                        report.errors.append(TargetFinding('target','selected_tests_failed','function-selected tests failed: '+' '.join(remaining[offset:offset+50])+'\n'+(result.stdout+result.stderr)[-5000:]))
+            if missing:
+                report.errors.append(TargetFinding('target','selected_tests_unavailable',', '.join(missing)))
         if report.errors or report.todos:
             print(render_target_report(report))
             print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")

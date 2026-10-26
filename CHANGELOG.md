@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `change` selects models by changed functions and selects individual bound or directly calling tests. `--broad` keeps the earlier file selection. Missing Git uses confirmed component fingerprints and explains its conservative file fallback.
+
 - Projects using FlowGuard: `change` checks direct port consumers when an interface changes, rather than always adding ancestors. `--broad` preserves the wider selection. A target that changes a child's outputs must also include its parent, with a command explaining how to add it.
 
 - Check actual State writes and declared finite outputs, and require strict parent/child receipts, inputs and field coverage. Focused reads show each model's port.

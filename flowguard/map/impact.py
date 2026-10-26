@@ -48,20 +48,31 @@ class Impact:
     port_lines: list[str] = field(default_factory=list)
     unexplained: list[str] = field(default_factory=list)       # "<component>: <path:symbol> (<entrypoint|state writer>)"
 
+    changed_functions: list[str] = field(default_factory=list)
+    uncertain_files: dict[str,str] = field(default_factory=dict)
+    unreached: list[str] = field(default_factory=list)
+    test_functions: dict[str,list[str]] = field(default_factory=dict)
+    whole_test_files: list[str] = field(default_factory=list)
+    model_reasons: dict[str,list[str]] = field(default_factory=dict)
+    bound_test_count: int = 0
+    calling_test_count: int = 0
+    also_reached: list[str] = field(default_factory=list)
+    no_git: str = ''
+
     def to_dict(self) -> dict:
         return dict(self.__dict__)
 
 
-def changed_files(root: Path, base: str) -> list[str]:
+def changed_files(root: Path, base: str, *, data=None, inv=None) -> list[str]:
     """Keep both sides of renames and deleted paths, plus untracked files."""
     files: set[str] = set()
     commands = (["git", "-C", str(root), "diff", "--name-status", "-z", "-M", base],
                 ["git", "-C", str(root), "ls-files", "-o", "--exclude-standard", "-z"])
     for i, cmd in enumerate(commands):
         try:
-            fields = git_paths(root, *cmd[3:])
+            fields = _read_git_paths(root, *cmd[3:])
         except subprocess.CalledProcessError as exc:
-            raise RuntimeError(os.fsdecode(exc.stderr or b"").strip() or f"failed: {' '.join(cmd)}") from exc
+            return _no_git_changes(root,data,inv)
         if i == 1:
             files.update(norm(f) for f in fields)
             continue
@@ -116,13 +127,13 @@ def _removed_model_context(root: Path, base: str | None, changed: list[str]) -> 
     if base is None or not any(Path(p).parent.as_posix() == ".flowguard/models" for p in changed):
         return set(), {}, {}
     try:
-        removed = {p for p in git_paths(root, "diff", "--no-renames", "--diff-filter=D", "--name-only", "-z",
+        removed = {p for p in _read_git_paths(root, "diff", "--no-renames", "--diff-filter=D", "--name-only", "-z",
                                         base, "--", ".flowguard/models")
                    if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")
                    and not os.path.lexists(root / p)}
         if not removed.intersection(changed):
             return set(), {}, {}
-        paths = [p for p in git_paths(root, "ls-tree", "-r", "--name-only", "-z", base, "--", ".flowguard/models")
+        paths = [p for p in _read_git_paths(root, "ls-tree", "-r", "--name-only", "-z", base, "--", ".flowguard/models")
                  if Path(p).parent.as_posix() == ".flowguard/models" and p.endswith(".py")]
     except subprocess.CalledProcessError:
         return set(), {}, {}             # missing/unknown models retain the existing hard gate
@@ -167,7 +178,7 @@ def _owner_model_paths(path: str, declared: dict[str, set[str]]) -> set[str]:
     return {path} if path in declared else set()
 
 
-def _tests_reaching(inv: Inventory, changed: list[str]) -> set[str]:
+def _tests_reaching(inv: Inventory, changed: list[str], *, package_init: bool = True) -> set[str]:
     """Runtime import closure including package initialization, without graph hubs."""
     targets = set(changed)
     collectable = {t for t in inv.tests if is_collectable_test(t) and inv.is_test(t)}
@@ -181,7 +192,7 @@ def _tests_reaching(inv: Inventory, changed: list[str]) -> set[str]:
         deps = set(inv.file_deps.get(path, ()))
         parts = Path(path).parts[:-1]
         deps.update("/".join((*parts[:i], "__init__.py")) for i in range(1, len(parts) + 1)
-                    if "/".join((*parts[:i], "__init__.py")) in inv.py)
+                    if package_init and "/".join((*parts[:i], "__init__.py")) in inv.py)
         for dep in deps:
             if dep != path:
                 reverse[dep].add(path)
@@ -194,35 +205,20 @@ def _tests_reaching(inv: Inventory, changed: list[str]) -> set[str]:
     return out | (seen & collectable)
 
 
-def _uses_function_changed(root, base, path, symbol):
-    """Match the read-only function or class, never a callee's reachability closure."""
-    if base is None or not path.endswith(".py"):
-        return True
-    old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
-    if old.returncode:
-        return True
-    def definitions(syntax):
-        found = {}
-        def visit(node, prefix=""):
-            for child in ast.iter_child_nodes(node):
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                    name = prefix + child.name
-                    found[name] = ast.dump(child)
-                    visit(child, name + ".")
-                else:
-                    visit(child, prefix)
-        visit(syntax)
-        return found
+def _anchor_changed(root, base, path, symbol):
+    from .inventory import function_digests
+    if base is None or not path.endswith('.py'): return True
+    previous=subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True)
+    if previous.returncode: return True
     try:
-        before = definitions(ast.parse(normalize_newlines(old.stdout)))
-        after = definitions(ast.parse(read_source(root / path)))
-    except (OSError, SyntaxError, ValueError):
-        return True
-    return symbol not in before or symbol not in after or before[symbol] != after[symbol]
+        old=function_digests(normalize_newlines(previous.stdout))
+        new=function_digests(read_source(root/path))
+    except (OSError,SyntaxError,ValueError): return True
+    return any(old[group].get(symbol)!=new[group].get(symbol) for group in ('functions','classes')) or not any(symbol in old[group] for group in ('functions','classes'))
 
 
-def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
-                   *, base: str | None = None, broad: bool = False) -> Impact:
+def _broad_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
+                   *, base: str | None = None, broad: bool = False, package_init: bool = True) -> Impact:
     """Select source caller closure; test/model edits retain only their explicit links."""
     if depth is not None and depth < 0:
         raise ValueError("impact depth must be nonnegative")
@@ -285,7 +281,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             path, _, symbol = anchor.partition(":")
             key = (path, symbol)
             if key not in uses_diffs:
-                uses_diffs[key] = _uses_function_changed(root, base, path, symbol)
+                uses_diffs[key] = _anchor_changed(root, base, path, symbol)
             if uses_diffs[key]:
                 contract_inputs[path].add(entry.path)
                 hits.append(anchor)
@@ -390,7 +386,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     if edited_sources:
         from .discover import discover_inventory, relied_models
         from .lint import coverage_facts
-        raw = discover_inventory(root, inv, data=data)
+        raw = discover_inventory(root, inv, data=data, write_cache=False)
         # Functions of the edited files that no model anchor, test or NOT_MODELED reason explains.
         for cid, record in sorted(coverage_facts(root, data, inv, tree, raw).items()):
             entries = set(record.get("unexplained_entries", ()))
@@ -466,7 +462,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 affected.add(caller)
                 traversed.add(caller)
                 queue.append((caller, distance + 1))
-    tests.update(_tests_reaching(inv, [f for f in changed if f not in comment_only]))
+    tests.update(_tests_reaching(inv, [f for f in changed if f not in comment_only], package_init=package_init))
     owner_tests: dict[str, set[str]] = defaultdict(set)
     owner_models: dict[str, set[str]] = defaultdict(set)
     for cid in affected:
@@ -510,7 +506,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         if '(no model consumer)' in line:
             from .discover import discover_inventory
             scope = {path for cid in tree.nodes[mid].components if cid in by_id for path in component_files(by_id[cid], inv)}
-            callers = code_callers(discover_inventory(root, inv, data=data), tree.nodes[mid], scope)
+            callers = code_callers(discover_inventory(root, inv, data=data, write_cache=False), tree.nodes[mid], scope)
             line = line.replace('(no model consumer)', '(no model consumer; code callers: ' + (', '.join(callers) or '-') + ')')
         port_lines.append(line)
         selected_model_paths.update(tree.nodes[chosen_id].path for chosen_id, _ in chosen)
@@ -548,19 +544,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     uncertainty.extend(f"{f}: dynamic imports may be unresolved; declare known component dependencies"
                        for f in sorted(inv.dynamic_files & owned_affected))
     tests = {t for t in tests if is_collectable_test(t) and inv.is_test(t)}
-    test_commands = {}
-    for test in sorted(tests):
-        commands = {cmd for pat, cmd in data.get("test_commands", {}).items() if glob_match(test, pat)}
-        if not commands:
-            commands = {cmd for pat, cmd in (previous or {}).get("test_commands", {}).items()
-                        if glob_match(test, pat)}
-        if len(commands) == 1:
-            test_commands[test] = next(iter(commands))
-        elif commands:
-            test_commands[test] = ""       # neither display nor run an arbitrary ambiguous command
-            blocked.append(f"{test}: ambiguous test commands: {', '.join(sorted(commands))}")
-        elif not test.endswith(".py"):
-            blocked.append(f"{test}: no executable test command; declare test_commands or retire the test")
+    test_commands, command_problems = _commands_for_tests(data, previous, tests)
+    blocked.extend(command_problems)
     covered = {f for f, cids in matched_owners.items()
                if any(owner_tests[cid] & tests or owner_models[cid] & set(models) for cid in cids)}
     no_checks = [f for f in changed if f not in inv.source and f not in covered and f != ".flowguard/map.json"
@@ -605,7 +590,8 @@ def _test_groups(imp: Impact) -> tuple[dict[str, list[str]], list[str]]:
         if command is None and test.endswith(".py"):
             command = imp.test_command
         if command:
-            groups[command].append(test)
+            nodes=imp.test_functions.get(test)
+            groups[command].extend(test+'::'+symbol.replace('.', '::') for symbol in nodes) if nodes else groups[command].append(test)
         else:
             no_command.append(test)
     return groups, no_command
@@ -616,7 +602,12 @@ def run_commands(imp: Impact, *, moving_models: set[str] | None = None) -> list[
     import shlex
 
     groups, _ = _test_groups(imp)
-    commands = [f"{command} " + " ".join(shlex.quote(t) for t in tests) for command, tests in groups.items()]
+    commands = []
+    for command, tests in groups.items():
+        line=f"{command} " + " ".join(shlex.quote(t) for t in tests)
+        if len(line)>8000:
+            line=f"{command} " + " ".join(shlex.quote(t) for t in dict.fromkeys(test.split('::',1)[0] for test in tests))
+        commands.append(line)
     model_ids = [mid for path, mid in zip(imp.models, imp.model_ids) if path not in (moving_models or set())]
     if model_ids:
         commands.append("python -m flowguard map models " + " ".join(model_ids))
@@ -649,23 +640,30 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     lines.extend("relies on: " + item for item in imp.relied_models[:5])
     if len(imp.relied_models) > 5:
         lines.append(f"relies on: +{len(imp.relied_models) - 5} more")
+    if imp.no_git: lines.append(imp.no_git)
+    if imp.changed_functions:
+        lines.append('changed functions: '+', '.join(imp.changed_functions[:5])+(f' +{len(imp.changed_functions)-5}' if len(imp.changed_functions)>5 else ''))
+    lines.extend(f'UNCERTAIN: {path}: {reason}; this file uses the broad selection' for path,reason in sorted(imp.uncertain_files.items()))
+    if imp.unreached:
+        lines.append('no model reaches: '+', '.join(imp.unreached[:5]))
+    lines.extend('also reached: '+line for line in imp.also_reached)
     lines.extend(imp.port_lines)
-    lines.append(f"models to run: {len(models)} selected (full list: python -m flowguard map impact --json)" if len(models) > 8
-                 else f"models to run: {', '.join(models) or '-'}")
+    if imp.changed_functions or imp.no_git:
+        choices=[mid+(' ('+imp.model_reasons[mid][0]+')' if imp.model_reasons.get(mid) else '') for mid in model_ids]
+        lines.append(f'models to run ({len(choices)}): '+(', '.join(choices[:8]) or '-')+(f' +{len(choices)-8}' if len(choices)>8 else ''))
+    else:
+        lines.append(f"models to run: {len(models)} selected (full list: python -m flowguard map impact --json)" if len(models) > 8
+                     else f"models to run: {', '.join(models) or '-'}")
     if moving:
         lines.append("moving to target: " + ", ".join(mid for path, mid in moving)
                      + " (python -m flowguard target check runs their target versions)")
     groups, no_command = _test_groups(imp)
     commands = run_commands(imp, moving_models=moving_models)
-    broad = len(imp.tests) > 30
-    if broad:
-        lines.append(f"tests to run ({imp.selected_test_functions} of {imp.total_test_functions} test functions, {len(imp.tests)} files): broad selection; run: python -m flowguard change --run")
+    if imp.changed_functions or imp.test_functions:
+        lines.append(f'tests to run ({imp.selected_test_functions} of {imp.total_test_functions} test functions, {len(imp.tests)} file'+('s' if len(imp.tests)!=1 else '')+f'): bound {imp.bound_test_count}, calling {imp.calling_test_count}, whole files {len(imp.whole_test_files)}')
     else:
-        # The executable command contains the list once; avoid repeating it above.
-        lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): " + ("see run below" if imp.tests else "-"))
-    # Keep the executable command scoped even when its display is long; change --run executes these.
-    if not broad:
-        lines.extend("run: " + command for command in commands[:len(groups)])
+        lines.append(f'tests to run ({len(imp.tests)} of {imp.total_tests}): '+('see run below' if imp.tests else '-'))
+    lines.extend('run: '+command for command in commands[:len(groups)])
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
     lines.extend("run: " + command for command in commands[len(groups):])
     for cid in imp.needs_review:
@@ -677,3 +675,344 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     for cid in imp.map_review:
         lines.append(f"NOTE {cid}: map description changed; no verification fields changed")
     return "\n".join(lines)
+
+class ChangedFiles(list):
+    """An operation-local file list carrying the explicit no-git explanation."""
+    def __init__(self, paths, no_git=''):
+        super().__init__(paths)
+        self.no_git=no_git
+
+
+def _no_git_changes(root, data=None, inv=None):
+    from .mapfile import load_map, owner_index
+    from .inventory import build_inventory
+    data=data if data is not None else load_map(root)
+    inv=inv if inv is not None else build_inventory(root,ignore_patterns(data))
+    stale=[c for c in data['components'] if c.get('status')!='confirmed' or is_stale(root,c,inv)]
+    owned,_=owner_index(data,inv)
+    unmapped=[path for path in inv.source if path not in owned and not inv.is_test(path)
+              and not path.startswith('.flowguard/') and not any(part.endswith('.egg-info') or part in ('build','dist') for part in Path(path).parts)]
+    paths=sorted({path for comp in stale for path in component_files(comp,inv)}|set(unmapped))
+    ids=', '.join(c['id'] for c in stale) or '-'
+    note=(f'NO GIT: changed files = the files of {len(stale)} component(s) whose fingerprint differs from map.json ({ids}) and {len(unmapped)} unmapped file(s); '
+          'tests come from those components; a test file edited alone is not seen: run it by path; there is no old text, so these files use the file-level selection; model files are compared by target check, not here')
+    return ChangedFiles(paths,note)
+
+def _closure(edges, start):
+    pending, found = [start], set()
+    while pending:
+        node = pending.pop()
+        if node not in found:
+            found.add(node)
+            pending.extend(edges.get(node, ()))
+    return found
+
+
+def _changed_symbols(root, inv, changed, base, raw):
+    """Qualified changed symbols and explicit uncertainty, using the one AST digest owner."""
+    from .inventory import function_digests, resolve_module
+    functions, uncertain = set(), {}
+    reverse = defaultdict(set)
+    for caller, targets in raw.get('edges', {}).items():
+        for target in targets: reverse[target].add(caller)
+    for path in changed:
+        if inv.is_test(path) or path.startswith('.flowguard/') or path not in inv.source and Path(path).suffix not in SOURCE_EXTS:
+            continue
+        if not path.endswith('.py'):
+            uncertain[path] = 'not Python'; continue
+        if path in inv.dynamic_files:
+            uncertain[path] = 'dynamic imports'; continue
+        if path.endswith('__init__.py') and path in inv.py and inv.py[path].lazy_exports:
+            uncertain[path] = 'lazy package exports'; continue
+        previous = subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True) if base else None
+        if previous is None or previous.returncode:
+            uncertain[path] = 'no old source text'; continue
+        try:
+            before = function_digests(normalize_newlines(previous.stdout))
+            source = read_source(root/path)
+            after = function_digests(source)
+        except (OSError, SyntaxError, ValueError):
+            uncertain[path] = 'source cannot be parsed'; continue
+        if set(before['functions']) - set(after['functions']) or set(before['classes']) - set(after['classes']):
+            uncertain[path] = 'a symbol was removed or renamed'; continue
+        if before['statements'] != after['statements']:
+            uncertain[path] = 'a nonbinding module statement changed'; continue
+        signature_changed = set()
+        for symbol, value in after['functions'].items():
+            old = before['functions'].get(symbol)
+            if old != value:
+                functions.add(path+'#'+symbol)
+            if old and old['sig_digest'] != value['sig_digest']:
+                signature_changed.add(path+'#'+symbol)
+        for symbol, value in after['classes'].items():
+            old = before['classes'].get(symbol)
+            if old and set(old['names']) - set(value['names']):
+                uncertain[path] = 'a class binding was removed or renamed'
+            if old != value:
+                class_node = path+'#'+symbol
+                functions.add(class_node)
+                signature_changed.add(class_node)
+                functions.update(path+'#'+name for name in after['functions'] if name.startswith(symbol+'.'))
+                _binding_users(root,inv,path,symbol.split('.')[0],functions,raw)
+        for node in signature_changed:
+            functions.update(reverse.get(node, ()))
+        for name, value in before['bindings'].items():
+            if after['bindings'].get(name) != value:
+                _binding_users(root,inv,path,name,functions,raw)
+        for importer,info in inv.py.items():
+            if path in inv.file_deps.get(importer, ()):
+                try:
+                    syntax=ast.parse(read_source(root/importer))
+                    if any(isinstance(n,ast.ImportFrom) and any(a.name=='*' for a in n.names) for n in ast.walk(syntax)):
+                        uncertain[path]='a project file imports this file with *'
+                except (OSError,SyntaxError): pass
+    return functions, uncertain
+
+
+def _binding_users(root, inv, path, name, functions, raw):
+    """Resolve imported names/aliases before matching actual function references."""
+    from .inventory import resolve_module
+    for other in inv.py:
+        if other != path and path not in inv.file_deps.get(other, ()):
+            continue
+        try: syntax = ast.parse(read_source(root/other))
+        except (OSError,SyntaxError): continue
+        names = {name} if other == path else set()
+        modules = set()
+        # Local imports are included; shadowing can only conservatively add callers.
+        for statement in ast.walk(syntax):
+            if isinstance(statement,ast.ImportFrom):
+                parts=other.removesuffix('.py').split('/')[:-1]
+                module='.'.join(parts[:len(parts)-statement.level+1]+([statement.module] if statement.module else [])) if statement.level else statement.module or ''
+                target=resolve_module(module,other,inv.mod_to_path,inv.py,inv.import_roots)
+                if target == path:
+                    names.update(alias.asname or alias.name for alias in statement.names if alias.name==name)
+            elif isinstance(statement,ast.Import):
+                for alias in statement.names:
+                    target=resolve_module(alias.name,other,inv.mod_to_path,inv.py,inv.import_roots)
+                    if target==path: modules.add(alias.asname or alias.name)
+        def dotted(node):
+            if isinstance(node,ast.Name): return node.id
+            if isinstance(node,ast.Attribute): return dotted(node.value)+'.'+node.attr
+            return ''
+        def visit(nodes,prefix=''):
+            for statement in nodes:
+                if isinstance(statement,(ast.FunctionDef,ast.AsyncFunctionDef)):
+                    symbol=prefix+statement.name
+                    class References(ast.NodeVisitor):
+                        found=False
+                        def visit_FunctionDef(self,node): pass
+                        visit_AsyncFunctionDef=visit_FunctionDef
+                        def visit_ClassDef(self,node): pass
+                        def visit_Name(self,node):
+                            if isinstance(node.ctx,ast.Load) and node.id in names: self.found=True
+                        def visit_Attribute(self,node):
+                            if node.attr==name and dotted(node.value) in modules: self.found=True
+                            self.generic_visit(node)
+                    references=References()
+                    for item in [*statement.body,*statement.decorator_list,*statement.args.defaults,*statement.args.kw_defaults]:
+                        if item is not None: references.visit(item)
+                    if references.found: functions.add(other+'#'+symbol)
+                    visit(statement.body,symbol+'.')
+                elif isinstance(statement,ast.ClassDef): visit(statement.body,prefix+statement.name+'.')
+                else:
+                    for attribute in ('body','orelse','finalbody'):
+                        if isinstance(getattr(statement,attribute,None),list): visit(getattr(statement,attribute),prefix)
+        visit(syntax.body)
+
+
+def select_tests(root, data, inv, tree, selected, changed_functions, *, changed=(), uncertain=(), raw=None, extra_files=()):
+    """Select bound/direct-call nodes; only the listed fallback cases select whole files."""
+    import re
+    from .testtree import test_functions, resolve_test_anchor, test_calls
+    from .discover import discover_inventory
+    raw = raw if raw is not None else discover_inventory(root,inv,data=data,write_cache=False)
+    sources, collected, calls = {}, {}, {}
+    for path in inv.tests:
+        if not path.endswith('.py') or not is_collectable_test(path): continue
+        try: sources[path]=read_source(root/path)
+        except OSError: continue
+        collected[path]=test_functions(sources[path])
+        calls[path]=test_calls(path,sources[path],inv)
+    nodes=defaultdict(set)
+    bound=set()
+    for mid in selected:
+        if mid not in tree.nodes: continue
+        for anchors in tree.nodes[mid].contract.get('TESTED_BY',{}).values():
+            for anchor in anchors:
+                path,_,symbol=anchor.partition(':')
+                resolved=resolve_test_anchor(root/path,symbol)
+                if resolved is None: continue
+                parameters='['+symbol.split('[',1)[1] if '[' in symbol else ''
+                qualified=resolved+parameters
+                nodes[path].add(qualified); bound.add((path,qualified))
+    targets={fn.replace('#',':',1) for fn in changed_functions}
+    closures={}
+    def reaches(call):
+        start=call.replace(':','#',1)
+        if start not in closures: closures[start]=_closure(raw.get('edges',{}),start)
+        return closures[start]
+    calling=set(); indirect=defaultdict(int)
+    for path, tests in calls.items():
+        for symbol, sites in tests.items():
+            direct=sites & targets
+            if direct:
+                nodes[path].add(symbol); calling.add((path,symbol))
+            for target in targets - direct:
+                if any(target.replace(':','#',1) in reaches(site) for site in sites): indirect[target]+=1
+    whole={path for path in changed if path in collected}
+    whole.update(extra_files)
+    for path in changed:
+        if Path(path).name=='conftest.py':
+            prefix=path.rpartition('/')[0]
+            whole.update(t for t in collected if not prefix or t.startswith(prefix+'/'))
+    if uncertain: whole.update(_tests_reaching(inv,list(uncertain),package_init=False))
+    # A direct imported symbol mentioned without a resolved call is a file-level fallback.
+    for path, source in sources.items():
+        for fn in changed_functions:
+            target,_,symbol=fn.partition('#')
+            if target not in inv.file_deps.get(path,()): continue
+            leaf=symbol.rpartition('.')[2]
+            any_call=any(target+':'+symbol in sites for sites in calls[path].values())
+            if not any_call and re.search(r'\b'+re.escape(leaf)+r'\b',source): whole.add(path)
+    for path, chosen in nodes.items():
+        resolved={name.split('[',1)[0] for name in chosen}
+        if collected.get(path) and len(resolved)*2>=len(collected[path]): whole.add(path)
+    whole.intersection_update(set(inv.tests))
+    for path in whole: nodes.setdefault(path,set())
+    # All-case anchors dominate parameter-specific anchors of the same function.
+    for path, chosen in nodes.items():
+        chosen.difference_update(name for name in list(chosen) if '[' in name and name.split('[',1)[0] in chosen)
+    return dict(nodes={path:sorted(chosen) for path,chosen in sorted(nodes.items())},whole_files=sorted(whole),
+                bound=len(bound),calling=len(calling-bound),total=sum(map(len,collected.values())),
+                selected=sum(len(collected.get(path,{})) if path in whole else len({name.split('[',1)[0] for name in chosen}) for path,chosen in nodes.items()),
+                also_reached=[f'{count} test functions call {fn} only through other functions (python -m flowguard change --broad)' for fn,count in sorted(indirect.items())])
+
+
+def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
+                   *, base: str | None = None, broad: bool = False) -> Impact:
+    """Select exact owned/reachable functions, with explicit conservative uncertainty."""
+    from .discover import discover_inventory, relied_models
+    from .mapfile import owner_index
+    if changed is None: changed=changed_files(root,base or 'HEAD',data=data,inv=inv)
+    no_git=getattr(changed,'no_git','')
+    if broad:
+        result=_broad_impact(root,data,inv,changed,depth,base=base,broad=True)
+        result.no_git=no_git
+        return result
+    changed=sorted({project_relative(root,path) for path in changed if not project_relative(root,path).startswith('.flowguard/target/')})
+    if not changed:
+        result=_broad_impact(root,data,inv,[],depth,base=base,package_init=False)
+        result.no_git=no_git
+        return result
+    comments={path for path in changed if _comment_only(root,base,path)}
+    source_changes=[path for path in changed if path not in comments and not inv.is_test(path) and not path.startswith('.flowguard/') and (path in inv.source or Path(path).suffix in SOURCE_EXTS)]
+    raw=discover_inventory(root,inv,data=data,write_cache=False) if source_changes else {'files':{},'edges':{}}
+    functions,uncertain=_changed_symbols(root,inv,source_changes,base,raw)
+    certain=set(source_changes)-set(uncertain)
+    result=_broad_impact(root,data,inv,[path for path in changed if path not in certain],depth,base=base,package_init=False)
+    tree=build_tree(root,data,inv)
+    owner,_=owner_index(data,inv)
+    direct={owner[path] for path in changed if path in owner}
+    result.changed=changed;result.direct=sorted(set(result.direct)|direct)
+    result.needs_review=sorted(set(result.needs_review)|{c['id'] for c in data['components'] if c['id'] in direct and is_stale(root,c,inv)})
+    result.review_models.update({cid:[node.id for node in tree.models_for_component(cid)] for cid in direct})
+    result.comment_only=sorted(comments)
+    result.unmapped=sorted(set(result.unmapped)|{path for path in certain if path not in owner and not matches_any(path,ignore_patterns(data))})
+    selected=set(result.model_ids)
+    reasons=defaultdict(list)
+    own={mid:node.contract.get('IMPLEMENTED_BY',{}) for mid,node in tree.nodes.items()}
+    uses={mid:node.contract.get('USES',{}) for mid,node in tree.nodes.items()}
+    closures={}
+    def matches(anchor,fn):
+        path,_,symbol=anchor.partition(':'); f,s=fn.split('#',1)
+        return path==f and (s==symbol or s.startswith(symbol+'.'))
+    def reaches(anchor,fn):
+        if anchor not in closures:
+            path,_,symbol=anchor.partition(':')
+            starts=[path+'#'+name for name in raw.get('files',{}).get(path,{}).get('functions',{}) if name==symbol or name.startswith(symbol+'.')]
+            closures[anchor]=set().union(*(_closure(raw['edges'],start) for start in starts)) if starts else set()
+        return fn in closures[anchor]
+    unreached=[]
+    for fn in sorted(functions):
+        owners={mid for mid,anchors in own.items() if any(matches(anchor,fn) for anchor in anchors.values())}
+        hits=set()
+        for mid in tree.nodes:
+            for name,anchor in {**own[mid],**uses[mid]}.items():
+                if matches(anchor,fn):
+                    selected.add(mid);hits.add(mid);reasons[mid].append(name+' is '+fn.replace('#',':',1))
+        reached={mid for mid,anchors in own.items() if any(reaches(anchor,fn) for anchor in anchors.values())} if not owners else set()
+        reached={mid for mid in reached if not any(mid in tree.ancestors(other) for other in reached)}
+        for mid in reached:
+            selected.add(mid);hits.add(mid)
+            name=next(name for name,anchor in own[mid].items() if reaches(anchor,fn))
+            reasons[mid].append(name+' reaches '+fn.replace('#',':',1))
+        for flow in data.get('flows',()):
+            mid=next((mid for mid,node in tree.nodes.items() if node.path==flow.get('model')),None)
+            if mid is None: continue
+            for number,step in enumerate(flow.get('steps',()),1):
+                cid,symbol,_=flow_step_parts(step)
+                comp=next((c for c in data['components'] if c['id']==cid),None)
+                if comp is None: continue
+                anchors=[path+':'+(symbol or fn.split('#',1)[1]) for path in component_files(component_scope(data,comp),inv)]
+                direct_flow=any(matches(anchor,fn) for anchor in anchors)
+                via=not owners and not any(mid in tree.ancestors(other) for other in reached) and any(reaches(anchor,fn) for anchor in anchors)
+                if direct_flow or via:
+                    selected.add(mid);hits.add(mid)
+                    result.flow_models.append(f"flow {flow['id']}: step {number} changed; model {mid}")
+        if not hits: unreached.append(fn.replace('#',':',1))
+    if source_changes:
+        sites=relied_models(raw,data,inv,{mid:list(anchors.values()) for mid,anchors in own.items()},files=list(certain))
+        result.relied_models=sorted(set(result.relied_models)|{f'{mid} via {cid}:{symbol}' for mid,locations in sites.items() for cid,symbol in locations})
+        # Full unexplained facts are needed for unowned entrypoints/writers, not owned edits.
+        if certain and (not functions or any(not any(matches(anchor,fn) for anchors in own.values() for anchor in anchors.values()) for fn in functions)):
+            from .lint import coverage_facts
+            for cid,record in coverage_facts(root,data,inv,tree,raw).items():
+                entries=set(record.get('unexplained_entries',()))
+                result.unexplained.extend(f"{cid}: {anchor} ({'entrypoint' if anchor in entries else 'state writer'})" for anchor in record['unexplained'] if anchor.partition(':')[0] in certain)
+    pairs=sorted((node.path,mid) for mid,node in tree.nodes.items() if mid in selected)
+    result.models=[path for path,mid in pairs];result.model_ids=[mid for path,mid in pairs]
+    result.changed_functions=sorted(fn.replace('#',':',1) for fn in functions)
+    result.uncertain_files=uncertain;result.unreached=unreached;result.model_reasons=dict(reasons);result.no_git=no_git
+    extra=set(result.tests) if not certain else {path for path in result.tests if path in changed or uncertain}
+    if no_git:
+        extra.update(path for c in data['components'] if c['id'] in direct for path in inv.tests if matches_any(path,c.get('tests',())))
+    selection=select_tests(root,data,inv,tree,selected,functions,changed=changed,uncertain=uncertain,raw=raw,extra_files=extra)
+    result.tests=sorted(selection['nodes'])
+    result.test_commands, command_problems = _commands_for_tests(data,_previous_map(root,base) if '.flowguard/map.json' in changed else None,result.tests)
+    result.blocked=sorted(set(result.blocked)|set(command_problems))
+    result.test_functions={path:names for path,names in selection['nodes'].items() if path not in selection['whole_files']}
+    result.whole_test_files=selection['whole_files'];result.selected_test_functions=selection['selected'];result.total_test_functions=selection['total']
+    result.bound_test_count=selection['bound'];result.calling_test_count=selection['calling'];result.also_reached=selection['also_reached']
+    return result
+
+
+def _commands_for_tests(data, previous, tests):
+    test_commands, blocked = {}, []
+    for test in sorted(tests):
+        commands = {cmd for pat, cmd in data.get("test_commands", {}).items() if glob_match(test, pat)}
+        if not commands:
+            commands = {cmd for pat, cmd in (previous or {}).get("test_commands", {}).items()
+                        if glob_match(test, pat)}
+        if len(commands) == 1:
+            test_commands[test] = next(iter(commands))
+        elif commands:
+            test_commands[test] = ""       # neither display nor run an arbitrary ambiguous command
+            blocked.append(f"{test}: ambiguous test commands: {', '.join(sorted(commands))}")
+        elif not test.endswith(".py"):
+            blocked.append(f"{test}: no executable test command; declare test_commands or retire the test")
+    return test_commands, blocked
+
+
+def _read_git_paths(root, *arguments):
+    """Run Git against a disposable index: diff may refresh even with optional locks off."""
+    import shutil
+    where=subprocess.run(['git','-C',str(root),'rev-parse','--git-path','index'],capture_output=True,check=True)
+    source=Path(os.fsdecode(where.stdout).strip())
+    if not source.is_absolute(): source=root/source
+    with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
+        index=Path(folder)/'index'
+        if source.exists(): shutil.copyfile(source,index)
+        env=dict(os.environ,GIT_OPTIONAL_LOCKS='0',GIT_INDEX_FILE=str(index))
+        result=subprocess.run(['git','-C',str(root),*arguments],env=env,capture_output=True,check=True)
+        return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
