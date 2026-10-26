@@ -238,9 +238,8 @@ def test_first_error_validator_fits_codes_first(tmp_path):
     (tmp_path / "shop.py").write_text("def place(id, amount):\n    if not id:\n        return False, ['missing_id']\n"
         "    return amount >= 0, ['bad_amount'] * (amount < 0)\n")
     result = run_model(tmp_path, model_path)
-    expected_warning = ("invariant_untested: each_defect_rejected, first_defect_reported "
-                        "have no TESTED_BY test; bind a test that fails when the rule is broken")
-    assert result.status == "pass" and result.warnings == [expected_warning], (result.problems, result.warnings)
+    assert result.status == "pass" and result.warnings == [], (result.problems, result.warnings)
+    assert "first_defect_reported" in result.rules and "every_defect_reported" not in result.rules
 
 
 def test_requires_and_conflicts_limit_the_combinations():

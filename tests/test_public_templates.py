@@ -39,7 +39,7 @@ def _template_env():
 
 
 class PublicTemplateTests(unittest.TestCase):
-    def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None, components=None):
+    def run_kit_template(self, files, model_id, code, *, fill="", expected_returncode=None, components=None, known_bad=()):
         """Write a model-kit template into a tiny git project, list it in the map and run it.
 
         ``components`` ({id: files}) replaces the scanned components; the model is listed in the first one.
@@ -66,6 +66,12 @@ class PublicTemplateTests(unittest.TestCase):
             data["components"][0]["models"] = [files[0].path]
             (root / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
             result = flowguard_map("models", model_id)
+            if known_bad:
+                proof = subprocess.run([sys.executable, "-m", "flowguard.map.proof", str(root), str(root / files[0].path)],
+                                       cwd=root, env=_template_env(), text=True, capture_output=True, check=True)
+                payload = json.loads(proof.stdout)
+                self.assertEqual(payload["status"], "pass", payload)
+                self.assertEqual(payload["known_bad"], sorted(known_bad))
         if expected_returncode is not None:
             self.assertEqual(expected_returncode, result.returncode, result.stdout + result.stderr)
         return result.stdout + result.stderr
@@ -158,10 +164,11 @@ class PublicTemplateTests(unittest.TestCase):
         ui = {"web/index.html": '<button id="show">Show</button><button id="hide">Hide</button>\n',
               "web/app.js": "function showDetails() {}\nfunction hideDetails() {}\n"}
         self.assertIn("placeholder anchor", self.run_kit_template(files, "ui_journey", ui, expected_returncode=1))
-        filled = self.run_kit_template(files, "ui_journey", ui, fill="web", expected_returncode=0)
+        filled = self.run_kit_template(files, "ui_journey", ui, fill="web", expected_returncode=0,
+                                       known_bad=("show_opens_an_unknown_state", "details_dialog_cannot_close", "hide_has_no_transition"))
         self.assertIn("PASS  ui_journey", filled)
         for variant in ("show_opens_an_unknown_state", "details_dialog_cannot_close", "hide_has_no_transition"):
-            self.assertIn(variant, filled)
+            self.assertNotIn(variant, filled)
         self.assertNotIn("violated by no known-bad variant", filled)
         missing = dict(ui, **{"web/index.html": '<button id="show">Show</button>\n'})
         self.assertIn("control hide is in the UI source",

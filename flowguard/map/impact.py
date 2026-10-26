@@ -541,7 +541,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     needs_review = [cid for cid in sorted(direct) if cid in by_id and is_stale(root, by_id[cid], inv)]
     from .testtree import test_functions
     function_counts = {}
-    for path in inv.tests:
+    for path in inv.tests if tests else ():
         if path.endswith(".py"):
             try:
                 function_counts[path] = len(test_functions(read_source(root / path)))

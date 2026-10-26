@@ -349,13 +349,27 @@ def _check_without_writes(root: Path, capsys):
     return result
 
 
+def _run_models_with_results(root, capsys, *arguments):
+    from unittest.mock import patch
+    from flowguard.map import cli as map_cli
+    original, captured = map_cli.run_models, []
+    def capture(*args, **kwargs):
+        results = original(*args, **kwargs)
+        captured.extend(results)
+        return results
+    with patch.object(map_cli, "run_models", side_effect=capture):
+        code, output, errors = _run(root, capsys, "map", "models", *arguments)
+    return code, output, errors, captured
+
+
 def _assert_current_lending(root: Path, capsys) -> None:
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s)" in output and not errors, (output, errors)
-    code, output, errors = _run(root, capsys, "map", "models", "lending")
+    code, output, errors, results = _run_models_with_results(root, capsys, "lending")
     assert code == 0 and any(line.split()[:2] == ["PASS", "lending"] for line in output.splitlines()) and not errors, (output, errors)
-    assert "never_over_lent" in output and "limit_respected" in output
-    assert "no_idle_copy_while_held" not in output
+    assert {"never_over_lent", "limit_respected"} <= set(results[0].rules)
+    assert "no_idle_copy_while_held" not in results[0].rules
+    assert "rules:" not in output
 
 
 def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
@@ -568,8 +582,8 @@ def test_target_view_restores_imports_and_preserves_canonical_root_and_child_por
 
     root = _namespace_project(tmp_path)
     capsys.readouterr()
-    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
-    assert code == 0 and "one_step_1" in output and "one_step_2" not in output, (output, errors)
+    code, output, errors, results = _run_models_with_results(root, capsys, "ns_parent")
+    assert code == 0 and results[0].rules == ["one_step_1"], (output, errors)
     view = build_target_view(root, _load_map(root), load_target(root))
     path_before = list(sys.path)
     names = ("ns_parent", "ns_child", "_view_setting", "namespace_subject",
@@ -584,8 +598,8 @@ def test_target_view_restores_imports_and_preserves_canonical_root_and_child_por
         assert {key: sys.modules.get(key) for key in names} == modules_before
     # The same-process view has gone away; ordinary commands must still load the
     # current helper and current child, not the target's imported modules.
-    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
-    assert code == 0 and "one_step_1" in output and "one_step_2" not in output, (output, errors)
+    code, output, errors, results = _run_models_with_results(root, capsys, "ns_parent")
+    assert code == 0 and results[0].rules == ["one_step_1"], (output, errors)
     assert (root / ".flowguard/models/_view_setting.py").read_text() == "VALUE = 1\n"
 
 
@@ -606,8 +620,8 @@ def test_target_removed_model_cannot_fall_back_to_current_disk(tmp_path, capsys)
     assert code == 1 and not errors, (output, errors)
     assert any(line.startswith("ERROR ") and "ns_child" in line for line in output.splitlines()), output
     assert (root / ".flowguard/models/ns_child.py").read_bytes() == old_child
-    code, output, errors = _run(root, capsys, "map", "models", "ns_parent")
-    assert code == 0 and "one_step_1" in output, (output, errors)
+    code, output, errors, results = _run_models_with_results(root, capsys, "ns_parent")
+    assert code == 0 and results[0].rules == ["one_step_1"], (output, errors)
 
 
 @pytest.mark.parametrize("statement,expected_code", [
@@ -1034,9 +1048,9 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     assert code == 0 and not errors, (output, errors)
     code, output, errors = _run(root, capsys, "map", "check")
     assert code == 0 and "0 error(s), 0 warning(s)" in output and not errors, (output, errors)
-    code, output, errors = _run(root, capsys, "map", "models", "lending", "--tests")
+    code, output, errors, results = _run_models_with_results(root, capsys, "lending", "--tests")
     assert code == 0 and any(line.split()[:2] == ["PASS", "lending"] for line in output.splitlines()), (output, errors)
-    assert "no_idle_copy_while_held" in output
+    assert "no_idle_copy_while_held" in results[0].rules
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors, (output, errors)
     assert not any(line.startswith("target:") for line in output.splitlines())
@@ -1595,7 +1609,11 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
         assert any(f.node == "model shelf_rule" and f.message == message for f in report.errors), report
         assert not any(f.message == message for f in report.todos + report.warnings), report
 
-    model_path.write_bytes(original_model)
+    partial = original_model.decode().replace("invariants=(RULE,)", "invariants=(RULE, SECOND)")
+    partial += ('\nTESTED_BY = {"one_loan_step": ["tests/test_shelf.py:test_advance"]}\n'
+                'SECOND = Invariant("at_most_one", "no double advance", lambda s,t: s <= 1)\n')
+    model_path.write_text(partial, encoding="utf-8")
+    partial_model = model_path.read_bytes()
     view = build_target_view(root, load_map(root), load_target(root))
     result = prove(root, logical_model, view=view)
     assert result.status == "pass" and not result.code_gaps and not result.problems, result
@@ -1605,7 +1623,7 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     assert any(f.node == "model shelf_rule" and f.code == "invariant_untested" for f in report.warnings), report
     assert not any(f.code == "invariant_untested" for f in report.errors + report.todos), report
     assert native.main(["check", "--root", str(root)]) == 0
-    assert code_path.read_bytes() == original_code and model_path.read_bytes() == original_model
+    assert code_path.read_bytes() == original_code and model_path.read_bytes() == partial_model
 
 
     # Four actual hard boundaries must remain ERROR, independently of TODO
