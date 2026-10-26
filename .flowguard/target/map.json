@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-405: Anchors stay inside the model's scope; USES binds code read-only",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
