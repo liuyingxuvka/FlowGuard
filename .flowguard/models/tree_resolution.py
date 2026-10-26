@@ -23,33 +23,7 @@ IMPLEMENTED_BY = {
     "BuildTree": "flowguard/map/tree.py:build_tree",
     "ComponentParents": "flowguard/map/tree.py:component_parent_findings",
 }
-TESTED_BY = {
-    "explicit_parent_wins": [
-        "tests/test_flowguard_map_contracts.py:test_child_import_of_its_explicit_parent_preserves_tree_and_impact",
-    ],
-    "single_importer_is_parent": [
-        "tests/test_flowguard_map_contracts.py:test_model_tree_parent_defaults_and_nesting_warnings",
-    ],
-    "local_import_is_not_a_parent": [
-        "tests/test_flowguard_map.py:test_change_selects_a_child_that_imports_its_parent_in_a_function",
-    ],
-    "components_then_anchor_then_system": [
-        "tests/test_flowguard_map_contracts.py:test_model_tree_anchor_components_and_root_defaults",
-    ],
-    "nesting_mistakes_are_errors": [
-        "tests/test_flowguard_map_contracts.py:test_model_tree_parent_defaults_and_nesting_warnings",
-        "tests/test_flowguard_map_contracts.py:test_old_mesh_mistakes_are_tree_errors",
-    ],
-    "component_parent_same_layer": [
-        "tests/test_flowguard_map_contracts.py:test_component_parent_mistakes_are_errors",
-    ],
-    "component_parents_known_and_acyclic": [
-        "tests/test_flowguard_map_contracts.py:test_component_parent_mistakes_are_errors",
-    ],
-    "child_component_models_count_for_parent": [
-        "tests/test_map_views.py:test_component_parent_nests_and_rolls_up",
-    ],
-}
+TESTED_BY = {'explicit_parent_wins': ['tests/test_flowguard_map_contracts.py:test_child_import_of_its_explicit_parent_preserves_tree_and_impact'], 'single_importer_is_parent': ['tests/test_flowguard_map_contracts.py:test_model_tree_parent_defaults_and_nesting_warnings'], 'local_import_is_not_a_parent': ['tests/test_tree_resolution.py:test_change_selects_a_child_that_imports_its_parent_in_a_function'], 'components_then_anchor_then_system': ['tests/test_flowguard_map_contracts.py:test_model_tree_anchor_components_and_root_defaults'], 'nesting_mistakes_are_errors': ['tests/test_flowguard_map_contracts.py:test_model_tree_parent_defaults_and_nesting_warnings', 'tests/test_flowguard_map_contracts.py:test_old_mesh_mistakes_are_tree_errors'], 'component_parent_same_layer': ['tests/test_flowguard_map_contracts.py:test_component_parent_mistakes_are_errors'], 'component_parents_known_and_acyclic': ['tests/test_flowguard_map_contracts.py:test_component_parent_mistakes_are_errors'], 'child_component_models_count_for_parent': ['tests/test_map_views.py:test_component_parent_nests_and_rolls_up']}
 
 # Base tree: components app and lib (layer core) and ui (layer top); model m is the one placed.
 # A model is (id, PARENT or None, COMPONENTS, first anchor's component, imported at top level by, imported in a function by).

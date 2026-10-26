@@ -25,21 +25,7 @@ NOT_MODELED = {
     "flowguard/map/facts.py:CodeFacts._sources": "per-instance cache of parsed source text for CodeFacts queries; no "
         "behaviour of its own, exercised by tests/test_flowguard_map_facts.py",
 }
-TESTED_BY = {
-    "each_defect_rejected": [
-        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant",
-        "tests/test_flowguard_map_proof.py:test_uncovered_invariant_fails_the_model_everywhere"
-    ],
-    "clean_input_accepted": [
-        "tests/test_flowguard_map_proof.py:test_fixed_code_passes_and_every_run_executes"
-    ],
-    "benign_features_neutral": [
-        "tests/test_flowguard_map_proof.py:test_plain_function_invariant_is_accepted"
-    ],
-    "first_defect_reported": [
-        "tests/test_flowguard_map_proof.py:test_tested_by_must_name_a_design_invariant"
-    ]
-}
+TESTED_BY = {'each_defect_rejected': ['tests/test_model_proof.py:test_tested_by_must_name_a_design_invariant', 'tests/test_model_proof.py:test_uncovered_invariant_fails_the_model_everywhere'], 'clean_input_accepted': ['tests/test_model_proof.py:test_fixed_code_passes_and_every_run_executes'], 'benign_features_neutral': ['tests/test_model_proof.py:test_plain_function_invariant_is_accepted'], 'first_defect_reported': ['tests/test_model_proof.py:test_tested_by_must_name_a_design_invariant']}
 
 BASE = '''from types import SimpleNamespace
 from flowguard import Workflow, FunctionResult, Invariant, InvariantResult

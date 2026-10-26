@@ -15,7 +15,7 @@ from typing import Any, Mapping
 
 
 from flowguard.pytest_shards import (  # noqa: E402
-    PARTITION_ALGORITHM,
+    PARTITION_ALGORITHM, SUBTREE_PARTITION_ALGORITHM,
     aggregate_pytest_projections,
     nodeid_fingerprint,
     normalize_nodeids,
@@ -141,6 +141,7 @@ def _deadline_blocked_shard_row(
 
     row = {
         "shard_id": shard_id,
+        "seconds": 0.0,
         "status": "blocked",
         "exit_code": 124,
         "timed_out": False,
@@ -296,6 +297,7 @@ def _run_one_shard(
     row = {
         "shard_id": shard_id,
         "status": shard_status,
+        "seconds": shard_run.get("duration_seconds",0.0),
         "exit_code": shard_run["exit_code"],
         "timed_out": shard_run["timed_out"],
         "cleanup_confirmed": shard_run["cleanup_confirmed"],
@@ -452,7 +454,32 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
     nodeids = collected_nodeids
     runnable_nodeids = collected_nodeids
 
-    shards = partition_nodeids(runnable_nodeids, int(args.shards))
+    from flowguard.map.testtree import duration_weights, test_units
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map, MapError, ignore_patterns
+    from flowguard.map.tree import build_tree
+    known=duration_weights(root,runnable_nodeids)
+    units=None;weights=None;balance='hash';balance_notes=[]
+    if known and (len(runnable_nodeids)-len(known))/len(runnable_nodeids)<=0.05:
+        mean=sum(known.values())/len(known)
+        weights={node:known.get(node,mean) for node in runnable_nodeids}
+        try:data=load_map(root)
+        except MapError:data={'components':[]}
+        inv=build_inventory(root,ignore_patterns(data),write_cache=False,import_roots=tuple(data.get('import_roots',())))
+        tree=build_tree(root,data,inv)
+        units=test_units(root,data,inv,tree,runnable_nodeids,weights,int(args.shards))
+        balance='seconds'
+        balance_notes.append(f'recorded seconds ({len(known)} of {len(runnable_nodeids)} tests, .flowguard/cache/test-durations.json); {int(args.shards)} shards of whole subtrees')
+        share=sum(weights.values())/int(args.shards)
+        for label,items in units.items():
+            cost=sum(weights[node] for node in items)
+            if '::' in label and cost>share:
+                balance_notes.append(f'{label} alone takes {cost:.1f}s, over the per-shard share {share:.1f}s; split that test')
+    else:
+        balance_notes.append(f'duration record covers {len(known)} of {len(runnable_nodeids)} tests; hash partition this run, recording seconds for the next')
+    shards = partition_nodeids(runnable_nodeids, int(args.shards),units=units,weights=weights)
+    if units is not None:
+        balance_notes[0]=f'recorded seconds ({len(known)} of {len(runnable_nodeids)} tests, .flowguard/cache/test-durations.json); {len(shards)} shards of whole subtrees'
     partition_audit = validate_partition(runnable_nodeids, shards)
     if not partition_audit["exact_union"]:
         payload = _blocked_payload(
@@ -499,6 +526,10 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
                 shard_results[index] = future.result()
 
     shard_rows = [shard_results[index][0] for index in range(len(shards))]
+    for index,row in enumerate(shard_rows):
+        row.setdefault('seconds',0.0)
+        row['units']=[label for label,items in (units or {}).items() if set(items)<=set(shards[index])]
+
     projections = [
         projection
         for index in range(len(shards))
@@ -572,6 +603,8 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             "leaf_collections": len(shards),
             "additional_full_collections": 0,
         },
+        "balance": balance,
+        "balance_notes": balance_notes,
         "planned_count": len(nodeids),
         "executed_count": len(runnable_nodeids),
         "not_run_count": 0,
@@ -579,13 +612,34 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             **partition_audit,
             "requested_shard_count": int(args.shards),
             "effective_shard_count": len(shards),
-            "algorithm": PARTITION_ALGORITHM,
+            "algorithm": SUBTREE_PARTITION_ALGORITHM if units is not None else PARTITION_ALGORITHM,
         },
         "shards": shard_rows,
         "pytest_execution": execution,
         "blockers": blockers,
         "run_id": "pytest-shards:" + nodeid_fingerprint(nodeids).split(":", 1)[1],
     }
+    payload['test_file_advice']=[]
+    if status in {'pass','fail','partial'}:
+        from flowguard.map.common import content_digest
+        from flowguard.map.testtree import DURATION_SCHEMA
+        seconds={}
+        for row in shard_rows:
+            manifest=_read_object(Path(row['node_manifest_path'])) or {}
+            seconds.update({node:value for node,value in manifest.get('seconds',{}).items() if node in runnable_nodeids})
+        files={}
+        for node in seconds:
+            path=node.partition('::')[0]
+            try:files[path]=content_digest(root/path)
+            except OSError:pass
+        _write_json(root/'.flowguard/cache/test-durations.json',{'schema':DURATION_SCHEMA,'files':files,'seconds':seconds})
+        from flowguard.map.testtree import test_file_findings
+        if units is None:
+            try:data=load_map(root)
+            except MapError:data={'components':[]}
+            inv=build_inventory(root,ignore_patterns(data),write_cache=False,import_roots=tuple(data.get('import_roots',())))
+            tree=build_tree(root,data,inv)
+        payload['test_file_advice']=[finding.message for finding in test_file_findings(root,data,inv,tree) if finding.level=='info' and finding.code=='large_test_file']
     _write_json(output_root / "aggregate.json", payload)
     return (0 if status == "pass" else 1 if status in {"fail", "partial"} else 70), payload
 
@@ -617,11 +671,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _summary(payload: Mapping[str, Any]) -> str:
     """A few lines for the default output; the full payload needs --json."""
-    lines = [f"status: {payload.get('status')}  executed {payload.get('executed_count', 0)}"
+    lines = [*("balance: "+note for note in payload.get("balance_notes",())), f"status: {payload.get('status')}  executed {payload.get('executed_count', 0)}"
              f" of {payload.get('planned_count', 0)}"]
     for shard in payload.get("shards", ()):
         lines.append(f"  {shard.get('shard_id')} {shard.get('status')} exit={shard.get('exit_code')}"
-                     f" executed={shard.get('executed_count')}")
+                     f" executed={shard.get('executed_count')} {shard.get('seconds',0):.1f}s"
+                     +(f" subtrees: {', '.join(shard['units'][:3])}"+(f", +{len(shard['units'])-3}" if len(shard['units'])>3 else '') if shard.get('units') else ''))
+    lines += ["INFO large_test_file "+message for message in payload.get("test_file_advice",())]
     lines += [f"  blocker: {blocker}" for blocker in payload.get("blockers", ())]
     lines.append(f"details: {payload.get('output_root', '')} (full JSON: rerun with --json)")
     return "\n".join(lines)

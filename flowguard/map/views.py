@@ -214,7 +214,8 @@ def _read_facts(root, data, inv, tree, *, raw=None, source_cache=None, view=None
     if raw is None:
         raw = discover_inventory(root, inv, write_cache=view is None, data=data)
     cache = source_cache if source_cache is not None else {}
-    functions = _test_function_index(root, inv, source_cache=cache)
+    from .testtree import TestIndex
+    functions = TestIndex(root,data,inv,tree,_test_function_index(root, inv, source_cache=cache))
     coverage = coverage_facts(root, data, inv, tree, raw, source_cache=cache)
     return raw, functions, coverage
 
@@ -503,24 +504,13 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         target_lines.append("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
     from .testtree import test_calls, resolve_test_anchor
     from .mapfile import process_model_reason
-    indices = _test_function_index(root, inv)
-    bound, calling = set(), set()
-    call_index = {}
-    for path in indices:
-        try:
-            call_index[path] = test_calls(path, (root / path).read_text(encoding="utf-8"), inv)
-        except OSError:
-            continue
+    indices=functions
+    bound=functions.bound_functions
+    calling=set()
+    call_index=functions.layout['calls']
     for node in tree.nodes.values():
-        anchors = set(node.contract.get("IMPLEMENTED_BY", {}).values())
-        for values in node.contract.get("TESTED_BY", {}).values():
-            for anchor in values:
-                path, _, symbol = anchor.partition(":")
-                name = resolve_test_anchor(root / path, symbol)
-                if name:
-                    bound.add((path, name))
-        calling.update((path, name) for path, calls in call_index.items()
-                       for name, values in calls.items() if values & anchors)
+        anchors=set(node.contract.get('IMPLEMENTED_BY',{}).values())
+        calling.update((path,name) for path,calls in call_index.items() for name,values in calls.items() if values & anchors)
     all_tests = {(path, name) for path, names in indices.items() for name in names}
     tests_line = (f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
                   f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither"
@@ -964,13 +954,18 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
         body='\n'.join(lines[:-1]) if ending else text
         return body[:max(0,1996-len(ending))]+'...'+('\n'+ending if ending else '')
     if inv.is_test(path):
-        header=f'locate {path}'+('::'+symbol.replace('.','::') if symbol else '')+' (test)'
+        from .testtree import test_layout, common_position, test_file_findings
+        ids=[path+'::'+name.replace('.','::') for name in functions.get(path,{})] if not symbol else [path+'::'+symbol.replace('.','::')+('['+given.split('[',1)[1] if '[' in given else '')]
+        layout=test_layout(root,data,inv,tree,ids)
+        position=common_position(layout['positions'].values(),layout['parents'])
+        header=f'locate {path}'+('::'+symbol.replace('.','::') if symbol else '')+f' (test; position {position})'
         if not symbol:
             counts={mid:len({name for test,name in bindings if test==path and any(m==mid for m,rule in bindings[(test,name)])}) for mid in tree.nodes}
             bound={name for test,name in bindings if test==path}
-            return finish([header,'bound: '+(', '.join(f'{mid} {count}' for mid,count in sorted(counts.items()) if count) or 'none')+f'; unbound {len(set(functions.get(path,{}))-bound)}'])
+            lint=[finding.message for finding in test_file_findings(root,data,inv,tree) if finding.component==path]
+            return finish([header,'bound: '+(', '.join(f'{mid} {count}' for mid,count in sorted(counts.items()) if count) or 'none')+f'; unbound {len(set(functions.get(path,{}))-bound)}',*(['lint: '+'; '.join(lint)] if lint else [])])
         bound=bindings.get((path,symbol),())
-        lines=[header,'bound to: '+(capped(f'{mid} (rule {rule})' for mid,rule in bound) if bound else 'none (unbound)')]
+        lines=[header,'bound to: '+(capped(f'{mid} (rule {rule})' for mid,rule in bound) if bound else f'none (unbound; position {position})')]
         called=sorted(calls.get(path,{}).get(symbol,()))
         call_owners={fn:owned(fn) for fn in called}
         lines.append('calls: '+(capped(fn+(' (owned by '+','.join(call_owners[fn])+')' if call_owners[fn] else ' (unowned)') for fn in called) or 'none'))
@@ -981,10 +976,7 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
             choices=sorted({mid for mids in call_owners.values() for mid in mids},key=lambda mid:(-len(tree.ancestors(mid)),mid))
             if choices:lines.append(f"next: bind it in {choices[0]}'s TESTED_BY if it checks one of its rules")
             else:
-                counts=defaultdict(int)
-                for fn in called:
-                    if fn.partition(':')[0] in owner:counts[owner[fn.partition(':')[0]]]+=1
-                component=min(counts,key=lambda cid:(-counts[cid],cid)) if counts else next((c['id'] for c in data['components'] if matches_any(path,c.get('tests',()))),'unmapped')
+                component=position
                 lines.append(f'next: if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound')
         return finish(lines)
     loc=path+(':'+symbol if symbol else '')

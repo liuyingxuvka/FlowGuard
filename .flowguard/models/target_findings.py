@@ -33,27 +33,7 @@ IMPLEMENTED_BY = {
     "Downgrade": "flowguard/map/target.py:moving_to_target",
     "Classify": "flowguard/map/target.py:check_target",
 }
-TESTED_BY = {
-    "port_change_needs_parent": ["tests/test_flowguard_target.py:test_port_change_without_parent_is_an_error"],
-    "design_mistakes_are_errors": [
-        "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
-    ],
-    "missing_code_is_todo": [
-        "tests/test_flowguard_target.py:test_target_check_reports_unwritten_code_as_todo",
-    ],
-    "only_changed_subjects_move": [
-        "tests/test_flowguard_target.py:test_copied_but_unchanged_entry_stays_an_error",
-    ],
-    "strict_never_moves": [
-        "tests/test_flowguard_target.py:test_change_marks_only_planned_breakage_and_keeps_tests",
-    ],
-    "old_findings_do_not_block": [
-        "tests/test_flowguard_target.py:test_old_findings_of_unchanged_models_do_not_block",
-    ],
-    "warnings_never_block": [
-        "tests/test_flowguard_target.py:test_target_check_warns_about_debts_it_makes_stale",
-    ],
-}
+TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale']}
 
 
 @dataclass(frozen=True)

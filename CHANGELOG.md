@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: tests have positions in the model tree, visible in component reads and test lookup. `release --shards N` balances whole subtrees from file-validated duration records; its first run keeps the stable hash fallback. Oversized or mixed test files warn at soft limits and must split at hard limits; one-to-one model/test files split together in a target. `large_test_seconds` controls advice only. Linux nested subprocesses clean their own groups while the outer session retains its deadline.
+
 - Projects using FlowGuard: model size warnings start above 8 rules or 2,000 explored sequences. More than 12 rules fails map checks; more than 10,000 sequences fails the model and cannot be waived. Time is advice only, configured by `large_model_seconds` (default 10). A single decision table can retain a reasoned soft-limit debt. Read views now have their own smaller models.
 
 - Projects using FlowGuard: `read --field NAME` lists a field’s writers, readers, rules and tests. Read shows relation counts, stage or branch labels and consumed outputs; Mermaid separates placement, composition and consumption. Architecture review lists central models and the models affected by their ports or code.

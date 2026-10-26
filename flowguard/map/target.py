@@ -51,7 +51,7 @@ def _remove_readonly(function, path, info):
     function(path)
 
 
-TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
+TODO_CODES = {"test_file_not_split","anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
               "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
               "dep_unused", "layer_violation", "dependency_cycle"}
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
@@ -302,6 +302,10 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
     from .port import escalation_set, port_delta
     old_tree = build_tree(root, current, inv)
+    from .facets import moved_model_rules
+    from .testtree import test_file_not_split_findings
+    for finding in test_file_not_split_findings(root,current,inv,old_tree,tree,moved_model_rules(root,current,target,view)):
+        add('todos','test '+finding.component,finding.code,finding.message)
     ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in target_model_paths(root, current, target)}
     for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):

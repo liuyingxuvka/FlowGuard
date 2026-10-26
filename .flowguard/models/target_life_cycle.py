@@ -37,19 +37,7 @@ NOT_MODELED = {
     "flowguard/map/target.py:main": "Argument parsing only; it calls start_target, add_to_target, check_target, "
                                     "promote_target and drop_target, which this model anchors.",
 }
-TESTED_BY = {
-    "target_check_runs_no_bound_tests": ["tests/test_flowguard_target.py:test_target_check_runs_no_pytest_and_promote_runs_one_check"],
-    "promote_runs_one_full_check": ["tests/test_flowguard_target.py:test_target_check_runs_no_pytest_and_promote_runs_one_check"],
-    "one_target_at_a_time": [
-        "tests/test_flowguard_target.py:test_target_start_add_drop_and_read_line",
-    ],
-    "promote_only_when_clean": [
-        "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
-    ],
-    "noop_target_never_promoted": [
-        "tests/test_flowguard_target.py:test_unchanged_target_is_target_noop",
-    ],
-}
+TESTED_BY = {'target_check_runs_no_bound_tests': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'noop_target_never_promoted': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
 
 PROGRAMS = (
     ("storage", ("START", "ADD_COMPONENT", "ADD_MODEL", "START_AGAIN", "CHECK", "DROP_PREVIEW", "DROP_YES")),

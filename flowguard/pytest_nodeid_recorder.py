@@ -22,6 +22,7 @@ from typing import Any
 
 _NODEIDS: list[str] = []
 _STATUSES: dict[str, str] = {}
+_SECONDS: dict[str, float] = {}
 _RANK = {"passed": 0, "xfailed": 1, "skipped": 2, "xpassed": 3, "failed": 4, "error": 5}
 
 
@@ -49,6 +50,7 @@ def pytest_runtest_logreport(report: Any) -> None:
     else:
         status = "passed"
     _record(nodeid, status)
+    _SECONDS[nodeid]=_SECONDS.get(nodeid,0.0)+max(0.0,float(getattr(report,"duration",0.0)))
 
 
 def pytest_collectreport(report: Any) -> None:
@@ -66,6 +68,7 @@ def pytest_sessionstart(session: Any) -> None:
         return
     _NODEIDS.clear()
     _STATUSES.clear()
+    _SECONDS.clear()
     _RUN.clear()
     root = Path(str(session.config.rootpath)).resolve()
     _RUN["run_id"] = uuid.uuid4().hex
@@ -98,6 +101,7 @@ def pytest_sessionfinish(session: Any, exitstatus: int) -> None:
         "junit_digest": junit_digest,
         "nodeids": list(_NODEIDS),
         "statuses": dict(_STATUSES),
+        "seconds": dict(_SECONDS),
         "exit_status": int(exitstatus),
         "exit_code": int(exitstatus),
         "command": _RUN.get("command", ""),

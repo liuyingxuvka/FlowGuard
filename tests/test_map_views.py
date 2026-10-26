@@ -1,21 +1,12 @@
-"""Finite checks for the human/agent map views, including strict output budgets."""
-import json
+"""Tests grouped by their model or native component."""
+from __future__ import annotations
+import pytest,os,json
 from pathlib import Path
-
-from flowguard.map.inventory import Inventory, PyInfo
-from flowguard.map.views import file_outline, find_owners, render_show
-
-
-def _inventory(root):
-    return Inventory(root, [], [], [], {}, {}, {})
-
-
-def _component(name, *, responsibilities=(), summary=''):
-    return dict(id=name, summary=summary, responsibilities=list(responsibilities),
-                files=[], status='draft', fingerprint='', layer='', depends_on=[])
 
 
 def test_show_budget_keeps_flows_and_names_hidden_components(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     data = dict(project='demo', components=[_component('alpha', summary='a' * 200), _component('beta', summary='b' * 200)],
                 flows=[dict(id='checkout', summary='request to result', steps=['alpha:run'])])
     inv = _inventory(tmp_path)
@@ -29,6 +20,8 @@ def test_show_budget_keeps_flows_and_names_hidden_components(tmp_path):
 
 
 def test_find_responsibility_breaks_equal_summary_score(tmp_path):
+    from flowguard.map.views import find_owners
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     data = dict(components=[_component('alpha', summary='impact selection'),
                             _component('records', responsibilities=['impact selection'])])
     scores = find_owners(data, _inventory(tmp_path), ['impact', 'selection'])
@@ -37,6 +30,9 @@ def test_find_responsibility_breaks_equal_summary_score(tmp_path):
 
 
 def test_find_matches_plural_and_camel_case_words(tmp_path):
+    from flowguard.map.inventory import Inventory, PyInfo
+    from flowguard.map.views import find_owners
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     data = dict(components=[_component('api', summary='cancel endpoint', responsibilities=['route cancel requests']),
                             _component('orders', responsibilities=['place orders and cancel them'])])
     assert find_owners(data, _inventory(tmp_path), ['cancel', 'order'])[0][1] == 'orders'
@@ -46,6 +42,7 @@ def test_find_matches_plural_and_camel_case_words(tmp_path):
 
 
 def test_digest_captures_module_assignments_and_guarded_definitions_without_bodies(tmp_path):
+    from flowguard.map.views import file_outline
     (tmp_path / 'api.py').write_text('''VERSION = 3
 if VERSION:
     def guarded(value):
@@ -65,17 +62,9 @@ except ImportError:
     assert 'secret_body' not in output and 'return value' not in output
 
 
-def test_find_ranks_the_component_that_defines_an_exact_symbol_first(tmp_path):
-    inv = Inventory(tmp_path, ['owner.py'], ['owner.py'], [],
-                    {'owner.py': PyInfo('owner', {'anchor_problems', 'Thing.anchor_problems'})}, {}, {})
-    data = dict(components=[_component('descriptions', summary='anchor problems',
-                                       responsibilities=['anchor problems']),
-                            dict(_component('implementation'), files=['owner.py'])])
-    for words in (['anchor_problems'], ['ANCHOR_PROBLEMS'], ['Thing.anchor_problems']):
-        assert find_owners(data, inv, words)[0][1] == 'implementation'
-
-
 def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__component as _component
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map import lint, proof
@@ -124,6 +113,9 @@ def test_show_renders_the_model_tree_and_cheap_debt_rules(tmp_path, monkeypatch)
 
 
 def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
+    import json
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__component as _component
     import json
     import re
     import pytest
@@ -187,6 +179,8 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
 
 
 def test_read_component_prints_five_facets_for_component_and_models(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__component as _component
     import sys
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.inventory import build_inventory
@@ -246,7 +240,9 @@ def broken_variants():
     assert 'rules: a: rule a; b: rule b' in detail and 'known-bad: x, y' in detail and 'untested: b' in detail
     assert 'rules: not readable statically; python -m flowguard map models child prints them' in detail
     assert 'known-bad: x, y' in detail and 'not_a_variant' not in detail and 'from TESTED_BY' not in detail
-    assert '4 functions, 3 bound' in detail and 'TestB.test_same' in detail
+    assert '4 functions here and below (bound 3, unbound 1)' in detail
+    from flowguard.map.views import render_locate
+    assert 'none (unbound; position app)' in render_locate(tmp_path,data,inv,'tests/test_app.py::TestB::test_same')
     assert 'test_not_a_function' not in detail
     assert 'not modeled: 1' in detail and 'Run -> facet_app.py:run' in detail
     assert 'app_imports_store' in detail and '(generated by the system model)' in detail
@@ -266,6 +262,8 @@ def broken_variants():
 
 
 def test_target_show_keeps_current_character_budgets_without_running_checks(tmp_path, monkeypatch):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     from flowguard.map import check, lint, proof, target
     from flowguard.map.targetfile import Target
 
@@ -300,6 +298,8 @@ def test_target_show_keeps_current_character_budgets_without_running_checks(tmp_
 
 
 def test_target_snapshots_keep_their_own_inventory_classification(tmp_path, monkeypatch):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__component as _component
     from flowguard.map import check, lint, proof, target
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.inventory import build_inventory
@@ -329,8 +329,8 @@ def test_target_snapshots_keep_their_own_inventory_classification(tmp_path, monk
         scoped.setattr(lint, 'run_lint', forbidden)
         scoped.setattr(target, 'check_target', forbidden)
         detail = render_show(tmp_path, data, inventory, component='alpha', detail=True, budget=8000, target=draft)
-        assert 'tests: 1 files: test_reclassified.py; 1 functions, 0 bound' in detail, detail
-        assert 'was: 0 files: -; 0 functions, 0 bound' in detail, detail
+        assert 'tests: 1 functions here and below (bound 0, unbound 1); files: test_reclassified.py' in detail, detail
+        assert 'was: 0 functions here and below (bound 0, unbound 0); files: -' in detail, detail
         system = render_show(tmp_path, data, inventory, component='system', detail=True, budget=8000, target=draft)
         assert 'code: 1 components, 1 source files' in system, system
         assert 'was: 1 components, 2 source files' in system, system
@@ -340,106 +340,9 @@ def test_target_snapshots_keep_their_own_inventory_classification(tmp_path, monk
     assert len(inventory.source) == 1 and inventory.tests == ['test_reclassified.py']
 
 
-def _fg232_view_project(tmp_path):
-    import json
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.inventory import build_inventory
-
-    marker = tmp_path / 'fg232-read-imported-code.txt'
-    guarded = f'from pathlib import Path\nPath({str(marker)!r}).write_text("imported")\n'
-    sources = {
-        'view232_members.py': guarded + 'class Members:\n    def may_borrow(self): return True\n',
-        'view232_catalog.py': guarded + 'class Catalog:\n' + ''.join(
-            f'    def {name}(self): return True\n'
-            for name in ('take', 'alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta')),
-        'view232_utils.py': guarded + 'LABEL = "module only"\n',
-        'view232_loans.py': guarded + '''from view232_members import Members
-import view232_catalog as stock
-import view232_utils
-class LoanService:
-    def __init__(self, catalog=None):
-        self.members = Members()
-        self.catalog = catalog or stock.Catalog()
-    def borrow(self):
-        self.members.may_borrow()
-        return self.catalog.take()
-    def inventory(self):
-        self.catalog.alpha()
-        self.catalog.beta()
-        self.catalog.gamma()
-        self.catalog.delta()
-        self.catalog.epsilon()
-        self.catalog.zeta()
-        self.catalog.eta()
-        return self.catalog.alpha()
-''',
-        'view232_subject.py': guarded + '''def by_model(): return True
-def by_scope(): return True
-def by_test(): return True
-def unexplained(): return True
-class Ledger:
-    def __init__(self): self.total = 0
-    def record(self): self.total += 1
-    def purge(self): self.total -= 1
-''',
-        'tests/test_subject.py': guarded + '''from view232_subject import by_test
-def test_by_test(): assert by_test() is True
-''',
-        '.flowguard/models/borrow_contract.py': guarded + '''MODEL_ID = "borrow_contract"
-COMPONENTS = ["loans"]
-IMPLEMENTED_BY = {"Borrow": "view232_loans.py:LoanService.borrow"}
-NOT_MODELED = {"view232_subject.py:by_scope": "Separate integration check"}
-def build_explorer(): raise AssertionError("read explored a user model")
-def conformance(): raise AssertionError("read replayed user code")
-''',
-        '.flowguard/models/subject_contract.py': guarded + '''MODEL_ID = "subject_contract"
-COMPONENTS = ["subject"]
-IMPLEMENTED_BY = {"ByModel": "view232_subject.py:by_model", "Record": "view232_subject.py:Ledger.record"}
-def build_explorer(): raise AssertionError("read explored a user model")
-def conformance(): raise AssertionError("read replayed user code")
-''',
-    }
-    for relative, source in sources.items():
-        path = tmp_path / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source, encoding='utf-8')
-    data = dict(schema='flowguard.map.v1', project='FG232 read fixture', layers=[], components=[
-        dict(_component('loans', summary='Borrow items', responsibilities=['coordinate borrowing']),
-             files=['view232_loans.py'], tests=[], models=['.flowguard/models/borrow_contract.py'],
-             entrypoints=['view232_loans.py:LoanService.borrow'], depends_on=['catalog', 'members', 'utils']),
-        dict(_component('catalog', summary='Store items', responsibilities=['store catalog']),
-             files=['view232_catalog.py'], tests=[], models=[]),
-        dict(_component('members', summary='Check members', responsibilities=['allow members']),
-             files=['view232_members.py'], tests=[], models=[]),
-        dict(_component('utils', summary='Labels', responsibilities=['label items']),
-             files=['view232_utils.py'], tests=[], models=[]),
-        dict(_component('subject', summary='Coverage examples', responsibilities=['process examples']),
-             files=['view232_subject.py'], tests=['tests/test_subject.py'], models=['.flowguard/models/subject_contract.py'],
-             entrypoints=[f'view232_subject.py:{name}' for name in ('by_model', 'by_scope', 'by_test', 'unexplained')]),
-    ], flows=[
-        dict(id='borrow', summary='Borrow an item', steps=['loans:LoanService.borrow', 'members:Members.may_borrow',
-                                                        'catalog:Catalog.take'], model='.flowguard/models/borrow_contract.py'),
-        dict(id='audit', summary='Audit catalog', steps=['loans:LoanService.inventory', 'catalog:Catalog.alpha']),
-    ], accepted_debts=[])
-    (tmp_path / '.flowguard/map.json').write_text(json.dumps(data), encoding='utf-8')
-    return data, build_inventory(tmp_path, DEFAULT_IGNORE), marker
-
-
-def _fg232_count_discovery(monkeypatch):
-    from flowguard.map import views
-
-    calls = []
-    original = views.discover_inventory
-
-    def _fg232_counted_discovery(*args, **kwargs):
-        calls.append((args, kwargs))
-        return original(*args, **kwargs)
-
-    monkeypatch.setattr(views, 'discover_inventory', _fg232_counted_discovery)
-    return calls
-
-
 def test_read_component_names_the_symbols_used_on_each_edge(tmp_path, monkeypatch):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__fg232_count_discovery as _fg232_count_discovery, view__fg232_view_project as _fg232_view_project
     import sys
 
     data, inv, marker = _fg232_view_project(tmp_path)
@@ -461,6 +364,8 @@ def test_read_component_names_the_symbols_used_on_each_edge(tmp_path, monkeypatc
 
 
 def test_mermaid_draws_dependencies_and_flows(tmp_path, monkeypatch):
+    import json
+    from _fg_helpers import view__fg232_count_discovery as _fg232_count_discovery, view__fg232_view_project as _fg232_view_project
     import json
     import sys
     from flowguard.map.targetfile import load_target
@@ -526,6 +431,8 @@ def test_mermaid_draws_dependencies_and_flows(tmp_path, monkeypatch):
 
 
 def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__fg232_count_discovery as _fg232_count_discovery, view__fg232_view_project as _fg232_view_project
     import sys
     import pytest
     from flowguard.map import proof
@@ -563,30 +470,9 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
     assert not any(name.startswith('view232_') for name in sys.modules)
 
 
-def _fg233_nested_project(tmp_path):
-    import json
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.inventory import build_inventory
-
-    data, _inv, marker = _fg232_view_project(tmp_path)
-    data['layers'] = ['records']
-    for component in data['components']:
-        component['layer'] = 'records'
-        if component['id'] in {'catalog', 'loans'}:
-            component['parent'] = 'records'
-        if component['id'] == 'loans':
-            component['tests'] = ['tests/test_parent233_loans.py']
-    parent = dict(_component('records', summary='Inventory subsystem', responsibilities=['group inventory']),
-                  layer='records', tests=[], models=[])
-    data['components'].insert(0, parent)
-    path = tmp_path / 'tests/test_parent233_loans.py'
-    path.write_text('from view232_loans import LoanService\ndef test_borrow(): assert LoanService().borrow() is True\n',
-                    encoding='utf-8')
-    (tmp_path / '.flowguard/map.json').write_text(json.dumps(data), encoding='utf-8')
-    return data, build_inventory(tmp_path, DEFAULT_IGNORE), marker
-
-
 def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__fg233_nested_project as _fg233_nested_project
     import re
     import sys
     from flowguard.__main__ import main
@@ -615,7 +501,7 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
     assert '## records ' in focused and '  ## catalog ' in focused and '  ## loans ' in focused
     assert '## subject ' not in focused and 'model borrow_contract:' in focused
     parent_block = focused.split('## records ', 1)[1].split('  ## ', 1)[0]
-    assert '1 functions' in parent_block and 'test_borrow' in parent_block
+    assert '1 functions here and below' in parent_block and 'tests/test_parent233_loans.py' in parent_block
     diagram = render_mermaid(tmp_path, data, inv, component='records')
     assert 'subgraph sg_c_records["records"]' in diagram
     start = diagram.index('subgraph sg_c_records["records"]')
@@ -628,6 +514,9 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
 
 def test_read_observes_hidden_names_missing_summary_and_model_counts(tmp_path):
     """Valid adversarial read inputs preserve names, budget, purpose and no-import promises."""
+    from pathlib import Path
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__component as _component
     import sys
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.inventory import build_inventory
@@ -676,135 +565,9 @@ def broken_variants(): return {"one": None, "two": None}
                        for module in tuple(sys.modules.values()) if module is not None)
 
 
-def test_read_component_never_hides_the_requested_component(tmp_path):
-    """A component larger than the budget is shortened inside its block, never hidden."""
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.inventory import build_inventory
-
-    def write(relative, source):
-        path = tmp_path / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source, encoding="utf-8")
-
-    names = [f"test_case_{index:03d}" for index in range(300)]
-    write("big.py", "def run(): return True\n")
-    write("tests/test_big.py", "".join(f"def {name}(): pass\n" for name in names))
-    bound = ", ".join(f'"tests/test_big.py:{name}"' for name in names)
-    write(".flowguard/models/big_model.py", f'''"""Protect the big component."""
-MODEL_ID = "big_model"
-COMPONENTS = ["big"]
-IMPLEMENTED_BY = {{"Run": "big.py:run"}}
-TESTED_BY = {{"works": [{bound}]}}
-RULES = [Invariant("works", "works", None)]
-def build_explorer(): raise RuntimeError("read must not explore")
-def broken_variants(): return {{"one": None}}
-''')
-    data = dict(project="big", layers=[], flows=[], components=[
-        dict(_component("big", summary="Serve the big component " * 20, responsibilities=["serve"]),
-             files=["big.py"], tests=["tests/test_big.py"])])
-    inv = build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
-    labels = ("purpose:", "rules:", "known-bad:", "code:", "tests:")
-    for budget in (8000, 600):
-        output = render_show(tmp_path, data, inv, component="big", detail=False, budget=budget)
-        assert len(output) <= budget
-        assert "## big" in output and "not shown: big" not in output
-        assert all(any(line.lstrip().startswith(label) for line in output.splitlines()) for label in labels)
-    assert "+297 more" in render_show(tmp_path, data, inv, component="big", detail=False, budget=8000)
-    full = render_show(tmp_path, data, inv, component="big", detail=False, budget=200000)
-    assert all(f"tests/test_big.py:{name}" in full for name in names[:3])
-    assert "+297 more" in full and names[3] not in full.split("model big_model", 1)[1]
-
-
-_PROBE_HEAD = '''"""Probe."""
-from flowguard.core import Invariant
-from flowguard.explorer import Explorer
-from flowguard.workflow import Workflow
-'''
-
-
-def _static_project(tmp_path, models):
-    """One component `app` anchored by the given models; read never imports them."""
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.inventory import build_inventory
-
-    for relative, source in {"app.py": "def run(): return True\n", "tests/test_app.py": "def test_run(): pass\n",
-                             **models}.items():
-        path = tmp_path / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source, encoding="utf-8")
-    data = dict(project="static", layers=[], flows=[], components=[
-        dict(_component("app", summary="Serve app", responsibilities=["serve"]), files=["app.py"],
-             tests=["tests/test_app.py"])])
-    return data, build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
-
-
-def _runtime_names(tmp_path):
-    """Import the fixture models (only in the test) for their real names."""
-    import importlib.util
-    import sys
-    models = tmp_path / ".flowguard/models"
-    before, found = set(sys.modules), {}
-    sys.path.insert(0, str(models))
-    try:
-        for path in sorted(models.glob("[!_]*.py")):
-            spec = importlib.util.spec_from_file_location(f"_static_truth_{path.stem}", path)
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-            found[module.MODEL_ID] = ({rule.name: rule.description for rule in module.build_explorer().invariants},
-                                      sorted(module.broken_variants()))
-    finally:
-        sys.path.remove(str(models))
-        for name in set(sys.modules) - before:
-            sys.modules.pop(name, None)
-    return found
-
-
-def _assert_static_equals_runtime(tmp_path, data, inv):
-    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
-    lines = detail.splitlines()
-    for mid, (rules, bads) in _runtime_names(tmp_path).items():
-        row = next(line for line in overview.splitlines() if line.strip().startswith(f"model {mid}: "))
-        assert f"({len(rules)} rules, {len(bads)} known-bad," in row, row
-        at = next(index for index, line in enumerate(lines) if line.strip().startswith(f"model {mid}: "))
-        facets = {line.strip().partition(": ")[0]: line.strip().partition(": ")[2] for line in lines[at + 1:at + 6]}
-        assert facets["rules"] == "; ".join(f"{name}: {text}" for name, text in sorted(rules.items()))
-        assert facets["known-bad"] == ", ".join(bads)
-
-
-_HELPER_SPLIT_MODELS = {
-    ".flowguard/models/_probe_common.py": _PROBE_HEAD + (
-        'def _ok(state, trace): return True\n'
-        'A = Invariant("a_rule", "a holds", _ok)\nB = Invariant("b_rule", "b holds", _ok)\nBOTH = (A, B)\n'),
-    ".flowguard/models/probe_child.py": _PROBE_HEAD + (
-        'from _probe_common import A, B\nMODEL_ID = "probe_child"\nPARENT = "probe_parent"\n'
-        'IMPLEMENTED_BY = {"Run": "app.py:run"}\nTESTED_BY = {"a_rule": ["tests/test_app.py:test_run"]}\n'
-        'def _explorer():\n    return Explorer(Workflow(()), (0,), (), invariants=(A, B))\n'
-        'def build_explorer(): return _explorer()\ndef broken_variants(): return {"child_bad": _explorer()}\n'),
-    ".flowguard/models/probe_parent.py": _PROBE_HEAD + (
-        'from _probe_common import BOTH\nMODEL_ID = "probe_parent"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\n'
-        'def _explorer():\n    return Explorer(Workflow(()), (0,), (), invariants=BOTH)\n'
-        'def build_explorer(): return _explorer()\ndef broken_variants(): return {"parent_bad": _explorer()}\n'),
-    ".flowguard/models/probe_wrapper.py": _PROBE_HEAD + (
-        'MODEL_ID = "probe_wrapper"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\n'
-        'def _rule(name, text):\n    return Invariant(name, text, lambda state, trace: True)\n'
-        'RULES = (_rule("x_rule", "x holds"), _rule("y_rule", "y holds"))\n'
-        'def _explorer(kind=""):\n    return Explorer(Workflow(()), (0,), (), invariants=RULES)\n'
-        'def build_explorer(): return _explorer()\n'
-        'def broken_variants():\n    return {name: _explorer(name) for name in ("x_bad", "y_bad")}\n'),
-}
-
-
-def test_static_rules_follow_helpers_and_wrappers(tmp_path):
-    data, inv = _static_project(tmp_path, _HELPER_SPLIT_MODELS)
-    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    assert "model probe_child: Probe. (2 rules, 1 known-bad, 1 tests)" in overview
-    assert "model probe_parent: Probe. (2 rules, 1 known-bad, 0 tests +1 in children)" in overview
-    assert "model probe_wrapper: Probe. (2 rules, 2 known-bad, 0 tests)" in overview
-    _assert_static_equals_runtime(tmp_path, data, inv)
-
-
 def test_parent_model_rolls_up_child_tests(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__static_project as _static_project, view__HELPER_SPLIT_MODELS as _HELPER_SPLIT_MODELS
     data, inv = _static_project(tmp_path, _HELPER_SPLIT_MODELS)
     overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert "+1 in children" in next(line for line in overview.splitlines() if "model probe_parent:" in line)
@@ -816,6 +579,8 @@ def test_parent_model_rolls_up_child_tests(tmp_path):
 
 
 def test_rules_never_come_from_tested_by_keys(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__static_project as _static_project
     data, inv = _static_project(tmp_path, {".flowguard/models/opaque.py": '''"""Opaque rules."""
 MODEL_ID = "opaque"
 IMPLEMENTED_BY = {"Run": "app.py:run"}
@@ -830,75 +595,9 @@ def broken_variants(): return make_variants()
     assert "from TESTED_BY" not in detail and "rules: keyed_rule" not in detail
 
 
-def test_static_known_bad_follow_loops_and_tuple_targets(tmp_path):
-    explorer = 'def _explorer(kind=""):\n    return Explorer(Workflow(()), (0,), (), invariants=RULES)\n'
-    data, inv = _static_project(tmp_path, {
-        ".flowguard/models/probe_tuple.py": _PROBE_HEAD + (
-            'MODEL_ID = "probe_tuple"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\n'
-            'RULES = (Invariant("t_rule", "t holds", lambda state, trace: True),)\n' + explorer +
-            'def build_explorer(): return _explorer()\n'
-            'def broken_variants():\n'
-            '    return {name: _explorer(kind) for name, kind in (("a_bad", "a"), ("b_bad", "b"))}\n'),
-        ".flowguard/models/probe_loop.py": _PROBE_HEAD + (
-            'MODEL_ID = "probe_loop"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\n'
-            'RULES = (Invariant("l_rule", "l holds", lambda state, trace: True),)\n'
-            'FEATURES = {"one": ("x", "m_one", 1), "two": ("y", "m_two", 2)}\nEXPECTED = {"alpha": 1, "beta": 2}\n'
-            + explorer + 'def build_explorer(): return _explorer()\n'
-            'def broken_variants():\n    result = {}\n'
-            '    for _, mutation, _ in FEATURES.values():\n        result[mutation] = _explorer(mutation)\n'
-            '    for case in EXPECTED:\n        result[f"ignore_{case}"] = _explorer(case)\n    return result\n'),
-        ".flowguard/models/probe_items.py": _PROBE_HEAD + (
-            'MODEL_ID = "probe_items"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\n'
-            'RULES = (Invariant("i_rule", "i holds", lambda state, trace: True),)\n' + explorer +
-            'def build_explorer(): return _explorer()\n'
-            'def broken_variants():\n    bad = {"p_bad": 1, "q_bad": 2}\n'
-            '    return {**{name: _explorer() for name, _ in bad.items()}, "r_bad": _explorer()}\n'),
-    })
-    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    assert "model probe_loop: Probe. (1 rules, 4 known-bad, 0 tests)" in overview
-    assert "model probe_tuple: Probe. (1 rules, 2 known-bad, 0 tests)" in overview
-    assert "model probe_items: Probe. (1 rules, 3 known-bad, 0 tests)" in overview
-    _assert_static_equals_runtime(tmp_path, data, inv)
-
-
-def test_kit_model_facets_are_static_and_complete(tmp_path):
-    """Feature-kit rules, known-bad and the defect/benign case table are read without importing."""
-    import sys
-    data, inv = _static_project(tmp_path, {".flowguard/models/probe_kit.py": '''"""Probe."""
-from pathlib import Path
-Path(__file__).parents[2].joinpath("model_import.marker").write_text("imported")
-from flowguard.kit import Feature, feature_explorer, feature_variants
-MODEL_ID = "probe_kit"
-IMPLEMENTED_BY = {"Run": "app.py:run"}
-FEATURES = (Feature("d_one", True, ("c1",), lambda plan: plan), Feature("d_two", True, ("c2",), lambda plan: plan),
-            Feature("b_one", False, (), lambda plan: plan))
-def build_explorer(): return feature_explorer(FEATURES, codes="first")
-def broken_variants(): return feature_variants(FEATURES, codes="first")
-'''})
-    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
-    assert not (tmp_path / "model_import.marker").exists()
-    assert not any(isinstance((file := vars(module).get("__file__")), str) and "probe_kit" in file
-                   for module in tuple(sys.modules.values()) if module is not None)
-    assert "model probe_kit: Probe. (4 rules, 3 known-bad, 0 tests)" in overview
-    assert "cases: 2 defects (d_one, d_two), 1 benign (b_one)" in detail
-    assert "cases:" not in overview
-    (tmp_path / "model_import.marker").unlink(missing_ok=True)
-    _assert_kit_matches_runtime(tmp_path, detail)
-
-
-def _assert_kit_matches_runtime(tmp_path, detail):
-    lines = detail.splitlines()
-    for mid, (rules, bads) in _runtime_names(tmp_path).items():
-        at = next(index for index, line in enumerate(lines) if line.strip().startswith(f"model {mid}: "))
-        facets = {line.strip().partition(": ")[0]: line.strip().partition(": ")[2] for line in lines[at + 1:at + 6]}
-        shown = [item for item in facets["rules"].split("; ") if not item.startswith("cases: ")]
-        assert shown == [f"{name}: {text}" for name, text in sorted(rules.items())]
-        assert facets["known-bad"] == ", ".join(bads)
-
-
 def test_static_facets_match_flowguard_self_models():
     """Every FlowGuard model reads statically the same rule and known-bad names it builds at run time."""
+    from pathlib import Path
     import importlib.util
     import sys
     from flowguard.map.common import DEFAULT_IGNORE
@@ -937,6 +636,8 @@ def test_static_facets_match_flowguard_self_models():
 
 def test_read_orders_components_by_layer(tmp_path):
     """Top-level components are listed top-down by layer, keeping map order inside a layer."""
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     data = dict(project="layers", layers=["upper", "middle", "lower"], flows=[], components=[
         dict(_component("low", summary="Low"), layer="lower"),
         dict(_component("mid", summary="Mid"), layer="middle"),
@@ -948,58 +649,9 @@ def test_read_orders_components_by_layer(tmp_path):
     assert "\n\n\n" not in output
 
 
-def test_read_component_lists_the_rules_it_relies_on(tmp_path):
-    """cli calls loans' LoanService.borrow, the anchor of model lending: cli relies on lending's rules."""
-    from test_flowguard_target import shelf_project
-    from flowguard.map.cli import _context
-
-    root = shelf_project(tmp_path)
-    data, inv = _context(root)
-    cli = render_show(root, data, inv, component="cli", detail=False, budget=8000)
-    assert "relies on: model lending (limit_respected, never_over_lent) via loans: LoanService.borrow" in cli, cli
-    loans = render_show(root, data, inv, component="loans", detail=False, budget=8000)
-    assert "relies on: model lending" not in loans
-
-
-def test_read_component_lists_its_flows_and_their_rules(tmp_path):
-    """Every component on a flow shows the flow, its step number, the flow's model and its rules."""
-    from test_flowguard_target import shelf_project
-    from flowguard.map.cli import _context
-
-    root = shelf_project(tmp_path)
-    data = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
-    data["flows"][0]["model"] = ".flowguard/models/lending.py"
-    (root / ".flowguard/map.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
-    data, inv = _context(root)
-    members = render_show(root, data, inv, component="members", detail=False, budget=8000)
-    assert "flows: borrow (step 3 of 4; model lending: limit_respected, never_over_lent)" in members, members
-
-
-def _coverage_project(tmp_path):
-    """Four entrypoints: model-anchored, named by a test, NOT_MODELED, and unexplained."""
-    write = lambda relative, text: (tmp_path / relative).parent.mkdir(parents=True, exist_ok=True) or \
-        (tmp_path / relative).write_text(text, encoding="utf-8")
-    write("app.py", "def run(): return True\ndef tested(): return True\ndef skipped(): return True\ndef loose(): return True\n")
-    write("tests/test_app.py", "from app import run, tested\n\ndef test_tested_function():\n    assert tested()\n\n"
-          "def test_unbound_run():\n    assert run()\n")
-    write(".flowguard/models/app_model.py", '''"""Protect the app."""
-MODEL_ID = "app_model"
-IMPLEMENTED_BY = {"Run": "app.py:run"}
-NOT_MODELED = {"app.py:skipped": "a deliberate no-op kept for the command line"}
-TESTED_BY = {}
-RULES = (Invariant("works", "works", None),)
-def build_explorer(): return Explorer(Workflow(()), (0,), (), invariants=RULES)
-def broken_variants(): return {"bad": None}
-''')
-    from flowguard.map.common import DEFAULT_IGNORE
-    from flowguard.map.inventory import build_inventory
-    data = dict(project="coverage", layers=[], flows=[], components=[
-        dict(_component("app", summary="Serve app", responsibilities=["serve"]), files=["app.py"],
-             tests=["tests/test_app.py"], entrypoints=["app.py:run", "app.py:tested", "app.py:skipped", "app.py:loose"])])
-    return data, build_inventory(tmp_path, DEFAULT_IGNORE, with_bodies=False, write_cache=False)
-
-
 def test_coverage_line_counts_by_source(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__coverage_project as _coverage_project
     data, inv = _coverage_project(tmp_path)
     overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
     assert overview.splitlines()[1].startswith("coverage: entrypoints 2 of 4 bound (model 1, test 1), 1 by reason, 0 unlisted; "
@@ -1010,48 +662,17 @@ def test_coverage_line_counts_by_source(tmp_path):
 
 
 def test_tests_facet_lists_bindable_tests(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__coverage_project as _coverage_project
     data, inv = _coverage_project(tmp_path)
     detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
     tests = next(line for line in detail.splitlines() if line.startswith(" ") and line.strip().startswith("tests:") and "functions" in line)
-    assert "bindable: tests/test_app.py:test_unbound_run -> model app_model (mentions run)" in tests, tests
-
-
-def _review_project(tmp_path, *, clean=False):
-    """A cycle (ERROR), a hub (used by 3, uses 3, 7 duties), an unexplained writer, a flow with no model."""
-    files = {
-        'hub.py': 'import lib1\nimport lib2\nimport lib3\ndef run(): return lib1.run() and lib2.run() and lib3.run()\n',
-        'lib1.py': 'class Box:\n    def put(self, value):\n        self.value = value\ndef run(): return Box()\n',
-        'lib2.py': 'def run(): return True\n', 'lib3.py': 'def run(): return True\n',
-        'u1.py': 'import hub\ndef run(): return hub.run()\n', 'u2.py': 'import hub\ndef run(): return hub.run()\n',
-        'u3.py': 'import hub\ndef run(): return hub.run()\n',
-        'app.py': 'import store\ndef run(): return store.save()\n', 'store.py': 'import app\ndef save(): return True\n',
-        '.flowguard/models/probe.py': ('from pathlib import Path\n'
-                                       'Path(__file__).parents[2].joinpath("model_import.marker").write_text("imported")\n'
-                                       'MODEL_ID = "probe"\nCOMPONENTS = ["lib2"]\nIMPLEMENTED_BY = {"Run": "lib2.py:run"}\n'
-                                       'def build_explorer(): pass\ndef broken_variants(): return {"bad": None}\n'),
-    }
-    if clean:
-        files = {'app.py': 'import store\ndef run(): return store.save()\n', 'store.py': 'def save(): return True\n',
-                 'tests/test_app.py': 'from app import run\ndef test_run(): assert run()\n'}
-    for path, text in files.items():
-        (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
-        (tmp_path / path).write_text(text)
-    if clean:
-        components = [dict(_component('app', summary='Serve app'), files=['app.py'], depends_on=['store'],
-                           tests=['tests/test_app.py'], layer='entry'),
-                      dict(_component('store', summary='Store'), files=['store.py'], tests=['tests/test_app.py'], layer='domain')]
-        return dict(project='clean', layers=['entry', 'domain'], components=components)
-    duties = [f'serve hub duty {word}' for word in ('one', 'two', 'three', 'four', 'five', 'six', 'seven')]
-    components = [dict(_component(cid), files=[cid + '.py']) for cid in ('app', 'store', 'hub', 'lib1', 'lib2', 'lib3', 'u1', 'u2', 'u3')]
-    by_id = {c['id']: c for c in components}
-    by_id['app']['depends_on'], by_id['store']['depends_on'] = ['store'], ['app']
-    by_id['hub']['depends_on'], by_id['hub']['responsibilities'] = ['lib1', 'lib2', 'lib3'], duties
-    for cid in ('u1', 'u2', 'u3'):
-        by_id[cid]['depends_on'] = ['hub']
-    return dict(project='demo', components=components, flows=[dict(id='trip', steps=['u1:run', 'hub:run'])])
+    assert "tests: 2 functions here and below (bound 0, unbound 2); files: tests/test_app.py" in tests, tests
+    assert "bindable:" not in detail and "unbound:" not in detail
 
 
 def test_review_ranks_defects_and_states_true_strengths(tmp_path):
+    from _fg_helpers import view__review_project as _review_project
     import sys
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.inventory import build_inventory
@@ -1083,6 +704,7 @@ def test_review_ranks_defects_and_states_true_strengths(tmp_path):
 
 
 def test_review_of_a_clean_project_lists_its_strengths(tmp_path):
+    from _fg_helpers import view__review_project as _review_project
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.inventory import build_inventory
     from flowguard.map.review import render_review
@@ -1096,23 +718,9 @@ def test_review_of_a_clean_project_lists_its_strengths(tmp_path):
     assert steps.startswith(' nothing to rank') or not any(word in steps for word in (' fix ', ' split '))
 
 
-def test_find_matches_word_forms(tmp_path):
-    data = dict(components=[_component('timed', responsibilities=['rejects expired tokens']),
-                            _component('signing', responsibilities=['rotation of signing keys']),
-                            _component('orders', responsibilities=['promotion of orders'])])
-    inv = _inventory(tmp_path)
-    assert find_owners(data, inv, ['expire'])[0][1] == 'timed'
-    assert find_owners(data, inv, ['rotate'])[0][1] == 'signing'
-    assert find_owners(data, inv, ['rotating'])[0][1] == 'signing'
-    assert find_owners(data, inv, ['promote'])[0][1] == 'orders'
-    assert find_owners(data, inv, ['order'])[0][1] == 'orders'
-    from flowguard.map.views import _stem
-    assert len({_stem(word) for word in ('expire', 'expired', 'expires')}) == 1
-    assert len({_stem(word) for word in ('rotate', 'rotation', 'rotating')}) == 1
-    assert _stem('order') == _stem('orders') and _stem('promote') == _stem('promotion')
-
-
 def test_find_miss_names_the_closest_owners(tmp_path, capsys):
+    import json
+    from _fg_helpers import view__component as _component
     import json
     from flowguard.map import cli
 
@@ -1132,6 +740,7 @@ def test_find_miss_names_the_closest_owners(tmp_path, capsys):
 
 def test_digest_lists_overloads_once(tmp_path):
     from flowguard.map.views import file_outline
+    from flowguard.map.views import file_outline
 
     (tmp_path / 'serializer.py').write_text(
         'from typing import overload\nimport typing\n\n\nclass Serializer:\n'
@@ -1148,6 +757,8 @@ def test_digest_lists_overloads_once(tmp_path):
 
 
 def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__inventory as _inventory, view__component as _component
     busy = _component('busy', responsibilities=[f'duty {n}' for n in range(9)], summary='Busy')
     busy['tests'] = ['tests/test_busy.py']
     data = dict(project='demo', components=[busy], flows=[])
@@ -1159,35 +770,8 @@ def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
     assert '0 warning(s), 1 accepted debt(s)' in head, head
 
 
-def test_find_bonus_needs_the_joined_query():
-    from flowguard.map.inventory import build_inventory
-    from flowguard.map.mapfile import load_map, ignore_patterns
-    from flowguard.map.views import defined_symbols
-    root = Path(__file__).resolve().parents[1]
-    data = load_map(root)
-    inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
-    queries = {"promote target": "map-target", "target check environment error blocks promotion": "map-target", "find_owners": "map-read"}
-    for query, cid in queries.items():
-        assert find_owners(data, inv, query.split())[0][1] == cid
-    owner = next(c for c in data["components"] if c["id"] == "map-target")
-    for query in ("promote target", "promote_target", "PromoteTarget"):
-        assert any(name == "promote_target" for name, _ in defined_symbols(owner, inv, query.split()))
-    generic = next(c for c in data["components"] if c["id"] == "map-file")
-    assert not defined_symbols(generic, inv, ["promote", "target"])
-
-
-def _quiet_fixture(name):
-    import runpy
-    directory = Path(__file__).parents[1] / ".flowguard/models"
-    path = directory / (name + ".py")
-    if not path.exists(): path = directory.parent / "target/models" / path.name
-    import sys
-    sys.path.insert(0,str(path.parent))
-    try: return runpy.run_path(str(path))
-    finally: sys.path.remove(str(path.parent))
-
-
 def test_closing_debt_hides_one_suggestion(tmp_path):
+    from _fg_helpers import view__quiet_fixture as _quiet_fixture
     from flowguard.map.review import render_review
     from flowguard.map.lint import run_lint
     from flowguard.map.inventory import build_inventory
@@ -1205,6 +789,8 @@ def test_closing_debt_hides_one_suggestion(tmp_path):
 
 
 def test_coverage_counts_calls_not_words(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__quiet_fixture as _quiet_fixture
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     data = _quiet_fixture("read_show")["make_fixture"](tmp_path)
@@ -1215,6 +801,9 @@ def test_coverage_counts_calls_not_words(tmp_path):
 
 
 def test_tests_line_counts_bound_calling_and_neither(tmp_path):
+    from flowguard.map.inventory import PyInfo
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__quiet_fixture as _quiet_fixture
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     from flowguard.map.testtree import test_functions, resolve_test_anchor, test_calls
@@ -1252,6 +841,8 @@ def test_tests_line_counts_bound_calling_and_neither(tmp_path):
 
 
 def test_read_line_four_counts_models(tmp_path):
+    from flowguard.map.views import render_show
+    from _fg_helpers import view__quiet_fixture as _quiet_fixture
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     data = _quiet_fixture("read_show")["make_fixture"](tmp_path)
@@ -1260,6 +851,7 @@ def test_read_line_four_counts_models(tmp_path):
 
 
 def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
+    from _fg_helpers import view__quiet_fixture as _quiet_fixture
     from flowguard.map.review import render_review
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
@@ -1280,35 +872,8 @@ def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
     assert not any(f.code == "unbound_models" and f.level == "warn" for f in run_lint(tmp_path, data, inv))
 
 
-def test_read_component_prints_one_port_line_per_model(tmp_path):
-    from flowguard.map.inventory import build_inventory
-    from flowguard.map.common import DEFAULT_IGNORE
-    import runpy
-    directory = Path(__file__).parents[1] / ".flowguard/models"
-    path = directory / "_target_fixture.py"
-    if not path.exists(): path = directory.parent / "target/models/_target_fixture.py"
-    helper = runpy.run_path(str(path))
-    data = helper["make_port_project"](tmp_path)
-    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
-    text = render_show(tmp_path, data, inv, component="cli", detail=False, budget=8000)
-    ports = [line for line in text.splitlines() if line.strip().startswith("port:")]
-    models = [line for line in text.splitlines() if line.strip().startswith("model ")]
-    assert len(ports) == len(models) == 2 and all(len(line) <= 200 for line in ports), text
-    assert any("out answer=lent|refused -> desk.answer" in line for line in ports), text
-    path = tmp_path / ".flowguard/models/lending.py"
-    path.write_text(path.read_text().replace('OUTPUTS = {"answer":("lent","refused")}', ''))
-    text = render_show(tmp_path, data, inv, component="cli", detail=False, budget=8000)
-    assert "out ?" in text
-
-
-def locate_fixture():
-    import runpy
-    directory=Path(__file__).parents[1]/'.flowguard'
-    target=directory/'target/models/_locate_fixture.py'
-    return runpy.run_path(str(target if target.exists() else directory/'models/_locate_fixture.py'))
-
-
 def test_locate_check_target_names_target_findings():
+    from pathlib import Path
     from contextlib import redirect_stdout
     from io import StringIO
     from flowguard.__main__ import main
@@ -1317,18 +882,8 @@ def test_locate_check_target_names_target_findings():
     assert code==0 and out.getvalue().splitlines()[1].startswith('model target_findings')
 
 
-def test_locate_prefers_the_owner_over_a_deeper_reacher(tmp_path):
-    helper=locate_fixture();helper['fixture'](tmp_path)
-    code,text=helper['observe'](tmp_path,'owned')
-    assert code==0 and text.splitlines()[1].startswith('model owner (owned: Run)')
-    assert 'reached by: deeper' in text
-    assert 'called by tests: 1 unbound (tests/test_api.py::test_unbound)' in text
-    code,text=helper['observe'](tmp_path,'reached')
-    assert code==0 and text.startswith('no model owns api.py:helper')
-    assert 'deeper (via api.py:wrapper)' in text
-
-
 def test_locate_unowned_function_says_no_model_owns(tmp_path):
+    from _fg_helpers import view_locate_fixture as locate_fixture
     helper=locate_fixture();helper['fixture'](tmp_path)
     code,text=helper['observe'](tmp_path,'unowned')
     assert code==0 and text.splitlines()==[
@@ -1336,19 +891,11 @@ def test_locate_unowned_function_says_no_model_owns(tmp_path):
         'next: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)']
 
 
-def test_locate_bound_test_shows_model_rule_and_code(tmp_path):
-    helper=locate_fixture();helper['fixture'](tmp_path)
-    code,text=helper['observe'](tmp_path,'bound')
-    assert code==0
-    assert 'bound to: owner (rule safe)' in text
-    assert 'calls: api.py:owned (owned by owner)' in text
-    assert 'code: owner owns api.py:owned < app < system' in text
-
-
 def test_locate_unbound_calling_test_suggests_binding(tmp_path):
+    from _fg_helpers import view_locate_fixture as locate_fixture
     helper=locate_fixture();helper['fixture'](tmp_path)
     code,text=helper['observe'](tmp_path,'unbound')
-    assert code==0 and 'bound to: none (unbound)' in text
+    assert code==0 and 'bound to: none (unbound; position app)' in text
     assert "next: bind it in owner's TESTED_BY if it checks one of its rules" in text
     from flowguard.map.inventory import build_inventory
     from flowguard.map.views import render_locate
@@ -1358,12 +905,14 @@ def test_locate_unbound_calling_test_suggests_binding(tmp_path):
 
 
 def test_locate_test_file_counts_per_model(tmp_path):
+    from _fg_helpers import view_locate_fixture as locate_fixture
     helper=locate_fixture();helper['fixture'](tmp_path)
     code,text=helper['observe'](tmp_path,'file')
     assert code==0 and text.splitlines()[1]=='bound: owner 1; unbound 2'
 
 
 def test_find_words_ends_with_locate_line(tmp_path):
+    from _fg_helpers import view_locate_fixture as locate_fixture
     from flowguard.__main__ import main
     from contextlib import redirect_stdout
     from io import StringIO
@@ -1373,14 +922,8 @@ def test_find_words_ends_with_locate_line(tmp_path):
     assert code==0 and out.getvalue().splitlines()[-1].startswith('locate: ')
 
 
-def test_locate_output_within_budget(tmp_path):
-    helper=locate_fixture();helper['fixture'](tmp_path)
-    for case in helper['CASES']:
-        code,text=helper['observe'](tmp_path,case)
-        assert len(text)<=2000,(case,len(text))
-
-
 def test_locate_qualified_and_unique_test_method(tmp_path):
+    from _fg_helpers import view_locate_fixture as locate_fixture
     from flowguard.map.inventory import build_inventory
     from flowguard.map.views import render_locate
     helper=locate_fixture();data=helper['fixture'](tmp_path)
@@ -1394,53 +937,23 @@ def test_locate_qualified_and_unique_test_method(tmp_path):
         assert 'bound to: owner (rule safe)' in text and 'calls: api.py:owned' in text
 
 
-def _field_project(tmp_path):
-    import runpy
-    base=Path(__file__).resolve().parents[1]/'.flowguard'
-    path=base/'target/models/_relation_fixture.py'
-    if not path.exists(): path=base/'models/_relation_fixture.py'
-    data=runpy.run_path(str(path))['field_fixture'](tmp_path)
-    from flowguard.map.inventory import build_inventory
-    from flowguard.map.common import DEFAULT_IGNORE
-    return data,build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
-
-
-def test_read_field_status_names_writers_and_model():
-    from flowguard.map.views import render_field
-    from flowguard.map.mapfile import load_map,ignore_patterns
-    from flowguard.map.inventory import build_inventory
-    root=Path(__file__).resolve().parents[1];data=load_map(root)
-    text=render_field(root,data,build_inventory(root,ignore_patterns(data),write_cache=False),'status')
-    assert 'component_pointer' in text and 'cmd_confirm' in text and 'merge_target_map' in text
-
-
-def test_json_key_written_and_read_across_components(tmp_path):
-    from flowguard.map.views import render_field
-    data,inv=_field_project(tmp_path)
-    text=render_field(tmp_path,data,inv,'record_code')
-    assert 'code writes: writer.py:write' in text and 'code reads: reader.py:read' in text
-    assert 'reader (state:' in text and 'writer (state:' in text
-    assert 'rules: none (a field no rule names:' in text
-
-
 def test_unknown_field_line_exits_one(tmp_path,capsys):
+    from _fg_helpers import view__field_project as _field_project
     from flowguard.__main__ import main
     _field_project(tmp_path)
     assert main(['read','--root',str(tmp_path),'--field','nonexistent'])==1
     assert capsys.readouterr().out=='field nonexistent: no model, rule or code site\n'
 
 
-def test_field_view_within_budget(tmp_path):
-    from flowguard.map.views import render_field
+def test_locate_test_shows_its_position(tmp_path):
+    from _fg_helpers import view__field_project as _field_project
+    from flowguard.map.views import render_locate
     data,inv=_field_project(tmp_path)
-    assert len(render_field(tmp_path,data,inv,'status'))<=1500
-    assert 'status_model State.status' in render_field(tmp_path,data,inv,'status')
-
-
-def test_field_view_imports_no_model(tmp_path):
-    import sys
-    from flowguard.map.views import render_field
-    data,inv=_field_project(tmp_path)
-    assert 'status_visible' in render_field(tmp_path,data,inv,'status')
-    assert not (tmp_path/'model_imported.marker').exists()
-    assert not any(getattr(module,'__file__',None) and Path(module.__file__).resolve().is_relative_to(tmp_path) for module in tuple(sys.modules.values()))
+    text=render_locate(tmp_path,data,inv,'tests/test_state.py::test_status')
+    assert '(test; position status_model)' in text
+    path=tmp_path/'tests/test_state.py';path.write_text(path.read_text()+''.join(f'def test_extra_{i}(): assert True\n' for i in range(41)))
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.common import DEFAULT_IGNORE
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    text=render_locate(tmp_path,data,inv,'tests/test_state.py')
+    assert 'lint: tests/test_state.py: 42 test functions' in text

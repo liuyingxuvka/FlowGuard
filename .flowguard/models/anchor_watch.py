@@ -12,10 +12,7 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "anchor_watch"
 PARENT = "map-proof"
 IMPLEMENTED_BY = {"Watch": "flowguard/map/facts.py:AnchorWatch"}
-TESTED_BY = {
-    "conformance_calls_are_seen": ["tests/test_flowguard_map_proof.py:test_anchor_called_in_worker_thread_is_consulted"],
-    "explore_is_not_watched": ["tests/test_flowguard_map_proof.py:test_anchor_called_only_in_explore_fails"],
-}
+TESTED_BY = {'conformance_calls_are_seen': ['tests/test_anchor_watch.py:test_anchor_called_in_worker_thread_is_consulted'], 'explore_is_not_watched': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails']}
 
 
 @dataclass(frozen=True)

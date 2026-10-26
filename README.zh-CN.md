@@ -79,7 +79,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | model-mesh | 用 `PARENT` 嵌套模型；子模型交接时按需用状态投影或 `flowguard.closure`。 |
 | model-test | 用 `IMPLEMENTED_BY` 和 `TESTED_BY` 绑定规则，运行 `map models --tests`。 |
 | topology-hazard | 从 `map models` 读取计算出的 `hazard:` 观察。 |
-| test-mesh | 用 `release --shards 4`；整套测试阶段内，每个收集到的测试只运行一次。 |
+| test-mesh | 用 `release --shards N`；每个分片跑若干棵完整测试子树，每个收集到的测试恰好运行一次。 |
 | ui-flow | 用 `ui-journey` 节点检查状态和旅程，再配合人工界面清单。 |
 
 见[树的操作](.agents/skills/flowguard/references/tree_operations.md)和

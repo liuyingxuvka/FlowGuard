@@ -30,6 +30,8 @@ REVIEW_ACTIONS = {
     "private_cross_component_use": (300, "move", ARCHITECTURE),
     "unexplained": (200, "explain", "python -m flowguard read --component {component}"),
     "unmodeled_owner": (150, "model", TEMPLATE),
+    "large_test_file": (120, "split tests", "references/routes.md#Split a test file"),
+    "test_file_mixes_models": (120, "split tests", "references/routes.md#Split a test file"),
     "large_model": (120, "split model", "references/routes.md#Split a model"),
     "warn": (100, "{code}", ARCHITECTURE),
     "flow_without_model": (80, "model flow", "references/map_format.md"),
@@ -154,8 +156,8 @@ def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000,
         cid = component["id"]
         files = component_files(component, inv)
         facets = component_facets(root, data, inv, component, tree, graph, functions, coverage=coverage[cid])
-        functions_bound = next((re.match(r"(\d+) functions, (\d+) bound", item) for item in facets.tests
-                                if re.match(r"\d+ functions, \d+ bound", item)), None)
+        functions_bound = next((re.match(r"(\d+) functions here and below \(bound (\d+), unbound \d+\)", item) for item in facets.tests
+                                if re.match(r"\d+ functions here and below \(bound \d+, unbound \d+\)", item)), None)
         total, bound = (int(functions_bound.group(1)), int(functions_bound.group(2))) if functions_bound else (0, 0)
         models = tree.models_for_component(cid)
         rules = [model_data[node.id].rule_count for node in models]

@@ -16,11 +16,7 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "target_add"
 PARENT = "map-target"
 IMPLEMENTED_BY = {"Add": "flowguard/map/target.py:_add"}
-TESTED_BY = {
-    "target_add_keeps_untracked_model": ["tests/test_flowguard_target.py:test_target_add_keeps_untracked_model"],
-    "in_place_edit_moves_into_target": ["tests/test_flowguard_target.py:test_target_add_moves_in_place_edit_of_committed_model"],
-    "uncommitted_promote_is_copied": ["tests/test_flowguard_target.py:test_target_add_after_uncommitted_promote_copies"],
-}
+TESTED_BY = {'target_add_keeps_untracked_model': ['tests/test_target_add.py:test_target_add_keeps_untracked_model'], 'in_place_edit_moves_into_target': ['tests/test_target_add.py:test_target_add_moves_in_place_edit_of_committed_model'], 'uncommitted_promote_is_copied': ['tests/test_target_add.py:test_target_add_after_uncommitted_promote_copies']}
 
 
 @dataclass(frozen=True)

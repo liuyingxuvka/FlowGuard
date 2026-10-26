@@ -22,12 +22,7 @@ from flowguard.workflow import Workflow
 MODEL_ID = "scan_coverage"
 PARENT = "map-file"
 IMPLEMENTED_BY = {"NewMap": "flowguard/map/scan.py:new_map"}
-TESTED_BY = {
-    "each_source_exactly_once": ["tests/test_flowguard_map.py:test_first_map_covers_finite_sources_once_within_budget"],
-    "ignored_files_absent": ["tests/test_flowguard_map.py:test_first_map_covers_finite_sources_once_within_budget"],
-    "bounded_component_count": ["tests/test_flowguard_map.py:test_first_map_covers_finite_sources_once_within_budget"],
-    "draft_components": ["tests/test_flowguard_map.py:test_first_map_covers_finite_sources_once_within_budget"],
-}
+TESTED_BY = {'each_source_exactly_once': ['tests/test_scan_coverage.py:test_first_map_covers_finite_sources_once_within_budget'], 'ignored_files_absent': ['tests/test_scan_coverage.py:test_first_map_covers_finite_sources_once_within_budget'], 'bounded_component_count': ['tests/test_scan_coverage.py:test_first_map_covers_finite_sources_once_within_budget'], 'draft_components': ['tests/test_scan_coverage.py:test_first_map_covers_finite_sources_once_within_budget']}
 
 
 @dataclass(frozen=True)

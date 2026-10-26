@@ -7,13 +7,7 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "gap_lines"
 COMPONENTS = ["map-target", "map-read"]
 IMPLEMENTED_BY = {"GapLines": "flowguard/map/target.py:gap_lines", "GoalRules": "flowguard/map/facets.py:target_goal_rules"}
-TESTED_BY = {
-    "changed_rule_gap_is_expected": ["tests/test_flowguard_target.py:test_rule_broken_by_old_code_is_an_expected_gap",
-                                     "tests/test_flowguard_target.py:test_missing_bound_test_is_never_a_gap"],
-    "moved_rules_expect_no_gap": ["tests/test_flowguard_target.py:test_split_into_child_prints_moved_rules_only"],
-    "recorded_rule_prints_no_gap": ["tests/test_flowguard_target.py:test_recorded_rule_prints_no_gap"],
-    "exception_through_anchor_is_code_gap": ["tests/test_flowguard_target.py:test_exception_classification"],
-}
+TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification']}
 EXPECTED = {"native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved rules only",
             "recorded": "NO GAP", "anchor_exception": "EXPECTED GAP", "engine_exception": "ERROR"}
 

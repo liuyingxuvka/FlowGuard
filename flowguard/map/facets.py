@@ -119,6 +119,13 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
     untested = sorted(rule for rule in rules if not contract.get("TESTED_BY", {}).get(rule))
     if untested:
         tests.append("untested: " + ", ".join(untested))
+    grouped={}
+    for anchors in contract.get('TESTED_BY',{}).values():
+        for anchor in anchors:
+            path,_,symbol=anchor.partition(':');grouped.setdefault(path,set()).add(symbol.split('[',1)[0])
+    if grouped:
+        summaries=[f'{path} ({len(names)} bound)' for path,names in sorted(grouped.items())]
+        tests.append(', '.join(summaries[:5])+(f', +{len(summaries)-5}' if len(summaries)>5 else ''))
     names = tuple(sorted(rules))
     return Facets(purpose, names, source, bad, "literal" if literal_bad else "runtime",
                   tuple(code), tuple(tests), len(rules) if source != "runtime" else None,
@@ -165,43 +172,6 @@ def _test_function_index(root: Path, inv: Inventory, *, source_cache=None) -> di
     return found
 
 
-def _bindable(root, unbound, nodes, source_cache, limit=3):
-    """Unbound tests whose body names a model anchor symbol as a whole word: ready to bind in TESTED_BY."""
-    import re
-    anchors = sorted({(node.id, anchor.partition(":")[2].rsplit(".", 1)[-1]) for node in nodes
-                      for anchor in node.contract.get("IMPLEMENTED_BY", {}).values() if ":" in anchor})
-    found, parsed = [], {}
-    for item in unbound:
-        path, _, name = item.partition(":")
-        if path not in parsed:
-            try:
-                source = test_source(root, path, source_cache)
-                parsed[path] = (source, {f"{owner}.{n.name}" if owner else n.name: n
-                                         for owner, n in _test_functions(ast.parse(source))})
-            except (OSError, SyntaxError, ValueError):
-                parsed[path] = ("", {})
-        source, functions = parsed[path]
-        node = functions.get(name)
-        body = ast.get_source_segment(source, node) or "" if node is not None else ""
-        for mid, symbol in anchors:
-            if symbol and re.search(rf"(?<!\w){re.escape(symbol)}(?!\w)", body.partition(":")[2]):
-                found.append(f"{item} -> model {mid} (mentions {symbol})")
-                break
-        if len(found) >= limit:
-            break
-    return found
-
-
-def _test_functions(syntax):
-    for node in syntax.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test"):
-            yield "", node
-        elif isinstance(node, ast.ClassDef):
-            for method in node.body:
-                if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name.startswith("test"):
-                    yield node.name, method
-
-
 def _test_facts(paths, nodes, functions, *, root=None, source_cache=None):
     actual = {(path, name) for path in paths for name in functions.get(path, ())}
     bound = set()
@@ -221,9 +191,6 @@ def _test_facts(paths, nodes, functions, *, root=None, source_cache=None):
     facts = [f"{len(paths)} files: " + (", ".join(sorted(paths)) or "-"), f"{len(actual)} functions, {len(bound)} bound"]
     if unbound:
         facts.append("unbound: " + ", ".join(unbound[:5]) + (f" +{len(unbound) - 5} more" if len(unbound) > 5 else ""))
-        bindable = _bindable(root, unbound, nodes, source_cache) if root is not None else []
-        if bindable:
-            facts.append("bindable: " + ", ".join(bindable))
     return tuple(facts), len(actual)
 
 
@@ -253,7 +220,9 @@ def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tr
     if is_stale(root, component, inv):
         code.append("STALE")
     paths = {path for path in inv.tests if matches_any(path, scoped.get("tests", []))}
-    tests, count = _test_facts(paths, tree.models_for_component(cid), functions, root=root, source_cache={})
+    from .testtree import TestIndex
+    index=functions if isinstance(functions,TestIndex) else TestIndex(root,data,inv,tree,functions)
+    tests,count=index.component_facts(cid)
     rules = responsibilities + (
         f"layer {component.get('layer') or '-'} may use: " + (", ".join(scoped.get("depends_on", [])) or "-"),)
     return Facets(component.get("summary") or "(no summary yet)", rules, "map",
@@ -455,3 +424,14 @@ def target_promise_notes(root, current, target, view):
     # A changed shared rule helper can remove a real rule from one of its importers.
     changed.update(mid for mid in before.keys() & after.keys() if before[mid][:3]!=after[mid][:3] or before[mid][3]!=after[mid][3])
     return promise_changes(before,after,changed)
+
+
+def moved_model_rules(root,current,target,view):
+    """Structured donors/receivers from the same movement owner as goal lines."""
+    before=promise_records(root,current);after=promise_records(root,view.data,view)
+    paths={'.flowguard/models/'+filename for filename in target.models}
+    recipients=[mid for mid,record in after.items() if record[5] in paths]
+    moved=_moved_names(before,after,recipients,kinds=(0,))
+    result={}
+    for (receiver,kind,name),donor in moved.items():result.setdefault(donor,set()).add(receiver)
+    return result

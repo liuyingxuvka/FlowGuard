@@ -91,6 +91,7 @@ come from the current tree and code.
 A passing result means `map models` or `release` actually ran on that source.
 Written guidance, a confirmed fingerprint and a historical pass do not establish
 a new passing result. `change` selects affected checks. By default, `release`
-runs strict checks, all models and their bound tests; `release --shards N` also
-runs the whole collected test suite. Report the command, source revision and
+runs strict checks, all models and their bound tests. With `release --shards N`,
+each shard runs whole test subtrees and every collected test runs exactly once.
+Report the command, source revision and
 actual result so its scope remains clear.

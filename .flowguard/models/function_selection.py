@@ -11,12 +11,7 @@ PARENT='map-inventory'
 COMPONENTS=['map-inventory','map-impact','map-discover']
 IMPLEMENTED_BY={'SelectModels':'flowguard/map/discover.py:select_model_functions','Digests':'flowguard/map/inventory.py:function_digests','NoGit':'flowguard/map/impact.py:_no_git_changes'}
 USES={'Impact':'flowguard/map/impact.py:compute_impact'}
-TESTED_BY={
- 'function_edit_selects_the_owner':['tests/test_flowguard_map.py:test_owned_edit_does_not_select_composing_parent'],
- 'binding_change_follows_importers':['tests/test_flowguard_map.py:test_module_binding_change_selects_importer_functions'],
- 'uncertain_edit_falls_back_broad':['tests/test_flowguard_map.py:test_removed_function_is_uncertain'],
- 'no_git_uses_stale_components':['tests/test_flowguard_map.py:test_no_git_uses_stale_components'],
-}
+TESTED_BY = {'function_edit_selects_the_owner': ['tests/test_function_selection.py:test_owned_edit_does_not_select_composing_parent'], 'binding_change_follows_importers': ['tests/test_function_selection.py:test_module_binding_change_selects_importer_functions'], 'uncertain_edit_falls_back_broad': ['tests/test_function_selection.py:test_removed_function_is_uncertain'], 'no_git_uses_stale_components': ['tests/test_function_selection.py:test_no_git_uses_stale_components']}
 @dataclass(frozen=True)
 class Observation:
     case:str=''

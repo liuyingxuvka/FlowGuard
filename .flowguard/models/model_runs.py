@@ -12,7 +12,7 @@ MODEL_ID = "model_runs"
 PARENT = "map-proof"
 IMPLEMENTED_BY = {"RunModels": "flowguard/map/proof.py:run_models", "Render": "flowguard/map/proof.py:render_results"}
 USES = {"PrintFindings": "flowguard/map/common.py:print_findings"}
-TESTED_BY = {"only_hard_size_limits_gate": ["tests/test_flowguard_map_proof.py:test_sequence_soft_limit_warns", "tests/test_flowguard_map_proof.py:test_sequence_hard_limit_fails_the_model", "tests/test_flowguard_map_proof.py:test_time_over_the_limit_is_one_info"], "parallel_output_in_registry_order": ["tests/test_flowguard_map_proof.py:test_jobs_output_equals_sequential"], "pass_is_one_line": ["tests/test_flowguard_map_proof.py:test_pass_is_one_line_fail_keeps_rules"], "identical_info_grouped": ["tests/test_flowguard_map_proof.py:test_identical_info_grouped_into_one_line"]}
+TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns', 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model', 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'], 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'], 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'], 'identical_info_grouped': ['tests/test_model_runs.py:test_identical_info_grouped_into_one_line']}
 
 
 @dataclass(frozen=True)

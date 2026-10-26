@@ -78,7 +78,7 @@ def base_conformance():
         fixture(project)
         for case in LOCATIONS:
             status, text = observe(project, case)
-            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound)' in text and ("next: bind it in owner's TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
+            correct = status == 1 and text.startswith('no symbol') if case == 'unknown' else status == 0 and text.startswith('locate ') and ('model owner (owned: Run)' in text) if case == 'owned' else status == 0 and text.startswith('no model owns') if case in ('reached', 'unowned') else status == 0 and 'bound to: owner (rule safe)' in text and ('api.py:owned' in text) if case == 'bound' else status == 0 and 'bound to: none (unbound; position app)' in text and ("next: bind it in owner's TESTED_BY" in text) if case == 'unbound' else status == 0 and 'bound: owner 1; unbound 2' in text
             facts.append(Fact('locate_' + case, correct and len(text) <= 2000, text))
         return CodeFactsReport(tuple(facts))
 
@@ -88,7 +88,7 @@ MODEL_ID='read_find'
 PARENT="map-read"
 IMPLEMENTED_BY={'Find': 'flowguard/map/views.py:find_owners', 'Locate': 'flowguard/map/views.py:render_locate'}
 USES={}
-TESTED_BY={'locate_prefers_owner': ['tests/test_map_views.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_map_views.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_within_budget': ['tests/test_map_views.py:test_locate_output_within_budget'], 'find_ranks_duty_owner_first': ['tests/test_map_views.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_map_views.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first'], 'find_matches_word_forms': ['tests/test_map_views.py:test_find_matches_word_forms']}
+TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_within_budget': ['tests/test_read_find.py:test_locate_output_within_budget'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms']}
 MOVED_RULES=(
 Invariant('find_matches_word_forms', 'a query word matches a duty word that differs only by a common ending', lambda state, trace: _word_forms(state)),
 )

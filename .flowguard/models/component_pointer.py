@@ -23,7 +23,7 @@ PARENT = 'map-file'
 COMPONENTS = ['map-file', 'cli']
 IMPLEMENTED_BY = {'Confirm': 'flowguard/map/cli.py:cmd_confirm', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint'}
 USES = {'Check': 'flowguard/map/check.py:run_check'}
-TESTED_BY = {'clean_means_current': ['tests/test_flowguard_map.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_flowguard_map.py:test_filled_map_checks_clean_after_confirm']}
+TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm']}
 NOT_MODELED = {'flowguard/__main__.py:main': 'CLI dispatcher; command and encoding integration are covered by CLI tests, not a modeled business transition.', 'flowguard/map/cli.py:main': 'Map command dispatcher; integration tests cover argument dispatch and statuses.', 'flowguard/map/inventory.py:build_inventory': 'Static source inventory writes disposable cache; encoding/cache and impact regressions cover it.', 'flowguard/templates.py:write_template_files': 'Explicit template file writer; generated template and overwrite tests cover the filesystem integration.'}
 MAX_EDITS = 2
 

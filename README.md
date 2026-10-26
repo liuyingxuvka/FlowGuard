@@ -86,7 +86,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | model-mesh | Nest models with `PARENT`; use state projection or `flowguard.closure` where children exchange results. |
 | model-test | Bind rules through `IMPLEMENTED_BY` and `TESTED_BY`; run `map models --tests`. |
 | topology-hazard | Read the computed `hazard:` observations from `map models`. |
-| test-mesh | Use `release --shards 4`; each collected test runs once within the whole-suite phase. |
+| test-mesh | Use `release --shards N`; each shard runs whole test subtrees and every collected test runs exactly once. |
 | ui-flow | Use a `ui-journey` node for states and journeys, plus the manual UI checklist. |
 
 See [tree operations](.agents/skills/flowguard/references/tree_operations.md) and

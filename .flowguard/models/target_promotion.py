@@ -20,22 +20,7 @@ MODEL_ID = "target_promotion"
 PARENT = "target_life_cycle"
 OUTPUTS = {"outcome": ("promoted", "refused", "no_target")}
 IMPLEMENTED_BY = {"Promote": "flowguard/map/target.py:promote_target"}
-TESTED_BY = {
-    "promote_names_stale_components": ["tests/test_flowguard_target.py:test_promote_names_stale_component_to_confirm"],
-    "promote_makes_current_equal_merged": [
-        "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
-    ],
-    "promote_leaves_no_target": [
-        "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
-    ],
-    "changed_components_become_draft": [
-        "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
-    ],
-    "refusal_shows_findings": ["tests/test_flowguard_target.py:test_refused_promote_prints_the_report"],
-    "changed_inputs_refuse_promotion": [
-        "tests/test_flowguard_target.py:test_promote_refuses_inputs_changed_after_its_check",
-    ],
-}
+TESTED_BY = {'promote_names_stale_components': ['tests/test_target_life_cycle.py:test_promote_names_stale_component_to_confirm'], 'promote_makes_current_equal_merged': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'promote_leaves_no_target': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'changed_components_become_draft': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'refusal_shows_findings': ['tests/test_target_life_cycle.py:test_refused_promote_prints_the_report'], 'changed_inputs_refuse_promotion': ['tests/test_target_life_cycle.py:test_promote_refuses_inputs_changed_after_its_check']}
 
 
 @dataclass(frozen=True)

@@ -22,7 +22,7 @@ from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_di
 from .inventory import Inventory
 from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
-TOP_KEYS = {"large_model_seconds", "import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
+TOP_KEYS = {"large_test_seconds", "large_model_seconds", "import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -57,6 +57,9 @@ def validate_map(data: object) -> list[str]:
     limit=data.get('large_model_seconds',10)
     if isinstance(limit,bool) or not isinstance(limit,(int,float)) or not math.isfinite(limit) or limit<=0:
         errors.append('large_model_seconds must be a positive number')
+    limit=data.get('large_test_seconds',60)
+    if isinstance(limit,bool) or not isinstance(limit,(int,float)) or not math.isfinite(limit) or limit<=0:
+        errors.append('large_test_seconds must be a positive number')
     roots = data.get("import_roots", [])
     if not isinstance(roots, list) or not all(isinstance(value, str) and value and not value.startswith("/")
             and ".." not in value.split("/") and "\\" not in value for value in roots):

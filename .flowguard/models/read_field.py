@@ -12,11 +12,7 @@ from _relation_fixture import field_fixture
 MODEL_ID='read_field'
 PARENT='map-read'
 IMPLEMENTED_BY={'Field':'flowguard/map/views.py:render_field'}
-TESTED_BY={
- 'field_lists_writers_readers_rules':['tests/test_map_views.py:test_read_field_status_names_writers_and_model','tests/test_map_views.py:test_json_key_written_and_read_across_components'],
- 'field_view_imports_no_model':['tests/test_map_views.py:test_field_view_imports_no_model'],
- 'field_view_within_budget':['tests/test_map_views.py:test_field_view_within_budget'],
-}
+TESTED_BY = {'field_lists_writers_readers_rules': ['tests/test_read_field.py:test_read_field_status_names_writers_and_model', 'tests/test_read_field.py:test_json_key_written_and_read_across_components'], 'field_view_imports_no_model': ['tests/test_read_field.py:test_field_view_imports_no_model'], 'field_view_within_budget': ['tests/test_read_field.py:test_field_view_within_budget']}
 @dataclass(frozen=True)
 class State:
     case:str=''

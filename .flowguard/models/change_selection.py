@@ -23,14 +23,7 @@ from flowguard.map.inventory import build_inventory
 MODEL_ID = "change_selection"
 PARENT = "map-impact"
 IMPLEMENTED_BY = {"Impact": "flowguard/map/impact.py:compute_impact"}
-TESTED_BY = {
-    "comments_select_no_checks": ["tests/test_flowguard_map.py:test_comment_only_edit_keeps_review_but_selects_no_checks"],
-    "underscore_helper_not_blocked": ["tests/test_flowguard_map.py:test_impact_shared_test_binding_and_unknown_helper"],
-    "model_importers_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
-    "unexplained_functions_listed": ["tests/test_flowguard_map.py:test_change_lists_unexplained_functions_of_changed_files"],
-    "flow_models_selected": ["tests/test_flowguard_map.py:test_change_selects_the_model_of_a_flow_whose_step_changed"],
-    "relied_models_selected": ["tests/test_flowguard_map.py:test_change_selects_models_whose_anchors_the_edit_calls"],
-}
+TESTED_BY = {'comments_select_no_checks': ['tests/test_change_selection.py:test_comment_only_edit_keeps_review_but_selects_no_checks'], 'underscore_helper_not_blocked': ['tests/test_change_selection.py:test_impact_shared_test_binding_and_unknown_helper'], 'model_importers_selected': ['tests/test_change_selection.py:test_change_selects_importers_and_ancestors_of_a_changed_model'], 'unexplained_functions_listed': ['tests/test_change_selection.py:test_change_lists_unexplained_functions_of_changed_files'], 'flow_models_selected': ['tests/test_change_selection.py:test_change_selects_the_model_of_a_flow_whose_step_changed'], 'relied_models_selected': ['tests/test_change_selection.py:test_change_selects_models_whose_anchors_the_edit_calls']}
 
 ALL = ("child", "parent", "review")
 UNEXPLAINED = {"flow_step_edit": ("jobs: jobs.py:run (entrypoint)",)}

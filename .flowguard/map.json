@@ -130,7 +130,9 @@
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_proof.py",
         "tests/test_packaged_cli_surface.py",
-        "tests/test_public_templates.py"
+        "tests/test_public_templates.py",
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -202,10 +204,10 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Collects exact pytest ids, runs bounded parallel shards and reports each test's outcome.",
+      "summary": "Run every collected test once, using whole subtrees when validated duration records are available and stable hashing otherwise.",
       "responsibilities": [
-        "shard tests by exact node id and run every shard on each invocation",
-        "verify each collected test ran exactly once in the release whole-suite phase"
+        "partition the collected tests into whole test-tree subtrees and run every collected test exactly once",
+        "record per-test seconds for the next balance"
       ],
       "files": [
         "flowguard/pytest_junit.py",
@@ -219,12 +221,16 @@
         "flowguard/pytest_shards_cli.py:main"
       ],
       "state": [
-        "test collection and shard outcomes"
+        "test collection and shard outcomes",
+        ".flowguard/cache/test-durations.json: test file digests and per-node seconds"
       ],
       "side_effects": [
-        "runs pytest shards; writes run-local cache"
+        "runs pytest shards; writes run-local cache",
+        "atomically writes .flowguard/cache/test-durations.json after completed test runs"
       ],
       "depends_on": [
+        "map-file",
+        "map-inventory",
         "map-proof"
       ],
       "tests": [
@@ -233,7 +239,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:58cdb69840a4012916e61a57e5003f26c4192ff890edb788b47d424884714f08"
+      "fingerprint": "sha256:df40598818b42ee9a410265ff6c407b7fc1573d04455e60a03bfbd0494f75313"
     },
     {
       "id": "map-inventory",
@@ -262,7 +268,9 @@
       "depends_on": [],
       "tests": [
         "tests/test_flowguard_map.py",
-        "tests/test_flowguard_map_discover.py"
+        "tests/test_flowguard_map_discover.py",
+        "tests/test_function_selection.py",
+        "tests/test_map_inventory.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -271,7 +279,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read map and target files, model contracts, static rules and finite ports through shared source parsers.",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -310,13 +318,18 @@
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_contracts.py",
         "tests/test_map_views.py",
-        "tests/test_flowguard_port.py"
+        "tests/test_flowguard_port.py",
+        "tests/test_flowguard_testtree.py",
+        "tests/test_component_pointer.py",
+        "tests/test_release_neutral_fingerprint.py",
+        "tests/test_scan_coverage.py",
+        "tests/test_tree_resolution.py"
       ],
       "models": [
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:41b9fe1d7c119df92be4726de8c611e79618deba1478ee707483aa62bcb53d16"
+      "fingerprint": "sha256:4074b4346682c729a0eec19187975966938636aa81a08aecb7b62671a3868a4d"
     },
     {
       "id": "map-discover",
@@ -356,7 +369,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Check and promote target models, compare ports and promises without Git, and include function-selected verification.",
+      "summary": "Manage one target, require one-to-one test files to split with their models, and promote only fresh complete checks.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -394,19 +407,22 @@
         "map-read"
       ],
       "tests": [
-        "tests/test_flowguard_target.py"
+        "tests/test_flowguard_target.py",
+        "tests/test_gap_lines.py",
+        "tests/test_target_add.py",
+        "tests/test_target_life_cycle.py"
       ],
       "models": [
         ".flowguard/models/target_add.py",
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:902d9313290565a39791e3a1ca31f969dd9ddc1dfd62827577dedb9bbfc30106"
+      "fingerprint": "sha256:ed6f5ba12f5c3119e69a1995910a872fe24419e49b370f73ed42e2de94442bef"
     },
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Execute fresh model proofs and bound tests, refuse excessive sequence counts, and report elapsed time as advice.",
+      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
@@ -442,13 +458,17 @@
       "tests": [
         "tests/test_flowguard_map_contracts.py",
         "tests/test_flowguard_map_facts.py",
-        "tests/test_flowguard_map_proof.py"
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_anchor_watch.py",
+        "tests/test_model_proof.py",
+        "tests/test_model_runs.py",
+        "tests/test_test_binding.py"
       ],
       "models": [
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:64e38d59345889a04db640e0ecb40f0c8233bab7dd4910fb74de0796d7629cb4"
+      "fingerprint": "sha256:4114b7d632591f904e79854cf6cee504f193f10525b80972b52197080bf51c75"
     },
     {
       "id": "engine-explore",
@@ -723,7 +743,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check bindings, private use, model-edit guards and fixed model size limits; reasoned debts waive only soft findings.",
+      "summary": "Check structural bindings, fixed model and test-file sizes, private use and model-edit guards; waive only soft findings with reasons.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -748,18 +768,21 @@
       "tests": [
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_contracts.py",
-        "tests/test_flowguard_map_discover.py"
+        "tests/test_flowguard_map_discover.py",
+        "tests/test_map_binding.py",
+        "tests/test_model_edits.py",
+        "tests/test_private_use.py"
       ],
       "models": [
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:1212a52d350014872252d980c7633aade0df36f225d5c11e53fdab6c30711ddc"
+      "fingerprint": "sha256:0418da1e3d46a114573187eed15fb8f83b0a97e9be2850a2d17ea7f84e995004"
     },
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show field lifecycles, exact owners and three model relations through small read-view models.",
+      "summary": "Show field lifecycles, exact code ownership, distinct model relations and bounded test positions without importing models.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -783,11 +806,14 @@
       ],
       "tests": [
         "tests/test_map_views.py",
-        "tests/test_relation_graph.py"
+        "tests/test_relation_graph.py",
+        "tests/test_read_component.py",
+        "tests/test_read_field.py",
+        "tests/test_read_find.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b37e47ce9f8c7b0ead9ff4969dd193b167cfe01bc15b3060038addb1cb6406f6"
+      "fingerprint": "sha256:52b57326f1497807929131defb35798a1686400f5db2ed63cbf0726e2c4307ae"
     },
     {
       "id": "map-impact",
@@ -816,7 +842,9 @@
         "map-read"
       ],
       "tests": [
-        "tests/test_flowguard_map.py"
+        "tests/test_flowguard_map.py",
+        "tests/test_change_selection.py",
+        "tests/test_test_selection.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -906,44 +934,65 @@
       "code": "unmodeled_owner",
       "component": "tooling",
       "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
+    },
+    {
+      "code": "test_file_mixes_models",
+      "component": "tests/test_flowguard_map_contracts.py",
+      "reason": "split by the final model tree in FG-421"
+    },
+    {
+      "code": "test_file_mixes_models",
+      "component": "tests/test_flowguard_map_discover.py",
+      "reason": "split by the final model tree in FG-421"
+    },
+    {
+      "code": "test_file_mixes_models",
+      "component": "tests/test_flowguard_port.py",
+      "reason": "split by the final model tree in FG-421"
+    },
+    {
+      "code": "test_file_mixes_models",
+      "component": "tests/test_map_views.py",
+      "reason": "split by the final model tree in FG-421"
     }
   ],
   "fingerprint_format": 2,
   "model_digests": {
-    ".flowguard/models/anchor_watch.py": "7afcca6ffe9083ac7b4080d7e2fdeb683093cc3efb347d28fcfeba92feee44be",
-    ".flowguard/models/change_selection.py": "8b71397c8f2f7da365773b2cf60f7fba5ed93fa4f6f8be1486187ad9b54111f3",
-    ".flowguard/models/component_pointer.py": "e8fd91939815cc7ab3d5c54e9263fab13740f7767e3d6fa826b37ce852a457d8",
+    ".flowguard/models/anchor_watch.py": "f2fffb29086a45404142787ac24bc8bb53027c07ec9d6e38795691b4ba703008",
+    ".flowguard/models/change_selection.py": "0809c0b4fb07f307f2f0a9b91ef7c45ab6a692e84fed37fbe6d8cd9ee6d811eb",
+    ".flowguard/models/component_pointer.py": "f99b6852c681fcee611ca436b5c6f4c7752794b523506c1798f7aced58f78ce6",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
-    ".flowguard/models/function_selection.py": "fc61011952eea125af361f8cad4a48adf7df457b82469160455c0fc0917ecf79",
-    ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
+    ".flowguard/models/function_selection.py": "707f7d0ac8c286412b627f01795aef44594e06906a05a75c6140c536dd9686ec",
+    ".flowguard/models/gap_lines.py": "110244ed3fc5c300df5d34256399e87a7a7b44bad757defa802913992f63fde2",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
-    ".flowguard/models/map_binding.py": "b2d47c11532d015e04d6b2b040d79b92b88b4ba0dc1338980c5fb5fec62d1000",
-    ".flowguard/models/model_edits.py": "22bad62036fe009edd2088d52dee2f5345371b5733fb4d35ccc26100f1642dbc",
-    ".flowguard/models/model_proof.py": "b8fdcdaae86aa7d993c1fc092a60b5f1b35c03d7c3c15f90628bca39b2ad31ce",
-    ".flowguard/models/model_runs.py": "870bbd5903067b2c08b2f5d153e5b6cf8335734fcdf42125aa4a3bfae0670baf",
+    ".flowguard/models/map_binding.py": "f012caef68520c8b1290c3c03d70bbf88268acd1ace2d224fc7e64aa1788f677",
+    ".flowguard/models/model_edits.py": "b7355a53add8e24eb87cf00b31b9e9e1a2e5f1120773774b81dd017ca7e357cd",
+    ".flowguard/models/model_proof.py": "aea6aa19274f99df29c1a5403306c1969f1c795352e0ea20aedfc653a7bdbd81",
+    ".flowguard/models/model_runs.py": "36c7cb3afee4ddd75681fef49fa35440d102afdb74ad90ad84c1980aafed56a9",
     ".flowguard/models/model_scope.py": "53ac974f51615d813c1716c66af5977e3dafed5df916f16fd92b6ce867b37ff0",
     ".flowguard/models/port_checks.py": "9ed28c23e94149bfb9efca43d513d28b73589f7f1abc1cba6593045fbf56a344",
     ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
-    ".flowguard/models/private_use.py": "9eeec09f7aba99c1b2171e2a7aa23dc828e3e26f751c344e10f0e9458551533a",
+    ".flowguard/models/private_use.py": "f22003c12bd2afdaa01c7f6ced7e6fbf79335274eb6d3ce88b2622b0cd628ed0",
     ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
-    ".flowguard/models/read_component.py": "370414250b34aa7d094f447fd6ec64d7819086ac8c8257349d8b12d68d782cb0",
-    ".flowguard/models/read_field.py": "06f8ceb8c14d5da2ac9ba0ec24fc406220739b17dccdb1c2539b96c4ecfb70f4",
-    ".flowguard/models/read_find.py": "c9f4f9e3bd5a1fe1e917517cff035d818f806345fd017f302259f3f0dafb47e9",
+    ".flowguard/models/read_component.py": "c2ae315a8bb2ed109b50c0684219fe7d083a4c4f0e933156a710c772a15e879c",
+    ".flowguard/models/read_field.py": "eacd30a594a26a46cd6c508029428a511eec1ccacf7bb4d1b82c9946d46922fa",
+    ".flowguard/models/read_find.py": "1717a73069ee4fc008e40bae2a261a77820dd5e3e26a977b9d5012d599271955",
     ".flowguard/models/read_review.py": "592d565ee49658cdff26b454a090adc402aec265a769a9d0d7d9ada88548bb6d",
     ".flowguard/models/read_show.py": "a292a171e564365bc69e604536a4f652194e326862d1ef1cf0eb2402737a4ed5",
     ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
-    ".flowguard/models/release_neutral_fingerprint.py": "e7abb4f2397102b7ce6eec69f194fba34a0777bc2b8ab9c3a472588b08958290",
-    ".flowguard/models/scan_coverage.py": "038f0fc2b02776002ae8e744731989dfea780f06fbd145f5234fddfe98e3a8f7",
-    ".flowguard/models/shard_partition.py": "d17147a9f90a46f1992cd88e467bb20d86981eb10690851f6712a468e96a5599",
-    ".flowguard/models/target_add.py": "8612d053e64896b01f06a7db700148cf244a28157bda8374cc16db893b177666",
-    ".flowguard/models/target_findings.py": "791a559b672a53e74dc3ee7da7b3434f89e399cd00e63b85a3b2c63b177bd55d",
-    ".flowguard/models/target_life_cycle.py": "0fe92df6ae8811de836088088772a6358de363116e0db0d17c44c080a54bf19a",
-    ".flowguard/models/target_promotion.py": "4c10ab6e51a21afa0c78dc4e39595c40ee58f2b401f3aa3c380651e0f38c5d11",
-    ".flowguard/models/test_binding.py": "d20c3f9b65569e8f1382d17ea6400f423b547c538e97cbf817d44361041abd45",
-    ".flowguard/models/test_selection.py": "61cee504f404f1e5928b7373a27be0d567c656bf61578deac9b0d1a9a06bdf24",
-    ".flowguard/models/tree_resolution.py": "1497c44ece4ed74d28b6c4148cec850845194785d8fbf2cf7124eb85609037d5",
+    ".flowguard/models/release_neutral_fingerprint.py": "92f3ba0bfa6dbeb8904fc1d8f12b44f97c87276a53b8b08ed7991cce4691e0a9",
+    ".flowguard/models/scan_coverage.py": "9464fdc7a25c57416a63985ea556cb73dbb2eab2ae367831da3ad15ee68d5136",
+    ".flowguard/models/shard_partition.py": "ca6c7de173ff6b39f5c8cfaf13ac675b7a2662051e556c622006f45d05ef5720",
+    ".flowguard/models/target_add.py": "64f0a4c1c5f1ee94c96d7a26a0cb2475c744944739b9ad980d265c20977e1bad",
+    ".flowguard/models/target_findings.py": "90a383733d0d4ddf52d77b9c5033a8909ca6db9fa1977522b6b5e992992706a2",
+    ".flowguard/models/target_life_cycle.py": "39d5bff8394e06d0e7c3780d1b208fa66f69a1e09f42158c5fa456dce6a900b4",
+    ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
+    ".flowguard/models/test_binding.py": "e559f77a5e1e3e0d3858e4dc7ef7b4410c68e3f3c9cc0e36f3d22e0ec7cb60ad",
+    ".flowguard/models/test_selection.py": "16c1e224ae357c80c45c5649924f9e65f3c69d11764c3b500fcbc8b2b08d3c5c",
+    ".flowguard/models/test_tree.py": "584ed5041d7076a3b3d07bac630ae4fe6ef01ac44baef0529d5a86762e674e3d",
+    ".flowguard/models/tree_resolution.py": "d443f5bd62d9ddb31fc4abf5ca4bc675322362665f1f3bbfbdacde8a3233de3d",
     ".flowguard/models/ui_journey_rules.py": "2dedf4809f58f7d2919ee8f026135829b083ccfa26f61d717b1f7148371e0f8a",
     ".flowguard/models/validator_cases.py": "9b42a19b56ad0476bdeff77c1c60e1745232b25f99648253214968123209b824"
   }

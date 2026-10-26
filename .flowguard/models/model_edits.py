@@ -12,7 +12,7 @@ MODEL_ID='model_edits'
 PARENT='map-check'
 IMPLEMENTED_BY={'ModelEdits':'flowguard/map/check.py:model_edit_findings'}
 USES={'Confirm':'flowguard/map/cli.py:cmd_confirm','TargetAdd':'flowguard/map/target.py:add_to_target'}
-TESTED_BY={'model_edited_outside_target_is_named':['tests/test_flowguard_map.py:test_map_check_names_model_edited_outside_target']}
+TESTED_BY = {'model_edited_outside_target_is_named': ['tests/test_model_edits.py:test_map_check_names_model_edited_outside_target']}
 @dataclass(frozen=True)
 class State:
     model_edited:bool=False

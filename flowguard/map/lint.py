@@ -393,6 +393,8 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view))
     out.extend(model_size_findings(root, data, inv, view=view))
+    from .testtree import test_file_findings
+    out.extend(test_file_findings(root,data,inv,tree))
     out.extend(private_use_findings(root, data, inv))
     # Lint must count no-code model debts so they become stale after anchoring.
     for entry in registry.entries:

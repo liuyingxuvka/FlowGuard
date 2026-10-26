@@ -14,6 +14,7 @@ from typing import Any, Mapping, Sequence
 
 
 PARTITION_ALGORITHM = "sha256-nodeid-modulo-v1"
+SUBTREE_PARTITION_ALGORITHM = "subtree-lpt-v2"
 
 
 def normalize_nodeids(values: Sequence[Any]) -> tuple[str, ...]:
@@ -46,6 +47,7 @@ def nodeid_fingerprint(nodeids: Sequence[str]) -> str:
 def partition_nodeids(
     nodeids: Sequence[str],
     shard_count: int,
+    *, units=None, weights=None,
 ) -> tuple[tuple[str, ...], ...]:
     """Assign every node to one stable, finite shard.
 
@@ -64,6 +66,20 @@ def partition_nodeids(
     normalized = normalize_nodeids(tuple(nodeids))
     if not normalized:
         return ()
+    if units is not None:
+        unit_items=list(units.items())
+        audit=validate_partition(normalized,[items for label,items in unit_items])
+        if not audit['exact_union']:raise ValueError('test units are not an exact partition')
+        weights=weights or {}
+        def cost(items):return sum(max(0.01,float(weights.get(node,0.01))) for node in items)
+        buckets=[[] for _ in range(min(shard_count,len(unit_items)))];loads=[0.0]*len(buckets)
+        for label,items in sorted(unit_items,key=lambda pair:(-cost(pair[1]),pair[0])):
+            index=min(range(len(buckets)),key=lambda index:(loads[index],index))
+            buckets[index].extend(items);loads[index]+=cost(items)
+        order={node:index for index,node in enumerate(normalized)}
+        shards=tuple(tuple(sorted(bucket,key=order.__getitem__)) for bucket in buckets if bucket)
+        if not validate_partition(normalized,shards)['exact_union']:raise ValueError('partition is not exact')
+        return shards
     buckets: list[list[str]] = [[] for _ in range(min(shard_count, len(normalized)))]
     for nodeid in normalized:
         digest = hashlib.sha256(nodeid.encode("utf-8")).digest()
