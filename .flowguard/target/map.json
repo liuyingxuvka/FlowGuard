@@ -1,0 +1,366 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-417: Cut the named unused modules, hazards, closure, contract and the 0.69 migration",
+  "components": [
+    {
+      "id": "examples",
+      "layer": "examples",
+      "summary": "Runnable examples of executable models.",
+      "responsibilities": [
+        "teach modeling by runnable examples",
+        "replay the job-matching model on its production code"
+      ],
+      "files": [
+        "examples/**/*.py",
+        "examples/*.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "engine-core",
+        "engine-explore",
+        "engine-scenarios"
+      ],
+      "tests": [
+        "tests/test_conformance_replay_duplicate_record_failure.py",
+        "tests/test_conformance_replay_repeated_scoring_failure.py",
+        "tests/test_conformance_replay_success.py",
+        "tests/test_duplicate_record_detection.py",
+        "tests/test_job_matching_example.py",
+        "tests/test_looping_workflow_review.py",
+        "tests/test_repeated_scoring_detection.py",
+        "tests/test_trace_export.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "engine-explore",
+      "layer": "engine",
+      "summary": "Explore every bounded input sequence and check loops without storing reusable verdicts.",
+      "responsibilities": [
+        "explore every bounded input sequence"
+      ],
+      "files": [
+        "flowguard/explorer.py",
+        "flowguard/loop.py"
+      ],
+      "entrypoints": [
+        "flowguard/explorer.py:Explorer.explore"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-core"
+      ],
+      "tests": [
+        "tests/test_counterexample_trace.py",
+        "tests/test_explorer_progress.py",
+        "tests/test_invariant_violation.py",
+        "tests/test_loop_core.py",
+        "tests/test_loop_detection_scc.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "engine-core",
+      "layer": "foundation",
+      "summary": "Defines function blocks, workflows, traces and reports.",
+      "responsibilities": [
+        "define function blocks, workflows and traces",
+        "compose a sequence of blocks or a choice of blocks by accepted input type"
+      ],
+      "files": [
+        "flowguard/core.py",
+        "flowguard/workflow.py",
+        "flowguard/trace.py",
+        "flowguard/report.py",
+        "flowguard/export.py",
+        "flowguard/_normalization.py",
+        "flowguard/_runtime_progress.py"
+      ],
+      "entrypoints": [
+        "flowguard/workflow.py:Workflow"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [],
+      "tests": [
+        "tests/test_core_abstractions.py",
+        "tests/test_python_function_state_verification_owner.py",
+        "tests/test_shared_normalization.py",
+        "tests/test_workflow_execution.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "engine-properties",
+      "layer": "engine",
+      "summary": "Provide reusable invariants for states and traces.",
+      "responsibilities": [
+        "provide reusable state and trace invariants"
+      ],
+      "files": [
+        "flowguard/checks.py"
+      ],
+      "entrypoints": [
+        "flowguard/checks.py:at_most_once_by"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-core"
+      ],
+      "tests": [
+        "tests/test_property_factories.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "engine-scenarios",
+      "layer": "engine",
+      "summary": "Run named scenarios with their expected outputs and states.",
+      "responsibilities": [
+        "run named scenarios against their declared expectations"
+      ],
+      "files": [
+        "flowguard/scenario.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-core"
+      ],
+      "tests": [
+        "tests/test_scenario_core.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs.",
+      "responsibilities": [
+        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
+        "resolve component parents in one layer without loops",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions",
+        "register contract models and build the model tree with its nesting errors",
+        "count import-like strings and injected attribute calls as dependency evidence"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/testtree.py",
+        "flowguard/map/port.py",
+        "flowguard/map/modelstatic.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components",
+        "canonical current-model digests"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_map_views.py",
+        "tests/test_flowguard_port.py",
+        "tests/test_flowguard_testtree.py",
+        "tests/test_component_pointer.py",
+        "tests/test_release_neutral_fingerprint.py",
+        "tests/test_scan_coverage.py",
+        "tests/test_tree_resolution.py"
+      ],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ]
+    },
+    {
+      "id": "map-proof",
+      "layer": "map",
+      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice.",
+      "responsibilities": [
+        "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
+        "fail a model whose rule no known-bad variant breaks",
+        "read code facts for conformance and fail missing or unconsulted anchors",
+        "clean up model and pytest shard subprocesses in bounded time",
+        "run bound tests per item and require each to reach an anchor",
+        "show passing proofs on one line, with details for failures and separate bound-test timings"
+      ],
+      "files": [
+        "flowguard/map/proof.py",
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py",
+        "flowguard/map/system_model.py",
+        "flowguard/map/testreach.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
+      ],
+      "state": [],
+      "side_effects": [
+        "runs isolated model subprocesses",
+        "runs one isolated pytest process per model when bound-test checking is requested"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "engine-explore",
+        "map-check",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_facts.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_anchor_watch.py",
+        "tests/test_model_proof.py",
+        "tests/test_model_runs.py",
+        "tests/test_test_binding.py"
+      ],
+      "models": [
+        ".flowguard/models/model_runs.py"
+      ]
+    },
+    {
+      "id": "templates",
+      "layer": "interface",
+      "summary": "Generates ordinary models and adoption rules, routing new models into an open target.",
+      "responsibilities": [
+        "write behaviour, validator and ui-journey starters into the target when open, otherwise record current-model digests",
+        "make placeholder code and test anchors fail until the user fills them"
+      ],
+      "files": [
+        "flowguard/template_text/*.py",
+        "flowguard/templates.py"
+      ],
+      "entrypoints": [
+        "flowguard/templates.py:write_template_files"
+      ],
+      "state": [],
+      "side_effects": [
+        "writes template files when asked"
+      ],
+      "depends_on": [
+        "map-file"
+      ],
+      "tests": [
+        "tests/test_project_integration.py",
+        "tests/test_public_templates.py",
+        "tests/test_packaged_cli_surface.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Dispatch field lookup and mutually exclusive read views alongside map, change, target and release commands.",
+      "responsibilities": [
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
+        "show owners, closest owners, target changes, Mermaid and reviews in read",
+        "annotate planned target breakage and ARCH lines in check, change and release",
+        "run release with the system root counted and optional whole-suite shards",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing"
+      ],
+      "files": [
+        "flowguard/__main__.py",
+        "flowguard/map/__init__.py",
+        "flowguard/map/__main__.py",
+        "flowguard/map/cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/__main__.py:main",
+        "flowguard/map/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints to stdout",
+        "writes .flowguard/map.json on scan, deps --write and confirm"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read",
+        "map-target",
+        "public-api",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_packaged_cli_surface.py",
+        "tests/test_public_templates.py",
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "public-api",
+      "layer": "interface",
+      "summary": "Lazily expose the supported engine names from their owners; unknown names raise AttributeError.",
+      "responsibilities": [
+        "expose public names from their owning modules on first use"
+      ],
+      "files": [
+        "flowguard/__init__.py"
+      ],
+      "entrypoints": [
+        "flowguard/__init__.py:__getattr__"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "engine-core",
+        "engine-explore",
+        "engine-properties",
+        "engine-scenarios",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_public_api.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": [
+    "component:problem-corpus",
+    "responsibility:check liveness and progress",
+    "state:bounded exploration frontier and checkpoints",
+    "side_effect:writes optional SQLite exploration checkpoints",
+    "responsibility:derive hazard hints from the model's own structure and names",
+    "responsibility:check that handoffs between child models close",
+    "responsibility:close a hazard hint that a known-bad variant or invariant covers",
+    "entrypoint:flowguard/closure.py:review_mesh_closure_model",
+    "entrypoint:flowguard/closure.py:closure_invariant",
+    "responsibility:provide reusable invariants and trace contracts",
+    "responsibility:review scenarios against expected outcomes",
+    "responsibility:minimise counterexamples",
+    "entrypoint:flowguard/review.py:review_scenarios",
+    "responsibility:name every removed path, literal, flag and public name in one table",
+    "responsibility:benchmark the engine on a problem corpus"
+  ]
+}
