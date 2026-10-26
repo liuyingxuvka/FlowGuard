@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-406: Find gives the symbol bonus only to the joined query",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
