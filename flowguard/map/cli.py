@@ -319,7 +319,7 @@ def cmd_confirm(root: Path, a) -> int:
 
 
 def cmd_models(root: Path, a) -> int:
-    results = run_models(root, a.ids, timeout=a.timeout, tests=a.tests)
+    results = run_models(root, a.ids, timeout=a.timeout, tests=a.tests, jobs=getattr(a, "jobs", 1))
     print(render_results(results, all_hazards=a.hazards))
     return 1 if any(r.status != "pass" for r in results) else 0
 
@@ -345,7 +345,7 @@ def cmd_verify(root: Path, a) -> int:
     for debt in debts:
         print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
     registry = model_registry(root, data)
-    results = run_models(root, [], tests=True)
+    results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", 1))
     if results:
         print(render_results(results))
     expected = {(entry.id, entry.path) for entry in registry.entries}
@@ -413,6 +413,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
+    s.add_argument("--jobs", type=int, choices=range(1, 33), default=1, metavar="N", help="run 1-32 model subprocesses concurrently")
     s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
     s.add_argument("--timeout", type=int, default=300, help="seconds per model")
     s.add_argument("--hazards", action="store_true", help="list every open and closed hazard hint of each model")

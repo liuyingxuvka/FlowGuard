@@ -1186,3 +1186,19 @@ def test_runner_model_is_an_error(shop, capsys):
     errors = [line for line in output.splitlines() if "runner_model" in line]
     assert errors and all(line.startswith("ERROR") for line in errors), output
     assert not marker.exists()
+
+
+def test_jobs_output_equals_sequential(tmp_path, capsys):
+    import re
+    import runpy
+    source = Path(__file__).resolve().parents[1] / ".flowguard/models/model_runs.py"
+    if not source.exists():
+        source = source.parent.parent / "target/models/model_runs.py"
+    fixture = runpy.run_path(str(source))["make_fixture"]
+    fixture(tmp_path)
+    outputs = []
+    for jobs in (1, 3, 3):
+        assert cli.main(["models", "--root", str(tmp_path), "--jobs", str(jobs)]) == 0
+        output = capsys.readouterr().out
+        outputs.append(re.sub(r"\s+\d+(?:\.\d+)?s", " <time>", output))
+    assert outputs[0] == outputs[1] == outputs[2]

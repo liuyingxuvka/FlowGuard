@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import tokenize
 from dataclasses import asdict, dataclass
 from functools import lru_cache, wraps
@@ -34,6 +35,20 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
+def atomic_write_text(path: Path, text: str) -> None:
+    """Replace a disposable cache atomically, leaving no partial shared file."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(text)
+        os.replace(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
 def normalize_newlines(data: bytes) -> bytes:
     """Canonical physical source newlines for fingerprints and equivalence checks."""
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
@@ -56,10 +71,10 @@ def content_digest(path: Path) -> str:
     return sha256_bytes(normalize_newlines(path.read_bytes()))
 
 
-def read_source(path: Path) -> str:
+def read_source(path: Path, *, data: bytes | None = None) -> str:
     """Source text as Python reads it: UTF-8 BOM and PEP 263 coding cookie honored, LF newlines,
     undecodable bytes replaced (never raises UnicodeDecodeError). Raises OSError like read_text."""
-    data = path.read_bytes()
+    data = path.read_bytes() if data is None else data
     encoding = "utf-8-sig"
     if path.suffix == ".py":
         try:

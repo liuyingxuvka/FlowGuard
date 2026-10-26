@@ -10,6 +10,7 @@ matches, the description is stale and must be re-read and re-confirmed.
 from __future__ import annotations
 
 import ast
+import copy
 import hashlib
 import json
 import re
@@ -317,9 +318,16 @@ def local_imports(tree: ast.Module) -> list[str]:
     return sorted(set(names))
 
 
+_MODEL_CONTRACT_CACHE: dict[tuple[str, str], dict] = {}
+
+
 def read_model_contract(path: Path) -> dict:
     """MODEL_ID / COMPONENTS / IMPLEMENTED_BY literals and defined hooks of a model file, without importing it."""
-    tree = ast.parse(read_source(path))
+    raw = path.read_bytes()
+    cache_key = (str(path.resolve()), hashlib.sha256(raw).hexdigest())
+    if cache_key in _MODEL_CONTRACT_CACHE:
+        return copy.deepcopy(_MODEL_CONTRACT_CACHE[cache_key])
+    tree = ast.parse(read_source(path, data=raw))
     found: dict = {"functions": [], "imports": top_level_imports(tree), "local_imports": local_imports(tree)}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
@@ -340,6 +348,7 @@ def read_model_contract(path: Path) -> dict:
     if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):
         raise ValueError("TESTED_BY must map invariant names to lists of test anchors")
+    _MODEL_CONTRACT_CACHE[cache_key] = copy.deepcopy(found)
     return found
 
 

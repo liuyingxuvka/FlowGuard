@@ -1178,7 +1178,7 @@ def test_merge_a_component_keeps_its_promises(tmp_path, capsys):
     before_refusal = _project_snapshot(root)
     code, refused, errors = _run(root, capsys, "target", "promote")
     assert code == 1 and "promote refused:" in refused + errors, (refused, errors)
-    assert "run python -m flowguard target check" in refused + errors
+    assert all(line in refused for line in all_errors)
     assert _project_snapshot(root) == before_refusal
 
     loans = data["components"][0]
@@ -1987,3 +1987,26 @@ def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path
     assert code == 0, (output, errors)
     code, output, errors = _run(root, capsys, "target", "promote")
     assert code == 0 and not (root / ".flowguard/target").exists(), (output, errors)
+
+
+def test_refused_promote_prints_the_report(tmp_path, monkeypatch, capsys):
+    from flowguard.map import target
+    root = shelf_project(tmp_path)
+    assert target.start_target(root, "invalid goal case") == 0
+    path = root / ".flowguard/target/map.json"
+    data = json.loads(path.read_text())
+    data["goal"] = ""
+    path.write_text(json.dumps(data))
+    paths = [root / ".flowguard/map.json", *(root / ".flowguard/models").glob("*.py"), path]
+    before = {p: p.read_bytes() for p in paths}
+    original, calls = target.check_target, []
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(target, "check_target", counted)
+    capsys.readouterr()
+    assert target.promote_target(root) == 1
+    output = capsys.readouterr().out
+    assert "ERROR" in output and "promote refused: 1 error(s), 0 to-do" in output
+    assert len(calls) == 1
+    assert all(p.read_bytes() == content for p, content in before.items())

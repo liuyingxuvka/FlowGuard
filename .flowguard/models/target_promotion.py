@@ -29,6 +29,7 @@ TESTED_BY = {
     "changed_components_become_draft": [
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
+    "refusal_shows_findings": ["tests/test_flowguard_target.py:test_refused_promote_prints_the_report"],
     "changed_inputs_refuse_promotion": [
         "tests/test_flowguard_target.py:test_promote_refuses_inputs_changed_after_its_check",
     ],
@@ -46,6 +47,7 @@ class State:
     draft: bool = False              # the target's components are draft after promotion
     action: str = ""
     status: str = ""
+    findings_shown: bool = True
 
 
 def project_parent_state(state):
@@ -68,6 +70,9 @@ class Promote:
         self.defect = defect
 
     def apply(self, event, state):
+        if event == "REFUSE_ERROR" and state.target_count:
+            new = replace(state, action=event, status="refused_error", findings_shown=self.defect != "refuses_silently")
+            return (FunctionResult(new.status, new, label=event),)
         if event == "EDIT_AFTER_CHECK":
             new = replace(state, action=event, status="edited" if state.target_count else "no_target",
                           edited=state.edited or bool(state.target_count))
@@ -94,6 +99,8 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
+    Invariant("refusal_shows_findings", "refusal shows the actual design error and changes no current bytes",
+              lambda s, t: _holds(s.status != "refused_error" or s.findings_shown, "refusal hid its findings")),
     Invariant("promote_makes_current_equal_merged", "both current map and models equal the prepared merge",
               lambda s, t: _holds(s.status != "promoted" or
                                   (s.current_map_revision == s.target_revision and
@@ -110,7 +117,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK"),
+    return Explorer(Workflow((Promote(defect),)), _starts(), ("PROMOTE", "EDIT_AFTER_CHECK", "REFUSE_ERROR"),
                     invariants=INVARIANTS, max_sequence_length=2, progress_steps=0)
 
 
@@ -120,7 +127,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently")}
 
 
 class RealPromotion:
@@ -144,7 +151,27 @@ class RealPromotion:
         event = step.function_input
         state = replace(self.state, action=event)
         exists = (self.root / ".flowguard/target").exists()
-        if event == "EDIT_AFTER_CHECK":
+        if event == "REFUSE_ERROR" and exists:
+            import json
+            target_map = self.root / ".flowguard/target/map.json"
+            saved = target_map.read_bytes()
+            data = json.loads(saved)
+            data["goal"] = ""
+            target_map.write_text(json.dumps(data))
+            paths = [self.root / ".flowguard/map.json", *(self.root / ".flowguard/models").glob("*.py"),
+                     *(self.root / ".flowguard/target/models").glob("*.py"), target_map]
+            before = {p: p.read_bytes() for p in paths}
+            output = StringIO()
+            try:
+                with redirect_stdout(output), redirect_stderr(StringIO()):
+                    code = native.promote_target(self.root)
+                unchanged = all(p.exists() and p.read_bytes() == b for p, b in before.items())
+            finally:
+                target_map.write_bytes(saved)
+            shown = "ERROR" in output.getvalue() and "promote refused: 1 error(s), 0 to-do" in output.getvalue()
+            state = replace(state, status="refused_error" if code == 1 else "unexpected_success",
+                            findings_shown=shown and unchanged)
+        elif event == "EDIT_AFTER_CHECK":
             self.edit = self.edit or exists
             state = replace(state, status="edited" if exists else "no_target", edited=state.edited or exists)
         elif not exists:

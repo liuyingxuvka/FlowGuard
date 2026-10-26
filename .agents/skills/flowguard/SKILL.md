@@ -24,8 +24,8 @@ Install the engine only from GitHub: `python -m pip install "flowguard @ git+htt
 1. `python -m flowguard target start "<goal>"`.
 2. `python -m flowguard target add <id>` for each changed node. Write new nodes directly in `.flowguard/target/map.json` or `.flowguard/target/models/`; use the merged `.flowguard/models/` paths for model references. Target format: `references/map_format.md`.
 3. Edit the target until `python -m flowguard target check` has no ERROR and only code/test TO-DO remains: the design is ready; a target that changes an entrypoint, state or side effect must add or change at least one rule or known-bad (target check prints its goal rules).
-4. Write the code and tests until `python -m flowguard target check` has no TO-DO either.
-5. `python -m flowguard target promote`, then `python -m flowguard map confirm <listed components>`; run `python -m flowguard change`, run its listed tests/models, and commit.
+4. Write the code and tests; run `python -m flowguard target check` as often as useful.
+5. `python -m flowguard target promote` runs the full check once and prints its report if refused; then `python -m flowguard map confirm <listed components>`; run `python -m flowguard change`, run its listed tests/models, and commit.
 While working, `change` marks breakage of what the target changes `moving to target`; everything else stays ERROR. A green model that missed a bug follows this same route: `python -m flowguard target add <model>`, then add the escaped case as a known-bad variant; see "When a green model missed a bug" in `references/model_recipes.md`.
 
 ## Change code only

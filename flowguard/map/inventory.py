@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
+from .common import atomic_write_text, cache_dir, CACHE_RELDIR, JS_EXTS, SOURCE_EXTS, git_paths, is_test_file, matches_any, norm, read_source, sha256_bytes
 
 CACHE_SCHEMA = "flowguard.map.inventory_cache.v5"
 # A parse cache is reused only by the exact parser code that wrote it (upgrades never keep stale parses).
@@ -315,7 +315,7 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
     if write_cache and (new != old or not cache_path.is_file()):
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": new}), encoding="utf-8")
+            atomic_write_text(cache_path, json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": new}))
         except OSError:
             pass                                  # read-only checkout: run without cache
     deps: dict[str, set[str]] = defaultdict(set)

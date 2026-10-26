@@ -1487,3 +1487,38 @@ def test_docstring_version_text_is_not_a_declaration(tmp_path):
     assert component_state(tmp_path, comp, inv, data) == "current"
     p.write_text(p.read_text().replace('"example"', '"changed documentation"'))
     assert component_state(tmp_path, comp, inv, data) == "stale"
+
+
+def test_model_contract_parsed_once_per_check(tmp_path, monkeypatch):
+    import ast
+    from flowguard.map import mapfile
+    from flowguard.map.check import run_check
+    data, comp = _release_project(tmp_path)
+    model = tmp_path / ".flowguard/models/one.py"
+    write(tmp_path, str(model.relative_to(tmp_path)), "MODEL_ID='one'\nPARENT='app'\ndef build_explorer(): pass\n")
+    comp["models"] = [".flowguard/models/one.py"]
+    raw, calls, original = model.read_bytes(), [], ast.parse
+    def counted(source, *args, **kwargs):
+        if (source.encode("utf-8") if isinstance(source, str) else source) == raw:
+            calls.append(True)
+        return original(source, *args, **kwargs)
+    monkeypatch.setattr(ast, "parse", counted)
+    run_check(tmp_path, data, build_inventory(tmp_path, mapfile.ignore_patterns(data)))
+    assert len(calls) == 1
+    first = mapfile.read_model_contract(model)
+    first["functions"].clear()
+    assert mapfile.read_model_contract(model)["functions"] == ["build_explorer"]
+    assert len(calls) == 1
+
+
+def test_same_size_rewrite_is_reparsed(tmp_path):
+    import os
+    from flowguard.map.mapfile import read_model_contract
+    p = tmp_path / "model.py"
+    p.write_text("MODEL_ID='one'\n")
+    stamp = p.stat()
+    assert read_model_contract(p)["MODEL_ID"] == "one"
+    p.write_text("MODEL_ID='two'\n")
+    os.utime(p, ns=(stamp.st_atime_ns, stamp.st_mtime_ns))
+    assert p.stat().st_size == stamp.st_size
+    assert read_model_contract(p)["MODEL_ID"] == "two"

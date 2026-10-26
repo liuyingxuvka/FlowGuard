@@ -16,6 +16,8 @@ PASS is always a statement about the current bytes, environment and interpreter.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 import importlib.abc
 import importlib.machinery
 import importlib.util
@@ -551,7 +553,9 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
         return result
 
 
-def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False, view=None, inv=None) -> list[ModelResult]:
+def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, tests: bool = False, view=None, inv=None, jobs: int = 1) -> list[ModelResult]:
+    if type(jobs) is not int or not 1 <= jobs <= 32:
+        raise ValueError("jobs must be between 1 and 32")
     has_map = True
     try:
         data = view.data if view is not None else load_map(root)
@@ -580,12 +584,11 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
         errors.append(ModelResult(model=mid, file="", status="error", problems=[message]))
     if errors:
         return errors + issues
-    results = []
-    for entry in registry.entries:
-        if ids and entry.id not in ids:
-            continue
-        path = root / entry.path
-        results.append(run_model(root, path, timeout, tests=tests, view=view))
+    selected = [entry for entry in registry.entries if not ids or entry.id in ids]
+    def execute(entry):
+        return run_model(root, root / entry.path, timeout, tests=tests, view=view)
+    with ThreadPoolExecutor(max_workers=jobs) as pool:
+        results = list(pool.map(execute, selected))
     if has_map and (not ids or "system" in ids):
         from .system_model import run_system_model
         results.append(run_system_model(root, data, inv, view=view))

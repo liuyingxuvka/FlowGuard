@@ -91,7 +91,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current.",
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
         "annotate planned target breakage and ARCH lines in check, change and release",
         "run release with the system root counted and optional whole-suite shards",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1bd562adb4f569ef305ab655fae78a2ab42f191b1920cb2a4198fb6d2653bca6"
+      "fingerprint": "sha256:264b5e30b3f01b24113dd34cc392f5bf669744465fff9da09387d8becaec54ac"
     },
     {
       "id": "public-api",
@@ -237,7 +237,7 @@
       "layer": "map",
       "summary": "Inventories files, symbols, imports and duplicate bodies.",
       "responsibilities": [
-        "inventory files, symbols and imports, including literal import calls",
+        "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
         "build a read-only inventory without creating or writing caches on request",
         "parse bound-test item selectors as plain strings"
@@ -262,14 +262,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3ac1bfc990b3706c312b767acb2ed4b91fc41ffae9cf393d018c68330e1f2aa8"
+      "fingerprint": "sha256:1fb2730a6e2dd6b6c2bdfa487939aed583d81f1a5b4b2c87664cc9566ec31c4c"
     },
     {
       "id": "map-file",
       "layer": "map",
       "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
       "responsibilities": [
-        "load, validate and save the map, pointing a missing map at the guide Keep version-only changes neutral in format 2 fingerprints and migrate legacy component pointers once.",
+        "load, validate and save the map, pointing a missing map at the guide Keep version-only changes neutral in format 2 fingerprints and migrate legacy component pointers once. Memoize parsed contracts by absolute path and exact byte digest, returning detached copies; never store proof results.",
         "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
@@ -306,14 +306,14 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:6b8d37c076068e1d7b044002828867280589b94d0709c8daae43a7c6499483c7"
+      "fingerprint": "sha256:8b8191cc7a78467603f3c7f14a73d0d45f6e59c6459ea509d0c1cf30ef2cf471"
     },
     {
       "id": "map-discover",
       "layer": "map",
       "summary": "Discovers entrypoints, effects and reachable calls.",
       "responsibilities": [
-        "discover entrypoints, side effects and state writers",
+        "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
         "count del statements as state writes and expose anchor state writes",
         "discover without writing caches when asked",
@@ -341,14 +341,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:25630a1696caf18d4c34c37cefcedf4324d162581d86d2f74c840dc35b68ba61"
+      "fingerprint": "sha256:9f36fbd3d564655c60aeeddaf9a33032dfffb1b46f9be049e140f02d04e272f5"
     },
     {
       "id": "map-target",
       "layer": "map",
       "summary": "Holds one target and checks its design, the merged code and tests.",
       "responsibilities": [
-        "start, extend and drop one target at a time A replaced component can migrate its fingerprint formula when promoted.",
+        "start, extend and drop one target at a time A replaced component can migrate its fingerprint formula when promoted. A refused promotion prints its complete report from the single check without modifying project bytes.",
         "check the merged tree: design mistakes are ERROR, missing code is TO-DO",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
@@ -385,14 +385,14 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:eb25c0fdaddfed4c29f58c81a83dd21443d8ff6702bf9a7f2dd1088553a8b536"
+      "fingerprint": "sha256:ce0692dacf0b2c809daba14ce1b8945f528d9e1d8fdffaad397352431b06f0e4"
     },
     {
       "id": "map-proof",
       "layer": "map",
       "summary": "Runs model proofs, bound tests and the system root model.",
       "responsibilities": [
-        "run every model, system included, with known-bad and conformance checks",
+        "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
         "read code facts for conformance and fail missing or unconsulted anchors",
         "clean up model and pytest shard subprocesses in bounded time",
@@ -428,9 +428,11 @@
         "tests/test_flowguard_map_facts.py",
         "tests/test_flowguard_map_proof.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/model_runs.py"
+      ],
       "status": "confirmed",
-      "fingerprint": "sha256:ee8d3744d358586ad32a5d7320c6b41d8d4f0f2f33886567cc76f766ac8a1bd9"
+      "fingerprint": "sha256:756ead76b47746c86980cca0dac156c6a71d0352df03d5e909879417d1afe328"
     },
     {
       "id": "engine-explore",

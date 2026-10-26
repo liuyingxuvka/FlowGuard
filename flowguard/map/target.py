@@ -431,8 +431,8 @@ def promote_target(root: Path) -> int:
         # The same full proof and TESTED_BY path as `target check`, exactly once.
         report = check_target(root)
         if report.errors or report.todos:
-            print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do; "
-                  "run python -m flowguard target check")
+            print(render_target_report(report))
+            print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")
             return 1
         if not prepared or not staged_matches or _promotion_inputs(root, current) != inputs:
             print("promote refused: checked inputs changed; run python -m flowguard target check")

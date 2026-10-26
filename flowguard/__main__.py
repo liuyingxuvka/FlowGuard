@@ -53,6 +53,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
         p.add_argument("--run", action="store_true", help="then run the selected tests and models, one RAN line each")
     elif verb == "release":
+        p.add_argument("--jobs", type=int, choices=range(1, 33), default=1, metavar="N", help="run 1-32 model subprocesses concurrently")
         p.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                        help="after normal checks pass, run the whole suite in 1–32 parallel shards")
     return p
@@ -179,7 +180,14 @@ def main(argv: list[str] | None = None) -> int:
         except (MapError, RuntimeError) as exc:
             print(f"error: {exc}", file=sys.stderr)
             return 2
-    return map_main([*root, "verify", *(["--shards", str(ns.shards)] if ns.shards is not None else [])])
+    from .map.cli import cmd_verify
+    from .map.mapfile import MapError
+    ns.limit = 80
+    try:
+        return cmd_verify(Path(ns.root).resolve(), ns)
+    except (MapError, RuntimeError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

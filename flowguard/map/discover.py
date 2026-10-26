@@ -20,7 +20,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-from .common import cache_dir, CACHE_RELDIR, content_digest, read_source, sha256_bytes
+from .common import atomic_write_text, cache_dir, CACHE_RELDIR, content_digest, read_source, sha256_bytes
 
 CACHE_SCHEMA = "flowguard.map.discover_cache.v5"
 # Facts are reused only by the exact analysis code that wrote them (upgrades never keep stale facts).
@@ -554,7 +554,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
     if write_cache:
         try:
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            cache_path.write_text(cached, encoding="utf-8")
+            atomic_write_text(cache_path, cached)
         except OSError:
             pass
     raw["incoming"] = dict(incoming)

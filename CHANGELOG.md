@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Show the complete refusal report during target promotion; support ordered parallel model subprocesses with --jobs and atomic parser cache writes.
+- Parse each unchanged model contract once per process, keyed by exact bytes; never cache model or test verdicts.
+
 - Keep components current across version-only release changes while retaining sensitivity to all other source edits.
 - Projects using FlowGuard: run python -m flowguard map confirm <component> once after upgrading (fingerprint_migrate names it); fingerprint_migrate is removed in 0.70.14.
 
