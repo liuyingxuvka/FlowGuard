@@ -8,8 +8,8 @@ from flowguard.map.facts import CodeFactsReport,Fact
 from _function_fixture import native_case
 MODEL_ID='function_selection'
 PARENT='map-inventory'
-COMPONENTS=['map-inventory','map-impact']
-IMPLEMENTED_BY={'Digests':'flowguard/map/inventory.py:function_digests','NoGit':'flowguard/map/impact.py:_no_git_changes'}
+COMPONENTS=['map-inventory','map-impact','map-discover']
+IMPLEMENTED_BY={'SelectModels':'flowguard/map/discover.py:select_model_functions','Digests':'flowguard/map/inventory.py:function_digests','NoGit':'flowguard/map/impact.py:_no_git_changes'}
 USES={'Impact':'flowguard/map/impact.py:compute_impact'}
 TESTED_BY={
  'function_edit_selects_the_owner':['tests/test_flowguard_map.py:test_owned_edit_does_not_select_composing_parent'],

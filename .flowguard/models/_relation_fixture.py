@@ -59,7 +59,7 @@ def fixture(root):
     add('cmd',fields=('mode','a','b'),outputs={},handoff={'a':{'value':'a'},'b':{'value':'b'}},keeps=('mode',),dispatch={'mode':{'x':'a','y':'b'}})
     # The branch model's real State and steps expose exactly one selected branch.
     path=root/'.flowguard/models/cmd.py';text=path.read_text().replace('s.value in ("","ready")','s.a in ("","ready") and s.b in ("","ready")')
-    text=text.replace('State(value,value,value)','State(event,"ready" if event=="x" else "","ready" if event=="y" else "")').replace('(State(),),("ready",)','(State(),),("x","y"),')
+    text=text.replace('State(value,value,value)','State(event,"ready" if event=="x" else "","ready" if event=="y" else "")').replace('(State(),),("ready",)','(State(),),("x","y")')
     path.write_text(text)
     add('a',parent='cmd');add('b',parent='cmd')
     write(root,'extra.py',''.join(sources)+'''def k1(value="ready"): return p()

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `read --field NAME` lists a field’s writers, readers, rules and tests. Read shows relation counts, stage or branch labels and consumed outputs; Mermaid separates placement, composition and consumption. Architecture review lists central models and the models affected by their ports or code.
+
 - Projects using FlowGuard: `read --find path:function` names the model that owns the code, with its rules, port, parent chain and tests. A test location shows model bindings and called code; unbound direct callers can be found from a function. Word ranking stays the same and adds a model pointer.
 
 - Projects using FlowGuard: `change` names consumers of removed interface literals and text that mentions them. `change` and `target check` name removed promises and distinguish moves; explain intentional removals in the commit message. These notes do not block a check.

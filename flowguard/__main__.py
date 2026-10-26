@@ -41,6 +41,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
     if verb == "read":
         group = p.add_mutually_exclusive_group()
         group.add_argument("--component", help="show one component in detail")
+        group.add_argument("--field", metavar="NAME", help="field writers, readers, rules and tests")
         group.add_argument("--find", nargs="+", metavar="WORD", help="words, a location path[:symbol], or a test path[::test]")
         p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
         p.add_argument("--target", action="store_true", help="show changes made by the target (incompatible with --find)")
@@ -158,8 +159,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--mermaid cannot be used with --find")
     if verb == "read" and ns.target and ns.find:
         parser.error("--target cannot be used with --find")
-    if verb == "read" and ns.review and (ns.component or ns.find or ns.mermaid or ns.target):
+    if verb == "read" and ns.review and (ns.component or ns.find or ns.field or ns.mermaid or ns.target):
         parser.error("--review cannot be used with --component, --find, --mermaid or --target")
+    if verb == "read" and ns.field and (ns.mermaid or ns.target):
+        parser.error("--field cannot be used with --mermaid or --target")
     if verb == "template":
         return _template(ns)
     root = ["--root", ns.root]
@@ -169,6 +172,8 @@ def main(argv: list[str] | None = None) -> int:
         if legacy:
             print(legacy, file=sys.stderr)
             return 2
+        if ns.field:
+            return map_main([*root, "show", "--field", ns.field])
         if ns.find:
             return map_main([*root, "find", *ns.find])
         return map_main([*root, "show", "--budget", str(ns.budget), *(["--component", ns.component] if ns.component else []),

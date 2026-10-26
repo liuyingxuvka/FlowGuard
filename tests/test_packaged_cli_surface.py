@@ -240,3 +240,11 @@ def test_find_unknown_symbol_exits_one(tmp_path,capsys):
     assert main(['read','--root',str(tmp_path),'--find','api.py:missing'])==1
     output=capsys.readouterr().out
     assert output.startswith("no symbol 'missing' in api.py; symbols:")
+
+
+@pytest.mark.parametrize('flags',[['--component','map-read'],['--find','status'],['--mermaid'],['--review'],['--target']])
+def test_read_field_conflicts_with_other_views(flags):
+    from flowguard.__main__ import main
+    with pytest.raises(SystemExit) as error:
+        main(['read','--field','status',*flags])
+    assert error.value.code==2

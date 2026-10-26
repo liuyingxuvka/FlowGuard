@@ -157,7 +157,7 @@ def test_mermaid_export_has_one_node_per_component_and_model(tmp_path, capsys):
     # Sanitized-name collisions cannot merge component or model nodes.
     models = re.findall(r'^\s*(m_\w+)\(\["model ([^"]+)<br/>[^\"]+"\]\)', text, re.M)
     model_ids = {label: node for node, label in models}
-    assert f"{model_ids['audit.current']} --> {model_ids['audit-current']}" in text
+    assert f"{model_ids['audit.current']} ==> {model_ids['audit-current']}" in text
     limited = render_mermaid(tmp_path, data, inv, component='a-b')
     assert 'a.b' not in limited and 'audit.current' in limited and 'audit-current' in limited
     assert limited.count('subgraph ') == 1
@@ -1253,7 +1253,7 @@ def test_read_line_four_counts_models(tmp_path):
     from flowguard.map.common import DEFAULT_IGNORE
     data = _quiet_fixture("read_show")["make_fixture"](tmp_path)
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
-    assert render_show(tmp_path, data, inv, component=None, detail=False, budget=8000).splitlines()[3] == "models: 1 (process 0)"
+    assert render_show(tmp_path, data, inv, component=None, detail=False, budget=8000).splitlines()[3] .startswith("relations: 1 models;")
 
 
 def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
@@ -1389,3 +1389,55 @@ def test_locate_qualified_and_unique_test_method(tmp_path):
     for location in ('tests/test_api.py::Suite::test_method','tests/test_api.py:test_method'):
         text=render_locate(tmp_path,data,inv,location)
         assert 'bound to: owner (rule safe)' in text and 'calls: api.py:owned' in text
+
+
+def _field_project(tmp_path):
+    import runpy
+    base=Path(__file__).resolve().parents[1]/'.flowguard'
+    path=base/'target/models/_relation_fixture.py'
+    if not path.exists(): path=base/'models/_relation_fixture.py'
+    data=runpy.run_path(str(path))['field_fixture'](tmp_path)
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.common import DEFAULT_IGNORE
+    return data,build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+
+
+def test_read_field_status_names_writers_and_model():
+    from flowguard.map.views import render_field
+    from flowguard.map.mapfile import load_map,ignore_patterns
+    from flowguard.map.inventory import build_inventory
+    root=Path(__file__).resolve().parents[1];data=load_map(root)
+    text=render_field(root,data,build_inventory(root,ignore_patterns(data),write_cache=False),'status')
+    assert 'component_pointer' in text and 'cmd_confirm' in text and 'merge_target_map' in text
+
+
+def test_json_key_written_and_read_across_components(tmp_path):
+    from flowguard.map.views import render_field
+    data,inv=_field_project(tmp_path)
+    text=render_field(tmp_path,data,inv,'record_code')
+    assert 'code writes: writer.py:write' in text and 'code reads: reader.py:read' in text
+    assert 'reader (state:' in text and 'writer (state:' in text
+    assert 'rules: none (a field no rule names:' in text
+
+
+def test_unknown_field_line_exits_one(tmp_path,capsys):
+    from flowguard.__main__ import main
+    _field_project(tmp_path)
+    assert main(['read','--root',str(tmp_path),'--field','nonexistent'])==1
+    assert capsys.readouterr().out=='field nonexistent: no model, rule or code site\n'
+
+
+def test_field_view_within_budget(tmp_path):
+    from flowguard.map.views import render_field
+    data,inv=_field_project(tmp_path)
+    assert len(render_field(tmp_path,data,inv,'status'))<=1500
+    assert 'status_model State.status' in render_field(tmp_path,data,inv,'status')
+
+
+def test_field_view_imports_no_model(tmp_path):
+    import sys
+    from flowguard.map.views import render_field
+    data,inv=_field_project(tmp_path)
+    assert 'status_visible' in render_field(tmp_path,data,inv,'status')
+    assert not (tmp_path/'model_imported.marker').exists()
+    assert not any(getattr(module,'__file__',None) and Path(module.__file__).resolve().is_relative_to(tmp_path) for module in tuple(sys.modules.values()))

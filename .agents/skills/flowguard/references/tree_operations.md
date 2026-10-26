@@ -51,7 +51,7 @@ Do not delete on a guess: removed symbols must be `unreferenced`.
 Fields belong to model state or a component's `state`. Routing, permissions, feature flags, mode/version switches, persistence and prompt configuration carry behavior and use a target.
 Pure display or metadata changes that leave behavior unchanged may follow **Change code only** in the skill.
 
-1. Start `python -m flowguard target start "<goal>"`, then copy the owning model with `python -m flowguard target add <model-id>`.
+1. Run `python -m flowguard read --field <name>` to see its writers, readers, model rules and bound tests.
 2. Copy the component too if its `state` description changes. Keep retained promises on an owner; list `state:<original text>` in target `remove` only for an intentionally retired old promise.
 3. Change the target model's state names and values. Add a known-bad variant for an old field still being read or a missing new field silently falling back to the old one.
 4. Read the `consumes`, `produces`, `mentions`, and `promises:` lines from `change` or `target check`; open each named position and update its consumer or explain an intentional retirement. Record the applicable `CodeFacts(root).absent("old_mode", OWNED_FILES)` / `CodeFacts(root).present("mode", OWNED_FILES)` facts in that target model's real `conformance()`; before the code changes, unmet facts are TO-DO.

@@ -188,13 +188,20 @@ def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000,
     decisions = [d for d in debts if d.get("code") in CLOSABLE_DEBTS]
     unused = sum((d.get("code"), d.get("component")) not in matched for d in decisions)
     after.append(f"declined: {len(decisions)} (accepted debts; {unused} no longer arise)")
+    from .views import relations, hub_lines
+    hubs = hub_lines(tree, relations(root, data, inv, tree, raw))
     shown = list(table)
     while True:
         hidden = len(table) - len(shown)
         middle = shown + ([f"  ... {hidden} more components (python -m flowguard read)"] if hidden else [])
-        text = "\n".join(before + middle + after)
-        if len(text) <= budget or not shown:
+        text = "\n".join(before + middle + hubs + after)
+        if len(text) <= budget:
             return text
+        if not shown:
+            # Preserve the complete hub section, then spend the rest on the overview.
+            room = max(0, budget-len('\n'.join(hubs))-1)
+            overview = '\n'.join(before+middle+after)
+            return overview[:room]+'\n'+'\n'.join(hubs)
         shown.pop()
 
 

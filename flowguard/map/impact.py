@@ -927,52 +927,16 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     selected=set(result.model_ids)|literal_models
     result.consumer_lines=consumer_lines
     result.promise_lines,result.promise_findings=_git_promise_notes(root,data,changed,base)
-    reasons=defaultdict(list)
+    from .discover import select_model_functions, anchor_matches
+    chosen,reasons,flow_lines,unreached=select_model_functions(data,inv,tree,raw,functions)
+    selected.update(chosen)
+    result.flow_models.extend(flow_lines)
     own={mid:node.contract.get('IMPLEMENTED_BY',{}) for mid,node in tree.nodes.items()}
-    uses={mid:node.contract.get('USES',{}) for mid,node in tree.nodes.items()}
-    closures={}
-    def matches(anchor,fn):
-        path,_,symbol=anchor.partition(':'); f,s=fn.split('#',1)
-        return path==f and (s==symbol or s.startswith(symbol+'.'))
-    def reaches(anchor,fn):
-        if anchor not in closures:
-            path,_,symbol=anchor.partition(':')
-            starts=[path+'#'+name for name in raw.get('files',{}).get(path,{}).get('functions',{}) if name==symbol or name.startswith(symbol+'.')]
-            closures[anchor]=set().union(*(_closure(raw['edges'],start) for start in starts)) if starts else set()
-        return fn in closures[anchor]
-    unreached=[]
-    for fn in sorted(functions):
-        owners={mid for mid,anchors in own.items() if any(matches(anchor,fn) for anchor in anchors.values())}
-        hits=set()
-        for mid in tree.nodes:
-            for name,anchor in {**own[mid],**uses[mid]}.items():
-                if matches(anchor,fn):
-                    selected.add(mid);hits.add(mid);reasons[mid].append(name+' is '+fn.replace('#',':',1))
-        reached={mid for mid,anchors in own.items() if any(reaches(anchor,fn) for anchor in anchors.values())} if not owners else set()
-        reached={mid for mid in reached if not any(mid in tree.ancestors(other) for other in reached)}
-        for mid in reached:
-            selected.add(mid);hits.add(mid)
-            name=next(name for name,anchor in own[mid].items() if reaches(anchor,fn))
-            reasons[mid].append(name+' reaches '+fn.replace('#',':',1))
-        for flow in data.get('flows',()):
-            mid=next((mid for mid,node in tree.nodes.items() if node.path==flow.get('model')),None)
-            if mid is None: continue
-            for number,step in enumerate(flow.get('steps',()),1):
-                cid,symbol,_=flow_step_parts(step)
-                comp=next((c for c in data['components'] if c['id']==cid),None)
-                if comp is None: continue
-                anchors=[path+':'+(symbol or fn.split('#',1)[1]) for path in component_files(component_scope(data,comp),inv)]
-                direct_flow=any(matches(anchor,fn) for anchor in anchors)
-                via=not owners and not any(mid in tree.ancestors(other) for other in reached) and any(reaches(anchor,fn) for anchor in anchors)
-                if direct_flow or via:
-                    selected.add(mid);hits.add(mid)
-                    result.flow_models.append(f"flow {flow['id']}: step {number} changed; model {mid}")
-        if not hits: unreached.append(fn.replace('#',':',1))
     if source_changes:
         sites=relied_models(raw,data,inv,{mid:list(anchors.values()) for mid,anchors in own.items()},files=list(certain))
         result.relied_models=sorted(set(result.relied_models)|{f'{mid} via {cid}:{symbol}' for mid,locations in sites.items() for cid,symbol in locations})
         # Full unexplained facts are needed for unowned entrypoints/writers, not owned edits.
-        if certain and (not functions or any(not any(matches(anchor,fn) for anchors in own.values() for anchor in anchors.values()) for fn in functions)):
+        if certain and (not functions or any(not any(anchor_matches(anchor,fn) for anchors in own.values() for anchor in anchors.values()) for fn in functions)):
             from .lint import coverage_facts
             for cid,record in coverage_facts(root,data,inv,tree,raw).items():
                 entries=set(record.get('unexplained_entries',()))
@@ -1098,17 +1062,8 @@ def _literal_impact(root, data, inv, tree, changed, base):
                 if path in model_paths:models.add(model_paths[path]);continue
                 try: syntax=ast.parse(sources[path])
                 except SyntaxError:continue
-                spans=[]
-                def visit(nodes,prefix=''):
-                    for node in nodes:
-                        if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
-                            name=prefix+node.name
-                            if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)):spans.append((node.lineno,node.end_lineno,name))
-                            visit(node.body,name+'.')
-                        else:
-                            for part in ('body','orelse','finalbody'):
-                                if isinstance(getattr(node,part,None),list):visit(getattr(node,part),prefix)
-                visit(syntax.body)
+                from .discover import function_spans
+                spans=function_spans(syntax)
                 for line in found:
                     enclosing=[span for span in spans if span[0]<=line<=span[1]]
                     if enclosing:functions.add(path+'#'+min(enclosing,key=lambda span:span[1]-span[0])[2])

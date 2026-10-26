@@ -34,7 +34,7 @@ from .mapfile import MapError, component_files, component_graph, dependency_evid
 from .proof import render_results, run_models
 from .scan import new_map
 from .tree import build_tree
-from .views import closest_owners, defined_symbols, find_owners, render_digest, render_mermaid, render_show
+from .views import closest_owners, defined_symbols, find_owners, render_field, render_digest, render_mermaid, render_show
 from .target import check_target, moving_to_target, target_model_paths, target_owns_file
 from .targetfile import TARGET_RELDIR, load_target, validate_target
 
@@ -104,6 +104,14 @@ def cmd_discover(root: Path, a) -> int:
 
 
 def cmd_show(root: Path, a) -> int:
+    if getattr(a, 'field', None):
+        if a.component or a.detail or a.mermaid or a.target or a.review:
+            print('error: --field cannot be combined with another view', file=sys.stderr)
+            return 2
+        data, inv = _context(root, with_bodies=False)
+        text = render_field(root, data, inv, a.field)
+        print(text)
+        return int(text.startswith('field '+a.field+': no model, rule or code site'))
     if getattr(a, "review", False):
         clash = [flag for flag, on in (("--component", a.component), ("--mermaid", getattr(a, "mermaid", False)),
                                        ("--target", getattr(a, "target", False)), ("--detail", a.detail)) if on]
@@ -426,6 +434,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("discover"); s.add_argument("--component"); s.add_argument("--json", action="store_true")
     s = sub.add_parser("show"); s.add_argument("--component"); s.add_argument("--detail", action="store_true")
     s.add_argument("--budget", type=int, default=8000, help="max characters printed")
+    s.add_argument("--field", metavar="NAME")
     s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
     s.add_argument("--target", action="store_true", help="show the target's node-by-node changes")
     s.add_argument("--review", action="store_true", help="architecture review: metrics, strengths, defects, optimise next")

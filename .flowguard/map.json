@@ -89,7 +89,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch daily commands; read --find accepts words, source locations or test locations and names the model to change.",
+      "summary": "Dispatch field lookup and mutually exclusive read views alongside map, change, target and release commands.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:8c4e7188882b4b35cd96563da2297ebcc2ec571e4e3e06969bd530c052bea94a"
+      "fingerprint": "sha256:072ec26dc62a698240f10cff6c07d094c0675a1350ec43414e7c926758fa0781"
     },
     {
       "id": "public-api",
@@ -319,7 +319,7 @@
     {
       "id": "map-discover",
       "layer": "map",
-      "summary": "Discover calls, effects and literal roles; own the shared operation-local function reachability traversal.",
+      "summary": "Discover call graphs, literal roles and lexical functions; own reachability and shared model selection for body edits.",
       "responsibilities": [
         "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
@@ -349,7 +349,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e7803a94bcbdcd0c3ddb0a0251ef24ce20b1589fe26a95eb7b340b5613c870ae"
+      "fingerprint": "sha256:e403b5e31a0feca71271643fb84c7543659740ff8162a264380414cee9407009"
     },
     {
       "id": "map-target",
@@ -755,7 +755,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Locate owned code and reverse test bindings without importing models; show bounded facets, ports and parent chains.",
+      "summary": "Show bounded static field lifecycles, code ownership and three distinct model relations with central-model impact.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -779,16 +779,17 @@
         "map-inventory"
       ],
       "tests": [
-        "tests/test_map_views.py"
+        "tests/test_map_views.py",
+        "tests/test_relation_graph.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:691597202703dc8f0066311130dce6e198f214fcc3ff3cc2d7ff0d11ca882bb8"
+      "fingerprint": "sha256:ed4f2a2428f5c84c2fc49c61323a94bdd65a2f1575c446e85ff050bde37a9f68"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select affected functions and tests and name interface consumers, using shared discovery reachability without retained closure results.",
+      "summary": "Select affected functions, models and tests through discovery; explain ports, removed literals and promises without stored results.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -816,7 +817,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d454ab0421a38310dbe77acf5911b5760943de4a703dbc5ebfd886147c8acebd"
+      "fingerprint": "sha256:18ee8955bf592d81fe79721b0cd0b0f9f54e90a95f722f251264ed0516ad6205"
     }
   ],
   "flows": [
@@ -911,7 +912,7 @@
     ".flowguard/models/component_pointer.py": "aa31cbb91704d1e777b61efeff18388425b6096b506b2a6eaa5b0132f9d32858",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
-    ".flowguard/models/function_selection.py": "31096a69aa5bbe6580843059828eaa6e36ed966b39db1e0ab629f10e36812563",
+    ".flowguard/models/function_selection.py": "fc61011952eea125af361f8cad4a48adf7df457b82469160455c0fc0917ecf79",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
@@ -923,10 +924,12 @@
     ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
     ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
     ".flowguard/models/read_component.py": "fc9831558370ead56bc2389bc74a1d54e859cb0b29703004c2351c9e528e0c07",
+    ".flowguard/models/read_field.py": "06f8ceb8c14d5da2ac9ba0ec24fc406220739b17dccdb1c2539b96c4ecfb70f4",
     ".flowguard/models/read_find.py": "9f2fbdb53243a29a75f6f9ccd331ec2f7529a55c2c1c0f88d223028331a0c7a9",
     ".flowguard/models/read_review.py": "aa814defab80312e5fd06d2d4e6809f460d1ef0642e9ad1d9631eb8552215d61",
     ".flowguard/models/read_show.py": "a8262c6f7ae63ea7c257a61387143785637860835e3828fd20f71a8f1f1d1708",
     ".flowguard/models/read_view.py": "9112d3cf9a41de75bf783dc0485c764f4b3f9062a1f47f62aef39a46050408bd",
+    ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
     ".flowguard/models/release_neutral_fingerprint.py": "e7abb4f2397102b7ce6eec69f194fba34a0777bc2b8ab9c3a472588b08958290",
     ".flowguard/models/scan_coverage.py": "038f0fc2b02776002ae8e744731989dfea780f06fbd145f5234fddfe98e3a8f7",
     ".flowguard/models/shard_partition.py": "d17147a9f90a46f1992cd88e467bb20d86981eb10690851f6712a468e96a5599",

@@ -5,13 +5,14 @@ from __future__ import annotations
 import ast
 import re
 from collections import defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from .common import Finding, read_source, tokens
 from .inventory import Inventory, resolve_import
 from .facets import model_port_line, used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
-from .discover import discover_inventory, relied_models
-from .tree import build_tree
+from .discover import anchor_matches, discover_inventory, relied_models
+from .tree import ModelTree, build_tree
 from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
 from .mapfile import MapError, component_files, component_scope, component_subtree, component_order, component_graph, flow_step_parts, is_stale, owner_index
 from .targetfile import build_target_view, load_target, target_node_changes, validate_target
@@ -115,7 +116,7 @@ def _descendant_tests(tree, mid, facets) -> tuple[int, list[str]]:
 
 
 def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, bindings: bool = False,
-                 changes=None, previous=None) -> list[str]:
+                 changes=None, previous=None, relation=None) -> list[str]:
     roots = sorted((tree.nodes[mid] for mid in ids if tree.nodes[mid].parent_kind != "model"
                     or tree.nodes[mid].parent not in ids), key=lambda n: n.id)
     pending, lines = [(node, 1) for node in reversed(roots)], []
@@ -128,8 +129,15 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
         prefix = mark + " " if mark else ""
         rolled, child_ids = _descendant_tests(tree, node.id, facets)
         more = f" +{rolled} in children" if rolled else ""
+        kind = next((kind for parent, child, kind in relation.composition if child == node.id), '') if relation else ''
+        relation_label = f' [{kind} of {node.parent}]' if kind else ''
         lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
-                     f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){home}")
+                     f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){relation_label}{home}")
+        if relation:
+            consumed = [f'{producer}.{key} -> {into if into is not None else "(atoms)"}'
+                        for producer, consumer, key, into in relation.consumption if consumer == node.id]
+            if consumed:
+                lines.append('  '*(depth+1)+'consumes: '+', '.join(consumed[:6])+(f', +{len(consumed)-6}' if len(consumed)>6 else ''))
         if component:
             lines.append("  " * (depth + 1) + model_port_line(node, tree, limit=max(0, 200-2*(depth+1))))
         start = len(lines)
@@ -517,10 +525,11 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
     tests_line = (f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
                   f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither"
                   " (python -m flowguard read --find <test path>)")
-    models_line = f"models: {len(tree.nodes)} (process {sum(bool(process_model_reason(data, n.contract)) for n in tree.nodes.values())})"
+    relation = relations(root, data, inv, tree, raw)
+    models_line = relations_line(data, tree, relation)
     essential = "\n".join([head, coverage_line(coverage, summary=True), tests_line, models_line, *target_lines, *flows])
     root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
-                                                   model_data, bindings=detail)
+                                                   model_data, bindings=detail, relation=relation)
     if component == "system":
         root_models = _facet_lines(system_facets(data, inv, tree, graph, functions, coverage=coverage), "  ")
         system_text = "\n".join(root_models)
@@ -567,9 +576,9 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                 + ": " + f.message.partition(" (accepted debt:")[0] for f in problems[c["id"]]))
         models = {n.id for n in tree.models_for_component(c["id"])} if component or detail else {
             n.id for n in tree.nodes.values() if n.home_kind == "component" and n.home == c["id"]}
-        compact = [*lines, *_model_lines(tree, models, model_data, component=c["id"] if component or detail else None)]
+        compact = [*lines, *_model_lines(tree, models, model_data, component=c["id"] if component or detail else None, relation=relation)]
         lines.extend(_model_lines(tree, models, model_data, component=c["id"] if component or detail else None,
-                                  bindings=bool(component or detail)))
+                                  bindings=bool(component or detail), relation=relation))
         blocks.append((c["id"], _component_block(lines, depth)))
         compacts.append((c["id"], _component_block(compact, depth)))
     if component and must:
@@ -731,6 +740,12 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     models = [node for node in all_models if node.id in required_models or
               (node.home_kind == "component" and node.home in homes) or
               (component is None and node.home_kind == "system")]
+    relation = relations(root, data, inv, tree, raw)
+    if component:
+        visible_models = {node.id for node in models}
+        external = {mid for producer, consumer, _, _ in relation.consumption
+                    if producer in visible_models or consumer in visible_models for mid in (producer, consumer)}
+        models.extend(node for node in all_models if node.id in external-visible_models)
     used = set()
 
     def identifier(prefix, name):
@@ -749,7 +764,7 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
     model_ids = {node.id: identifier("m_", node.id) for node in sorted(models, key=lambda n: n.id)}
     flow_ids = {flow["id"]: identifier("f_", flow["id"]) for flow in flows}
     count = sum(("component", c["id"]) in new for c in comps) if target is not None else len(comps)
-    lines = ["flowchart TD", f'  root_system["{label(data.get("project", ""))}: {count} components"]']
+    lines = ["flowchart TD", "  %% edges: --> placement, ==> composition (label: dispatch alternative), --o consumption (label: output key), -.-> depends on", f'  root_system["{label(data.get("project", ""))}: {count} components"]']
     declared_layers = data.get("layers", []) if component is None else []
     groups = list(dict.fromkeys([*declared_layers, *[c.get("layer", "") for c in comps]]))
     for index, layer in enumerate(groups):
@@ -799,7 +814,12 @@ def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | N
             parent = components[node.parent]
         else:
             parent = "root_system"
-        lines.append(f"  {parent} --> {model_ids[node.id]}")
+        kind = next((kind for source, child, kind in relation.composition if child == node.id), '')
+        edge = ('==>|"'+label(kind[7:])+'"|' if kind.startswith('branch ') else '==>') if node.parent_kind == 'model' and node.parent in model_ids else '-->'
+        lines.append(f"  {parent} {edge} {model_ids[node.id]}")
+    for producer, consumer, key, into in relation.consumption:
+        if producer in model_ids and consumer in model_ids:
+            lines.append(f'  {model_ids[producer]} --o|"{label(key)}"| {model_ids[consumer]}')
     for comp in comps:
         for dep in sorted(comp.get("depends_on", [])):
             if dep in components:
@@ -1002,3 +1022,163 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
         unbound=[test+'::'+name.replace('.','::') for test,tests in calls.items() for name,values in tests.items() if (test,name) not in bindings and any(match(fn,loc) for fn in values)]
         if unbound:lines.append(f'called by tests: {len(unbound)} unbound ('+capped(sorted(unbound))+')')
     return finish([*lines,ending])
+
+
+HUB_CONSUMERS = 2
+HUB_CALLERS = 8
+
+
+@dataclass
+class Relations:
+    placement: list = field(default_factory=list)
+    composition: list = field(default_factory=list)
+    consumption: list = field(default_factory=list)
+    consumed_by: dict = field(default_factory=dict)
+    callers: dict = field(default_factory=dict)
+    caller_components: dict = field(default_factory=dict)
+    ripple: dict = field(default_factory=dict)
+    selects: dict = field(default_factory=dict)
+    hub: dict = field(default_factory=dict)
+
+
+def relations(root: Path, data: dict, inv: Inventory, tree: ModelTree, raw: dict) -> Relations:
+    """Fresh placement, composition and consumption; selection and escalation keep their owners."""
+    from .discover import select_model_functions
+    from .port import model_port, escalation_set
+    result = Relations()
+    ports = {mid: node.contract['port'] for mid, node in tree.nodes.items()}
+    owner, _ = owner_index(data, inv)
+    result.placement.extend((comp.get('parent') or 'system', comp['id']) for comp in data['components'])
+    for mid, node in tree.nodes.items():
+        if node.parent_kind == 'model':
+            alternatives = [str(choice) for choices in (ports[node.parent].dispatch or {}).values()
+                            for choice, child in choices.items() if child == mid]
+            result.composition.append((node.parent, mid, 'branch '+'|'.join(alternatives) if alternatives else 'stage'))
+        else:
+            result.placement.append((node.parent if node.parent_kind == 'component' else 'system', mid))
+        for producer, keys in (ports[mid].handoff or {}).items():
+            if producer not in tree.nodes or (tree.nodes[producer].parent_kind == 'model' and tree.nodes[producer].parent == mid):
+                continue
+            for key, receipt in keys.items():
+                into = receipt if isinstance(receipt, str) or receipt is None else receipt[0]
+                result.consumption.append((producer, mid, key, into))
+        anchors = node.contract.get('IMPLEMENTED_BY', {}).values()
+        owned = {path+'#'+symbol for path, facts in raw.get('files', {}).items()
+                 for symbol in facts.get('functions', {})
+                 if any(anchor_matches(anchor, path+'#'+symbol) for anchor in anchors)}
+        callers = {caller for caller, targets in raw.get('edges', {}).items()
+                   if caller not in owned and not inv.is_test(caller.split('#', 1)[0])
+                   and not caller.startswith('.flowguard/') and set(targets) & owned}
+        result.callers[mid] = callers
+        result.caller_components[mid] = {owner.get(caller.split('#', 1)[0], '(unmapped)') for caller in callers}
+        result.ripple[mid] = escalation_set(mid, tree, ports)
+        result.selects[mid] = len(select_model_functions(data, inv, tree, raw, owned)[0])
+    for mid in tree.nodes:
+        result.consumed_by[mid] = {consumer for producer, consumer, _, _ in result.consumption if producer == mid}
+        result.hub[mid] = len(result.consumed_by[mid]) >= HUB_CONSUMERS or len(result.callers[mid]) >= HUB_CALLERS
+    return result
+
+
+def relations_line(data, tree, graph):
+    from .mapfile import process_model_reason
+    process = sum(bool(process_model_reason(data, node.contract)) for node in tree.nodes.values())
+    placed = [node for node in tree.nodes.values() if node.parent_kind != 'model']
+    parents = {parent for parent, child, kind in graph.composition}
+    dispatched = {parent for parent, child, kind in graph.composition if kind.startswith('branch ')}
+    hubs = sum(graph.hub.values())
+    depth = max((len(tree.ancestors(mid))+1 for mid in tree.nodes), default=0)
+    return (f'relations: {len(tree.nodes)} models'+(f' (process {process})' if process else '')
+            +f'; placement {len(placed)} under {len({node.parent for node in placed})} components; '
+            +f'composition {len(parents)} parents ({len(parents-dispatched)} staged, {len(dispatched)} dispatch), '
+            +f'{len(graph.composition)} child edges, depth {depth}; consumption {len(graph.consumption)} edges; hubs {hubs}'
+            +(' (python -m flowguard read --review)' if hubs else ''))
+
+
+def hub_lines(tree, graph):
+    hubs = sorted((mid for mid, hub in graph.hub.items() if hub),
+                  key=lambda mid: (-len(graph.ripple[mid]), -len(graph.callers[mid]), mid))
+    if not hubs:
+        return ['hubs: none (no model is consumed by 2 or more models or has code with 8 or more callers)']
+    lines = [f'hubs: {len(hubs)} models (consumed by 2 or more models, or code with 8 or more callers)']
+    def names(items):
+        items = list(items)
+        return ', '.join(items[:4])+(f', +{len(items)-4}' if len(items)>4 else '')
+    for mid in hubs[:5]:
+        consumers = sorted(graph.consumed_by[mid])
+        ripple = graph.ripple[mid]
+        lines.append(f'  {mid} ({tree.nodes[mid].home}): consumed by {len(consumers)}'
+                     +(f' ({names(consumers)})' if consumers else '')
+                     +f'; {len(graph.callers[mid])} code callers in {len(graph.caller_components[mid])} components; ripple {len(ripple)}'
+                     +(': '+names(f'{other} ({why})' for other, why in ripple) if ripple else '')
+                     +f'; a code edit selects {graph.selects[mid]} models')
+    if len(hubs)>5: lines.append(f'  +{len(hubs)-5} more')
+    return lines
+
+
+def render_field(root: Path, data: dict, inv: Inventory, name: str) -> str:
+    """Join field sites and promises statically, with no model execution or persisted index."""
+    from .discover import literal_sites, function_spans
+    from .port import model_port
+    tree = build_tree(root, data, inv)
+    raw = discover_inventory(root, inv, data=data)
+    word = re.compile(r'(?<!\w)'+re.escape(name)+r'(?!\w)')
+    parts = defaultdict(list)
+    bound = defaultdict(set)
+    code_priority = {}
+    for component in data['components']:
+        values = component.get('state', [])
+        if isinstance(values, str): values = [values]
+        for value in values:
+            if word.search(value): parts['map'].append(f"{component['id']} (state: {value})")
+    for mid, node in tree.nodes.items():
+        port = node.contract['port']
+        labels = []
+        if name in (port.state or ()): labels.append('State.'+name)
+        for block, spec in port.blocks.items():
+            modes = [mode for mode in ('reads', 'writes') if name in (spec[mode] or ())]
+            if modes: labels.append('block '+block+' '+' and '.join(modes)+' it')
+        if name in port.reads_parent: labels.append('reads parent.'+name)
+        if name in (port.outputs or {}): labels.append('OUTPUTS.'+name)
+        if name in port.keeps: labels.append('KEEPS.'+name)
+        for producer, keys in (port.handoff or {}).items():
+            for key, into in keys.items():
+                if (into if isinstance(into, str) or into is None else into[0]) == name:
+                    labels.append(f'HANDOFF {producer}.{key} -> {name}')
+        if labels: parts['models'].append(mid+' '+', '.join(labels))
+        fact = model_facets(root, node)
+        rules = [rule for rule, note in zip(fact.rules, fact.rule_notes or ('',)*len(fact.rules)) if word.search(rule) or word.search(note)]
+        bads = [bad for bad in fact.known_bad if word.search(bad)]
+        if rules or bads:
+            parts['rules'].append(', '.join(mid+'.'+rule for rule in rules)+(('; ' if rules else '')+'known-bad: '+', '.join(bads) if bads else ''))
+        for rule in rules:
+            for anchor in node.contract.get('TESTED_BY', {}).get(rule, ()):
+                path, _, symbol = anchor.partition(':'); bound[path].add(symbol)
+    for path, facts in raw.get('files', {}).items():
+        for attr, writers in facts.get('state', {}).items():
+            if attr.rsplit('.', 1)[-1] == name:
+                parts['code writes'].extend(path+':'+writer for writer in writers)
+        try: source = read_source(root/path)
+        except OSError: continue
+        # Discovery supplies lexical start lines; select the innermost containing function.
+        syntax = ast.parse(source)
+        spans = function_spans(syntax)
+        stores = {node.lineno for node in ast.walk(syntax) if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store)}
+        for value, line, role in literal_sites(source):
+            if value != name or role not in ('key_write', 'key_read'): continue
+            candidates = [span for span in spans if span[0]<=line<=span[1]]
+            symbol = min(candidates, key=lambda span: span[1]-span[0])[2] if candidates else '<module>'
+            site=path+':'+symbol
+            code_priority[site]=min(code_priority.get(site,1),0 if role=='key_write' and line in stores else 1)
+            parts['code writes' if role=='key_write' else 'code reads'].append(site)
+    parts['tests'] = [f'{path} ({len(symbols)} bound)' for path, symbols in sorted(bound.items())]
+    if not any(parts.values()): return f'field {name}: no model, rule or code site'[:1500]
+    if parts['code writes'] and not parts['rules']:
+        parts['rules'] = [f'none (a field no rule names: python -m flowguard read --field {name} before changing it)']
+    lines = ['field '+name]
+    for label in ('map', 'models', 'rules', 'code writes', 'code reads', 'tests'):
+        items = list(dict.fromkeys(parts[label]))
+        if label=='code writes': items.sort(key=lambda site: (code_priority.get(site,0),site))
+        if items: lines.append('  '+label+': '+', '.join(items[:5])+(f' (+{len(items)-5})' if len(items)>5 else ''))
+    # Share the space among sections so a verbose model cannot hide code or tests.
+    allowance = max(20, (1499-len(lines[0]))//max(1,len(lines)-1)-1)
+    return '\n'.join([lines[0], *[line if len(line)<=allowance else line[:allowance-1]+'…' for line in lines[1:]]])[:1500]
