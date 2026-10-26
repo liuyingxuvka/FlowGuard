@@ -143,7 +143,7 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
 
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors
-    assert output.splitlines()[1].startswith('target: "holds": +0 ~3 -0 nodes')
+    assert next(line for line in output.splitlines() if line.startswith("target:")).startswith('target: "holds": +0 ~3 -0 nodes')
     code, check_after, errors = _run(root, capsys, "map", "check")
     assert code == 0 and check_after == check_before and not errors
     assert (root / ".flowguard/map.json").read_bytes() == original_map
@@ -176,7 +176,7 @@ def test_invalid_target_map_does_not_break_read(tmp_path, capsys, contents):
     path.write_text(contents, encoding="utf-8")
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors
-    assert output.splitlines()[1].startswith(
+    assert next(line for line in output.splitlines() if line.startswith("target:")).startswith(
         "target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
     assert path.read_text(encoding="utf-8") == contents
     assert (root / ".flowguard/map.json").read_bytes() == original_map

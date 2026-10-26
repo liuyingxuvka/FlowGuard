@@ -43,7 +43,6 @@ TESTED_BY = {
     "focused_component_visible": ["tests/test_map_views.py:test_read_component_never_hides_the_requested_component"],
     "components_in_layer_order": ["tests/test_map_views.py:test_read_orders_components_by_layer"],
     "relied_rules_shown": ["tests/test_map_views.py:test_read_component_lists_the_rules_it_relies_on"],
-    "coverage_counts_by_source": ["tests/test_map_views.py:test_coverage_line_counts_by_source"],
     "component_flows_shown": ["tests/test_map_views.py:test_read_component_lists_its_flows_and_their_rules"],
     "review_ranks_errors_first": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
     "review_strengths_are_true": ["tests/test_map_views.py:test_review_ranks_defects_and_states_true_strengths"],
@@ -167,7 +166,6 @@ FEATURES = (
     Feature("late_upper_component", False, (), lambda case: replace(case, layered=True)),
     Feature("relied_component", False, (), lambda case: replace(case, relied=True, component="beta"),
             conflicts=("large_component",)),
-    Feature("coverage_sources", False, (), lambda case: replace(case, sources=True), exclusive=True),
     Feature("component_in_flow", False, (), lambda case: replace(case, flowing=True, component="beta"),
             conflicts=("large_component",)),
     # Rules from a _helper module, a wrapper function, and known-bad built by loops: read
@@ -390,8 +388,6 @@ RULES = (
               lambda state, trace: _static(state)),
     Invariant("relied_rules_shown", "read --component X lists the other components' model rules X's code calls",
               lambda state, trace: _relied(state)),
-    Invariant("coverage_counts_by_source", "the coverage line counts explanations by model, test and reason",
-              lambda state, trace: _by_source(state)),
     Invariant("component_flows_shown", "read --component X lists the flows that have a step in X, with model and rules",
               lambda state, trace: _flows(state)),
     Invariant("components_in_layer_order", "read lists top-level components by layer, parents before children",
@@ -489,9 +485,6 @@ class Show:
             observed = replace(observed, text=text)
         elif self.fault == "kit_hidden" and case.probe == "kit":
             observed = replace(observed, text=re.sub(r"\(4 rules, 3 known-bad", "(4 rules, ? known-bad", observed.text))
-        elif self.fault == "no_sources" and case.sources:
-            observed = replace(observed, text=observed.text.replace(
-                COVERAGE_LINE, "coverage: entrypoints 3/4, state writers 0/0 explained by a model, a test or NOT_MODELED"))
         elif self.fault == "hide_flows" and case.flowing:
             observed = replace(observed, text=observed.text.replace("\n  " + FLOW_LINE, ""))
         elif self.fault == "hide_relied" and case.relied:
@@ -531,7 +524,6 @@ def broken_variants():
             "map_file_order": _explorer("map_file_order"),
             "hides_relied_rules": _explorer("hide_relied"),
             "hides_component_flows": _explorer("hide_flows"),
-            "coverage_without_sources": _explorer("no_sources"),
             "review_hides_error": _explorer("review_hides_error"),
             "review_claims_false_strength": _explorer("review_false_strength"),
             "review_step_without_recipe": _explorer("review_no_recipe"),

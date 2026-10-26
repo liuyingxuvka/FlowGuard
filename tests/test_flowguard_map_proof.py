@@ -941,7 +941,7 @@ def test_models_output_lists_rule_and_variant_names(shop, capsys, monkeypatch, m
     result, = captured
     assert result.rules == ["one_charge_per_order"]
     assert result.known_bad == expected_bad
-    assert "rules: one_charge_per_order; known-bad: " + ", ".join(expected_bad) in output
+    assert "rules:" not in output and len(output.splitlines()) == 2
     assert json.loads(json.dumps(result.__dict__))["known_bad"] == expected_bad
 
 
@@ -981,8 +981,8 @@ def test_system_model_names_follow_one_generated_pass(shop, capsys, monkeypatch)
     assert passes == [1] and names
     assert result.rules == ["dependency_cycle", "duplicate_owner", "layer_violation"]
     assert result.known_bad == sorted(names)
-    assert "rules: dependency_cycle, duplicate_owner, layer_violation; known-bad: " in output
-    assert all(name in output for name in names)
+    assert "rules:" not in output and len(output.splitlines()) == 2
+    assert result.known_bad == sorted(names)
 
 
 @pytest.mark.parametrize("rule_count,bad_count,expected_line", [
@@ -1002,11 +1002,11 @@ def test_model_result_name_defaults_and_bounded_display(rule_count, bad_count, e
     assert other.rules == other.known_bad == []
     rules = [f"r{i}" for i in range(rule_count)]
     bad = [f"b{i}" for i in range(bad_count)]
-    result = ModelResult("bounded", "bounded.py", rules=rules, known_bad=bad,
+    result = ModelResult("bounded", "bounded.py", status="fail", rules=rules, known_bad=bad,
                          problems=["original problem"], warnings=["original warning"])
     output = render_results([result])
     assert "original problem" in output and "warning: original warning" in output
-    assert "models: 1 passed, 0 failed" in output
+    assert "models: 0 passed, 1 failed" in output
     detail = [line for line in output.splitlines() if line.startswith("      rules:")]
     assert detail == ([] if expected_line is None else [expected_line])
     payload = json.loads(json.dumps(result.__dict__))
@@ -1067,7 +1067,8 @@ def conformance():
         depends_on=[], status="draft")]}))
     code, output = models(tmp_path, capsys, "fallback", "--tests")
     assert code == 0 and "PASS  fallback" in output, output
-    assert "silent_success" in output, output
+    assert "rules:" not in output and "  tests " in output
+    assert _native_model(tmp_path, tmp_path / path).known_bad == ["silent_success"]
     lines = source.splitlines(keepends=True)
     rule = next(line for line in lines if line.startswith("INVARIANTS = "))
     write(tmp_path, path, source.replace(rule, "INVARIANTS = ()\n"))
@@ -1325,3 +1326,86 @@ def test_identical_function_bodies_in_distinct_files_are_both_observed(tmp_path)
         for module in modules:
             module.ping()
     assert watch.called == {"first.py:ping", "second.py:ping"}
+
+
+def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
+    from flowguard.map.common import Finding, print_findings
+    notes = [Finding("info", "same", f"c{i}", "note") for i in range(24)]
+    warnings = [Finding("warn", "same", f"w{i}", "warning") for i in range(3)]
+    counts = print_findings(notes + warnings, "lint", as_json=False, limit=80)
+    text = capsys.readouterr().out
+    assert counts == {"error": 0, "warn": 3, "info": 24}
+    assert sum(line.startswith("INFO") for line in text.splitlines()) == 1
+    assert "INFO same x24: c0, c1, c10, c11, c12, c13, c14, c15 (+16 more; python -m flowguard map lint --json)" in text
+    assert sum(line.startswith("WARN") for line in text.splitlines()) == 3
+    print_findings(notes, "lint", as_json=True, limit=1)
+    assert len(json.loads(capsys.readouterr().out)["findings"]) == 24
+    # Exercise release's real output boundary: findings precede real model execution.
+    import runpy
+    from types import SimpleNamespace
+    helpers = runpy.run_path(str(Path(__file__).parents[1] / ".flowguard/models/model_runs.py"))
+    helpers["make_fixture"](tmp_path)
+    monkeypatch.setattr(cli, "run_check", lambda *a, **kw: [Finding("info", "same", str(i), "note") for i in range(24)])
+    assert cli.cmd_verify(tmp_path, SimpleNamespace(limit=80, jobs=1, shards=None)) == 0
+    output = capsys.readouterr().out
+    assert sum(line.startswith("INFO same x24:") for line in output.splitlines()) == 1
+    assert "PASS  first" in output and "PASS  second" in output
+
+
+def test_pass_is_one_line_fail_keeps_rules():
+    from flowguard.map.proof import ModelResult, render_results
+    result = ModelResult("probe", "probe.py", rules=["works"], known_bad=["broken"], seconds=1.2, test_seconds=0.3,
+                         hazards=["advisory"], closed_hazards=["old"])
+    text = render_results([result], all_hazards=True)
+    assert text.splitlines() == [f"PASS  {'probe':32} 1.2s  tests 0.3s", "models: 1 passed, 0 failed"]
+    result.status = "fail"; result.problems = ["native mismatch"]
+    text = render_results([result])
+    assert "rules: works; known-bad: broken" in text and "native mismatch" in text
+    assert "hazard" not in text
+
+
+def test_process_model_passes_with_its_debt_and_goes_stale_once_anchored(tmp_path):
+    import runpy
+    from flowguard.map.proof import run_model_in_process, render_results
+    from flowguard.map.check import run_check
+    from flowguard.map.lint import run_lint
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.target import start_target, add_to_target, check_target
+    model_dir = Path(__file__).parents[1] / ".flowguard/models"
+    helpers = runpy.run_path(str(model_dir / "model_runs.py"))
+    helpers["make_fixture"](tmp_path)
+    path = tmp_path / ".flowguard/models/first.py"
+    source = path.read_text().replace('IMPLEMENTED_BY = {"Run": "native.py:first_value"}', 'IMPLEMENTED_BY = {}')
+    source = source[:source.index("def conformance():")]
+    path.write_text(source)
+    data = json.loads((tmp_path / ".flowguard/map.json").read_text())
+    data["accepted_debts"] = [dict(code="model_anchor_missing", component="first", reason="future first-value workflow; native.py will implement it")]
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    findings = run_check(tmp_path, data, inv)
+    anchor = [f for f in findings if f.code == "model_anchor_missing"]
+    assert len(anchor) == 1 and anchor[0].level == "info"
+    assert not any(f.code == "model_conformance_missing" for f in findings)
+    result = run_model_in_process(tmp_path, path)
+    assert result.status == "pass", result.problems
+    assert result.known_bad == ["two"] and result.rules == ["one"]
+    assert "(process model: no code yet)" in render_results([result])
+    start_target(tmp_path, "process fixture")
+    add_to_target(tmp_path, "first")
+    report = check_target(tmp_path)
+    assert any("process model: first (no code yet; no gap expected)" in line for line in report.gaps), report
+    path.write_text(source.replace('IMPLEMENTED_BY = {}','IMPLEMENTED_BY = {"Run": "native.py:first_value"}'))
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    assert any(f.code == "debt_stale" and f.component == "first" for f in run_lint(tmp_path, data, inv))
+    assert "abstract boundary only" in " ".join(run_model_in_process(tmp_path, path).problems)
+
+
+def test_invariant_untested_only_for_models_with_tests(shop):
+    from flowguard.map.proof import run_model_in_process
+    path = shop / MODEL
+    source = path.read_text()
+    path.write_text(source + "\nTESTED_BY = {}\n")
+    result = run_model_in_process(shop, path)
+    assert not any(w.startswith("invariant_untested:") for w in result.warnings)
+    # Existing partial-binding regression checks the one remaining rule by name.

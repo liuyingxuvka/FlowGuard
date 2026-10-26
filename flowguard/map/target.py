@@ -327,6 +327,11 @@ def gap_lines(root, target, view, report, results):
         if entry.kind != "contract" or Path(entry.path).name not in target.models:
             continue
         mid = entry.id
+        from .mapfile import process_model_reason, read_model_contract, resolve_model_path
+        contract = read_model_contract(resolve_model_path(root, entry.path, view=view))
+        if process_model_reason(view.data, contract):
+            output.append(f"process model: {mid} (no code yet; no gap expected)")
+            continue
         delta = changes.get(mid, "")
         items = [item for item in delta.split(", ") if not item.endswith("(known-bad)")]
         rules = [item for item in items if item.startswith(("+", "~"))]

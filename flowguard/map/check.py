@@ -129,11 +129,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         retired = design_only_problem(contract, rel)
         if retired:
             out.append(Finding("error", "design_only_model", "", retired))
+        from .mapfile import process_model_reason
+        process = process_model_reason(data, contract)
         if not contract.get("IMPLEMENTED_BY"):
-            out.append(Finding("error", "model_anchor_missing", "",
+            out.append(Finding("error", "model_anchor_missing", entry.id,
                                f"{rel}: declares no IMPLEMENTED_BY anchors; name the real code it checks "
                                "('path:Symbol'), or plan it as a target model (python -m flowguard target start)"))
-        if entry.kind == "contract" and "conformance" not in contract["functions"]:
+        if entry.kind == "contract" and "conformance" not in contract["functions"] and not process:
             out.append(Finding("error", "model_conformance_missing", "",
                                f"{rel}: abstract boundary only: no conformance(); replay the real code or "
                                "compare it as code facts, or plan it as a target model (python -m flowguard target start)"))
@@ -244,6 +246,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         if not (root / directory).is_dir():
             out.append(Finding("warn", "import_root_missing", "", f"import root directory missing: {directory}"))
     out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))
+    for finding in out:
+        if finding.code == "model_anchor_missing":
+            apply_accepted_debts([finding], data.get("accepted_debts", []))
     return out
 
 

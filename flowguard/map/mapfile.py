@@ -518,3 +518,12 @@ def model_digests(root: Path, *, view=None) -> dict[str, str]:
         if path is not None and path.is_file():
             result[logical] = content_digest(path)
     return result
+
+
+def process_model_reason(data, contract):
+    """An explicit no-code debt applies only until implementation anchors exist."""
+    if contract.get("IMPLEMENTED_BY"):
+        return ""
+    return next((debt.get("reason", "") for debt in data.get("accepted_debts", [])
+                 if debt.get("code") == "model_anchor_missing" and
+                 debt.get("component") == contract.get("MODEL_ID")), "")

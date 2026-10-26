@@ -235,9 +235,26 @@ def print_findings(findings: list[Finding], name: str, *, as_json: bool, limit: 
     if as_json:
         print(json.dumps({"command": name, "counts": counts, "findings": [asdict(f) for f in findings]}, indent=1))
     else:
-        for f in findings[:limit]:
-            print(f.line())
-        hidden = len(findings) - min(len(findings), limit)
+        rows = []
+        grouped = {}
+        for finding in findings:
+            if finding.level == "info":
+                grouped.setdefault(finding.code, []).append(finding)
+        emitted = set()
+        for finding in findings:
+            group = grouped.get(finding.code, []) if finding.level == "info" else []
+            if len(group) >= 3:
+                if finding.code in emitted:
+                    continue
+                emitted.add(finding.code)
+                ids = ", ".join(item.component or "-" for item in group[:8])
+                more = f" (+{len(group)-8} more; python -m flowguard map lint --json)" if len(group) > 8 else ""
+                rows.append(f"INFO {finding.code} x{len(group)}: {ids}{more}")
+            else:
+                rows.append(finding.line())
+        for row in rows[:limit]:
+            print(row)
+        hidden = len(rows) - min(len(rows), limit)
         if hidden:
             print(f"... {hidden} more (use --limit N or --json)")
         print(f"{name}: {counts['error']} error(s), {counts['warn']} warning(s), {counts['info']} info")

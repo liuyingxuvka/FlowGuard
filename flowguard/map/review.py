@@ -13,7 +13,7 @@ from pathlib import Path
 
 from .facets import component_facets, model_facets
 from .inventory import Inventory
-from .lint import run_lint
+from .lint import CLOSABLE_DEBTS, run_lint
 from .mapfile import component_files, component_graph
 from .tree import build_tree
 from .views import _layer_order, _read_facts
@@ -58,13 +58,13 @@ def _step(kind, component, detail, size, *, code=""):
 def _strengths(findings, data, coverage_total, model_data) -> list[str]:
     codes = {finding.code for finding in findings}
     flows = data.get("flows", [])
-    entries, writers = coverage_total
+    entries, writers = coverage_total[:2]
     claims = [
         ("no dependency cycles", "dependency_cycle" not in codes),
         ("no layer violations", "layer_violation" not in codes),
         ("one owner per responsibility, state and side effect", "duplicate_owner" not in codes),
         ("every flow has a model", bool(flows) and all(flow.get("model") for flow in flows)),
-        ("every entrypoint explained", entries[1] > 0 and entries[0] == entries[1]),
+        ("every entrypoint bound by a model or a test", entries[1] > 0 and entries[0] == entries[1] and not coverage_total[2]),
         ("every state writer explained", writers[1] > 0 and writers[0] == writers[1]),
         ("every model shows its known-bad variants",
          bool(model_data) and all(facets.known_bad_count is not None for facets in model_data.values())),
@@ -89,44 +89,75 @@ def _defect_lines(findings) -> list[str]:
     return lines or ["  none"]
 
 
-def _candidates(findings, data, inv, graph, tree, coverage, rows):
+def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=None):
+    from .testtree import test_calls
+    from .common import read_source
     steps = []
+    closed = {(debt.get("code"), debt.get("component")) for debt in data.get("accepted_debts", [])}
+    matched = matched if matched is not None else set()
+    def offer(kind, component, detail, size, **kw):
+        code = kw.get("code") or kind
+        key = (code, component)
+        if code in CLOSABLE_DEBTS:
+            matched.add(key)
+            if key in closed:
+                return
+        steps.append(_step(kind, component, detail, size, **kw))
+    call_index = {}
+    for path in inv.tests:
+        if path.endswith(".py"):
+            try:
+                call_index[path] = test_calls(path, read_source(inv.root / path), inv)
+            except OSError:
+                continue
     for finding in findings:
         if _accepted(finding):
+            if finding.code in CLOSABLE_DEBTS:
+                matched.add((finding.code, finding.component))
             continue
         detail = finding.message if len(finding.message) <= 100 else finding.message[:99] + "…"
         if finding.level == "error":
-            steps.append(_step("error", finding.component, detail, 1, code=finding.code))
+            offer("error", finding.component, detail, 1, code=finding.code)
         elif finding.level == "warn" and finding.code in REVIEW_ACTIONS:
-            steps.append(_step(finding.code, finding.component, f"{finding.code}: {detail}", 1, code=finding.code))
+            offer(finding.code, finding.component, f"{finding.code}: {detail}", 1, code=finding.code)
         elif finding.level == "warn":
-            steps.append(_step("warn", finding.component, detail, _size(finding.message), code=finding.code))
+            offer("warn", finding.component, detail, _size(finding.message), code=finding.code)
         elif finding.code == "never_imported":
-            steps.append(_step("never_imported", finding.component, detail, 1))
+            offer("never_imported", finding.component, detail, 1)
     for component in data["components"]:
         cid = component["id"]
         row = rows[cid]
         if row["used_by"] >= HUB_USERS and row["uses"] >= HUB_USES and (row["loc"] >= HUB_LOC or row["duties"] >= HUB_DUTIES):
-            steps.append(_step("hub", cid, f"hub (used by {row['used_by']}, uses {row['uses']}, {row['duties']} duties, "
-                                            f"{row['loc']} loc)", row["loc"]))
+            offer("hub", cid, f"hub (used by {row['used_by']}, uses {row['uses']}, {row['duties']} duties, "
+                                            f"{row['loc']} loc)", row["loc"])
         own_files = set(component_files(component, inv))
         own = [anchor for anchor in coverage[cid]["unexplained"] if anchor.partition(":")[0] in own_files
                or anchor in component.get("entrypoints", [])]
         if own:
-            steps.append(_step("unexplained", cid, f"{len(own)} unexplained entrypoints and state writers", 200 + len(own)))
+            offer("unexplained", cid, f"{len(own)} unexplained entrypoints and state writers", 200 + len(own))
         models = tree.models_for_component(cid)
         if (component.get("state") or component.get("side_effects")) and not models:
-            steps.append(_step("unmodeled_owner", cid, "owns state or side effects but has no model", 1))
-        if models and row["bound"] == 0:
-            steps.append(_step("unbound_models", cid, f"{len(models)} models, 0 bound tests", len(models)))
+            offer("unmodeled_owner", cid, "owns state or side effects but has no model", 1)
+        for model in models:
+            if any(model.contract.get("TESTED_BY", {}).values()):
+                continue
+            anchors = set(model.contract.get("IMPLEMENTED_BY", {}).values())
+            calls = [f"{path}::{name}" for path, functions in call_index.items()
+                     for name, values in functions.items() if anchors & values]
+            if calls:
+                detail = (f"{len(calls)} test functions call its code ({calls[0]}"
+                          + (f", +{len(calls)-1}" if len(calls) > 1 else "") + ")")
+                steps.append(_step("unbound_models", model.id, detail, len(calls)))
+            else:
+                offer("unbound_models", model.id, "no tests call its code; 0 bound tests", 1)
     for flow in data.get("flows", []):
         if not flow.get("model"):
-            steps.append(_step("flow_without_model", flow["id"], "no model", 1))
+            offer("flow_without_model", flow["id"], "no model", 1)
     steps.sort(key=lambda step: (-step[0], -step[1], step[2]))
     return [text for *_, text in steps]
 
 
-def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000) -> str:
+def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000, _declined=None) -> str:
     graph = component_graph(data, inv)
     tree = build_tree(root, data, inv)
     model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
@@ -164,16 +195,18 @@ def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000)
     head = (f"# {data.get('project', '')} review: {len(data['components'])} components, {len(tree.nodes) + 1} models (with system), "
             f"{len(data.get('flows', []))} flows; architecture: {errors} error(s), {warnings} warning(s), "
             f"{len(debts)} accepted debt(s)")
-    strengths = _strengths(findings, data, (entries, writers), model_data)
-    steps = _candidates(findings, data, inv, graph, tree, coverage, rows)
+    strengths = _strengths(findings, data, (entries, writers, sum(coverage[c["id"]]["entry_sources"][2] for c in data["components"] if not c.get("parent"))), model_data)
+    matched = _declined if _declined is not None else set()
+    steps = _candidates(findings, data, inv, graph, tree, coverage, rows, matched=matched)
     ranked = [f"  {index}. {text}" for index, text in enumerate(steps[:SHOWN_STEPS], 1)]
     if len(steps) > SHOWN_STEPS:
         ranked.append(f"  +{len(steps) - SHOWN_STEPS} more (python -m flowguard map lint)")
     before = [head, "strengths: " + ("; ".join(strengths) or "none yet"), "defects:", *_defect_lines(findings),
               "components: id layer files/loc duties uses/used-by models(rules/known-bad) tests(bound/functions) unexplained"]
     after = ["optimise next:" + ("" if ranked else " nothing to rank"), *ranked]
-    if debts:
-        after += ["debts:", *(f"  {debt.get('code', '')} {debt.get('component', '')}: {debt.get('reason', '')}" for debt in debts)]
+    decisions = [d for d in debts if d.get("code") in CLOSABLE_DEBTS]
+    unused = sum((d.get("code"), d.get("component")) not in matched for d in decisions)
+    after.append(f"declined: {len(decisions)} (accepted debts; {unused} no longer arise)")
     shown = list(table)
     while True:
         hidden = len(table) - len(shown)
@@ -182,3 +215,10 @@ def render_review(root: Path, data: dict, inv: Inventory, *, budget: int = 8000)
         if len(text) <= budget or not shown:
             return text
         shown.pop()
+
+
+def declined_debts(root, data, inv):
+    """Recompute closable suggestions for the debt listing; never persist review output."""
+    matched = set()
+    render_review(root, data, inv, _declined=matched)
+    return matched

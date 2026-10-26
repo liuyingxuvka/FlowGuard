@@ -26,7 +26,7 @@ def build_explorer(): return _explorer()
 def broken_variants(): return {"counts_docstring_mention_as_test": _explorer("words"), "counts_unbound_as_bound": _explorer("binding")}
 def make_fixture(root):
     files = {"app.py": "def modeled(): return True\ndef called(): return True\ndef mentioned(): return True\ndef reasoned(): return True\n",
-             "tests/test_app.py": "from app import modeled, called\nimport unittest\ndef test_bound(): assert modeled()\ndef test_call(): assert called()\ndef test_words():\n    '''mentioned() is only prose'''\n    assert True\nclass Base(unittest.TestCase): pass\nclass Suite(Base):\n    def test_method(self): assert called()\n",
+             "tests/test_app.py": "from app import modeled, called\nimport unittest\ndef test_bound(): assert modeled()\ndef test_call(): assert called() and modeled()\ndef test_words():\n    '''mentioned() is only prose'''\n    assert True\nclass Base(unittest.TestCase): pass\nclass Suite(Base):\n    def test_method(self): assert called() and modeled()\n",
              ".flowguard/models/probe.py": '"""Probe."""\nMODEL_ID="probe"\nPARENT="app"\nIMPLEMENTED_BY={"Run":"app.py:modeled"}\nNOT_MODELED={"app.py:reasoned":"deliberate no-op"}\nTESTED_BY={"works":["tests/test_app.py:test_bound"]}\ndef build_explorer(): pass\n'}
     for rel, text in files.items():
         path = root/rel; path.parent.mkdir(parents=True, exist_ok=True); path.write_text(text)

@@ -97,6 +97,8 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
         if finding.code == "dependency_cycle":
             component_ids.update(_cycle_members(finding.message))
     for f in findings:
+        if f.code == "unexplained":
+            continue
         if f.code == "dependency_cycle":
             members = _cycle_members(f.message)
             matches = [(index, _debt_members(debt, component_ids)) for index, debt in enumerate(debts)
@@ -389,9 +391,22 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view))
     out.extend(private_use_findings(root, data, inv))
+    # Lint must count no-code model debts so they become stale after anchoring.
+    for entry in registry.entries:
+        physical = resolve_model_path(root, entry.path, view=view)
+        try:
+            contract = read_model_contract(physical) if physical is not None else {}
+        except (OSError, SyntaxError, ValueError):
+            continue
+        if physical is not None and not contract.get("IMPLEMENTED_BY"):
+            out.append(Finding("error", "model_anchor_missing", entry.id, f"{entry.path}: no implementation anchors"))
     out, used = apply_accepted_debts(out, normalized_debts(data))
     out.extend(stale_debt_findings(data, inv, raw, used))
     return out
+
+
+REVIEW_DEBTS = {"unmodeled_owner", "hub", "flow_without_model", "never_imported", "unbound_models"}
+CLOSABLE_DEBTS = REVIEW_DEBTS | {"large_model", "large_test_file", "test_file_mixes_models"}
 
 
 def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int]) -> list[Finding]:
@@ -404,7 +419,7 @@ def stale_debt_findings(data: dict, inv: Inventory, raw: dict, used: set[int]) -
                         and debt.get("contains") in declared.get(debt.get("component"), set())
                         and debt.get("contains") not in bare.get(debt.get("component"), set())}
     return [Finding("warn", "debt_stale", debt.get("component", ""), f"accepted debt matches no finding: {debt['reason']}")
-            for index, debt in enumerate(debts) if index not in used]
+            for index, debt in enumerate(debts) if index not in used and debt.get("code") not in REVIEW_DEBTS]
 
 
 def test_source(root, path, source_cache=None):
@@ -419,20 +434,21 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
     """Static explanation counts, scoped to each real component and its subtree."""
     excluded = {anchor for node in tree.nodes.values() for anchor in node.contract.get("NOT_MODELED", {})}
     cache = source_cache if source_cache is not None else {}
+    from .testtree import test_calls
+    all_calls = {}
+    for path in inv.tests:
+        if path.endswith(".py"):
+            try:
+                all_calls[path] = set().union(*test_calls(path, test_source(root, path, cache), inv).values())
+            except OSError:
+                all_calls[path] = set()
     out = {}
     for component in data["components"]:
         cid = component["id"]
         scoped = component_scope(data, component)
         covered = {anchor for node in tree.models_for_component(cid)
                    for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()}
-        sources = []
-        for path in inv.tests:
-            if matches_any(path, scoped.get("tests", [])):
-                try:
-                    sources.append(test_source(root, path, cache))
-                except OSError:
-                    continue
-        tests = "\n".join(sources)
+        tests = set().union(*all_calls.values())
         entries = set(scoped.get("entrypoints", []))
         writers = {f"{path}:{symbol}" for path in component_files(scoped, inv)
                    for symbol, facts in raw["files"].get(path, {}).get("functions", {}).items()
@@ -447,7 +463,9 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
                     "state_writers": (len(explained_writers), len(writers)),
                     "entry_sources": sources(entries), "writer_sources": sources(writers),
                     "unexplained": tuple(sorted((entries - explained_entries) | (writers - explained_writers))),
-                    "unexplained_entries": tuple(sorted(entries - explained_entries))}
+                    "unexplained_entries": tuple(sorted(entries - explained_entries)),
+                    "unlisted": len({f"{path}:{name}" for path in component_files(scoped, inv)
+                                      for name in raw["files"].get(path, {}).get("entrypoints", ())} - entries)}
         if len(component_subtree(data, cid)) > 1:
             own_entries = set(component.get("entrypoints", []))
             own_files = set(component_files(component, inv))
@@ -710,8 +728,7 @@ def explained_by(anchor, covered, not_modeled=(), *, tests=""):
         return "model"
     if anchor in not_modeled:
         return "reason"
-    name = anchor.partition(":")[2].rsplit(".", 1)[-1]
-    return "test" if name and tests and re.search(rf"(?<!\w){re.escape(name)}(?!\w)", tests) else None
+    return "test" if not isinstance(tests, str) and anchor in tests else None
 
 
 def model_writer_findings(raw: dict, data: dict, root: Path, inv: Inventory, registry=None, *, view=None) -> list[Finding]:

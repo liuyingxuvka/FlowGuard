@@ -865,10 +865,15 @@ def test_large_selected_scope_does_not_expand_to_the_full_suite(selected_count):
     impact = Impact(changed=["shop/orders.py"], direct=["orders"], dependents=[],
                     unmapped=[], tests=paths, models=[], needs_review=[], total_tests=136)
     text = render_impact(impact)
-    command = next(line for line in text.splitlines() if line.startswith("run:"))
-    assert command == "run: python -m pytest -q " + " ".join(paths)
-    assert "test_135.py" not in command
-    assert f"{selected_count} of 136" in text
+    from flowguard.map.impact import run_commands
+    assert run_commands(impact) == ["python -m pytest -q " + " ".join(paths)]
+    assert "test_135.py" not in " ".join(run_commands(impact))
+    if selected_count > 30:
+        assert "broad selection; run: python -m flowguard change --run" in text
+        assert not any(line.startswith("run:") for line in text.splitlines())
+    else:
+        assert "run: python -m pytest -q " + " ".join(paths) in text
+        assert f"{selected_count} of 136" in text
 
 
 def test_exact_schema_binding_tracks_content_and_deletion_without_broad_json_scan(impact_project):

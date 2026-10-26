@@ -336,7 +336,7 @@ def _show_header(data, graph, inv, *, architecture=None, debts=None):
     head += ", layers (top > bottom) " + " > ".join(data["layers"]) if data.get("layers") else ", layers: none"
     errors, warnings = sum(f.level == "error" for f in architecture), sum(f.level == "warn" for f in shapes)
     used = set(debts or ()) | set(shape_debts)      # debts covering a structural or a size/test warning
-    return head + (f"; architecture: {errors} error(s), {warnings} warning(s), {len(used)} accepted debt(s)"
+    return head + (f"; architecture: {errors} error(s), {warnings} warning(s), {len(data.get('accepted_debts', []))} accepted debt(s)"
                    + ("; python -m flowguard read --review ranks them" if errors or warnings else ""))
 
 
@@ -491,7 +491,31 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                                 'python -m flowguard target check lists what is left')
     except (OSError, ValueError, TypeError, SyntaxError, MapError):
         target_lines.append("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
-    essential = "\n".join([head, *target_lines, coverage_line(coverage, summary=True), *flows])
+    from .testtree import test_calls, resolve_test_anchor
+    from .mapfile import process_model_reason
+    indices = _test_function_index(root, inv)
+    bound, calling = set(), set()
+    call_index = {}
+    for path in indices:
+        try:
+            call_index[path] = test_calls(path, (root / path).read_text(encoding="utf-8"), inv)
+        except OSError:
+            continue
+    for node in tree.nodes.values():
+        anchors = set(node.contract.get("IMPLEMENTED_BY", {}).values())
+        for values in node.contract.get("TESTED_BY", {}).values():
+            for anchor in values:
+                path, _, symbol = anchor.partition(":")
+                name = resolve_test_anchor(root / path, symbol)
+                if name:
+                    bound.add((path, name))
+        calling.update((path, name) for path, calls in call_index.items()
+                       for name, values in calls.items() if values & anchors)
+    all_tests = {(path, name) for path, names in indices.items() for name in names}
+    tests_line = (f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
+                  f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither")
+    models_line = f"models: {len(tree.nodes)} (process {sum(bool(process_model_reason(data, n.contract)) for n in tree.nodes.values())})"
+    essential = "\n".join([head, coverage_line(coverage, summary=True), tests_line, models_line, *target_lines, *flows])
     root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
                                                    model_data, bindings=detail)
     if component == "system":
@@ -617,9 +641,12 @@ def _bounded_show_raw(top, essential, blocks, budget):
     text = top + "\n" + "\n".join(b for _, b in blocks)
     if len(text) <= budget:
         return text
-    reserve = min(160, max(len("\n... truncated"), budget - len(essential)))
+    reserve = min(160, max(len("\n... truncated"), budget // 2))
     shown = ""
-    for line in top.splitlines():
+    rows = top.splitlines()
+    if len(essential) > budget - reserve:
+        rows = rows[:1] + [line for line in rows[1:] if line.startswith("> flow ")] + [line for line in rows[1:] if not line.startswith("> flow ")]
+    for line in rows:
         candidate = shown + ("\n" if shown else "") + line
         if len(candidate) > budget - reserve:
             break

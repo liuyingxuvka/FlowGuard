@@ -190,7 +190,18 @@ def cmd_check(root: Path, a) -> int:
 def cmd_lint(root: Path, a) -> int:
     data, inv = _context(root)
     limits = Limits(a.max_component_loc, a.max_file_loc, a.max_responsibilities, a.max_fan_out)
-    counts = print_findings(run_lint(root, data, inv, limits), "lint", as_json=a.json, limit=a.limit)
+    findings = run_lint(root, data, inv, limits)
+    if getattr(a, "debts", False):
+        from .review import declined_debts
+        matched = declined_debts(root, data, inv)
+        for debt in data.get("accepted_debts", []):
+            used = any(f.code == debt["code"] and f.component == debt.get("component", f.component)
+                       and "(accepted debt:" in f.message for f in findings)
+            if debt.get("code") in {"unmodeled_owner", "hub", "flow_without_model", "unbound_models"}:
+                used = (debt["code"], debt.get("component", "")) in matched
+            print(f"{debt['code']} {debt.get('component', '')}: {debt['reason']}" + ("" if used else " (unused)"))
+        return int(any(f.level == "error" for f in findings))
+    counts = print_findings(findings, "lint", as_json=a.json, limit=a.limit)
     return 1 if counts["error"] else 0
 
 
@@ -236,9 +247,8 @@ def cmd_change(root: Path, a) -> int:
     for finding in architecture:
         print(f"ARCH {finding.level.upper()} {finding.code} {finding.component}: {finding.message}")
     affected = set(imp.direct)
-    for debt in data.get("accepted_debts", []):
-        if debt.get("component") in affected:
-            print(f"DEBT {debt['component']} {debt['code']}: {debt['reason']}")
+    debts = sum(debt.get("component") in affected for debt in data.get("accepted_debts", []))
+    print(f"debts: {debts} accepted for the changed components (python -m flowguard map lint --debts)")
     code = int(bool(counts["error"] or imp.blocked or unmapped or any(f.level == "error" for f in architecture)))
     if not getattr(a, "run", False):
         return code
@@ -256,19 +266,21 @@ def cmd_change(root: Path, a) -> int:
 def _run_selected(root: Path, commands: list[str]) -> int:
     """change --run: execute each run: command without a shell; one RAN line per command."""
     import shlex
+    import time
 
     failed = False
     for command in commands:
         argv = shlex.split(command)
         if argv and argv[0] == "python":         # the run: lines name the interpreter running FlowGuard
             argv[0] = sys.executable
+        started = time.monotonic()
         result = subprocess.run(argv, cwd=root, capture_output=True, text=True, encoding="utf-8", errors="replace")
         shown = command[:120]
         if result.returncode == 0:
-            print(f"RAN PASS {shown}")
+            print(f"RAN PASS {time.monotonic()-started:.2f}s {shown}")
             continue
         failed = True
-        print(f"RAN FAIL (exit {result.returncode}) {shown}")
+        print(f"RAN FAIL (exit {result.returncode}) {time.monotonic()-started:.2f}s {shown}")
         for line in (result.stdout + result.stderr).splitlines()[-20:]:
             print("  " + line)
     return int(failed)
@@ -346,9 +358,7 @@ def cmd_verify(root: Path, a) -> int:
         print_findings([finding for finding in findings if finding.level == "error"],
                        "lint errors", as_json=False, limit=a.limit)
     debts = data.get("accepted_debts", [])
-    print(f"accepted debts: {len(debts)}")
-    for debt in debts:
-        print(f"  {debt.get('code', '?')}: {debt.get('reason', '(no reason)')}")
+    print(f"accepted debts: {len(debts)} (python -m flowguard map lint --debts)")
     registry = model_registry(root, data)
     results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", 1))
     if results:
@@ -412,6 +422,7 @@ def build_parser() -> argparse.ArgumentParser:
     lint.add_argument("--max-component-loc", type=int, default=3000)
     lint.add_argument("--max-file-loc", type=int, default=800)
     lint.add_argument("--max-responsibilities", type=int, default=7)
+    lint.add_argument("--debts", action="store_true", help="list accepted decisions and unused debts")
     lint.add_argument("--max-fan-out", type=int, default=8)
     s = sub.add_parser("impact"); s.add_argument("files", nargs="*"); s.add_argument("--base", default="HEAD")
     s.add_argument("--depth", type=_depth, default=None, help="explicitly truncate caller traversal to N levels (default: full closure)"); s.add_argument("--json", action="store_true")

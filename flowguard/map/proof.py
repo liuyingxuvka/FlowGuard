@@ -53,6 +53,8 @@ class ModelResult:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
+    test_seconds: float | None = None
+    process_reason: str = ""
     uncovered_invariants: list[str] = field(default_factory=list)
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
@@ -187,9 +189,8 @@ def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: 
 
 def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int = DEFAULT_TIMEOUT, statuses: dict[str, str] | None = None, view=None) -> None:
     """Run a model's unique bound Python nodes once, then judge every actual item independently."""
-    from .inventory import parse_python
-
     started = time.monotonic()
+    ran_tests = False
     try:
         physical = resolve_model_path(root, path.relative_to(root).as_posix(), view=view)
         if physical is None:
@@ -209,7 +210,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         if not anchors:
             result.warnings.append("TESTED_BY reach not checked: no IMPLEMENTED_BY anchors")
             return
-        nodes, parsed, exact_items = {}, {}, set()
+        nodes, exact_items = {}, set()
         for invariant, anchor in bindings:
             rel, _, symbol = anchor.partition(":")
             if not rel.endswith(".py"):
@@ -222,16 +223,14 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
                     statuses[anchor] = "failed"
                 _fail(result, f"tested_by_failed {invariant} -> {anchor}: {exc}")
                 continue
-            if rel not in parsed:
-                parsed[rel] = parse_python(root, rel, rel[:-3].replace("/", "."), collect_bodies=False)
-            info = parsed[rel]
-            matches = [symbol] if symbol in info.symbols else sorted(s for s in info.symbols if s.endswith("." + symbol))
-            if info.parse_error or len(matches) != 1:
+            from .testtree import resolve_test_anchor
+            match = resolve_test_anchor(root / rel, symbol)
+            if match is None:
                 if statuses is not None:
                     statuses[anchor] = "failed"
                 _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable")
                 continue
-            nodes[anchor] = rel + "::" + "::".join(matches[0].split(".")) + suffix
+            nodes[anchor] = rel + "::" + "::".join(match.split(".")) + suffix
             if suffix:
                 exact_items.add(anchor)
         if not nodes:
@@ -243,6 +242,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             request, output = Path(folder) / "request.json", Path(folder) / "result.json"
             request.write_text(json.dumps({"anchors": anchors, "nodes": sorted(set(nodes.values())),
                                            **({"view": view.to_payload()} if view is not None else {})}), encoding="utf-8")
+            ran_tests = True
             proc, timed_out, cleaned = run_isolated_process(
                 [sys.executable, "-m", "flowguard.map.testreach", str(root), str(request), str(output)],
                 cwd=root, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
@@ -291,7 +291,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         result.status = "error"
         result.problems.append(f"TESTED_BY environment/execution error: {exc}")
     finally:
-        result.seconds = round(result.seconds + time.monotonic() - started, 3)
+        if ran_tests:
+            result.test_seconds = round(time.monotonic() - started, 3)
 
 
 def _design_checks(explorer) -> set[str]:
@@ -457,6 +458,12 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             result.status = "error"
             result.problems.append("a model file needs MODEL_ID and def build_explorer()")
             return result
+        from .mapfile import process_model_reason
+        try:
+            data = view.data if view is not None else load_map(root)
+        except MapError:
+            data = {}
+        result.process_reason = process_model_reason(data, contract)
         started = time.time()
         phase = "design"
         try:
@@ -486,7 +493,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.hazards = [f"inference failed: {exc}"]
             caught_variants: dict = {}
             untested = sorted(invariant_names - contract.get("TESTED_BY", {}).keys())
-            if untested:
+            if untested and contract.get("TESTED_BY") and not result.process_reason:
                 result.warnings.append("invariant_untested: " + ", ".join(untested)
                                        + " have no TESTED_BY test; bind a test that fails when the rule is broken")
             if not report.explored_sequence_count or not report.transition_count:
@@ -545,6 +552,9 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.closed_hazards = [f"{hint} (closed by {closures[hint]})" for hint in result.hazards if hint in closures]
                 result.hazards = [hint for hint in result.hazards if hint not in closures]
             missing_anchors = anchor_problems(root, anchors)
+            if result.process_reason:
+                result.seconds = round(time.time() - started, 3)
+                return result
             if "conformance" in contract["functions"] and not missing_anchors:
                 phase = "conformance"
                 calls.called.difference_update(contract.get("USES", {}).values())
@@ -650,16 +660,12 @@ def render_results(results: list[ModelResult], *, all_hazards: bool = False) -> 
 
     lines = []
     for r in results:
-        lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds:>7}s")
-        if r.rules or r.known_bad:
+        suffix = f"  tests {r.test_seconds}s" if r.test_seconds is not None else ""
+        if r.process_reason:
+            suffix += "  (process model: no code yet)"
+        lines.append(f"{r.status.upper():5} {r.model:32} {r.seconds}s{suffix}")
+        if r.status != "pass" and (r.rules or r.known_bad):
             lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
-        shown = r.hazards if all_hazards else r.hazards[:HAZARDS_SHOWN]
-        lines += [f"      hazard: {hazard}" for hazard in shown]
-        if all_hazards:
-            lines += [f"      hazard closed: {hazard}" for hazard in r.closed_hazards]
-        if r.hazards or r.closed_hazards:
-            lines.append(f"      hazards: {len(r.hazards)} open ({len(shown)} shown), {len(r.closed_hazards)} closed "
-                         "by known-bad variants or invariants")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
     failed = sum(r.status != "pass" for r in results)

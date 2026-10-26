@@ -595,7 +595,14 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
     known = static.known_bad()
     literal_bad = known is not None
     bad = known if literal_bad else ()
+    from .mapfile import load_map, MapError, process_model_reason
+    try:
+        reason = process_model_reason(view.data if view is not None else load_map(root), contract)
+    except MapError:
+        reason = ""
     code = [f"{block} -> {anchor}" for block, anchor in sorted(contract.get("IMPLEMENTED_BY", {}).items())]
+    if reason:
+        code.append(f"process model (no code yet): {reason}")
     code.extend(f"USES {name} -> {anchor}" for name, anchor in sorted(contract.get("USES", {}).items()))
     if contract.get("NOT_MODELED"):
         code.append(f"not modeled: {len(contract['NOT_MODELED'])}")
@@ -618,7 +625,10 @@ def coverage_line(coverage, *, summary=False):
     def part(label, key, sources):
         done, total = (sum(record[key][i] for record in records) for i in (0, 1))
         model, test, reason = (sum(record.get(sources, (0, 0, 0))[i] for record in records) for i in (0, 1, 2))
-        return f"{label} {done}/{total} explained (model {model}, test {test}, reason {reason})"
+        text = f"{label} {model + test} of {total} bound (model {model}, test {test}), {reason} by reason"
+        if key == "entrypoints":
+            text += f", {sum(record.get('unlisted', 0) for record in records)} unlisted"
+        return text
     line = ("coverage: " + part("entrypoints", "entrypoints", "entry_sources") + "; "
             + part("state writers", "state_writers", "writer_sources"))
     if summary:
@@ -638,23 +648,11 @@ def _test_function_index(root: Path, inv: Inventory, *, source_cache=None) -> di
     for path in inv.tests:
         if not path.endswith(".py"):
             continue
+        from .testtree import test_functions
         try:
-            syntax = ast.parse(test_source(root, path, source_cache))
-        except (OSError, SyntaxError):
-            continue
-        names, pending = set(), list(syntax.body)
-        while pending:
-            node = pending.pop()
-            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                if node.name.startswith("test"):
-                    names.add(node.name)
-            elif isinstance(node, ast.ClassDef):
-                names.update(f"{node.name}.{method.name}" for method in node.body
-                             if isinstance(method, (ast.FunctionDef, ast.AsyncFunctionDef)) and method.name.startswith("test"))
-            elif isinstance(node, (ast.If, ast.Try, ast.With)):
-                pending.extend(node.body + getattr(node, "orelse", []) + getattr(node, "finalbody", []))
-                for handler in getattr(node, "handlers", []):
-                    pending.extend(handler.body)
+            names = set(test_functions(test_source(root, path, source_cache)))
+        except OSError:
+            names = set()
         found[path] = names
     return found
 

@@ -10,13 +10,16 @@ from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "model_runs"
 PARENT = "map-proof"
-IMPLEMENTED_BY = {"RunModels": "flowguard/map/proof.py:run_models"}
-TESTED_BY = {"parallel_output_in_registry_order": ["tests/test_flowguard_map_proof.py:test_jobs_output_equals_sequential"]}
+IMPLEMENTED_BY = {"RunModels": "flowguard/map/proof.py:run_models", "Render": "flowguard/map/proof.py:render_results"}
+USES = {"PrintFindings": "flowguard/map/common.py:print_findings"}
+TESTED_BY = {"parallel_output_in_registry_order": ["tests/test_flowguard_map_proof.py:test_jobs_output_equals_sequential"], "pass_is_one_line": ["tests/test_flowguard_map_proof.py:test_pass_is_one_line_fail_keeps_rules"], "identical_info_grouped": ["tests/test_flowguard_map_proof.py:test_identical_info_grouped_into_one_line"]}
 
 
 @dataclass(frozen=True)
 class State:
     order: tuple = ()
+    pass_lines: int = 1
+    info_lines: int = 1
 
 
 class Run:
@@ -28,13 +31,15 @@ class Run:
         self.reversed_order = reversed_order
 
     def apply(self, event, state):
-        order = ("second", "first") if self.reversed_order else ("first", "second")
-        return (FunctionResult(order, State(order), label="run"),)
+        order = ("second", "first") if self.reversed_order is True else ("first", "second")
+        return (FunctionResult(order, State(order, 2 if self.reversed_order == "rules" else 1, 3 if self.reversed_order == "info" else 1), label="run"),)
 
 
 INVARIANTS = (Invariant("parallel_output_in_registry_order", "completion order never reorders registered models",
           lambda s, t: InvariantResult.pass_() if not s.order or s.order == ("first", "second")
-          else InvariantResult.fail("registry order changed")),)
+          else InvariantResult.fail("registry order changed")),
+    Invariant("pass_is_one_line", "passing proofs have one output line", lambda s,t: s.pass_lines == 1),
+    Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1))
 
 
 def _explorer(reversed_order=False):
@@ -47,7 +52,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {"orders_by_completion": _explorer(True)}
+    return {"orders_by_completion": _explorer(True), "prints_rules_on_pass": _explorer("rules"), "prints_each_info_line": _explorer("info")}
 
 
 def make_fixture(root, *, wrong_second=False):
@@ -99,4 +104,15 @@ def conformance():
             first = [(r.model, r.status) for r in sequential]
             second = [(r.model, r.status) for r in parallel]
             facts.append(Fact(f"registry_order_{wrong}", first == second == expected, repr((first, second))))
+    from flowguard.map.proof import ModelResult, render_results
+    from flowguard.map.common import Finding, print_findings
+    from contextlib import redirect_stdout
+    from io import StringIO
+    rendered = render_results([ModelResult("probe", "probe.py", rules=["one"], known_bad=["two"])])
+    facts.append(Fact("single_pass_line", len([line for line in rendered.splitlines() if line and not line.startswith("models:")]) == 1, rendered))
+    output = StringIO()
+    with redirect_stdout(output):
+        print_findings([Finding("info", "same", str(i), "note") for i in range(3)], "probe", as_json=False, limit=80)
+    rows = [line for line in output.getvalue().splitlines() if line.startswith("INFO")]
+    facts.append(Fact("grouped_info", len(rows) == 1 and "x3:" in rows[0], output.getvalue()))
     return CodeFactsReport(tuple(facts))

@@ -180,17 +180,14 @@ def test_two_blocks_writing_one_field_print_a_shared_writer_hazard(tmp_path, cap
     monkeypatch.setattr(cli, "run_models", capture)
     assert cli.main(["--root", str(tmp_path), "models", "hazard_recording", "--tests"]) == 0
     output = capsys.readouterr().out
-    assert "PASS  hazard_recording" in output and "hazard: shared_writer:" in output, output
-    assert "records" in output and "Router" in output and "CompleteRecord" in output, output
+    assert "PASS  hazard_recording" in output and "hazard:" not in output, output
     result = next(result for result in captured if result.model == "hazard_recording")
     assert result.status == "pass" and not result.problems
     # The shared fields (one hint for the one writer set), both repeatable append effects and a
     # completion node give more open hints than the display cap of three.
     assert len(result.hazards) > 3
-    lines = [line for line in output.splitlines() if line.startswith("      hazard")]
-    assert lines == [f"      hazard: {hazard}" for hazard in result.hazards[:3]] + [
-        f"      hazards: {len(result.hazards)} open (3 shown), {len(result.closed_hazards)} closed by known-bad "
-        "variants or invariants"]
+    assert any("shared_writer:" in hint and "records" in hint for hint in result.hazards)
+    assert not any(line.startswith("      hazard") for line in output.splitlines())
     payload = json.loads(json.dumps(asdict(result)))
     assert proof.ModelResult(**payload).hazards == result.hazards
     payload.pop("hazards")
@@ -219,7 +216,7 @@ def test_hazards_never_change_the_verdict(tmp_path, monkeypatch):
     assert len(calls) == 1 and calls[0].workflow.blocks[0].name == "Router"
     assert result.status == "pass" and not result.problems, result
     assert result.hazards == ["inference failed: inference probe failed"]
-    assert "      hazard: inference failed: inference probe failed" in proof.render_results([result])
+    assert "hazard:" not in proof.render_results([result])
 
 
 def test_hazard_words_match_whole_words_only():
@@ -288,7 +285,7 @@ def conformance():
 '''
 
 
-def test_known_bad_on_the_block_closes_its_hazard(tmp_path, capsys):
+def test_known_bad_on_the_block_closes_its_hazard(tmp_path, capsys, monkeypatch):
     """Two blocks write `total`; a caught known-bad variant replacing one of them closes the shared_writer hint."""
     (tmp_path / "hazard_total_app.py").write_text("def add_one(value):\n    return value + 1\n", encoding="utf-8")
     (tmp_path / ".flowguard/models").mkdir(parents=True)
@@ -296,13 +293,22 @@ def test_known_bad_on_the_block_closes_its_hazard(tmp_path, capsys):
     (tmp_path / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [dict(
         id="app", summary="Adds", responsibilities=["add numbers"], files=["hazard_total_app.py"], entrypoints=[],
         tests=[], models=[], depends_on=[], status="draft")]}), encoding="utf-8")
+    captured = []
+    original = cli.run_models
+    def capture(*args, **kwargs):
+        results = original(*args, **kwargs)
+        captured.extend(results)
+        return results
+    monkeypatch.setattr(cli, "run_models", capture)
     assert cli.main(["--root", str(tmp_path), "models", "hazard_total"]) == 0
     output = capsys.readouterr().out
     assert "hazard: shared_writer" not in output, output
-    assert "hazards: 0 open (0 shown), 1 closed by known-bad variants or invariants" in output, output
+    assert len(captured[0].closed_hazards) == 1 and captured[0].hazards == []
+    assert "hazards:" not in output, output
     assert cli.main(["--root", str(tmp_path), "models", "hazard_total", "--hazards"]) == 0
     listed = capsys.readouterr().out
-    assert "shared_writer" in listed and "closed by known-bad adds_five" in listed, listed
+    assert any("shared_writer" in h and "closed by known-bad adds_five" in h for h in captured[-1].closed_hazards)
+    assert "hazard:" not in listed and "hazards:" not in listed, listed
 
 
 def test_hazard_output_is_capped_with_one_summary_line():
@@ -310,7 +316,6 @@ def test_hazard_output_is_capped_with_one_summary_line():
     result = proof.ModelResult(model="m", file="m.py", status="pass",
                                hazards=[f"shared_writer: hint {index}" for index in range(5)])
     lines = [line.strip() for line in proof.render_results([result]).splitlines() if "hazard" in line]
-    assert lines == ["hazard: shared_writer: hint 0", "hazard: shared_writer: hint 1", "hazard: shared_writer: hint 2",
-                     "hazards: 5 open (3 shown), 0 closed by known-bad variants or invariants"], lines
+    assert lines == []
     full = proof.render_results([result], all_hazards=True)
-    assert all(f"hint {index}" in full for index in range(5)) and "+" not in full
+    assert "hint" not in full and len(result.hazards) == 5

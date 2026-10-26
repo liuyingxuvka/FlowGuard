@@ -31,6 +31,8 @@ class Impact:
     needs_review: list[str]
     test_command: str = DEFAULT_TEST_COMMAND
     total_tests: int = 0
+    selected_test_functions: int = 0
+    total_test_functions: int = 0
     map_changed: bool = False
     depth: int | None = None
     uncertainty: list[str] = field(default_factory=list)
@@ -537,6 +539,14 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                      f in read_source(root / t) or Path(f).name in read_source(root / t)
                      for t in tests if (root / t).is_file())]
     needs_review = [cid for cid in sorted(direct) if cid in by_id and is_stale(root, by_id[cid], inv)]
+    from .testtree import test_functions
+    function_counts = {}
+    for path in inv.tests:
+        if path.endswith(".py"):
+            try:
+                function_counts[path] = len(test_functions(read_source(root / path)))
+            except OSError:
+                pass
     return Impact(
         changed=changed, direct=sorted(direct), dependents=sorted(affected - direct),
         unmapped=[f for f in changed if f not in matched and not inv.is_test(f)
@@ -547,6 +557,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         review_models={cid: [n.id for n in tree.models_for_component(cid)] for cid in needs_review},
         test_command=data.get("test_command") or DEFAULT_TEST_COMMAND,
         total_tests=sum(is_collectable_test(t) for t in inv.tests),
+        selected_test_functions=sum(function_counts.get(path, 0) for path in tests),
+        total_test_functions=sum(function_counts.values()),
         map_changed=".flowguard/map.json" in changed, depth=depth,
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
@@ -616,12 +628,13 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     commands = run_commands(imp, moving_models=moving_models)
     broad = len(imp.tests) > 30
     if broad:
-        lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): broad selection; run commands below (full list: python -m flowguard map impact --json)")
+        lines.append(f"tests to run ({imp.selected_test_functions} of {imp.total_test_functions} test functions, {len(imp.tests)} files): broad selection; run: python -m flowguard change --run")
     else:
         # The executable command contains the list once; avoid repeating it above.
         lines.append(f"tests to run ({len(imp.tests)} of {imp.total_tests}): " + ("see run below" if imp.tests else "-"))
     # Keep the executable command scoped even when its display is long; change --run executes these.
-    lines.extend("run: " + command for command in commands[:len(groups)])
+    if not broad:
+        lines.extend("run: " + command for command in commands[:len(groups)])
     lines.extend("NO TEST COMMAND for: " + test for test in no_command)
     lines.extend("run: " + command for command in commands[len(groups):])
     for cid in imp.needs_review:

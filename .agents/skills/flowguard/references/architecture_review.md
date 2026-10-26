@@ -71,3 +71,5 @@ A cycle debt covers only its members; a grown cycle stays an ERROR and names the
 Its invariants are cycle, layer and duplicate-owner rules; generated bad edges and claims must fail.
 It checks the map against code and reports unbound tests. Missing layers or unavailable variants warn.
 `release` includes this root model alongside the registered behavior models.
+
+Close a review suggestion with an accepted_debts entry naming its code, component (or model ID) and a concrete reason; read --review counts declined suggestions. Tests that call a model's code still need TESTED_BY bindings.

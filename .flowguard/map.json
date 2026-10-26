@@ -89,7 +89,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch commands, run selected changes and name stale components that still need confirmation.",
+      "summary": "Dispatch commands and show quiet findings, separate proof and test times, and requested debt reasons.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:66d043ca124b48637926041c877c3dba5e2ed741d5c3e3c395a7cc85990fdb80"
+      "fingerprint": "sha256:3f1bc25dc3df9671f20954807fd2f8fb6fbd7b12f19addf3be6112bae9a492c0"
     },
     {
       "id": "public-api",
@@ -238,7 +238,7 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventories files and resolves package, sibling-script and declared-root imports through one resolver.",
+      "summary": "Inventory files and resolve imports; group repeated informational findings without hiding warnings or errors.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
@@ -265,12 +265,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:5b6e868a1c6b9a257f69d93b364b41855d33953aa8a70fb4a0530b6b597c6897"
+      "fingerprint": "sha256:a8f434ce1ecbb3483f67a901c4a60ea5a07dd94fb6a188284a66cb7ccc3a3b02"
     },
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Owns map schema, model placement, anchor scopes and current-model fingerprints.",
+      "summary": "Own map schema, model placement, anchor scopes, fingerprints and read-only test source classification.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -285,7 +285,8 @@
         "flowguard/map/scan.py",
         "flowguard/map/tree.py",
         "flowguard/map/targetfile.py",
-        "flowguard/map/retired.py"
+        "flowguard/map/retired.py",
+        "flowguard/map/testtree.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -310,7 +311,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4096eb053895a97337ca1845537c29ce8612e9d8ee53d8de472fac9016f991fa"
+      "fingerprint": "sha256:8ba0e8e7a0a5d0d179710be1b299c16167abe6972e83e9cc87ef8185320b7eba"
     },
     {
       "id": "map-discover",
@@ -350,7 +351,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Checks target design, ownership and native gaps, then promotes with one recoverable full check.",
+      "summary": "Check target design and native gaps, name process models and promote one checked snapshot.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -392,19 +393,19 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f9f75e28cd1a4581251b9f1f9d433f04233056abf7b11b7714ac8e39550363c2"
+      "fingerprint": "sha256:46be073064acbd91ccc8b75dea4101f37351501ea7774e73ba93f04fa900abc0"
     },
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Runs fresh proofs and bound tests, checking owned consultation and actual calls to read-only bindings.",
+      "summary": "Run fresh abstract and native proofs, retain known-bad checks for process models and time bound tests separately.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
         "read code facts for conformance and fail missing or unconsulted anchors",
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
-        "print at most three open hazard hints per model"
+        "show passing proofs on one line, with details for failures and separate bound-test timings"
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -439,7 +440,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:07a9723ee3ba545ca488274c608b73e71bbd36b77a8b573368b1b33b404c0634"
+      "fingerprint": "sha256:6a15cf4034ddc09ef7cb098732476b9f65e289f43cb8e22dd8be1ce30fb1c564"
     },
     {
       "id": "engine-explore",
@@ -714,7 +715,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Verifies map/code promises and resolves owned and read-only model anchors.",
+      "summary": "Verify map/code promises and classify code-free process models only with an explicit accepted debt.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -743,12 +744,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:61bbca7b88f9af6313b3e33c023834c09d228eefc36b0450e4f85d71a55c115d"
+      "fingerprint": "sha256:c1feda3f9d3f56657d2b7cac626a0ddb3d48a5f3d730ab2bf8509d0a79f31f31"
     },
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Derives bounded node views, semantic rule changes and the models using component code read-only.",
+      "summary": "Show bounded views, actual binding and call coverage, test categories and closable review decisions.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -776,12 +777,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f68f6cfa9d9570426574c6b64fa4753e481ad50c97aebfdac6256fedbc22c1b6"
+      "fingerprint": "sha256:fe59198051cca09a4c4a1e064e0a78f7250908b70d4f8a27d258d3d644a61def"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Selects affected code, tests and models, comparing changed read-only functions without taking their ownership.",
+      "summary": "Select affected tests and models; summarize broad test selections without expanding their command lists.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select the models of relied anchors and flows a change touches"
@@ -807,7 +808,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:256ba1cd5f6dfebaa2279ed3b6d033ea4c2fceef94973e5a899ebe6e34fa7290"
+      "fingerprint": "sha256:514145d0c344f6069151b204b064041850e17b60843569496190d27cd2170e7e"
     }
   ],
   "flows": [
@@ -883,6 +884,16 @@
       "code": "high_fan_out",
       "component": "cli",
       "reason": "the command entry dispatches each command family to the component that owns it"
+    },
+    {
+      "code": "unmodeled_owner",
+      "component": "templates",
+      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
+    },
+    {
+      "code": "unmodeled_owner",
+      "component": "tooling",
+      "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
     }
   ],
   "fingerprint_format": 2,
@@ -895,11 +906,13 @@
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",
     ".flowguard/models/model_proof.py": "b8fdcdaae86aa7d993c1fc092a60b5f1b35c03d7c3c15f90628bca39b2ad31ce",
-    ".flowguard/models/model_runs.py": "ba49d27068aa230118d3f5d30c09b06c20789e6733b49a4e967ba25da5acf892",
+    ".flowguard/models/model_runs.py": "99f4920dc8a1bf8691c508bbedf4a0c60c8704b4edc3eb90a48b7764156256e7",
     ".flowguard/models/model_scope.py": "52eac2133609103a21897ac04c71fb3f6b95e9793ba8403fe19f3367b1aacb0f",
     ".flowguard/models/python_function_state_verification.py": "d48a46573add9e440cd33a864b9341908a1cf708a15b3da6d998d08779dec36a",
     ".flowguard/models/read_find.py": "a9b4737b68b209a151b129c5d4727ed8c6d2edd66ea8722d538c2cd8dbece7a4",
-    ".flowguard/models/read_view.py": "38496c11f2743b49f36fe2c1af1202c4e74112d886bf96271dd1f3603dc4fe81",
+    ".flowguard/models/read_review.py": "aa814defab80312e5fd06d2d4e6809f460d1ef0642e9ad1d9631eb8552215d61",
+    ".flowguard/models/read_show.py": "a8262c6f7ae63ea7c257a61387143785637860835e3828fd20f71a8f1f1d1708",
+    ".flowguard/models/read_view.py": "7ed744381e7fa3ec4d0d9bc2d95d095ebfc28fef147f136ae47aa36c7590721a",
     ".flowguard/models/release_neutral_fingerprint.py": "e7abb4f2397102b7ce6eec69f194fba34a0777bc2b8ab9c3a472588b08958290",
     ".flowguard/models/scan_coverage.py": "038f0fc2b02776002ae8e744731989dfea780f06fbd145f5234fddfe98e3a8f7",
     ".flowguard/models/shard_partition.py": "d17147a9f90a46f1992cd88e467bb20d86981eb10690851f6712a468e96a5599",
