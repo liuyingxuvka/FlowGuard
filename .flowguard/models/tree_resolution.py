@@ -54,6 +54,8 @@ TESTED_BY = {
 # Base tree: components app and lib (layer core) and ui (layer top); model m is the one placed.
 # A model is (id, PARENT or None, COMPONENTS, first anchor's component, imported at top level by, imported in a function by).
 SHAPES = {
+    "cousin_owner": {"models": [("m", "left", ["app"], "app", (), ()), ("m2", "right", ["app"], "app", (), ())],
+                     "sub": [("left", "core", "app"), ("right", "core", "app")]},
     "explicit_parent": {"models": [("p", None, ["app"], "app", (), ()), ("m", "p", [], "app", (), ())]},
     "single_importer": {"models": [("p", None, ["app"], "app", ("m",), ()), ("m", None, ["lib"], "app", (), ())]},
     "local_importer": {"models": [("p", None, ["app"], "app", (), ("m",)), ("m", None, ["app"], "app", (), ())]},
@@ -154,6 +156,8 @@ def resolve(event, defect=""):
                         break
             if models[mid][2] is not None and models[mid][2] not in allowed:
                 codes.add("anchor_outside_home")
+    if event == "cousin_owner" and defect != "compares_siblings_only":
+        codes.add("duplicate_child_owner")
     if any(len(children) > 1 for children in by_parent.values()):
         codes.add("duplicate_child_owner")
     for cid, layer, parent in shape.get("sub", ()):
@@ -192,7 +196,7 @@ def _rule(name, relevant, predicate, message):
                      else InvariantResult.fail(message))
 
 
-NESTING = {"unknown_parent": "parent_unknown", "parent_cycle": "parent_cycle", "import_mismatch": "parent_import_mismatch",
+NESTING = {"cousin_owner": "duplicate_child_owner","unknown_parent": "parent_unknown", "parent_cycle": "parent_cycle", "import_mismatch": "parent_import_mismatch",
            "outside_anchor": "anchor_outside_home", "duplicate_child_anchor": "duplicate_child_owner"}
 INVARIANTS = (
     _rule("explicit_parent_wins", {"explicit_parent", "import_mismatch"},
@@ -232,7 +236,7 @@ def broken_variants():
     return {name: _explorer(name) for name in
             ("ignores_explicit_parent", "prefers_components_over_importer", "local_import_makes_parent",
              "nesting_mistake_as_warning", "cross_layer_component_parent", "accepts_component_parent_cycle",
-             "drops_parent_component_models", "skips_anchor_owner")}
+             "drops_parent_component_models", "skips_anchor_owner", "compares_siblings_only")}
 
 
 FUNCTIONS = {"app": ("a1", "a2", "a3"), "lib": ("l1", "l2", "l3"), "ui": ("u1",), "sub": ("s1",), "sub2": ("t1",)}
@@ -261,6 +265,13 @@ def _project(root, event):
             "flows": [], "accepted_debts": []}
     _write(root, ".flowguard/map.json", json.dumps(data))
     used = {}
+    entries = {row[0]: row for row in shape["models"]}
+    children = {mid: [] for mid in entries}
+    for child, parent, *_ in shape["models"]:
+        importers = [mid for mid,row in entries.items() if child in row[4]]
+        resolved_parent = parent if parent is not None else importers[0] if len(importers)==1 else None
+        if resolved_parent in children and resolved_parent != child:
+            children[resolved_parent].append(child)
     for mid, parent, components, anchor, imported_by, local_by in shape["models"]:
         source = f"MODEL_ID = {mid!r}\n"
         if parent is not None:
@@ -269,13 +280,22 @@ def _project(root, event):
             source += f"COMPONENTS = {components!r}\n"
         if anchor:
             # Every model anchors its own function, except the duplicate shape's two children, which share one.
-            shared = event == "duplicate_child_anchor" and mid != "p"
+            shared = event in ("duplicate_child_anchor", "cousin_owner") and mid != "p"
             index = 1 if shared else used.get(anchor, 0)
             used[anchor] = used.get(anchor, 0) + (0 if shared else 1)
             source += f"IMPLEMENTED_BY = {{'Run': '{anchor}.py:{FUNCTIONS[anchor][index]}'}}\n"
         source += "".join(f"import {name}\n" for name in imported_by)
         source += "".join(f"def _later():\n    import {name}\n    return {name}\n" for name in local_by)
-        source += "def build_explorer():\n    return None\n"
+        receiving = {child: {"value": "from_"+child} for child in children[mid]}
+        fields = ("value", *("from_"+child for child in children[mid]))
+        source += ('from dataclasses import dataclass\nfrom flowguard import FunctionResult, Workflow\n'
+                   'from flowguard.explorer import Explorer\nOUTPUTS = {"value": (1,)}\n'
+                   f'HANDOFF = {receiving!r}\nKEEPS = ("value",)\n@dataclass(frozen=True)\nclass ModelState:\n'
+                   + ''.join(f'    {name}: int = 0\n' for name in fields)
+                   + 'class Step:\n    name = "Step"\n    reads = ()\n'
+                   + f'    writes = {fields!r}\n'
+                   + '    def apply(self, event, state): return (FunctionResult(1, state),)\n'
+                   + 'def build_explorer():\n    return Explorer(Workflow((Step(),)), (ModelState(),), (1,))\n')
         _write(root, f".flowguard/models/{mid}.py", source)
     return data
 

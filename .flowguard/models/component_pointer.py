@@ -24,12 +24,10 @@ from flowguard.conformance import projected_output_matches, projected_state_matc
 from flowguard.explorer import Explorer
 
 MODEL_ID = "component_pointer"
-PARENT = "map_binding"
-IMPLEMENTED_BY = {
-    "Confirm": "flowguard/map/cli.py:cmd_confirm",
-    "Check": "flowguard/map/check.py:run_check",
-    "Fingerprint": "flowguard/map/mapfile.py:fingerprint",
-}
+PARENT = "map-file"
+COMPONENTS = ["map-file", "cli"]
+IMPLEMENTED_BY = {'Confirm': 'flowguard/map/cli.py:cmd_confirm', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint'}
+USES = {"Check": 'flowguard/map/check.py:run_check'}
 TESTED_BY = {
     "model_edited_outside_target_is_named": ["tests/test_flowguard_map.py:test_map_check_names_model_edited_outside_target"],
     "clean_means_current": ["tests/test_flowguard_map.py:test_stale_after_owned_file_changes_and_confirm_clears_it"],

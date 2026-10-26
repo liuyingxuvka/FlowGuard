@@ -341,7 +341,7 @@ def read_model_contract(path: Path) -> dict:
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "USES", "TESTED_BY", "NOT_MODELED",
-                                           DESIGN_MARKER, "PARENT"}:
+                                           DESIGN_MARKER, "PARENT", "OUTPUTS", "HANDOFF", "READS_PARENT", "KEEPS", "DISPATCH"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance",
                                                                "project_parent_state"}:
@@ -362,6 +362,34 @@ def read_model_contract(path: Path) -> dict:
     if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):
         raise ValueError("TESTED_BY must map invariant names to lists of test anchors")
+    scalar = lambda value: type(value) in (str, int, bool)
+    outputs = found.get("OUTPUTS")
+    if "OUTPUTS" in found and (not isinstance(outputs, dict) or not all(isinstance(k, str) and isinstance(v, tuple)
+            and bool(v) and all(scalar(item) for item in v) for k, v in outputs.items())):
+        raise ValueError("OUTPUTS must map State field names to nonempty tuples of str, int or bool values")
+    handoff = found.get("HANDOFF")
+    if "HANDOFF" in found:
+        if not isinstance(handoff, dict) or not all(isinstance(k, str) and isinstance(v, dict) for k, v in handoff.items()):
+            raise ValueError("HANDOFF must map producer ids to {output key: field name or (field or None, {value: value or None})}")
+        for producer, keys in handoff.items():
+            for key, item in keys.items():
+                valid = isinstance(key, str) and (isinstance(item, str) or isinstance(item, tuple) and len(item) == 2
+                    and (item[0] is None or isinstance(item[0], str)) and isinstance(item[1], dict)
+                    and all(scalar(k) and (v is None or scalar(v)) for k, v in item[1].items()))
+                if not valid:
+                    raise ValueError(f"HANDOFF['{producer}']['{key}'] must be a field name or a 2-tuple (field or None, value map)")
+    for key, wording in (("READS_PARENT", "parent State field names"), ("KEEPS", "State field names")):
+        if key in found and not (isinstance(found[key], tuple) and all(isinstance(n, str) for n in found[key])):
+            raise ValueError(f"{key} must be a tuple of {wording}")
+    dispatch = found.get("DISPATCH")
+    if "DISPATCH" in found:
+        if not isinstance(dispatch, dict) or len(dispatch) != 1 or not all(isinstance(k, str) for k in dispatch):
+            raise ValueError("DISPATCH must map one State field name to {alternative: child model id}")
+        for selector, alternatives in dispatch.items():
+            if not isinstance(alternatives, dict) or not all(scalar(k) and isinstance(v, str) and v for k, v in alternatives.items()):
+                raise ValueError(f"DISPATCH['{selector}'] must map alternatives to model ids")
+    from .port import model_port
+    found["port"] = model_port(tree)
     _MODEL_CONTRACT_CACHE[cache_key] = copy.deepcopy(found)
     return found
 

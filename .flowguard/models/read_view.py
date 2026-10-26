@@ -459,7 +459,7 @@ def _abstract(case, file_order=False):
 class Show:
     name = "Show"
     reads = ()
-    writes = ("case", "text", "imported")
+    writes = ("case", "text", "imported", "runtime")
 
     def __init__(self, fault=""):
         self.fault = fault

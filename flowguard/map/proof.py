@@ -487,6 +487,18 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.status = "fail"
                 result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
             report = design.explore()
+            from .port import Port, run_findings
+            from .inventory import build_inventory
+            from .mapfile import ignore_patterns
+            inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False, import_roots=tuple(data.get("import_roots", ())))
+            tree = build_tree(root, data, inv, view=view) if data.get("components") is not None else None
+            if tree is not None and result.model in tree.nodes:
+                ports = {mid: node.contract.get("port", Port()) for mid, node in tree.nodes.items()}
+                for finding in run_findings(result.model, design, report, ports[result.model], tree, ports):
+                    if finding.level == "warn":
+                        result.warnings.append(finding.message)
+                    else:
+                        _fail(result, finding.message)
             try:
                 result.hazards = model_hazards(design)
             except Exception as exc:

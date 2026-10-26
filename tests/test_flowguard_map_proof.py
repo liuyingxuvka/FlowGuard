@@ -1094,7 +1094,10 @@ def test_rule_without_a_test_is_named(shop, capsys):
     assert expected in output
     assert "invariant_untested: one_charge_per_order" not in output
     native = _native_model(shop, path)
+    from flowguard.map.proof import run_bound_tests
+    run_bound_tests(shop, path, native)
     assert native.status == "pass", native.problems
+    assert native.test_seconds is not None
     assert [warning for warning in native.warnings if warning.startswith("invariant_untested:")] == [expected]
     complete = {**first, "retry_has_one_charge": [binding]}
     write(shop, MODEL, source + "\nTESTED_BY = " + repr(complete) + "\n")

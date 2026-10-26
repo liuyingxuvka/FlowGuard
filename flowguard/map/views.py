@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, read_source, tokens
 from .inventory import Inventory, resolve_import
-from .facets import used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
+from .facets import model_port_line, used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
 from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
@@ -130,6 +130,8 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
         more = f" +{rolled} in children" if rolled else ""
         lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
                      f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){home}")
+        if component:
+            lines.append("  " * (depth + 1) + model_port_line(node, tree, limit=max(0, 200-2*(depth+1))))
         start = len(lines)
         before = previous.get(("model", node.id)) if previous is not None else None
         if mark == "-":

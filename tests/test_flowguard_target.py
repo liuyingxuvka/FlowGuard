@@ -1520,14 +1520,19 @@ def _target_life_cycle_fixture_helpers():
     from pathlib import Path
     import runpy
     from flowguard.map.mapfile import load_map, resolve_model_path
-    from flowguard.map.targetfile import build_target_view, load_target
+    from flowguard.map.targetfile import ModelView, build_target_view, load_target
 
     repository = Path(__file__).resolve().parents[1]
     active = load_target(repository)
-    helper_view = build_target_view(repository, load_map(repository), active) if active is not None else None
+    sources = {p.relative_to(repository).as_posix(): p.relative_to(repository).as_posix()
+               for p in (repository / ".flowguard/models").glob("*.py")}
+    helper_view = (build_target_view(repository, load_map(repository), active) if active is not None else
+                   ModelView(repository, load_map(repository), sources, {Path(p).stem for p in sources}))
     helper_path = resolve_model_path(repository, ".flowguard/models/target_life_cycle.py", view=helper_view)
     assert helper_path is not None
-    return runpy.run_path(str(helper_path))
+    from flowguard.map.proof import model_namespace
+    with model_namespace(helper_view):
+        return runpy.run_path(str(helper_path))
 
 
 def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
@@ -1844,9 +1849,9 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     from flowguard.map.tree import build_tree
 
     root = shelf_project(tmp_path)
-    (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL.replace('MODEL_ID = "loan_count"', 'MODEL_ID = "loan_count"\nimport lending_bridge').replace('PARENT = "lending"', 'PARENT = "loans"'), encoding="utf-8")
-    bridge = SHELF_BASE[".flowguard/models/lending.py"].replace('MODEL_ID = "lending"', 'MODEL_ID = "lending_bridge"\nimport lending')
-    (root / ".flowguard/models/lending_bridge.py").write_text(bridge, encoding="utf-8")
+    (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL.replace('MODEL_ID = "loan_count"', 'MODEL_ID = "loan_count"\nimport _lending_bridge').replace('PARENT = "lending"', 'PARENT = "loans"'), encoding="utf-8")
+    # This is a two-hop import dependency, not an exclusive parent/child decomposition.
+    (root / ".flowguard/models/_lending_bridge.py").write_text("import lending\n", encoding="utf-8")
     assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
     path = _target_with(root, capsys, "describe the catalog; one more lending known-bad", "catalog", "lending")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -1915,8 +1920,13 @@ def test_promote_lists_what_to_re_read(tmp_path, capsys):
     path.write_text(json.dumps(target), encoding="utf-8")
     models = root / ".flowguard/target/models"
     source = (models / "lending.py").read_text(encoding="utf-8")
-    policy = re.sub(r'TESTED_BY = \{.*?\}\n', '', source, flags=re.S).replace('MODEL_ID = "lending"', 'MODEL_ID = "shelf_policy"')
-    (models / "shelf_policy.py").write_text(policy, encoding="utf-8")
+    # A component grouping changes placement without inventing a second domain model.
+    parent = dict(id="shelf_policy", layer="lending", summary="Group shelf policy code", responsibilities=["group the lending components"],
+                  files=[], tests=[], models=[], depends_on=[], state=[], side_effects=[])
+    target["components"].append(parent)
+    current_loans = next(c for c in _load_map(root)["components"] if c["id"] == "loans")
+    target["components"].append({**{k:v for k,v in current_loans.items() if k not in {"status","fingerprint","_hint"}}, "parent": "shelf_policy"})
+    path.write_text(json.dumps(target), encoding="utf-8")
     source = source.replace('MODEL_ID = "lending"', 'MODEL_ID = "lending"\nPARENT = "shelf_policy"')
     source = source.replace(',\n             "limit_respected": ["tests/test_loans.py:test_limit"]}', '}')
     (models / "lending.py").write_text(source, encoding="utf-8")
@@ -1924,7 +1934,7 @@ def test_promote_lists_what_to_re_read(tmp_path, capsys):
     assert code == 0, (output, errors)
     lines = output.splitlines()
     assert "re-read: model lending: its parent changed from loans to shelf_policy; check its purpose" in lines, output
-    assert "re-read: flow borrow: it crosses changed component catalog; check its steps and model" in lines, output
+    assert "re-read: flow borrow: it crosses changed component loans; check its steps and model" in lines, output
     assert "re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it" in lines
     assert lines.index("re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it") \
         < next(index for index, line in enumerate(lines) if line.startswith("next: "))

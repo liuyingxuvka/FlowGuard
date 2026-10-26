@@ -192,8 +192,6 @@ def conformance():
         desk=desk.replace('RULE = Invariant',block+'RULE = Invariant').replace('Workflow((Receive(),block))','Workflow((Receive(),block,Compute()))')
         if case=="domain_keeps":
             desk=desk.replace('max_sequence_length=1','max_sequence_length=2')
-            # Keep the refusal rule about the reply stage, including the stale reply between calls.
-            desk=desk.replace('s.answer!="refused" or s.reply in ("","refused")','not t or not t.steps or t.steps[-1].function_name != "Reply" or s.answer!="refused" or s.reply=="refused"')
         else:
             desk=desk.replace('OUTPUTS = {}','OUTPUTS = {"extra":("computed",)}')
             files['shelf/consumer.py']='def consume(value): return value\n'
@@ -224,9 +222,15 @@ def conformance(): return CodeFactsReport((Fact("native",load_anchor(IMPLEMENTED
     elif case == "overlapping_receipts":
         lending=lending.replace('OUTPUTS = {"answer":("lent","refused")}','OUTPUTS = {"answer":("lent","refused"),"request":("lend_request","deny_request")}')
         desk=desk.replace('"lending":{"answer":"answer"}','"lending":{"answer":"answer","request":"answer"}')
+    elif case == "consumer_receipts":
+        desk=desk.replace('"lending":{"answer":"answer"}', '"lending":{"answer":"answer"},"other":{"answer":"answer"}')
+        other=lending.replace('MODEL_ID = "lending"','MODEL_ID = "other"').replace('PARENT = "desk"','PARENT = "loans"').replace('shelf/loans.py:borrow','shelf/loans.py:borrow_other')
+        files['.flowguard/models/other.py']=other
+        files['shelf/loans.py']+='\ndef borrow_other(request): return borrow(request)\n'
     elif case == "no_child_output":
         lending=lending.replace('OUTPUTS = {"answer":("lent","refused")}','OUTPUTS = {}')
         desk=desk.replace('HANDOFF = {"lending":{"answer":"answer"}}','HANDOFF = {}').replace('KEEPS = ("request","reply")','KEEPS = ("request","reply","answer")')
+    files['tests/test_port.py'] = 'from shelf.loans import borrow\ndef test_borrow():\n    assert borrow("lend_request") == "lent"\n    assert borrow("deny_request") == "refused"\n'
     files['.flowguard/models/desk.py']=desk
     files['.flowguard/models/lending.py']=lending
     for path,text in files.items():

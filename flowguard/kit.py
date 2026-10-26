@@ -191,7 +191,7 @@ class _AddFeature:
 
     name = "AddFeature"
     reads = ("features",)
-    writes = ("features", "outcome", "codes")
+    writes = ("features", "outcome", "codes", "plain_codes", "plain_outcome")
 
     def __init__(self, universe: _Universe, judge) -> None:
         self.universe = universe

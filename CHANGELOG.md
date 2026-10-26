@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Check actual State writes and declared finite outputs, and require strict parent/child receipts, inputs and field coverage. Focused reads show each model's port.
+- Projects using FlowGuard: `writes` is now checked. `OUTPUTS` declares results; `HANDOFF` receives them; `READS_PARENT` names child inputs; `KEEPS` reserves orchestration fields; `DISPATCH` requires one branch child for every selected alternative.
+
 - Group repeated INFO notes, show passing models on one line with separate proof/test times, and list debt reasons only on request.
 - Count test functions and coverage from real model bindings and resolved test calls. Explicit no-code model debts keep process models runnable while preserving their rules and known-bad checks.
 - Projects using FlowGuard: coverage counts actual bindings and calls; close a review suggestion with a reasoned accepted debt. Suggestions to bind tests that call modeled code stay visible.

@@ -373,18 +373,32 @@ def test_cycle_debt_covers_only_its_members(tmp_path):
     assert any("members" in error for error in validate_map(data))
 
 
+def _placement_port_source(*, child=None):
+    """Only the static port declarations needed by the placement fixtures."""
+    fields = ("value", "received") if child else ("value",)
+    return ('\nfrom dataclasses import dataclass\nfrom flowguard import Workflow,FunctionResult\n'
+            'from flowguard.explorer import Explorer\n@dataclass(frozen=True)\nclass PortState:\n'
+            + ''.join(f'    {name}: int = 0\n' for name in fields)
+            + 'class Step:\n    name="Step"\n'
+            + f'    writes={fields!r}\n'
+            + '    def apply(self,event,state): return (FunctionResult(1,state),)\n'
+            + 'OUTPUTS={"value":(1,)}\nKEEPS=("value",)\n'
+            + (f'HANDOFF={{{child!r}:{{"value":"received"}}}}\n' if child else '')
+            + 'def build_explorer(): return Explorer(Workflow((Step(),)),(PortState(),),(1,))\n')
+
+
 def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     from flowguard.map.mapfile import read_model_contract
 
     data = project(tmp_path)
-    parent = CONTRACT.replace('"one"', '"parent"') + "\nimport child\nimport _shared\n"
-    child = CONTRACT.replace('"one"', '"child"') + "\nfrom _shared import VALUE\n"
+    parent = CONTRACT.replace('"one"', '"parent"') + "\nimport child\nimport _shared\n" + _placement_port_source(child="child")
+    child = CONTRACT.replace('"one"', '"child"') + "\nfrom _shared import VALUE\n" + _placement_port_source()
     write(tmp_path, ".flowguard/models/parent.py", parent)
     write(tmp_path, ".flowguard/models/child.py", child)
     write(tmp_path, ".flowguard/models/_shared.py", "PARENT = None\nimport _leaf\nVALUE = 1\n")
     write(tmp_path, ".flowguard/models/_leaf.py", "import _shared\n")
     contract = read_model_contract(tmp_path / ".flowguard/models/parent.py")
-    assert contract.get("imports") == ["_shared", "child"]
+    assert contract.get("imports") == ["_shared", "child", "dataclasses", "flowguard"]
     from flowguard.map.tree import build_tree
 
     def tree():
@@ -472,7 +486,8 @@ def test_model_tree_anchor_components_and_root_defaults(tmp_path):
     write(tmp_path, ".flowguard/models/anchored.py", CONTRACT.replace('"one"', '"anchored"').replace('COMPONENTS = ["app"]', 'COMPONENTS = []'))
     write(tmp_path, ".flowguard/models/rooted.py", 'MODEL_ID = "rooted"\nIMPLEMENTED_BY = {"Probe": "tests/test_app.py:test_run"}\ndef build_explorer(): pass\ndef conformance(): pass\n')
     native = ".flowguard/models/native.py"
-    write(tmp_path, native, CONTRACT.replace('"one"', '"native"') + '\ndef conformance(): pass\n')
+    write(tmp_path, "app.py", "def run(): return True\ndef native(): return True\n")
+    write(tmp_path, native, CONTRACT.replace('"one"', '"native"').replace("app.py:run", "app.py:native") + '\ndef conformance(): pass\n')
     data["components"][0]["models"] = [native]
     save(tmp_path, data)
     current, inv = _context(tmp_path)
@@ -632,21 +647,30 @@ def test_old_mesh_mistakes_are_tree_errors(tmp_path, capsys):
     data = project(tmp_path)
     write(tmp_path, "app.py", "def run():\n    return True\n\ndef finish():\n    return False\n")
     write(tmp_path, "tests/test_app.py", "from app import run, finish\n\ndef test_run():\n    assert run() is True\n    assert finish() is False\n")
-    source = '''from flowguard import FunctionResult, Invariant, Workflow
+    source = '''from dataclasses import dataclass,replace
+from flowguard import FunctionResult, Invariant, Workflow
 from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact
 COMPONENTS = ["app"]
 TESTED_BY = {"boolean_result": ["tests/test_app.py:test_run"]}
+@dataclass(frozen=True)
+class ResultState:
+    value: bool = EXPECTED
+    borrow_value: bool = True
+    returning_value: bool = False
+OUTPUTS = {"value": (EXPECTED,)}
+KEEPS = ("value", "borrow_value", "returning_value")
 class Result:
     name = "Result"
+    writes = ("value", "borrow_value", "returning_value")
     def __init__(self, bad=False): self.bad = bad
     def apply(self, inp, state):
         value = not EXPECTED if self.bad else EXPECTED
-        return [FunctionResult(value, value)]
+        return [FunctionResult(value, replace(state, value=value))]
 def explorer(bad=False):
-    return Explorer(Workflow((Result(bad),)), initial_states=(EXPECTED,), external_inputs=(0,),
+    return Explorer(Workflow((Result(bad),)), initial_states=(ResultState(),), external_inputs=(0,),
                     max_sequence_length=1, progress_steps=0,
-                    invariants=(Invariant("boolean_result", "preserve the promised result", lambda s, t: s == EXPECTED),))
+                    invariants=(Invariant("boolean_result", "preserve the promised result", lambda s, t: s.value == EXPECTED),))
 def build_explorer(): return explorer()
 def broken_variants(): return {"wrong_result": explorer(True)}
 def conformance():
@@ -657,7 +681,9 @@ def conformance():
         contract = f"MODEL_ID = {mid!r}\nIMPLEMENTED_BY = {anchors!r}\nEXPECTED = {expected!r}\n"
         if parent is not None:
             contract += f"PARENT = {parent!r}\n"
-        write(tmp_path, f".flowguard/models/{mid}.py", contract + source)
+        # The coarse model receives each child's boolean into its own field.
+        port = ('\nOUTPUTS={}\nHANDOFF={"borrow":{"value":"borrow_value"},"returning":{"value":"returning_value"}}\n' if mid == "lending" else '')
+        write(tmp_path, f".flowguard/models/{mid}.py", contract + source.replace('OUTPUTS = {"value": (EXPECTED,)}', f'OUTPUTS = {{"value": ({expected!r},)}}') + port)
 
     model("lending", {"Run": "app.py:run", "Finish": "app.py:finish"}, True)
     model("borrow", {"Run": "app.py:run"}, True, "lending")
@@ -670,7 +696,7 @@ def conformance():
     capsys.readouterr()
     model("returning", {"Finish": "app.py:finish"}, False, "lendng")
     current = findings(tmp_path)
-    assert not any(f.code == "duplicate_child_owner" for f in current)
+    assert any(f.code == "duplicate_child_owner" for f in current)  # the unknown parent leaves independent overlapping owners
     errors = [f for f in current if f.code == "parent_unknown"]
     assert len(errors) == 1 and errors[0].level == "error" and "lendng" in errors[0].message
     assert main(["map", "check", "--root", str(tmp_path)]) == 1
@@ -870,8 +896,9 @@ def test_retired_flags_and_project_marker_point_to_upgrade_guide(tmp_path, capsy
 def _scope_helpers():
     import runpy
     directory = Path(__file__).resolve().parents[1] / ".flowguard/models"
-    if not (directory / "model_scope.py").is_file():
-        directory = directory.parent / "target/models"
+    pending = directory.parent / "target/models/model_scope.py"
+    if pending.is_file():
+        directory = pending.parent
     return runpy.run_path(str(directory / "model_scope.py"))
 
 

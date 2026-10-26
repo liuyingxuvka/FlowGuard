@@ -249,17 +249,7 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
         tree.findings.append(Finding(level, code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 
     tree.findings.extend(scope_findings(data, inv, tree))
-    sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
-    for node in nodes.values():
-        if node.source not in {"PARENT", "import"} or node.parent_kind == "system":
-            continue
-        if node.parent_kind == "model":
-            for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
-                sibling_anchors[(node.parent, anchor)].append(node)
-    for (parent, anchor), siblings in sorted(sibling_anchors.items()):
-        unique = {n.id: n for n in siblings}
-        if len(unique) > 1:
-            node = next(iter(unique.values()))
-            tree.findings.append(Finding("error", "duplicate_child_owner", node.home if node.home_kind == "component" else "",
-                f"model {parent!r}: children {', '.join(sorted(unique))} anchor the same IMPLEMENTED_BY {anchor!r}"))
+    from .port import Port, port_findings
+    ports = {mid: node.contract.get("port", Port()) for mid, node in nodes.items()}
+    tree.findings.extend(port_findings(tree, ports))
     return tree

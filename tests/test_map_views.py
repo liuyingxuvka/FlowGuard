@@ -811,7 +811,7 @@ def test_parent_model_rolls_up_child_tests(tmp_path):
     detail = render_show(tmp_path, data, inv, component="app", detail=False, budget=8000)
     lines = detail.splitlines()
     at = next(index for index, line in enumerate(lines) if "model probe_parent:" in line)
-    tests = next(line for line in lines[at + 1:at + 6] if line.strip().startswith("tests:"))
+    tests = next(line for line in lines[at + 1:at + 7] if line.strip().startswith("tests:"))
     assert "children: 1 tests in probe_child" in tests
 
 
@@ -1275,3 +1275,24 @@ def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
     text = render_review(tmp_path, data, inv)
     assert "bind tests probe:" not in text and "declined: 1 (accepted debts; 0 no longer arise)" in text
     assert not any(f.code == "unbound_models" and f.level == "warn" for f in run_lint(tmp_path, data, inv))
+
+
+def test_read_component_prints_one_port_line_per_model(tmp_path):
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.common import DEFAULT_IGNORE
+    import runpy
+    directory = Path(__file__).parents[1] / ".flowguard/models"
+    path = directory / "_target_fixture.py"
+    if not path.exists(): path = directory.parent / "target/models/_target_fixture.py"
+    helper = runpy.run_path(str(path))
+    data = helper["make_port_project"](tmp_path)
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    text = render_show(tmp_path, data, inv, component="cli", detail=False, budget=8000)
+    ports = [line for line in text.splitlines() if line.strip().startswith("port:")]
+    models = [line for line in text.splitlines() if line.strip().startswith("model ")]
+    assert len(ports) == len(models) == 2 and all(len(line) <= 200 for line in ports), text
+    assert any("out answer=lent|refused -> desk.answer" in line for line in ports), text
+    path = tmp_path / ".flowguard/models/lending.py"
+    path.write_text(path.read_text().replace('OUTPUTS = {"answer":("lent","refused")}', ''))
+    text = render_show(tmp_path, data, inv, component="cli", detail=False, budget=8000)
+    assert "out ?" in text

@@ -13,7 +13,7 @@ from flowguard.kit import Feature, feature_conformance, feature_explorer, featur
 from flowguard.map.proof import run_bound_tests, run_model_in_process
 
 MODEL_ID = "test_binding"
-PARENT = "model_proof"
+PARENT = "map-proof"
 NOT_MODELED = {
     "flowguard/map/testreach.py:main.Reach.pytest_exception_interact": "pytest hook inside the reach-recording "
         "subprocess; it only marks a failed call, and the failed-binding verdict it feeds is this model's "
@@ -21,8 +21,8 @@ NOT_MODELED = {
 }
 IMPLEMENTED_BY = {
     "BoundTests": "flowguard/map/proof.py:run_bound_tests",
-    "RuleWarnings": "flowguard/map/proof.py:run_model_in_process",
 }
+USES = {"RuleWarnings": "flowguard/map/proof.py:run_model_in_process"}
 TESTED_BY = {
     "each_defect_rejected": [
         "tests/test_flowguard_map_proof.py:test_tested_by_must_reach_the_anchored_code[empty-tested_by_misses_anchor]",

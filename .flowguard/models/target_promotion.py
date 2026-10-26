@@ -18,6 +18,7 @@ from flowguard.kit import reachable_states
 
 MODEL_ID = "target_promotion"
 PARENT = "target_life_cycle"
+OUTPUTS = {"outcome": ("promoted", "refused", "no_target")}
 IMPLEMENTED_BY = {"Promote": "flowguard/map/target.py:promote_target"}
 TESTED_BY = {
     "promote_names_stale_components": ["tests/test_flowguard_target.py:test_promote_names_stale_component_to_confirm"],
@@ -48,6 +49,7 @@ class State:
     draft: bool = False              # the target's components are draft after promotion
     action: str = ""
     status: str = ""
+    outcome: str = ""
     findings_shown: bool = True
     stale_components_named: bool = True
 
@@ -95,6 +97,8 @@ class Promote:
                 new = replace(new, draft=False)
         if new.status == "promoted" and self.defect == "names_drafts_only":
             new = replace(new, stale_components_named=False)
+        if event == "PROMOTE":
+            new = replace(new, outcome=new.status)
         return (FunctionResult(new.status, new, label=event),)
 
 
@@ -212,6 +216,8 @@ class RealPromotion:
             else:
                 refused = "promote refused: checked inputs changed" in output.getvalue()
                 state = replace(state, status="refused" if refused else f"exit {code}: {output.getvalue()[:200]}")
+        if event == "PROMOTE":
+            state = replace(state, outcome=state.status)
         self.state = state
         return ReplayObservation(function_name=step.function_name, observed_output=state.status, observed_state=state)
 

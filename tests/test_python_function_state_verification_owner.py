@@ -9,7 +9,13 @@ import flowguard.workflow as workflow_module
 
 PATH = Path(__file__).resolve().parents[1] / ".flowguard/models/python_function_state_verification.py"
 NAME = "_python_function_state_verification_owner_test"
-SPEC = importlib.util.find_spec("python_function_state_verification")
+from flowguard.map.mapfile import load_map, resolve_model_path
+from flowguard.map.targetfile import build_target_view, load_target
+active = load_target(PATH.parents[2])
+if active is not None:
+    view = build_target_view(PATH.parents[2], load_map(PATH.parents[2]), active)
+    PATH = resolve_model_path(PATH.parents[2], ".flowguard/models/python_function_state_verification.py", view=view)
+SPEC = importlib.util.find_spec("python_function_state_verification") if active is None else None
 if SPEC is None:
     SPEC = importlib.util.spec_from_file_location(NAME, PATH)
 OWNER = importlib.util.module_from_spec(SPEC)
@@ -35,7 +41,7 @@ class PythonEngineOwnerTests(unittest.TestCase):
     def test_the_real_engine_reports_every_defect_alone_and_in_pairs(self):
         report = owner_report()
         self.assertTrue(report.ok, report.format_text())
-        self.assertEqual(138, report.executed)            # clean fixture, 17 features, 120 nonexclusive pairs
+        self.assertEqual(122, report.executed)            # clean fixture, 16 features, 105 nonexclusive pairs; writes are checked by ports
 
     def test_invocation_priority_oracle_rejects_running_lower_priority_hook(self):
         original = workflow_module.invoke_block

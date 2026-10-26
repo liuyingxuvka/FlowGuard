@@ -118,3 +118,11 @@ Promote prints `re-read:` lines (re-parented models, flows that cross changed co
 `model_digests` records newline-normalized SHA256 identities of current model files; target promote, map scan and template writing current models update it.
 
 `import_roots` lists declared relative POSIX script import directories. Package modules resolve first, then a script's own directory when it has no __init__.py, then these roots in order. Missing roots warn; absolute paths and parent traversal are rejected. The tool never infers sys.path mutations.
+
+
+Model ports are top-level literals, read without importing a model:
+- `OUTPUTS` maps State fields to nonempty tuples of finite string, integer or boolean values; `{}` hands nothing upward.
+- `HANDOFF` maps producer IDs and output keys to receiving fields, either a field-name shorthand that expands from the producer each read, or `(field or None, {source: destination or None})`.
+- `READS_PARENT` lists explicit input fields held by the child; projection function reads are also inferred.
+- `KEEPS` lists a parent's own inputs, step markers and aggregates of received values; runtime checks verify those roles.
+- `DISPATCH` maps one selector field to branch children. A child belongs exclusively to its parent's function as a stage or branch; shared functions are independent models consumed through `HANDOFF`.

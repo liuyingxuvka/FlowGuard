@@ -23,7 +23,6 @@ from dataclasses import dataclass, replace
 
 from flowguard.checks import no_duplicate_values
 from flowguard.conformance import replay_trace
-from flowguard.contract import FunctionContract, check_trace_contracts
 from flowguard.core import FunctionResult, Invariant, invoke_block
 from flowguard.kit import Feature, feature_conformance, feature_explorer, feature_variants
 from flowguard.loop import GraphEdge, LoopCheckConfig, check_loops
@@ -40,7 +39,6 @@ NOT_MODELED = {
 }
 IMPLEMENTED_BY = {"InvokeBlock": "flowguard/core.py:invoke_block",
                   "Replay": "flowguard/conformance.py:replay_trace",
-                  "TraceContracts": "flowguard/contract.py:check_trace_contracts",
                   "Loops": "flowguard/loop.py:check_loops",
                   "Explore": "flowguard/explorer.py:Explorer.explore"}
 TESTED_BY = {
@@ -173,7 +171,7 @@ def clean_fixture() -> dict:
     trace = Workflow((Record(), Record())).execute(State(), "a").completed_paths[0].trace
     return {"tokens": ("record", "both", "stop"), "hook": "apply", "objects": False, "extra_invariants": (),
             "labels": ("record", "both:a", "both:b"), "max_transitions": None,
-            "replay_trace": trace, "adapter_duplicates": False, "contract_trace": trace, "cycle": False}
+            "replay_trace": trace, "adapter_duplicates": False, "cycle": False}
 
 
 def _add(key: str, value):
@@ -188,12 +186,6 @@ def _corrupt_first_step(fixture):
     trace = fixture["replay_trace"]
     return {**fixture, "replay_trace": replace(trace, steps=(replace(trace.steps[0], new_state=State(("wrong",))),)
                                                 + trace.steps[1:])}
-
-
-def _write_forbidden_cache(fixture):
-    trace = fixture["contract_trace"]
-    return {**fixture, "contract_trace": replace(trace, steps=(replace(trace.steps[0], new_state=State(("a",), ("a",))),)
-                                                  + trace.steps[1:])}
 
 
 FEATURES = (
@@ -212,7 +204,6 @@ FEATURES = (
             exclusive=True),
     Feature("corrupt_expected_trace", True, ("replay:projected_state_matches",), _corrupt_first_step),
     Feature("duplicating_adapter", True, ("replay:projected_state_matches",), _set("adapter_duplicates", True)),
-    Feature("forbidden_write", True, ("contract:forbidden_write", "contract:undeclared_write"), _write_forbidden_cache),
     Feature("bottom_cycle", True, ("loop:non_terminating",), _set("cycle", True)),
     Feature("block_invoked_through_run", False, (), _set("hook", "run")),
     Feature("block_invoked_as_callable", False, (), _set("hook", "__call__")),
@@ -257,9 +248,6 @@ def run_engine(fixture: dict):
     replayed = replay_trace(fixture["replay_trace"], Adapter(fixture["adapter_duplicates"]))
     if not replayed.ok:
         codes.append(f"replay:{replayed.violations[0].rule_name}")
-    contract = FunctionContract(function_name="Record", accepted_input_type=str, output_type=str,
-                                writes=("records",), forbidden_writes=("cache",))
-    codes += [f"contract:{name}" for name in check_trace_contracts(fixture["contract_trace"], (contract,)).violation_names()]
     if fixture["cycle"]:
         loops = check_loops(LoopCheckConfig(initial_states=(0,), transition_fn=lambda s: (GraphEdge(s, s, "retry"),),
                                             is_terminal=lambda s: False))

@@ -111,13 +111,20 @@ def scope_fixture(root, case):
                    for name in ("app", "lib")]
     data = dict(schema="flowguard.map.v1", layers=["core"], components=components)
     source = CONTRACT
+    if case == "ancestor":
+        source = source.replace("from pathlib import Path", "from pathlib import Path\nfrom dataclasses import dataclass")
+        source = source.replace("class Value:", '@dataclass(frozen=True)\nclass ValueState:\n    value: int = 0\n    received: int = 0\nOUTPUTS = {"value": (1,)}\nclass Value:')
+        source = source.replace('    name = "Own"', '    name = "Own"\n    writes = ("value", "received")')
+        source = source.replace('FunctionResult(self.value,self.value)', 'FunctionResult(self.value,ValueState(self.value,self.value))')
+        source = source.replace('if s in (0,1)', 'if s.value in (0,1)').replace('(0,), ("value",)', '(ValueState(),), ("value",)')
     if case in {"explicit", "implicit", "ancestor"}:
         source = source.replace('"Own": "app.py:value"', '"Own": "lib.py:value"')
     if case == "implicit":
         source = source.replace('PARENT = "app"\n', '')
     elif case == "ancestor":
         source = source.replace('PARENT = "app"', 'PARENT = "p"')
-        parent = CONTRACT.replace('MODEL_ID = "m"', 'MODEL_ID = "p"').replace('COMPONENTS = ["app"]', 'COMPONENTS = ["app", "lib"]')
+        parent = source.replace('MODEL_ID = "m"', 'MODEL_ID = "p"').replace('COMPONENTS = ["app"]', 'COMPONENTS = ["app", "lib"]').replace('PARENT = "p"', 'PARENT = "app"').replace('"Own": "lib.py:value"', '"Own": "app.py:value"')
+        parent += '\nHANDOFF = {"m": {"value": "received"}}\nKEEPS = ("value",)\n'
         (models / "p.py").write_text(parent)
     elif case == "uses":
         source += '\nUSES = {"Read": "lib.py:value"}\n'

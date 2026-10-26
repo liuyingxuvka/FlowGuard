@@ -24,10 +24,11 @@ from flowguard.map.check import run_check
 from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import ignore_patterns, load_map
 from flowguard.map.targetfile import build_target_view, load_target
-from target_life_cycle import REGULAR_CONTRACT, make_project, stage_target, write_json, probe_regular_model
+from _target_fixture import REGULAR_CONTRACT, make_project, stage_target, write_json, probe_regular_model
 
 MODEL_ID = "target_findings"
 PARENT = "target_life_cycle"
+OUTPUTS = {"bucket": ("error", "todo", "info", "warn", "none")}
 IMPLEMENTED_BY = {
     "Downgrade": "flowguard/map/target.py:moving_to_target",
     "Classify": "flowguard/map/target.py:check_target",
@@ -65,6 +66,7 @@ class Case:
 
 # These are concrete promises about ten fact origins, not code-set copies.
 CASES = (
+    Case("no_finding", "a confirmed unchanged project has no findings", True, "target", "none"),
     Case("planned_current", "retired real current entrypoint", True, "current", "info"),
     Case("unplanned_current", "broken real catalog entrypoint", False, "current", "error"),
     Case("strict_current", "retired real current entrypoint", True, "strict-current", "error"),
@@ -259,6 +261,12 @@ def observe_case(case):
         root = make_project(Path(directory))
         if case.phase in ("current", "strict-current"):
             return _current_case(root, case)
+        if case.name == "no_finding":
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                map_cli.main(["confirm", "all", "--root", str(root)])
+            stage_target(root)
+            report = native.check_target(root)
+            return ("none" if not report.errors and not report.todos and not report.warnings else "unexpected-findings"), repr(report)
         stage_target(root, with_model=case.name in {"code_gap", "design_failure", "unbound_invariant", "old_finding_in_unchanged_model"})
         target_path = root / ".flowguard/target/map.json"
         target = load_target(root).data
