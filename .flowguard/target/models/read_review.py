@@ -65,10 +65,19 @@ Invariant('review_steps_name_a_recipe', 'every optimise next step names a refere
 FEATURE_NAMES=['review_fixture']
 LEGACY_FAULTS={'review_hides_error': 'review_hides_error', 'review_claims_false_strength': 'review_false_strength', 'review_step_without_recipe': 'review_no_recipe'}
 
+from dataclasses import dataclass
+@dataclass(frozen=True,eq=False)
+class ViewState(JointState):
+    native:object
+    legacy:object
+class ReadStep(Bridge):
+    reads=('native','legacy')
+    writes=('native','legacy')
+
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
     events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))
-    return Explorer(Workflow((Bridge(native,LEGACY_FAULTS.get(fault,'')),)),(JointState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
+    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,'')),)),(ViewState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
 def broken_variants():return {'closed_suggestion_reappears':_explorer('closed_suggestion_reappears'),'review_hides_error':_explorer('review_hides_error'),'review_claims_false_strength':_explorer('review_claims_false_strength'),'review_step_without_recipe':_explorer('review_step_without_recipe')}
 def conformance():

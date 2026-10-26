@@ -99,10 +99,19 @@ Invariant('find_matches_word_forms', 'a query word matches a duty word that diff
 FEATURE_NAMES=['inflected_query']
 LEGACY_FAULTS={'exact_words_only': 'exact_words_only'}
 
+from dataclasses import dataclass
+@dataclass(frozen=True,eq=False)
+class ViewState(JointState):
+    native:object
+    legacy:object
+class ReadStep(Bridge):
+    reads=('native','legacy')
+    writes=('native','legacy')
+
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
     events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))
-    return Explorer(Workflow((Bridge(native,LEGACY_FAULTS.get(fault,'')),)),(JointState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
+    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,'')),)),(ViewState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
 def broken_variants():return {'bonus_per_query_word':_explorer('bonus_per_query_word'),'ignores_exact_symbol':_explorer('ignores_exact_symbol'),'deepest_reacher_first':_explorer('deepest_reacher_first'),'test_location_unknown_symbol':_explorer('test_location_unknown_symbol'),'find_view_exceeds_budget':_explorer('find_view_exceeds_budget'),'exact_words_only':_explorer('exact_words_only')}
 def conformance():

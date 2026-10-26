@@ -63,10 +63,19 @@ Invariant('focused_component_visible', "read --component X fits the budget and a
 FEATURE_NAMES=['large_component', 'relied_component', 'component_in_flow', 'helper_split_model', 'wrapper_rule_model', 'loop_built_variants_model', 'kit_model']
 LEGACY_FAULTS={'hides_focused_component': 'hide_focused', 'counts_tested_by_keys': 'tested_by_keys', 'kit_known_bad_hidden': 'kit_hidden', 'hides_relied_rules': 'hide_relied', 'hides_component_flows': 'hide_flows'}
 
+from dataclasses import dataclass
+@dataclass(frozen=True,eq=False)
+class ViewState(JointState):
+    native:object
+    legacy:object
+class ReadStep(Bridge):
+    reads=('native','legacy')
+    writes=('native','legacy')
+
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
     events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))
-    return Explorer(Workflow((Bridge(native,LEGACY_FAULTS.get(fault,'')),)),(JointState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
+    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,'')),)),(ViewState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
 def broken_variants():return {'hides_port_line':_explorer('hides_port_line'),'hides_focused_component':_explorer('hides_focused_component'),'counts_tested_by_keys':_explorer('counts_tested_by_keys'),'kit_known_bad_hidden':_explorer('kit_known_bad_hidden'),'hides_relied_rules':_explorer('hides_relied_rules'),'hides_component_flows':_explorer('hides_component_flows')}
 def conformance():

@@ -22,7 +22,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-conformance",
         "map-check",
         "map-discover",
         "map-file",
@@ -103,7 +102,8 @@
         "writes .flowguard/map.json"
       ],
       "depends_on": [
-        "map-inventory"
+        "map-inventory",
+        "engine-conformance"
       ],
       "tests": [
         "tests/test_flowguard_map.py",

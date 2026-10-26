@@ -74,10 +74,19 @@ Invariant('components_in_layer_order', 'read lists top-level components by layer
 FEATURE_NAMES=['small_budget', 'import_time_marker', 'missing_summary', 'late_upper_component']
 LEGACY_FAULTS={'drops_a_component': 'drop_component', 'imports_a_model': 'import_model', 'exceeds_budget': 'overflow', 'drops_model_contract': 'drop_model_contract', 'drops_summary_prompt': 'drop_summary_prompt', 'map_file_order': 'map_file_order'}
 
+from dataclasses import dataclass
+@dataclass(frozen=True,eq=False)
+class ViewState(JointState):
+    native:object
+    legacy:object
+class ReadStep(Bridge):
+    reads=('native','legacy')
+    writes=('native','legacy')
+
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
     events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))
-    return Explorer(Workflow((Bridge(native,LEGACY_FAULTS.get(fault,'')),)),(JointState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
+    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,'')),)),(ViewState(native.initial_states[0],_abstract(ReadCase())),),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
 def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'exceeds_budget':_explorer('exceeds_budget'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order')}
 def conformance():
