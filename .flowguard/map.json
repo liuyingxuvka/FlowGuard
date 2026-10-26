@@ -319,7 +319,7 @@
     {
       "id": "map-discover",
       "layer": "map",
-      "summary": "Discovers entrypoints, state writes and call graphs using enclosing function scopes.",
+      "summary": "Discover calls, effects and role-classified interface literals directly from source.",
       "responsibilities": [
         "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
@@ -349,12 +349,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:4848f3329e6b5765a26206d223fae5d2e8eedf62efeda9bb98f2dea693939dfd"
+      "fingerprint": "sha256:ec82bb838d4312be29b575ceab6ee1175f053e4b7b7993db7034c42ec6cd64f4"
     },
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Check a target and its interface consumers; promotion also verifies function-selected models and tests without changing checked sources.",
+      "summary": "Check and promote target models, compare ports and promises without Git, and include function-selected verification.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -399,7 +399,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4388eba26ab2e1e2ebdbcab0a428010d6075b2757b7995fe680197310ac2a6c1"
+      "fingerprint": "sha256:902d9313290565a39791e3a1ca31f969dd9ddc1dfd62827577dedb9bbfc30106"
     },
     {
       "id": "map-proof",
@@ -755,7 +755,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show bounded node views, real coverage, concise model ports and closable architecture decisions.",
+      "summary": "Show source-bound facets and compare rules, tests and fields through one relocation owner.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -783,12 +783,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b0dc81c352909068eb273aa8fc4cc3ba423f28e52f3fa501081b85e5c312a6b8"
+      "fingerprint": "sha256:9d72c38c04a4b698c9ee5e0e955a7879b45cacdc37ef34b4c297ee5da4785330"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select owned or closest reachable changed functions and their bound/direct-calling test functions, with conservative uncertainty and no-git fallback.",
+      "summary": "Select affected functions and tests, name literal consumers and text mentions, and warn about removed or moved promises.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -808,14 +808,15 @@
         "map-check",
         "map-discover",
         "map-file",
-        "map-inventory"
+        "map-inventory",
+        "map-read"
       ],
       "tests": [
         "tests/test_flowguard_map.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b1a18d60601efb3761fe2896d4b284e3d8ca7fba40b8332b92fe0ace7393b257"
+      "fingerprint": "sha256:56457330a8c907d7df0d6556e4e083db6a0c6e5a95cd47144235d9ee30f636c2"
     }
   ],
   "flows": [
@@ -913,6 +914,7 @@
     ".flowguard/models/function_selection.py": "31096a69aa5bbe6580843059828eaa6e36ed966b39db1e0ab629f10e36812563",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
+    ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
     ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",
     ".flowguard/models/model_proof.py": "b8fdcdaae86aa7d993c1fc092a60b5f1b35c03d7c3c15f90628bca39b2ad31ce",
     ".flowguard/models/model_runs.py": "99f4920dc8a1bf8691c508bbedf4a0c60c8704b4edc3eb90a48b7764156256e7",

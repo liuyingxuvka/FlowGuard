@@ -80,6 +80,7 @@ class TargetReport:
     goal_rules: str = ""
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
     port_lines: list[str] = field(default_factory=list)
+    promise_lines: list[str] = field(default_factory=list)
     deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
 
 
@@ -259,6 +260,10 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     from .facets import goal_rules_line
 
     report.goal_rules, goal, promises = goal_rules_line(root, current, target, view)
+    from .facets import target_promise_notes
+    report.promise_lines, removed_promises = target_promise_notes(root,current,target,view)
+    for finding in removed_promises:
+        add('warnings','model '+finding['component'],finding['code'],finding['message'])
     if target_is_noop(root, current, target):
         report.errors.append(TargetFinding("target", "target_noop", "the target changes nothing yet: edit .flowguard/target/ "
                                            "(components, models or remove) or drop it with python -m flowguard target drop --yes"))
@@ -462,6 +467,7 @@ def render_target_report(report: TargetReport) -> str:
     if report.goal_rules:
         lines.append(report.goal_rules)
     lines.extend(report.gaps)
+    lines.extend(report.promise_lines)
     lines.extend(report.port_lines)
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
         for finding in findings:

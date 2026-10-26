@@ -58,6 +58,9 @@ class Impact:
     calling_test_count: int = 0
     also_reached: list[str] = field(default_factory=list)
     no_git: str = ''
+    consumer_lines: list[str] = field(default_factory=list)
+    promise_lines: list[str] = field(default_factory=list)
+    promise_findings: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return dict(self.__dict__)
@@ -657,6 +660,9 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     if moving:
         lines.append("moving to target: " + ", ".join(mid for path, mid in moving)
                      + " (python -m flowguard target check runs their target versions)")
+    lines.extend(imp.consumer_lines)
+    lines.extend(imp.promise_lines)
+    lines.extend('WARN promise_removed '+finding['component']+': '+finding['message'] for finding in imp.promise_findings)
     groups, no_command = _test_groups(imp)
     commands = run_commands(imp, moving_models=moving_models)
     if imp.changed_functions or imp.test_functions:
@@ -907,8 +913,11 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         return result
     comments={path for path in changed if _comment_only(root,base,path)}
     source_changes=[path for path in changed if path not in comments and not inv.is_test(path) and not path.startswith('.flowguard/') and (path in inv.source or Path(path).suffix in SOURCE_EXTS)]
-    raw=discover_inventory(root,inv,data=data,write_cache=False) if source_changes else {'files':{},'edges':{}}
+    literal_tree=build_tree(root,data,inv)
+    consumer_lines,literal_models,literal_functions,literal_tests=_literal_impact(root,data,inv,literal_tree,changed,base)
+    raw=discover_inventory(root,inv,data=data,write_cache=False) if source_changes or literal_functions else {'files':{},'edges':{}}
     functions,uncertain=_changed_symbols(root,inv,source_changes,base,raw)
+    functions.update(literal_functions)
     certain=set(source_changes)-set(uncertain)
     result=_broad_impact(root,data,inv,[path for path in changed if path not in certain],depth,base=base,package_init=False)
     tree=build_tree(root,data,inv)
@@ -919,7 +928,9 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     result.review_models.update({cid:[node.id for node in tree.models_for_component(cid)] for cid in direct})
     result.comment_only=sorted(comments)
     result.unmapped=sorted(set(result.unmapped)|{path for path in certain if path not in owner and not matches_any(path,ignore_patterns(data))})
-    selected=set(result.model_ids)
+    selected=set(result.model_ids)|literal_models
+    result.consumer_lines=consumer_lines
+    result.promise_lines,result.promise_findings=_git_promise_notes(root,data,changed,base)
     reasons=defaultdict(list)
     own={mid:node.contract.get('IMPLEMENTED_BY',{}) for mid,node in tree.nodes.items()}
     uses={mid:node.contract.get('USES',{}) for mid,node in tree.nodes.items()}
@@ -982,7 +993,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     extra=set(result.tests) if whole_fallback else {path for path in result.tests if path in changed}
     if no_git:
         extra.update(path for c in data['components'] if c['id'] in direct for path in inv.tests if matches_any(path,c.get('tests',())))
-    selection=select_tests(root,data,inv,tree,selected,functions,changed=changed,uncertain=uncertain,raw=raw,extra_files=extra)
+    selection=select_tests(root,data,inv,tree,selected,functions,changed=changed,uncertain=uncertain,raw=raw,extra_files=extra|literal_tests)
     result.tests=sorted(selection['nodes'])
     result.test_commands, command_problems = _commands_for_tests(data,_previous_map(root,base) if '.flowguard/map.json' in changed else None,result.tests)
     result.blocked=sorted(set(result.blocked)|set(command_problems))
@@ -1021,3 +1032,123 @@ def _read_git_paths(root, *arguments):
         env=dict(os.environ,GIT_OPTIONAL_LOCKS='0',GIT_INDEX_FILE=str(index))
         result=subprocess.run(['git','-C',str(root),*arguments],env=env,capture_output=True,check=True)
         return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
+
+def _literal_impact(root, data, inv, tree, changed, base):
+    """Fresh source roles add consumers to the same function/test selection, never cache sites."""
+    import re
+    import difflib
+    from collections import Counter
+    from .discover import literal_sites
+    from .mapfile import owner_index
+    owner,_=owner_index(data,inv)
+    model_paths={node.path:mid for mid,node in tree.nodes.items()}
+    model_source=[p.relative_to(root).as_posix() for p in (root/'.flowguard/models').glob('*.py') if not p.name.startswith('_')]
+    paths=sorted({path for path in inv.py if not inv.is_test(path)}|set(model_source))
+    sites={}; sources={}
+    def get(path):
+        if path not in sites:
+            try: sources[path]=read_source(root/path);sites[path]=literal_sites(sources[path])
+            except OSError: sources[path]='';sites[path]=[]
+        return sites[path]
+    def candidate(path,value):
+        return path not in inv.py or value in inv.py[path].string_literals
+    text_paths=None;text_cache={}
+    def mentions(value):
+        nonlocal text_paths
+        if text_paths is None:
+            try: text_paths=[p for p in _read_git_paths(root,'ls-files','-z') if Path(p).suffix.lower() in ('.md','.yaml','.yml','.json','.toml')]
+            except (OSError,subprocess.CalledProcessError): text_paths=[]
+        pattern=re.compile(r'(?<![A-Za-z0-9_])'+re.escape(value)+r'(?![A-Za-z0-9_])')
+        found=[]
+        for path in sorted(text_paths):
+            if path not in text_cache:
+                try:text_cache[path]=read_source(root/path)
+                except OSError:text_cache[path]=''
+            if pattern.search(text_cache[path]):found.append(path)
+        return found
+    lines=[];models=set();functions=set();tests=set();mention_lines=[];typos=[]
+    for source in sorted(changed):
+        if inv.is_test(source) or not source.endswith('.py') or not (root/source).is_file(): continue
+        blob=subprocess.run(['git','-C',str(root),'show',f'{base}:{source}'],capture_output=True) if base else None
+        if blob is None or blob.returncode:continue
+        previous=read_source(root/source,data=blob.stdout);before=literal_sites(previous);after=get(source)
+        old_counts=Counter(value for value,_,role in before);new_counts=Counter(value for value,_,role in after)
+        cid=owner.get(source) or next((node.home for node in tree.nodes.values() if node.path==source),'unmapped')
+        altered=set()
+        for tag,i,j,start,end in difflib.SequenceMatcher(a=previous.splitlines(),b=sources[source].splitlines()).get_opcodes():
+            if tag!='equal':altered.update(range(start+1,end+1))
+        for value in sorted(old_counts):
+            if old_counts[value]<=new_counts[value]:continue
+            produced=any(v==value and role in ('key_write','value') for v,_,role in before)
+            roles={'key_read','compare'} if produced else {'key_write','value'}
+            label='consumes' if produced else 'produces'
+            origin='produced by' if produced else 'consumed by'
+            locations=[]
+            for path in paths:
+                if not candidate(path,value):continue
+                matches=[line for v,line,role in get(path) if v==value and role in roles and not (path==source and line in altered)]
+                if matches:locations.append((path,matches))
+            if len(locations)>20:
+                lines.append(f"{label} '{value}' ({origin} {cid}): {len(locations)} files (too common to list)")
+                continue
+            def order(item):
+                path=item[0]
+                return (0 if path.startswith('.flowguard/models/') else 3 if path==source else 1 if owner.get(path)!=cid else 2,path)
+            locations.sort(key=order)
+            for path,found in locations[:5]:
+                lines.append(f"{label} '{value}' ({origin} {cid}): {path}:{found[0]}"+(f' (+{len(found)-1} in file)' if len(found)>1 else ''))
+            if len(locations)>5:lines.append(f'(+{len(locations)-5} more files)')
+            for path,found in locations:
+                if path in model_paths:models.add(model_paths[path]);continue
+                try: syntax=ast.parse(sources[path])
+                except SyntaxError:continue
+                spans=[]
+                def visit(nodes,prefix=''):
+                    for node in nodes:
+                        if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
+                            name=prefix+node.name
+                            if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)):spans.append((node.lineno,node.end_lineno,name))
+                            visit(node.body,name+'.')
+                        else:
+                            for part in ('body','orelse','finalbody'):
+                                if isinstance(getattr(node,part,None),list):visit(getattr(node,part),prefix)
+                visit(syntax.body)
+                for line in found:
+                    enclosing=[span for span in spans if span[0]<=line<=span[1]]
+                    if enclosing:functions.add(path+'#'+min(enclosing,key=lambda span:span[1]-span[0])[2])
+            for path in inv.tests:
+                if candidate(path,value) and any(v==value for v,_,role in get(path)):tests.add(path)
+            files=mentions(value)
+            if files:
+                mention_lines.append(f"mentions '{value}' in {len(files)} text files: "+', '.join(files[:2])+(f', +{len(files)-2}' if len(files)>2 else ''))
+        old_consumers=Counter(value for value,_,role in before if role in ('key_read','compare'))
+        new_consumers=Counter(value for value,_,role in after if role in ('key_read','compare'))
+        for value,count in new_consumers.items():
+            if count<=old_consumers[value]:continue
+            if any(candidate(path,value) and any(v==value and role in ('key_write','value') for v,line,role in get(path)) for path in paths):continue
+            if mentions(value):continue
+            line=next(line for v,line,role in after if v==value and role in ('key_read','compare'))
+            typos.append(f"nothing produces '{value}' (consumed at {source}:{line}); check the spelling")
+    return lines+mention_lines[:2]+typos[:1],models,functions,tests
+
+def _git_promise_notes(root, data, changed, base):
+    if base is None or not any(path.startswith('.flowguard/models/') and path.endswith('.py') for path in changed):
+        return [],[]
+    from .facets import promise_records, promise_changes
+    from .mapfile import model_registry
+    try:
+        paths=_read_git_paths(root,'ls-tree','-r','--name-only','-z',base,'--','.flowguard/models')
+    except (OSError,subprocess.CalledProcessError):return [],[]
+    # Old helpers resolve only against this old namespace; never against today's source.
+    with tempfile.TemporaryDirectory(prefix='flowguard-old-promises-') as directory:
+        old_root=Path(directory)
+        for path in paths:
+            if Path(path).parent.as_posix()!='.flowguard/models' or not path.endswith('.py'):continue
+            blob=subprocess.run(['git','-C',str(root),'show',f'{base}:{path}'],capture_output=True)
+            if blob.returncode:continue
+            destination=old_root/path;destination.parent.mkdir(parents=True,exist_ok=True);destination.write_bytes(blob.stdout)
+        before=promise_records(old_root,{'components':[],'flows':[]})
+        after=promise_records(root,data)
+        ids={mid for mid,record in {**before,**after}.items() if record[5] in changed}
+        ids.update(mid for mid in before.keys() & after.keys() if before[mid][:3]!=after[mid][:3] or before[mid][3]!=after[mid][3])
+        return promise_changes(before,after,ids)

@@ -850,26 +850,7 @@ def target_goal_rules(root: Path, target, view=None, *, current_data=None) -> li
                 targets.append(mid)
         except (OSError, SyntaxError, ValueError):
             continue
-    moved = {}
-    for kind in (0, 1):
-        names = {name for mid in targets for name in after[mid][kind] if name not in before.get(mid, ({}, {}, None))[kind]}
-        for name in sorted(names):
-            donors = sorted(mid for mid in before if name in before[mid][kind] and name not in after.get(mid, ({}, {}, None))[kind])
-            recipients = sorted(mid for mid in targets if name in after[mid][kind] and name not in before.get(mid, ({}, {}, None))[kind])
-            if not donors:
-                continue
-            chosen = None
-            if len(recipients) == 1:
-                recipient = recipients[0]
-                donor = next((d for d in donors if before[d][kind][name] is not None
-                              and before[d][kind][name] == after[recipient][kind][name]), donors[0])
-                chosen = recipient, donor
-            else:
-                chosen = next(((r, d) for r in recipients for d in donors if before[d][kind][name] is not None
-                               and before[d][kind][name] == after[r][kind][name]), None)
-            if chosen:
-                recipient, donor = chosen
-                moved[(recipient, kind, name)] = donor
+    moved = _moved_names(before, after, targets)
     out = []
     for mid in targets:
         new = after[mid]
@@ -905,3 +886,103 @@ def goal_rules_line(root: Path, current_data: dict, target, view) -> tuple[str, 
     promises = target_promise_changes(current_data, view.data, target)
     line = "goal rules: " + "; ".join(goal) if goal else "goal rules: none" if promises else NO_PROMISE_GOAL
     return line, goal, promises
+
+def _moved_names(before, after, targets, kinds=(0, 1)):
+    """One relocation decision for goal rules and removed-promise reporting."""
+    moved={}
+    for kind in kinds:
+        names={name for mid in targets for name in after[mid][kind] if name not in before.get(mid, ({}, {}, {}))[kind]}
+        for name in sorted(names):
+            donors=sorted(mid for mid in before if name in before[mid][kind] and name not in after.get(mid, ({}, {}, {}))[kind])
+            recipients=sorted(mid for mid in targets if name in after[mid][kind] and name not in before.get(mid, ({}, {}, {}))[kind])
+            if not donors: continue
+            chosen=None
+            if len(recipients)==1:
+                recipient=recipients[0]
+                donor=next((mid for mid in donors if before[mid][kind][name] is not None and before[mid][kind][name]==after[recipient][kind][name]),donors[0])
+                chosen=(recipient,donor)
+            else:
+                exact=[(recipient,donor) for recipient in recipients for donor in donors if before[donor][kind][name] is not None and before[donor][kind][name]==after[recipient][kind][name]]
+                if len(exact)==1: chosen=exact[0]
+            if chosen: moved[(chosen[0],kind,name)]=chosen[1]
+    return moved
+
+
+def model_promises(root, logical, syntax, view=None):
+    """Rule/bad definitions, binding names and actual State fields from one model's source."""
+    from .port import model_port
+    rules,bad=_definitions(root,logical,syntax,view)
+    declarations={}
+    for node in syntax.body:
+        if isinstance(node,ast.Assign):
+            for name in node.targets:
+                if isinstance(name,ast.Name):
+                    try: declarations[name.id]=ast.literal_eval(node.value)
+                    except (ValueError,TypeError): pass
+    tests=declarations.get('TESTED_BY',{})
+    bindings={}
+    for name,anchors in tests.items() if isinstance(tests,dict) else ():
+        for anchor in anchors:bindings.setdefault(anchor,[]).append(name)
+    tests={anchor:tuple(sorted(names)) for anchor,names in bindings.items()}
+    return (rules,bad,tests,model_port(syntax).state,declarations.get('PARENT'),logical)
+
+
+def promise_changes(before, after, changed):
+    """Report intentional removals as warnings; distinguish a single receiving owner."""
+    moved=_moved_names(before,after,sorted(set(changed)&set(after)),(0,1,2))
+    labels=('rule','known-bad','test')
+    warnings=[]; lines=[]
+    for mid in sorted(set(changed)&set(before)):
+        entries=[]
+        old,new=before[mid],after.get(mid,({},{},{},(),None,''))
+        for kind,label in enumerate(labels):
+            for name in sorted(set(old[kind])-set(new[kind])):
+                if any(k==kind and n==name and donor==mid for (recipient,k,n),donor in moved.items()): continue
+                display=name
+                if kind==2:
+                    bindings=old[kind][name]
+                    display=', '.join(bindings)
+                    if len(bindings)!=1 or sum(bindings[0] in names for names in old[kind].values())>1:
+                        display+=' ('+name+')'
+                item=f'-{label} {display}'
+                entries.append(item)
+                warnings.append(dict(level='warn',code='promise_removed',component=mid,message=item))
+        if old[3] is not None and new[3] is not None:
+            retained=set(new[3])
+            for child,record in after.items():
+                parent,seen=record[4],{child}
+                while parent in after and parent not in seen:
+                    if parent==mid:
+                        retained.update(record[3] or ());break
+                    seen.add(parent);parent=after[parent][4]
+            for field in sorted(set(old[3])-retained):
+                item='-field '+field;entries.append(item)
+                warnings.append(dict(level='warn',code='promise_removed',component=mid,message=item))
+        if entries: lines.append('promises: '+mid+': '+'; '.join(entries))
+    pairs={}
+    for (recipient,kind,name),donor in moved.items():
+        counts=pairs.setdefault((donor,recipient),[0,0,0]);counts[kind]+=1
+    lines.extend(f'moved: {count[0]} rule(s), {count[1]} known-bad, {count[2]} test(s) from {donor} to {recipient}' for (donor,recipient),count in sorted(pairs.items()))
+    return lines,warnings
+
+def promise_records(root, data, view=None):
+    from .mapfile import model_registry
+    found={}
+    for entry in model_registry(root,data,view=view).entries:
+        if entry.kind!='contract':continue
+        path=view.resolve(entry.path) if view is not None else root/entry.path
+        try:
+            syntax=ast.parse(read_source(path))
+            found[entry.id]=model_promises(root,entry.path,syntax,view)
+        except (OSError,SyntaxError,ValueError,TypeError):continue
+    return found
+
+
+def target_promise_notes(root, current, target, view):
+    before=promise_records(root,current)
+    after=promise_records(root,view.data,view)
+    paths={'.flowguard/models/'+filename for filename in target.models}
+    changed={mid for mid,record in {**before,**after}.items() if record[5] in paths}|set(target.remove['model'])
+    # A changed shared rule helper can remove a real rule from one of its importers.
+    changed.update(mid for mid in before.keys() & after.keys() if before[mid][:3]!=after[mid][:3] or before[mid][3]!=after[mid][3])
+    return promise_changes(before,after,changed)

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `change` names consumers of removed interface literals and text that mentions them. `change` and `target check` name removed promises and distinguish moves; explain intentional removals in the commit message. These notes do not block a check.
+
 - Projects using FlowGuard: `change` selects models by changed functions and selects individual bound or directly calling tests. `--broad` keeps the earlier file selection. Missing Git uses confirmed component fingerprints and explains its conservative file fallback.
 
 - Projects using FlowGuard: `change` checks direct port consumers when an interface changes, rather than always adding ancestors. `--broad` preserves the wider selection. A target that changes a child's outputs must also include its parent, with a command explaining how to add it.

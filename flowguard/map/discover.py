@@ -861,3 +861,41 @@ def relied_models(raw: dict, data: dict, inv, anchors: dict[str, list[str]], *, 
                     if path == anchor_path and (symbol == anchor_symbol or symbol.startswith(anchor_symbol + ".")):
                         found[mid].add((owner[path], anchor_symbol))
     return dict(found)
+
+def literal_sites(text) -> list[tuple[str, int, str]]:
+    """Token-shaped strings classified by their actual syntax role, with no stored index."""
+    import re
+    try:
+        syntax=ast.parse(text)
+    except SyntaxError:
+        return []
+    parents={id(child):node for node in ast.walk(syntax) for child in ast.iter_child_nodes(node)}
+    excluded=set()
+    for node in ast.walk(syntax):
+        if isinstance(node,(ast.Module,ast.FunctionDef,ast.AsyncFunctionDef,ast.ClassDef)):
+            first=node.body[0] if node.body else None
+            if isinstance(first,ast.Expr) and isinstance(first.value,ast.Constant) and isinstance(first.value.value,str):
+                excluded.add(id(first.value))
+        if isinstance(node,ast.JoinedStr):
+            excluded.update(id(value) for value in node.values if isinstance(value,ast.Constant))
+    found=[]
+    for node in ast.walk(syntax):
+        if not isinstance(node,ast.Constant) or not isinstance(node.value,str) or id(node) in excluded:
+            continue
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_.:-]{2,}',node.value):
+            continue
+        parent=parents.get(id(node)); role='value'
+        if isinstance(parent,ast.Dict) and node in parent.keys:
+            role='key_write'
+        elif isinstance(parent,ast.Subscript) and parent.slice is node:
+            role='key_write' if isinstance(parent.ctx,ast.Store) else 'key_read'
+        elif isinstance(parent,ast.Call) and parent.args and parent.args[0] is node and isinstance(parent.func,ast.Attribute) and parent.func.attr in ('get','pop','setdefault'):
+            role='key_read'
+        else:
+            cursor=parent
+            while isinstance(cursor,(ast.Tuple,ast.List,ast.Set)):
+                cursor=parents.get(id(cursor))
+            if isinstance(cursor,ast.Compare) and any(isinstance(op,(ast.Eq,ast.NotEq,ast.In,ast.NotIn)) for op in cursor.ops) or isinstance(cursor,ast.MatchValue):
+                role='compare'
+        found.append((node.value,node.lineno,node.col_offset,role))
+    return [(value,line,role) for value,line,column,role in sorted(found,key=lambda item:(item[1],item[2]))]

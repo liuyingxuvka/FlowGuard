@@ -54,7 +54,7 @@ Pure display or metadata changes that leave behavior unchanged may follow **Chan
 1. Start `python -m flowguard target start "<goal>"`, then copy the owning model with `python -m flowguard target add <model-id>`.
 2. Copy the component too if its `state` description changes. Keep retained promises on an owner; list `state:<original text>` in target `remove` only for an intentionally retired old promise.
 3. Change the target model's state names and values. Add a known-bad variant for an old field still being read or a missing new field silently falling back to the old one.
-4. Record the applicable `CodeFacts(root).absent("old_mode", OWNED_FILES)` / `CodeFacts(root).present("mode", OWNED_FILES)` facts in that target model's real `conformance()`; before the code changes, unmet facts are TO-DO.
+4. Read the `consumes`, `produces`, `mentions`, and `promises:` lines from `change` or `target check`; open each named position and update its consumer or explain an intentional retirement. Record the applicable `CodeFacts(root).absent("old_mode", OWNED_FILES)` / `CodeFacts(root).present("mode", OWNED_FILES)` facts in that target model's real `conformance()`; before the code changes, unmet facts are TO-DO.
 5. Run `python -m flowguard target check` until there is no ERROR and only code/test TO-DO remains, then implement the code and tests.
 6. Run the same target check until ERROR and TO-DO are both zero; it checks changed target models and related models with bound tests in the merged tree.
 7. Run `python -m flowguard target promote`, confirm the listed components, then `python -m flowguard change` and any remaining selected checks.
