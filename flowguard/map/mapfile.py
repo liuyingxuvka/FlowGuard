@@ -17,11 +17,11 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, is_test_file, matches_any, read_source
+from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, normalize_newlines, is_test_file, matches_any, read_source
 from .inventory import Inventory
 from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
-TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts"}
+TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -43,6 +43,10 @@ def validate_map(data: object) -> list[str]:
     if data.get("schema") != SCHEMA:
         errors.append(f"schema must be {SCHEMA!r}")
     errors += [f"unknown top-level key {k!r}" for k in sorted(set(data) - TOP_KEYS)]
+    fmt = data.get("fingerprint_format", 1)
+    if type(fmt) is not int or fmt not in (1, 2):
+        errors.append(f"fingerprint_format {fmt} is newer than this FlowGuard (2); install a newer FlowGuard"
+                      if type(fmt) is int and fmt > 2 else "fingerprint_format must be 1 or 2")
     test_commands = data.get("test_commands", {})
     if not isinstance(test_commands, dict) or not all(isinstance(p, str) and isinstance(cmd, str) and cmd.strip()
                                                       for p, cmd in test_commands.items()):
@@ -206,14 +210,71 @@ def owner_index(data: dict, inv: Inventory) -> tuple[dict[str, str], dict[str, l
     return {f: ids[0] for f, ids in owners.items()}, dict(owners)
 
 
+def _release_neutral(path: Path, content: bytes) -> bytes:
+    """Mask only release declarations, preserving every other normalized byte."""
+    if path.name == "VERSION":
+        return b"<version>\n"
+    if path.suffix == ".py":
+        try:
+            tree = ast.parse(content)
+        except (SyntaxError, ValueError, UnicodeError):
+            return content
+        for node in tree.body:
+            targets = node.targets if isinstance(node, ast.Assign) else [node.target] if isinstance(node, ast.AnnAssign) else []
+            if not any(isinstance(target, ast.Name) and target.id == "__version__" for target in targets):
+                continue
+            value = node.value
+            if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
+                continue
+            if value.lineno != value.end_lineno:
+                return content
+            lines = content.splitlines(keepends=True)
+            offset = 3 if value.lineno == 1 and content.startswith(b"\xef\xbb\xbf") else 0
+            line = lines[value.lineno - 1]
+            lines[value.lineno - 1] = line[:value.col_offset + offset] + b'"<version>"' + line[value.end_col_offset + offset:]
+            return b"".join(lines)
+    if path.name == "pyproject.toml":
+        lines, table = [], ""
+        for line in content.splitlines(keepends=True):
+            stripped = line.split(b"#", 1)[0].strip()
+            if stripped.startswith(b"["):
+                table = stripped.strip(b"[]").strip()
+            if table == b"project":
+                match = re.match(rb"^(\s*version\s*=\s*)(['\"])[^'\"\n]*\2", line)
+                if match:
+                    line = match[1] + b'"<version>"' + line[match.end():]
+            lines.append(line)
+        return b"".join(lines)
+    return content
+
+
 def fingerprint(root: Path, files: list[str]) -> str:
     h = hashlib.sha256()
     for f in sorted(files):
         try:
-            h.update(f"{f}\0{content_digest(root / f)}\n".encode())
+            content = _release_neutral(root / f, normalize_newlines((root / f).read_bytes()))
+            digest = hashlib.sha256(content).hexdigest()
+            h.update(f"{f}\0{digest}\n".encode())
         except OSError:
             h.update(f"{f}\0missing\n".encode())
     return "sha256:" + h.hexdigest()
+
+
+def component_state(root: Path, comp: dict, inv: Inventory, data: dict) -> str:
+    """Distinguish a one-time formula migration from an actual source edit."""
+    files = component_files(comp, inv)
+    if comp.get("fingerprint") == fingerprint(root, files):
+        return "current"
+    if data.get("fingerprint_format", 1) < 2:
+        legacy = hashlib.sha256()
+        for path in sorted(files):
+            try:
+                legacy.update(f"{path}\0{content_digest(root / path)}\n".encode())
+            except OSError:
+                legacy.update(f"{path}\0missing\n".encode())
+        if comp.get("fingerprint") == "sha256:" + legacy.hexdigest():
+            return "migrate"
+    return "stale"
 
 
 def is_stale(root: Path, comp: dict, inv: Inventory) -> bool:

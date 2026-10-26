@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Keep components current across version-only release changes while retaining sensitivity to all other source edits.
+- Projects using FlowGuard: run python -m flowguard map confirm <component> once after upgrading (fingerprint_migrate names it); fingerprint_migrate is removed in 0.70.14.
+
 ## v0.70.12 - 2026-10-24 - The model shows the architecture
 
 ### New

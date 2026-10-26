@@ -309,8 +309,12 @@ def cmd_confirm(root: Path, a) -> int:
         c = by_id[i]
         c.pop("_hint", None)
         c["status"], c["fingerprint"] = "confirmed", fingerprint(root, component_files(c, inv))
+    if all(c.get("status") != "confirmed" or c.get("fingerprint") == fingerprint(root, component_files(c, inv))
+           for c in data["components"]):
+        data["fingerprint_format"] = 2
     save_map(root, data)
-    print(f"confirmed {len(ids)} component(s)")
+    suffix = "; map fingerprint_format 2" if data.get("fingerprint_format") == 2 else ""
+    print(f"confirmed {len(ids)} component(s){suffix}")
     return 0
 
 

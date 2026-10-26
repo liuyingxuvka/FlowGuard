@@ -90,7 +90,7 @@ def conformance():
     for case in CASES:
         with TemporaryDirectory(prefix="fg-neutral-") as directory:
             root = Path(directory)
-            files = {"pkg/__init__.py": '\"\"\"__version__ = "inside documentation"\"\"\"\n__version__ = "1.0.0"\nX = 1\n',
+            files = {"pkg/__init__.py": '\"\"\"__version__ = "inside documentation" note.\"\"\"\n__version__ = "1.0.0"\nX = 1\n',
                      "pyproject.toml": '[project]\nname = "app"\nversion = "1.0.0"\n[tool.x]\nversion = "stable"\n',
                      "VERSION": "1.0.0\n"}
             for path, text in files.items():

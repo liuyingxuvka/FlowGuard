@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, component_scope, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
+from .mapfile import component_files, component_graph, component_scope, component_state, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 from .retired import design_only_problem, retired_file_message
 from .tree import component_parent_findings
 
@@ -225,8 +225,13 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
             out.append(Finding(stale_level, "draft", cid, "description not confirmed yet"))
         elif not c.get("summary") or not c.get("responsibilities"):
             out.append(Finding("error", "confirmed_but_empty", cid, "a confirmed component needs summary and responsibilities"))
-        elif is_stale(root, c, inv):
-            out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
+        else:
+            state = component_state(root, c, inv, data)
+            if state == "migrate":
+                out.append(Finding(stale_level, "fingerprint_migrate", cid,
+                                   f"fingerprint formula changed (format 1 -> 2): confirm {cid} once"))
+            elif state == "stale":
+                out.append(Finding(stale_level, "stale", cid, "owned files changed since last confirm; re-read them, update the description if behavior changed, then confirm"))
     from .lint import apply_accepted_debts, entrypoint_coverage_findings, model_coverage, model_writer_findings
     covered, not_modeled = model_coverage(root, data, registry, view=view)
     entry_findings = entrypoint_coverage_findings(raw, data, inv, covered, not_modeled=not_modeled,

@@ -1401,3 +1401,89 @@ def test_map_check_binding_codes(tmp_path):
     assert unused() == []                       # api reaches core only through the injected store
     write(tmp_path, "app.py", "from api import Service\nfrom core import Store\n\n\ndef main():\n    return 1\n")
     assert unused() == ["api"]                  # nothing passes a Store any more: the declared edge has no evidence
+
+
+def _release_project(root, *, legacy=False):
+    from hashlib import sha256
+    from flowguard.map.common import SCHEMA, content_digest
+    from flowguard.map.mapfile import fingerprint
+    files = {"pkg/__init__.py": '\"\"\"__version__ = "example" note.\"\"\"\n__version__: str = "1.0.0"\nX = 1\n',
+             "pyproject.toml": '[project]\nname = "app"\nversion = "1.0.0"\n[tool.x]\nversion = "stable"\n', "VERSION": "1.0.0\n"}
+    for path, text in files.items():
+        write(root, path, text)
+    comp = {"id": "app", "layer": "app", "summary": "A versioned package", "responsibilities": ["Declare package values"],
+            "files": list(files), "status": "confirmed", "depends_on": [], "tests": [], "models": []}
+    comp["fingerprint"] = fingerprint(root, list(files))
+    if legacy:
+        old = sha256()
+        for path in sorted(files):
+            old.update(f"{path}\0{content_digest(root / path)}\n".encode())
+        comp["fingerprint"] = "sha256:" + old.hexdigest()
+    data = {"schema": SCHEMA, "layers": ["app"], "components": [comp], "fingerprint_format": 1 if legacy else 2}
+    write(root, ".flowguard/map.json", json.dumps(data))
+    return data, comp
+
+
+@pytest.mark.parametrize("filename", ["pkg/__init__.py", "pyproject.toml", "VERSION"])
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_version_only_bump_keeps_components_current(tmp_path, filename, newline):
+    from flowguard.map.mapfile import component_state
+    from flowguard.map.check import run_check
+    data, comp = _release_project(tmp_path)
+    path = tmp_path / filename
+    path.write_bytes(path.read_text().replace("1.0.0", "1.0.1").replace("\n", newline).encode())
+    inv = build_inventory(tmp_path, [])
+    assert component_state(tmp_path, comp, inv, data) == "current"
+    assert not [f for f in run_check(tmp_path, data, inv, strict=True) if f.level == "error"]
+
+
+@pytest.mark.parametrize("filename,old,new", [("pkg/__init__.py", "X = 1", "X = 2"),
+    ("pyproject.toml", '"app"', '"other"'), ("pyproject.toml", '"stable"', '"changed"')])
+def test_non_version_edit_in_version_file_is_stale(tmp_path, filename, old, new):
+    from flowguard.map.mapfile import component_state
+    data, comp = _release_project(tmp_path)
+    path = tmp_path / filename
+    path.write_text(path.read_text().replace(old, new))
+    assert component_state(tmp_path, comp, build_inventory(tmp_path, []), data) == "stale"
+
+
+def test_format1_map_migrates_once(tmp_path):
+    from flowguard.map.check import run_check
+    from flowguard.map.mapfile import component_state, load_map
+    data, comp = _release_project(tmp_path, legacy=True)
+    inv = build_inventory(tmp_path, [])
+    assert component_state(tmp_path, comp, inv, data) == "migrate"
+    findings = [f for f in run_check(tmp_path, data, inv, strict=True) if f.code == "fingerprint_migrate"]
+    assert len(findings) == 1 and findings[0].level == "error"
+    assert cli.main(["confirm", "app", "--root", str(tmp_path)]) == 0
+    current = load_map(tmp_path)
+    assert current["fingerprint_format"] == 2
+    assert component_state(tmp_path, current["components"][0], inv, current) == "current"
+
+
+def test_format2_map_with_format1_value_is_stale(tmp_path):
+    from flowguard.map.mapfile import component_state
+    data, comp = _release_project(tmp_path, legacy=True)
+    data["fingerprint_format"] = 2
+    assert component_state(tmp_path, comp, build_inventory(tmp_path, []), data) == "stale"
+
+
+def test_fingerprint_format_3_is_rejected(tmp_path):
+    from flowguard.map.mapfile import validate_map
+    data, _ = _release_project(tmp_path)
+    data["fingerprint_format"] = 3
+    assert "fingerprint_format 3 is newer than this FlowGuard (2); install a newer FlowGuard" in validate_map(data)
+    for invalid in (0, "2", True):
+        data["fingerprint_format"] = invalid
+        assert "fingerprint_format must be 1 or 2" in validate_map(data)
+
+
+def test_docstring_version_text_is_not_a_declaration(tmp_path):
+    from flowguard.map.mapfile import component_state
+    data, comp = _release_project(tmp_path)
+    p = tmp_path / "pkg/__init__.py"
+    p.write_text(p.read_text().replace('str = "1.0.0"', 'str = "1.0.1"'))
+    inv = build_inventory(tmp_path, [])
+    assert component_state(tmp_path, comp, inv, data) == "current"
+    p.write_text(p.read_text().replace('"example"', '"changed documentation"'))
+    assert component_state(tmp_path, comp, inv, data) == "stale"

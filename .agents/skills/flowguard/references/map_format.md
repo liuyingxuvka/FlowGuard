@@ -112,3 +112,5 @@ checks the merged tree with real code and bound tests, reporting ERROR / TO-DO /
 A clean `python -m flowguard target promote` makes it current and removes the target directory;
 confirm the components it lists. `python -m flowguard target drop --yes` discards only the target.
 Promote prints `re-read:` lines (re-parented models, flows that cross changed components, tests no longer bound); `target check` warns `debt_stale` for accepted debts the target makes stale.
+
+`fingerprint_format: 2` ignores only VERSION contents, the module-level Python __version__ string and the [project] TOML version value. Legacy pointers request one confirmation; other edits remain stale.

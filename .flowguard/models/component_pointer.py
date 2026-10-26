@@ -193,7 +193,7 @@ class _RealMap:
             from flowguard.map.mapfile import ignore_patterns, load_map
             data = load_map(self.root)
             codes = {f.code for f in run_check(self.root, data, build_inventory(self.root, ignore_patterns(data)))}
-            output = "draft" if "draft" in codes else "stale" if "stale" in codes else "clean"
+            output = "draft" if "draft" in codes else "stale" if {"stale", "fingerprint_migrate"} & codes else "clean"
             self.last_report = output
         return ReplayObservation(function_name=step.function_name, observed_output=output,
                                  observed_state=self.observe_state())

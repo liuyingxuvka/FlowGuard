@@ -91,7 +91,7 @@
       "layer": "interface",
       "summary": "Dispatches current-tree commands and reports progress toward one target.",
       "responsibilities": [
-        "parse command lines and dispatch them to their owners",
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
         "annotate planned target breakage and ARCH lines in check, change and release",
         "run release with the system root counted and optional whole-suite shards",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:74221875ca34f12f5c935a4648f38cdbc4d8be6b5b05d04d0660186504c8da13"
+      "fingerprint": "sha256:1bd562adb4f569ef305ab655fae78a2ab42f191b1920cb2a4198fb6d2653bca6"
     },
     {
       "id": "public-api",
@@ -165,7 +165,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3dd5d10b41720ab8f7dcfb0da90c1d85a45d7e597e7517f181bc36d4ab4893d2"
+      "fingerprint": "sha256:fe45b7af8a39fb6fbc077d9cd3b2dde84847a0dcd85c35b91a2b723b2365e497"
     },
     {
       "id": "templates",
@@ -269,7 +269,7 @@
       "layer": "map",
       "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
       "responsibilities": [
-        "load, validate and save the map, pointing a missing map at the guide",
+        "load, validate and save the map, pointing a missing map at the guide Keep version-only changes neutral in format 2 fingerprints and migrate legacy component pointers once.",
         "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
@@ -302,9 +302,11 @@
         "tests/test_flowguard_map_contracts.py",
         "tests/test_map_views.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ],
       "status": "confirmed",
-      "fingerprint": "sha256:0403826c3b6cbb352297745a3b884c4d1982115c1d3d6228b012d3be75b5de6d"
+      "fingerprint": "sha256:6b8d37c076068e1d7b044002828867280589b94d0709c8daae43a7c6499483c7"
     },
     {
       "id": "map-discover",
@@ -346,7 +348,7 @@
       "layer": "map",
       "summary": "Holds one target and checks its design, the merged code and tests.",
       "responsibilities": [
-        "start, extend and drop one target at a time",
+        "start, extend and drop one target at a time A replaced component can migrate its fingerprint formula when promoted.",
         "check the merged tree: design mistakes are ERROR, missing code is TO-DO",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
@@ -383,7 +385,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:b4b2faab2978f2460e7dd4ada070a2436a51ed0d6d1d9cedd51dfaab3f0dbeb0"
+      "fingerprint": "sha256:eb25c0fdaddfed4c29f58c81a83dd21443d8ff6702bf9a7f2dd1088553a8b536"
     },
     {
       "id": "map-proof",
@@ -705,7 +707,7 @@
       "layer": "map",
       "summary": "Checks the map against the code and lints the architecture.",
       "responsibilities": [
-        "check anchors, files, imports, flow steps and models against the code",
+        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
         "lint cycles, layers, sizes and private names, then apply accepted debts",
         "explain entrypoints and state writers by model, test or reason"
@@ -732,7 +734,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:eb5fb17aec5e477fbc70ea85e4d50ff19866775f40b20a620b5d443eb6cc3cd6"
+      "fingerprint": "sha256:d5e6e8170ca5ad52b365896c0a7519acf7a73fb655bede5c429b7d7083edf7c3"
     },
     {
       "id": "map-read",
@@ -873,5 +875,6 @@
       "component": "cli",
       "reason": "the command entry dispatches each command family to the component that owns it"
     }
-  ]
+  ],
+  "fingerprint_format": 2
 }

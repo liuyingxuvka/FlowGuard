@@ -257,7 +257,7 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
     replaced = {c["id"] for c in target.data.get("components", [])}
     # run_check reports duplicate_owner (with accepted debts) once.
     for finding in [*run_check(root, view.data, inv, view=view), *dropped_owner_findings(current, view.data, target)]:
-        if finding.code in {"draft", "stale"} and finding.component in replaced:
+        if finding.code in {"draft", "stale", "fingerprint_migrate"} and finding.component in replaced:
             continue
         if finding.level == "info":
             continue
