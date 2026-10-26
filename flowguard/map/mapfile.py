@@ -20,7 +20,6 @@ from pathlib import Path
 
 from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_digest, normalize_newlines, is_test_file, matches_any, read_source
 from .inventory import Inventory
-from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
 TOP_KEYS = {"large_test_seconds", "large_model_seconds", "import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
@@ -348,7 +347,7 @@ def read_model_contract(path: Path) -> dict:
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
                 and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "USES", "TESTED_BY", "NOT_MODELED",
-                                           DESIGN_MARKER, "PARENT", "OUTPUTS", "HANDOFF", "READS_PARENT", "KEEPS", "DISPATCH"}:
+                                           "PARENT", "OUTPUTS", "HANDOFF", "READS_PARENT", "KEEPS", "DISPATCH"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance",
                                                                "project_parent_state"}:
@@ -474,7 +473,7 @@ def resolve_model_path(root: Path, logical: str, *, view=None) -> Path | None:
 
 
 def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelRegistry:
-    """The single executable inventory: contract models, with explicit legacy errors.
+    """The single executable inventory of contract models.
 
     Paths outside these conventions are not silently counted as proof. Discovery
     only reads literals; importing and executing belongs to the proof runner.
@@ -496,19 +495,10 @@ def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelR
              if view is not None else
              {p.relative_to(root).as_posix() for p in base.glob("*.py") if not p.name.startswith("_")})
     registry = ModelRegistry()
-    logical_sources = set(view.model_sources) if view is not None else set()
-    retired_paths = runner_model_paths(root, referenced, logical_sources)
-    for rel in sorted(retired_paths):
-        registry.issues.append(RegistryIssue(
-            "runner_model", rel, runner_model_message()))
     for rel in sorted(paths | referenced):
         if Path(rel).is_absolute() or ".." in Path(rel).parts:
             registry.issues.append(RegistryIssue("model_path_unsupported", rel,
                                   f"{rel}: model paths must stay inside the project"))
-            continue
-        parts = Path(rel).parts
-        place = Path(*parts[:4]).as_posix() if len(parts) >= 4 and parts[:3] == (".flowguard", "models", "owners") else Path(rel).as_posix()
-        if place in retired_paths:
             continue
         path = resolve_model_path(root, rel, view=view)
         if path is None or not path.is_file():

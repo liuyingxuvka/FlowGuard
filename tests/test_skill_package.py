@@ -14,11 +14,6 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILL = ROOT / ".agents" / "skills" / "flowguard"
-CAPABILITIES = (
-    "behavior-commitment", "architecture-reduction", "code-structure",
-    "contract-exhaustion", "field-lifecycle", "model-mesh",
-    "model-test", "topology-hazard", "test-mesh", "ui-flow",
-)
 
 
 def _parse_documented_command_arguments(command: str) -> None:
@@ -87,49 +82,7 @@ class SkillPackageTests(unittest.TestCase):
             self.assertIsNone(re.search(r"\bpip\s+install\s+flowguard(?=\s|$)",
                                         path.read_text(encoding="utf-8"), re.M), path.relative_to(ROOT).as_posix())
 
-    def test_entry_lists_every_capability_once(self) -> None:
-        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        for name in CAPABILITIES:
-            self.assertEqual(1, len(re.findall(rf"^\| [^|]*\({re.escape(name)}\) \|", text, re.M)), name)
 
-    def test_capability_rows_point_to_existing_places(self) -> None:
-        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        heading = "## What you want to do"
-        self.assertEqual(1, text.splitlines().count(heading))
-        section = text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
-        data_rows = [line for line in section.splitlines() if line.startswith("|")
-                     and line not in ("| task (former capability) | use when | lives here now |", "| --- | --- | --- |")]
-        # The first column is the task, with the former capability name in parentheses.
-        self.assertCountEqual(CAPABILITIES, [re.search(r"\(([^()]+)\)\s*$", line.split("|")[1].strip()).group(1)
-                                             for line in data_rows])
-        listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,
-                                capture_output=True, text=True, check=True).stdout.split()
-        for name in CAPABILITIES:
-            with self.subTest(capability=name):
-                rows = [line for line in section.splitlines() if re.match(rf"^\| [^|]*\({re.escape(name)}\) \|", line)]
-                self.assertEqual(1, len(rows), name)
-                cells = [cell.strip() for cell in rows[0].strip().strip("|").split("|")]
-                self.assertEqual(3, len(cells), rows[0])
-                self.assertTrue(all(cells), rows[0])
-                places = 0
-                for token in re.findall(r"`([^`\n]+)`", cells[2]):
-                    if token.startswith("references/"):
-                        relative, separator, title = token.partition("#")
-                        path = SKILL / relative
-                        self.assertTrue(path.is_file(), token)
-                        if separator:
-                            self.assertTrue(title, token)
-                            self.assertTrue(any(line in ("## " + title, "### " + title)
-                                                for line in path.read_text(encoding="utf-8").splitlines()), token)
-                        places += 1
-                    elif token.startswith("python -m flowguard "):
-                        command = token.removeprefix("python -m flowguard ")
-                        template = re.match(r"template ([a-z][a-z-]*)(?:\s|$)", command)
-                        if template:
-                            self.assertIn(template.group(1), listed, token)
-                        _parse_documented_command_arguments(command)
-                        places += 1
-                self.assertGreater(places, 0, cells[2])
 
     def test_template_names_in_references_exist(self) -> None:
         listed = subprocess.run([sys.executable, "-m", "flowguard", "template", "--list"], cwd=ROOT,

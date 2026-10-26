@@ -13,7 +13,7 @@ def test_no_receipt_vocabulary_left():
         ["git", "ls-files", "-z", "--", "flowguard", ".agents/skills/flowguard", ".flowguard", "examples", "tests"],
         cwd=ROOT,
     ).decode().split("\0")
-    exempt = {"tests/test_product_vocabulary.py", ".agents/skills/flowguard/references/upgrade.md"}
+    exempt = {"tests/test_product_vocabulary.py"}
     offenders = []
     for relative in filter(None, paths):
         if relative in exempt:
@@ -81,19 +81,10 @@ def test_public_names_use_one_vocabulary():
         'flowguard.trace',
         'flowguard.replay',
         'flowguard.conformance',
-        'flowguard.contract',
         'flowguard.checks',
-        'flowguard.packs',
         'flowguard.scenario',
-        'flowguard.review',
-        'flowguard.scenario_matrix',
-        'flowguard.minimize',
         'flowguard.loop',
-        'flowguard.progress',
-        'flowguard.budgeted',
-        'flowguard.mermaid',
         'flowguard.export',
-        'flowguard.schema',
         'flowguard.kit',
         'flowguard.templates',
     }

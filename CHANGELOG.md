@@ -43,6 +43,12 @@
 - Keep components current across version-only release changes while retaining sensitivity to all other source edits.
 - Projects using FlowGuard: run python -m flowguard map confirm <component> once after upgrading (fingerprint_migrate names it); fingerprint_migrate is removed in 0.70.14.
 
+### Removed
+
+- Remove the unused corpus, checkpoint, artifact-envelope, scenario-review, packs, progress, minimization, legacy rendering, hint and old model-edge modules, their dedicated examples, tests and docs, and the old project-migration checks. Remove redundant tuning flags and compact trace storage.
+- Removed facade names: `ArtifactEnvelope`, `BoundedEventuallyProperty`, `BudgetedGraphConfig`, `BudgetedGraphFailure`, `BudgetedGraphReport`, `BudgetedShardReport`, `CachePack`, `ContractCheckReport`, `ContractViolation`, `DeduplicationPack`, `EventuallyProperty`, `FunctionContract`, `MinimizedCounterexample`, `OracleReviewResult`, `ProgressCheckConfig`, `ProgressCheckReport`, `ProgressFinding`, `ReductionStep`, `RetryPack`, `SCHEMA_VERSION`, `ScenarioMatrixBuilder`, `ScenarioReviewReport`, `SideEffectPack`, `budgeted_graph_fingerprint`, `budgeted_graph_run_dir`, `check_progress`, `check_refinement_projection`, `check_trace_contracts`, `graph_to_mermaid_text`, `loop_report_to_mermaid_text`, `make_artifact`, `mermaid_code_block`, `minimize_failing_sequence`, `minimize_report_counterexample`, `review_scenario`, `review_scenarios`, `run_budgeted_graph_checks`, `scenario_status_explanation`, `scenario_status_ok`, `trace_artifact`, `trace_to_mermaid_text`.
+- Projects using FlowGuard: all fourteen consumer names remain, as does `release --shards N` with whole-subtree balancing. `FLOWGUARD_COMPACT_TRACE_STORAGE` has no effect; exploration retains every observed trace.
+
 ## v0.70.12 - 2026-10-24 - The model shows the architecture
 
 ### New

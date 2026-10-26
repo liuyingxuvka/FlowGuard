@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import unittest
+import tomllib
 from pathlib import Path
 
 
@@ -21,7 +22,7 @@ class ProjectIntegrationTests(unittest.TestCase):
             [
                 sys.executable,
                 "-c",
-                "import flowguard; print(flowguard.SCHEMA_VERSION)",
+                "import flowguard; print(flowguard.__version__)",
             ],
             cwd=ROOT,
             check=False,
@@ -30,7 +31,9 @@ class ProjectIntegrationTests(unittest.TestCase):
         )
 
         self.assertEqual(0, completed.returncode, completed.stdout + completed.stderr)
-        self.assertRegex(completed.stdout.strip(), r"^\d+\.\d+$")
+        self.assertRegex(completed.stdout.strip(), r"^\d+\.\d+\.\d+$")
+        expected = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]["version"]
+        self.assertEqual(expected, completed.stdout.strip())
 
 if __name__ == "__main__":
     unittest.main()

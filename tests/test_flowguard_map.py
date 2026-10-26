@@ -442,22 +442,6 @@ def test_lint_notes_compound_responsibilities(project, capsys):
     assert cli.main(["--root", str(project), "lint"]) == before
 
 
-def test_retired_table_is_the_only_owner():
-    from pathlib import Path
-    import re
-
-    from flowguard.map.retired import RETIRED
-
-    root = Path(__file__).resolve().parents[1]
-    literal = re.compile(r"DESIGN_ONLY|ledger\.json|(?<![A-Za-z])project\.toml|owner-current")
-    owners = sorted({path.relative_to(root).as_posix() for path in (root / "flowguard").rglob("*.py")
-                     if literal.search(path.read_text(encoding="utf-8"))})
-    assert owners == ["flowguard/map/retired.py"]
-    kinds = {entry.kind for entry in RETIRED}
-    assert {"path", "literal", "flag", "project_marker", "public_name"} <= kinds
-    tests_text = "\n".join(path.read_text(encoding="utf-8") for path in (root / "tests").glob("test_*.py"))
-    for entry in RETIRED:
-        assert entry.code in tests_text, entry
 
 
 def test_fingerprint_format_3_is_rejected(tmp_path):

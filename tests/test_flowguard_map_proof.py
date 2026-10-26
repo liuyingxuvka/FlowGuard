@@ -383,47 +383,6 @@ def test_bound_parameter_selection_preserves_each_item_guard(shop, capsys, suffi
             assert "test_bound[miss]" in output
 
 
-def test_runner_model_is_an_error(shop, capsys):
-    import json
-    from flowguard.map import cli
-    from _fg_helpers import proof_write as write, proof_FIXED as FIXED, proof_models as models
-    from flowguard.__main__ import main
-
-    write(shop, "shop/orders.py", FIXED)
-    assert cli.main(["--root", str(shop), "confirm", "orders"]) == 0
-    capsys.readouterr()
-    marker = shop / "runner-result.txt"
-    runner = ".flowguard/verification/owners/orders_check/run_checks.py"
-    write(shop, runner, f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\n')
-    assert cli.main(["--root", str(shop), "check"]) == 1
-    output = capsys.readouterr().out
-    lines = [line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"]
-    assert len(lines) == 1 and lines[0].startswith("ERROR") and runner in lines[0], output
-    assert "runner models are no longer run; rewrite it as a contract model" in output
-    assert not marker.exists()
-
-    data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
-    data["components"][0]["models"].append(runner)
-    (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
-    assert cli.main(["--root", str(shop), "check"]) == 1
-    output = capsys.readouterr().out
-    assert len([line for line in output.splitlines() if len(line.split()) > 1 and line.split()[1] == "runner_model"]) == 1
-    assert not marker.exists()
-    code, output = models(shop, capsys)
-    assert code == 1 and "runner_model" in output and "PASS  order_placement" in output, output
-    assert not marker.exists()
-    assert main(["release", "--root", str(shop)]) == 1
-    output = capsys.readouterr().out
-    assert "runner_model" in output and "verify: FAIL" in output, output
-    assert not marker.exists()
-
-    assert main(["target", "start", "reject a leftover runner", "--root", str(shop)]) == 0
-    capsys.readouterr()
-    assert main(["target", "check", "--root", str(shop)]) == 1
-    output = capsys.readouterr().out
-    errors = [line for line in output.splitlines() if "runner_model" in line]
-    assert errors and all(line.startswith("ERROR") for line in errors), output
-    assert not marker.exists()
 
 
 def test_anchor_file_read_is_consulted(tmp_path):

@@ -33,12 +33,10 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ..hazards import hazard_closures, model_hazards
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
 from .common import parse_test_anchor
 from .facts import AnchorWatch, PlaceholderAnchorError
 from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path
-from .retired import design_only_problem
 from .tree import build_tree
 from .runner import run_isolated_process
 
@@ -57,8 +55,6 @@ class ModelResult:
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
     code_gaps: list[str] = field(default_factory=list)
-    hazards: list[str] = field(default_factory=list)              # open hazard hints
-    closed_hazards: list[str] = field(default_factory=list)       # "<hint> (closed by known-bad X | invariant Y)"
     test_seconds: float | None = None
     process_reason: str = ""
     sequences: int = 0
@@ -198,11 +194,6 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
         if physical is None:
             raise FileNotFoundError(f"model {path} is absent from the target view")
         contract = read_model_contract(physical)
-        retired = design_only_problem(contract, result.file)
-        if retired:
-            if retired not in result.problems:
-                _fail(result, retired)
-            return
         bindings = [(invariant, anchor) for invariant, anchors in contract.get("TESTED_BY", {}).items() for anchor in anchors]
         if statuses is not None:
             statuses.update({anchor: "not_run" for _, anchor in bindings})
@@ -452,10 +443,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             return ModelResult(path.stem, path.relative_to(root).as_posix(), status="error", problems=["model is absent from the target view"])
         contract = read_model_contract(physical)
         result = ModelResult(model=contract.get("MODEL_ID", path.stem), file=path.relative_to(root).as_posix())
-        retired = design_only_problem(contract, result.file)
-        if retired:
-            _fail(result, retired)
-            return result
         if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
             result.status = "error"
             result.problems.append("a model file needs MODEL_ID and def build_explorer()")
@@ -509,11 +496,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                         result.warnings.append(finding.message)
                     else:
                         _fail(result, finding.message)
-            try:
-                result.hazards = model_hazards(design)
-            except Exception as exc:
-                result.hazards = [f"inference failed: {exc}"]
-            caught_variants: dict = {}
             untested = sorted(invariant_names - contract.get("TESTED_BY", {}).keys())
             if untested and contract.get("TESTED_BY") and not result.process_reason:
                 result.warnings.append("invariant_untested: " + ", ".join(untested)
@@ -555,7 +537,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                         caught |= _failed_checks(bad) - {v.invariant_name for v in bad.violations}
                         if bad.exploration_status != "budget_exhausted" and (caught & design_checks):
                             covered |= invariant_hits & invariant_names
-                            caught_variants[name] = explorer
                             continue
                         result.status = "fail"
                         result.problems.append(f"known-bad variant {name!r} fails without violating a design property; "
@@ -566,13 +547,6 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                     result.problems.append(uncovered_message(name))
             else:
                 raise ValueError("no broken_variants(): define at least one known-bad Explorer; no known-bad proof executed")
-            if result.hazards and not result.hazards[0].startswith("inference failed: "):
-                try:     # hints never change the verdict; a model closes them, nothing is recorded
-                    closures = hazard_closures(design, caught_variants)
-                except Exception:
-                    closures = {}
-                result.closed_hazards = [f"{hint} (closed by {closures[hint]})" for hint in result.hazards if hint in closures]
-                result.hazards = [hint for hint in result.hazards if hint not in closures]
             missing_anchors = anchor_problems(root, anchors)
             if result.process_reason:
                 result.seconds = round(time.time() - started, 3)
@@ -671,10 +645,9 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
     return results + issues
 
 
-HAZARDS_SHOWN = 3
 
 
-def render_results(results: list[ModelResult], *, all_hazards: bool = False) -> str:
+def render_results(results: list[ModelResult]) -> str:
     if not results:
         return "models: 0 declared, 0 executed; no model proof"
     def names(values):

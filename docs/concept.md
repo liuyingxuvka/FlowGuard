@@ -84,9 +84,8 @@ describe real bindings, child models and the node kinds.
 ## Computed Facets And Passing Checks
 
 `read` reports how models, tests and explicit exclusions explain entrypoints
-and state writers. `map models` computes `hazard:` observations and warns about
-rules without test bindings through `invariant_untested`. These observations
-come from the current tree and code.
+and state writers. `map models` warns about rules without test bindings through
+`invariant_untested`. These observations come from the current tree and code.
 
 A passing result means `map models` or `release` actually ran on that source.
 Written guidance, a confirmed fingerprint and a historical pass do not establish

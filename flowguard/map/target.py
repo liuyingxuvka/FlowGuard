@@ -57,7 +57,7 @@ TODO_CODES = {"test_file_not_split","anchor_broken", "component_empty", "pattern
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
-               "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model", "component_parent_unknown", "component_parent_cycle",
+               "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "component_parent_unknown", "component_parent_cycle",
                "component_parent_layer", "target_noop", "target_goal_untied", "port_changed_parent_missing"}
 
 

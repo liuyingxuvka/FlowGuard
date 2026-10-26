@@ -51,9 +51,8 @@ def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
 
 def test_pass_is_one_line_fail_keeps_rules():
     from flowguard.map.proof import ModelResult, render_results
-    result = ModelResult("probe", "probe.py", rules=["works"], known_bad=["broken"], seconds=1.2, test_seconds=0.3,
-                         hazards=["advisory"], closed_hazards=["old"])
-    text = render_results([result], all_hazards=True)
+    result = ModelResult("probe", "probe.py", rules=["works"], known_bad=["broken"], seconds=1.2, test_seconds=0.3)
+    text = render_results([result])
     assert text.splitlines() == [f"PASS  {'probe':32} 1.2s  tests 0.3s", "models: 1 passed, 0 failed"]
     result.status = "fail"; result.problems = ["native mismatch"]
     text = render_results([result])

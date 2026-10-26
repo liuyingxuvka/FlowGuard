@@ -31,7 +31,7 @@ While working, `change` marks breakage of what the target changes `moving to tar
 ## Change code only
 
 1. Edit the code, then `python -m flowguard change` (check + impact).
-2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `runner_model` (a retired runner file: move its real checks into a contract model and delete the old file); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree); `duplicate_owner` (two components claim one responsibility, state or side effect: keep one owner; the other calls it).
+2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree); `duplicate_owner` (two components claim one responsibility, state or side effect: keep one owner; the other calls it).
 3. Run exactly the tests and models it lists (`python -m flowguard change --run` runs them for you); never claim a test passed unless you ran it. `relies on:` lines name rules of other components that this code calls; keep them true.
 4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`; for each `UNEXPLAINED` line, add the anchor, bind a test or write a `NOT_MODELED` reason. Run the `map confirm` command printed by `change --run` before committing.
 
@@ -51,28 +51,9 @@ Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`
 `python -m flowguard read --mermaid` draws the tree, declared dependencies and flows (append `--component ID` to focus); `read --component` names dependency symbols and shows coverage; `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
 For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`python -m flowguard template behaviour --write .`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models; component ids select `read --component`. Unknown model ids fail.
 
-## What you want to do
-
-Most edits need none of these; each row is reached through the same tree and target flow. Templates are `adoption`, `behaviour`, `ui-journey`, `validator`.
-
-| task (former capability) | use when | lives here now |
-| --- | --- | --- |
-| keep an external promise (behavior-commitment) | external promises need one owner, source and tests; no silent fallback | component `entrypoints` + a model's `IMPLEMENTED_BY` or `NOT_MODELED` (`entrypoint_owner`, `entrypoint_unmodeled`), recipe `references/tree_operations.md#External promise (no silent fallback)` |
-| shrink or merge code without changing behaviour (architecture-reduction) | shrinking or merging code without behavior changes | tree operation `references/tree_operations.md#Remove or merge a node` (target `remove` + `CodeFacts.unreferenced`; `owner_dropped` stops a silent loss) |
-| place new code or split a component (code-structure) | placing new code or splitting a module with its public surface intact | tree operation `references/tree_operations.md#Add or split a component` (target components; `duplicate_owner` and `owner_dropped` keep one owner and every public entrypoint) |
-| enumerate every bad input of a finite boundary (contract-exhaustion) | enumerating every bad case or combination in a finite universe | node kind `validator` (`python -m flowguard template validator`; `references/model_recipes.md#Validator`) |
-| rename or retire a field (field-lifecycle) | changing fields, schemas, defaults, aliases or replacements | tree operation `references/tree_operations.md#Rename or retire a field` (target model state + `CodeFacts.absent` / `present`) |
-| fit parent and child models together (model-mesh) | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `anchor_outside_home`; `flowguard.closure` for handoffs between children) |
-| check rules, code and tests against each other (model-test) | checking rules, code and tests against one another | the tests facet (`python -m flowguard read --component <id>`) and `python -m flowguard map models --tests` (`invariant_untested`, `tested_by_failed`, `tested_by_misses_anchor`); `references/model_recipes.md#Run the bound tests` |
-| review shared writers and future-use hazards (topology-hazard) | reviewing shared writers, repeated effects and future-use hazards | computed facet: `hazard:` lines under each model in `python -m flowguard map models` (`references/model_recipes.md#Hazards`) |
-| run a slow suite in shards (test-mesh) | sharding a suite too slow for one command | tool: `python -m flowguard release --shards 4` (whole suite in parallel shards; every collected test runs exactly once within that suite) |
-| model UI journeys (ui-flow) | UI states, journeys, controls, cancel/recover and operability | node kind `ui-journey` (`python -m flowguard template ui-journey`; checklist `references/model_recipes.md#UI journey`) |
-
-`python -m flowguard template --list`, then `python -m flowguard template <name> --write .` supplies starters; otherwise use plain modeling in `references/model_recipes.md`.
 
 ## First map of an existing project
 
-Old `.flowguard/project.toml` integrations: follow `references/upgrade.md` first.
 Use `references/first_map.md`: scan -> digest -> describe -> deps -> check -> confirm -> lint. `scan` bounds draft grouping; `python -m flowguard map discover` separately shows routes, commands, effects and state writers. Read digests, not whole files.
 
 ## Architecture review and release

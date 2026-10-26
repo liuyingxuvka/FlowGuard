@@ -35,31 +35,21 @@
       "depends_on": [
         "engine-conformance",
         "engine-core",
-        "engine-explore",
-        "engine-properties",
-        "engine-scenarios",
-        "problem-corpus"
+        "engine-explore"
       ],
       "tests": [
-        "tests/test_benchmark_hardening.py",
         "tests/test_conformance_replay_duplicate_record_failure.py",
         "tests/test_conformance_replay_repeated_scoring_failure.py",
         "tests/test_conformance_replay_success.py",
         "tests/test_duplicate_record_detection.py",
-        "tests/test_evidence_baseline.py",
-        "tests/test_executable_corpus.py",
         "tests/test_job_matching_example.py",
-        "tests/test_job_matching_oracle_expected_vs_observed.py",
-        "tests/test_job_matching_scenario_review.py",
         "tests/test_looping_workflow_review.py",
-        "tests/test_problem_corpus.py",
-        "tests/test_real_model_corpus.py",
         "tests/test_repeated_scoring_detection.py",
         "tests/test_trace_export.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:dee0474eac937c564f7bdda1d5a5ac0bbecfafc81cc1d3702e01d813b938abb7"
+      "fingerprint": "sha256:fefae1e28a3cb8a748aab8481a5e68e73bb2d679378102fbf3f5fa488860e11d"
     },
     {
       "id": "tooling",
@@ -89,7 +79,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch field lookup and mutually exclusive read views alongside map, change, target and release commands.",
+      "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -136,12 +126,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:072ec26dc62a698240f10cff6c07d094c0675a1350ec43414e7c926758fa0781"
+      "fingerprint": "sha256:0a98606a5abbb85a18ce8a0bd21fe59a06571ebc3140f23d80764d307d79f579"
     },
     {
       "id": "public-api",
       "layer": "interface",
-      "summary": "Lazily exposes the core engine API from its owning modules.",
+      "summary": "Lazily expose the supported engine names from their owners; unknown names raise AttributeError.",
       "responsibilities": [
         "expose public names from their owning modules on first use"
       ],
@@ -159,7 +149,6 @@
         "engine-explore",
         "engine-properties",
         "engine-scenarios",
-        "map-file",
         "templates"
       ],
       "tests": [
@@ -167,7 +156,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fe45b7af8a39fb6fbc077d9cd3b2dde84847a0dcd85c35b91a2b723b2365e497"
+      "fingerprint": "sha256:fc053194eb6071cdf7ad0e3aec8d71bc5c5ae0bf239f51239f1c1bc79b3edca9"
     },
     {
       "id": "templates",
@@ -192,7 +181,6 @@
         "map-file"
       ],
       "tests": [
-        "tests/test_engineering_hardening.py",
         "tests/test_project_integration.py",
         "tests/test_public_templates.py",
         "tests/test_packaged_cli_surface.py"
@@ -204,7 +192,7 @@
     {
       "id": "test-mesh",
       "layer": "capabilities",
-      "summary": "Run every collected test once, using whole subtrees when validated duration records are available and stable hashing otherwise.",
+      "summary": "Run every collected test once in isolated whole subtrees or the hash fallback; record duration weights without truncating explored traces.",
       "responsibilities": [
         "partition the collected tests into whole test-tree subtrees and run every collected test exactly once",
         "record per-test seconds for the next balance"
@@ -239,7 +227,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:df40598818b42ee9a410265ff6c407b7fc1573d04455e60a03bfbd0494f75313"
+      "fingerprint": "sha256:2a5a584664f063b33b5150989f8a22441d81877afc09aa2bd57b9f0c639b13a5"
     },
     {
       "id": "map-inventory",
@@ -286,15 +274,13 @@
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
         "register contract models and build the model tree with its nesting errors",
-        "count import-like strings and injected attribute calls as dependency evidence",
-        "name every removed path, literal, flag and public name in one table"
+        "count import-like strings and injected attribute calls as dependency evidence"
       ],
       "files": [
         "flowguard/map/mapfile.py",
         "flowguard/map/scan.py",
         "flowguard/map/tree.py",
         "flowguard/map/targetfile.py",
-        "flowguard/map/retired.py",
         "flowguard/map/testtree.py",
         "flowguard/map/port.py",
         "flowguard/map/modelstatic.py"
@@ -329,7 +315,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4074b4346682c729a0eec19187975966938636aa81a08aecb7b62671a3868a4d"
+      "fingerprint": "sha256:292d02eeec10dde764c34f8e4998ad02a3da1c9c11ec891fe68e88a657453215"
     },
     {
       "id": "map-discover",
@@ -369,7 +355,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Manage one target, require one-to-one test files to split with their models, and promote only fresh complete checks.",
+      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -417,7 +403,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ed6f5ba12f5c3119e69a1995910a872fe24419e49b370f73ed42e2de94442bef"
+      "fingerprint": "sha256:135d486e2cfc5922ed06a3b7ed46cbdec4f2d1c1429cfdc83b9a120ab5521bac"
     },
     {
       "id": "map-proof",
@@ -450,7 +436,6 @@
       "depends_on": [
         "engine-conformance",
         "engine-explore",
-        "engine-properties",
         "map-check",
         "map-file",
         "map-inventory"
@@ -468,119 +453,86 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4114b7d632591f904e79854cf6cee504f193f10525b80972b52197080bf51c75"
+      "fingerprint": "sha256:691541fa7d640cb73cfb651434b205d42f7b388f271a0bc7b345a83bb62827c6"
     },
     {
       "id": "engine-explore",
       "layer": "engine",
-      "summary": "Explores bounded state sequences and resumable checkpoints.",
+      "summary": "Explore every bounded input sequence and check loops without storing reusable verdicts.",
       "responsibilities": [
-        "explore every bounded input sequence",
-        "check liveness and progress"
+        "explore every bounded input sequence"
       ],
       "files": [
         "flowguard/explorer.py",
-        "flowguard/budgeted.py",
-        "flowguard/loop.py",
-        "flowguard/progress.py"
+        "flowguard/loop.py"
       ],
       "entrypoints": [
         "flowguard/explorer.py:Explorer.explore"
       ],
-      "state": [
-        "bounded exploration frontier and checkpoints"
-      ],
-      "side_effects": [
-        "writes optional SQLite exploration checkpoints"
-      ],
+      "state": [],
+      "side_effects": [],
       "depends_on": [
         "engine-core"
       ],
       "tests": [
-        "tests/test_budgeted_graph_runner.py",
         "tests/test_counterexample_trace.py",
         "tests/test_explorer_progress.py",
         "tests/test_invariant_violation.py",
         "tests/test_loop_core.py",
-        "tests/test_loop_detection_scc.py",
-        "tests/test_mermaid_export.py",
-        "tests/test_progress_core.py",
-        "tests/test_scenario_matrix.py"
+        "tests/test_loop_detection_scc.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:381fbd06a54316404df82ff10a9b05ac8f55bee0fffa7e302d4312c2c7c1dfab"
+      "fingerprint": "sha256:8535ac5a02dde460ed0743288879d0c202267c2ebc1bdc52012545f2de94568f"
     },
     {
       "id": "engine-properties",
       "layer": "engine",
-      "summary": "Provides reusable state invariants, trace contracts and scenario packs.",
+      "summary": "Provide reusable invariants for states and traces.",
       "responsibilities": [
-        "provide reusable invariants and trace contracts",
-        "derive hazard hints from the model's own structure and names",
-        "check that handoffs between child models close",
-        "close a hazard hint that a known-bad variant or invariant covers"
+        "provide reusable state and trace invariants"
       ],
       "files": [
-        "flowguard/checks.py",
-        "flowguard/packs/*.py",
-        "flowguard/contract.py",
-        "flowguard/closure.py",
-        "flowguard/hazards.py"
+        "flowguard/checks.py"
       ],
       "entrypoints": [
-        "flowguard/checks.py:at_most_once_by",
-        "flowguard/closure.py:review_mesh_closure_model",
-        "flowguard/closure.py:closure_invariant"
+        "flowguard/checks.py:at_most_once_by"
       ],
       "state": [],
       "side_effects": [],
       "depends_on": [
         "engine-core",
-        "engine-explore",
-        "engine-scenarios"
+        "engine-explore"
       ],
       "tests": [
-        "tests/test_contract_core.py",
-        "tests/test_packs.py",
-        "tests/test_property_factories.py",
-        "tests/test_closure.py",
-        "tests/test_hazards.py"
+        "tests/test_property_factories.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:fe22d6d59aabee9b15e807afe7807c2542901bedce1c4365abd8a934b83b6283"
+      "fingerprint": "sha256:a00bd52c2aa1315af6d0886aca002a8a8625202175df58a0b89790cf2764a17a"
     },
     {
       "id": "engine-scenarios",
       "layer": "engine",
-      "summary": "Checks named scenarios and minimizes counterexamples.",
+      "summary": "Run named scenarios with their expected outputs and states.",
       "responsibilities": [
-        "review scenarios against expected outcomes",
-        "minimise counterexamples"
+        "run named scenarios against their declared expectations"
       ],
       "files": [
-        "flowguard/scenario.py",
-        "flowguard/scenario_matrix.py",
-        "flowguard/review.py",
-        "flowguard/minimize.py"
+        "flowguard/scenario.py"
       ],
-      "entrypoints": [
-        "flowguard/review.py:review_scenarios"
-      ],
+      "entrypoints": [],
       "state": [],
       "side_effects": [],
       "depends_on": [
         "engine-core"
       ],
       "tests": [
-        "tests/test_minimize.py",
-        "tests/test_scenario_core.py",
-        "tests/test_scenario_matrix.py"
+        "tests/test_scenario_core.py"
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d7835fba5391cef4df70abcc3b79e2d6f8f567d22357365d5777d5161f2ae7d7"
+      "fingerprint": "sha256:ff0d3e2da0367d3b82c1b1eba86e9d6f28601018a5d3bacf4ec47971be467000"
     },
     {
       "id": "engine-conformance",
@@ -617,35 +569,6 @@
       "fingerprint": "sha256:bdb75f89754d0edc47700e11157195eaeb01d344ae78422837d1f84b75c74c23"
     },
     {
-      "id": "problem-corpus",
-      "layer": "engine",
-      "summary": "Benchmarks models against executable software problems.",
-      "responsibilities": [
-        "benchmark the engine on a problem corpus"
-      ],
-      "files": [
-        "flowguard/corpus.py",
-        "flowguard/executable.py",
-        "flowguard/benchmark.py",
-        "flowguard/coverage.py",
-        "flowguard/baseline.py"
-      ],
-      "entrypoints": [],
-      "state": [],
-      "side_effects": [],
-      "depends_on": [
-        "engine-core"
-      ],
-      "tests": [
-        "tests/test_executable_corpus.py",
-        "tests/test_problem_corpus.py",
-        "tests/test_real_model_corpus.py"
-      ],
-      "models": [],
-      "status": "confirmed",
-      "fingerprint": "sha256:a253eabb589b822de83a1c2c067d16915493dae9da45c6217b9e8876b84675e6"
-    },
-    {
       "id": "engine-core",
       "layer": "foundation",
       "summary": "Defines function blocks, workflows, traces and reports.",
@@ -659,8 +582,6 @@
         "flowguard/trace.py",
         "flowguard/report.py",
         "flowguard/export.py",
-        "flowguard/schema.py",
-        "flowguard/mermaid.py",
         "flowguard/_normalization.py",
         "flowguard/_runtime_progress.py"
       ],
@@ -678,7 +599,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:bba30a7d2275664e50d9c571068b8e006cb9f56f9a2dec08e7e62b42406794a4"
+      "fingerprint": "sha256:420b691af15376a43c1eadbfec4d8644f1b4b883e26f677d3084cdb0b60fbec0"
     },
     {
       "id": "ui-journey",
@@ -743,7 +664,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Check structural bindings, fixed model and test-file sizes, private use and model-edit guards; waive only soft findings with reasons.",
+      "summary": "Check structural bindings, fixed model/test sizes and model-edit guards; only reasoned soft findings can be waived.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -777,7 +698,7 @@
         ".flowguard/models/private_use.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:0418da1e3d46a114573187eed15fb8f83b0a97e9be2850a2d17ea7f84e995004"
+      "fingerprint": "sha256:474b0880b8daa0900f728e8758e46f63b9fb866056ff583cbf313e60711ba55a"
     },
     {
       "id": "map-read",
@@ -909,18 +830,6 @@
       "reason": "teaching examples and the problem corpus; their size does not affect the package"
     },
     {
-      "code": "large_file",
-      "component": "examples",
-      "contains": "examples/problem_corpus/real_models.py",
-      "reason": "corpus data written as code"
-    },
-    {
-      "code": "large_file",
-      "component": "engine-explore",
-      "contains": "flowguard/budgeted.py",
-      "reason": "one bounded explorer keeps its checkpoint writer and reader together"
-    },
-    {
       "code": "high_fan_out",
       "component": "cli",
       "reason": "the command entry dispatches each command family to the component that owns it"
@@ -965,7 +874,7 @@
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
     ".flowguard/models/function_selection.py": "707f7d0ac8c286412b627f01795aef44594e06906a05a75c6140c536dd9686ec",
     ".flowguard/models/gap_lines.py": "110244ed3fc5c300df5d34256399e87a7a7b44bad757defa802913992f63fde2",
-    ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
+    ".flowguard/models/job_matching_example.py": "e09ba02a700d9fd2a4355d5e57235607d8f58a161b8f5697110a38b7f6649d7f",
     ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
     ".flowguard/models/map_binding.py": "f012caef68520c8b1290c3c03d70bbf88268acd1ace2d224fc7e64aa1788f677",
     ".flowguard/models/model_edits.py": "b7355a53add8e24eb87cf00b31b9e9e1a2e5f1120773774b81dd017ca7e357cd",
@@ -975,7 +884,7 @@
     ".flowguard/models/port_checks.py": "9ed28c23e94149bfb9efca43d513d28b73589f7f1abc1cba6593045fbf56a344",
     ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
     ".flowguard/models/private_use.py": "f22003c12bd2afdaa01c7f6ced7e6fbf79335274eb6d3ce88b2622b0cd628ed0",
-    ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
+    ".flowguard/models/python_function_state_verification.py": "8ca587780b93b68f37d447bad908d77f331f71cee87156a9d295fc6dcda76d66",
     ".flowguard/models/read_component.py": "c2ae315a8bb2ed109b50c0684219fe7d083a4c4f0e933156a710c772a15e879c",
     ".flowguard/models/read_field.py": "eacd30a594a26a46cd6c508029428a511eec1ccacf7bb4d1b82c9946d46922fa",
     ".flowguard/models/read_find.py": "1717a73069ee4fc008e40bae2a261a77820dd5e3e26a977b9d5012d599271955",
@@ -986,7 +895,7 @@
     ".flowguard/models/scan_coverage.py": "9464fdc7a25c57416a63985ea556cb73dbb2eab2ae367831da3ad15ee68d5136",
     ".flowguard/models/shard_partition.py": "ca6c7de173ff6b39f5c8cfaf13ac675b7a2662051e556c622006f45d05ef5720",
     ".flowguard/models/target_add.py": "64f0a4c1c5f1ee94c96d7a26a0cb2475c744944739b9ad980d265c20977e1bad",
-    ".flowguard/models/target_findings.py": "90a383733d0d4ddf52d77b9c5033a8909ca6db9fa1977522b6b5e992992706a2",
+    ".flowguard/models/target_findings.py": "1230f96c54521d70925b66388ecd11e7eb5860a6f5d872962e7c2632e5d898b6",
     ".flowguard/models/target_life_cycle.py": "39d5bff8394e06d0e7c3780d1b208fa66f69a1e09f42158c5fa456dce6a900b4",
     ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
     ".flowguard/models/test_binding.py": "e559f77a5e1e3e0d3858e4dc7ef7b4410c68e3f3c9cc0e36f3d22e0ec7cb60ad",

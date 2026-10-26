@@ -105,7 +105,7 @@ def cmd_discover(root: Path, a) -> int:
 
 def cmd_show(root: Path, a) -> int:
     if getattr(a, 'field', None):
-        if a.component or a.detail or a.mermaid or a.target or a.review:
+        if a.component or a.mermaid or a.target or a.review:
             print('error: --field cannot be combined with another view', file=sys.stderr)
             return 2
         data, inv = _context(root, with_bodies=False)
@@ -114,7 +114,7 @@ def cmd_show(root: Path, a) -> int:
         return int(text.startswith('field '+a.field+': no model, rule or code site'))
     if getattr(a, "review", False):
         clash = [flag for flag, on in (("--component", a.component), ("--mermaid", getattr(a, "mermaid", False)),
-                                       ("--target", getattr(a, "target", False)), ("--detail", a.detail)) if on]
+                                       ("--target", getattr(a, "target", False))) if on]
         if clash:
             print(f"error: --review cannot be used with {', '.join(clash)}", file=sys.stderr)
             return 2
@@ -137,7 +137,7 @@ def cmd_show(root: Path, a) -> int:
             return 1
     options = {"target": target} if target is not None else {}
     text = render_mermaid(root, data, inv, component=a.component, **options) if getattr(a, "mermaid", False) else render_show(
-        root, data, inv, component=a.component, detail=a.detail, budget=a.budget, **options)
+        root, data, inv, component=a.component, detail=False, budget=a.budget, **options)
     print(text)
     return 1 if text.startswith("no component") else 0
 
@@ -189,7 +189,7 @@ def cmd_find(root: Path, a) -> int:
 
 def cmd_digest(root: Path, a) -> int:
     data, inv = _context(root, with_bodies=False)
-    text = render_digest(root, data, inv, a.ids, a.max_lines)
+    text = render_digest(root, data, inv, a.ids, 60)
     print(text)
     return 1 if text.startswith("unknown component") else 0
 
@@ -214,7 +214,7 @@ def cmd_check(root: Path, a) -> int:
 
 def cmd_lint(root: Path, a) -> int:
     data, inv = _context(root)
-    limits = Limits(a.max_component_loc, a.max_file_loc, a.max_responsibilities, a.max_fan_out)
+    limits = Limits()
     findings = run_lint(root, data, inv, limits)
     if getattr(a, "debts", False):
         from .review import declined_debts
@@ -232,7 +232,7 @@ def cmd_lint(root: Path, a) -> int:
 
 def cmd_impact(root: Path, a) -> int:
     data, inv = _context(root)
-    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), a.depth, base=a.base, broad=True)
+    imp = compute_impact(root, data, inv, a.files or changed_files(root, a.base), None, base=a.base, broad=True)
     print(json.dumps(imp.to_dict(), indent=1) if a.json else render_impact(imp))
     return 1 if imp.blocked or imp.unmapped else 0
 
@@ -361,8 +361,8 @@ def cmd_confirm(root: Path, a) -> int:
 
 
 def cmd_models(root: Path, a) -> int:
-    results = run_models(root, a.ids, timeout=a.timeout, tests=a.tests, jobs=getattr(a, "jobs", 1))
-    print(render_results(results, all_hazards=a.hazards))
+    results = run_models(root, a.ids, tests=a.tests, jobs=getattr(a, "jobs", 1))
+    print(render_results(results))
     return 1 if any(r.status != "pass" for r in results) else 0
 
 
@@ -417,11 +417,6 @@ def cmd_verify(root: Path, a) -> int:
     return 1 if failed else 0
 
 
-def _depth(value: str) -> int:
-    depth = int(value)
-    if depth < 0:
-        raise argparse.ArgumentTypeError("depth must be non-negative")
-    return depth
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -432,7 +427,7 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("scan"); s.add_argument("--limit", type=int, default=50)
     s.add_argument("--max-components", type=int, default=40)
     s = sub.add_parser("discover"); s.add_argument("--component"); s.add_argument("--json", action="store_true")
-    s = sub.add_parser("show"); s.add_argument("--component"); s.add_argument("--detail", action="store_true")
+    s = sub.add_parser("show"); s.add_argument("--component")
     s.add_argument("--budget", type=int, default=8000, help="max characters printed")
     s.add_argument("--field", metavar="NAME")
     s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
@@ -440,25 +435,18 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--review", action="store_true", help="architecture review: metrics, strengths, defects, optimise next")
     s = sub.add_parser("find"); s.add_argument("words", nargs="+")
     s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
-    s.add_argument("--max-lines", type=int, default=60, help="max outline lines per file")
     for name in ("check", "lint"):
         s = sub.add_parser(name); s.add_argument("--json", action="store_true"); s.add_argument("--limit", type=int, default=80)
     sub.choices["check"].add_argument("--strict", action="store_true", help="draft and stale are errors (release)")
     lint = sub.choices["lint"]
-    lint.add_argument("--max-component-loc", type=int, default=3000)
-    lint.add_argument("--max-file-loc", type=int, default=800)
-    lint.add_argument("--max-responsibilities", type=int, default=7)
     lint.add_argument("--debts", action="store_true", help="list accepted decisions and unused debts")
-    lint.add_argument("--max-fan-out", type=int, default=8)
     s = sub.add_parser("impact"); s.add_argument("files", nargs="*"); s.add_argument("--base", default="HEAD")
-    s.add_argument("--depth", type=_depth, default=None, help="explicitly truncate caller traversal to N levels (default: full closure)"); s.add_argument("--json", action="store_true")
+    s.add_argument("--json", action="store_true")
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
     s.add_argument("--jobs", type=int, choices=range(1, 33), default=1, metavar="N", help="run 1-32 model subprocesses concurrently")
     s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
-    s.add_argument("--timeout", type=int, default=300, help="seconds per model")
-    s.add_argument("--hazards", action="store_true", help="list every open and closed hazard hint of each model")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
     s.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                    help="after normal checks pass, run the whole suite in 1–32 parallel shards")

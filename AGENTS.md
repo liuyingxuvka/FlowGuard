@@ -14,7 +14,7 @@ on itself.
 
 ## Layout
 
-- `flowguard/` engine, node kinds (`validator.py`, `ui_flow.py`), computed facets (`hazards.py`, `closure.py`) and the shard tool; `flowguard/map/` map, target, discovery and proof layer.
+- `flowguard/` engine, node kinds (`validator.py`, `ui_flow.py`), the test-tree shard tool; `flowguard/map/` map, target, discovery and proof layer.
 - `.agents/skills/flowguard/` the single public skill (SKILL.md, references).
 - `.flowguard/map.json`, `.flowguard/models/`:
   FlowGuard's own map and models. `.flowguard/cache/` is never committed.

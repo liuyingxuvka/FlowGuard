@@ -39,8 +39,8 @@ Models import project code; for a src layout, first run `python -m pip install -
 5. Invariants that must hold in every reachable state, one broken variant per protected
    failure, and a conformance adapter.
 
-Keep `max_sequence_length` at 2-5. If exploration is slow, shrink inputs or state, or use
-`flowguard.budgeted` for large graphs.
+Keep `max_sequence_length` at 2-5. Split a model that exceeds the size limits;
+keep inputs and states finite.
 
 ## Ready-made invariants (`from flowguard import ...`)
 
@@ -55,7 +55,6 @@ Keep `max_sequence_length` at 2-5. If exploration is slow, shrink inputs or stat
 | anything else | `Invariant(name, description, lambda state, trace: InvariantResult.pass_() or .fail("why"))` |
 | something must be reachable | `require_label(label)`, `require_reachable(name, predicate)` (pass to Explorer `required_reachable=`) |
 
-Packs bundle invariants and scenarios: `RetryPack`, `DeduplicationPack`, `CachePack`, `SideEffectPack`.
 
 ## Recipes
 
@@ -134,10 +133,8 @@ In this split, the parent imports its children. A child that imports its parent 
 `python -m flowguard map check` reports ERROR for `parent_unknown`, `duplicate_child_owner`
 and `anchor_outside_home`: unknown parents, two child owners of the same code, or child anchors outside the parent's code.
 
-5. When children hand off outputs, describe their real outputs, consumers, joins and exits as a
-   `flowguard.closure.MeshClosureModel` named `MESH` in the parent. Import `MeshClosureModel`
-   and `closure_invariant` from `flowguard.closure`, then add `closure_invariant(MESH)` to the
-   parent's invariants. Add a `broken_variants()` entry that leaves a required output unconsumed.
+5. Declare each child's finite `OUTPUTS` and receive them through the parent's `HANDOFF`.
+   Every declared value must be received; use a broken variant that drops a value.
 6. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
 7. Run `python -m flowguard target check` until clean, then `python -m flowguard target promote` and confirm its listed components. Run `python -m flowguard map models` so the now-current parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
 
@@ -170,20 +167,6 @@ fail, required conformance passes, and `python -m flowguard map check` reports n
 `model_*` errors. A pure anchor rename reuses the existing model/tests and does not
 need a new adapter. Report which code facts or real replay ran; do not describe an unrun replay as passed.
 
-## Hazards
-
-`python -m flowguard map models` prints computed `hazard:` hints; they never change PASS/FAIL or release.
-Every concern must identify an actual node or edge in the model; otherwise it is not a hazard.
-- `shared_writer`: blocks write the same state; add an invariant or a known-bad case where those writers disagree.
-- `side_effect_repeat`: an effect-bearing node can repeat; check idempotency with an invariant or repeated-action bad case.
-- `external_confirmation_boundary`: an edge crosses an external-confirmation node; check progress waits for acknowledgment.
-- `legacy_or_compatibility_path`: a named node keeps an old path; add a compatibility regression or leave the hint as information.
-- `coarse_terminal_state`: a terminal-looking node may hide distinct outcomes; check its success/failure invariant.
-- `parent_child_compression`: a parent/child or mesh node hides detail; check the handoff or a broken child variant.
-Hints match whole words, are deduplicated, and show at most three open per model plus one summary line.
-Close a hint from the model: add a known-bad variant that changes the named block, or an invariant whose name or
-description names the field; `map models <id> --hazards` lists open and closed hints. Inference failures are information.
-`read` stays static; `target check` does not print hazards.
 
 ## Validator
 
@@ -225,13 +208,9 @@ are omitted; conformance still checks the clean base against the design, includi
 `behaviour` has sample `shop/orders.py:OrderService.place` and a commented `TESTED_BY` example; replace the sample and bind real tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run
 `python -m flowguard map models <MODEL_ID>`: exit code 0 means the intended plan passes and the
 broken plans are rejected.
-There is no review kind: `hazard:` and `invariant_untested` are computed by `map models`.
+There is no review kind; `invariant_untested` is computed by `map models`.
 
 ## Helpers
-
-- `minimize_failing_sequence(...)` (flowguard.minimize): shrink a failing input sequence.
-- `mermaid_code_block(...)` / `loop_report_to_mermaid_text(...)`: render a model/report;
-  see examples/mermaid_export_example.py.
 
 `read` never imports a model: it reads rules from the `invariants=` of the explorer that
 `build_explorer()` returns. Write rules as module-level `Invariant(...)` values, import them

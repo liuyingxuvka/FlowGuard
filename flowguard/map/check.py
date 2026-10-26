@@ -13,7 +13,6 @@ from pathlib import Path
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
 from .mapfile import MapError, load_map, component_files, component_graph, component_scope, component_state, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
-from .retired import design_only_problem, retired_file_message
 from .tree import component_parent_findings
 
 PLACEHOLDER_ANCHOR = "REPLACE_ME"          # templates ship anchors containing it; they fail until replaced
@@ -57,9 +56,6 @@ def anchor_problems(root: Path, anchors) -> dict[str, str]:
 
 def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, view=None) -> list[Finding]:
     out: list[Finding] = []
-    retired = retired_file_message(root)
-    if retired:
-        out.append(Finding("warn", "retired_file", "", retired))
     out.extend(component_parent_findings(data))
     by_id = {c["id"]: c for c in data["components"]}
     children = {c.get("parent") for c in data["components"] if c.get("parent") in by_id}
@@ -126,9 +122,6 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         if entry.kind == "contract":
             if "MODEL_ID" not in contract or "build_explorer" not in contract["functions"]:
                 out.append(Finding("error", "model_contract", "", f"{rel}: needs MODEL_ID and def build_explorer()"))
-        retired = design_only_problem(contract, rel)
-        if retired:
-            out.append(Finding("error", "design_only_model", "", retired))
         from .mapfile import process_model_reason
         process = process_model_reason(data, contract)
         if not contract.get("IMPLEMENTED_BY"):

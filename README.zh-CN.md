@@ -76,9 +76,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | code-structure | 在目标中新增或拆分负责者；文件、状态、副作用和入口各有唯一归属。 |
 | contract-exhaustion | 用 `validator` 节点检查有限的接受和拒绝用例。 |
 | field-lifecycle | 在目标中描述改名或退役字段，检查新旧读取方。 |
-| model-mesh | 用 `PARENT` 嵌套模型；子模型交接时按需用状态投影或 `flowguard.closure`。 |
+| model-mesh | 用 `PARENT` 嵌套模型；子模型交接时按需用状态投影、有限的 `OUTPUTS` 和 `HANDOFF`。 |
 | model-test | 用 `IMPLEMENTED_BY` 和 `TESTED_BY` 绑定规则，运行 `map models --tests`。 |
-| topology-hazard | 从 `map models` 读取计算出的 `hazard:` 观察。 |
 | test-mesh | 用 `release --shards N`；每个分片跑若干棵完整测试子树，每个收集到的测试恰好运行一次。 |
 | ui-flow | 用 `ui-journey` 节点检查状态和旅程，再配合人工界面清单。 |
 

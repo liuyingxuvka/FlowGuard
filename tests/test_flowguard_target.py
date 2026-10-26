@@ -54,8 +54,8 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
     path.write_text(json.dumps(draft))
     (directory / "models").mkdir()
     model = (root / ".flowguard/models/lending.py").read_text()
-    (directory / "models/lending2.py").write_text(model + '\nDESIGN_ONLY = "future"\n')
-    assert {"target_model_id_clash", "target_design_only"} <= {
+    (directory / "models/lending2.py").write_text(model)
+    assert {"target_model_id_clash"} <= {
         issue.code for issue in validate_target(root, current, load_target(root))}
     assert current == before
 
@@ -63,7 +63,6 @@ def test_target_overlay_is_independent_and_rejects_invalid_fields(tmp_path, caps
 @pytest.mark.parametrize(("mutation", "finding"), [
     ("passing_bad", "known-bad variant 'return_ignores_holds' passed"),
     ("unknown_remove", "target_invalid"),
-    ("design_only", "target_design_only"),
     ("id_clash", "target_model_id_clash"),
     ("duplicate_responsibility", "duplicate_owner"),
 ])
@@ -86,8 +85,6 @@ def test_target_check_rejects_real_design_errors(tmp_path, capsys, mutation, fin
                                   encoding="utf-8")
         elif mutation == "unknown_remove":
             target["remove"] = ["component:nope"]
-        elif mutation == "design_only":
-            model_path.write_bytes(original_model + b'\nDESIGN_ONLY = "x"\n')
         elif mutation == "id_clash":
             extra.write_bytes(original_model)
         else:
@@ -417,25 +414,6 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
         p: v for p, v in before_files.items() if p.startswith(".git/")}
 
 
-def test_current_design_only_model_stays_an_error_with_a_target(tmp_path, capsys):
-    from _fg_helpers import target__check_without_writes as _check_without_writes, target__install_shelf_target as _install_shelf_target, target__assert_current_lending as _assert_current_lending, target_shelf_project as shelf_project
-    root = shelf_project(tmp_path)
-    capsys.readouterr()
-    _install_shelf_target(root)
-    original = (root / ".flowguard/models/lending.py").read_text(encoding="utf-8")
-    declaration = 'MODEL_ID = "lending"'
-    assert original.count(declaration) == 1
-    source = original.replace(declaration, 'MODEL_ID = "retired_current"')
-    path = root / ".flowguard/models/retired_current.py"
-    path.write_text(source + "\nDESIGN_ONLY = False\n", encoding="utf-8")
-    code, output, errors = _check_without_writes(root, capsys)
-    assert code == 1 and not errors, (output, errors)
-    assert any(line.startswith("ERROR ") and "design_only_model" in line and "retired_current.py" in line
-               for line in output.splitlines()), output
-    assert not any(line.startswith("TO-DO ") and "design_only_model" in line for line in output.splitlines()), output
-    assert "move this file to .flowguard/target/models/" in output, output
-    path.unlink()
-    _assert_current_lending(root, capsys)
 
 
 def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
@@ -502,16 +480,15 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
     assert code_path.read_bytes() == original_code and model_path.read_bytes() == partial_model
 
 
-    # Four actual hard boundaries must remain ERROR, independently of TODO
+    # Two actual hard boundaries must remain ERROR, independently of TODO
     # allowances for missing future code. Each case starts from new real files.
     # Full check_target is invoked with its normal model selection; no models
     # flag, runner patch or fabricated Finding/ModelResult supplies a verdict.
-    for code in ("owner_dropped", "entrypoint_owner", "design_only_model", "runner_model"):
+    for code in ("owner_dropped", "entrypoint_owner"):
         hard_root = make(tmp_path / ("hard-" + code))
         stage(hard_root, with_model=False)
         target_path = hard_root / ".flowguard/target/map.json"
         draft = json.loads(target_path.read_text(encoding="utf-8"))
-        marker = None
         if code == "owner_dropped":
             draft["remove"] = ["component:catalog"]
             draft["components"][0]["depends_on"] = []
@@ -519,22 +496,11 @@ def test_target_real_proof_dispositions_and_hard_boundaries(tmp_path):
         elif code == "entrypoint_owner":
             draft["components"][0]["entrypoints"].append("shelf/catalog.py:capacity")
             target_path.write_text(json.dumps(draft), encoding="utf-8")
-        elif code == "design_only_model":
-            path = hard_root / ".flowguard/models/shelf_rule.py"
-            path.write_text(path.read_text(encoding="utf-8") + "\nDESIGN_ONLY = False\n", encoding="utf-8")
-        else:
-            marker = hard_root / "legacy-runner-was-executed.marker"
-            runner = hard_root / ".flowguard/verification/owners/legacy/run_checks.py"
-            runner.parent.mkdir(parents=True)
-            runner.write_text("from pathlib import Path\nPath(" + repr(str(marker)) +
-                              ").write_text('executed')\nraise RuntimeError('legacy runner executed')\n", encoding="utf-8")
         before = snapshot(hard_root)
         report = native.check_target(hard_root)
         assert any(f.code == code for f in report.errors), (code, report)
         assert not any(f.code == code for f in report.todos + report.warnings), (code, report)
         assert snapshot(hard_root) == before
-        if marker is not None:
-            assert marker.is_absolute() and not marker.exists()
 
 
 def test_read_target_changes_skip_computed_coverage(tmp_path, capsys, monkeypatch):

@@ -76,13 +76,11 @@ def test_cache_is_invalidated_when_a_file_changes(project, capsys):
     assert "persist" in inv2.py["shop/storage.py"].symbols and "save" not in inv2.py["shop/storage.py"].symbols
 
 
-def test_impact_cli_uses_full_closure_and_discloses_depth(impact_project, capsys):
+def test_impact_cli_uses_full_closure(impact_project, capsys):
     from _fg_helpers import map_run as run
     root, data = impact_project
     code, out = run(root, "impact", "shop/storage.py", capsys=capsys)
     assert code == 0 and "dependents: api, orders" in out
-    code, out = run(root, "impact", "shop/storage.py", "--depth", "1", capsys=capsys)
-    assert code == 0 and "TRUNCATED" in out and "dependents: orders" in out
 
 
 def test_deps_write_keeps_unverified_declared_dependencies(impact_project, capsys):
@@ -259,13 +257,6 @@ def test_model_selector_uses_declared_id_not_filename_alias(shop, capsys):
     assert models(shop, capsys, "checkout")[0] == 0
 
 
-def test_registry_issue_does_not_block_the_requested_model(shop, capsys):
-    from _fg_helpers import proof_write as write, proof_FIXED as FIXED, proof_models as models
-    write(shop, "shop/orders.py", FIXED)
-    write(shop, ".flowguard/verification/owners/stray/run_checks.py", "raise SystemExit(0)\n")
-    code, output = models(shop, capsys, "order_placement")
-    assert code == 1
-    assert "PASS  order_placement" in output and "runner_model" in output
 
 
 def test_component_selector_reports_its_registered_model_ids(shop, capsys):

@@ -55,8 +55,6 @@ CASES = (
     Case("code_gap", "real anchor disagrees with a sound regular contract", True, "target", "todo"),
     Case("owner_dropped", "real old catalog promise loses its owner", True, "target", "error"),
     Case("entrypoint_owner", "loan component claims a catalog file anchor", True, "target", "error"),
-    Case("design_only_model", "real current contract declares DESIGN_ONLY=False", False, "target", "error"),
-    Case("runner_model", "actual legacy runner path, never executed", False, "target", "error"),
     Case("unbound_invariant", "real valid regular contract lacks TESTED_BY", True, "target", "warn"),
     Case("responsibility_dropped", "real old loans duty is on no target component and not retired", True, "target", "error"),
     Case("behaviour_without_rule", "target adds a loans entrypoint and changes no model rule", True, "target", "error"),
@@ -79,8 +77,6 @@ DEFECTS = {
     "code_gap_as_error": ("code_gap", "error"),
     "dropped_owner_as_todo": ("owner_dropped", "todo"),
     "entrypoint_owner_as_todo": ("entrypoint_owner", "todo"),
-    "design_only_as_todo": ("design_only_model", "todo"),
-    "runner_as_todo": ("runner_model", "todo"),
     "untested_warning_as_gate": ("unbound_invariant", "error"),
     "dropped_responsibility_ignored": ("responsibility_dropped", "none"),
     "untied_goal_accepted": ("behaviour_without_rule", "none"),
@@ -304,14 +300,6 @@ def observe_case(case):
         elif case.name == "entrypoint_owner":
             target["components"][0]["entrypoints"].append("shelf/catalog.py:capacity")
             write_json(target_path, target)
-        elif case.name == "design_only_model":
-            path = root / ".flowguard/models/shelf_rule.py"
-            path.write_text(path.read_text(encoding="utf-8") + "\nDESIGN_ONLY = False\n", encoding="utf-8")
-        elif case.name == "runner_model":
-            marker = root / "legacy-runner-was-executed.marker"
-            runner = root / ".flowguard/verification/owners/legacy/run_checks.py"
-            runner.parent.mkdir(parents=True)
-            runner.write_text("from pathlib import Path\nPath(" + repr(str(marker)) + ").write_text('executed')\nraise RuntimeError('legacy runner executed')\n", encoding="utf-8")
         elif case.name in ("code_gap", "design_failure", "unbound_invariant"):
             if case.name == "code_gap":
                 path = root / "shelf/loans.py"
@@ -347,8 +335,6 @@ def observe_case(case):
         else:
             raise ValueError("undeclared native finding scenario " + case.name)
         report = native.check_target(root)
-        if case.name == "runner_model":
-            assert not marker.exists(), "legacy runner sentinel really executed"
         return _unique_bucket(report, code=case.name), repr(report)
 
 

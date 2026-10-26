@@ -13,7 +13,7 @@ class LoopingWorkflowReviewTests(unittest.TestCase):
 
     def test_loop_review_succeeds_with_known_limitations(self):
         self.assertTrue(self.report.ok, self.report.format_text())
-        self.assertEqual(14, self.report.total)
+        self.assertEqual(12, self.report.total)
         self.assertEqual(0, self.report.known_limitations)
 
     def test_good_and_bad_loop_scenarios_are_classified(self):
@@ -25,16 +25,6 @@ class LoopingWorkflowReviewTests(unittest.TestCase):
         self.assertEqual("expected_violation_observed", self.statuses["L08_terminal_with_outgoing_edge"])
         self.assertEqual("expected_violation_observed", self.statuses["L09_unreachable_success"])
 
-    def test_escape_edge_cycles_are_progress_findings(self):
-        self.assertEqual("expected_violation_observed", self.statuses["L13_bad_branch_has_one_good_one_bad_loop"])
-        self.assertEqual("expected_violation_observed", self.statuses["L14_bad_cycle_with_escape_but_no_forced_progress"])
-        for result in self.report.results:
-            if result.scenario_name in {
-                "L13_bad_branch_has_one_good_one_bad_loop",
-                "L14_bad_cycle_with_escape_but_no_forced_progress",
-            }:
-                self.assertIn("potential_nontermination", result.observed_summary)
-                self.assertIn("missing_progress_guarantee", result.observed_summary)
 
     def test_run_loop_review_script_succeeds(self):
         completed = subprocess.run(

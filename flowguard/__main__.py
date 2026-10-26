@@ -148,11 +148,6 @@ def main(argv: list[str] | None = None) -> int:
     if verb not in {"read", "change", "release", "template", "target"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
         return 2
-    from .map.retired import legacy_project_message, retired_flag_message
-    retired = retired_flag_message(rest)
-    if retired:
-        print(retired, file=sys.stderr)
-        return 2
     parser = _verb_parser(verb)
     ns = parser.parse_args(rest)
     if verb == "read" and ns.mermaid and ns.find:
@@ -168,10 +163,6 @@ def main(argv: list[str] | None = None) -> int:
     root = ["--root", ns.root]
     if verb == "read":
         project = Path(ns.root)
-        legacy = legacy_project_message(project)
-        if legacy:
-            print(legacy, file=sys.stderr)
-            return 2
         if ns.field:
             return map_main([*root, "show", "--field", ns.field])
         if ns.find:

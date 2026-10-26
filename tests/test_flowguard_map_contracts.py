@@ -39,24 +39,6 @@ def findings(root):
     return run_check(root, data, inv)
 
 
-def test_legacy_owner_python_files_are_runner_model_errors(tmp_path):
-    data = project(tmp_path)
-    directory = tmp_path / ".flowguard/models/owners/app"
-    directory.mkdir(parents=True)
-    assert not any(f.code == "runner_model" for f in findings(tmp_path))
-    legacy = ".flowguard/models/owners/app/model.py"
-    marker = tmp_path / "legacy-owner-executed.txt"
-    write(tmp_path, legacy, f'from pathlib import Path\nPath({str(marker)!r}).write_text("executed")\n')
-    errors = [f for f in findings(tmp_path) if f.code == "runner_model"]
-    assert len(errors) == 1 and errors[0].level == "error"
-    assert ".flowguard/models/owners/app" in errors[0].message
-    assert "rewrite it as a contract model" in errors[0].message
-    assert not marker.exists()
-    data["components"][0]["models"] = [legacy]
-    save(tmp_path, data)
-    errors = [f for f in findings(tmp_path) if f.code == "runner_model"]
-    assert len(errors) == 1 and errors[0].level == "error"
-    assert not marker.exists()
 
 
 CONTRACT = '''MODEL_ID = "one"
@@ -169,16 +151,11 @@ def test_new_uncommitted_map_does_not_block_first_change(tmp_path, capsys):
     assert ".flowguard/cache/" not in result
 
 
-def test_legacy_project_read_points_to_upgrade_guide(tmp_path, capsys):
-    write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
-    assert main(["read", "--root", str(tmp_path)]) == 2
-    assert "upgrade.md" in capsys.readouterr().err
 
 
 def test_read_ignores_retired_words_in_agent_instructions(tmp_path, capsys):
     project(tmp_path)
     write(tmp_path, "AGENTS.md", "We retired `flowguard self-review` long ago.\n")
-    write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
     assert main(["read", "--root", str(tmp_path)]) == 0
     assert "app" in capsys.readouterr().out
 
@@ -631,16 +608,6 @@ def test_one_promise_has_one_owner(tmp_path, capsys):
         capsys.readouterr()
 
 
-def test_old_behavior_ledger_is_reported(tmp_path, capsys):
-    project(tmp_path)
-    path = ".flowguard/behavior/inventory/ledger.json"
-    write(tmp_path, path, "{}")
-    retired = [f for f in findings(tmp_path) if f.code == "retired_file"]
-    assert len(retired) == 1 and retired[0].level == "warn"
-    assert path in retired[0].message and "is no longer read" in retired[0].message
-    assert "move each promise" in retired[0].message and "delete the file" in retired[0].message
-    assert main(["map", "check", "--root", str(tmp_path)]) == 0
-    assert "retired_file" in capsys.readouterr().out
 
 
 def test_old_mesh_mistakes_are_tree_errors(tmp_path, capsys):
@@ -707,46 +674,6 @@ def conformance():
     capsys.readouterr()
 
 
-@pytest.mark.parametrize("literal", ['"Future behavior"', "False", "None", '""'])
-def test_design_only_model_is_an_error_that_points_to_the_target(tmp_path, capsys, literal):
-    data = project(tmp_path)
-    path = ".flowguard/models/retired_design.py"
-    source = '''from flowguard import FunctionResult, Invariant, Workflow
-from flowguard.explorer import Explorer
-from flowguard.map.facts import CodeFactsReport, Fact
-MODEL_ID = "retired_design"
-COMPONENTS = ["app"]
-IMPLEMENTED_BY = {"Run": "app.py:run"}
-TESTED_BY = {"returns_true": ["tests/test_app.py:test_run"]}
-class Run:
-    name = "Run"
-    def __init__(self, bad=False): self.bad = bad
-    def apply(self, inp, state): return [FunctionResult(not self.bad, not self.bad)]
-def explorer(bad=False):
-    return Explorer(Workflow((Run(bad),)), initial_states=(True,), external_inputs=(0,),
-                    max_sequence_length=1, progress_steps=0,
-                    invariants=(Invariant("returns_true", "returns true", lambda s, t: s is True),))
-def build_explorer(): return explorer()
-def broken_variants(): return {"returns_false": explorer(True)}
-def conformance():
-    from app import run
-    return CodeFactsReport((Fact("actual run returns true", run() is True),))
-'''
-    write(tmp_path, path, source)
-    data["components"][0]["models"] = [path]
-    save(tmp_path, data)
-    assert main(["map", "check", "--root", str(tmp_path)]) == 0
-    capsys.readouterr()
-    assert main(["map", "models", "--root", str(tmp_path), "retired_design", "--tests"]) == 0
-    assert "PASS  retired_design" in capsys.readouterr().out
-    write(tmp_path, path, source + f"\nDESIGN_ONLY = {literal}\n")
-    message = "move this file to .flowguard/target/models/"
-    assert main(["map", "check", "--root", str(tmp_path)]) == 1
-    output = capsys.readouterr().out
-    assert "design_only_model" in output and message in output, output
-    assert main(["map", "models", "--root", str(tmp_path), "retired_design"]) == 1
-    output = capsys.readouterr().out
-    assert "FAIL  retired_design" in output and message in output, output
 
 
 def _fg233_parent_project(tmp_path):
@@ -883,13 +810,6 @@ def test_flow_step_can_read_the_previous_steps_file(tmp_path):
     assert [f for f in linted if f.code == "flow_step_unreached"], linted
 
 
-def test_retired_flags_and_project_marker_point_to_upgrade_guide(tmp_path, capsys):
-    for flag in ("--request", "--contract", "--owner-current"):
-        assert main(["read", "--root", str(tmp_path), flag, "x"]) == 2
-        assert "0.69 workflow interface retired in 0.70.0" in capsys.readouterr().err
-    write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
-    assert main(["read", "--root", str(tmp_path)]) == 2
-    assert "0.69 project detected" in capsys.readouterr().err
 
 
 # FG-405: literal placement, ownership and read-only consultation remain distinct.

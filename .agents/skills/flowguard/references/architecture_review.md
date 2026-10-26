@@ -24,7 +24,7 @@
 | `flow_unmodeled` | info | a flow without `model` crosses a component that has a model, or a step reaches `db`, `network`, `fs_write` or `fs_delete` | give the flow a model (an existing one is enough) |
 | `flow_handoff_not_entrypoint` | info | a flow step `component:Symbol reads <file>` names a symbol that is not in the component's `entrypoints` | list the command in `entrypoints` (it runs on its own) or write the step as a call |
 
-Limits can be changed per run: `--max-file-loc 1200` etc.
+File and component limits are fixed; split the named owner or accept a soft finding with a reason.
 
 ## Review view
 

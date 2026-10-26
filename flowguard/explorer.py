@@ -28,13 +28,6 @@ from .trace import Trace
 from .workflow import TerminalPredicate, Workflow, WorkflowPath
 
 
-# A terminal owner needs to retain a bounded witness set, not one copy of the
-# same failure for every finite input sequence. The normal interactive
-# explorer remains lossless; this cap is used only when
-# FLOWGUARD_COMPACT_TRACE_STORAGE=1 is explicitly selected by a bounded runner.
-_COMPACT_FINDING_LIMIT = 256
-
-
 ReachabilityPredicate = Callable[[Any, Trace], bool]
 
 
@@ -178,7 +171,6 @@ class Explorer:
     def explore(self) -> CheckReport:
         if self.max_sequence_length < 1:
             raise ValueError("max_sequence_length must be at least 1")
-        compact_trace_storage = os.environ.get("FLOWGUARD_COMPACT_TRACE_STORAGE") == "1"
         # Keep both public enumeration semantics and ordinary exploration
         # finite, but do not materialize the Cartesian domain before the first
         # transition.  A bounded caller can therefore stop on its first
@@ -226,7 +218,7 @@ class Explorer:
         for initial_state in self.initial_states:
             if not exploration_complete:
                 break
-            # A compact run must not share one exhausted generator across
+            # Do not share one exhausted generator across
             # initial states: every finite initial-state/sequence pair is an
             # independent exploration obligation.
             for sequence in sequence_factory():
@@ -241,8 +233,7 @@ class Explorer:
                     exploration_status = EXPLORATION_STATUS_BUDGET_EXHAUSTED
                     break
                 sequence_started_count += 1
-                if not compact_trace_storage:
-                    observed_sequences.append(sequence)
+                observed_sequences.append(sequence)
                 active = (
                     WorkflowPath(
                         current_input=None,
@@ -281,35 +272,16 @@ class Explorer:
                             trace=path.trace.with_external_inputs(sequence),
                             terminal_predicate=self.terminal_predicate,
                         )
-                        if compact_trace_storage:
-                            dead_room = _COMPACT_FINDING_LIMIT - len(dead_branches)
-                            if dead_room > 0:
-                                dead_branches.extend(run.dead_branches[:dead_room])
-                            exception_room = _COMPACT_FINDING_LIMIT - len(exception_branches)
-                            if exception_room > 0:
-                                exception_branches.extend(run.exception_branches[:exception_room])
-                        else:
-                            dead_branches.extend(run.dead_branches)
-                            exception_branches.extend(run.exception_branches)
+                        dead_branches.extend(run.dead_branches)
+                        exception_branches.extend(run.exception_branches)
                         observed_failure_count += len(run.dead_branches) + len(run.exception_branches)
                         for completed_path in run.completed_paths:
                             observed_trace_count += 1
                             self._observe_reachability(completed_path, reachability_state)
-                            if not compact_trace_storage or len(observed_paths) < 256:
-                                observed_paths.append(completed_path)
-                            elif self.required_labels:
-                                labels = {step.label for step in completed_path.trace.steps}
-                                seen = {step.label for path in observed_paths for step in path.trace.steps}
-                                if any(label in labels and label not in seen for label in self.required_labels):
-                                    observed_paths.append(completed_path)
+                            observed_paths.append(completed_path)
                             path_violations = self._check_path_invariants(completed_path)
                             observed_failure_count += len(path_violations)
-                            if compact_trace_storage:
-                                violation_room = _COMPACT_FINDING_LIMIT - len(violations)
-                                if violation_room > 0:
-                                    violations.extend(path_violations[:violation_room])
-                            else:
-                                violations.extend(path_violations)
+                            violations.extend(path_violations)
                         next_active.extend(run.completed_paths)
                         if (
                             self.max_failures is not None
@@ -398,7 +370,7 @@ class Explorer:
             dead_branches=tuple(dead_branches),
             exception_branches=tuple(exception_branches),
             reachability_failures=tuple(reachability_failures),
-            explored_sequences=() if compact_trace_storage else tuple(observed_sequences),
+            explored_sequences=tuple(observed_sequences),
             exploration_complete=exploration_complete,
             termination_reason=termination_reason,
             explored_sequence_count=sequence_started_count,

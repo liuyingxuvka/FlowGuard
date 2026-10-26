@@ -237,7 +237,6 @@ def _run_one_shard(
             "FLOWGUARD_PYTEST_NODEIDS": str(node_manifest_path),
             # The full finite owner needs exact counts and node identity, not
             # an unbounded copy of every exploratory trace.
-            "FLOWGUARD_COMPACT_TRACE_STORAGE": "1",
         },
         stdout_path=shard_dir / "stdout.log",
         stderr_path=shard_dir / "stderr.log",

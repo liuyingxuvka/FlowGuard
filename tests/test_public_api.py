@@ -26,7 +26,7 @@ class PublicApiTests(unittest.TestCase):
         self.assertEqual("['flowguard']", result.stdout.strip())
 
     def test_core_engine_names_are_public(self) -> None:
-        for name in ("Workflow", "FunctionResult", "Invariant", "replay_trace", "review_scenarios", "Explorer"):
+        for name in ("Workflow", "FunctionResult", "Invariant", "replay_trace", "Scenario", "Explorer"):
             self.assertIn(name, flowguard.__all__)
 
     def test_unknown_attribute_is_attribute_error(self) -> None:
@@ -75,7 +75,7 @@ def test_lazy_getattr_resolves_public_names_and_rejects_unknown_ones():
     from flowguard.explorer import Explorer
 
     assert flowguard.__getattr__("Explorer") is Explorer
-    for name, error in (("not_a_flowguard_name", AttributeError), ("RuntimeGateway", ImportError)):
+    for name, error in (("not_a_flowguard_name", AttributeError), ("RuntimeGateway", AttributeError)):
         try:
             flowguard.__getattr__(name)
         except error:

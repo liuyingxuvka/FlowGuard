@@ -28,15 +28,7 @@ IMPLEMENTED_BY = {
     "BrokenRecord": "examples/job_matching/production.py:BrokenDuplicateRecordSystem.record_scored_job",
     "BrokenScore": "examples/job_matching/production.py:BrokenRepeatedScoringSystem.score_job",
 }
-NOT_MODELED = {
-    "examples/problem_corpus/conformance_seeds.py:DomainSeedReplayAdapter.apply_step":
-        "Problem-corpus seed adapter; tests/test_benchmark_hardening.py:"
-        "test_conformance_seed_replay_covers_all_benchmark_families replays every seed family through it.",
-    "examples/problem_corpus/conformance_seeds.py:DomainSeedReplayAdapter.reset":
-        "Problem-corpus seed adapter; the same hardening test resets it before every seed replay.",
-    "examples/problem_corpus/real_models.py:_case_variant_map":
-        "Corpus bookkeeping; tests/test_real_model_corpus.py:test_case_variant_map_assigns_every_case_once runs it.",
-}
+NOT_MODELED = {}
 TESTED_BY = {
     "no_duplicate_application_records": [
         "tests/test_conformance_replay_duplicate_record_failure.py:"

@@ -8,7 +8,6 @@ from typing import Callable, Sequence
 
 from flowguard.export import to_jsonable
 from flowguard.loop import GraphEdge, LoopCheckConfig, LoopCheckReport, check_loops
-from flowguard.progress import ProgressCheckConfig, ProgressCheckReport, check_progress
 
 
 @dataclass(frozen=True)
@@ -43,7 +42,6 @@ class LoopReviewResult:
     status: str
     evidence: tuple[str, ...]
     report: LoopCheckReport
-    progress_report: ProgressCheckReport | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -53,11 +51,6 @@ class LoopReviewResult:
             "status": self.status,
             "evidence": list(self.evidence),
             "report": self.report.to_dict(),
-            "progress_report": (
-                self.progress_report.to_dict()
-                if self.progress_report is not None
-                else None
-            ),
         }
 
 
@@ -172,24 +165,14 @@ def _observed_findings(report: LoopCheckReport) -> tuple[str, ...]:
     return tuple(findings)
 
 
-def _progress_config(scenario: LoopScenario) -> ProgressCheckConfig:
-    terminal = set(scenario.terminal_phases)
-    success = set(scenario.success_phases)
-    return ProgressCheckConfig(
-        initial_states=(scenario.initial_state,),
-        transition_fn=scenario.transition_fn,
-        is_terminal=lambda state: state.phase in terminal,
-        is_success=lambda state: state.phase in success,
-    )
 
 
 def review_loop_scenario(scenario: LoopScenario) -> LoopReviewResult:
     report = check_loops(_config(scenario))
-    progress_report = check_progress(_progress_config(scenario))
-    observed = tuple(dict.fromkeys(_observed_findings(report) + progress_report.finding_names()))
+    observed = _observed_findings(report)
     expected = set(scenario.expected_findings)
     observed_set = set(observed)
-    observed_has_violation = not report.ok or not progress_report.ok
+    observed_has_violation = not report.ok
 
     if scenario.expected_status == "known_limitation":
         status = "known_limitation"
@@ -211,13 +194,7 @@ def review_loop_scenario(scenario: LoopScenario) -> LoopReviewResult:
         f"observed findings: {observed or ('none',)}",
         f"states={report.graph_summary.get('states')}",
         f"edges={report.graph_summary.get('edges')}",
-        f"progress_findings={progress_report.finding_names() or ('none',)}",
     ]
-    if progress_report.findings:
-        evidence.append(
-            "progress states: "
-            + repr(tuple(finding.states for finding in progress_report.findings[:3]))
-        )
     if report.non_terminating_components:
         evidence.append(
             "bottom SCC: "
@@ -244,7 +221,6 @@ def review_loop_scenario(scenario: LoopScenario) -> LoopReviewResult:
         status=status,
         evidence=tuple(evidence),
         report=report,
-        progress_report=progress_report,
     )
 
 
@@ -430,38 +406,6 @@ def all_loop_scenarios() -> tuple[LoopScenario, ...]:
             success_phases=("done",),
             required_success=True,
             expected_status="ok",
-        ),
-        LoopScenario(
-            "L13_bad_branch_has_one_good_one_bad_loop",
-            "Maybe can go to done or loop through rewrite.",
-            by_phase({
-                "new": (("new_to_maybe", "maybe"),),
-                "maybe": (("maybe_to_done", "done"), ("maybe_to_rewrite", "rewrite")),
-                "rewrite": (("rewrite_to_maybe", "maybe"),),
-            }),
-            new,
-            terminal_phases=("done",),
-            success_phases=("done",),
-            required_success=True,
-            expected_status="violation",
-            expected_findings=("potential_nontermination", "missing_progress_guarantee"),
-            notes="Progress checking reports the escape-edge cycle because no ranking rule forces progress.",
-        ),
-        LoopScenario(
-            "L14_bad_cycle_with_escape_but_no_forced_progress",
-            "Cycle has escape to done but no progress fairness.",
-            by_phase({
-                "new": (("new_to_maybe", "maybe"),),
-                "maybe": (("maybe_to_rewrite", "rewrite"), ("maybe_to_done", "done")),
-                "rewrite": (("rewrite_to_maybe", "maybe"),),
-            }),
-            new,
-            terminal_phases=("done",),
-            success_phases=("done",),
-            required_success=True,
-            expected_status="violation",
-            expected_findings=("potential_nontermination", "missing_progress_guarantee"),
-            notes="Progress checking reports the cycle with escape because fairness/progress is not modeled.",
         ),
     )
 

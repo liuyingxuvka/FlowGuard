@@ -83,9 +83,8 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | code-structure | Add or split an owner through the target; keep files, state, effects and entrypoints single owned. |
 | contract-exhaustion | Use a `validator` node for finite accepted and rejected cases. |
 | field-lifecycle | Describe renamed or retired fields in the target and check the old and new readers. |
-| model-mesh | Nest models with `PARENT`; use state projection or `flowguard.closure` where children exchange results. |
+| model-mesh | Nest models with `PARENT`; use state projection, finite `OUTPUTS` and `HANDOFF` where children exchange results. |
 | model-test | Bind rules through `IMPLEMENTED_BY` and `TESTED_BY`; run `map models --tests`. |
-| topology-hazard | Read the computed `hazard:` observations from `map models`. |
 | test-mesh | Use `release --shards N`; each shard runs whole test subtrees and every collected test runs exactly once. |
 | ui-flow | Use a `ui-journey` node for states and journeys, plus the manual UI checklist. |
 

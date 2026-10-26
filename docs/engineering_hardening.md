@@ -3,20 +3,6 @@
 FlowGuard ships thin adoption surfaces around the existing Python API. The goal
 is to make proven checks easier to run without changing the mathematical core.
 
-## Stable Artifacts
-
-`flowguard.schema` wraps traces and reports in a deterministic envelope:
-
-- `schema_version`;
-- `artifact_type`;
-- `created_by`;
-- `model_name`;
-- `scenario_name`;
-- `trace_id`;
-- `payload`.
-
-Use `trace_artifact()` and `report_artifact()` when a trace or report needs to
-be saved or compared as a stable machine-readable artifact.
 
 ## Command Line And Python Entry Points
 
@@ -31,15 +17,10 @@ python -m flowguard map <scan|discover|digest|deps|check|lint|impact|models|conf
 ```
 
 `python -m flowguard map models` runs the executable models bound in
-`.flowguard/map.json`; every call executes them (results are never cached). The older review
-helpers are Python APIs, not separate commands:
+`.flowguard/map.json`; every call executes them (results are never cached). The supported helpers are Python APIs:
 
-- `review_scenarios()` for expected-vs-observed scenario review;
 - `check_loops()` for stuck-loop and non-terminating component review;
 - `replay_trace()` and `default_conformance_rules()` for conformance replay;
-- `build_benchmark_scorecard()` and `build_benchmark_coverage_audit()` for
-  the executable problem corpus;
-- `flowguard.SCHEMA_VERSION` for the artifact schema version.
 
 None of these should hide expected-vs-observed statuses, `needs_human_review`,
 or known limitations.

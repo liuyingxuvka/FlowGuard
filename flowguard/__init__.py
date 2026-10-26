@@ -1,12 +1,8 @@
 """FlowGuard core engine API.
 
-``import flowguard`` loads only this facade; core names load lazily from their
-owning modules. Node kinds live in ``flowguard.validator`` and
-``flowguard.ui_flow``; computed hints in ``flowguard.hazards``; parent-child
-handoffs in ``flowguard.closure``; test shards in ``flowguard.pytest_shards_cli``.
-Maps and code facts use ``flowguard.map.*`` (for example
-``flowguard.map.facts.CodeFacts``). FlowGuard's own benchmark corpus uses
-``flowguard.corpus`` and the other benchmark modules directly.
+The facade lazily loads core names from their owning modules. Node kinds live
+in flowguard.validator and flowguard.ui_flow; maps and code facts use
+flowguard.map; the test-tree shard tool lives in flowguard.pytest_shards_cli.
 """
 
 from __future__ import annotations
@@ -18,15 +14,6 @@ __version__ = "0.70.12"
 
 # owner module -> public names
 _PUBLIC_API: dict[str, tuple[str, ...]] = {
-    "flowguard.budgeted": (
-        "BudgetedGraphConfig",
-        "BudgetedGraphFailure",
-        "BudgetedGraphReport",
-        "BudgetedShardReport",
-        "budgeted_graph_fingerprint",
-        "budgeted_graph_run_dir",
-        "run_budgeted_graph_checks",
-    ),
     "flowguard.checks": (
         "all_items_have_source",
         "at_most_once_by",
@@ -49,13 +36,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "projected_state_matches",
         "replay_trace",
         "select_covering_traces",
-    ),
-    "flowguard.contract": (
-        "ContractCheckReport",
-        "ContractViolation",
-        "FunctionContract",
-        "check_refinement_projection",
-        "check_trace_contracts",
     ),
     "flowguard.core": (
         "FunctionBlock",
@@ -90,32 +70,6 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "check_loops",
         "tarjan_scc",
     ),
-    "flowguard.mermaid": (
-        "graph_to_mermaid_text",
-        "loop_report_to_mermaid_text",
-        "mermaid_code_block",
-        "trace_to_mermaid_text",
-    ),
-    "flowguard.minimize": (
-        "MinimizedCounterexample",
-        "ReductionStep",
-        "minimize_failing_sequence",
-        "minimize_report_counterexample",
-    ),
-    "flowguard.packs": (
-        "CachePack",
-        "DeduplicationPack",
-        "RetryPack",
-        "SideEffectPack",
-    ),
-    "flowguard.progress": (
-        "BoundedEventuallyProperty",
-        "EventuallyProperty",
-        "ProgressCheckConfig",
-        "ProgressCheckReport",
-        "ProgressFinding",
-        "check_progress",
-    ),
     "flowguard.replay": (
         "ReplayAdapter",
         "ReplayObservation",
@@ -127,29 +81,12 @@ _PUBLIC_API: dict[str, tuple[str, ...]] = {
         "InvariantViolation",
         "ReachabilityFailure",
     ),
-    "flowguard.review": (
-        "OracleReviewResult",
-        "ScenarioReviewReport",
-        "review_scenario",
-        "review_scenarios",
-        "scenario_status_explanation",
-        "scenario_status_ok",
-    ),
     "flowguard.scenario": (
         "OracleCheckResult",
         "Scenario",
         "ScenarioExpectation",
         "ScenarioRun",
         "run_exact_sequence",
-    ),
-    "flowguard.scenario_matrix": (
-        "ScenarioMatrixBuilder",
-    ),
-    "flowguard.schema": (
-        "ArtifactEnvelope",
-        "SCHEMA_VERSION",
-        "make_artifact",
-        "trace_artifact",
     ),
     "flowguard.templates": (
         "TemplateFile",
@@ -181,10 +118,6 @@ def __getattr__(name: str) -> Any:
         except ModuleNotFoundError as exc:
             if exc.name != f"{__name__}.{name}":
                 raise
-            from .map.retired import retired_public_name_message
-            retired = retired_public_name_message(name)
-            if retired:
-                raise ImportError(retired) from None
             raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from None
         globals()[name] = module
         return module
