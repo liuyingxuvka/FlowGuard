@@ -1489,17 +1489,20 @@ def test_docstring_version_text_is_not_a_declaration(tmp_path):
     assert component_state(tmp_path, comp, inv, data) == "stale"
 
 
-def test_model_contract_parsed_once_per_check(tmp_path, monkeypatch):
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_model_contract_parsed_once_per_check(tmp_path, monkeypatch, newline):
     import ast
     from flowguard.map import mapfile
     from flowguard.map.check import run_check
     data, comp = _release_project(tmp_path)
     model = tmp_path / ".flowguard/models/one.py"
     write(tmp_path, str(model.relative_to(tmp_path)), "MODEL_ID='one'\nPARENT='app'\ndef build_explorer(): pass\n")
+    model.write_bytes(model.read_text().replace("\n", newline).encode())
     comp["models"] = [".flowguard/models/one.py"]
+    from flowguard.map.common import normalize_newlines
     raw, calls, original = model.read_bytes(), [], ast.parse
     def counted(source, *args, **kwargs):
-        if (source.encode("utf-8") if isinstance(source, str) else source) == raw:
+        if normalize_newlines(source.encode("utf-8") if isinstance(source, str) else source) == normalize_newlines(raw):
             calls.append(True)
         return original(source, *args, **kwargs)
     monkeypatch.setattr(ast, "parse", counted)
