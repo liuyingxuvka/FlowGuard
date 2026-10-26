@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-407: Watch anchors only during conformance, with sys.monitoring on Python 3.12+",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
