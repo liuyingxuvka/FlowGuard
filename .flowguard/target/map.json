@@ -1,0 +1,53 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-402: Fewer runs: promote shows why it refuses, --jobs, one parse per model file",
+  "components": [
+    {
+      "id": "map-proof",
+      "layer": "map",
+      "summary": "Runs model proofs, bound tests and the system root model.",
+      "responsibilities": [
+        "run every model, system included, with known-bad and conformance checks",
+        "fail a model whose rule no known-bad variant breaks",
+        "read code facts for conformance and fail missing or unconsulted anchors",
+        "clean up model and pytest shard subprocesses in bounded time",
+        "run bound tests per item and require each to reach an anchor",
+        "print at most three open hazard hints per model"
+      ],
+      "files": [
+        "flowguard/map/proof.py",
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py",
+        "flowguard/map/system_model.py",
+        "flowguard/map/testreach.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
+      ],
+      "state": [],
+      "side_effects": [
+        "runs isolated model subprocesses",
+        "runs one isolated pytest process per model when bound-test checking is requested"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "engine-explore",
+        "engine-properties",
+        "map-check",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_facts.py",
+        "tests/test_flowguard_map_proof.py"
+      ],
+      "models": [
+        ".flowguard/models/model_runs.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
