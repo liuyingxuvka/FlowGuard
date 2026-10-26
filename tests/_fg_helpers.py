@@ -48,7 +48,10 @@ from flowguard.map.common import DEFAULT_IGNORE
 from flowguard.map.inventory import build_inventory
 
 def map_git(root: Path, *args: str) -> None:
-    subprocess.run(['git', '-C', str(root), *args], check=True, capture_output=True)
+    # Templates are copied immediately after commits; keep background Git
+    # maintenance from changing their object directories during that copy.
+    subprocess.run(['git', '-c', 'maintenance.auto=false', '-c', 'gc.auto=0',
+                    '-C', str(root), *args], check=True, capture_output=True)
 
 def map_write(root: Path, rel: str, text: str) -> None:
     path = root / rel
