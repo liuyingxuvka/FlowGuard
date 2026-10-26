@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-411: Clean the no-git fixture on Windows",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
