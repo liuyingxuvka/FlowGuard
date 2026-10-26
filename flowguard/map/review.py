@@ -30,6 +30,7 @@ REVIEW_ACTIONS = {
     "private_cross_component_use": (300, "move", ARCHITECTURE),
     "unexplained": (200, "explain", "python -m flowguard read --component {component}"),
     "unmodeled_owner": (150, "model", TEMPLATE),
+    "large_model": (120, "split model", "references/routes.md#Split a model"),
     "warn": (100, "{code}", ARCHITECTURE),
     "flow_without_model": (80, "model flow", "references/map_format.md"),
     "unbound_models": (60, "bind tests", "references/model_recipes.md#Run the bound tests"),

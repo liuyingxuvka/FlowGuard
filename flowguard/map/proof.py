@@ -61,6 +61,8 @@ class ModelResult:
     closed_hazards: list[str] = field(default_factory=list)       # "<hint> (closed by known-bad X | invariant Y)"
     test_seconds: float | None = None
     process_reason: str = ""
+    sequences: int = 0
+    advice_limit: float = 10.0
 
 
 class _ViewModelLoader(importlib.machinery.SourceFileLoader):
@@ -464,6 +466,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
         except MapError:
             data = {}
         result.process_reason = process_model_reason(data, contract)
+        result.advice_limit = data.get("large_model_seconds",10)
         started = time.time()
         phase = "design"
         try:
@@ -487,6 +490,13 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                 result.status = "fail"
                 result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
             report = design.explore()
+            result.sequences = report.explored_sequence_count
+            from .lint import size_finding, apply_accepted_debts
+            finding=size_finding(result.model,'sequences',result.sequences)
+            if finding:
+                finding=apply_accepted_debts([finding],data.get('accepted_debts',[]))[0][0]
+                if finding.level=='error':_fail(result,'large_model: '+finding.message)
+                elif finding.level=='warn':result.warnings.append('large_model: '+finding.message)
             from .port import Port, run_findings
             from .inventory import build_inventory
             from .mapfile import ignore_patterns
@@ -680,6 +690,10 @@ def render_results(results: list[ModelResult], *, all_hazards: bool = False) -> 
             lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
+        if r.seconds+(r.test_seconds or 0)>r.advice_limit:
+            from .lint import split_recipe
+            lines.append(f'INFO large_model {r.model}: {r.seconds+(r.test_seconds or 0):.1f}s with its bound tests '
+                         f'(advice limit {r.advice_limit:g}s); a split usually helps: '+split_recipe(r.model))
     failed = sum(r.status != "pass" for r in results)
     lines.append(f"models: {len(results) - failed} passed, {failed} failed")
     return "\n".join(lines)

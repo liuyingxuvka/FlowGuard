@@ -271,7 +271,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Read model contracts and finite ports, check strict edges, and compute ordered direct consumers of an interface change.",
+      "summary": "Read map and target files, model contracts, static rules and finite ports through shared source parsers.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -288,7 +288,8 @@
         "flowguard/map/targetfile.py",
         "flowguard/map/retired.py",
         "flowguard/map/testtree.py",
-        "flowguard/map/port.py"
+        "flowguard/map/port.py",
+        "flowguard/map/modelstatic.py"
       ],
       "entrypoints": [
         "flowguard/map/mapfile.py:load_map",
@@ -302,6 +303,7 @@
         "writes .flowguard/map.json"
       ],
       "depends_on": [
+        "engine-conformance",
         "map-inventory"
       ],
       "tests": [
@@ -314,7 +316,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:d49976f4498eee0b73c6c0d3c1818e64440e89610bba327a89f5680b886b160a"
+      "fingerprint": "sha256:41b9fe1d7c119df92be4726de8c611e79618deba1478ee707483aa62bcb53d16"
     },
     {
       "id": "map-discover",
@@ -404,7 +406,7 @@
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Run fresh abstract and native proofs, enforce observed State writes and finite receipts, and time bound tests separately.",
+      "summary": "Execute fresh model proofs and bound tests, refuse excessive sequence counts, and report elapsed time as advice.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
@@ -446,7 +448,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:cfd8da8e041ae82b1252472c3baacfb8795fea7b8f39debfabfdadf308e3c647"
+      "fingerprint": "sha256:64e38d59345889a04db640e0ecb40f0c8233bab7dd4910fb74de0796d7629cb4"
     },
     {
       "id": "engine-explore",
@@ -721,7 +723,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Verify map/code promises and classify code-free process models only with an explicit accepted debt.",
+      "summary": "Check bindings, private use, model-edit guards and fixed model size limits; reasoned debts waive only soft findings.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -748,14 +750,16 @@
         "tests/test_flowguard_map_contracts.py",
         "tests/test_flowguard_map_discover.py"
       ],
-      "models": [],
+      "models": [
+        ".flowguard/models/private_use.py"
+      ],
       "status": "confirmed",
-      "fingerprint": "sha256:f078e23272fb294ea96e2de88de806881a64df3a1865118263c4aed33b0837cd"
+      "fingerprint": "sha256:1212a52d350014872252d980c7633aade0df36f225d5c11e53fdab6c30711ddc"
     },
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show bounded static field lifecycles, code ownership and three distinct model relations with central-model impact.",
+      "summary": "Show field lifecycles, exact owners and three model relations through small read-view models.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -772,7 +776,6 @@
       "state": [],
       "side_effects": [],
       "depends_on": [
-        "engine-conformance",
         "map-check",
         "map-discover",
         "map-file",
@@ -784,12 +787,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ed4f2a2428f5c84c2fc49c61323a94bdd65a2f1575c446e85ff050bde37a9f68"
+      "fingerprint": "sha256:b37e47ce9f8c7b0ead9ff4969dd193b167cfe01bc15b3060038addb1cb6406f6"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select affected functions, models and tests through discovery; explain ports, removed literals and promises without stored results.",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -817,7 +820,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:18ee8955bf592d81fe79721b0cd0b0f9f54e90a95f722f251264ed0516ad6205"
+      "fingerprint": "sha256:0571efc4ce0c7684e31c372589ca7eca29632694a15e9aab54c244c919a85f0d"
     }
   ],
   "flows": [
@@ -829,7 +832,7 @@
         "map-file:load_map",
         "map-read:render_show"
       ],
-      "model": ".flowguard/models/read_view.py"
+      "model": ".flowguard/models/read_show.py"
     },
     {
       "id": "after_edit",
@@ -909,26 +912,27 @@
   "model_digests": {
     ".flowguard/models/anchor_watch.py": "7afcca6ffe9083ac7b4080d7e2fdeb683093cc3efb347d28fcfeba92feee44be",
     ".flowguard/models/change_selection.py": "8b71397c8f2f7da365773b2cf60f7fba5ed93fa4f6f8be1486187ad9b54111f3",
-    ".flowguard/models/component_pointer.py": "aa31cbb91704d1e777b61efeff18388425b6096b506b2a6eaa5b0132f9d32858",
+    ".flowguard/models/component_pointer.py": "e8fd91939815cc7ab3d5c54e9263fab13740f7767e3d6fa826b37ce852a457d8",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
     ".flowguard/models/function_selection.py": "fc61011952eea125af361f8cad4a48adf7df457b82469160455c0fc0917ecf79",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
-    ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",
+    ".flowguard/models/map_binding.py": "b2d47c11532d015e04d6b2b040d79b92b88b4ba0dc1338980c5fb5fec62d1000",
+    ".flowguard/models/model_edits.py": "22bad62036fe009edd2088d52dee2f5345371b5733fb4d35ccc26100f1642dbc",
     ".flowguard/models/model_proof.py": "b8fdcdaae86aa7d993c1fc092a60b5f1b35c03d7c3c15f90628bca39b2ad31ce",
-    ".flowguard/models/model_runs.py": "99f4920dc8a1bf8691c508bbedf4a0c60c8704b4edc3eb90a48b7764156256e7",
+    ".flowguard/models/model_runs.py": "870bbd5903067b2c08b2f5d153e5b6cf8335734fcdf42125aa4a3bfae0670baf",
     ".flowguard/models/model_scope.py": "53ac974f51615d813c1716c66af5977e3dafed5df916f16fd92b6ce867b37ff0",
     ".flowguard/models/port_checks.py": "9ed28c23e94149bfb9efca43d513d28b73589f7f1abc1cba6593045fbf56a344",
     ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
+    ".flowguard/models/private_use.py": "9eeec09f7aba99c1b2171e2a7aa23dc828e3e26f751c344e10f0e9458551533a",
     ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
-    ".flowguard/models/read_component.py": "fc9831558370ead56bc2389bc74a1d54e859cb0b29703004c2351c9e528e0c07",
+    ".flowguard/models/read_component.py": "370414250b34aa7d094f447fd6ec64d7819086ac8c8257349d8b12d68d782cb0",
     ".flowguard/models/read_field.py": "06f8ceb8c14d5da2ac9ba0ec24fc406220739b17dccdb1c2539b96c4ecfb70f4",
-    ".flowguard/models/read_find.py": "9f2fbdb53243a29a75f6f9ccd331ec2f7529a55c2c1c0f88d223028331a0c7a9",
-    ".flowguard/models/read_review.py": "aa814defab80312e5fd06d2d4e6809f460d1ef0642e9ad1d9631eb8552215d61",
-    ".flowguard/models/read_show.py": "a8262c6f7ae63ea7c257a61387143785637860835e3828fd20f71a8f1f1d1708",
-    ".flowguard/models/read_view.py": "9112d3cf9a41de75bf783dc0485c764f4b3f9062a1f47f62aef39a46050408bd",
+    ".flowguard/models/read_find.py": "c9f4f9e3bd5a1fe1e917517cff035d818f806345fd017f302259f3f0dafb47e9",
+    ".flowguard/models/read_review.py": "592d565ee49658cdff26b454a090adc402aec265a769a9d0d7d9ada88548bb6d",
+    ".flowguard/models/read_show.py": "a292a171e564365bc69e604536a4f652194e326862d1ef1cf0eb2402737a4ed5",
     ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
     ".flowguard/models/release_neutral_fingerprint.py": "e7abb4f2397102b7ce6eec69f194fba34a0777bc2b8ab9c3a472588b08958290",
     ".flowguard/models/scan_coverage.py": "038f0fc2b02776002ae8e744731989dfea780f06fbd145f5234fddfe98e3a8f7",

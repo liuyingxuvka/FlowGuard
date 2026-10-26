@@ -22,7 +22,7 @@ from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_di
 from .inventory import Inventory
 from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
-TOP_KEYS = {"import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
+TOP_KEYS = {"large_model_seconds", "import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -53,6 +53,10 @@ def validate_map(data: object) -> list[str]:
             and k.count("/") == 2 and "\\" not in k and k.endswith(".py") and not Path(k).name.startswith("_")
             and isinstance(v, str) and re.fullmatch(r"[0-9a-f]{64}", v) for k, v in digests.items()):
         errors.append("model_digests must map model paths to sha256 strings")
+    import math
+    limit=data.get('large_model_seconds',10)
+    if isinstance(limit,bool) or not isinstance(limit,(int,float)) or not math.isfinite(limit) or limit<=0:
+        errors.append('large_model_seconds must be a positive number')
     roots = data.get("import_roots", [])
     if not isinstance(roots, list) or not all(isinstance(value, str) and value and not value.startswith("/")
             and ".." not in value.split("/") and "\\" not in value for value in roots):
@@ -327,7 +331,7 @@ def local_imports(tree: ast.Module) -> list[str]:
     return sorted(set(names))
 
 
-_MODEL_CONTRACT_CACHE: dict[tuple[str, str], dict] = {}
+_MODEL_CONTRACT_CACHE: dict[tuple[str, str], tuple[dict, ast.Module]] = {}
 
 
 def read_model_contract(path: Path) -> dict:
@@ -335,7 +339,7 @@ def read_model_contract(path: Path) -> dict:
     raw = path.read_bytes()
     cache_key = (str(path.resolve()), hashlib.sha256(raw).hexdigest())
     if cache_key in _MODEL_CONTRACT_CACHE:
-        return copy.deepcopy(_MODEL_CONTRACT_CACHE[cache_key])
+        return copy.deepcopy(_MODEL_CONTRACT_CACHE[cache_key][0])
     tree = ast.parse(read_source(path, data=raw))
     found: dict = {"functions": [], "imports": top_level_imports(tree), "local_imports": local_imports(tree)}
     for node in tree.body:
@@ -390,8 +394,16 @@ def read_model_contract(path: Path) -> dict:
                 raise ValueError(f"DISPATCH['{selector}'] must map alternatives to model ids")
     from .port import model_port
     found["port"] = model_port(tree)
-    _MODEL_CONTRACT_CACHE[cache_key] = copy.deepcopy(found)
+    _MODEL_CONTRACT_CACHE[cache_key] = (copy.deepcopy(found), tree)
     return found
+
+
+def read_model_syntax(path: Path):
+    """Reuse the contract's parsed AST; callers receive an independent tree."""
+    raw=path.read_bytes()
+    key=(str(path.resolve()),hashlib.sha256(raw).hexdigest())
+    read_model_contract(path)
+    return copy.deepcopy(_MODEL_CONTRACT_CACHE[key][1])
 
 
 def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> dict[str, set[str]]:

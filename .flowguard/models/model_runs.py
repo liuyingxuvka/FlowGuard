@@ -12,7 +12,7 @@ MODEL_ID = "model_runs"
 PARENT = "map-proof"
 IMPLEMENTED_BY = {"RunModels": "flowguard/map/proof.py:run_models", "Render": "flowguard/map/proof.py:render_results"}
 USES = {"PrintFindings": "flowguard/map/common.py:print_findings"}
-TESTED_BY = {"parallel_output_in_registry_order": ["tests/test_flowguard_map_proof.py:test_jobs_output_equals_sequential"], "pass_is_one_line": ["tests/test_flowguard_map_proof.py:test_pass_is_one_line_fail_keeps_rules"], "identical_info_grouped": ["tests/test_flowguard_map_proof.py:test_identical_info_grouped_into_one_line"]}
+TESTED_BY = {"only_hard_size_limits_gate": ["tests/test_flowguard_map_proof.py:test_sequence_soft_limit_warns", "tests/test_flowguard_map_proof.py:test_sequence_hard_limit_fails_the_model", "tests/test_flowguard_map_proof.py:test_time_over_the_limit_is_one_info"], "parallel_output_in_registry_order": ["tests/test_flowguard_map_proof.py:test_jobs_output_equals_sequential"], "pass_is_one_line": ["tests/test_flowguard_map_proof.py:test_pass_is_one_line_fail_keeps_rules"], "identical_info_grouped": ["tests/test_flowguard_map_proof.py:test_identical_info_grouped_into_one_line"]}
 
 
 @dataclass(frozen=True)
@@ -20,26 +20,28 @@ class State:
     order: tuple = ()
     pass_lines: int = 1
     info_lines: int = 1
+    size_gate: bool = True
 
 
 class Run:
     name = "RunModels"
     reads = ()
-    writes = ("order",)
+    writes = ("order", "pass_lines", "info_lines", "size_gate")
 
     def __init__(self, reversed_order=False):
         self.reversed_order = reversed_order
 
     def apply(self, event, state):
         order = ("second", "first") if self.reversed_order is True else ("first", "second")
-        return (FunctionResult(order, State(order, 2 if self.reversed_order == "rules" else 1, 3 if self.reversed_order == "info" else 1), label="run"),)
+        return (FunctionResult(order, State(order, 2 if self.reversed_order == "rules" else 1, 3 if self.reversed_order == "info" else 1, self.reversed_order not in ("time_gate","hard_pass")), label="run"),)
 
 
 INVARIANTS = (Invariant("parallel_output_in_registry_order", "completion order never reorders registered models",
           lambda s, t: InvariantResult.pass_() if not s.order or s.order == ("first", "second")
           else InvariantResult.fail("registry order changed")),
     Invariant("pass_is_one_line", "passing proofs have one output line", lambda s,t: s.pass_lines == 1),
-    Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1))
+    Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1),
+    Invariant("only_hard_size_limits_gate", "time and soft limits pass; more than 10000 sequences fail", lambda s,t:s.size_gate))
 
 
 def _explorer(reversed_order=False):
@@ -52,7 +54,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {"orders_by_completion": _explorer(True), "prints_rules_on_pass": _explorer("rules"), "prints_each_info_line": _explorer("info")}
+    return {"orders_by_completion": _explorer(True), "prints_rules_on_pass": _explorer("rules"), "prints_each_info_line": _explorer("info"), "large_model_gates_exit": _explorer("time_gate"), "hard_limit_passes": _explorer("hard_pass")}
 
 
 def make_fixture(root, *, wrong_second=False):
@@ -115,4 +117,12 @@ def conformance():
         print_findings([Finding("info", "same", str(i), "note") for i in range(3)], "probe", as_json=False, limit=80)
     rows = [line for line in output.getvalue().splitlines() if line.startswith("INFO")]
     facts.append(Fact("grouped_info", len(rows) == 1 and "x3:" in rows[0], output.getvalue()))
+    from _size_fixture import fixture as size_fixture
+    for case,events,length,status in (('time',1,1,'pass'),('soft',3,7,'pass'),('hard',4,7,'fail')):
+        with TemporaryDirectory(prefix='fg-model-size-') as directory:
+            root=Path(directory);size_fixture(root,events,length,seconds=0.000001 if case=='time' else 10)
+            result=run_models(root,['sized'])[0]
+            text=render_results([result])
+            correct=result.status==status and ('INFO large_model' in text if case=='time' else 'warning: large_model:' in text if case=='soft' else 'large_model:' in text)
+            facts.append(Fact('size_'+case,correct,text))
     return CodeFactsReport(tuple(facts))

@@ -1412,3 +1412,89 @@ def test_invariant_untested_only_for_models_with_tests(shop):
     result = run_model_in_process(shop, path)
     assert not any(w.startswith("invariant_untested:") for w in result.warnings)
     # Existing partial-binding regression checks the one remaining rule by name.
+
+
+from flowguard.map.inventory import build_inventory
+from flowguard.map.common import DEFAULT_IGNORE
+
+def _size_project(root,**options):
+    import runpy
+    base=Path(__file__).resolve().parents[1]/'.flowguard'
+    path=base/'target/models/_size_fixture.py'
+    if not path.exists():path=base/'models/_size_fixture.py'
+    return runpy.run_path(str(path))['fixture'](root,**options)
+
+
+def test_nine_rule_model_warns_and_a_debt_closes_it(tmp_path):
+    from flowguard.map.lint import run_lint,split_recipe
+    data=_size_project(tmp_path,rules=9)
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    rows=[finding for finding in run_lint(tmp_path,data,inv) if finding.code=='large_model']
+    assert len(rows)==1 and rows[0].level=='warn'
+    assert rows[0].message=='9 rules (soft limit 8; split before 12): '+split_recipe('sized')
+    data['accepted_debts']=[dict(code='large_model',component='sized',reason='one finite decision table')]
+    rows=[finding for finding in run_lint(tmp_path,data,inv) if finding.code=='large_model']
+    assert len(rows)==1 and rows[0].level=='info'
+    assert 'accepted debt: one finite decision table' in rows[0].message
+
+
+def test_thirteen_rule_model_fails_map_check_and_no_debt_closes_it(tmp_path):
+    from flowguard.map.check import run_check
+    from flowguard.map.lint import run_lint
+    data=_size_project(tmp_path,rules=13)
+    data['accepted_debts']=[dict(code='large_model',component='sized',reason='cannot override a hard limit')]
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    for findings in (run_check(tmp_path,data,inv),run_lint(tmp_path,data,inv)):
+        rows=[f for f in findings if f.code=='large_model']
+        assert len(rows)==1 and rows[0].level=='error' and 'over the hard limit 12' in rows[0].message
+    from flowguard.map.cli import main
+    import json
+    (tmp_path/'.flowguard/map.json').write_text(json.dumps(data))
+    assert main(['--root',str(tmp_path),'check'])==1
+
+
+def test_sequence_soft_limit_warns(tmp_path):
+    from flowguard.map.proof import run_models,render_results
+    _size_project(tmp_path,events=3,length=7)
+    result=run_models(tmp_path,['sized'])[0]
+    assert result.status=='pass' and result.sequences==3279
+    assert len([w for w in result.warnings if w.startswith('large_model:')])==1
+    assert 'warning: large_model: 3,279 explored sequences' in render_results([result])
+    import json
+    p=tmp_path/'.flowguard/map.json';data=json.loads(p.read_text());data['accepted_debts']=[dict(code='large_model',component='sized',reason='one bounded table')];p.write_text(json.dumps(data))
+    result=run_models(tmp_path,['sized'])[0]
+    assert result.status=='pass' and not any(w.startswith('large_model:') for w in result.warnings)
+
+
+def test_sequence_hard_limit_fails_the_model(tmp_path):
+    from flowguard.map.proof import run_models
+    data=_size_project(tmp_path,events=4,length=7)
+    result=run_models(tmp_path,['sized'])[0]
+    assert result.status=='fail' and result.sequences==21844
+    assert any('over the hard limit 10,000' in problem for problem in result.problems)
+    from flowguard.map.cli import main
+    assert main(['--root',str(tmp_path),'models','sized'])==1
+    from flowguard.map.target import main as target_main
+    assert target_main(['--root',str(tmp_path),'start','Enforce size'])==0
+    assert target_main(['--root',str(tmp_path),'add','sized'])==0
+    assert target_main(['--root',str(tmp_path),'check'])==1
+
+
+def test_time_over_the_limit_is_one_info(tmp_path):
+    from flowguard.map.proof import run_models,render_results
+    _size_project(tmp_path,seconds=0.000001)
+    result=run_models(tmp_path,['sized'])[0]
+    assert result.status=='pass'
+    lines=[line for line in render_results([result]).splitlines() if line.startswith('INFO large_model')]
+    assert len(lines)==1 and 'with its bound tests (advice limit 1e-06s)' in lines[0]
+
+
+def test_unreadable_rule_count_reports_nothing(tmp_path):
+    from flowguard.map.lint import model_size_findings
+    data=_size_project(tmp_path,rules=13)
+    path=tmp_path/'.flowguard/models/sized.py'
+    source=path.read_text();start=source.index('RULES=');end=source.index('\ndef make',start)
+    source=source[:start]+'RULES=(Invariant(str(i),"holds",lambda s,t:True) for i in range(13))'+source[end:]
+    path.write_text(source)
+    inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
+    assert not model_size_findings(tmp_path,data,inv)

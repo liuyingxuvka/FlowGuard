@@ -97,6 +97,8 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
         if finding.code == "dependency_cycle":
             component_ids.update(_cycle_members(finding.message))
     for f in findings:
+        if f.level == "error" and f.code in {"large_model", "large_test_file", "test_file_mixes_models"}:
+            continue
         if f.code == "unexplained" or (f.code == "unbound_models" and "test functions call its code" in f.message):
             continue
         if f.code == "dependency_cycle":
@@ -390,6 +392,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view))
+    out.extend(model_size_findings(root, data, inv, view=view))
     out.extend(private_use_findings(root, data, inv))
     # Lint must count no-code model debts so they become stale after anchoring.
     for entry in registry.entries:
@@ -828,3 +831,32 @@ def layer_findings(data: dict, graph: dict[str, set[str]], *,
                 out.append(Finding("error", "layer_violation", src,
                                    f"{lower} -> {higher} ({dst}): a lower layer imports a higher one" + cause))
     return out
+
+
+# Fixed, comparable thresholds. Only elapsed-time advice is configurable.
+SIZE_LIMITS = {'rules': (8, 12), 'sequences': (2000, 10000)}
+
+
+def split_recipe(model):
+    return ('a staged model becomes a coarse parent plus one child per stage, a model of alternatives a dispatch parent plus one child per branch '
+            f'(PARENT = "{model}"; DISPATCH); different aspects, and parts other models also use, become independent models; '
+            'a test file that tests only this model is split with it (references/routes.md#Split a model)')
+
+
+def size_finding(model, kind, count):
+    soft, hard = SIZE_LIMITS[kind]
+    if count is None or count <= soft:
+        return None
+    unit = 'rules' if kind == 'rules' else 'explored sequences'
+    quantity = str(count) if kind == 'rules' else f'{count:,}'
+    limit = (lambda number: str(number)) if kind == 'rules' else (lambda number: f'{number:,}')
+    detail = (f'{quantity} {unit}, over the hard limit {limit(hard)}; split it in a target' if count>hard else
+              f'{quantity} {unit} (soft limit {limit(soft)}; split before {limit(hard)})')
+    return Finding('error' if count>hard else 'warn','large_model',model,detail+': '+split_recipe(model))
+
+
+def model_size_findings(root, data, inv, *, view=None):
+    from .modelstatic import rule_count
+    tree = build_tree(root, data, inv, view=view)
+    return [finding for mid, node in tree.nodes.items()
+            if (finding := size_finding(mid, 'rules', rule_count(root,node.path,view=view))) is not None]

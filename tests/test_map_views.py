@@ -1181,7 +1181,10 @@ def _quiet_fixture(name):
     directory = Path(__file__).parents[1] / ".flowguard/models"
     path = directory / (name + ".py")
     if not path.exists(): path = directory.parent / "target/models" / path.name
-    return runpy.run_path(str(path))
+    import sys
+    sys.path.insert(0,str(path.parent))
+    try: return runpy.run_path(str(path))
+    finally: sys.path.remove(str(path.parent))
 
 
 def test_closing_debt_hides_one_suggestion(tmp_path):

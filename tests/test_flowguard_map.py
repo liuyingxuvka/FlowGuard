@@ -1730,12 +1730,23 @@ def test_find_owners_edit_selects_its_models_and_test_functions(tmp_path):
         source=origin/relative
         if source.is_file():
             destination=tmp_path/relative;destination.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(source,destination)
+    # Promotion verifies the goal before replacing the current model files.
+    from flowguard.map.targetfile import load_target,build_target_view
+    active=load_target(origin)
+    if active is not None:
+        view=build_target_view(origin,load(origin),active)
+        (tmp_path/'.flowguard/map.json').write_text(json.dumps(view.data))
+        for current in (tmp_path/'.flowguard/models').glob('*.py'):
+            if view.resolve('.flowguard/models/'+current.name) is None:current.unlink()
+        for name in view.model_names:
+            physical=view.resolve('.flowguard/models/'+name+'.py')
+            if physical is not None:shutil.copyfile(physical,tmp_path/'.flowguard/models'/(name+'.py'))
     git(tmp_path,'init','-q');git(tmp_path,'add','.')
     git(tmp_path,'-c','user.name=FlowGuard','-c','user.email=model@example.invalid','commit','-qm','candidate baseline')
     path=tmp_path/'flowguard/map/views.py';path.write_text(path.read_text().replace('    return scored[:limit]','    scored = list(scored)\n    return scored[:limit]'))
     data=load(tmp_path);inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
     result=compute_impact(tmp_path,data,inv,['flowguard/map/views.py'],base='HEAD')
-    assert set(result.model_ids)=={'read_find','read_view'}
+    assert set(result.model_ids)=={'read_find'}
     assert result.tests==['tests/test_map_views.py']
     assert result.test_functions['tests/test_map_views.py']
     assert 'Find is flowguard/map/views.py:find_'+'owners' in render_impact(result)
@@ -1750,3 +1761,29 @@ def test_model_edit_keeps_bound_test_function_selection(tmp_path):
     assert result.test_functions=={'tests/test_core.py':['test_bound']}
     assert result.selected_test_functions==1
     assert not result.whole_test_files
+
+
+def test_large_model_seconds_is_validated():
+    from flowguard.map.mapfile import validate_map
+    data=dict(schema='flowguard.map.v1',components=[])
+    for value in (0,-1,'10',True,float('inf'),float('nan')):
+        assert 'large_model_seconds must be a positive number' in validate_map(dict(data,large_model_seconds=value))
+    assert not validate_map(dict(data,large_model_seconds=0.01))
+
+
+def test_readonly_git_index_preserves_racy_timestamp_detection(project):
+    """A disposable index must keep Git's original racy-clean timestamp window."""
+    import os,time
+    from flowguard.map.impact import changed_files
+    git(project,'config','core.trustctime','false')
+    git(project,'config','core.checkStat','minimal')
+    path=project/'shop/工具.py';write(project,'shop/工具.py','VALUE = 1\n')
+    timestamp=int(time.time())-10
+    os.utime(path,(timestamp,timestamp))
+    git(project,'add','-A')
+    git(project,'-c','user.email=a@b','-c','user.name=t','commit','-qm','timestamp baseline')
+    index=project/'.git/index';os.utime(index,(timestamp,timestamp))
+    path.write_text('VALUE = 2\n');os.utime(path,(timestamp,timestamp))
+    before=(index.read_bytes(),index.stat().st_mtime_ns)
+    assert 'shop/工具.py' in changed_files(project,'HEAD')
+    assert (index.read_bytes(),index.stat().st_mtime_ns)==before

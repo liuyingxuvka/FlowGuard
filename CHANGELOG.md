@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: model size warnings start above 8 rules or 2,000 explored sequences. More than 12 rules fails map checks; more than 10,000 sequences fails the model and cannot be waived. Time is advice only, configured by `large_model_seconds` (default 10). A single decision table can retain a reasoned soft-limit debt. Read views now have their own smaller models.
+
 - Projects using FlowGuard: `read --field NAME` lists a field’s writers, readers, rules and tests. Read shows relation counts, stage or branch labels and consumed outputs; Mermaid separates placement, composition and consumption. Architecture review lists central models and the models affected by their ports or code.
 
 - Projects using FlowGuard: `read --find path:function` names the model that owns the code, with its rules, port, parent chain and tests. A test location shows model bindings and called code; unbound direct callers can be found from a function. Word ranking stays the same and adds a model pointer.

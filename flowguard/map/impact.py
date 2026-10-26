@@ -988,7 +988,7 @@ def _read_git_paths(root, *arguments):
     if not source.is_absolute(): source=root/source
     with tempfile.TemporaryDirectory(prefix='flowguard-read-index-') as folder:
         index=Path(folder)/'index'
-        if source.exists(): shutil.copyfile(source,index)
+        if source.exists(): shutil.copy2(source,index)  # Preserve Git's racy-clean timestamp window.
         env=dict(os.environ,GIT_OPTIONAL_LOCKS='0',GIT_INDEX_FILE=str(index))
         result=subprocess.run(['git','-C',str(root),*arguments],env=env,capture_output=True,check=True)
         return [os.fsdecode(item) for item in result.stdout.split(b'\0') if item]
