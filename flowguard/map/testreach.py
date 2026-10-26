@@ -33,6 +33,9 @@ def main() -> int:
         def pytest_runtest_call(self, item):
             record = self.record(item.nodeid)
             record["entered"] = True
+            monitoring = getattr(sys, "monitoring", None)
+            if monitoring is not None:
+                monitoring.restart_events()  # DISABLE decisions belong to one test item only
             watch = AnchorWatch(root, request["anchors"], test_call=True)
             try:
                 with watch:

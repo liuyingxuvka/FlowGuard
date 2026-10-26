@@ -7,7 +7,8 @@ Two cheap facts bind the model to that code:
   symbol lookup, nothing is executed);
 * while the model runs, each anchor is consulted: its Python symbol is called
   (replay) or its file is read (code facts).  ``AnchorWatch`` sees both through
-  ``sys.settrace`` call events and the interpreter's ``open`` audit events.
+  ``sys.monitoring`` (Python 3.12+) or ``sys.settrace`` call events and
+  the interpreter's ``open`` audit events.
   Opening a file in order to import it is not a read.
 
 ``CodeFacts`` is the small static reader a model's ``conformance()`` uses to
@@ -74,6 +75,8 @@ class AnchorWatch:
         self._opened: set[str] = set()
         self._by_code: dict[str, dict[str, str]] = {}
         self._busy = False
+        self._tool_id = None
+        self._seen_codes = {}
 
     @staticmethod
     def _explicit_read(args) -> bool:
@@ -98,7 +101,9 @@ class AnchorWatch:
         return False
 
     def _record_call(self, frame) -> None:
-        code = frame.f_code
+        self._record_code(frame.f_code)
+
+    def _record_code(self, code) -> None:
         symbols = self._by_code.get(code.co_filename)
         if symbols is None:
             symbols = self._by_code[code.co_filename] = self._symbols.get(os.path.realpath(code.co_filename), {})
@@ -107,6 +112,17 @@ class AnchorWatch:
             for symbol, anchor in symbols.items():
                 if qualname == symbol or ("." not in symbol and qualname.startswith(symbol + ".")):
                     self.called.add(anchor)
+
+    def _monitor(self, code, instruction_offset):
+        identity = id(code)
+        if identity not in self._seen_codes:
+            self._seen_codes[identity] = code  # keep identities alive; code equality ignores its source filename
+            self._record_code(code)
+            if self in _ACTIVE:
+                for watch in _ACTIVE:
+                    if watch is not self and watch.test_call:
+                        watch._record_code(code)
+        return sys.monitoring.DISABLE
 
     def _trace(self, frame, event, arg):
         if event != "call":
@@ -136,7 +152,27 @@ class AnchorWatch:
         _ACTIVE.append(self)
         self._previous = sys.gettrace()
         self._previous_thread = threading.gettrace()
-        if self._symbols:
+        self._seen_codes.clear()
+        monitoring = getattr(sys, "monitoring", None)
+        if self._symbols and monitoring is not None:
+            for tool in (3, 4):
+                try:
+                    monitoring.use_tool_id(tool, "flowguard.anchorwatch")
+                except ValueError:  # reserved by an outer observer or another tool
+                    continue
+                try:
+                    monitoring.register_callback(tool, monitoring.events.PY_START, self._monitor)
+                    monitoring.set_events(tool, monitoring.events.PY_START)
+                    monitoring.restart_events()
+                except BaseException:
+                    monitoring.set_events(tool, 0)
+                    monitoring.register_callback(tool, monitoring.events.PY_START, None)
+                    monitoring.free_tool_id(tool)
+                    _ACTIVE.remove(self)
+                    raise
+                self._tool_id = tool
+                break
+        if self._symbols and self._tool_id is None:
             sys.settrace(self._trace)
             threading.settrace(self._trace)
         return self
@@ -144,9 +180,18 @@ class AnchorWatch:
     def __exit__(self, *exc) -> None:
         if not self._files:
             return
-        if self._symbols:
+        if self._tool_id is not None:
+            monitoring = sys.monitoring
+            tool, self._tool_id = self._tool_id, None
+            try:
+                monitoring.set_events(tool, 0)
+                monitoring.register_callback(tool, monitoring.events.PY_START, None)
+            finally:
+                monitoring.free_tool_id(tool)
+        elif self._symbols:
             sys.settrace(self._previous)
             threading.settrace(self._previous_thread)
+        self._seen_codes.clear()
         _ACTIVE.remove(self)
         imported = set() if self.test_call else _module_files() - self._before
         self.read_files |= {f for f in self._opened if f not in imported}

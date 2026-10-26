@@ -439,7 +439,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:9c5225bb84927d18afdc0c9e5d3263498809a35946208adcebd81c4fc3bea902"
+      "fingerprint": "sha256:07a9723ee3ba545ca488274c608b73e71bbd36b77a8b573368b1b33b404c0634"
     },
     {
       "id": "engine-explore",
@@ -887,6 +887,7 @@
   ],
   "fingerprint_format": 2,
   "model_digests": {
+    ".flowguard/models/anchor_watch.py": "7afcca6ffe9083ac7b4080d7e2fdeb683093cc3efb347d28fcfeba92feee44be",
     ".flowguard/models/change_selection.py": "808628d272422928178a674cbd6f2b3c310c0692d25ab769a94de2f7690b10fd",
     ".flowguard/models/component_pointer.py": "b25a08b1b10984cd31e049830c10516286887a561ec912df81da7bcd717caf1b",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",

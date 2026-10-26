@@ -339,6 +339,18 @@ def _fail(result: ModelResult, problem: str, *, code_gap: bool = False) -> None:
         result.code_gaps.append(problem)
 
 
+def _import_origin(root, anchor):
+    path = anchor.partition(":")[0]
+    expected = os.path.realpath(root / path)
+    dotted = path.removesuffix(".py").replace("/", ".").removesuffix(".__init__")
+    for name in dict.fromkeys((dotted, dotted.removeprefix("src."))):
+        module = sys.modules.get(name)
+        actual = getattr(module, "__file__", None)
+        if isinstance(actual, str) and os.path.realpath(actual) != expected:
+            return f" (imported {name} from {actual})"
+    return ""
+
+
 def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: AnchorWatch, where: str) -> None:
     """The one binding rule for contract models and runners: anchors are declared, resolve and are consulted."""
     anchors = contract.get("IMPLEMENTED_BY", {})
@@ -358,7 +370,7 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
     for anchor in watch.missing():
         if anchor not in problems and anchor in anchors.values():
             _fail(result, f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read {where}; "
-                          "call that code or read it as code facts")
+                          "call that code in conformance() or read it as code facts" + _import_origin(root, anchor))
     for anchor in sorted(set(uses.values()) - watch.called):
         _fail(result, f"USES anchor {anchor} never ran during conformance(); call it there or remove it")
     for anchor in watch.unobserved():
@@ -467,8 +479,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             for name in sorted(set(contract.get("TESTED_BY", {})) - invariant_names):
                 result.status = "fail"
                 result.problems.append(f"TESTED_BY names {name!r}, which is not an invariant of build_explorer()")
-            with calls:
-                report = design.explore()
+            report = design.explore()
             try:
                 result.hazards = model_hazards(design)
             except Exception as exc:
@@ -561,7 +572,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             elif "conformance" not in contract["functions"]:
                 _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
                               "or plan it as a target model (python -m flowguard target start)")
-            _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
+            _anchor_verdict(result, root, contract, calls, "during conformance()")
         except PlaceholderAnchorError as exc:
             _fail(result, str(exc))
         except (ImportError, ModuleNotFoundError) as exc:

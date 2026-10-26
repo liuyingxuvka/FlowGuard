@@ -1202,3 +1202,126 @@ def test_jobs_output_equals_sequential(tmp_path, capsys):
         output = capsys.readouterr().out
         outputs.append(re.sub(r"\s+\d+(?:\.\d+)?s", " <time>", output))
     assert outputs[0] == outputs[1] == outputs[2]
+
+
+# FG-407: actual native calls, item boundaries and the two observer backends.
+def _anchor_watch_helpers():
+    import runpy
+    directory = Path(__file__).resolve().parents[1] / ".flowguard/models"
+    if not (directory / "anchor_watch.py").is_file():
+        directory = directory.parent / "target/models"
+    return runpy.run_path(str(directory / "anchor_watch.py"))
+
+
+def test_anchor_called_only_in_explore_fails(tmp_path):
+    result = _anchor_watch_helpers()["native_probe"](tmp_path, "explore")
+    assert result.status == "fail", result.problems
+    assert ("IMPLEMENTED_BY anchor native_explore.py:ping never ran and its file was never read during conformance(); "
+            "call that code in conformance() or read it as code facts") in result.problems
+
+
+def test_anchor_called_in_worker_thread_is_consulted(tmp_path):
+    result = _anchor_watch_helpers()["native_probe"](tmp_path, "worker")
+    assert result.status == "pass", result.problems
+
+
+def test_anchor_file_read_is_consulted(tmp_path):
+    from flowguard.map.facts import AnchorWatch
+    path = tmp_path / "source.py"
+    path.write_text("def ping(): return 1\n")
+    watch = AnchorWatch(tmp_path, ["source.py:ping"])
+    with watch:
+        assert "ping" in path.read_text()
+    assert watch.consulted() == {"source.py:ping"}
+
+
+def _watch_native_module(tmp_path):
+    import importlib.util
+    path = tmp_path / "native_calls.py"
+    path.write_text("def ping(): return 1\n")
+    spec = importlib.util.spec_from_file_location("native_calls", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_test_call_watch_is_per_item(tmp_path):
+    from flowguard.map.facts import AnchorWatch
+    module = _watch_native_module(tmp_path)
+    watches = [AnchorWatch(tmp_path, ["native_calls.py:ping"], test_call=True) for _ in range(3)]
+    with watches[0]:
+        module.ping()
+    with watches[1]:
+        pass
+    with watches[2]:
+        module.ping()  # same code object, fresh item's disabled locations must restart
+    assert [watch.consulted() for watch in watches] == [{"native_calls.py:ping"}, set(), {"native_calls.py:ping"}]
+
+
+def test_shadowing_copy_names_the_imported_file(tmp_path, monkeypatch):
+    from contextlib import chdir
+    import importlib.util
+    import sys
+    from flowguard.map.proof import run_model_in_process
+    root = tmp_path / "project"
+    model = _anchor_watch_helpers()["make_probe"](root, "worker")
+    other = tmp_path / "other"
+    other.mkdir()
+    source = other / "native_worker.py"
+    source.write_text("def ping(): return 1\n")
+    spec = importlib.util.spec_from_file_location("native_worker", source)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    monkeypatch.setitem(sys.modules, "native_worker", module)
+    previous = sys.path[:]
+    old_probe = sys.modules.get("_flowguard_model_probe")
+    try:
+        with chdir(root):
+            result = run_model_in_process(root, model)
+    finally:
+        sys.path[:] = previous
+        if old_probe is None: sys.modules.pop("_flowguard_model_probe", None)
+        else: sys.modules["_flowguard_model_probe"] = old_probe
+    assert result.status == "fail", result.problems
+    assert any(f"(imported native_worker from {source})" in problem for problem in result.problems)
+
+
+def test_monitoring_slots_busy_falls_back_and_preserves_other_tools(tmp_path):
+    import sys
+    from flowguard.map.facts import AnchorWatch
+    if not hasattr(sys, "monitoring"):
+        pytest.skip("monitoring tool slots require Python 3.12+")
+    reserved = []
+    try:
+        for tool in (3, 4):
+            if sys.monitoring.get_tool(tool) is None:
+                sys.monitoring.use_tool_id(tool, "existing observer")
+                reserved.append(tool)
+        module = _watch_native_module(tmp_path)
+        watch = AnchorWatch(tmp_path, ["native_calls.py:ping"])
+        with watch:
+            assert watch._tool_id is None
+            module.ping()
+        assert watch.consulted() == {"native_calls.py:ping"}
+        assert all(sys.monitoring.get_tool(tool) == "existing observer" for tool in reserved)
+    finally:
+        for tool in reserved:
+            sys.monitoring.free_tool_id(tool)
+
+
+def test_identical_function_bodies_in_distinct_files_are_both_observed(tmp_path):
+    import importlib.util
+    from flowguard.map.facts import AnchorWatch
+    modules = []
+    for name in ("first", "second"):
+        path = tmp_path / (name + ".py")
+        path.write_text("def ping(): return 1\n")
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        modules.append(module)
+    watch = AnchorWatch(tmp_path, ["first.py:ping", "second.py:ping"])
+    with watch:
+        for module in modules:
+            module.ping()
+    assert watch.called == {"first.py:ping", "second.py:ping"}

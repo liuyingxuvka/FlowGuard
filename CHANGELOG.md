@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Observe anchors only during conformance, with low-overhead process-wide monitoring on Python 3.12+ and a tracing fallback.
+- Projects using FlowGuard: anchors called only by explore() now fail; drive the real code from conformance().
+
 - Rank an exact symbol match only when it matches the entire joined query, so incidental query words no longer hide the duty owner.
 
 - Enforce owned anchors within the resolved model scope consistently, and display checked read-only USES dependencies without counting them as ownership.
