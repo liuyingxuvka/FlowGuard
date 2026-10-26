@@ -1,4 +1,4 @@
-"""After an edit, select exactly the changed models, their importers, ancestors and review children.
+"""After an edit, select exactly the changed models, their importers and interface consumers.
 
 The fixture has two components, a parent importing a child and an underscore
 helper, and an explicit review child importing its parent. Test edits exercise
@@ -27,12 +27,9 @@ TESTED_BY = {
     "comments_select_no_checks": ["tests/test_flowguard_map.py:test_comment_only_edit_keeps_review_but_selects_no_checks"],
     "underscore_helper_not_blocked": ["tests/test_flowguard_map.py:test_impact_shared_test_binding_and_unknown_helper"],
     "model_importers_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
-    "model_ancestors_selected": ["tests/test_flowguard_map.py:test_change_selects_importers_and_ancestors_of_a_changed_model"],
     "unexplained_functions_listed": ["tests/test_flowguard_map.py:test_change_lists_unexplained_functions_of_changed_files"],
     "flow_models_selected": ["tests/test_flowguard_map.py:test_change_selects_the_model_of_a_flow_whose_step_changed"],
     "relied_models_selected": ["tests/test_flowguard_map.py:test_change_selects_models_whose_anchors_the_edit_calls"],
-    "selected_reviews_selected": ["tests/test_flowguard_map.py:test_change_selects_the_review_children_of_a_selected_model",
-                                  "tests/test_flowguard_map.py:test_change_selects_a_child_that_imports_its_parent_in_a_function"],
 }
 
 ALL = ("child", "parent", "review")
@@ -42,14 +39,14 @@ EXPECTED = {
     "comment": ((), ()),
     "child": (ALL, ("tests/test_child.py",)),
     "helper": (ALL, ()),
-    "test": (ALL, ("tests/test_child.py",)),
+    "test": (("child",), ("tests/test_child.py",)),
     "unused": ((), ()),
     # The parent model file really changes; its review child imports it inside a function.
     "parent_edit": (("parent", "review"), ("tests/test_parent.py",)),
     # api.py calls core.py:work, the anchor of all three models; api owns no model itself.
     "caller_edit": (ALL, ("tests/test_api.py", "tests/test_child.py", "tests/test_parent.py", "tests/test_review.py")),
     # jobs.py is the second step of flow chain (model child); jobs imports nothing from core.
-    "flow_step_edit": (ALL, ("tests/test_child.py", "tests/test_jobs.py")),
+    "flow_step_edit": (("child",), ("tests/test_child.py", "tests/test_jobs.py")),
 }
 PATHS = {"code": "core.py", "comment": "core.py", "child": ".flowguard/models/child.py",
          "helper": ".flowguard/models/_helper.py", "test": "tests/test_child.py",
@@ -78,10 +75,6 @@ class Select:
         result = State(event, models, tests, unexplained=UNEXPLAINED.get(event, ()))
         if self.defect == "ignore_importers" and event in {"child", "helper"}:
             result = replace(result, selected_models=tuple(x for x in models if x != "parent"))
-        elif self.defect == "ignore_ancestors" and event == "test":
-            result = replace(result, selected_models=tuple(x for x in models if x != "parent"))
-        elif self.defect == "ignore_reviews":
-            result = replace(result, selected_models=tuple(x for x in models if x != "review"))
         elif self.defect == "select_comments" and event == "comment":
             result = replace(result, selected_tests=("tests/test_core.py",))
         elif self.defect == "ignore_relied_models" and event == "caller_edit":
@@ -104,10 +97,6 @@ def _rule(name, relevant, predicate, message):
 INVARIANTS = (
     _rule("model_importers_selected", {"child", "helper"}, lambda state: "parent" in state.selected_models,
           "the importing parent was omitted"),
-    _rule("model_ancestors_selected", {"test"}, lambda state: "parent" in state.selected_models,
-          "the selected child's ancestor was omitted"),
-    _rule("selected_reviews_selected", {"code", "child", "helper", "test", "parent_edit"},
-          lambda state: "review" in state.selected_models, "the explicit importing review child was omitted"),
     _rule("comments_select_no_checks", {"comment"}, lambda state: not state.selected_models and not state.selected_tests,
           "a comment-only edit selected checks"),
     _rule("relied_models_selected", {"caller_edit"}, lambda state: set(ALL) <= set(state.selected_models),
@@ -133,7 +122,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("ignore_importers", "ignore_ancestors", "ignore_reviews", "select_comments", "block_helper",
+            ("ignore_importers", "select_comments", "block_helper",
              "ignore_relied_models", "ignore_flow_models", "hides_unexplained")}
 
 

@@ -312,3 +312,129 @@ def test_dispatch_parent_checks(tmp_path):
         root = tmp_path / kind
         data, inv = dispatch_project(root, kind)
         assert errors(root, data, inv) == {code}
+
+def escalation_model():
+    import sys
+    root = Path(__file__).parents[1] / '.flowguard'
+    current, target = root/'models', root/'target/models'
+    source = target/'port_escalation.py' if (target/'port_escalation.py').exists() else current/'port_escalation.py'
+    sys.path.insert(0, str(current))
+    try:
+        return runpy.run_path(str(source))
+    finally:
+        sys.path.pop(0)
+
+
+def test_rule_edit_selects_the_child_only(tmp_path):
+    impact, text = escalation_model()['native_case'](tmp_path, 'rule')
+    assert impact.model_ids == ['lending']
+    assert 'port: lending unchanged (this model only)' in text
+
+
+def test_output_change_selects_parent_not_grandparent(tmp_path):
+    impact, text = escalation_model()['native_case'](tmp_path, 'output')
+    assert impact.model_ids == ['consumer', 'desk', 'lending']
+    assert 'out +waitlisted -> verify desk (parent), consumer (HANDOFF)' in text
+    assert 'grand' not in impact.model_ids
+
+
+def test_reads_parent_change_selects_parent(tmp_path):
+    impact, text = escalation_model()['native_case'](tmp_path, 'reads')
+    assert impact.model_ids == ['desk', 'lending']
+    assert 'reads +answer -> verify desk (parent)' in text
+
+
+def _select_ports(tmp_path, mid, old, new):
+    from flowguard.map.port import model_port, port_selection
+    data, inv = project(tmp_path)
+    tree = build_tree(tmp_path, data, inv)
+    ports = {key: node.contract['port'] for key,node in tree.nodes.items()}
+    ports[mid] = new
+    return port_selection(mid, old, new, tree, ports)
+
+
+def test_handoff_edit_is_not_an_upward_change(tmp_path):
+    data, inv = project(tmp_path)
+    source = (tmp_path/'.flowguard/models/desk.py').read_text()
+    old = model_port(source)
+    new = replace(old, handoff={'lending': {'answer': ('answer', {'lent':'lent','refused':None})}})
+    from flowguard.map.port import port_selection
+    tree = build_tree(tmp_path,data,inv)
+    ports = {key: node.contract['port'] for key,node in tree.nodes.items()}
+    ports['desk'] = new
+    selected, text, _ = port_selection('desk',old,new,tree,ports)
+    assert not selected and text.startswith('port: desk unchanged (this model only); handoff lending')
+
+
+def test_reordered_outputs_are_unchanged(tmp_path):
+    source = 'OUTPUTS={"answer":("lent","refused")}\n'
+    selected,text,_ = _select_ports(tmp_path,'lending',model_port(source),model_port(source.replace('"lent","refused"','"refused","lent"')))
+    assert not selected and text == 'port: lending unchanged (this model only)'
+
+
+def test_missing_outputs_is_uncertain(tmp_path):
+    selected,text,_ = _select_ports(tmp_path,'lending',model_port('OUTPUTS={}'),model_port(''))
+    assert selected == [('desk','parent')]
+    assert text == 'UNCERTAIN port: lending declares no OUTPUTS; parent desk selected'
+
+
+def test_port_lines_without_git(tmp_path):
+    from flowguard.map.target import check_target, render_target_report
+    data, inv = project(tmp_path)
+    call = helpers()['call_target']
+    assert call(tmp_path,'start','clarify lending rule') == 0
+    assert call(tmp_path,'add','lending') == 0
+    path=tmp_path/'.flowguard/target/models/lending.py'
+    path.write_text(path.read_text().replace('the lending result is finite','the lending result stays finite'))
+    assert 'port: lending unchanged (this model only)' in render_target_report(check_target(tmp_path,models=False))
+    path.write_text(path.read_text().replace('("lent","refused")}','("lent","refused","waitlisted")}'))
+    report = check_target(tmp_path,models=False)
+    assert 'port changed: lending out +waitlisted -> verify desk (parent)' in render_target_report(report)
+    assert any(f.code=='port_changed_parent_missing' for f in report.errors)
+
+
+def test_dispatch_edit_is_not_an_upward_change(tmp_path):
+    from flowguard.map.target import check_target, render_target_report
+    data, inv = dispatch_project(tmp_path)
+    call = helpers()['call_target']
+    assert call(tmp_path,'start','add a command choice') == 0
+    assert call(tmp_path,'add','cmd') == 0
+    path=tmp_path/'.flowguard/target/models/cmd.py'
+    path.write_text(path.read_text().replace('"x":"a","y":"b"','"x":"a","y":"b","z":"z"'))
+    report=check_target(tmp_path,models=False)
+    assert 'port: cmd unchanged (this model only); dispatch +z (edge checked by map check)' in render_target_report(report)
+    assert any(f.code=='dispatch_without_child' for f in report.errors)
+    source=(tmp_path/'.flowguard/models/a.py').read_text().replace("MODEL_ID='a'", 'MODEL_ID="z"').replace('shelf/loans.py:borrow','shelf/loans.py:third')
+    (tmp_path/'.flowguard/target/models/z.py').write_text(source)
+    with (tmp_path/'shelf/loans.py').open('a') as f: f.write('def third(value): return "left"\n')
+    assert not any(f.code=='dispatch_without_child' for f in check_target(tmp_path,models=False).errors)
+
+
+def test_escalation_set_orders_parent_handoff_child_input():
+    from flowguard.map.port import Port, escalation_set
+    from flowguard.map.tree import ModelNode, ModelTree
+    nodes={mid:ModelNode(mid,mid+'.py','contract',parent,kind,'PARENT') for mid,parent,kind in (('m','p','model'),('p','system','component'),('k','system','component'),('c','m','model'))}
+    ports={'m':Port(outputs={'x':('v',)}),'p':Port(),'k':Port(handoff={'m':{'x':'seen'}}),'c':Port(reads_parent=('f',))}
+    assert escalation_set('m',ModelTree(nodes,{}),ports)==[('p','parent'),('k','HANDOFF'),('c','child input')]
+
+
+def test_escalation_state_and_uncertainty_are_conservative():
+    from flowguard.map.port import Port, port_delta, port_selection
+    from flowguard.map.tree import ModelNode, ModelTree
+    nodes={mid:ModelNode(mid,mid+'.py','contract',parent,kind,'PARENT') for mid,parent,kind in (('m','p','model'),('p','system','component'),('k','system','component'),('c','m','model'))}
+    tree=ModelTree(nodes,{})
+    old=Port(state=('f',),outputs={})
+    new=Port(state=('f','g'),outputs={'x':('v',)})
+    ports={'m':new,'p':Port(),'k':Port(handoff={'m':{'x':'seen'}}),'c':Port(reads_parent=('f',))}
+    chosen,text,_=port_selection('m',old,new,tree,ports)
+    assert chosen==[('p','parent'),('k','HANDOFF'),('c','child input')]
+    assert text=='port changed: m out +v state +g -> verify p (parent), k (HANDOFF), c (child input)'
+    assert not port_delta(Port(),Port(outputs={}))['out']
+    assert port_delta(Port(),new)['out']
+    unknown=replace(new,state=None,outputs={})
+    chosen,text,_=port_selection('m',old,unknown,tree,{**ports,'m':unknown})
+    assert chosen==[('c','child input')]
+    assert text=='UNCERTAIN port: m state unreadable; children reading it c selected'
+    chosen,text,_=port_selection('m',None,new,tree,ports,unavailable=True)
+    assert chosen==[('p','parent')]
+    assert text=='UNCERTAIN port: no git base for m; target check compared its port before promote; parent p selected'

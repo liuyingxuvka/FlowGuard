@@ -89,7 +89,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch commands and show quiet findings, separate proof and test times, and requested debt reasons.",
+      "summary": "Dispatch commands, including optional broad change selection, and show quiet findings and scoped verification commands.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3f1bc25dc3df9671f20954807fd2f8fb6fbd7b12f19addf3be6112bae9a492c0"
+      "fingerprint": "sha256:8957e9c4cb615343318108942ca45cbdab846d96991cd0549b313d33460ecfc4"
     },
     {
       "id": "public-api",
@@ -270,7 +270,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Own map schema, model scopes, static ports, strict model edges and read-only test classification.",
+      "summary": "Read model contracts and finite ports, check strict edges, and compute ordered direct consumers of an interface change.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -313,7 +313,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:ea64af550f5e8bc47f4491b6182e5f5a924bb77959ddb87fdbdf4eec0048ff5b"
+      "fingerprint": "sha256:d49976f4498eee0b73c6c0d3c1818e64440e89610bba327a89f5680b886b160a"
     },
     {
       "id": "map-discover",
@@ -353,7 +353,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Check target design and native gaps, name process models and promote one checked snapshot.",
+      "summary": "Compare target ports without git, select direct consumers, and require an output-changing child's parent in the target before promotion.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -382,6 +382,7 @@
       ],
       "depends_on": [
         "map-check",
+        "map-discover",
         "map-file",
         "map-inventory",
         "map-proof",
@@ -395,7 +396,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:46be073064acbd91ccc8b75dea4101f37351501ea7774e73ba93f04fa900abc0"
+      "fingerprint": "sha256:b5cfc251be1ad502e51564731ae88b92ea02d38426bd29554e6c6fe9f4943e21"
     },
     {
       "id": "map-proof",
@@ -784,7 +785,7 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select affected tests and models; summarize broad test selections without expanding their command lists.",
+      "summary": "Select changed models and importers, escalating only changed ports to direct consumers; broad mode includes all ancestors and review children.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select the models of relied anchors and flows a change touches"
@@ -810,7 +811,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:be4858c2629852be733df0b58bfe6a20942e301997f871b9e79ebdd047aedfd3"
+      "fingerprint": "sha256:55eeb2937fe2747a9635dc38ff09aa481336f38f80051d56dbc9812c53b0b106"
     }
   ],
   "flows": [
@@ -901,7 +902,7 @@
   "fingerprint_format": 2,
   "model_digests": {
     ".flowguard/models/anchor_watch.py": "7afcca6ffe9083ac7b4080d7e2fdeb683093cc3efb347d28fcfeba92feee44be",
-    ".flowguard/models/change_selection.py": "808628d272422928178a674cbd6f2b3c310c0692d25ab769a94de2f7690b10fd",
+    ".flowguard/models/change_selection.py": "19247ddf4f47431b1aa7504436ad1296793ed72dd6cc1b91a696e44254b98152",
     ".flowguard/models/component_pointer.py": "aa31cbb91704d1e777b61efeff18388425b6096b506b2a6eaa5b0132f9d32858",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
@@ -912,6 +913,7 @@
     ".flowguard/models/model_runs.py": "99f4920dc8a1bf8691c508bbedf4a0c60c8704b4edc3eb90a48b7764156256e7",
     ".flowguard/models/model_scope.py": "53ac974f51615d813c1716c66af5977e3dafed5df916f16fd92b6ce867b37ff0",
     ".flowguard/models/port_checks.py": "9ed28c23e94149bfb9efca43d513d28b73589f7f1abc1cba6593045fbf56a344",
+    ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
     ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
     ".flowguard/models/read_component.py": "fc9831558370ead56bc2389bc74a1d54e859cb0b29703004c2351c9e528e0c07",
     ".flowguard/models/read_find.py": "a9b4737b68b209a151b129c5d4727ed8c6d2edd66ea8722d538c2cd8dbece7a4",
@@ -922,7 +924,7 @@
     ".flowguard/models/scan_coverage.py": "038f0fc2b02776002ae8e744731989dfea780f06fbd145f5234fddfe98e3a8f7",
     ".flowguard/models/shard_partition.py": "d17147a9f90a46f1992cd88e467bb20d86981eb10690851f6712a468e96a5599",
     ".flowguard/models/target_add.py": "8612d053e64896b01f06a7db700148cf244a28157bda8374cc16db893b177666",
-    ".flowguard/models/target_findings.py": "8ffb96c04069019d3e08f0ab0109520c79b5cac8f1d93b3a26eff41e818f62c7",
+    ".flowguard/models/target_findings.py": "791a559b672a53e74dc3ee7da7b3434f89e399cd00e63b85a3b2c63b177bd55d",
     ".flowguard/models/target_life_cycle.py": "0fe92df6ae8811de836088088772a6358de363116e0db0d17c44c080a54bf19a",
     ".flowguard/models/target_promotion.py": "4c10ab6e51a21afa0c78dc4e39595c40ee58f2b401f3aa3c380651e0f38c5d11",
     ".flowguard/models/test_binding.py": "d20c3f9b65569e8f1382d17ea6400f423b547c538e97cbf817d44361041abd45",

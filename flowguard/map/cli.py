@@ -220,7 +220,7 @@ def cmd_change(root: Path, a) -> int:
     data, inv = _context(root)
     changes = a.files or changed_files(root, a.base)
     findings = run_check(root, data, inv)
-    imp = compute_impact(root, data, inv, changes, base=a.base)
+    imp = compute_impact(root, data, inv, changes, base=a.base, broad=getattr(a, "broad", False))
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)
     target = _active_target(root, data)
     findings = moving_to_target(findings, root, data, target)

@@ -49,6 +49,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("--budget", type=_budget, default=8000, metavar="N",
                        help="max characters printed (default 8000, like map show --budget; at least 200)")
     elif verb == "change":
+        p.add_argument("--broad", action="store_true", help="include all ancestors and review models")
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
         p.add_argument("--run", action="store_true", help="then run the selected tests and models, one RAN line each")

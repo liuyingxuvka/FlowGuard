@@ -45,6 +45,7 @@ class Impact:
     review_models: dict[str, list[str]] = field(default_factory=dict)
     relied_models: list[str] = field(default_factory=list)     # "<model> via <owner>:<anchor symbol>"
     flow_models: list[str] = field(default_factory=list)       # "flow <id>: step <n> changed; model <M>"
+    port_lines: list[str] = field(default_factory=list)
     unexplained: list[str] = field(default_factory=list)       # "<component>: <path:symbol> (<entrypoint|state writer>)"
 
     def to_dict(self) -> dict:
@@ -221,7 +222,7 @@ def _uses_function_changed(root, base, path, symbol):
 
 
 def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
-                   *, base: str | None = None) -> Impact:
+                   *, base: str | None = None, broad: bool = False) -> Impact:
     """Select source caller closure; test/model edits retain only their explicit links."""
     if depth is not None and depth < 0:
         raise ValueError("impact depth must be nonnegative")
@@ -485,18 +486,47 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     for model in selected_model_paths:
         if model in changed:
             tests.update(contract_tests.get(model, ()))
-    while True:
-        ancestors = {tree.nodes[mid].path for path in selected_model_paths if path in registered
-                     for mid in tree.ancestors(registered[path].id)}
-        selected_ids = {registered[path].id for path in selected_model_paths if path in registered}
-        review_children = {node.path for node in tree.nodes.values()
-                           if node.kind == "contract" and node.source == "PARENT" and node.parent_kind == "model"
-                           and node.parent in selected_ids and node.parent in tree.nodes
-                           and tree.nodes[node.parent].path in node.import_files | node.local_import_files}
-        expanded = ancestors | review_children
-        if expanded <= selected_model_paths:
-            break
-        selected_model_paths.update(expanded)
+    from .port import model_port, port_selection, code_callers
+    ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
+    port_lines = []
+    for path in top_model_files:
+        if path in comment_only or path in removed or path not in registered:
+            continue
+        mid = registered[path].id
+        if mid not in ports:
+            continue
+        blob = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True) if base else None
+        available = blob is not None and blob.returncode == 0
+        missing = False
+        if blob is not None and not available:
+            # Distinguish an actual new file from an unavailable revision/repository.
+            missing = subprocess.run(["git", "-C", str(root), "rev-parse", "--verify", base], capture_output=True).returncode == 0
+        try:
+            previous_port = model_port(normalize_newlines(blob.stdout)) if available else None
+        except (SyntaxError, ValueError, TypeError):
+            previous_port, available, missing = None, False, False
+        chosen, line, _ = port_selection(mid, previous_port, ports[mid], tree, ports,
+                                         new_model=missing, unavailable=not available and not missing)
+        if '(no model consumer)' in line:
+            from .discover import discover_inventory
+            scope = {path for cid in tree.nodes[mid].components if cid in by_id for path in component_files(by_id[cid], inv)}
+            callers = code_callers(discover_inventory(root, inv, data=data), tree.nodes[mid], scope)
+            line = line.replace('(no model consumer)', '(no model consumer; code callers: ' + (', '.join(callers) or '-') + ')')
+        port_lines.append(line)
+        selected_model_paths.update(tree.nodes[chosen_id].path for chosen_id, _ in chosen)
+    if broad:
+        while True:
+            ancestors = {tree.nodes[mid].path for path in selected_model_paths if path in registered
+                         for mid in tree.ancestors(registered[path].id)}
+            selected_ids = {registered[path].id for path in selected_model_paths if path in registered}
+            review_children = {node.path for node in tree.nodes.values()
+                               if node.kind == "contract" and node.source == "PARENT" and node.parent_kind == "model"
+                               and node.parent in selected_ids and node.parent in tree.nodes
+                               and tree.nodes[node.parent].path in node.import_files | node.local_import_files}
+            expanded = ancestors | review_children
+            if expanded <= selected_model_paths:
+                break
+            selected_model_paths.update(expanded)
     models = []
     selected_model_paths.difference_update(retired)
     id_counts: dict[str, int] = defaultdict(int)
@@ -563,7 +593,7 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
         uncertainty=uncertainty, blocked=sorted(set(blocked)), map_review=sorted(map_review),
         model_ids=[registered[m].id for m in models], test_commands=test_commands, no_checks=no_checks,
         comment_only=comment_only, relied_models=relied, flow_models=flow_lines,
-        unexplained=list(dict.fromkeys(unexplained)),
+        unexplained=list(dict.fromkeys(unexplained)), port_lines=port_lines,
     )
 
 
@@ -619,6 +649,7 @@ def render_impact(imp: Impact, *, moving_models: set[str] | None = None) -> str:
     lines.extend("relies on: " + item for item in imp.relied_models[:5])
     if len(imp.relied_models) > 5:
         lines.append(f"relies on: +{len(imp.relied_models) - 5} more")
+    lines.extend(imp.port_lines)
     lines.append(f"models to run: {len(models)} selected (full list: python -m flowguard map impact --json)" if len(models) > 8
                  else f"models to run: {', '.join(models) or '-'}")
     if moving:

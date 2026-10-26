@@ -1046,12 +1046,17 @@ def test_change_selects_importers_and_ancestors_of_a_changed_model(impact_projec
     write(root, '.flowguard/models/_leaf.py', 'VALUE = 1\n')
     write(root, '.flowguard/models/_unused.py', 'VALUE = 2\n')
     path = '.flowguard/models/' + changed
-    impact = impact_of(root, data, [path])
+    impact = impact_of(root, data, [path], broad=True)
     assert set(impact.model_ids) == expected
     assert impact.tests == tests  # added importers/ancestors do not add their TESTED_BY tests
     assert not impact.direct and not impact.dependents and not impact.blocked
     assert impact.no_checks == ([path] if changed == '_unused.py' else [])
 
+
+    # Reverse model imports remain selected even without the broad ancestry loop.
+    direct = impact_of(root, data, [path])
+    if changed in {"child.py", "_shared.py", "_leaf.py"}:
+        assert {"child", "parent"} <= set(direct.model_ids)
 
 @pytest.mark.parametrize("debt_style", ["members", "legacy"])
 def test_check_and_lint_report_cycles_with_the_shortest_import_path(tmp_path, capsys, debt_style):
@@ -1105,7 +1110,7 @@ def test_change_selects_the_review_children_of_a_selected_model(impact_project):
         if mid == "target":
             text += 'IMPLEMENTED_BY = {"save": "shop/storage.py:save"}\n'
         write(root, f'.flowguard/models/{mid}.py', text)
-    impact = impact_of(root, data, ["shop/storage.py"])
+    impact = impact_of(root, data, ["shop/storage.py"], broad=True)
     assert {"target", "review", "second_review"} <= set(impact.model_ids)
     assert "child" not in impact.model_ids
     assert not impact.blocked

@@ -34,6 +34,7 @@ IMPLEMENTED_BY = {
     "Classify": "flowguard/map/target.py:check_target",
 }
 TESTED_BY = {
+    "port_change_needs_parent": ["tests/test_flowguard_target.py:test_port_change_without_parent_is_an_error"],
     "design_mistakes_are_errors": [
         "tests/test_flowguard_target.py:test_dropping_a_responsibility_is_owner_dropped",
     ],
@@ -85,11 +86,13 @@ CASES = (
          True, "target", "warn"),
     Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
          "current", "error"),
+    Case("port_parent_missing", "a target child output changes without its parent", True, "target", "error"),
 )
 
 
 # Each known-bad variant routes one case to the wrong bucket.
 DEFECTS = {
+    "parent_missing_is_todo": ("port_parent_missing", "todo"),
     "unplanned_error_downgraded": ("unplanned_current", "info"),
     "strict_error_downgraded": ("strict_current", "info"),
     "design_error_as_todo": ("design_failure", "todo"),
@@ -137,6 +140,8 @@ def _rule(name, events, predicate, message):
 
 
 INVARIANTS = (
+    _rule("port_change_needs_parent", {"port_parent_missing"}, lambda state: state.bucket == "error",
+          "a changed output without its parent must be ERROR"),
     _rule("design_mistakes_are_errors", DESIGN, lambda state: state.bucket == "error",
           "a design mistake of the target was not an ERROR"),
     _rule("missing_code_is_todo", {"code_gap"}, lambda state: state.bucket == "todo",
@@ -258,6 +263,16 @@ def _current_case(root, case):
 def observe_case(case):
     """One fresh bounded native filesystem/proof case, no fixture verdict reuse."""
     with TemporaryDirectory(prefix="target-findings-") as directory:
+        if case.name == "port_parent_missing":
+            from _target_fixture import make_port_project, call_target
+            root = Path(directory)
+            make_port_project(root)
+            assert call_target(root, "start", "extend lending outputs") == 0
+            assert call_target(root, "add", "lending") == 0
+            path = root / ".flowguard/target/models/lending.py"
+            path.write_text(path.read_text().replace('("lent","refused")}', '("lent","refused","waitlisted")}'))
+            report = native.check_target(root, models=False)
+            return _unique_bucket(report, code="port_changed_parent_missing"), repr(report)
         root = make_project(Path(directory))
         if case.phase in ("current", "strict-current"):
             return _current_case(root, case)

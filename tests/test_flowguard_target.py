@@ -2279,3 +2279,22 @@ def test_in_place_edit_without_target_is_named(tmp_path):
     p.write_text(p.read_text() + "\n# unplanned edit\n")
     assert len(model_edit_findings(tmp_path, data, "warn")) == 1
     assert model_edit_findings(tmp_path, data, "error")[0].level == "error"
+
+
+def test_port_change_without_parent_is_an_error(tmp_path):
+    import runpy
+    from flowguard.map.target import check_target
+    fixture = runpy.run_path(str(Path(__file__).parents[1]/".flowguard/models/_target_fixture.py"))
+    fixture["make_port_project"](tmp_path)
+    call = fixture["call_target"]
+    assert call(tmp_path,"start","extend lending outputs") == 0
+    assert call(tmp_path,"add","lending") == 0
+    path = tmp_path/".flowguard/target/models/lending.py"
+    path.write_text(path.read_text().replace('("lent","refused")}', '("lent","refused","waitlisted")}'))
+    report = check_target(tmp_path,models=False)
+    findings = [f for f in report.errors if f.code == "port_changed_parent_missing"]
+    assert len(findings) == 1
+    assert findings[0].message == "the target changes the port of lending (out +waitlisted) but not its parent desk; python -m flowguard target add desk, then make desk receive 'waitlisted' (a CHECK step that takes it; with a full-form HANDOFF entry, also map it there)"
+    assert not (tmp_path/".flowguard/target/models/desk.py").exists()
+    assert call(tmp_path,"add","desk") == 0
+    assert not any(f.code == "port_changed_parent_missing" for f in check_target(tmp_path,models=False).errors)

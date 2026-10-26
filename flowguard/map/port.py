@@ -549,3 +549,94 @@ def run_findings(model_id, design, report, port, tree, ports):
                 if key not in receiving and output_kinds.get(key) != "aggregate":
                     add("parent_output_not_from_child", f"parent_output_not_from_child: {model_id} hands up {key}, which no child output goes into and no block of {model_id} computes from a received value")
     return out
+
+def escalation_set(model_id: str, tree, ports: dict[str, Port], *, out: bool = True, state: bool = True) -> list[tuple[str, str]]:
+    """The sole ordered index of parent, explicit consumer and child-input edges."""
+    node = tree.nodes.get(model_id)
+    result = []
+    if node is None:
+        return result
+    if out:
+        if node.parent_kind == "model" and node.parent in ports:
+            result.append((node.parent, "parent"))
+        result.extend((mid, "HANDOFF") for mid in sorted(ports) if mid != model_id and mid != node.parent
+                      and model_id in (ports[mid].handoff or {}))
+    if state:
+        result.extend((child.id, "child input") for child in tree.children(model_id, "model")
+                      if child.id in ports and ports[child.id].reads_parent)
+    return result
+
+
+def _set_delta(before, after):
+    return " ".join([*("+" + str(v) for v in sorted(set(after) - set(before), key=str)),
+                     *("-" + str(v) for v in sorted(set(before) - set(after), key=str))])
+
+
+def port_selection(model_id, old, new, tree, ports, *, new_model=False, unavailable=False):
+    """Compare current bytes; return direct edge selections and their user-facing reason."""
+    node = tree.nodes[model_id]
+    parent = node.parent if node.parent_kind == "model" else None
+    if unavailable:
+        selected = [(mid, reason) for mid, reason in escalation_set(model_id, tree, ports, state=False) if reason == "parent"]
+        return selected, (f"UNCERTAIN port: no git base for {model_id}; target check compared its port before promote; parent {parent} selected"
+                          if parent else f"UNCERTAIN port: no git base for {model_id}; target check compared its port before promote; no model parent"), ""
+    if parent and new.outputs is None:
+        return [(mid, reason) for mid, reason in escalation_set(model_id, tree, ports, state=False) if reason == "parent"], f"UNCERTAIN port: {model_id} declares no OUTPUTS; parent {parent} selected", ""
+    old = old or Port()
+    delta = port_delta(old, new)
+    output_change = new_model or delta['out']
+    readers = escalation_set(model_id, tree, ports, out=False)
+    state_change = bool(readers) and delta['state']
+    selected = escalation_set(model_id, tree, ports, out=output_change, state=state_change)
+    if delta['reads']:
+        parent_pair = [(mid, reason) for mid, reason in escalation_set(model_id, tree, ports, state=False) if reason == 'parent']
+        selected = list(dict.fromkeys(parent_pair + selected))
+    parts = []
+    if new_model:
+        parts.append('new model')
+    if delta['out']:
+        if old.outputs is None and new.outputs:
+            parts.append('out declared')
+        else:
+            before = {v for values in (old.outputs or {}).values() for v in values}
+            after = {v for values in (new.outputs or {}).values() for v in values}
+            changes = _set_delta(before, after)
+            parts.append('out ' + (changes or '(fields changed)'))
+    if delta['reads']:
+        parts.append('reads ' + _set_delta(old.reads_parent, new.reads_parent))
+    uncertain = state_change and (old.state is None or new.state is None)
+    if state_change and not uncertain:
+        parts.append('state ' + _set_delta(old.state, new.state))
+    edge = []
+    if delta['handoff']:
+        for producer in sorted(set(old.handoff or {}) | set(new.handoff or {})):
+            previous, after = (old.handoff or {}).get(producer, {}), (new.handoff or {}).get(producer, {})
+            if previous != after:
+                edge.append('handoff ' + producer + ' ' + (_set_delta(previous, after) or '(mapping changed)'))
+    if delta['keeps']:
+        edge.append('keeps ' + _set_delta(old.keeps, new.keeps))
+    if delta['dispatch']:
+        before = {v for values in (old.dispatch or {}).values() for v in values}
+        after = {v for values in (new.dispatch or {}).values() for v in values}
+        edge.append('dispatch ' + (_set_delta(before, after) or '(mapping changed)'))
+    description = ' '.join(parts)
+    if parts:
+        consumers = ', '.join(f'{mid} ({reason})' for mid, reason in selected) or '(no model consumer)'
+        line = f'port changed: {model_id} {description} -> verify {consumers}'
+    else:
+        line = f'port: {model_id} unchanged (this model only)'
+    if edge:
+        line += '; ' + '; '.join(edge) + ' (edge checked by map check)'
+    if uncertain:
+        note = f"UNCERTAIN port: {model_id} state unreadable; children reading it {', '.join(mid for mid, _ in readers)} selected"
+        line = note if not parts else line + '\n' + note
+    return selected, line, description
+
+
+def code_callers(raw, node, scope):
+    """At most three direct calls to owned code from outside the model's scope."""
+    anchors = [anchor.partition(":") for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()]
+    return sorted({caller.replace("#", ":", 1) for caller, callees in raw.get("edges", {}).items()
+                   if caller.partition("#")[0] not in scope
+                   and any(path == callee.partition("#")[0] and (callee.partition("#")[2] == symbol or callee.partition("#")[2].startswith(symbol + "."))
+                           for callee in callees for path, _, symbol in anchors)})[:3]

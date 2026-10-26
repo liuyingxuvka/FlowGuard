@@ -58,7 +58,7 @@ ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_co
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
                "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model", "component_parent_unknown", "component_parent_cycle",
-               "component_parent_layer", "target_noop", "target_goal_untied"}
+               "component_parent_layer", "target_noop", "target_goal_untied", "port_changed_parent_missing"}
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,7 @@ class TargetReport:
     bound_tests: bool = False
     goal_rules: str = ""
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
+    port_lines: list[str] = field(default_factory=list)
     deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
 
 
@@ -163,9 +164,10 @@ def _selected_models(root, current, target, view, inv, tree):
     old = build_tree(root, current, inv)
     links = {}
     for source_tree in (old, tree):
-        for source, destinations in source_tree.imports.items():
-            for destination in destinations:
-                links.setdefault(destination, set()).add(source)
+        for imports in (source_tree.imports, source_tree.local_imports):
+            for source, destinations in imports.items():
+                for destination in destinations:
+                    links.setdefault(destination, set()).add(source)
     reached = {f".flowguard/models/{filename}" for filename in target.models}
     reached.update(node.path for node in old.nodes.values() if node.id in target.remove["model"])
     pending = list(reached)
@@ -173,7 +175,22 @@ def _selected_models(root, current, target, view, inv, tree):
         for adjacent in links.get(pending.pop(), set()) - reached:
             reached.add(adjacent)
             pending.append(adjacent)
+    for _, _, chosen, _ in _target_ports(root, old, target, tree):
+        reached.update(tree.nodes[mid].path for mid, _ in chosen)
     return sorted(node.id for node in tree.nodes.values() if node.path in reached)
+
+
+def _target_ports(root, old, target, tree):
+    from .port import port_selection
+    ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
+    paths = {f".flowguard/models/{filename}" for filename in target.models}
+    for mid, node in sorted(tree.nodes.items()):
+        if node.path not in paths or mid not in ports:
+            continue
+        previous = old.nodes.get(mid)
+        before = previous.contract.get("port") if previous else None
+        chosen, line, description = port_selection(mid, before, ports[mid], tree, ports, new_model=previous is None)
+        yield mid, line, chosen, (before, ports[mid], description)
 
 
 def _finding_node(finding, tree):
@@ -278,6 +295,27 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False) -> Tar
     for name, changed, edges in architecture_variants(view.data, graph):
         if not any(f.level == "error" for f in architecture_findings(changed, edges)):
             add("errors", "target", "known_bad_passed", f"generated known-bad variant {name!r} passed: architecture rules do not catch it")
+    from .port import escalation_set, port_delta
+    old_tree = build_tree(root, current, inv)
+    ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
+    target_ids = {mid for mid, node in tree.nodes.items() if node.path in target_model_paths(root, current, target)}
+    for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):
+        if '(no model consumer)' in line:
+            from .discover import discover_inventory
+            from .port import code_callers
+            from .mapfile import component_files
+            scope = {path for comp in view.data['components'] if comp['id'] in tree.nodes[mid].components for path in component_files(comp, inv)}
+            callers = code_callers(discover_inventory(root, inv, data=view.data, write_cache=False), tree.nodes[mid], scope)
+            line = line.replace('(no model consumer)', '(no model consumer; code callers: ' + (', '.join(callers) or '-') + ')')
+        report.port_lines.append(line)
+        if before is None or port_delta(before, after)['out']:
+            for parent, reason in escalation_set(mid, tree, ports, state=False):
+                if reason == "parent" and parent not in target_ids:
+                    old_values = {v for values in (before.outputs or {}).values() for v in values} if before else set()
+                    values = [v for items in (after.outputs or {}).values() for v in items if v not in old_values]
+                    value = str(values[0]) if values else "the changed output"
+                    add("errors", "model " + mid, "port_changed_parent_missing",
+                        f"the target changes the port of {mid} ({description}) but not its parent {parent}; python -m flowguard target add {parent}, then make {parent} receive '{value}' (a CHECK step that takes it; with a full-form HANDOFF entry, also map it there)")
     if not models:
         return report
     from .proof import run_models
@@ -422,6 +460,7 @@ def render_target_report(report: TargetReport) -> str:
     if report.goal_rules:
         lines.append(report.goal_rules)
     lines.extend(report.gaps)
+    lines.extend(report.port_lines)
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
         for finding in findings:
             if finding.code == "no_gap":

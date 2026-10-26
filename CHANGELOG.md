@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `change` checks direct port consumers when an interface changes, rather than always adding ancestors. `--broad` preserves the wider selection. A target that changes a child's outputs must also include its parent, with a command explaining how to add it.
+
 - Check actual State writes and declared finite outputs, and require strict parent/child receipts, inputs and field coverage. Focused reads show each model's port.
 - Projects using FlowGuard: `writes` is now checked. `OUTPUTS` declares results; `HANDOFF` receives them; `READS_PARENT` names child inputs; `KEEPS` reserves orchestration fields; `DISPATCH` requires one branch child for every selected alternative.
 
