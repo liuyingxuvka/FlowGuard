@@ -770,11 +770,11 @@ def _definitions(root: Path, logical: str, syntax, view=None):
     return ({name: static.rule_defs.get(name) for name in rules}, {name: static.bad_defs.get(name) for name in bad})
 
 
-def target_goal_rules(root: Path, target, view=None) -> list[str]:
+def target_goal_rules(root: Path, target, view=None, *, current_data=None) -> list[str]:
     """Compare rule definitions globally; a moved name acquires at most one new owner."""
     from .mapfile import load_map, model_registry
     from .targetfile import build_target_view
-    current = load_map(root)
+    current = load_map(root) if current_data is None else current_data
     view = view or build_target_view(root, current, target)
     def definitions(data, planned=None):
         found = {}
@@ -854,7 +854,7 @@ def goal_rules_line(root: Path, current_data: dict, target, view) -> tuple[str, 
     """(the ``goal rules:`` line, goal items, promise changes) shared by target check and read --target."""
     from .targetfile import target_promise_changes
 
-    goal = target_goal_rules(root, target, view)
+    goal = target_goal_rules(root, target, view, current_data=current_data)
     promises = target_promise_changes(current_data, view.data, target)
     line = "goal rules: " + "; ".join(goal) if goal else "goal rules: none" if promises else NO_PROMISE_GOAL
     return line, goal, promises
