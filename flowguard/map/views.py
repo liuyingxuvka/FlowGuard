@@ -833,11 +833,11 @@ def closest_owners(data: dict, words: list[str], limit: int = 3) -> list[tuple[s
 
 
 def defined_symbols(component: dict, inv: Inventory, words: list[str]) -> list[tuple[str, str]]:
-    """Exact raw-name matches, including the final name of a class member."""
-    raw = {word.lower() for word in words}
+    """Match the joined query to a whole symbol or its final member name."""
+    query = "".join(part for word in words for part in word.split()).lower().replace("_", "")
     return sorted((symbol, path) for path in component_files(component, inv) if path in inv.py
                   for symbol in inv.py[path].symbols
-                  if symbol.lower() in raw or symbol.rsplit(".", 1)[-1].lower() in raw)
+                  if symbol.lower().replace("_", "") == query or symbol.rsplit(".", 1)[-1].lower().replace("_", "") == query)
 
 
 def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) -> list[tuple[int, str, list[str]]]:

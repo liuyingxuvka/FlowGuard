@@ -1156,3 +1156,20 @@ def test_read_header_counts_debts_that_cover_size_warnings(tmp_path):
     data['accepted_debts'] = [dict(code='too_many_responsibilities', component='busy', reason='one table of duties')]
     head = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000).splitlines()[0]
     assert '0 warning(s), 1 accepted debt(s)' in head, head
+
+
+def test_find_bonus_needs_the_joined_query():
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map, ignore_patterns
+    from flowguard.map.views import defined_symbols
+    root = Path(__file__).resolve().parents[1]
+    data = load_map(root)
+    inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
+    queries = {"promote target": "map-target", "target check environment error blocks promotion": "map-target", "find_owners": "map-read"}
+    for query, cid in queries.items():
+        assert find_owners(data, inv, query.split())[0][1] == cid
+    owner = next(c for c in data["components"] if c["id"] == "map-target")
+    for query in ("promote target", "promote_target", "PromoteTarget"):
+        assert any(name == "promote_target" for name, _ in defined_symbols(owner, inv, query.split()))
+    generic = next(c for c in data["components"] if c["id"] == "map-file")
+    assert not defined_symbols(generic, inv, ["promote", "target"])

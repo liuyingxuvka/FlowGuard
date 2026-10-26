@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rank an exact symbol match only when it matches the entire joined query, so incidental query words no longer hide the duty owner.
+
 - Enforce owned anchors within the resolved model scope consistently, and display checked read-only USES dependencies without counting them as ownership.
 - Projects using FlowGuard: anchor_outside_home replaces child_outside_parent; bind code read-only with USES when the model consumes it.
 
