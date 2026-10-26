@@ -1,0 +1,40 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-414: Read shows a field's life cycle and the three relation kinds with the hub models",
+  "components": [
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Locate owned code and reverse test bindings without importing models; show bounded facets, ports and parent chains.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_map_views.py",
+        "tests/test_relation_graph.py"
+      ],
+      "models": []
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
