@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-408: Adapt the warning fixture to conditional test binding",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
