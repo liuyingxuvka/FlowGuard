@@ -228,3 +228,15 @@ def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys)
     path.write_text("def answer(): return 2\n")
     assert main(["change", "--root", str(tmp_path), "app.py", "--run"]) == 0
     assert capsys.readouterr().out.rstrip().endswith("next: python -m flowguard map confirm app")
+
+
+def test_find_unknown_symbol_exits_one(tmp_path,capsys):
+    import runpy
+    from flowguard.__main__ import main
+    directory=ROOT/'.flowguard'
+    pending=directory/'target/models/_locate_fixture.py'
+    fixture=runpy.run_path(str(pending if pending.exists() else directory/'models/_locate_fixture.py'))
+    fixture['fixture'](tmp_path)
+    assert main(['read','--root',str(tmp_path),'--find','api.py:missing'])==1
+    output=capsys.readouterr().out
+    assert output.startswith("no symbol 'missing' in api.py; symbols:")

@@ -899,3 +899,14 @@ def literal_sites(text) -> list[tuple[str, int, str]]:
                 role='compare'
         found.append((node.value,node.lineno,node.col_offset,role))
     return [(value,line,role) for value,line,column,role in sorted(found,key=lambda item:(item[1],item[2]))]
+
+
+def reachable_functions(edges, start):
+    """Operation-local transitive calls; no retained reachability index."""
+    pending, found = [start], set()
+    while pending:
+        node = pending.pop()
+        if node not in found:
+            found.add(node)
+            pending.extend(edges.get(node, ()))
+    return found

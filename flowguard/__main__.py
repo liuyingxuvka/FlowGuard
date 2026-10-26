@@ -41,7 +41,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
     if verb == "read":
         group = p.add_mutually_exclusive_group()
         group.add_argument("--component", help="show one component in detail")
-        group.add_argument("--find", nargs="+", metavar="WORD", help="which component owns this responsibility")
+        group.add_argument("--find", nargs="+", metavar="WORD", help="words, a location path[:symbol], or a test path[::test]")
         p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
         p.add_argument("--target", action="store_true", help="show changes made by the target (incompatible with --find)")
         p.add_argument("--review", action="store_true",

@@ -705,13 +705,9 @@ def _no_git_changes(root, data=None, inv=None):
     return ChangedFiles(paths,note)
 
 def _closure(edges, start):
-    pending, found = [start], set()
-    while pending:
-        node = pending.pop()
-        if node not in found:
-            found.add(node)
-            pending.extend(edges.get(node, ()))
-    return found
+    # Keep the internal call site compatible; discovery owns reachability for all views.
+    from .discover import reachable_functions
+    return reachable_functions(edges, start)
 
 
 def _changed_symbols(root, inv, changed, base, raw):

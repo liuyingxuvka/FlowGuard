@@ -89,7 +89,7 @@
     {
       "id": "cli",
       "layer": "interface",
-      "summary": "Dispatch daily commands and run function-scoped or explicitly broad change checks.",
+      "summary": "Dispatch daily commands; read --find accepts words, source locations or test locations and names the model to change.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a273a47c208bb1c0667515971dc006395d3e1c90fc0d4d3bbadf20b941bf44a8"
+      "fingerprint": "sha256:8c4e7188882b4b35cd96563da2297ebcc2ec571e4e3e06969bd530c052bea94a"
     },
     {
       "id": "public-api",
@@ -319,7 +319,7 @@
     {
       "id": "map-discover",
       "layer": "map",
-      "summary": "Discover calls, effects and role-classified interface literals directly from source.",
+      "summary": "Discover calls, effects and literal roles; own the shared operation-local function reachability traversal.",
       "responsibilities": [
         "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
@@ -349,7 +349,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ec82bb838d4312be29b575ceab6ee1175f053e4b7b7993db7034c42ec6cd64f4"
+      "fingerprint": "sha256:e7803a94bcbdcd0c3ddb0a0251ef24ce20b1589fe26a95eb7b340b5613c870ae"
     },
     {
       "id": "map-target",
@@ -755,7 +755,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show source-bound facets and compare rules, tests and fields through one relocation owner.",
+      "summary": "Locate owned code and reverse test bindings without importing models; show bounded facets, ports and parent chains.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -783,12 +783,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9d72c38c04a4b698c9ee5e0e955a7879b45cacdc37ef34b4c297ee5da4785330"
+      "fingerprint": "sha256:691597202703dc8f0066311130dce6e198f214fcc3ff3cc2d7ff0d11ca882bb8"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Select affected functions and tests, name literal consumers and text mentions, and warn about removed or moved promises.",
+      "summary": "Select affected functions and tests and name interface consumers, using shared discovery reachability without retained closure results.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -816,7 +816,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:56457330a8c907d7df0d6556e4e083db6a0c6e5a95cd47144235d9ee30f636c2"
+      "fingerprint": "sha256:d454ab0421a38310dbe77acf5911b5760943de4a703dbc5ebfd886147c8acebd"
     }
   ],
   "flows": [
@@ -923,7 +923,7 @@
     ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
     ".flowguard/models/python_function_state_verification.py": "74ed1ceed424c91224a27daedd79d3ba1de7bf412f0d47899047ca482486e3bd",
     ".flowguard/models/read_component.py": "fc9831558370ead56bc2389bc74a1d54e859cb0b29703004c2351c9e528e0c07",
-    ".flowguard/models/read_find.py": "a9b4737b68b209a151b129c5d4727ed8c6d2edd66ea8722d538c2cd8dbece7a4",
+    ".flowguard/models/read_find.py": "9f2fbdb53243a29a75f6f9ccd331ec2f7529a55c2c1c0f88d223028331a0c7a9",
     ".flowguard/models/read_review.py": "aa814defab80312e5fd06d2d4e6809f460d1ef0642e9ad1d9631eb8552215d61",
     ".flowguard/models/read_show.py": "a8262c6f7ae63ea7c257a61387143785637860835e3828fd20f71a8f1f1d1708",
     ".flowguard/models/read_view.py": "9112d3cf9a41de75bf783dc0485c764f4b3f9062a1f47f62aef39a46050408bd",

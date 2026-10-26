@@ -1245,7 +1245,7 @@ def test_tests_line_counts_bound_calling_and_neither(tmp_path):
     extra = "import unittest\nclass Base(unittest.IsolatedAsyncioTestCase): pass\nclass AsyncSuite(Base):\n    async def test_async(self): pass\nclass Helper:\n    def test_fake(self): pass\nasync def test_top(): pass\n"
     assert set(test_functions(extra)) == {"AsyncSuite.test_async", "test_top"}
     text = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    assert text.splitlines()[2] == "tests: 4 test functions; 1 bound to a model (TESTED_BY), 2 call a model's code, 1 neither"
+    assert text.splitlines()[2] == "tests: 4 test functions; 1 bound to a model (TESTED_BY), 2 call a model's code, 1 neither (python -m flowguard read --find <test path>)"
 
 
 def test_read_line_four_counts_models(tmp_path):
@@ -1296,3 +1296,96 @@ def test_read_component_prints_one_port_line_per_model(tmp_path):
     path.write_text(path.read_text().replace('OUTPUTS = {"answer":("lent","refused")}', ''))
     text = render_show(tmp_path, data, inv, component="cli", detail=False, budget=8000)
     assert "out ?" in text
+
+
+def locate_fixture():
+    import runpy
+    directory=Path(__file__).parents[1]/'.flowguard'
+    target=directory/'target/models/_locate_fixture.py'
+    return runpy.run_path(str(target if target.exists() else directory/'models/_locate_fixture.py'))
+
+
+def test_locate_check_target_names_target_findings():
+    from contextlib import redirect_stdout
+    from io import StringIO
+    from flowguard.__main__ import main
+    out=StringIO()
+    with redirect_stdout(out):code=main(['read','--root',str(Path(__file__).parents[1]),'--find','flowguard/map/target.py:check_target'])
+    assert code==0 and out.getvalue().splitlines()[1].startswith('model target_findings')
+
+
+def test_locate_prefers_the_owner_over_a_deeper_reacher(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    code,text=helper['observe'](tmp_path,'owned')
+    assert code==0 and text.splitlines()[1].startswith('model owner (owned: Run)')
+    assert 'reached by: deeper' in text
+    assert 'called by tests: 1 unbound (tests/test_api.py::test_unbound)' in text
+    code,text=helper['observe'](tmp_path,'reached')
+    assert code==0 and text.startswith('no model owns api.py:helper')
+    assert 'deeper (via api.py:wrapper)' in text
+
+
+def test_locate_unowned_function_says_no_model_owns(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    code,text=helper['observe'](tmp_path,'unowned')
+    assert code==0 and text.splitlines()==[
+        'no model owns api.py:unowned (component app); reached by: none',
+        'next: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)']
+
+
+def test_locate_bound_test_shows_model_rule_and_code(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    code,text=helper['observe'](tmp_path,'bound')
+    assert code==0
+    assert 'bound to: owner (rule safe)' in text
+    assert 'calls: api.py:owned (owned by owner)' in text
+    assert 'code: owner owns api.py:owned < app < system' in text
+
+
+def test_locate_unbound_calling_test_suggests_binding(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    code,text=helper['observe'](tmp_path,'unbound')
+    assert code==0 and 'bound to: none (unbound)' in text
+    assert "next: bind it in owner's TESTED_BY if it checks one of its rules" in text
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.views import render_locate
+    data=__import__('json').loads((tmp_path/'.flowguard/map.json').read_text())
+    text=render_locate(tmp_path,data,build_inventory(tmp_path,[],write_cache=False),'tests/test_api.py::test_plain')
+    assert 'to a model of app in a target' in text and 'otherwise it stays unbound' in text
+
+
+def test_locate_test_file_counts_per_model(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    code,text=helper['observe'](tmp_path,'file')
+    assert code==0 and text.splitlines()[1]=='bound: owner 1; unbound 2'
+
+
+def test_find_words_ends_with_locate_line(tmp_path):
+    from flowguard.__main__ import main
+    from contextlib import redirect_stdout
+    from io import StringIO
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    out=StringIO()
+    with redirect_stdout(out):code=main(['read','--root',str(tmp_path),'--find','owned'])
+    assert code==0 and out.getvalue().splitlines()[-1].startswith('locate: ')
+
+
+def test_locate_output_within_budget(tmp_path):
+    helper=locate_fixture();helper['fixture'](tmp_path)
+    for case in helper['CASES']:
+        code,text=helper['observe'](tmp_path,case)
+        assert len(text)<=2000,(case,len(text))
+
+
+def test_locate_qualified_and_unique_test_method(tmp_path):
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.views import render_locate
+    helper=locate_fixture();data=helper['fixture'](tmp_path)
+    path=tmp_path/'tests/test_api.py'
+    with path.open('a') as stream:stream.write('import unittest\nclass Suite(unittest.TestCase):\n    def test_method(self): assert owned()==1\n')
+    model=tmp_path/'.flowguard/models/owner.py'
+    model.write_text(model.read_text().replace('"tests/test_api.py:test_bound"]','"tests/test_api.py:test_bound","tests/test_api.py:Suite.test_method"]'))
+    inv=build_inventory(tmp_path,[],write_cache=False)
+    for location in ('tests/test_api.py::Suite::test_method','tests/test_api.py:test_method'):
+        text=render_locate(tmp_path,data,inv,location)
+        assert 'bound to: owner (rule safe)' in text and 'calls: api.py:owned' in text

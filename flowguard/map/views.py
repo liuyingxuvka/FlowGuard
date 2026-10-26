@@ -515,7 +515,8 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
                        for name, values in calls.items() if values & anchors)
     all_tests = {(path, name) for path, names in indices.items() for name in names}
     tests_line = (f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
-                  f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither")
+                  f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither"
+                  " (python -m flowguard read --find <test path>)")
     models_line = f"models: {len(tree.nodes)} (process {sum(bool(process_model_reason(data, n.contract)) for n in tree.nodes.values())})"
     essential = "\n".join([head, coverage_line(coverage, summary=True), tests_line, models_line, *target_lines, *flows])
     root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
@@ -886,3 +887,118 @@ def find_owners(data: dict, inv: Inventory, words: list[str], limit: int = 5) ->
             scored.append((score, c["id"], [r for r in c.get("responsibilities", []) if _find_words(tokens(r)) & query]))
     scored.sort(key=lambda x: (-x[0], -sum(len(_find_words(tokens(r)) & query) for r in x[2]), x[1]))
     return scored[:limit]
+
+def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
+    """Static code/test lookup: ownership wins over reachability, bounded to 2,000 characters."""
+    from .common import norm, matches_any
+    from .mapfile import component_ancestors
+    from .testtree import test_functions, resolve_test_anchor, test_calls
+    from .discover import reachable_functions
+    path,separator,symbol=location.partition('::') if '::' in location else location.partition(':')
+    path=norm(path);symbol=symbol.replace('::','.')
+    given=symbol
+    if symbol:
+        plain=symbol.split('[',1)[0]
+        choices=inv.py[path].symbols
+        if plain not in choices:
+            matched=[name for name in choices if name.endswith('.'+plain)]
+            if len(matched)!=1:
+                error=f"no symbol '{given}' in {path}; symbols: "+', '.join(sorted(choices)[:10])
+                return error if len(error)<=2000 else error[:1997]+'...'
+            plain=matched[0]
+        symbol=plain
+    tree=build_tree(root,data,inv)
+    owner,_=owner_index(data,inv)
+    def chain(mid):
+        models=[mid,*tree.ancestors(mid)]
+        last=tree.nodes[models[-1]]
+        component=last.parent if last.parent_kind=='component' else last.home
+        tail=[component,*component_ancestors(data,component),'system'] if component!='system' else ['system']
+        return ' < '.join(dict.fromkeys([*models,*tail]))
+    def match(anchor,loc):
+        a,_,name=anchor.partition(':');f,_,s=loc.partition(':')
+        return a==f and (not s or s==name or s.startswith(name+'.'))
+    def owned(loc):
+        return sorted([mid for mid,node in tree.nodes.items() if any(match(anchor,loc) for anchor in node.contract.get('IMPLEMENTED_BY',{}).values())],key=lambda mid:(-len(tree.ancestors(mid)),mid))
+    sources={};functions={};calls={};bindings=defaultdict(list)
+    for test in inv.tests:
+        if not test.endswith('.py'):continue
+        try:sources[test]=read_source(root/test)
+        except OSError:continue
+        functions[test]=test_functions(sources[test])
+        calls[test]=test_calls(test,sources[test],inv)
+    for mid,node in tree.nodes.items():
+        for rule,anchors in node.contract.get('TESTED_BY',{}).items():
+            for anchor in anchors:
+                test,_,name=anchor.partition(':')
+                actual=resolve_test_anchor(root/test,name)
+                if actual:bindings[(test,actual)].append((mid,rule))
+    def capped(items,limit=5):
+        values=list(dict.fromkeys(items))
+        return ', '.join(values[:limit])+(f', +{len(values)-limit}' if len(values)>limit else '')
+    def finish(lines):
+        lines=[line if len(line)<=450 else line[:447]+'...' for line in lines]
+        text='\n'.join(lines)
+        if len(text)<=2000:return text
+        ending=lines[-1] if lines[-1].startswith('next:') else ''
+        body='\n'.join(lines[:-1]) if ending else text
+        return body[:max(0,1996-len(ending))]+'...'+('\n'+ending if ending else '')
+    if inv.is_test(path):
+        header=f'locate {path}'+('::'+symbol.replace('.','::') if symbol else '')+' (test)'
+        if not symbol:
+            counts={mid:len({name for test,name in bindings if test==path and any(m==mid for m,rule in bindings[(test,name)])}) for mid in tree.nodes}
+            bound={name for test,name in bindings if test==path}
+            return finish([header,'bound: '+(', '.join(f'{mid} {count}' for mid,count in sorted(counts.items()) if count) or 'none')+f'; unbound {len(set(functions.get(path,{}))-bound)}'])
+        bound=bindings.get((path,symbol),())
+        lines=[header,'bound to: '+(capped(f'{mid} (rule {rule})' for mid,rule in bound) if bound else 'none (unbound)')]
+        called=sorted(calls.get(path,{}).get(symbol,()))
+        call_owners={fn:owned(fn) for fn in called}
+        lines.append('calls: '+(capped(fn+(' (owned by '+','.join(call_owners[fn])+')' if call_owners[fn] else ' (unowned)') for fn in called) or 'none'))
+        for mid in dict.fromkeys(mid for mid,rule in bound):
+            anchors=tree.nodes[mid].contract.get('IMPLEMENTED_BY',{}).values()
+            lines.append('code: '+mid+' owns '+capped(anchors)+' < '+chain(mid).partition(' < ')[2])
+        if not bound:
+            choices=sorted({mid for mids in call_owners.values() for mid in mids},key=lambda mid:(-len(tree.ancestors(mid)),mid))
+            if choices:lines.append(f"next: bind it in {choices[0]}'s TESTED_BY if it checks one of its rules")
+            else:
+                counts=defaultdict(int)
+                for fn in called:
+                    if fn.partition(':')[0] in owner:counts[owner[fn.partition(':')[0]]]+=1
+                component=min(counts,key=lambda cid:(-counts[cid],cid)) if counts else next((c['id'] for c in data['components'] if matches_any(path,c.get('tests',()))),'unmapped')
+                lines.append(f'next: if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound')
+        return finish(lines)
+    loc=path+(':'+symbol if symbol else '')
+    component=owner.get(path,'unmapped')
+    raw=discover_inventory(root,inv,data=data,write_cache=False)
+    own=[];uses=[];reached=[]
+    for mid,node in tree.nodes.items():
+        for kind,anchors in (('owned',node.contract.get('IMPLEMENTED_BY',{})),('uses',node.contract.get('USES',{}))):
+            for name,anchor in anchors.items():
+                if match(anchor,loc):
+                    (own if kind=='owned' else uses).append((mid,name));continue
+                f,_,s=anchor.partition(':')
+                starts=[f+'#'+name for name in raw.get('files',{}).get(f,{}).get('functions',{}) if name==s or name.startswith(s+'.')]
+                nodes=set().union(*(reachable_functions(raw.get('edges',{}),start) for start in starts)) if starts else set()
+                if any(n==loc.replace(':','#',1) or not symbol and n.startswith(path+'#') for n in nodes):reached.append((mid,anchor))
+    rank=lambda pair:(-len(tree.ancestors(pair[0])),pair[0],pair[1])
+    own.sort(key=rank);uses.sort(key=rank)
+    winners=own or uses
+    if winners:
+        mid,block=winners[0];node=tree.nodes[mid];facets=model_facets(root,node)
+        lines=[f'locate {loc} (component {component})',f'model {mid} ({"owned" if own else "uses"}: {block})'+(' < '+chain(mid).partition(' < ')[2] if ' < ' in chain(mid) else ''),
+               '  rules: '+capped(facets.rules), '  '+model_port_line(node,tree)]
+        test_counts=defaultdict(set)
+        for (test,name),records in bindings.items():
+            if any(m==mid for m,rule in records):test_counts[test].add(name)
+        lines.append('  tests: '+(capped(f'{test} ({len(names)} bound)' for test,names in sorted(test_counts.items())) or 'none'))
+        others=[f'{m} ({name})' for m,name in own if m!=mid]
+        if others:lines.append('also owned by: '+capped(others))
+        if reached:lines.append('reached by: '+capped(m for m,anchor in reached if m!=mid))
+        ending=f'next: python -m flowguard target start "<goal>", then python -m flowguard target add {mid}'
+    else:
+        lines=[f'no model owns {loc} (component {component}); reached by: '+(capped(f'{mid} (via {anchor})' for mid,anchor in reached) or 'none')]
+        ending=f'next: add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)'
+    if symbol:
+        unbound=[test+'::'+name.replace('.','::') for test,tests in calls.items() for name,values in tests.items() if (test,name) not in bindings and any(match(fn,loc) for fn in values)]
+        if unbound:lines.append(f'called by tests: {len(unbound)} unbound ('+capped(sorted(unbound))+')')
+    return finish([*lines,ending])

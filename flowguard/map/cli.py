@@ -136,6 +136,15 @@ def cmd_show(root: Path, a) -> int:
 
 def cmd_find(root: Path, a) -> int:
     data, inv = _context(root, with_bodies=False)
+    from .common import norm, tokens
+    from .views import render_locate
+    if len(a.words)==1:
+        location=a.words[0]
+        path=norm(location.split('::',1)[0].split(':',1)[0])
+        if path in inv.py:
+            text=render_locate(root,data,inv,location)
+            print(text)
+            return int(text.startswith('no symbol '))
     tree = build_tree(root, data, inv)
     hits = find_owners(data, inv, a.words)
     if not hits:
@@ -159,6 +168,14 @@ def cmd_find(root: Path, a) -> int:
             if by_id[cid].get(key):
                 print(f"     {label}: {'; '.join(by_id[cid][key])}")
     print("next: extend the owner above that already holds this behavior; create a new component only when none does")
+    from .facets import model_facets
+    query=set(tokens(' '.join(a.words)))
+    ranked=[]
+    for node in tree.models_for_component(hits[0][1]):
+        facts=model_facets(root,node)
+        score=len(query & set(tokens(' '.join([*facts.rules,*facts.rule_notes]))))
+        ranked.append((-score,-len(tree.ancestors(node.id)),node.id))
+    print('locate: '+(min(ranked)[2] if ranked else 'none'))
     return 0
 
 

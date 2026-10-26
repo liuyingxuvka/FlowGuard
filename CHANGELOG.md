@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `read --find path:function` names the model that owns the code, with its rules, port, parent chain and tests. A test location shows model bindings and called code; unbound direct callers can be found from a function. Word ranking stays the same and adds a model pointer.
+
 - Projects using FlowGuard: `change` names consumers of removed interface literals and text that mentions them. `change` and `target check` name removed promises and distinguish moves; explain intentional removals in the commit message. These notes do not block a check.
 
 - Projects using FlowGuard: `change` selects models by changed functions and selects individual bound or directly calling tests. `--broad` keeps the earlier file selection. Missing Git uses confirmed component fingerprints and explains its conservative file fallback.
