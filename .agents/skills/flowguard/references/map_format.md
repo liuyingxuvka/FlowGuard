@@ -114,3 +114,5 @@ confirm the components it lists. `python -m flowguard target drop --yes` discard
 Promote prints `re-read:` lines (re-parented models, flows that cross changed components, tests no longer bound); `target check` warns `debt_stale` for accepted debts the target makes stale.
 
 `fingerprint_format: 2` ignores only VERSION contents, the module-level Python __version__ string and the [project] TOML version value. Legacy pointers request one confirmation; other edits remain stale.
+
+`model_digests` records newline-normalized SHA256 identities of current model files; target promote, map scan and template writing current models update it.

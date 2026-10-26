@@ -245,7 +245,12 @@ def cmd_change(root: Path, a) -> int:
     if code:
         print("RAN: skipped (fix the errors above first)")
         return code
-    return _run_selected(root, run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None))
+    result = _run_selected(root, run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None))
+    from .mapfile import is_stale
+    stale = sorted(c["id"] for c in data["components"] if is_stale(root, c, inv))
+    if stale:
+        print("next: python -m flowguard map confirm " + " ".join(stale))
+    return result
 
 
 def _run_selected(root: Path, commands: list[str]) -> int:

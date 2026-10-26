@@ -23,9 +23,9 @@ Install the engine only from GitHub: `python -m pip install "flowguard @ git+htt
 
 1. `python -m flowguard target start "<goal>"`.
 2. `python -m flowguard target add <id>` for each changed node. Write new nodes directly in `.flowguard/target/map.json` or `.flowguard/target/models/`; use the merged `.flowguard/models/` paths for model references. Target format: `references/map_format.md`.
-3. Edit the target until `python -m flowguard target check` has no ERROR and only code/test TO-DO remains: the design is ready; a target that changes an entrypoint, state or side effect must add or change at least one rule or known-bad (target check prints its goal rules).
-4. Write the code and tests; run `python -m flowguard target check` as often as useful.
-5. `python -m flowguard target promote` runs the full check once and prints its report if refused; then `python -m flowguard map confirm <listed components>`; run `python -m flowguard change`, run its listed tests/models, and commit.
+3. Edit the target until `python -m flowguard target check` has no ERROR and only code TO-DO remains: the design is ready; a target that changes an entrypoint, state or side effect must add or change at least one rule or known-bad (target check prints its goal rules).
+4. Every changed-rule model should print `EXPECTED GAP` on old code; moved rules and rules recording existing behaviour are exceptions. Write the code and tests; run `python -m flowguard target check` as often as useful.
+5. `python -m flowguard target promote` runs the full check once and prints its report if refused; then `python -m flowguard map confirm <listed components>`; then commit the code and models together. `target check` runs no bound tests; `target promote` is the one full check.
 While working, `change` marks breakage of what the target changes `moving to target`; everything else stays ERROR. A green model that missed a bug follows this same route: `python -m flowguard target add <model>`, then add the escaped case as a known-bad variant; see "When a green model missed a bug" in `references/model_recipes.md`.
 
 ## Change code only
@@ -33,7 +33,7 @@ While working, `change` marks breakage of what the target changes `moving to tar
 1. Edit the code, then `python -m flowguard change` (check + impact).
 2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `runner_model` (a retired runner file: move its real checks into a contract model and delete the old file); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree); `duplicate_owner` (two components claim one responsibility, state or side effect: keep one owner; the other calls it).
 3. Run exactly the tests and models it lists (`python -m flowguard change --run` runs them for you); never claim a test passed unless you ran it. `relies on:` lines name rules of other components that this code calls; keep them true.
-4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`; for each `UNEXPLAINED` line, add the anchor, bind a test or write a `NOT_MODELED` reason.
+4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`; for each `UNEXPLAINED` line, add the anchor, bind a test or write a `NOT_MODELED` reason. Run the `map confirm` command printed by `change --run` before committing.
 
 ## The tree
 

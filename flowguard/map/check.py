@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .common import Finding, glob_match, is_test_file, read_source, matches_any, parse_test_anchor
 from .inventory import Inventory
-from .mapfile import component_files, component_graph, component_scope, component_state, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
+from .mapfile import MapError, load_map, component_files, component_graph, component_scope, component_state, dependency_evidence, flow_step_parts, is_stale, model_registry, owner_index, read_model_contract, resolve_model_path
 from .retired import design_only_problem, retired_file_message
 from .tree import component_parent_findings
 
@@ -238,4 +238,32 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
+    out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))
+    return out
+
+
+def model_edit_findings(root, data, level):
+    from .common import content_digest
+    from .targetfile import load_target
+    if "model_digests" not in data:
+        return []
+    try:
+        target = load_target(root)
+    except MapError:
+        target = None
+    staged = set(target.models) if target is not None else set()
+    saved = data["model_digests"]
+    current = {p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py")
+               if p.is_file() and not p.name.startswith("_")}
+    out = []
+    for logical in sorted(current | set(saved)):
+        if Path(logical).name in staged:
+            continue
+        path = root / logical
+        if not path.is_file() or logical not in saved or content_digest(path) != saved[logical]:
+            out.append(Finding(level, "model_edited_outside_target", "",
+                f"model_edited_outside_target: {logical} changed since the last target promote; "
+                "python -m flowguard target add " + Path(logical).stem +
+                " moves the edit into the target (with git the current file is restored from HEAD; "
+                "without git the old model is lost: write the change in the target and restore the old rules by hand)"))
     return out

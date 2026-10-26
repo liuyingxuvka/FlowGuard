@@ -107,7 +107,8 @@ def _template(ns: argparse.Namespace) -> int:
             print(f"{exc}; use --force to overwrite", file=sys.stderr)
             return 1
         for path in written:
-            print(f"wrote {path}")
+            staged = ".flowguard/target/models" in path.as_posix()
+            print(f"wrote {Path(path).relative_to(Path(ns.write)) if staged else path}" + (" (into the open target)" if staged else ""))
         if has_target:
             if any(file.path.startswith(target_prefix) for file in files):
                 print("next: python -m flowguard target check")

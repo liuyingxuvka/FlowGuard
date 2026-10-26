@@ -202,10 +202,10 @@ class _StaticModel:
             given.update({k.arg: k.value for k in call.keywords if k.arg in {"name", "description"}})
             title = self.value(given["name"], scope, local) if "name" in given else _UNKNOWN
             note = self.value(given["description"], scope, local) if "description" in given else ""
-            return self._defined([(title, note if isinstance(note, str) else "")], call) if isinstance(title, str) else None
+            return self._defined([(title, note if isinstance(note, str) else "")], call, scope) if isinstance(title, str) else None
         if name in BUILTIN_RULE_HELPERS:
             title = self.value(call.args[0], scope, local) if call.args else _UNKNOWN
-            return self._defined([(title, "")], call) if isinstance(title, str) else None
+            return self._defined([(title, "")], call, scope) if isinstance(title, str) else None
         found = self._lookup(name, scope, "functions") if isinstance(call.func, ast.Name) else None
         if not found:
             return None
@@ -228,12 +228,61 @@ class _StaticModel:
             return self.value(expr, home, _locals(function))
         title = resolve(given["name"]) if "name" in given else _UNKNOWN
         note = resolve(given["description"]) if "description" in given else ""
-        return self._defined([(title, note if isinstance(note, str) else "")], call) if isinstance(title, str) else None
+        return self._defined([(title, note if isinstance(note, str) else "")], call, scope) if isinstance(title, str) else None
 
-    def _defined(self, found, call):
+    def _definition(self, node, scope):
+        """Semantic rule inputs: local helpers and constants, never imported product code."""
+        dependencies, visited = [], set()
+        def lookup(name, home, kind, seen):
+            key = (id(home), name, kind)
+            if key in seen:
+                return None
+            seen.add(key)
+            table = home.assigns if kind == "assigns" else home.functions
+            if name in table:
+                return table[name], home
+            if name in home.imports:
+                module, alias = home.imports[name]
+                if module.startswith("_"):
+                    inner = self._module(module)
+                    return lookup(alias, inner, kind, seen) if inner else None
+            for module in home.stars:
+                if module.startswith("_"):
+                    inner = self._module(module)
+                    found = lookup(name, inner, kind, seen) if inner else None
+                    if found:
+                        return found
+            return None
+        def names(value, bound=frozenset()):
+            if isinstance(value, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+                args = value.args
+                local = {a.arg for a in args.posonlyargs + args.args + args.kwonlyargs}
+                local.update(a.arg for a in (args.vararg, args.kwarg) if a)
+                local.update(n.id for n in ast.walk(value) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store))
+                bound = bound | local
+            if isinstance(value, ast.Name) and isinstance(value.ctx, ast.Load) and value.id not in bound:
+                yield value.id
+            for child in ast.iter_child_nodes(value):
+                yield from names(child, bound)
+        def visit(value, home):
+            for name in names(value):
+                for kind in ("assigns", "functions"):
+                    found = lookup(name, home, kind, set())
+                    if found is None:
+                        continue
+                    definition, owner = found
+                    key = (id(owner), name, kind)
+                    if key not in visited:
+                        visited.add(key)
+                        dependencies.append((name, kind, ast.dump(definition)))
+                        visit(definition, owner)
+        visit(node, scope)
+        return repr((ast.dump(node), sorted(dependencies)))
+
+    def _defined(self, found, call, scope):
         """Remember the call that defines each rule (goal rules compare these between versions)."""
         for title, _ in found:
-            self.rule_defs.setdefault(title, ast.dump(call))
+            self.rule_defs.setdefault(title, self._definition(call, scope))
         return found
 
     def rules(self, expr, scope, local=None, depth=0):
@@ -365,6 +414,9 @@ class _StaticModel:
                 if kit is None:
                     return None
                 self.cases = kit[2]
+                definition = self._definition(call, scope)
+                for name, _ in kit[0]:
+                    self.rule_defs.setdefault(name, definition)
                 found.append(tuple(kit[0]))
                 continue
             given = next((k.value for k in call.keywords if k.arg == "invariants"), None)
@@ -708,45 +760,89 @@ def _definitions(root: Path, logical: str, syntax, view=None):
     static = _StaticModel(root, logical, syntax, view=view)
     found = static.explorer_rules()
     rules = [name for name, _ in found] if found is not None else _file_rules(syntax)
+    for node in ast.walk(syntax):
+        if isinstance(node, ast.Call) and (_call_name(node) == "Invariant" or _call_name(node) in BUILTIN_RULE_HELPERS):
+            given = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg == "name"), None)
+            name = static.value(given, static.main) if given is not None else None
+            if isinstance(name, str) and name in rules:
+                static.rule_defs.setdefault(name, static._definition(node, static.main))
     bad = static.known_bad() or ()
     return ({name: static.rule_defs.get(name) for name in rules}, {name: static.bad_defs.get(name) for name in bad})
 
 
 def target_goal_rules(root: Path, target, view=None) -> list[str]:
-    """Rules and known-bad variants a target adds (+) or changes (~), per target model, read statically.
-
-    A name is changed when its defining expression's AST differs; when a definition cannot be
-    located, every name of a model whose file AST changed counts as changed.  Nothing is run.
-    """
-    out = []
+    """Compare rule definitions globally; a moved name acquires at most one new owner."""
+    from .mapfile import load_map, model_registry
+    from .targetfile import build_target_view
+    current = load_map(root)
+    view = view or build_target_view(root, current, target)
+    def definitions(data, planned=None):
+        found = {}
+        for entry in model_registry(root, data, view=planned).entries:
+            if entry.kind != "contract":
+                continue
+            path = planned.resolve(entry.path) if planned is not None else root / entry.path
+            try:
+                syntax = ast.parse(read_source(path))
+                rules, bad = _definitions(root, entry.path, syntax, planned)
+                found[entry.id] = (rules, bad, syntax)
+            except (OSError, SyntaxError, ValueError, TypeError):
+                continue
+        return found
+    before, after = definitions(current), definitions(view.data, view)
+    targets = []
     for filename, physical in sorted(target.models.items()):
         if filename.startswith("_"):
             continue
-        logical = f".flowguard/models/{filename}"
         try:
-            new_syntax = ast.parse(read_source(root / physical))
+            syntax = ast.parse(read_source(root / physical))
+            mid = next((n.value.value for n in syntax.body if isinstance(n, ast.Assign)
+                        and any(isinstance(t, ast.Name) and t.id == "MODEL_ID" for t in n.targets)
+                        and isinstance(n.value, ast.Constant)), Path(filename).stem)
+            if mid in after:
+                targets.append(mid)
         except (OSError, SyntaxError, ValueError):
             continue
-        current = root / logical
-        try:
-            old_syntax = ast.parse(read_source(current)) if current.is_file() else None
-        except (OSError, SyntaxError, ValueError):
-            old_syntax = None
-        new_rules, new_bad = _definitions(root, logical, new_syntax, view)
-        old_rules, old_bad = _definitions(root, logical, old_syntax, None) if old_syntax is not None else ({}, {})
-        changed_file = old_syntax is None or ast.dump(new_syntax) != ast.dump(old_syntax)
+    moved = {}
+    for kind in (0, 1):
+        names = {name for mid in targets for name in after[mid][kind] if name not in before.get(mid, ({}, {}, None))[kind]}
+        for name in sorted(names):
+            donors = sorted(mid for mid in before if name in before[mid][kind] and name not in after.get(mid, ({}, {}, None))[kind])
+            recipients = sorted(mid for mid in targets if name in after[mid][kind] and name not in before.get(mid, ({}, {}, None))[kind])
+            if not donors:
+                continue
+            chosen = None
+            if len(recipients) == 1:
+                recipient = recipients[0]
+                donor = next((d for d in donors if before[d][kind][name] is not None
+                              and before[d][kind][name] == after[recipient][kind][name]), donors[0])
+                chosen = recipient, donor
+            else:
+                chosen = next(((r, d) for r in recipients for d in donors if before[d][kind][name] is not None
+                               and before[d][kind][name] == after[r][kind][name]), None)
+            if chosen:
+                recipient, donor = chosen
+                moved[(recipient, kind, name)] = donor
+    out = []
+    for mid in targets:
+        new = after[mid]
+        old = before.get(mid, ({}, {}, None))
+        changed_file = old[2] is None or ast.dump(new[2]) != ast.dump(old[2])
         items = []
-        for new, old, label in ((new_rules, old_rules, ""), (new_bad, old_bad, " (known-bad)")):
-            for name in sorted(new):
-                if name not in old:
+        for kind, label in ((0, ""), (1, " (known-bad)")):
+            for name, definition in sorted(new[kind].items()):
+                donor = moved.get((mid, kind, name))
+                if donor:
+                    items.append(f">{name} (from {donor}){label}")
+                elif name not in old[kind]:
                     items.append(f"+{name}{label}")
-                elif (new[name] is None or old[name] is None) and changed_file or \
-                        None not in (new[name], old[name]) and new[name] != old[name]:
+                elif ((definition is None or old[kind][name] is None) and changed_file
+                      or definition is not None and old[kind][name] is not None and definition != old[kind][name]):
                     items.append(f"~{name}{label}")
+            for name in sorted(set(old[kind]) - set(new[kind])):
+                if not any(k == kind and n == name and donor == mid for (r, k, n), donor in moved.items()):
+                    items.append(f"-{name}{label}")
         if items:
-            mid = next((node.value.value for node in new_syntax.body if isinstance(node, ast.Assign)
-                        and any(isinstance(t, ast.Name) and t.id == "MODEL_ID" for t in node.targets)
-                        and isinstance(node.value, ast.Constant)), Path(filename).stem)
             out.append(f"model {mid}: " + ", ".join(items))
     return out
 

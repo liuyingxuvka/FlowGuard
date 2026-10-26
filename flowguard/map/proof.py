@@ -220,7 +220,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             except ValueError as exc:
                 if statuses is not None:
                     statuses[anchor] = "failed"
-                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {exc}", code_gap=True)
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {exc}")
                 continue
             if rel not in parsed:
                 parsed[rel] = parse_python(root, rel, rel[:-3].replace("/", "."), collect_bodies=False)
@@ -229,7 +229,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             if info.parse_error or len(matches) != 1:
                 if statuses is not None:
                     statuses[anchor] = "failed"
-                _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable", code_gap=True)
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: test symbol is missing, ambiguous or unreadable")
                 continue
             nodes[anchor] = rel + "::" + "::".join(matches[0].split(".")) + suffix
             if suffix:
@@ -271,7 +271,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
             if not items or failed:
                 if statuses is not None:
                     statuses[anchor] = "failed"
-                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}", code_gap=True)
+                _fail(result, f"tested_by_failed {invariant} -> {anchor}: {', '.join(failed) or 'test was not collected/executed'}")
                 known_failure = True
                 continue
             missed = [item["nodeid"] for item in items if not (set(item["consulted"]) & set(anchors))]
@@ -279,7 +279,7 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
                 statuses[anchor] = "misses_anchor" if missed else "passed"
             if missed:
                 _fail(result, f"tested_by_misses_anchor {invariant} -> {anchor}: the test ran but called or read none of IMPLEMENTED_BY; "
-                              + ", ".join(missed), code_gap=True)
+                              + ", ".join(missed))
         if proc.returncode != 0:
             if known_failure:
                 problem = "TESTED_BY pytest output: " + diagnostic
@@ -349,10 +349,12 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
     for name, anchor in sorted(anchors.items()):
         if anchor in problems:
             _fail(result, f"IMPLEMENTED_BY {name} -> {problems[anchor]}", code_gap=True)
+    if problems:  # native replay is deferred until every declared entry exists
+        return
     for anchor in watch.missing():
         if anchor not in problems:
             _fail(result, f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read {where}; "
-                          "call that code or read it as code facts", code_gap=True)
+                          "call that code or read it as code facts")
     for anchor in watch.unobserved():
         if anchor not in problems:
             result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
@@ -411,6 +413,17 @@ def uncovered_message(name: str) -> str:
             "(a shared rule belongs to the model whose inputs can break it)")
 
 
+def _exception_through_anchor(root, contract, error):
+    """Match actual traceback code objects with the same symbol rules as AnchorWatch."""
+    anchors = [*contract.get("IMPLEMENTED_BY", {}).values(), *contract.get("USES", {}).values()]
+    watch = AnchorWatch(root, anchors)
+    trace = error.__traceback__
+    while trace is not None:
+        watch._record_call(trace.tb_frame)
+        trace = trace.tb_next
+    return bool(watch.called)
+
+
 def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
     with model_namespace(view):
         physical = resolve_model_path(root, path.relative_to(root).as_posix(), view=view)
@@ -427,6 +440,7 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             result.problems.append("a model file needs MODEL_ID and def build_explorer()")
             return result
         started = time.time()
+        phase = "design"
         try:
             from flowguard.explorer import Explorer, invariant_name
             for anchor in contract.get("IMPLEMENTED_BY", {}).values():
@@ -513,28 +527,31 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                     closures = {}
                 result.closed_hazards = [f"{hint} (closed by {closures[hint]})" for hint in result.hazards if hint in closures]
                 result.hazards = [hint for hint in result.hazards if hint not in closures]
-            if "conformance" in contract["functions"]:
+            missing_anchors = anchor_problems(root, contract.get("IMPLEMENTED_BY", {}).values())
+            if "conformance" in contract["functions"] and not missing_anchors:
+                phase = "conformance"
                 with calls:
                     conf = module.conformance()
                 if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):
                     raise ValueError("conformance() must return a report with boolean .ok and format_text(); no real-code proof executed")
                 if not conf.ok:
-                    environment = [v for v in getattr(conf, "violations", ())
-                                   if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}
-                                   and ("ModuleNotFoundError:" in v.message or "ImportError:" in v.message)]
+                    adapter_errors = [v for v in getattr(conf, "violations", ())
+                                      if getattr(v, "rule_name", "") in {"adapter_exception", "adapter_reset"}]
+                    native_errors = bool(adapter_errors) and all(
+                        getattr(v, "exception", None) is not None
+                        and _exception_through_anchor(root, contract, v.exception) for v in adapter_errors)
+                    design_error = bool(adapter_errors) and not native_errors
+                    environment = next((v for v in adapter_errors if "ImportError:" in v.message or "ModuleNotFoundError:" in v.message), None)
+                    result.status = "error" if design_error or environment else "fail"
+                    problem = ("conformance adapter failed:\n" if design_error else "the real code does not conform to the model:\n") + conf.format_text(max_examples=1)
                     if environment:
-                        result.status = "error"
-                        problem = f"model environment/interpreter error: {environment[0].message}; interpreter={sys.executable}"
-                        result.problems.append(problem)
-                        missing = re.search(r"No module named [\'\"]([^\'\"]+)", environment[0].message)
-                        if missing and _project_missing(root, missing.group(1), view=view):
-                            result.code_gaps.append(problem)
-                    else:
-                        result.status = "fail"
-                        problem = "the real code does not conform to the model:\n" + conf.format_text(max_examples=1)
-                        result.problems.append(problem)
+                        problem = f"model environment/interpreter error: {environment.message}; interpreter={sys.executable}"
+                    if design_error:
+                        problem += '; observe new behaviour defensively, e.g. getattr(report, "blocked", None)'
+                    result.problems.append(problem)
+                    if not design_error:
                         result.code_gaps.append(problem)
-            else:
+            elif "conformance" not in contract["functions"]:
                 _fail(result, "abstract boundary only: no conformance(); replay the real code or compare it as code facts, "
                               "or plan it as a target model (python -m flowguard target start)")
             _anchor_verdict(result, root, contract, calls, "during build_explorer().explore() or conformance()")
@@ -542,13 +559,22 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
             _fail(result, str(exc))
         except (ImportError, ModuleNotFoundError) as exc:
             result.status = "error"
+            native = phase == "conformance" and _exception_through_anchor(root, contract, exc)
             problem = f"model environment/interpreter error: {exc}; interpreter={sys.executable}"
+            if not native:
+                problem += "; observe new behaviour defensively, e.g. getattr(report, \"blocked\", None)"
             result.problems.append(problem)
-            if isinstance(exc, ModuleNotFoundError) and _project_missing(root, exc.name, view=view):
+            if native:
                 result.code_gaps.append(problem)
-        except Exception:  # noqa: BLE001 - a crashing model is a reported error, not a crash of the runner
+        except Exception as exc:  # a broken model is a design error unless native conformance raised
             result.status = "error"
-            result.problems.append(traceback.format_exc(limit=4))
+            native = phase == "conformance" and _exception_through_anchor(root, contract, exc)
+            problem = traceback.format_exc(limit=4)
+            if not native:
+                problem += "; observe new behaviour defensively, e.g. getattr(report, \"blocked\", None)"
+            result.problems.append(problem)
+            if native:
+                result.code_gaps.append(problem)
         result.seconds = round(time.time() - started, 3)
         return result
 

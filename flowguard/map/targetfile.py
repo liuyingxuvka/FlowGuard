@@ -65,7 +65,10 @@ def build_target_view(root: Path, current_data: dict, target: Target) -> ModelVi
     # Applying replacements last also permits removing an old ID and supplying a
     # different ID in that same filename; the new source is not a tombstone.
     sources.update({f".flowguard/models/{name}": physical for name, physical in target.models.items()})
-    return ModelView(root, merge_target_map(current_data, target), sources, names)
+    view = ModelView(root, merge_target_map(current_data, target), sources, names)
+    from .mapfile import model_digests
+    view.data["model_digests"] = model_digests(root, view=view)
+    return view
 
 
 def load_target(root: Path) -> Target | None:

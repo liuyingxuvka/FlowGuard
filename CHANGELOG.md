@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Make target check a design check without bound tests, explain native code gaps and moved rules, and promote with one full check and recoverable atomic replacement.
+- Projects using FlowGuard: change models through a target; target check runs no bound tests and target promote runs them once; model_edited_outside_target now detects edits to current models.
+
 - Show the complete refusal report during target promotion; support ordered parallel model subprocesses with --jobs and atomic parser cache writes.
 - Parse each unchanged model contract once per process, keyed by exact bytes; never cache model or test verdicts.
 

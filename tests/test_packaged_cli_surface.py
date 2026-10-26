@@ -203,3 +203,28 @@ def test_change_run_skips_when_check_has_errors(tmp_path):
     ran = _flowguard(root, "change", "--run", "app.py", "stray.py")
     assert ran.returncode == 1 and "RAN: skipped (fix the errors above first)" in ran.stdout, ran.stdout + ran.stderr
     assert not (root / "tests/ran.marker").exists()
+
+
+def test_template_writes_into_the_open_target(tmp_path, capsys):
+    from flowguard.__main__ import main
+    from flowguard.map.target import start_target
+    start_target(tmp_path, "add a behaviour")
+    assert main(["template", "behaviour", "--write", str(tmp_path)]) == 0
+    assert not (tmp_path / ".flowguard/models").exists()
+    assert list((tmp_path / ".flowguard/target/models").glob("*.py"))
+    assert "(into the open target)" in capsys.readouterr().out
+
+
+def test_change_run_ends_with_map_confirm_for_stale_components(tmp_path, capsys):
+    from flowguard.__main__ import main
+    directory = tmp_path / ".flowguard"
+    directory.mkdir()
+    path = tmp_path / "app.py"
+    path.write_text("def answer(): return 1\n")
+    (directory / "map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [{
+        "id": "app", "summary": "Compute an answer", "responsibilities": ["compute answers"],
+        "files": ["app.py"], "tests": [], "models": [], "status": "draft"}]}))
+    assert main(["map", "confirm", "app", "--root", str(tmp_path)]) == 0
+    path.write_text("def answer(): return 2\n")
+    assert main(["change", "--root", str(tmp_path), "app.py", "--run"]) == 0
+    assert capsys.readouterr().out.rstrip().endswith("next: python -m flowguard map confirm app")

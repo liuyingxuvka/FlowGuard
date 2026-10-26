@@ -39,6 +39,8 @@ NOT_MODELED = {
                                     "promote_target and drop_target, which this model anchors.",
 }
 TESTED_BY = {
+    "target_check_runs_no_bound_tests": ["tests/test_flowguard_target.py:test_target_check_runs_no_pytest_and_promote_runs_one_check"],
+    "promote_runs_one_full_check": ["tests/test_flowguard_target.py:test_target_check_runs_no_pytest_and_promote_runs_one_check"],
     "one_target_at_a_time": [
         "tests/test_flowguard_target.py:test_target_start_add_drop_and_read_line",
     ],
@@ -79,6 +81,7 @@ class State:
     status: str = ""
     before: tuple = ()
     changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
+    bound_test_runs: int = 0
     pending: tuple = ()        # MESH tokens handed over and not yet consumed
 
 
@@ -99,7 +102,7 @@ class Advance:
             return (FunctionResult("done", state, label="done"),)
         action = program[state.position]
         new = replace(state, position=state.position + 1, action=action,
-                      status="ok", before=_revisions(state))
+                      status="ok", before=(*_revisions(state), state.bound_test_runs))
         if action == "START":
             new = replace(new, target_count=1, target_revision=1)
         elif action == "START_AGAIN":
@@ -117,6 +120,8 @@ class Advance:
             if not state.changed and self.defect != "promotes_unchanged_copy":
                 new = replace(new, errors=max(state.errors, 1))
             new = replace(new, pending=("design_error",) if new.errors else ("code_todo",) if new.todos else ("clean_report",))
+            if self.defect == "check_runs_bound_tests":
+                new = replace(new, bound_test_runs=state.bound_test_runs + 1)
         elif action == "WRITE_CODE":
             new = replace(new, todos=0)
         elif action == "DROP_PREVIEW":
@@ -134,6 +139,8 @@ class Advance:
                               expected_map_revision=merged,
                               current_map_revision=merged,
                               current_model_revision=state.expected_model_revision)
+        if action == "PROMOTE" and new.status == "promoted":
+            new = replace(new, bound_test_runs=state.bound_test_runs + (2 if self.defect == "promote_checks_twice" else 1))
         return (FunctionResult(new.status, new, label=action),)
 
 
@@ -173,17 +180,22 @@ def _handoffs_close(state):
 
 
 INVARIANTS = (
+    Invariant("target_check_runs_no_bound_tests", "design CHECK never runs the bound tests",
+              lambda s,t: _holds(s.action != "CHECK" or s.bound_test_runs == s.before[-1], "CHECK ran bound tests")),
+    Invariant("promote_runs_one_full_check", "a clean promotion runs its full bound check once",
+              lambda s,t: _holds(s.action != "PROMOTE" or s.status != "promoted" or s.bound_test_runs == s.before[-1] + 1,
+                                  "PROMOTE repeated its full check")),
     Invariant("one_target_at_a_time", "a second start refuses without any revision change",
               lambda s, t: _holds(s.action != "START_AGAIN" or
-                                  (s.status == "refused" and _revisions(s) == s.before),
+                                  (s.status == "refused" and _revisions(s) == s.before[:4]),
                                   "second start replaced an existing target")),
     Invariant("promote_only_when_clean", "ERROR and TODO each block all promotion writes",
               lambda s, t: _holds(s.action != "PROMOTE" or not (s.errors or s.todos) or
-                                  (s.status == "refused" and _revisions(s) == s.before),
+                                  (s.status == "refused" and _revisions(s) == s.before[:4]),
                                   "an unclean target was promoted")),
     Invariant("noop_target_never_promoted", "a target equal to the current tree fails its check and is never promoted",
               lambda s, t: _holds(s.changed or (s.action != "CHECK" or s.errors) and
-                                  (s.action != "PROMOTE" or (s.status == "refused" and _revisions(s) == s.before)),
+                                  (s.action != "PROMOTE" or (s.status == "refused" and _revisions(s) == s.before[:4])),
                                   "an unchanged target passed its check or was promoted")),
     Invariant("handoffs_close", "every report a check hands over reaches an exit of MESH; a clean report is promoted",
               lambda s, t: _handoffs_close(s)),
@@ -206,7 +218,8 @@ def build_explorer():
 
 
 def broken_variants():
-    return {"second_target": _explorer("second_target"), "unclean_promote": _explorer("unclean_promote"),
+    return {"check_runs_bound_tests": _explorer("check_runs_bound_tests"),
+            "promote_checks_twice": _explorer("promote_checks_twice"), "second_target": _explorer("second_target"), "unclean_promote": _explorer("unclean_promote"),
             "promotes_unchanged_copy": _explorer("promotes_unchanged_copy"),
             "clean_report_unconsumed": _explorer("clean_report_unconsumed")}
 
@@ -415,6 +428,31 @@ def _native_replay(scenario, program):
     return facts
 
 
+def _bound_counts():
+    from flowguard.map import proof
+    with TemporaryDirectory(prefix="target-counts-") as directory:
+        root = make_project(Path(directory))
+        stage_target(root)
+        edit_missing_method(root)
+        write_method(root)
+        calls, actual = [], proof.run_bound_tests
+        def counted(*args, **kwargs):
+            calls.append(True)
+            return actual(*args, **kwargs)
+        proof.run_bound_tests = counted
+        try:
+            native.check_target(root)
+            design = len(calls)
+            with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
+                code = native.promote_target(root)
+            total = len(calls)
+        finally:
+            proof.run_bound_tests = actual
+        return [Fact("target_check_runs_no_bound_tests", design == 0, f"bound calls after CHECK: {design}"),
+                Fact("promote_runs_one_full_check", code == 0 and total - design == 1,
+                     f"bound calls in PROMOTE: {total - design}; exit {code}")]
+
+
 def conformance():
-    return CodeFactsReport(tuple(fact for scenario, program in PROGRAMS
+    return CodeFactsReport(tuple(_bound_counts()) + tuple(fact for scenario, program in PROGRAMS
                                  for fact in _native_replay(scenario, program)))

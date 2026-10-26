@@ -24,7 +24,7 @@ from flowguard.map.check import run_check
 from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import ignore_patterns, load_map
 from flowguard.map.targetfile import build_target_view, load_target
-from target_life_cycle import make_project, stage_target, write_json, probe_regular_model
+from target_life_cycle import REGULAR_CONTRACT, make_project, stage_target, write_json, probe_regular_model
 
 MODEL_ID = "target_findings"
 PARENT = "target_life_cycle"
@@ -168,6 +168,7 @@ from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact, load_anchor
 MODEL_ID = "shelf_old"
+from shelf_bridge import RULE as CURRENT_RULE
 PARENT = "shelf_rule"
 IMPLEMENTED_BY = {"Capacity": "shelf/loans.py:advance"}
 class Capacity:
@@ -273,7 +274,12 @@ def observe_case(case):
         elif case.name == "old_finding_in_unchanged_model":
             # A current child of shelf_rule with an old uncovered invariant over unchanged code: the target
             # changes shelf_rule, so target check selects the child without changing it.
-            (root / ".flowguard/models/shelf_old.py").write_text(OLD_CONTRACT, encoding="utf-8")
+            for logical in (".flowguard/models/shelf_rule.py", ".flowguard/target/models/shelf_rule.py"):
+                path = root / logical
+                path.write_text(path.read_text().replace('PARENT = "loans"', 'PARENT = "shelf_bridge"'))
+            bridge = REGULAR_CONTRACT.replace('MODEL_ID = "shelf_rule"', 'MODEL_ID = "shelf_bridge"\nfrom shelf_rule import RULE as PARENT_RULE').replace('PARENT = "loans"', 'PARENT = "shelf_old"')
+            (root / ".flowguard/models/shelf_bridge.py").write_text(bridge, encoding="utf-8")
+            (root / ".flowguard/models/shelf_old.py").write_text(OLD_CONTRACT.replace('PARENT = "shelf_rule"', 'PARENT = "loans"'), encoding="utf-8")
             report = native.check_target(root)
             return _unique_bucket(report, code="old_finding", prefix="uncovered_invariant"), repr(report)
         elif case.name == "debt_made_stale":

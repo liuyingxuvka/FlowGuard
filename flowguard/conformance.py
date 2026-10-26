@@ -38,6 +38,7 @@ class ConformanceViolation:
     rule_name: str = ""
     trace: Trace | None = None
     metadata: FrozenMetadata = field(default_factory=tuple, compare=False)
+    exception: BaseException | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "metadata", freeze_metadata(self.metadata))
@@ -203,6 +204,7 @@ def replay_trace(
             message=f"adapter reset raised {type(exc).__name__}: {exc}",
             step_index=0,
             rule_name="adapter_reset",
+            exception=exc,
             trace=trace,
         )
         return ConformanceReport(
@@ -223,6 +225,7 @@ def replay_trace(
                 step_index=index,
                 expected_step=expected_step,
                 rule_name="adapter_exception",
+                exception=exc,
                 trace=trace,
             )
             violations.append(violation)

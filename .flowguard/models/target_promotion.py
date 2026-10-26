@@ -20,6 +20,7 @@ MODEL_ID = "target_promotion"
 PARENT = "target_life_cycle"
 IMPLEMENTED_BY = {"Promote": "flowguard/map/target.py:promote_target"}
 TESTED_BY = {
+    "promote_names_stale_components": ["tests/test_flowguard_target.py:test_promote_names_stale_component_to_confirm"],
     "promote_makes_current_equal_merged": [
         "tests/test_flowguard_target.py:test_target_small_promotion_preserves_map_and_model_bytes",
     ],
@@ -48,6 +49,7 @@ class State:
     action: str = ""
     status: str = ""
     findings_shown: bool = True
+    stale_components_named: bool = True
 
 
 def project_parent_state(state):
@@ -91,6 +93,8 @@ class Promote:
                 new = replace(new, target_count=1)
             if self.defect == "keeps_components_confirmed":
                 new = replace(new, draft=False)
+        if new.status == "promoted" and self.defect == "names_drafts_only":
+            new = replace(new, stale_components_named=False)
         return (FunctionResult(new.status, new, label=event),)
 
 
@@ -99,6 +103,8 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
+    Invariant("promote_names_stale_components", "confirmation guidance includes changed confirmed components",
+              lambda s,t: _holds(s.status != "promoted" or s.stale_components_named, "stale component missing from confirmation")),
     Invariant("refusal_shows_findings", "refusal shows the actual design error and changes no current bytes",
               lambda s, t: _holds(s.status != "refused_error" or s.findings_shown, "refusal hid its findings")),
     Invariant("promote_makes_current_equal_merged", "both current map and models equal the prepared merge",
@@ -127,7 +133,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently")}
+            ("models_only", "retained_target", "keeps_components_confirmed", "promotes_after_edit", "refuses_silently", "names_drafts_only")}
 
 
 class RealPromotion:
@@ -197,7 +203,10 @@ class RealPromotion:
                 same_models = all((self.root / ".flowguard/models" / name).read_bytes() == content
                                   for name, content in self.expected_models.items())
                 state = replace(state, status="promoted", target_count=int((self.root / ".flowguard/target").exists()),
-                                draft=loans["status"] == "draft" and "next: python -m flowguard map confirm loans" in output.getvalue(),
+                                draft=loans["status"] == "draft" and any("loans" in line.split()[6:] for line in output.getvalue().splitlines()
+                                      if line.startswith("next: python -m flowguard map confirm ")),
+                                stale_components_named=any("catalog" in line.split()[6:] for line in output.getvalue().splitlines()
+                                      if line.startswith("next: python -m flowguard map confirm ")),
                                 current_map_revision=state.target_revision if current == self.expected else -1,
                                 current_model_revision=state.expected_model_revision if same_models else -1)
             else:
@@ -219,9 +228,14 @@ def conformance():
     last = None
     with TemporaryDirectory(prefix="target-promotion-base-") as directory:
         base = target_life_cycle.make_project(Path(directory) / "base")
+        from flowguard.map import cli
+        with redirect_stdout(StringIO()):
+            cli.main(["confirm", "all", "--root", str(base)])
         target_life_cycle.stage_target(base)
         target_life_cycle.edit_missing_method(base)
         target_life_cycle.write_method(base)
+        changed = base / "shelf/catalog.py"
+        changed.write_text(changed.read_text() + "\n# refreshed documentation\n")
         report = native.check_target(base)
         if report.errors or report.todos:
             raise RuntimeError(f"the base target is not clean: {report.errors + report.todos}")

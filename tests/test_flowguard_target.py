@@ -252,7 +252,9 @@ def test_target_add_names_helpers_and_current_importers_without_executing_them(t
     assert "note: it imports _shelf_helper" in output
     assert "only if the target changes it" in output
     assert "target check also runs these models against the target version: lending_reader" in output
-    assert (root / ".flowguard/target/models/lending.py").read_bytes() == model.read_bytes()
+    copied = (root / ".flowguard/target/models/lending.py").read_bytes()
+    assert b"import _shelf_helper" in copied
+    assert b"import _shelf_helper" not in model.read_bytes()  # tracked edit moved; current is HEAD
     assert not (root / ".flowguard/target/models/_shelf_helper.py").exists()
 
 
@@ -399,8 +401,9 @@ def test_target_check_planned_component_is_todo_then_clean(tmp_path, capsys):
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 3 and not errors, (output, errors)
     assert not any(line.startswith("ERROR ") for line in output.splitlines()), output
-    for finding in ("component_empty", "anchor_broken", "test_missing", "dep_unused"):
+    for finding in ("component_empty", "anchor_broken", "dep_unused"):
         assert any(line.startswith("TO-DO ") and finding in line for line in output.splitlines()), output
+    assert any(line.startswith("WARN ") and "test_missing" in line for line in output.splitlines())
     _assert_current_lending(root, capsys)
     for relative in ("shelf/reports.py", "tests/test_reports.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
@@ -619,13 +622,11 @@ def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, ca
     tests = root / "tests/test_loans.py"
     tests.write_text(statement + tests.read_text(), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    assert code == expected_code and not errors, (output, errors)
-    if expected_code == 1:
-        assert "ERROR model lending:" in output and "flowguard_missing_external_dependency" in output
-        assert "TESTED_BY dependency/import error" in output
-    else:
-        assert "TO-DO model lending:" in output and "shelf.future_feature" in output
-        assert not any(line.startswith("ERROR ") for line in output.splitlines())
+    assert code == 0 and not errors and "bound tests: not run here" in output, (output, errors)
+    code, output, errors = _run(root, capsys, "target", "promote")
+    assert code == 1 and "ERROR model lending:" in output, (output, errors)
+    assert statement.strip()[7:] in output
+    assert not any(line.startswith("TO-DO model lending: tested_by") for line in output.splitlines())
 
 
 def _rename_return_toward_target(root: Path) -> None:
@@ -1023,7 +1024,7 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 0 and not errors and output.startswith('promoted "'), (output, errors)
     assert "next: python -m flowguard map confirm loans" in output
-    assert "next: python -m flowguard change" in output
+    assert "next: commit (the code, .flowguard/models/ and .flowguard/map.json together)" in output
     assert not directory.exists()
     assert (root / ".flowguard/models/lending.py").read_bytes() == checked_model
     loans = next(component for component in _load_map(root)["components"] if component["id"] == "loans")
@@ -1128,7 +1129,7 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
     before_files, before_dirs = _project_snapshot(root)
     original_write = Path.write_bytes
-    destination = root / ".flowguard/models/lending.py"
+    destination = root / ".flowguard/models/lending.py.tmp"
     attempted = []
 
     def fail_destination(path, content):
@@ -1145,8 +1146,10 @@ def test_target_promote_reports_real_write_failure_without_backup_or_automatic_g
     assert "restore with: git checkout -- .flowguard && git clean -fd .flowguard" in output + errors
     assert directory.is_dir()
     after_files, after_dirs = _project_snapshot(root)
-    assert after_dirs == before_dirs
-    assert set(after_files) == set(before_files)  # no backup or completion marker
+    backup = directory / ".replaced/models/lending.py"
+    assert backup.is_file() and backup.read_bytes() == before_files[".flowguard/models/lending.py"][0]
+    assert (directory / "models/lending.py").is_file()
+    assert "promote stopped:" in output + errors
     # git restore/clean is guidance only: no index, ref, log or object changes.
     assert {p: v for p, v in after_files.items() if p.startswith(".git/")} == {
         p: v for p, v in before_files.items() if p.startswith(".git/")}
@@ -1822,7 +1825,9 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     from flowguard.map.tree import build_tree
 
     root = shelf_project(tmp_path)
-    (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL, encoding="utf-8")
+    (root / ".flowguard/models/loan_count.py").write_text(OLD_CHILD_MODEL.replace('MODEL_ID = "loan_count"', 'MODEL_ID = "loan_count"\nimport lending_bridge').replace('PARENT = "lending"', 'PARENT = "loans"'), encoding="utf-8")
+    bridge = SHELF_BASE[".flowguard/models/lending.py"].replace('MODEL_ID = "lending"', 'MODEL_ID = "lending_bridge"\nimport lending')
+    (root / ".flowguard/models/lending_bridge.py").write_text(bridge, encoding="utf-8")
     assert cli.main(["map", "confirm", "all", "--root", str(root)]) == 0
     path = _target_with(root, capsys, "describe the catalog; one more lending known-bad", "catalog", "lending")
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -1837,7 +1842,7 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     old_lines = [line for line in output.splitlines() if line.startswith("WARN  model loan_count: old_finding: ")]
     assert code == 0 and len(old_lines) == 1 and "uncovered_invariant: invariant 'never_negative'" in old_lines[0], output
     assert "(already in the current tree; the target does not change this model or its code;" in old_lines[0]
-    assert "(1 old)" in output.splitlines()[-2] and "next: python -m flowguard target promote" in output
+    assert any("(1 old)" in line for line in output.splitlines()) and "next: python -m flowguard target promote" in output
 
     def classify():
         current = json.loads((root / ".flowguard/map.json").read_text(encoding="utf-8"))
@@ -2010,3 +2015,238 @@ def test_refused_promote_prints_the_report(tmp_path, monkeypatch, capsys):
     assert "ERROR" in output and "promote refused: 1 error(s), 0 to-do" in output
     assert len(calls) == 1
     assert all(p.read_bytes() == content for p, content in before.items())
+
+
+# FG-403: small native fixtures exercise the public target route.
+def _fg403_helpers():
+    import runpy
+    directory = Path(__file__).resolve().parents[1] / ".flowguard/models"
+    if not (directory / "_gap_cases.py").is_file():
+        directory = directory.parent / "target/models"
+    return runpy.run_path(str(directory / "_gap_cases.py"))
+
+
+def test_rule_broken_by_old_code_is_an_expected_gap(tmp_path):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    root = tmp_path
+    helpers["make_project"](root, helpers["regular_source"]())
+    native.start_target(root, "raise the native answer")
+    native.add_to_target(root, "one")
+    (root / ".flowguard/target/models/one.py").write_text(helpers["regular_source"](expected=2))
+    report = native.check_target(root)
+    assert not report.errors and report.todos
+    assert "EXPECTED GAP one:" in native.render_target_report(report)
+    (root / "native.py").write_text("def value(): return 2\n")
+    report = native.check_target(root)
+    assert not report.errors and not report.todos
+    assert "NO GAP one:" in native.render_target_report(report)
+    assert native.promote_target(root) == 0
+    assert "model_digests" in _load_map(root)
+
+
+def test_split_into_child_prints_moved_rules_only():
+    result = _fg403_helpers()["native_case"]("move")
+    assert "moved rules only: moved (1 from one; no gap expected)" in result["text"]
+    assert ">positive (from one)" in str(result["goal"])
+
+
+def test_recorded_rule_prints_no_gap():
+    result = _fg403_helpers()["native_case"]("recorded")
+    assert "NO GAP one:" in result["text"] and not result["errors"] and not result["todos"]
+
+
+def test_missing_bound_test_is_never_a_gap():
+    result = _fg403_helpers()["native_case"]("missing_test")
+    assert "NO GAP one:" in result["text"] and "EXPECTED GAP" not in result["text"]
+    assert not result["todos"]
+
+
+@pytest.mark.parametrize("case", ["anchor_exception", "engine_exception", "adapter_exception"])
+def test_exception_classification(case):
+    result = _fg403_helpers()["native_case"](case)
+    if case == "anchor_exception":
+        assert "EXPECTED GAP one:" in result["text"] and result["todos"] and not result["errors"]
+    else:
+        assert result["errors"] and "EXPECTED GAP" not in result["text"]
+        assert "getattr(report," in result["text"]
+
+
+def test_rule_reading_a_changed_table_is_changed():
+    result = _fg403_helpers()["native_case"]("table")
+    assert "~answer" in str(result["goal"]) and "EXPECTED GAP one:" in result["text"]
+
+
+def test_kit_model_binding_edit_prints_no_rule_change():
+    result = _fg403_helpers()["native_case"]("kit_binding")
+    assert "no rule change: one" in result["text"] and not result["errors"]
+
+
+def test_kit_feature_table_change_changes_the_rules(tmp_path):
+    from flowguard.map import target as native
+    from flowguard.map.facets import target_goal_rules
+    from flowguard.map.targetfile import load_target
+    helpers = _fg403_helpers()
+    source = helpers["KIT_SOURCE"]
+    helpers["make_project"](tmp_path, source)
+    native.start_target(tmp_path, "change a kit feature")
+    native.add_to_target(tmp_path, "one")
+    (tmp_path / ".flowguard/target/models/one.py").write_text(source.replace("lambda value: 1", "lambda value: 2"))
+    goal = target_goal_rules(tmp_path, load_target(tmp_path))
+    assert len(goal) == 1 and "~" in goal[0], goal
+
+
+@pytest.mark.parametrize("case", ["remove_clean", "remove_gap"])
+def test_removed_rule_only_prints_no_rule_change(case):
+    result = _fg403_helpers()["native_case"](case)
+    assert "no rule change: one" in result["text"]
+    assert ("code gap(s) are TO-DO" in result["text"]) == (case == "remove_gap")
+
+
+def test_name_added_to_two_models_moves_into_one():
+    result = _fg403_helpers()["native_case"]("move_twice")
+    assert "moved rules only: moved" in result["text"] and "model second: +positive" in str(result["goal"])
+
+
+def test_writes_only_target_prints_no_rule_change(tmp_path):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    native.start_target(tmp_path, "declare the write footprint")
+    native.add_to_target(tmp_path, "one")
+    p = tmp_path / ".flowguard/target/models/one.py"
+    p.write_text(p.read_text().replace('name = "Value"', 'name = "Value"\n    writes = ("value",)'))
+    text = native.render_target_report(native.check_target(tmp_path))
+    assert "no rule change: one" in text and "~answer" not in text
+
+
+def _fg403_clean_target(tmp_path):
+    from flowguard.map import target as native
+    helpers = _fg403_helpers()
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    native.start_target(tmp_path, "record a positive native answer")
+    native.add_to_target(tmp_path, "one")
+    (tmp_path / ".flowguard/target/models/one.py").write_text(helpers["regular_source"](positive=True))
+    return native
+
+
+def test_target_check_runs_no_pytest_and_promote_runs_one_check(tmp_path, monkeypatch):
+    from flowguard.map import proof
+    native = _fg403_clean_target(tmp_path)
+    original = proof.run_bound_tests
+    calls = []
+    def counted(*args, **kwargs):
+        calls.append(args[1])
+        return original(*args, **kwargs)
+    monkeypatch.setattr(proof, "run_bound_tests", counted)
+    report = native.check_target(tmp_path)
+    assert not report.errors and not report.todos and calls == []
+    assert "bound tests: not run here; target promote runs them once" in native.render_target_report(report)
+    assert native.promote_target(tmp_path) == 0 and len(calls) == 1
+
+
+def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
+    from flowguard.map.cli import cmd_confirm
+    from types import SimpleNamespace
+    native = _fg403_clean_target(tmp_path)
+    cmd_confirm(tmp_path, SimpleNamespace(ids=["app"]))
+    path = tmp_path / "native.py"
+    path.write_text(path.read_text() + "\n# source changed after confirmation\n")
+    capsys.readouterr()
+    assert native.promote_target(tmp_path) == 0
+    assert "next: python -m flowguard map confirm app" in capsys.readouterr().out
+
+
+def test_promote_oserror_keeps_replaced_files(tmp_path, monkeypatch, capsys):
+    native = _fg403_clean_target(tmp_path)
+    helpers = _fg403_helpers()
+    second = tmp_path / ".flowguard/models/moved.py"
+    second.write_text(helpers["regular_source"]("moved"))
+    staged = tmp_path / ".flowguard/target/models/moved.py"
+    staged.write_text(helpers["regular_source"]("moved", positive=True))
+    before = (tmp_path / ".flowguard/models/one.py").read_bytes()
+    second_before = second.read_bytes()
+    write_bytes = Path.write_bytes
+    def interrupted(path, content):
+        if path == second.with_name("moved.py.tmp"):
+            raise OSError("injected second model replacement")
+        return write_bytes(path, content)
+    monkeypatch.setattr(Path, "write_bytes", interrupted)
+    assert native.promote_target(tmp_path) == 2
+    assert (tmp_path / ".flowguard/target/.replaced/models/one.py").read_bytes() == before
+    assert (tmp_path / ".flowguard/target/.replaced/models/moved.py").read_bytes() == second_before
+    assert (tmp_path / ".flowguard/target/models/one.py").is_file()
+    text = capsys.readouterr().err
+    assert "promote stopped:" in text and "copy them back into .flowguard/ to restore" in text
+    assert "git checkout" not in text
+
+
+def _fg403_add_case(tmp_path, case):
+    from flowguard.map import target as native
+    from flowguard.map.common import content_digest, normalize_newlines
+    helpers = _fg403_helpers()
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    path = tmp_path / ".flowguard/models/one.py"
+    before = path.read_bytes()
+    if case != "no_git":
+        def git(*args):
+            return subprocess.run(["git", "-c", "user.name=Guard", "-c", "user.email=guard@example.invalid", *args],
+                                  cwd=tmp_path, check=True, capture_output=True)
+        git("init", "-q")
+        git("add", "native.py", ".flowguard/map.json")
+        if case != "untracked":
+            git("add", ".flowguard/models")
+        git("commit", "-qm", "baseline")
+    data = _load_map(tmp_path)
+    data["model_digests"] = {".flowguard/models/one.py": content_digest(path)}
+    if case in {"dirty", "promoted"}:
+        path.write_bytes(before + b"\n# changed model\n")
+    edited = path.read_bytes()
+    if case == "promoted":
+        data["model_digests"][".flowguard/models/one.py"] = content_digest(path)
+    _write_map(tmp_path, data)
+    native.start_target(tmp_path, "edit the model safely")
+    native.add_to_target(tmp_path, "one")
+    assert normalize_newlines(path.read_bytes()) == normalize_newlines(before if case == "dirty" else edited)
+    assert normalize_newlines((tmp_path / ".flowguard/target/models/one.py").read_bytes()) == normalize_newlines(edited)
+
+
+def test_target_add_keeps_untracked_model(tmp_path):
+    _fg403_add_case(tmp_path, "untracked")
+
+
+def test_target_add_after_uncommitted_promote_copies(tmp_path):
+    _fg403_add_case(tmp_path, "promoted")
+
+
+def test_target_add_moves_in_place_edit_of_committed_model(tmp_path):
+    _fg403_add_case(tmp_path, "dirty")
+
+
+def test_shelf_without_git_runs_the_whole_route(tmp_path):
+    from flowguard.map import target as native
+    helpers = _target_life_cycle_fixture_helpers()
+    root = helpers["make_project"](tmp_path / "shelf")
+    old = (root / ".flowguard/models/shelf_rule.py").read_bytes()
+    assert not (root / ".git").exists()
+    helpers["stage_target"](root)
+    helpers["edit_missing_method"](root)
+    assert not native.check_target(root).errors
+    assert (root / ".flowguard/models/shelf_rule.py").read_bytes() == old
+    helpers["write_method"](root)
+    assert native.promote_target(root) == 0
+    assert (root / ".flowguard/models/shelf_rule.py").read_bytes() != old
+    assert not (root / ".flowguard/target").exists()
+
+
+def test_in_place_edit_without_target_is_named(tmp_path):
+    from flowguard.map.check import model_edit_findings
+    from flowguard.map.common import content_digest
+    helpers = _fg403_helpers()
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    p = tmp_path / ".flowguard/models/one.py"
+    data = _load_map(tmp_path)
+    data["model_digests"] = {".flowguard/models/one.py": content_digest(p)}
+    p.write_text(p.read_text() + "\n# unplanned edit\n")
+    assert len(model_edit_findings(tmp_path, data, "warn")) == 1
+    assert model_edit_findings(tmp_path, data, "error")[0].level == "error"

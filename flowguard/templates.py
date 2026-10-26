@@ -66,12 +66,19 @@ def write_template_files(
     target_root = Path(root)
     written: list[Path] = []
     for file in files:
-        target = target_root / file.path
+        staged = (target_root / ".flowguard/target").is_dir() and file.path.startswith(".flowguard/models/")
+        relative = file.path.replace(".flowguard/models/", ".flowguard/target/models/", 1) if staged else file.path
+        target = target_root / relative
         if target.exists() and not overwrite:
             raise FileExistsError(f"template target already exists: {target}")
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(file.content, encoding="utf-8")
         written.append(target)
+    if any(p.parent == target_root / ".flowguard/models" for p in written) and (target_root / ".flowguard/map.json").is_file():
+        from .map.mapfile import load_map, model_digests, save_map
+        data = load_map(target_root)
+        data["model_digests"] = model_digests(target_root)
+        save_map(target_root, data)
     return tuple(written)
 
 

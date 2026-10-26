@@ -92,7 +92,8 @@ def new_map(root: Path, inv: Inventory, max_components: int = 40) -> dict:
     comps = propose_components(inv, max_components)
     for c in comps:
         c["tests"] = guess_tests(component_files(c, inv), inv.tests, inv)
-    data = {"fingerprint_format": 2, "schema": SCHEMA, "project": root.resolve().name, "layers": [], "ignore": [],
+    from .mapfile import model_digests
+    data = {"model_digests": model_digests(root), "fingerprint_format": 2, "schema": SCHEMA, "project": root.resolve().name, "layers": [], "ignore": [],
             "test_command": "", "components": comps, "flows": [], "accepted_debts": []}
     graph = component_graph(data, inv)
     for c in comps:

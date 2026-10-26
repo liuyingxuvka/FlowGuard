@@ -22,7 +22,7 @@ from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_di
 from .inventory import Inventory
 from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
-TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format"}
+TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -48,6 +48,11 @@ def validate_map(data: object) -> list[str]:
     if type(fmt) is not int or fmt not in (1, 2):
         errors.append(f"fingerprint_format {fmt} is newer than this FlowGuard (2); install a newer FlowGuard"
                       if type(fmt) is int and fmt > 2 else "fingerprint_format must be 1 or 2")
+    digests = data.get("model_digests", {})
+    if not isinstance(digests, dict) or not all(isinstance(k, str) and k.startswith(".flowguard/models/")
+            and k.count("/") == 2 and "\\" not in k and k.endswith(".py") and not Path(k).name.startswith("_")
+            and isinstance(v, str) and re.fullmatch(r"[0-9a-f]{64}", v) for k, v in digests.items()):
+        errors.append("model_digests must map model paths to sha256 strings")
     test_commands = data.get("test_commands", {})
     if not isinstance(test_commands, dict) or not all(isinstance(p, str) and isinstance(cmd, str) and cmd.strip()
                                                       for p, cmd in test_commands.items()):
@@ -489,3 +494,18 @@ def model_registry(root: Path, data: dict | None = None, *, view=None) -> ModelR
             registry.issues.append(RegistryIssue("model_id_duplicate", rels[0],
                                   f"model id {mid!r} is shared by {', '.join(rels)}"))
     return registry
+
+
+def model_digests(root: Path, *, view=None) -> dict[str, str]:
+    """Canonical source byte identities; helpers and execution verdicts are excluded."""
+    sources = (view.model_sources if view is not None else
+               {p.relative_to(root).as_posix(): p.relative_to(root).as_posix()
+                for p in (root / ".flowguard/models").glob("*.py") if p.is_file()})
+    result = {}
+    for logical in sorted(sources):
+        if Path(logical).name.startswith("_") or not logical.endswith(".py"):
+            continue
+        path = view.resolve(logical) if view is not None else root / logical
+        if path is not None and path.is_file():
+            result[logical] = content_digest(path)
+    return result

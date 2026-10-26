@@ -12,9 +12,10 @@ import shutil
 import stat
 import sys
 import re
+import subprocess
 from dataclasses import dataclass, field, replace
 
-from .common import matches_any
+from .common import matches_any, content_digest, atomic_write_text
 from .inventory import build_inventory
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
@@ -50,8 +51,8 @@ def _remove_readonly(function, path, info):
     function(path)
 
 
-TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "test_missing", "model_anchor_broken",
-              "model_test_broken", "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
+TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
+              "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
               "dep_unused", "layer_violation", "dependency_cycle"}
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
@@ -74,6 +75,8 @@ class TargetReport:
     errors: list[TargetFinding] = field(default_factory=list)
     todos: list[TargetFinding] = field(default_factory=list)
     warnings: list[TargetFinding] = field(default_factory=list)
+    gaps: list[str] = field(default_factory=list)
+    bound_tests: bool = False
     goal_rules: str = ""
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
     deleting: list = field(default_factory=list)   # file_unmapped TO-DOs of files a removed/re-filed component owned
@@ -156,19 +159,13 @@ def moving_to_target(findings, root, data, target):
 
 
 def _selected_models(root, current, target, view, inv, tree):
-    """Traverse the union of native current/merged edges, in both directions."""
+    """Select the target and its transitive importers in both tree snapshots."""
     old = build_tree(root, current, inv)
     links = {}
     for source_tree in (old, tree):
         for source, destinations in source_tree.imports.items():
             for destination in destinations:
-                links.setdefault(source, set()).add(destination)
                 links.setdefault(destination, set()).add(source)
-        for node in source_tree.nodes.values():
-            if node.parent_kind == "model" and node.parent in source_tree.nodes:
-                parent = source_tree.nodes[node.parent].path
-                links.setdefault(node.path, set()).add(parent)
-                links.setdefault(parent, set()).add(node.path)
     reached = {f".flowguard/models/{filename}" for filename in target.models}
     reached.update(node.path for node in old.nodes.values() if node.id in target.remove["model"])
     pending = list(reached)
@@ -210,14 +207,14 @@ def _issue_key(node, code, message, tree):
     return node, family, message
 
 
-def check_target(root: Path, *, models: bool = True) -> TargetReport:
+def check_target(root: Path, *, models: bool = True, tests: bool = False) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
     from .lint import architecture_findings, architecture_variants, dropped_owner_findings
 
     root = root.resolve()
     current = load_map(root)
-    report = TargetReport()
+    report = TargetReport(bound_tests=tests)
     try:
         target = load_target(root)
     except MapError as exc:
@@ -261,6 +258,9 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
             continue
         if finding.level == "info":
             continue
+        if finding.code in {"test_missing", "model_test_broken"} and not tests:
+            add("warnings", _finding_node(finding, tree), finding.code, finding.message)
+            continue
         placeholder = "placeholder anchor " in finding.message
         level = "errors" if placeholder else "todos" if finding.code in TODO_CODES else "errors" if finding.level == "error" or finding.code in ERROR_CODES else "warnings"
         add(level, _finding_node(finding, tree), finding.code, finding.message)
@@ -284,7 +284,7 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
 
     selected = _selected_models(root, current, target, view, inv, tree)
     # [] means "all" to model execution; an empty target selection means none.
-    results = run_models(root, selected, tests=True, view=view, inv=inv) if selected else []
+    results = run_models(root, selected, tests=tests, view=view, inv=inv) if selected else []
     untouched, old = _unchanged_models(root, current, target, inv, tree, selected)
     for result in results:
         node = "model " + result.model
@@ -309,7 +309,50 @@ def check_target(root: Path, *, models: bool = True) -> TargetReport:
                 node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
+    report.gaps = gap_lines(root, target, view, report, results)
+    for line in report.gaps:
+        if line.startswith("NO GAP "):
+            report.warnings.append(TargetFinding("model " + line.split()[2].rstrip(":"), "no_gap", line))
     return report
+
+
+def gap_lines(root, target, view, report, results):
+    """Describe each target model's rule delta against genuine native code gaps."""
+    from .facets import target_goal_rules
+    changes = {line.split(": ", 1)[0][6:]: line.split(": ", 1)[1]
+               for line in target_goal_rules(root, target, view)}
+    by_model = {result.model: list(result.code_gaps) for result in results}
+    output = []
+    for entry in model_registry(root, view.data, view=view).entries:
+        if entry.kind != "contract" or Path(entry.path).name not in target.models:
+            continue
+        mid = entry.id
+        delta = changes.get(mid, "")
+        items = [item for item in delta.split(", ") if not item.endswith("(known-bad)")]
+        rules = [item for item in items if item.startswith(("+", "~"))]
+        moved = [item for item in items if item.startswith(">")]
+        gaps = by_model.get(mid, [])[:]
+        for finding in report.todos:
+            if finding.node == "model " + mid and finding.code == "model_anchor_broken" and not gaps:
+                gaps.append(finding.message)
+        first = gaps[0].splitlines()[0] if gaps else ""
+        if rules:
+            names = " ".join(rules)
+            if gaps:
+                output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
+            else:
+                output.append(f"NO GAP {mid}: the current code already satisfies {names}; if this rule records what the code already does, write no code for it and say so in the commit message; otherwise conformance() does not drive the real entry (check its call shape)")
+        elif moved:
+            donors = {}
+            for item in moved:
+                donor = item.partition("(from ")[2].rstrip(")")
+                donors[donor] = donors.get(donor, 0) + 1
+            detail = ", ".join(f"{count} from {donor}" for donor, count in sorted(donors.items()))
+            output.append(f"moved rules only: {mid} ({detail}; no gap expected)")
+        else:
+            detail = f"{len(gaps)} code gap(s) are TO-DO; first: {first}" if gaps else "no gap expected"
+            output.append(f"no rule change: {mid} (no new or changed rule; {detail})")
+    return output
 
 
 OLD_NOTE = ("(already in the current tree; the target does not change this model or its code; "
@@ -373,8 +416,11 @@ def render_target_report(report: TargetReport) -> str:
     lines = [f'target: "{report.goal}" (+{len(changes["+"])} ~{len(changes["~"])} -{len(changes["-"])} nodes)']
     if report.goal_rules:
         lines.append(report.goal_rules)
+    lines.extend(report.gaps)
     for label, findings in (("ERROR", report.errors), ("TO-DO", report.todos), ("WARN ", report.warnings)):
         for finding in findings:
+            if finding.code == "no_gap":
+                continue
             suffix = f" ({_todo_next(finding.code, finding in report.deleting)})" if label == "TO-DO" else ""
             message = finding.message.replace("\n", "\n  ")
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
@@ -383,6 +429,8 @@ def render_target_report(report: TargetReport) -> str:
     lines.append("next: " + ("fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
                             "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
                             "python -m flowguard target promote"))
+    if not report.bound_tests:
+        lines.append("bound tests: not run here; target promote runs them once")
     return "\n".join(lines)
 
 
@@ -429,7 +477,7 @@ def promote_target(root: Path) -> int:
             drafts = sorted(c["id"] for c in target.data.get("components", []))
             reread = _re_read(root, current, target, view)
         # The same full proof and TESTED_BY path as `target check`, exactly once.
-        report = check_target(root)
+        report = check_target(root, tests=True)
         if report.errors or report.todos:
             print(render_target_report(report))
             print(f"promote refused: {len(report.errors)} error(s), {len(report.todos)} to-do")
@@ -441,14 +489,39 @@ def promote_target(root: Path) -> int:
         if problems:
             print("promote refused: " + "; ".join(problems))
             return 1
-        save_map(root, merged)
+        backup = root / TARGET_RELDIR / ".replaced"
+        for rel in [".flowguard/map.json", *[".flowguard/models/" + name for name in model_bytes], *deleted]:
+            source = root / rel
+            if source.is_file():
+                destination = backup / Path(rel).relative_to(".flowguard")
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(source, destination)
         if model_bytes:
             (root / ".flowguard/models").mkdir(parents=True, exist_ok=True)
         for name, content in model_bytes.items():
-            (root / ".flowguard/models" / name).write_bytes(content)
+            destination = root / ".flowguard/models" / name
+            temporary = destination.with_name(destination.name + ".tmp")
+            temporary.write_bytes(content)
+            os.replace(temporary, destination)
         for path in deleted:
             (root / path).unlink()
-        shutil.rmtree(root / TARGET_RELDIR, onerror=_remove_readonly)
+        temporary = root / ".flowguard/map.json.tmp"
+        temporary.write_text(json.dumps(merged, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        os.replace(temporary, root / ".flowguard/map.json")
+        directory = root / TARGET_RELDIR
+        for child in directory.iterdir():
+            if child == backup:
+                continue
+            if child.is_dir():
+                shutil.rmtree(child, onerror=_remove_readonly)
+            else:
+                child.unlink()
+        if backup.exists():
+            shutil.rmtree(backup, onerror=_remove_readonly)
+        directory.rmdir()
+        from .mapfile import is_stale
+        inv = build_inventory(root, ignore_patterns(merged), write_cache=False)
+        drafts = sorted(set(drafts) | {c["id"] for c in merged["components"] if is_stale(root, c, inv)})
         summaries = []
         for kind, label in (("component", "components"), ("model", "models"), ("flow", "flows")):
             items = [symbol + entry.split(":", 1)[1] for symbol in ("+", "~", "-")
@@ -459,11 +532,12 @@ def promote_target(root: Path) -> int:
             print(line)
         if drafts:
             print("next: python -m flowguard map confirm " + " ".join(drafts))
-        print("next: python -m flowguard change")
+        print("next: commit (the code, .flowguard/models/ and .flowguard/map.json together)")
         return 0
     except OSError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        print("restore with: git checkout -- .flowguard && git clean -fd .flowguard", file=sys.stderr)
+        print(f"promote stopped: {exc}; the target is intact in .flowguard/target/ and the replaced files are in .flowguard/target/.replaced/; copy them back into .flowguard/ to restore, then run python -m flowguard target promote again", file=sys.stderr)
+        if _git_head(root):
+            print("restore with: git checkout -- .flowguard && git clean -fd .flowguard", file=sys.stderr)
         return 2
     except MapError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -497,6 +571,18 @@ def _re_read(root, current, target, view, limit=5):
     return lines
 
 
+def _git(root, *arguments):
+    try:
+        return subprocess.run(["git", "-C", str(root), *arguments], capture_output=True)
+    except OSError:
+        return None
+
+
+def _git_head(root):
+    result = _git(root, "rev-parse", "--verify", "HEAD")
+    return result is not None and result.returncode == 0
+
+
 def _add(root: Path, data: dict, target, requested: str) -> None:
     registry = model_registry(root, data)
     components = {c["id"]: c for c in data["components"]}
@@ -520,7 +606,20 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
         destination.parent.mkdir(exist_ok=True)
         shutil.copyfile(root / entry.path, destination)
         print(f"added model {name}: {destination.relative_to(root).as_posix()}")
-        contract = read_model_contract(root / entry.path)
+        contract = read_model_contract(destination)
+        if _git_head(root):
+            tracked = _git(root, "ls-files", "--error-unmatch", entry.path)
+            if tracked.returncode:
+                print(f"note: {entry.path} is not tracked by git; it stays the current model until target promote (commit .flowguard/ so git also holds it)")
+            else:
+                dirty = _git(root, "diff", "--quiet", "HEAD", "--", entry.path).returncode == 1
+                digest = content_digest(root / entry.path)
+                if dirty and digest != data.get("model_digests", {}).get(entry.path):
+                    original = _git(root, "show", "HEAD:" + entry.path)
+                    if original.returncode:
+                        raise MapError(f"cannot read HEAD model {entry.path}")
+                    (root / entry.path).write_bytes(original.stdout)
+                    print(f"moved uncommitted edits of {entry.path} into the target; the current model is HEAD again")
         for helper in contract["imports"]:
             if helper.startswith("_") and (root / ".flowguard/models" / f"{helper}.py").is_file():
                 print(f"note: it imports {helper}; copy .flowguard/models/{helper}.py into "
@@ -555,6 +654,8 @@ def start_target(root: Path, goal: str) -> int:
     (directory / "models").mkdir()
     _save(root, dict(schema=TARGET_SCHEMA, goal=goal, components=[], flows=[], remove=[]))
     print(f'target started: "{goal}"')
+    if not _git_head(root):
+        print("note: no git here; the current model stays in .flowguard/models/ until target promote")
     print("next: python -m flowguard target add <component-or-model-id>, edit the files under "
           ".flowguard/target/, then python -m flowguard target check")
     return 0
@@ -575,6 +676,9 @@ def add_to_target(root: Path, node_id: str) -> int:
     if problems:
         raise MapError("; ".join(f"{issue.code}: {issue.message}" for issue in problems))
     _add(root, data, target, node_id)
+    from .check import model_edit_findings
+    for finding in model_edit_findings(root, data, "warn"):
+        print("WARN " + finding.message)
     return 0
 
 
