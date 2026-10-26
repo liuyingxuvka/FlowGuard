@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-411: Change selects models and tests by the functions that changed",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
