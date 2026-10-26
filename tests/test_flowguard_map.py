@@ -1739,3 +1739,14 @@ def test_find_owners_edit_selects_its_models_and_test_functions(tmp_path):
     assert result.tests==['tests/test_map_views.py']
     assert result.test_functions['tests/test_map_views.py']
     assert 'Find is flowguard/map/views.py:find_'+'owners' in render_impact(result)
+
+
+def test_model_edit_keeps_bound_test_function_selection(tmp_path):
+    helper=function_fixture();data=helper['fixture'](tmp_path)
+    path=tmp_path/'.flowguard/models/child.py'
+    path.write_text(path.read_text()+'\nREVISION=2\n')
+    result=impact_of(tmp_path,data,['.flowguard/models/child.py'],base='HEAD')
+    assert result.tests==['tests/test_core.py']
+    assert result.test_functions=={'tests/test_core.py':['test_bound']}
+    assert result.selected_test_functions==1
+    assert not result.whole_test_files

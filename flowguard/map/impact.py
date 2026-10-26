@@ -974,7 +974,12 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     result.models=[path for path,mid in pairs];result.model_ids=[mid for path,mid in pairs]
     result.changed_functions=sorted(fn.replace('#',':',1) for fn in functions)
     result.uncertain_files=uncertain;result.unreached=unreached;result.model_reasons=dict(reasons);result.no_git=no_git
-    extra=set(result.tests) if not certain else {path for path in result.tests if path in changed or uncertain}
+    whole_fallback = bool(uncertain) or any(
+        (path not in source_changes and not inv.is_test(path) and not path.startswith('.flowguard/models/') and path not in comments)
+        or (path.startswith('.flowguard/models/') and not (root/path).is_file())
+        or (inv.is_test(path) and not is_collectable_test(path))
+        for path in changed)
+    extra=set(result.tests) if whole_fallback else {path for path in result.tests if path in changed}
     if no_git:
         extra.update(path for c in data['components'] if c['id'] in direct for path in inv.tests if matches_any(path,c.get('tests',())))
     selection=select_tests(root,data,inv,tree,selected,functions,changed=changed,uncertain=uncertain,raw=raw,extra_files=extra)
