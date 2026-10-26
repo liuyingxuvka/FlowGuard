@@ -179,7 +179,7 @@ class _RealMap:
         shutil.rmtree(self.root, ignore_errors=True)
 
     def _write_code(self) -> None:
-        (self.root / "app" / "core.py").write_text(f"VERSION = {self.code_version}\n", encoding="utf-8")
+        (self.root / "app" / "core.py").write_text(f"VERSION = {self.code_version}\n\ndef current_version(): return VERSION\n", encoding="utf-8")
         from flowguard.map.mapfile import fingerprint
         self.version_of[fingerprint(self.root, ["app/core.py"])] = self.code_version
 
@@ -263,7 +263,7 @@ from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "presence"
 PARENT = "app"
-IMPLEMENTED_BY = {"Read": "app/core.py"}
+IMPLEMENTED_BY = {"Read": "app/core.py:current_version"}
 RULE = Invariant("present", "source exists", lambda s,t: InvariantResult.pass_() if s else InvariantResult.fail("missing"))
 class Read:
     name = "Read"

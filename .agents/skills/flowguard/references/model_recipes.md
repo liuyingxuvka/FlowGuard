@@ -132,7 +132,7 @@ Apply this split through SKILL.md's target-first flow.
 In this split, the parent imports its children. A child that imports its parent (for `reachable_states`) must import it inside a function; a top-level import is circular.
 
 `python -m flowguard map check` reports ERROR for `parent_unknown`, `duplicate_child_owner`
-and `child_outside_parent`: unknown parents, two child owners of the same code, or child anchors outside the parent's code.
+and `anchor_outside_home`: unknown parents, two child owners of the same code, or child anchors outside the parent's code.
 
 5. When children hand off outputs, describe their real outputs, consumers, joins and exits as a
    `flowguard.closure.MeshClosureModel` named `MESH` in the parent. Import `MeshClosureModel`
@@ -243,7 +243,7 @@ from a `_helper` file, or build them with a small wrapper returning `Invariant(n
 ### Parent and child models
 
 `PARENT` may name a component, another model's `MODEL_ID`, or `"system"`.
-`parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and
+`parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `anchor_outside_home` and
 `duplicate_child_owner` are errors; `test_not_nested` and `child_start_gap` remain warnings.
 Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
 the first anchor's owner, or `system`.
@@ -275,3 +275,5 @@ Checking Python bindings requires pytest in the environment (`.[dev]` provides i
 `TESTED_BY` uses real paths: `tests/test_x.py:test_name` runs every parameter case; `tests/test_x.py:test_name[param-id]` binds that exact case.
 `invariant_untested` names rules with no `TESTED_BY` key; it is a warning that does not gate `release`, and its absence does not prove assertion strength.
 The tests facet of `python -m flowguard read --component <id>` shows each node's bindings.
+
+USES binds code a model reads but does not own; conformance must call it.

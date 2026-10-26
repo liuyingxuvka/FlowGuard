@@ -191,6 +191,33 @@ def _tests_reaching(inv: Inventory, changed: list[str]) -> set[str]:
     return out | (seen & collectable)
 
 
+def _uses_function_changed(root, base, path, symbol):
+    """Match the read-only function or class, never a callee's reachability closure."""
+    if base is None or not path.endswith(".py"):
+        return True
+    old = subprocess.run(["git", "-C", str(root), "show", f"{base}:{path}"], capture_output=True)
+    if old.returncode:
+        return True
+    def definitions(syntax):
+        found = {}
+        def visit(node, prefix=""):
+            for child in ast.iter_child_nodes(node):
+                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                    name = prefix + child.name
+                    found[name] = ast.dump(child)
+                    visit(child, name + ".")
+                else:
+                    visit(child, prefix)
+        visit(syntax)
+        return found
+    try:
+        before = definitions(ast.parse(normalize_newlines(old.stdout)))
+        after = definitions(ast.parse(read_source(root / path)))
+    except (OSError, SyntaxError, ValueError):
+        return True
+    return symbol not in before or symbol not in after or before[symbol] != after[symbol]
+
+
 def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
                    *, base: str | None = None) -> Impact:
     """Select source caller closure; test/model edits retain only their explicit links."""
@@ -239,6 +266,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
     registered = {entry.path: entry for entry in registry.entries}
     contract_inputs: dict[str, set[str]] = defaultdict(set)
     contract_tests: dict[str, set[str]] = defaultdict(set)
+    readonly_unchanged = set()
+    uses_diffs = {}
     for entry in registry.entries:               # contract models bind code and tests in one way
         try:
             contract = read_model_contract(root / entry.path)
@@ -246,6 +275,20 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
             continue                    # registry/check reports the invalid contract
         for anchor in contract.get("IMPLEMENTED_BY", {}).values():
             contract_inputs[anchor.split(":", 1)[0]].add(entry.path)
+        uses = [anchor for anchor in contract.get("USES", {}).values() if anchor.partition(":")[0] in changed
+                and anchor.partition(":")[0] not in comment_only]
+        hits = []
+        for anchor in uses:
+            path, _, symbol = anchor.partition(":")
+            key = (path, symbol)
+            if key not in uses_diffs:
+                uses_diffs[key] = _uses_function_changed(root, base, path, symbol)
+            if uses_diffs[key]:
+                contract_inputs[path].add(entry.path)
+                hits.append(anchor)
+        own_changed = any(anchor.partition(":")[0] in changed for anchor in contract.get("IMPLEMENTED_BY", {}).values())
+        if uses and not hits and not own_changed:
+            readonly_unchanged.add(entry.path)
         for anchors in contract.get("TESTED_BY", {}).values():
             for anchor in anchors:
                 contract_tests[entry.path].add(anchor.split(":", 1)[0])
@@ -433,6 +476,8 @@ def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], d
                 owner_models[cid].update(n.path for n in tree.models_for_component(cid))
             else:
                 owner_models[cid].update(path for path in comp.get("models", []) if (root / path).is_file())
+        if cid not in seeds:
+            owner_models[cid].difference_update(readonly_unchanged)
         tests.update(owner_tests[cid])
         selected_model_paths.update(owner_models[cid])
     for model in selected_model_paths:

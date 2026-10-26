@@ -357,7 +357,7 @@ def test_non_python_anchor_is_a_warning_not_a_failure(shop, capsys):
         state=[], side_effects=[]))
     map_path.write_text(json.dumps(data))
     _edit_model(shop, 'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place"}',
-          'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Ui": "web/cart.ts:addItem"}')
+          'IMPLEMENTED_BY = {"PlaceOrder": "shop/orders.py:OrderService.place", "Ui": "web/cart.ts:addItem"}\nCOMPONENTS = ["orders", "ui"]')
     code, out = models(shop, capsys)
     assert code == 0 and "is not Python" in out
 

@@ -131,9 +131,29 @@ def resolve(event, defect=""):
     by_parent = {}
     for mid, (parent, kind, source) in placed.items():
         if kind == "model" and source in {"PARENT", "import"}:
-            if models[mid][2] not in models[parent][1] + [models[parent][2]]:
-                codes.add("child_outside_parent")
             by_parent.setdefault((parent, models[mid][2]), []).append(mid)
+    for mid in models:
+        current, seen, declared = mid, set(), set(models[mid][1])
+        while current in models and current not in seen:
+            seen.add(current)
+            declared.update(models[current][1])
+            parent, kind, _ = placed[current]
+            if kind != "model":
+                break
+            current = parent
+        if kind == "component":
+            declared.add(parent)
+            allowed = set(declared)
+            for cid in components:
+                current, visited = cid, set()
+                while current in parents and current not in visited:
+                    visited.add(current)
+                    current = parents[current]
+                    if current in declared:
+                        allowed.add(cid)
+                        break
+            if models[mid][2] is not None and models[mid][2] not in allowed:
+                codes.add("anchor_outside_home")
     if any(len(children) > 1 for children in by_parent.values()):
         codes.add("duplicate_child_owner")
     for cid, layer, parent in shape.get("sub", ()):
@@ -173,7 +193,7 @@ def _rule(name, relevant, predicate, message):
 
 
 NESTING = {"unknown_parent": "parent_unknown", "parent_cycle": "parent_cycle", "import_mismatch": "parent_import_mismatch",
-           "outside_anchor": "child_outside_parent", "duplicate_child_anchor": "duplicate_child_owner"}
+           "outside_anchor": "anchor_outside_home", "duplicate_child_anchor": "duplicate_child_owner"}
 INVARIANTS = (
     _rule("explicit_parent_wins", {"explicit_parent", "import_mismatch"},
           lambda state: state.placement[0] in {"p", "app"} and state.placement[2] == "PARENT",

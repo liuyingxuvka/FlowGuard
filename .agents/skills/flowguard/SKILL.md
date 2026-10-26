@@ -47,7 +47,7 @@ While working, `change` marks breakage of what the target changes `moving to tar
 
 Components can nest using an optional `parent`; models can nest under other models. Each node has purpose, rules, known-bad, code and tests: `read --component` prints them; `map models` prints the real rule and known-bad names.
 Root `system` is the code-derived component graph: unaccepted cycles, upward layer imports and duplicate owners violate its invariants; `python -m flowguard map models system` generates bad edges, and `map check` is its conformance.
-Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `child_outside_parent` and `duplicate_child_owner` are ERRORs. A child slicing parent state declares `project_parent_state`; independent grouped checks need no projection.
+Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `anchor_outside_home` and `duplicate_child_owner` are ERRORs. A child slicing parent state declares `project_parent_state`; independent grouped checks need no projection.
 `python -m flowguard read --mermaid` draws the tree, declared dependencies and flows (append `--component ID` to focus); `read --component` names dependency symbols and shows coverage; `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
 For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`python -m flowguard template behaviour --write .`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models; component ids select `read --component`. Unknown model ids fail.
 
@@ -62,7 +62,7 @@ Most edits need none of these; each row is reached through the same tree and tar
 | place new code or split a component (code-structure) | placing new code or splitting a module with its public surface intact | tree operation `references/tree_operations.md#Add or split a component` (target components; `duplicate_owner` and `owner_dropped` keep one owner and every public entrypoint) |
 | enumerate every bad input of a finite boundary (contract-exhaustion) | enumerating every bad case or combination in a finite universe | node kind `validator` (`python -m flowguard template validator`; `references/model_recipes.md#Validator`) |
 | rename or retire a field (field-lifecycle) | changing fields, schemas, defaults, aliases or replacements | tree operation `references/tree_operations.md#Rename or retire a field` (target model state + `CodeFacts.absent` / `present`) |
-| fit parent and child models together (model-mesh) | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `child_outside_parent`; `flowguard.closure` for handoffs between children) |
+| fit parent and child models together (model-mesh) | fitting parent/child or producer/consumer models together | tree operation `references/model_recipes.md#Split a model` (`PARENT` / `project_parent_state`; nesting errors `parent_unknown`, `duplicate_child_owner`, `anchor_outside_home`; `flowguard.closure` for handoffs between children) |
 | check rules, code and tests against each other (model-test) | checking rules, code and tests against one another | the tests facet (`python -m flowguard read --component <id>`) and `python -m flowguard map models --tests` (`invariant_untested`, `tested_by_failed`, `tested_by_misses_anchor`); `references/model_recipes.md#Run the bound tests` |
 | review shared writers and future-use hazards (topology-hazard) | reviewing shared writers, repeated effects and future-use hazards | computed facet: `hazard:` lines under each model in `python -m flowguard map models` (`references/model_recipes.md#Hazards`) |
 | run a slow suite in shards (test-mesh) | sharding a suite too slow for one command | tool: `python -m flowguard release --shards 4` (whole suite in parallel shards; every collected test runs exactly once within that suite) |
@@ -82,3 +82,5 @@ Use `python -m flowguard read --review` for the ranked view (strengths, defects,
 ## Honesty rules
 
 Keep `draft` when unsure; never invent anchors, owners or results; report what ran, failed and was skipped. The current model describes today's code; planned code belongs in the target, and history lives in git.
+
+USES binds code a model reads but does not own; conformance must call it.

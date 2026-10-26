@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Enforce owned anchors within the resolved model scope consistently, and display checked read-only USES dependencies without counting them as ownership.
+- Projects using FlowGuard: anchor_outside_home replaces child_outside_parent; bind code read-only with USES when the model consumes it.
+
 - Resolve script siblings, declared import roots and enclosing function imports through one shared import resolver.
 - Projects using FlowGuard: script repositories can declare relative import_roots in their map.
 

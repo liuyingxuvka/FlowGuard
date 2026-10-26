@@ -270,7 +270,7 @@
     {
       "id": "map-file",
       "layer": "map",
-      "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
+      "summary": "Owns map schema, model placement, anchor scopes and current-model fingerprints.",
       "responsibilities": [
         "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
         "resolve component parents in one layer without loops",
@@ -310,7 +310,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:6f5ede72250f8b482b4f709a3b9c140e2ffa17006aeda87e7feaed6bdf7521a2"
+      "fingerprint": "sha256:4096eb053895a97337ca1845537c29ce8612e9d8ee53d8de472fac9016f991fa"
     },
     {
       "id": "map-discover",
@@ -350,7 +350,7 @@
     {
       "id": "map-target",
       "layer": "map",
-      "summary": "Holds one target, checks design without bound tests, and promotes with one recoverable full check.",
+      "summary": "Checks target design, ownership and native gaps, then promotes with one recoverable full check.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
@@ -392,12 +392,12 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:835ed3328ad3f95b40835014e5eb0a70773dd6bef8b475705e70ddd76b1b46d1"
+      "fingerprint": "sha256:f9f75e28cd1a4581251b9f1f9d433f04233056abf7b11b7714ac8e39550363c2"
     },
     {
       "id": "map-proof",
       "layer": "map",
-      "summary": "Execute fresh model proofs and bound tests, separating native gaps from malformed designs and adapters.",
+      "summary": "Runs fresh proofs and bound tests, checking owned consultation and actual calls to read-only bindings.",
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
@@ -439,7 +439,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:f9393d9b18233f0ea30068b7273d95e47005a90a7f9c64dbdd0c4ea8e2d2ede6"
+      "fingerprint": "sha256:9c5225bb84927d18afdc0c9e5d3263498809a35946208adcebd81c4fc3bea902"
     },
     {
       "id": "engine-explore",
@@ -714,7 +714,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Verifies map/code promises, current-model edits and missing declared import directories.",
+      "summary": "Verifies map/code promises and resolves owned and read-only model anchors.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -743,12 +743,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:00f35f635ed570da75df1e3595bdf2ef3c96ccc86d743b1b249b08d3f9a69af2"
+      "fingerprint": "sha256:61bbca7b88f9af6313b3e33c023834c09d228eefc36b0450e4f85d71a55c115d"
     },
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Derive bounded model views and semantic rule changes, including helper dependencies and moved rules.",
+      "summary": "Derives bounded node views, semantic rule changes and the models using component code read-only.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage",
         "find owners by word form and rank architecture defects and strengths",
@@ -776,12 +776,12 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:f47932bd4cf62f08477b372753530e65d552c600dd5aec1c1b5634286b701dc9"
+      "fingerprint": "sha256:a4d5a04cc37db8b219f29c0ac87d4f34b033836c1ab3f875bb99179d3ccb9ff3"
     },
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Selects the tests and models that a change needs.",
+      "summary": "Selects affected code, tests and models, comparing changed read-only functions without taking their ownership.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select the models of relied anchors and flows a change touches"
@@ -807,7 +807,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:87707a39392ff755094dbe288ff0a1cf6df30374043fcaed7494c16618601869"
+      "fingerprint": "sha256:256ba1cd5f6dfebaa2279ed3b6d033ea4c2fceef94973e5a899ebe6e34fa7290"
     }
   ],
   "flows": [
@@ -888,13 +888,14 @@
   "fingerprint_format": 2,
   "model_digests": {
     ".flowguard/models/change_selection.py": "808628d272422928178a674cbd6f2b3c310c0692d25ab769a94de2f7690b10fd",
-    ".flowguard/models/component_pointer.py": "b02109b24e3d9656734ee33398c83b63acfab96c2b6dc8f6f505ff69ab81bce7",
+    ".flowguard/models/component_pointer.py": "b25a08b1b10984cd31e049830c10516286887a561ec912df81da7bcd717caf1b",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",
     ".flowguard/models/model_proof.py": "b8fdcdaae86aa7d993c1fc092a60b5f1b35c03d7c3c15f90628bca39b2ad31ce",
     ".flowguard/models/model_runs.py": "ba49d27068aa230118d3f5d30c09b06c20789e6733b49a4e967ba25da5acf892",
+    ".flowguard/models/model_scope.py": "52eac2133609103a21897ac04c71fb3f6b95e9793ba8403fe19f3367b1aacb0f",
     ".flowguard/models/python_function_state_verification.py": "d48a46573add9e440cd33a864b9341908a1cf708a15b3da6d998d08779dec36a",
     ".flowguard/models/read_view.py": "38496c11f2743b49f36fe2c1af1202c4e74112d886bf96271dd1f3603dc4fe81",
     ".flowguard/models/release_neutral_fingerprint.py": "e7abb4f2397102b7ce6eec69f194fba34a0777bc2b8ab9c3a472588b08958290",
@@ -905,7 +906,7 @@
     ".flowguard/models/target_life_cycle.py": "c54a4576d982790194bab4e7c77c9f081d2eeeefb954e247a826225d937fc9f7",
     ".flowguard/models/target_promotion.py": "27984c03a2f2791fdcfc1ca5b29e925ce255130c15d4fa2765f4e41ce0efbba0",
     ".flowguard/models/test_binding.py": "da8a739c3f525d9785b60bcf5f374385c92589275b416e8f14f7cb12ee08368f",
-    ".flowguard/models/tree_resolution.py": "b36ebd97be9ba29969cf65593116b2206de654781c731dd0852ab82594e9d1da",
+    ".flowguard/models/tree_resolution.py": "cef63be5c648cb5948403376b681e303b0cf2d96dc3220738b0e552c5f7c57f8",
     ".flowguard/models/ui_journey_rules.py": "2dedf4809f58f7d2919ee8f026135829b083ccfa26f61d717b1f7148371e0f8a",
     ".flowguard/models/validator_cases.py": "9b42a19b56ad0476bdeff77c1c60e1745232b25f99648253214968123209b824"
   }

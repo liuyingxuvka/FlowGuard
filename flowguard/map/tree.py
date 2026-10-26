@@ -97,6 +97,41 @@ def component_parent_findings(data: dict) -> list[Finding]:
     return out
 
 
+def common_ancestor(data: dict, cids) -> str:
+    """The nearest shared component ancestor, including the system boundary."""
+    chains = [[cid, *component_ancestors(data, cid), "system"] if cid != "system" else ["system"]
+              for cid in dict.fromkeys(cids)]
+    return next((cid for cid in chains[0] if all(cid in chain for chain in chains[1:])), "system") if chains else "system"
+
+
+def scope_findings(data: dict, inv: Inventory, tree: ModelTree) -> list[Finding]:
+    """Ownership follows the resolved home and literal declarations, independent of parent syntax."""
+    owner, _ = owner_index(data, inv)
+    out = []
+    for node in tree.nodes.values():
+        if node.home_kind != "component":
+            continue
+        declared = set(node.contract.get("COMPONENTS", []))
+        for mid in tree.ancestors(node.id):
+            declared.update(tree.nodes[mid].contract.get("COMPONENTS", []))
+        allowed = {comp["id"] for cid in declared | {node.home} for comp in component_subtree(data, cid)}
+        for name, anchor in node.contract.get("IMPLEMENTED_BY", {}).items():
+            path = anchor.partition(":")[0]
+            cid = owner.get(path)
+            if cid is None:
+                # A target can own code that has not been written yet. Resolve only a unique declared owner.
+                candidates = [comp["id"] for comp in data["components"] if matches_any(path, comp.get("files", []))]
+                cid = candidates[0] if len(candidates) == 1 else None
+            if cid is not None and cid not in allowed:
+                lca = common_ancestor(data, (node.home, cid))
+                components = ", ".join(sorted(declared)) or "-"
+                out.append(Finding("error", "anchor_outside_home", node.home,
+                    f"{node.path}: IMPLEMENTED_BY {name!r} -> {anchor!r} is in component {cid}, outside this model's scope "
+                    f"({node.home} + COMPONENTS {components}); set PARENT = \"{lca}\" (the common ancestor of {node.home} and {cid}), "
+                    f"bind it read-only with USES, or, if this model really owns that code, add {cid} to COMPONENTS"))
+    return out
+
+
 def build_tree(root: Path, data: dict, inv: Inventory, *,
                historical_imports: dict[str, list[str]] | None = None, view=None) -> ModelTree:
     """Resolve each model's parent once; report invalid nesting and fall back finitely."""
@@ -213,28 +248,13 @@ def build_tree(root: Path, data: dict, inv: Inventory, *,
         level = "error" if code in {"parent_unknown", "parent_cycle", "parent_import_mismatch"} else "warn"
         tree.findings.append(Finding(level, code, nodes[mid].home if nodes[mid].home_kind == "component" else "", message))
 
+    tree.findings.extend(scope_findings(data, inv, tree))
     sibling_anchors: dict[tuple[str, str], list[ModelNode]] = defaultdict(list)
     for node in nodes.values():
         if node.source not in {"PARENT", "import"} or node.parent_kind == "system":
             continue
-        if node.parent_kind == "component":
-            allowed = set(component_files(component_scope(data, components[node.parent]), inv))
-        else:
-            parent = nodes[node.parent]
-            cids = set(parent.contract.get("COMPONENTS", []))
-            cids.update(owner.get(a.split(":", 1)[0]) for a in parent.contract.get("IMPLEMENTED_BY", {}).values())
-            allowed = {path for cid in cids if cid in components for path in component_files(component_scope(data, components[cid]), inv)}
-        for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
-            anchor_path = anchor.split(":", 1)[0]
-            planned_component_anchor = (
-                view is not None and node.parent_kind == "component"
-                and not (root / anchor_path).exists()
-                and matches_any(anchor_path, component_scope(data, components[node.parent]).get("files", []))
-            )
-            if anchor_path not in allowed and not planned_component_anchor:
-                tree.findings.append(Finding("error", "child_outside_parent", node.home if node.home_kind == "component" else "",
-                    f"{node.path}: IMPLEMENTED_BY {anchor!r} is outside parent {node.parent!r}'s code"))
-            if node.parent_kind == "model":
+        if node.parent_kind == "model":
+            for anchor in node.contract.get("IMPLEMENTED_BY", {}).values():
                 sibling_anchors[(node.parent, anchor)].append(node)
     for (parent, anchor), siblings in sorted(sibling_anchors.items()):
         unique = {n.id: n for n in siblings}

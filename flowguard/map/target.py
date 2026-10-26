@@ -57,7 +57,7 @@ TODO_CODES = {"anchor_broken", "component_empty", "pattern_dead", "model_anchor_
 ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
-               "child_outside_parent", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model", "component_parent_unknown", "component_parent_cycle",
+               "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "design_only_model", "runner_model", "component_parent_unknown", "component_parent_cycle",
                "component_parent_layer", "target_noop", "target_goal_untied"}
 
 
@@ -193,7 +193,7 @@ def _issue_key(node, code, message, tree):
               "tested_by_failed": "test", "tested_by_misses_anchor": "test"}.get(code, code)
     contract = tree.nodes[node[6:]].contract if node.startswith("model ") and node[6:] in tree.nodes else {}
     if family == "anchor":
-        anchors = contract.get("IMPLEMENTED_BY", {})
+        anchors = {**contract.get("IMPLEMENTED_BY", {}), **{f"USES {name}": anchor for name, anchor in contract.get("USES", {}).items()}}
         for block, anchor in anchors.items():
             if f"{block} ->" in message or anchor in message:
                 return node, family, anchor
@@ -293,7 +293,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False) -> Tar
             problems.append(f"model ended with status {result.status}")
         for problem in problems:
             code = ("placeholder_anchor" if problem.startswith("placeholder anchor ") else
-                    "implemented_by" if problem.startswith("IMPLEMENTED_BY ") else
+                    "implemented_by" if problem.startswith(("IMPLEMENTED_BY ", "USES ")) else
                     "tested_by_misses_anchor" if problem.startswith("tested_by_misses_anchor ") else
                     "tested_by_failed" if problem.startswith("tested_by_failed ") else
                     "uncovered_invariant" if problem.startswith("uncovered_invariant: ") else "model_proof")

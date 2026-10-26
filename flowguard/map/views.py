@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .common import Finding, read_source, tokens
 from .inventory import Inventory, resolve_import
-from .facets import _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
+from .facets import used_by_lines, _test_function_index, component_facets, coverage_facts, coverage_line, goal_rules_line, model_facets, system_facets
 from .discover import discover_inventory, relied_models
 from .tree import build_tree
 from .lint import apply_accepted_debts, duplicate_owner_findings, normalized_debts, private_name, shape_findings, structural_findings
@@ -423,6 +423,7 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
             if delta:
                 body.append("  changes: " + "; ".join(delta))
         if component or detail:
+            body.extend(used_by_lines(merged, inv, tree, cid))
             body.extend(_dependency_lines(merged, inv, cid, graph, raw))
             body.extend(_relied_lines(merged, inv, raw, tree, model_data, cid))
             body.extend(_flow_lines(merged, tree, model_data, cid))
@@ -523,6 +524,7 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             else:
                 lines.append("  uses: " + ", ".join(sorted(dependencies)))
         if component or detail:
+            lines.extend(used_by_lines(data, inv, tree, c["id"]))
             lines.extend(_relied_lines(data, inv, raw, tree, model_data, c["id"]))
             lines.extend(_flow_lines(data, tree, model_data, c["id"]))
         declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)

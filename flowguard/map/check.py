@@ -158,10 +158,12 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
                     problem = str(exc)
                 if problem:
                     out.append(Finding("error", "model_test_broken", "", f"{rel}: {invariant} -> {problem}"))
-        for block, anchor in contract.get("IMPLEMENTED_BY", {}).items():
-            problem = anchor_problem(root, inv, anchor)
-            if problem:
-                out.append(Finding("error", "model_anchor_broken", "", f"{rel}: {block} -> {problem}"))
+        for kind in ("IMPLEMENTED_BY", "USES"):
+            for block, anchor in contract.get(kind, {}).items():
+                problem = anchor_problem(root, inv, anchor)
+                if problem:
+                    label = f"USES {block}" if kind == "USES" else block
+                    out.append(Finding("error", "model_anchor_broken", "", f"{rel}: {label} -> {problem}"))
 
     bound_tests = [pat for comp in data["components"] for pat in comp.get("tests", [])]
     for test in inv.tests:

@@ -345,16 +345,22 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
     if not anchors:
         _fail(result, "declares no IMPLEMENTED_BY anchors; name the real code this model is about ('path:Symbol'), "
                       "or plan it as a target model (python -m flowguard target start)")
-    problems = anchor_problems(root, anchors.values())
+    uses = contract.get("USES", {})
+    problems = anchor_problems(root, [*anchors.values(), *uses.values()])
     for name, anchor in sorted(anchors.items()):
         if anchor in problems:
             _fail(result, f"IMPLEMENTED_BY {name} -> {problems[anchor]}", code_gap=True)
+    for name, anchor in sorted(uses.items()):
+        if anchor in problems:
+            _fail(result, f"USES {name} -> {problems[anchor]}", code_gap=True)
     if problems:  # native replay is deferred until every declared entry exists
         return
     for anchor in watch.missing():
-        if anchor not in problems:
+        if anchor not in problems and anchor in anchors.values():
             _fail(result, f"IMPLEMENTED_BY anchor {anchor} never ran and its file was never read {where}; "
                           "call that code or read it as code facts")
+    for anchor in sorted(set(uses.values()) - watch.called):
+        _fail(result, f"USES anchor {anchor} never ran during conformance(); call it there or remove it")
     for anchor in watch.unobserved():
         if anchor not in problems:
             result.warnings.append(f"IMPLEMENTED_BY anchor {anchor} is not Python and its file was not read: "
@@ -443,12 +449,12 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
         phase = "design"
         try:
             from flowguard.explorer import Explorer, invariant_name
-            for anchor in contract.get("IMPLEMENTED_BY", {}).values():
+            for anchor in [*contract.get("IMPLEMENTED_BY", {}).values(), *contract.get("USES", {}).values()]:
                 if PLACEHOLDER_ANCHOR in anchor:
                     raise PlaceholderAnchorError(anchor_problems(root, [anchor])[anchor])
             module = _load(root, path, view=view)
-            anchors = contract.get("IMPLEMENTED_BY", {})
-            calls = AnchorWatch(root, anchors.values())
+            anchors = [*contract.get("IMPLEMENTED_BY", {}).values(), *contract.get("USES", {}).values()]
+            calls = AnchorWatch(root, anchors)
             design = module.build_explorer()
             if not isinstance(design, Explorer):
                 raise TypeError("build_explorer() must return flowguard.explorer.Explorer; no exploration executed")
@@ -527,9 +533,10 @@ def run_model_in_process(root: Path, path: Path, *, view=None) -> ModelResult:
                     closures = {}
                 result.closed_hazards = [f"{hint} (closed by {closures[hint]})" for hint in result.hazards if hint in closures]
                 result.hazards = [hint for hint in result.hazards if hint not in closures]
-            missing_anchors = anchor_problems(root, contract.get("IMPLEMENTED_BY", {}).values())
+            missing_anchors = anchor_problems(root, anchors)
             if "conformance" in contract["functions"] and not missing_anchors:
                 phase = "conformance"
+                calls.called.difference_update(contract.get("USES", {}).values())
                 with calls:
                     conf = module.conformance()
                 if conf is None or not isinstance(getattr(conf, "ok", None), bool) or not callable(getattr(conf, "format_text", None)):

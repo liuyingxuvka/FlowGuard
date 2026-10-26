@@ -1454,8 +1454,9 @@ def conformance():
 
     child.write_text(source.replace("shelf/reports.py:overdue", "shelf/unowned_report.py:overdue"), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    assert code == 1 and not errors, (output, errors)
-    assert any(line.startswith("ERROR ") and "child_outside_parent" in line and "shelf/unowned_report.py" in line
+    assert code == 3 and not errors, (output, errors)
+    assert not any(line.startswith("ERROR ") and "anchor_outside_home" in line for line in output.splitlines()), output
+    assert any(line.startswith("TO-DO ") and "shelf/unowned_report.py" in line
                for line in output.splitlines()), output
 
     # This final guard observes the current tree after removing the overlay.

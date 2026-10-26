@@ -340,7 +340,7 @@ def read_model_contract(path: Path) -> dict:
     found: dict = {"functions": [], "imports": top_level_imports(tree), "local_imports": local_imports(tree)}
     for node in tree.body:
         if isinstance(node, ast.Assign) and len(node.targets) == 1 and isinstance(node.targets[0], ast.Name) \
-                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "TESTED_BY", "NOT_MODELED",
+                and node.targets[0].id in {"MODEL_ID", "COMPONENTS", "IMPLEMENTED_BY", "USES", "TESTED_BY", "NOT_MODELED",
                                            DESIGN_MARKER, "PARENT"}:
             found[node.targets[0].id] = ast.literal_eval(node.value)
         elif isinstance(node, ast.FunctionDef) and node.name in {"build_explorer", "broken_variants", "conformance",
@@ -353,6 +353,11 @@ def read_model_contract(path: Path) -> dict:
         if not isinstance(value, dict) or not all(isinstance(k, str) and isinstance(v, str) and v.strip()
                                                  for k, v in value.items()):
             raise ValueError(f"{key} must map anchors/names to nonempty strings")
+    uses = found.get("USES", {})
+    if not isinstance(uses, dict) or not all(isinstance(name, str) and name.strip()
+            and isinstance(anchor, str) and anchor.partition(":")[0].strip() and anchor.partition(":")[1]
+            and anchor.partition(":")[2].strip() for name, anchor in uses.items()):
+        raise ValueError("USES must map names to nonempty 'path:Symbol' strings")
     tested_by = found.get("TESTED_BY", {})
     if not isinstance(tested_by, dict) or not all(isinstance(k, str) and isinstance(v, (list, tuple))
             and all(isinstance(anchor, str) for anchor in v) for k, v in tested_by.items()):

@@ -10,7 +10,7 @@ from ..kit import Feature, feature_model_names
 from .common import matches_any, read_source, parse_test_anchor
 from .inventory import Inventory
 from .lint import architecture_variants, coverage_facts, explained_by, test_source
-from .mapfile import component_files, component_scope, component_subtree, is_stale, resolve_model_path
+from .mapfile import owner_index, component_files, component_scope, component_subtree, is_stale, resolve_model_path
 
 
 @dataclass(frozen=True)
@@ -596,6 +596,7 @@ def model_facets(root: Path, node, *, view=None) -> Facets:
     literal_bad = known is not None
     bad = known if literal_bad else ()
     code = [f"{block} -> {anchor}" for block, anchor in sorted(contract.get("IMPLEMENTED_BY", {}).items())]
+    code.extend(f"USES {name} -> {anchor}" for name, anchor in sorted(contract.get("USES", {}).items()))
     if contract.get("NOT_MODELED"):
         code.append(f"not modeled: {len(contract['NOT_MODELED'])}")
     tests = [f"{rule} -> {anchor}" + (" (not nested)" if anchor.split(":", 1)[0] in node.nonnested_tests else "")
@@ -718,6 +719,15 @@ def _test_facts(paths, nodes, functions, *, root=None, source_cache=None):
         if bindable:
             facts.append("bindable: " + ", ".join(bindable))
     return tuple(facts), len(actual)
+
+
+def used_by_lines(data, inv, tree, cid):
+    """Read-only model references to this component's code; never ownership or coverage."""
+    owner, _ = owner_index(data, inv)
+    members = {comp["id"] for comp in component_subtree(data, cid)}
+    return [f"  used by: {node.id} (USES {name})" for node in sorted(tree.nodes.values(), key=lambda node: node.id)
+            for name, anchor in sorted(node.contract.get("USES", {}).items())
+            if owner.get(anchor.partition(":")[0]) in members]
 
 
 def component_facets(root: Path, data: dict, inv: Inventory, component: dict, tree, graph, functions, *, coverage=None) -> Facets:

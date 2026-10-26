@@ -426,9 +426,9 @@ def test_model_tree_parent_defaults_and_nesting_warnings(tmp_path):
     write(tmp_path, ".flowguard/models/parent.py", parent)
     write(tmp_path, ".flowguard/models/child.py", child.replace("app.py:run", "other.py:run"))
     current = tree()
-    assert "child_outside_parent" in {f.code for f in current.findings}
-    assert next(f.level for f in current.findings if f.code == "child_outside_parent") == "error"
-    assert "child_outside_parent" in {f.code for f in findings(tmp_path)}
+    assert "anchor_outside_home" in {f.code for f in current.findings}
+    assert next(f.level for f in current.findings if f.code == "anchor_outside_home") == "error"
+    assert "anchor_outside_home" in {f.code for f in findings(tmp_path)}
     assert main(["map", "--root", str(tmp_path), "check"]) == 1
     write(tmp_path, ".flowguard/models/child.py", child)
     write(tmp_path, ".flowguard/models/second.py", child.replace('"child"', '"second"') + '\nPARENT = "parent"\n')
@@ -756,7 +756,7 @@ def test_component_parent_mistakes_are_errors(tmp_path, capsys):
     output = capsys.readouterr().out
     assert '0 error(s)' in output
     # This real model names the parent but anchors a child's directly owned source.
-    assert 'child_outside_parent' not in output and 'file_multi_owner' not in output
+    assert 'anchor_outside_home' not in output and 'file_multi_owner' not in output
 
     # COMPONENTS names the whole protected subsystem; placement alone does not.
     from flowguard.map.impact import compute_impact
@@ -864,3 +864,102 @@ def test_retired_flags_and_project_marker_point_to_upgrade_guide(tmp_path, capsy
     write(tmp_path, ".flowguard/project.toml", 'version = "0.69.9"\n')
     assert main(["read", "--root", str(tmp_path)]) == 2
     assert "0.69 project detected" in capsys.readouterr().err
+
+
+# FG-405: literal placement, ownership and read-only consultation remain distinct.
+def _scope_helpers():
+    import runpy
+    directory = Path(__file__).resolve().parents[1] / ".flowguard/models"
+    if not (directory / "model_scope.py").is_file():
+        directory = directory.parent / "target/models"
+    return runpy.run_path(str(directory / "model_scope.py"))
+
+
+def test_anchor_scope_same_with_or_without_parent(tmp_path):
+    helper = _scope_helpers()["scope_fixture"]
+    reports = [helper(tmp_path / case, case)[2] for case in ("explicit", "implicit")]
+    assert all([f.code for f in report.findings] == ["anchor_outside_home"] for report in reports)
+    assert all(report.findings[0].component == "app" and report.findings[0].level == "error" for report in reports)
+
+
+def test_anchor_outside_home_names_common_ancestor(tmp_path):
+    from flowguard.map.tree import common_ancestor
+    data, _, tree = _scope_helpers()["scope_fixture"](tmp_path, "explicit")
+    assert common_ancestor(data, ["app", "lib"]) == "base"
+    assert common_ancestor(data, ["app", "system"]) == "system"
+    assert tree.findings[0].message == (
+        ".flowguard/models/m.py: IMPLEMENTED_BY 'Own' -> 'lib.py:value' is in component lib, outside this model's scope "
+        '(app + COMPONENTS app); set PARENT = "base" (the common ancestor of app and lib), '
+        "bind it read-only with USES, or, if this model really owns that code, add lib to COMPONENTS")
+
+
+def test_model_ancestor_components_are_in_scope(tmp_path):
+    _, _, tree = _scope_helpers()["scope_fixture"](tmp_path, "ancestor")
+    assert not tree.findings
+    assert tree.nodes["m"].home == "app" and tree.ancestors("m") == ["p"]
+
+
+def test_unused_uses_fails_and_is_not_coverage(tmp_path):
+    from flowguard.map.discover import discover_inventory
+    from flowguard.map.lint import coverage_facts
+    from flowguard.map.proof import run_model
+    data, inv, tree = _scope_helpers()["scope_fixture"](tmp_path, "uses")
+    assert not tree.findings and tree.models_for_component("lib") == []
+    raw = discover_inventory(tmp_path, inv, data=data, write_cache=False)
+    coverage = coverage_facts(tmp_path, data, inv, tree, raw)
+    assert coverage["lib"]["entry_sources"][0] == 0
+    assert "lib.py:value" in coverage["lib"]["unexplained_entries"]
+    path = tmp_path / ".flowguard/models/m.py"
+    result = run_model(tmp_path, path)
+    assert result.status == "fail" and not result.code_gaps
+    assert "USES anchor lib.py:value never ran during conformance(); call it there or remove it" in result.problems
+    source = path.read_text()
+    prefix = '    value = load_anchor(IMPLEMENTED_BY["Own"],root=Path.cwd())()'
+    path.write_text(source.replace(prefix, '    (Path.cwd() / "lib.py").read_text()\n' + prefix))
+    assert run_model(tmp_path, path).status == "fail"  # reading the file cannot claim that USES ran
+    path.write_text(source.replace(prefix, '    load_anchor(USES["Read"],root=Path.cwd())()\n' + prefix))
+    result = run_model(tmp_path, path)
+    assert result.status == "pass", result.problems
+
+
+@pytest.mark.parametrize("literal", ["[]", '{"Read": ""}', '{"Read": "lib.py"}', '{"Read": None}'])
+def test_uses_contract_is_validated(tmp_path, literal):
+    from flowguard.map.mapfile import read_model_contract
+    path = tmp_path / "model.py"
+    path.write_text('MODEL_ID = "uses"\nUSES = ' + literal + '\n')
+    with pytest.raises(ValueError, match="USES must map names to nonempty"):
+        read_model_contract(path)
+
+
+def test_uses_is_named_in_component_read(tmp_path, capsys):
+    _scope_helpers()["scope_fixture"](tmp_path, "uses")
+    assert main(["read", "--component", "lib", "--root", str(tmp_path), "--budget", "16000"]) == 0
+    assert "used by: m (USES Read)" in capsys.readouterr().out
+
+
+def test_broken_uses_is_named(tmp_path):
+    data, inv, _ = _scope_helpers()["scope_fixture"](tmp_path, "uses")
+    path = tmp_path / ".flowguard/models/m.py"
+    path.write_text(path.read_text().replace('"Read": "lib.py:value"', '"Read": "lib.py:missing"'))
+    broken = [f for f in run_check(tmp_path, data, inv) if f.code == "model_anchor_broken" and "USES Read" in f.message]
+    assert len(broken) == 1 and "missing" in broken[0].message
+
+
+def test_uses_selects_its_changed_function_and_no_other_function(tmp_path):
+    from flowguard.map.impact import compute_impact
+    from flowguard.map.inventory import build_inventory
+    data, _, _ = _scope_helpers()["scope_fixture"](tmp_path, "uses")
+    app = tmp_path / "app.py"
+    app.write_text("from lib import value as native_value\ndef value(): return native_value()\n")
+    lib = tmp_path / "lib.py"
+    lib.write_text(lib.read_text() + "\ndef other(): return 1\n")
+    data["components"][1]["depends_on"] = ["lib"]
+    save(tmp_path, data)
+    for args in (("init", "-q"), ("add", "."), ("commit", "-qm", "baseline")):
+        subprocess.run(["git", "-c", "user.name=Guard", "-c", "user.email=guard@example.invalid", *args], cwd=tmp_path, check=True, capture_output=True)
+    lib.write_text(lib.read_text().replace("def other(): return 1", "def other(): return 2"))
+    inv = build_inventory(tmp_path, [], write_cache=False)
+    assert "m" not in compute_impact(tmp_path, data, inv, ["lib.py"], base="HEAD").model_ids
+    lib.write_text(lib.read_text().replace("def value(): return 1", "def value(): return 2"))
+    inv = build_inventory(tmp_path, [], write_cache=False)
+    assert "m" in compute_impact(tmp_path, data, inv, ["lib.py"], base="HEAD").model_ids
