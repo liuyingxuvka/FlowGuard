@@ -1,0 +1,134 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-415: Size limits: warn at the soft limit, refuse at the hard one; read_view's rules move into the read view models",
+  "components": [
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Show bounded static field lifecycles, code ownership and three distinct model relations with central-model impact.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "engine-conformance",
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_map_views.py",
+        "tests/test_relation_graph.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-check",
+      "layer": "map",
+      "summary": "Verify map/code promises and classify code-free process models only with an explicit accepted debt.",
+      "responsibilities": [
+        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
+        "report one owner per entrypoint, responsibility, state and side effect",
+        "lint cycles, layers, sizes and private names, then apply accepted debts",
+        "explain entrypoints and state writers by model, test or reason"
+      ],
+      "files": [
+        "flowguard/map/check.py",
+        "flowguard/map/lint.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/check.py:run_check",
+        "flowguard/map/lint.py:run_lint"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_map_discover.py"
+      ],
+      "models": [
+        ".flowguard/models/private_use.py"
+      ]
+    },
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Read model contracts and finite ports, check strict edges, and compute ordered direct consumers of an interface change.",
+      "responsibilities": [
+        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
+        "resolve component parents in one layer without loops",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions",
+        "register contract models and build the model tree with its nesting errors",
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "name every removed path, literal, flag and public name in one table"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/retired.py",
+        "flowguard/map/testtree.py",
+        "flowguard/map/port.py",
+        "flowguard/map/modelstatic.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components",
+        "canonical current-model digests"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_map_views.py",
+        "tests/test_flowguard_port.py"
+      ],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ]
+    }
+  ],
+  "flows": [
+    {
+      "id": "session_read",
+      "summary": "an AI session reads the map",
+      "steps": [
+        "cli:cmd_show",
+        "map-file:load_map",
+        "map-read:render_show"
+      ],
+      "model": ".flowguard/models/read_show.py"
+    }
+  ],
+  "remove": [
+    "model:read_view"
+  ]
+}
