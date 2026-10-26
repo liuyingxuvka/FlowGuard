@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_no_receipt_vocabulary_left():
+    # Model ports use receipts for observed parent/child data flow. The retired
+    # product was the persisted owner-receipt gate, not this ordinary word.
     paths = subprocess.check_output(
         ["git", "ls-files", "-z", "--", "flowguard", ".agents/skills/flowguard", ".flowguard", "examples", "tests"],
         cwd=ROOT,
@@ -17,7 +19,7 @@ def test_no_receipt_vocabulary_left():
         if relative in exempt:
             continue
         content = (ROOT / relative).read_bytes()
-        for match in re.finditer(b"receipt", content, re.IGNORECASE):
+        for match in re.finditer(rb"owner[-_]receipt|receipt[-_](?:gate|ledger)|(?:gate|ledger)[-_]receipt", content, re.IGNORECASE):
             offenders.append(f"{relative}:{content[:match.start()].count(bytes([10])) + 1}")
     assert not offenders, "\n".join(offenders)
 
