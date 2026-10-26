@@ -33,7 +33,8 @@ def native_case(root,case):
         from io import StringIO
         with redirect_stdout(StringIO()): assert main(['confirm','all','--root',str(root)])==0
         data=json.loads((root/'.flowguard/map.json').read_text())
-        shutil.rmtree(root/'.git')
+        from flowguard.map.target import _remove_readonly
+        shutil.rmtree(root/'.git',onerror=_remove_readonly)
         text=text.replace('return helper()+VALUE','return helper()+VALUE+1')
         (root/'core.py').write_text(text)
         from flowguard.map.impact import changed_files
