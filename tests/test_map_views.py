@@ -1225,6 +1225,19 @@ def test_tests_line_counts_bound_calling_and_neither(tmp_path):
     calls = test_calls("tests/test_app.py", path.read_text(), inv)
     assert calls["test_words"] == set()
     assert "app.py:modeled" in calls["Suite.test_method"]
+    from flowguard.map.inventory import PyInfo
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg/__init__.py").write_text("# export fixture; never imported\n")
+    inv.py["pkg/__init__.py"] = PyInfo("pkg", lazy_exports={"modeled": "app"})
+    inv.mod_to_path["pkg"] = "pkg/__init__.py"
+    aliases = "from pkg import modeled as public\nimport pkg as p\ndef test_public(): assert public() and p.modeled()\n"
+    assert test_calls("tests/test_app.py", aliases, inv)["test_public"] == {"app.py:modeled"}
+    (tmp_path / "app.py").write_text((tmp_path / "app.py").read_text() + "\nclass Service:\n    def touch(self): return True\ndef wrapper():\n    def hidden(): return True\n    return None\n")
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    constructors = "from app import Service, wrapper\ndef test_construct(): Service(); wrapper()\n"
+    values = test_calls("tests/test_app.py", constructors, inv)["test_construct"]
+    assert {"app.py:Service", "app.py:Service.touch", "app.py:wrapper"} <= values
+    assert "app.py:wrapper.hidden" not in values
     helpers = "from app import modeled as f\nimport app as m\ndef helper(): return f()\ndef deeper(): return helper()\ndef test_helper(): assert helper()\ndef test_deep(): assert deeper()\n"
     calls = test_calls("tests/test_app.py", helpers, inv)
     assert calls["test_helper"] == {"app.py:modeled"}
@@ -1255,7 +1268,10 @@ def test_unbound_models_debt_closes_only_models_no_test_calls(tmp_path):
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
     text = render_review(tmp_path, data, inv)
     assert "bind tests probe: 3 test functions call its code" in text, text
+    from flowguard.map.lint import run_lint
+    assert any(f.code == "unbound_models" and f.level == "warn" for f in run_lint(tmp_path, data, inv))
     test = tmp_path / "tests/test_app.py"; test.write_text("def test_unrelated(): assert True\n")
     inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
     text = render_review(tmp_path, data, inv)
     assert "bind tests probe:" not in text and "declined: 1 (accepted debts; 0 no longer arise)" in text
+    assert not any(f.code == "unbound_models" and f.level == "warn" for f in run_lint(tmp_path, data, inv))

@@ -90,8 +90,6 @@ def _defect_lines(findings) -> list[str]:
 
 
 def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=None):
-    from .testtree import test_calls
-    from .common import read_source
     steps = []
     closed = {(debt.get("code"), debt.get("component")) for debt in data.get("accepted_debts", [])}
     matched = matched if matched is not None else set()
@@ -103,20 +101,15 @@ def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=Non
             if key in closed:
                 return
         steps.append(_step(kind, component, detail, size, **kw))
-    call_index = {}
-    for path in inv.tests:
-        if path.endswith(".py"):
-            try:
-                call_index[path] = test_calls(path, read_source(inv.root / path), inv)
-            except OSError:
-                continue
     for finding in findings:
         if _accepted(finding):
             if finding.code in CLOSABLE_DEBTS:
                 matched.add((finding.code, finding.component))
             continue
         detail = finding.message if len(finding.message) <= 100 else finding.message[:99] + "…"
-        if finding.level == "error":
+        if finding.code == "unbound_models" and "test functions call its code" in finding.message:
+            steps.append(_step("unbound_models", finding.component, finding.message, _size(finding.message)))
+        elif finding.level == "error":
             offer("error", finding.component, detail, 1, code=finding.code)
         elif finding.level == "warn" and finding.code in REVIEW_ACTIONS:
             offer(finding.code, finding.component, f"{finding.code}: {detail}", 1, code=finding.code)
@@ -138,18 +131,6 @@ def _candidates(findings, data, inv, graph, tree, coverage, rows, *, matched=Non
         models = tree.models_for_component(cid)
         if (component.get("state") or component.get("side_effects")) and not models:
             offer("unmodeled_owner", cid, "owns state or side effects but has no model", 1)
-        for model in models:
-            if any(model.contract.get("TESTED_BY", {}).values()):
-                continue
-            anchors = set(model.contract.get("IMPLEMENTED_BY", {}).values())
-            calls = [f"{path}::{name}" for path, functions in call_index.items()
-                     for name, values in functions.items() if anchors & values]
-            if calls:
-                detail = (f"{len(calls)} test functions call its code ({calls[0]}"
-                          + (f", +{len(calls)-1}" if len(calls) > 1 else "") + ")")
-                steps.append(_step("unbound_models", model.id, detail, len(calls)))
-            else:
-                offer("unbound_models", model.id, "no tests call its code; 0 bound tests", 1)
     for flow in data.get("flows", []):
         if not flow.get("model"):
             offer("flow_without_model", flow["id"], "no model", 1)

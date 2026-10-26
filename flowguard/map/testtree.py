@@ -65,6 +65,24 @@ def test_calls(path, text, inv):
     # Methods may call one same-file helper through self or cls.
     for cls in (n for n in tree.body if isinstance(n,ast.ClassDef)):
         helpers.update({cls.name+'.'+n.name:n for n in cls.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef))})
+    exports = {info.module: info.lazy_exports for info in inv.py.values() if info.lazy_exports}
+    classes = {}
+    def constructor(target, symbol):
+        if target not in classes:
+            classes[target] = set()
+            try:
+                syntax = ast.parse(read_source(inv.root / target))
+            except (OSError, SyntaxError):
+                return False
+            def collect(nodes, prefix=""):
+                for item in nodes:
+                    if isinstance(item, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                        name = prefix + item.name
+                        if isinstance(item, ast.ClassDef):
+                            classes[target].add(name)
+                        collect(item.body, name + ".")
+            collect(syntax.body)
+        return symbol in classes[target]
     def calls(node, env, owner, depth):
         result=set(); env=imports(ast.walk(node),env)
         instances={}
@@ -84,7 +102,6 @@ def test_calls(path, text, inv):
                 result.update(calls(helpers[helper],env,owner,0))
             if first not in env: continue
             module,symbol=env[first]
-            exports = {info.module: info.lazy_exports for info in inv.py.values() if info.lazy_exports}
             if symbol and symbol in exports.get(module, {}):
                 module = exports[module][symbol]
             elif not symbol and rest:
@@ -98,7 +115,8 @@ def test_calls(path, text, inv):
                 qualified = '.'.join(parts[cut:])
                 if target and qualified in inv.py[target].symbols:
                     result.add(target+':'+qualified)
-                    result.update(target+':'+value for value in inv.py[target].symbols if value.startswith(qualified+'.'))
+                    if constructor(target, qualified):
+                        result.update(target+':'+value for value in inv.py[target].symbols if value.startswith(qualified+'.'))
                     break
         return result
     return {name:calls(node,module_imports,name.rpartition('.')[0],1) for name,node in functions.items()}

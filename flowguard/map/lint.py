@@ -97,7 +97,7 @@ def apply_accepted_debts(findings: list[Finding], debts: list[dict]) -> tuple[li
         if finding.code == "dependency_cycle":
             component_ids.update(_cycle_members(finding.message))
     for f in findings:
-        if f.code == "unexplained":
+        if f.code == "unexplained" or (f.code == "unbound_models" and "test functions call its code" in f.message):
             continue
         if f.code == "dependency_cycle":
             members = _cycle_members(f.message)
@@ -484,18 +484,28 @@ def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *,
         from .mapfile import ignore_patterns
         inv = build_inventory(root, ignore_patterns(data), write_cache=view is None, import_roots=tuple(data.get("import_roots", ())))
     tree = build_tree(root, data, inv, view=view)
-    tested = {n.path for c in data.get("components", []) if c.get("tests") for n in tree.models_for_component(c["id"])}
-    for entry in model_registry(root, data, view=view).entries:
-        path = resolve_model_path(root, entry.path, view=view)
-        if path is None:
+    from .mapfile import process_model_reason
+    from .testtree import test_calls
+    calls = {}
+    for test in inv.tests:
+        if test.endswith(".py"):
+            try:
+                calls[test] = test_calls(test, read_source(root / test), inv)
+            except OSError:
+                continue
+    for node in tree.nodes.values():
+        contract = node.contract
+        if any(contract.get("TESTED_BY", {}).values()) or process_model_reason(data, contract):
             continue
-        try:
-            contract = read_model_contract(path)
-        except (OSError, SyntaxError, ValueError):
-            continue
-        if not contract.get("TESTED_BY") and entry.path in tested:
-            out.append(Finding("warn", "model_tests_unbound", "", f"{entry.path}: TESTED_BY names no test although its "
-                               "component lists tests; name the tests that guard this model"))
+        anchors = set(contract.get("IMPLEMENTED_BY", {}).values())
+        calling = [f"{path}::{name}" for path, functions in calls.items()
+                   for name, values in functions.items() if values & anchors]
+        if calling:
+            detail = (f"{len(calling)} test functions call its code ({calling[0]}"
+                      + (f", +{len(calling)-1}" if len(calling) > 1 else "") + ")")
+        else:
+            detail = "no tests call its code; 0 bound tests"
+        out.append(Finding("warn", "unbound_models", node.id, detail))
     return out
 
 

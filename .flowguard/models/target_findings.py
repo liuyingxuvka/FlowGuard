@@ -318,6 +318,13 @@ def observe_case(case):
                 source = path.read_text(encoding="utf-8")
                 assert source.count('return {"advance_twice": make(2)}') == 1
                 path.write_text(source.replace('return {"advance_twice": make(2)}', 'return {"advance_twice": make(1)}'), encoding="utf-8")
+            if case.name == "unbound_invariant":
+                path = root / ".flowguard/target/models/shelf_rule.py"
+                source = path.read_text(encoding="utf-8").replace(
+                    "invariants=(RULE,)", "invariants=(RULE, SECOND)")
+                source += ('\nTESTED_BY = {"one_loan_step": ["tests/test_shelf.py:test_advance"]}\n'
+                           'SECOND = Invariant("at_most_one", "no double advance", lambda s,t: s <= 1)\n')
+                path.write_text(source, encoding="utf-8")
             result, report = probe_model_and_target(root)
             if case.name == "unbound_invariant":
                 assert result.status == "pass" and not result.problems and not result.code_gaps

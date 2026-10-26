@@ -53,14 +53,14 @@ class ModelResult:
     problems: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     seconds: float = 0.0
-    test_seconds: float | None = None
-    process_reason: str = ""
     uncovered_invariants: list[str] = field(default_factory=list)
     rules: list[str] = field(default_factory=list)
     known_bad: list[str] = field(default_factory=list)
     code_gaps: list[str] = field(default_factory=list)
     hazards: list[str] = field(default_factory=list)              # open hazard hints
     closed_hazards: list[str] = field(default_factory=list)       # "<hint> (closed by known-bad X | invariant Y)"
+    test_seconds: float | None = None
+    process_reason: str = ""
 
 
 class _ViewModelLoader(importlib.machinery.SourceFileLoader):
