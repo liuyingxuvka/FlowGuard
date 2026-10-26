@@ -1,0 +1,95 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-403: Target check is the design check and target promote the one full check",
+  "components": [
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Holds one target and checks its design, the merged code and tests.",
+      "responsibilities": [
+        "start, extend and drop one target at a time A replaced component can migrate its fingerprint formula when promoted. A refused promotion prints its complete report from the single check without modifying project bytes.",
+        "check the merged tree: design mistakes are ERROR, missing code is TO-DO",
+        "mark only the breakage of a changed subject as moving to target",
+        "refuse a target that changes nothing, drops a promise or leaves it untied",
+        "promote a clean target and leave changed components draft",
+        "warn about earlier findings, stale debts and untested rules without blocking",
+        "list what to re-read after promotion and which files to delete"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target",
+        "flowguard/map/target.py:start_target",
+        "flowguard/map/target.py:add_to_target",
+        "flowguard/map/target.py:drop_target"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-file",
+        "map-inventory",
+        "map-proof",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py"
+      ],
+      "models": [
+        ".flowguard/models/target_add.py",
+        ".flowguard/models/gap_lines.py"
+      ]
+    },
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Owns map schema, component sub-systems, model bindings and direct component fingerprints.",
+      "responsibilities": [
+        "load, validate and save the map, pointing a missing map at the guide Keep version-only changes neutral in format 2 fingerprints and migrate legacy component pointers once. Memoize parsed contracts by absolute path and exact byte digest, returning detached copies; never store proof results.",
+        "resolve component parents in one layer without loops",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions",
+        "register contract models and build the model tree with its nesting errors",
+        "count import-like strings and injected attribute calls as dependency evidence",
+        "name every removed path, literal, flag and public name in one table"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/retired.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_map_views.py"
+      ],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
