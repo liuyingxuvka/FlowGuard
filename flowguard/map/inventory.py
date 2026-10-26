@@ -57,6 +57,8 @@ class Inventory:
     loc: dict[str, int]
     explicit_sources: set[str] = field(default_factory=set)
     dynamic_files: set[str] = field(default_factory=set)
+    mod_to_path: dict[str, str] = field(default_factory=dict)
+    import_roots: tuple[str, ...] = ()
 
     def set_explicit_sources(self, patterns: list[str]) -> None:
         self.explicit_sources = {norm(p) for p in patterns if not any(char in p for char in "*?[")}
@@ -234,20 +236,45 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
     return info
 
 
-def resolve_import(imp: str, mod_to_path: dict[str, str], lazy: dict[str, dict[str, str]] | None = None) -> str | None:
-    """'a.b' -> module a.b or its nearest package; 'a:b' -> submodule a.b if it exists, else a."""
+def resolve_module(module: str, importer: str, mod_to_path: dict[str, str], py_paths,
+                   import_roots=()) -> str | None:
+    """Resolve package modules, then an actual script directory, then declared roots."""
+    if not module:
+        return None
+    parts = module.split(".")
+    while parts:
+        target = mod_to_path.get(".".join(parts))
+        if target:
+            return target
+        parts.pop()
+    present = set(py_paths)
+    directories = []
+    if importer:
+        directory = importer.rpartition("/")[0]
+        init = f"{directory}/__init__.py" if directory else "__init__.py"
+        if init not in present:
+            directories.append(directory)
+    directories.extend(import_roots)
+    relative = module.replace(".", "/")
+    for directory in dict.fromkeys(directories):
+        prefix = directory.rstrip("/") + "/" if directory not in ("", ".") else ""
+        for path in (prefix + relative + ".py", prefix + relative + "/__init__.py"):
+            if path in present:
+                return path
+    return None
+
+
+def resolve_import(imp: str, mod_to_path: dict[str, str], lazy: dict[str, dict[str, str]] | None = None, *,
+                   importer="", py_paths=(), import_roots=()) -> str | None:
+    """Keep package/lazy-export precedence while using the one native module resolver."""
     if ":" in imp:
         base, name = imp.split(":", 1)
-        owner = (lazy or {}).get(base, {}).get(name)
-        if owner in mod_to_path:
-            return mod_to_path[owner]
-        return mod_to_path.get(f"{base}.{name}") or mod_to_path.get(base)
-    parts = imp.split(".")
-    while parts:
-        hit = mod_to_path.get(".".join(parts))
-        if hit:
-            return hit
-        parts.pop()
+        candidates = ((lazy or {}).get(base, {}).get(name), f"{base}.{name}", base)
+    else:
+        candidates = (imp,)
+    for candidate in candidates:
+        if candidate and (path := resolve_module(candidate, importer, mod_to_path, py_paths, import_roots)):
+            return path
     return None
 
 
@@ -275,7 +302,7 @@ def _read_cache(path: Path) -> dict:
         return {}
 
 
-def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, write_cache: bool = True) -> Inventory:
+def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, write_cache: bool = True, import_roots=()) -> Inventory:
     """Skip body hashes when requested; write_cache=False reads without creating a cache."""
     files = [f for f in list_files(root) if not matches_any(f, ignore)]
     files_set = set(files)
@@ -323,13 +350,9 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
     lazy = {info.module: info.lazy_exports for info in py.values() if info.lazy_exports}
     for f, info in py.items():
         loc[f] = info.loc
-        here = f.rpartition("/")[0]
-        script_dir = bool(here) and f"{here}/__init__.py" not in files_set
         for imp in info.imports:
-            target = resolve_import(imp, mod_to_path, lazy)
-            if target is None and script_dir:          # a script imports a sibling through sys.path[0]
-                head = imp.split(":", 1)[0].split(".", 1)[0]
-                target = next((p for p in (f"{here}/{head}.py", f"{here}/{head}/__init__.py") if p in py), None)
+            target = resolve_import(imp, mod_to_path, lazy, importer=f, py_paths=py_files,
+                                    import_roots=import_roots)
             if target and target != f:
                 deps[f].add(target)
             if ":" in imp:
@@ -353,4 +376,5 @@ def build_inventory(root: Path, ignore: list[str], with_bodies: bool = True, *, 
             # Static npm imports are external dependencies, not dynamic imports.
             if re.search(r"\bimport\s*\(\s*(?!['\"])", text):
                 dynamic_files.add(f)
-    return Inventory(root, files, source, tests, py, dict(deps), loc, dynamic_files=dynamic_files)
+    return Inventory(root, files, source, tests, py, dict(deps), loc, dynamic_files=dynamic_files,
+                     mod_to_path=mod_to_path, import_roots=tuple(import_roots))

@@ -673,3 +673,68 @@ def test_discovery_finds_each_entry_and_effect_shape(tmp_path):
     words = raw["files"]["words.py"]
     assert not words["entrypoints"] and not any(fn["effects"] for fn in words["functions"].values())
     assert not (tmp_path / ".flowguard").exists()
+
+
+# FG-404: call graph edges and private-use diagnostics share a resolver.
+def _resolution_case(tmp_path, files, caller, callee, *, import_roots=(), private=True):
+    from flowguard.map.lint import private_use_findings
+    for relative, source in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    source_path = caller.partition("#")[0]
+    target_path = callee.partition("#")[0]
+    groups = {"caller": [source_path]}
+    others = sorted(set(files) - {source_path})
+    if others:
+        groups["helper"] = others
+    data = {"schema": "flowguard.map.v1", "import_roots": list(import_roots), "components": [
+        {"id": name, "summary": name, "responsibilities": ["execute the " + name], "files": paths,
+         "tests": [], "models": [], "status": "draft"} for name, paths in groups.items()]}
+    inv = build_inventory(tmp_path, [], write_cache=False, import_roots=import_roots)
+    raw = discover_inventory(tmp_path, inv, write_cache=False, data=data)
+    assert callee in raw["edges"].get(caller, []), raw["edges"]
+    findings = private_use_findings(tmp_path, data, inv)
+    assert bool(findings) == private, findings
+    if private:
+        assert any("_private" in f.message and f.component == "caller" for f in findings)
+        assert target_path in inv.file_deps[source_path]
+    return data, inv, raw
+
+
+def test_nested_function_call_resolves(tmp_path):
+    _resolution_case(tmp_path, {"runner.py": "def outer():\n    def _private(): return 1\n    def inner(): return _private()\n    return inner()\n"},
+                     "runner.py#outer.inner", "runner.py#outer._private", private=False)
+
+
+def test_import_local_to_enclosing_function_resolves(tmp_path):
+    _resolution_case(tmp_path, {"pkg/__init__.py": "", "pkg/runner.py":
+        "def outer():\n    from .helper import _private\n    def inner(): return _private()\n    return inner()\n",
+        "pkg/helper.py": "def _private(): return 1\n"},
+        "pkg/runner.py#outer.inner", "pkg/helper.py#_private")
+
+
+def test_sibling_script_import_resolves(tmp_path):
+    _resolution_case(tmp_path, {"scripts/runner.py": "from helper import _private\ndef run(): return _private()\n",
+        "scripts/helper.py": "def _private(): return 1\n"},
+        "scripts/runner.py#run", "scripts/helper.py#_private")
+
+
+def test_import_root_import_resolves(tmp_path):
+    data, inv, raw = _resolution_case(tmp_path, {
+        "scripts/runner.py": "from helper import _private\ndef run(): return _private()\n",
+        "library/helper.py": "def _private(): return 1\n"},
+        "scripts/runner.py#run", "library/helper.py#_private", import_roots=("library",))
+    without = build_inventory(tmp_path, [], write_cache=False)
+    unresolved = discover_inventory(tmp_path, without, write_cache=False)
+    assert "library/helper.py#_private" not in unresolved["edges"].get("scripts/runner.py#run", [])
+
+
+def test_module_resolver_keeps_package_then_script_then_root_precedence():
+    from flowguard.map.inventory import resolve_module, resolve_import
+    files = {"scripts/runner.py", "scripts/helper.py", "library/helper.py", "other/helper.py", "library/pkg/__init__.py"}
+    assert resolve_module("helper", "scripts/runner.py", {"helper": "package/helper.py"}, files, ("library",)) == "package/helper.py"
+    assert resolve_module("helper", "scripts/runner.py", {}, files, ("library",)) == "scripts/helper.py"
+    assert resolve_module("helper", "scripts/runner.py", {}, files | {"scripts/__init__.py"}, ("library", "other")) == "library/helper.py"
+    assert resolve_module("pkg", "runner.py", {}, files, ("library",)) == "library/pkg/__init__.py"
+    assert resolve_import("helper:_private", {}, importer="scripts/runner.py", py_paths=files) == "scripts/helper.py"

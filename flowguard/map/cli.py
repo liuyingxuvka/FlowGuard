@@ -41,7 +41,7 @@ from .targetfile import TARGET_RELDIR, load_target, validate_target
 
 def _context(root: Path, with_bodies: bool = True):
     data = load_map(root)
-    inv = build_inventory(root, ignore_patterns(data), with_bodies=with_bodies)
+    inv = build_inventory(root, ignore_patterns(data), with_bodies=with_bodies, import_roots=tuple(data.get("import_roots", ())))
     if hasattr(inv, "set_explicit_sources"):
         inv.set_explicit_sources([pattern for comp in data["components"] for pattern in comp.get("files", [])])
     return data, inv

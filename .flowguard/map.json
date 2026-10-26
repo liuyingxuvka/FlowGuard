@@ -134,7 +134,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e253ba0282a19e0e0cc2bb1f6e71fe8fee7a8f47cd1f31adacf0a722609390f0"
+      "fingerprint": "sha256:66d043ca124b48637926041c877c3dba5e2ed741d5c3e3c395a7cc85990fdb80"
     },
     {
       "id": "public-api",
@@ -238,7 +238,7 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventories files, symbols, imports and duplicate bodies.",
+      "summary": "Inventories files and resolves package, sibling-script and declared-root imports through one resolver.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
@@ -265,7 +265,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:1fb2730a6e2dd6b6c2bdfa487939aed583d81f1a5b4b2c87664cc9566ec31c4c"
+      "fingerprint": "sha256:5b6e868a1c6b9a257f69d93b364b41855d33953aa8a70fb4a0530b6b597c6897"
     },
     {
       "id": "map-file",
@@ -310,12 +310,12 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:786a6fc9c34c0b7408c6410935568154232c3bfce7ae70dedfe6d9a56213f488"
+      "fingerprint": "sha256:6f5ede72250f8b482b4f709a3b9c140e2ffa17006aeda87e7feaed6bdf7521a2"
     },
     {
       "id": "map-discover",
       "layer": "map",
-      "summary": "Discovers entrypoints, effects and reachable calls.",
+      "summary": "Discovers entrypoints, state writes and call graphs using enclosing function scopes.",
       "responsibilities": [
         "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
@@ -345,7 +345,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:9f36fbd3d564655c60aeeddaf9a33032dfffb1b46f9be049e140f02d04e272f5"
+      "fingerprint": "sha256:4848f3329e6b5765a26206d223fae5d2e8eedf62efeda9bb98f2dea693939dfd"
     },
     {
       "id": "map-target",
@@ -392,7 +392,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:4e0cb271de6318befcd4738b4d11cef32312d22e47eff854c211a7eeb2acfa4a"
+      "fingerprint": "sha256:835ed3328ad3f95b40835014e5eb0a70773dd6bef8b475705e70ddd76b1b46d1"
     },
     {
       "id": "map-proof",
@@ -439,7 +439,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:caab9ffa8c82fae319131367eade8d151d50a1be7250c0b67419047e6ea4c1f9"
+      "fingerprint": "sha256:f9393d9b18233f0ea30068b7273d95e47005a90a7f9c64dbdd0c4ea8e2d2ede6"
     },
     {
       "id": "engine-explore",
@@ -714,7 +714,7 @@
     {
       "id": "map-check",
       "layer": "map",
-      "summary": "Verify map and code promises, including current models edited outside the active target.",
+      "summary": "Verifies map/code promises, current-model edits and missing declared import directories.",
       "responsibilities": [
         "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
         "report one owner per entrypoint, responsibility, state and side effect",
@@ -743,7 +743,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:7728337f4bd4c00f7dda50f6de8339e948d852fae5ebfdacb1f7de48df2ed717"
+      "fingerprint": "sha256:00f35f635ed570da75df1e3595bdf2ef3c96ccc86d743b1b249b08d3f9a69af2"
     },
     {
       "id": "map-read",
@@ -776,7 +776,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a2929fea482ba72bed2e2d02668839616226bf340203e877627b27cbcca00c0d"
+      "fingerprint": "sha256:f47932bd4cf62f08477b372753530e65d552c600dd5aec1c1b5634286b701dc9"
     },
     {
       "id": "map-impact",
@@ -889,7 +889,7 @@
   "model_digests": {
     ".flowguard/models/change_selection.py": "808628d272422928178a674cbd6f2b3c310c0692d25ab769a94de2f7690b10fd",
     ".flowguard/models/component_pointer.py": "b02109b24e3d9656734ee33398c83b63acfab96c2b6dc8f6f505ff69ab81bce7",
-    ".flowguard/models/discovery.py": "15a583e5fe79784bfe67fee88a452eff9369841eac08d104a1cd5b204f91a1d1",
+    ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/gap_lines.py": "cfc7780687e1c5a34389f3ba0f995accaabe480ef293367d6f40ea59bec466fd",
     ".flowguard/models/job_matching_example.py": "ba2cb4a3c55559509ee14cb67c07613032cb5f7d5c5eb788f7677a4b7a315450",
     ".flowguard/models/map_binding.py": "1acd5cedb5ac43aca93a35be9f003d63747516844d2d03fd98c599f772819a6c",

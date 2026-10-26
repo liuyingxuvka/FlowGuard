@@ -229,7 +229,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False) -> Tar
         return report
     report.changes = target_node_changes(root, current, target)
     view = build_target_view(root, current, target)
-    inv = build_inventory(root, ignore_patterns(view.data), write_cache=False)
+    inv = build_inventory(root, ignore_patterns(view.data), write_cache=False, import_roots=tuple(view.data.get("import_roots", ())))
     tree = build_tree(root, view.data, inv, view=view)
     seen = set()
 
@@ -444,7 +444,7 @@ def _file_hash(path):
 
 def _promotion_inputs(root, data):
     """Operation-local byte identities, never stored as a check result or cache."""
-    inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
+    inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False, import_roots=tuple(data.get("import_roots", ())))
     paths = set(inv.files) | {".flowguard/map.json"}
     paths.update(p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py") if p.is_file())
     paths.update(p.relative_to(root).as_posix() for p in (root / TARGET_RELDIR).rglob("*") if p.is_file())
@@ -520,7 +520,7 @@ def promote_target(root: Path) -> int:
             shutil.rmtree(backup, onerror=_remove_readonly)
         directory.rmdir()
         from .mapfile import is_stale
-        inv = build_inventory(root, ignore_patterns(merged), write_cache=False)
+        inv = build_inventory(root, ignore_patterns(merged), write_cache=False, import_roots=tuple(merged.get("import_roots", ())))
         drafts = sorted(set(drafts) | {c["id"] for c in merged["components"] if is_stale(root, c, inv)})
         summaries = []
         for kind, label in (("component", "components"), ("model", "models"), ("flow", "flows")):
@@ -548,7 +548,7 @@ def _re_read(root, current, target, view, limit=5):
     """Drift hints for promotion: re-parented models, flows crossing changed components, tests losing their binding."""
     from .mapfile import flow_step_parts
 
-    inv = build_inventory(root, ignore_patterns(view.data), with_bodies=False, write_cache=False)
+    inv = build_inventory(root, ignore_patterns(view.data), with_bodies=False, write_cache=False, import_roots=tuple(view.data.get("import_roots", ())))
     old, new = build_tree(root, current, inv), build_tree(root, view.data, inv, view=view)
     groups = [[f"re-read: model {mid}: its parent changed from {old.nodes[mid].parent} to {node.parent}; check its purpose"
                for mid, node in sorted(new.nodes.items()) if mid in old.nodes and old.nodes[mid].parent != node.parent]]
@@ -624,7 +624,7 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
             if helper.startswith("_") and (root / ".flowguard/models" / f"{helper}.py").is_file():
                 print(f"note: it imports {helper}; copy .flowguard/models/{helper}.py into "
                       ".flowguard/target/models/ only if the target changes it")
-        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data)))
+        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data), import_roots=tuple(data.get("import_roots", ()))))
         importers = sorted(tree.importers(entry.path) - {name})
         if importers:
             print("note: target check also runs these models against the target version: " + ", ".join(importers))

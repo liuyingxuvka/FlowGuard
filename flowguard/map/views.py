@@ -222,7 +222,7 @@ def _dependency_symbols(data, inv, cid, dep, raw):
             continue
         for imported in inv.py[path].imports:
             module, separator, name = imported.partition(":")
-            if separator and name != "*" and resolve_import(imported, modules) in destinations:
+            if separator and name != "*" and resolve_import(imported, modules, importer=path, py_paths=inv.py, import_roots=inv.import_roots) in destinations:
                 symbols.add(name)
     return sorted(symbols)
 

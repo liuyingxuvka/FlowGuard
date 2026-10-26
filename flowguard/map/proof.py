@@ -320,7 +320,7 @@ def _project_missing(root: Path, module: str | None, *, view=None) -> bool:
 
     try:
         data = view.data if view is not None else load_map(root)
-        inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False)
+        inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False, import_roots=tuple(data.get("import_roots", ())))
     except (MapError, OSError):
         return False
     names = set()
@@ -376,7 +376,7 @@ def _child_start_check(root: Path, path: Path, contract: dict, module, design, r
             data = view.data if view is not None else load_map(root)
         except MapError:
             data = {"components": []}
-        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data), write_cache=(view is None)), view=view)
+        tree = build_tree(root, data, build_inventory(root, ignore_patterns(data), write_cache=(view is None), import_roots=tuple(data.get("import_roots", ()))), view=view)
         node = tree.nodes.get(result.model)
         if node is None or node.parent_kind != "model" or tree.nodes[node.parent].kind != "contract":
             return
@@ -592,7 +592,7 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
     from .inventory import build_inventory
     from .mapfile import ignore_patterns
     if inv is None:
-        inv = build_inventory(root, ignore_patterns(data), write_cache=(view is None))
+        inv = build_inventory(root, ignore_patterns(data), write_cache=(view is None), import_roots=tuple(data.get("import_roots", ())))
     tree = build_tree(root, data, inv, view=view)
     issues = [ModelResult(model="registry", file=issue.path, status="error",
                           problems=[f"{issue.code} {issue.path}: {issue.message}"])

@@ -16,8 +16,9 @@ from flowguard.map.discover import discover_inventory, reachable_effects
 from flowguard.map.inventory import build_inventory
 
 MODEL_ID = "discovery"
-PARENT = "map-discover"
+COMPONENTS = ["map-discover", "map-inventory"]
 IMPLEMENTED_BY = {
+    "ResolveModule": "flowguard/map/inventory.py:resolve_module",
     "Discover": "flowguard/map/discover.py:discover",
     "ConsoleScripts": "flowguard/map/discover.py:console_scripts",
     "Function": "flowguard/map/discover.py:_FileVisitor._visit_function",
@@ -31,6 +32,10 @@ IMPLEMENTED_BY = {
     "MainGuard": "flowguard/map/discover.py:_FileVisitor.visit_If",
 }
 TESTED_BY = {
+    "script_and_closure_calls_resolve": ["tests/test_flowguard_map_discover.py:test_nested_function_call_resolves",
+        "tests/test_flowguard_map_discover.py:test_import_local_to_enclosing_function_resolves",
+        "tests/test_flowguard_map_discover.py:test_sibling_script_import_resolves",
+        "tests/test_flowguard_map_discover.py:test_import_root_import_resolves"],
     "entrypoints_found": ["tests/test_flowguard_map_discover.py:DiscoverTests.test_routes_commands_effects_and_state_writers",
                           "tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
     "writes_attributed_to_writer": ["tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
@@ -64,6 +69,7 @@ SHAPES = {
                   "if __name__ == '__main__':\n    main()\n"},
     "effect_word_in_string": {"words.py": "HELP = 'run subprocess or open a socket'\n\n\n"
                                           "def describe():\n    return 'subprocess.run and requests.post'\n"},
+    "script_closure_calls": {'scripts/run.py': 'from helper import _sibling\nfrom rootdep import _root\n\ndef sibling(): return _sibling()\n\ndef outer():\n    def _nested(): return 1\n    def inner(): return _nested()\n    return inner()\n\ndef outer_local():\n    from localdep import _local\n    def inner(): return _local()\n    return inner()\n\ndef rooted(): return _root()\n', 'scripts/helper.py': 'def _sibling(): return 1\n', 'scripts/localdep.py': 'def _local(): return 1\n', 'lib/rootdep.py': 'def _root(): return 1\n'},
 }
 # What discovery reports for each shape: (entrypoints, state writers, entrypoint -> reached effect kind, injected calls).
 EXPECTED = {
@@ -78,6 +84,7 @@ EXPECTED = {
     "injected_writer": (("main_call app.py:main", "main_guard app.py:<module>"), (), ("app.py:main fs_write",),
                         ("service.py#Service.add -> store.py#Store.save",)),
     "effect_word_in_string": ((), (), (), ()),
+    "script_closure_calls": ((), (), (), ('scripts/run.py#outer.inner -> scripts/run.py#outer._nested', 'scripts/run.py#outer_local.inner -> scripts/localdep.py#_local', 'scripts/run.py#rooted -> lib/rootdep.py#_root', 'scripts/run.py#sibling -> scripts/helper.py#_sibling')),
 }
 ENTRY_KIND = {"argparse_command": "cli_command", "route_decorator": "http_route", "console_script": "console_script",
               "main_guard": "main_guard"}
@@ -112,6 +119,8 @@ class Discover:
             result = replace(result, injected=())
         elif self.defect == "invents_effect" and event == "effect_word_in_string":
             result = replace(result, reach=("words.py:describe subprocess",))
+        if self.defect == "drops_sibling_script_import" and event == "script_closure_calls":
+            result = replace(result, injected=tuple(edge for edge in result.injected if "#sibling ->" not in edge))
         return (FunctionResult(event, result, label=event),)
 
 
@@ -122,6 +131,9 @@ def _rule(name, events, predicate, message):
 
 
 INVARIANTS = (
+    _rule("script_and_closure_calls_resolve", {"script_closure_calls"},
+          lambda state: state.injected == EXPECTED["script_closure_calls"][3],
+          "sibling scripts, declared roots and enclosing functions must resolve through one module resolver"),
     _rule("entrypoints_found", set(ENTRY_KIND),
           lambda state: any(entry.startswith(ENTRY_KIND[state.event] + " ") for entry in state.entrypoints),
           "an entrypoint shape was not listed as an entrypoint"),
@@ -152,15 +164,18 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in
-            ("misses_command", "writer_is_the_attribute", "reach_stops_at_injection", "ignores_injection", "invents_effect")}
+            ("drops_sibling_script_import", "misses_command", "writer_is_the_attribute", "reach_stops_at_injection", "ignores_injection", "invents_effect")}
 
 
 def _observe(event):
     with tempfile.TemporaryDirectory(prefix="flowguard-discovery-model-") as directory:
         root = Path(directory)
         for relative, source in SHAPES[event].items():
+            (root / relative).parent.mkdir(parents=True, exist_ok=True)
             (root / relative).write_text(source, encoding="utf-8")
-        inv = build_inventory(root, [], write_cache=False)
+        import inspect
+        kwargs = {"import_roots": ("lib",)} if event == "script_closure_calls" and "import_roots" in inspect.signature(build_inventory).parameters else {}
+        inv = build_inventory(root, [], write_cache=False, **kwargs)
         raw = discover_inventory(root, inv, write_cache=False)
         entries, writers, reach = [], [], []
         for path, facts in sorted(raw["files"].items()):
@@ -170,6 +185,10 @@ def _observe(event):
                              for kind in reachable_effects(raw, f"{path}#{entry['symbol']}"))
             writers.extend(f"{attr} <- {writer}" for attr, found in facts.get("state", {}).items() for writer in found)
         injected = [f"{source} -> {target}" for source, targets in raw.get("injected_edges", {}).items() for target in targets]
+        if event == "script_closure_calls":
+            callers = {"scripts/run.py#sibling", "scripts/run.py#outer.inner", "scripts/run.py#outer_local.inner", "scripts/run.py#rooted"}
+            injected = [f"{source} -> {target}" for source, targets in raw.get("edges", {}).items()
+                        if source in callers for target in targets]
         return State(event, tuple(sorted(entries)), tuple(sorted(writers)), tuple(sorted(reach)), tuple(sorted(injected)))
 
 

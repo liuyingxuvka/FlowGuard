@@ -20,6 +20,7 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
+from .inventory import resolve_module
 from .common import atomic_write_text, cache_dir, CACHE_RELDIR, content_digest, read_source, sha256_bytes
 
 CACHE_SCHEMA = "flowguard.map.discover_cache.v5"
@@ -430,20 +431,34 @@ def file_facts(text: str, module: str, package: str, path: str) -> dict:
     }
 
 
+def _scope_imports(file, caller):
+    """File imports followed by lexical function imports, outermost to innermost."""
+    imports = dict(file.get("imports", {}))
+    parts = caller.split(".")
+    for depth in range(1, len(parts) + 1):
+        function = file.get("functions", {}).get(".".join(parts[:depth]))
+        if function is not None:
+            imports.update(function.get("local_imports", {}))
+    return imports
+
+
 def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, dict[str, str]],
              mod_to_path: dict[str, str], *,
-             dependency_files: dict[str, set[str]] | None = None) -> str | None:
+             dependency_files: dict[str, set[str]] | None = None, py_paths=(), import_roots=()) -> str | None:
     """Resolve a call to 'path#symbol' inside the repo, or None (external / dynamic)."""
     file = facts[path]
     funcs = file["functions"]
     cls = funcs.get(caller, {}).get("class", "")
     parts = call.split(".")
-    imports = {**file["imports"], **funcs.get(caller, {}).get("local_imports", {})}
+    imports = _scope_imports(file, caller)
     if parts[0] == "self" and cls and len(parts) == 2:
         return f"{path}#{cls}.{parts[1]}" if f"{cls}.{parts[1]}" in funcs else None
     if len(parts) == 1:
-        if call in funcs:
-            return f"{path}#{call}"
+        scopes = [".".join(caller.split(".")[:depth]) for depth in range(len(caller.split(".")), 0, -1)]
+        for scope in [*(scope for scope in scopes if scope in funcs), ""]:
+            name = f"{scope}.{call}" if scope else call
+            if name in funcs:
+                return f"{path}#{name}"
         if f"{call}.__init__" in funcs:
             return f"{path}#{call}.__init__"
         if call in file.get("classes", ()):
@@ -451,7 +466,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
         bound = imports.get(call, "")
         if ":" in bound:
             mod, sym = bound.split(":", 1)
-            target = mod_to_path.get(mod)
+            target = resolve_module(mod, path, mod_to_path, py_paths, import_roots)
             if target and sym in index.get(target, {}):
                 return f"{target}#{sym}"
             if target and f"{sym}.__init__" in index.get(target, {}):
@@ -464,7 +479,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
     instances = file.get("instances", {})
     ctor = instances.get(f"{caller}|{parts[0]}") or instances.get(f"|{parts[0]}")
     if ctor and len(parts) == 2:
-        init = _resolve(ctor, caller, path, facts, index, mod_to_path)       # -> path#Cls.__init__ or path#Cls
+        init = _resolve(ctor, caller, path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)       # -> path#Cls.__init__ or path#Cls
         cls_path, _, cls_symbol = (init or "").partition("#")
         cls_symbol = cls_symbol.removesuffix(".__init__")
         if cls_path and f"{cls_symbol}.{parts[1]}" in index.get(cls_path, {}):
@@ -472,28 +487,28 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
     bound = imports.get(parts[0], "")
     if ":" in bound and len(parts) == 2:
         module, class_name = bound.split(":", 1)
-        target = mod_to_path.get(module)
+        target = resolve_module(module, path, mod_to_path, py_paths, import_roots)
         method = f"{class_name}.{parts[1]}"
         if target and class_name in facts[target].get("classes", ()) and method in index.get(target, {}):
             return f"{target}#{method}"
     module = bound.replace(":", ".") if bound else ""
     if module:
         for cut in range(len(parts) - 1, 0, -1):
-            target = mod_to_path.get(".".join([module, *parts[1:cut]]))
+            target = resolve_module(".".join([module, *parts[1:cut]]), path, mod_to_path, py_paths, import_roots)
             if target and ".".join(parts[cut:]) in index.get(target, {}):
                 return f"{target}#{'.'.join(parts[cut:])}"
     if parts[0] == "self" and cls and len(parts) == 3:
         ctor = instances.get(f"{cls}|self.{parts[1]}", "")
         if ctor and ctor != "<unresolved>":
-            init = _resolve(ctor, f"{cls}.__init__", path, facts, index, mod_to_path)
+            init = _resolve(ctor, f"{cls}.__init__", path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
             cls_path, _, cls_symbol = (init or "").partition("#")
             cls_symbol = cls_symbol.removesuffix(".__init__")
             if not cls_path:
                 ctor_parts = ctor.split(".")
-                ctor_imports = {**file["imports"], **funcs.get(f"{cls}.__init__", {}).get("local_imports", {})}
+                ctor_imports = _scope_imports(file, f"{cls}.__init__")
                 module = ctor_imports.get(ctor_parts[0], "").replace(":", ".")
                 for cut in range(len(ctor_parts) - 1, 0, -1) if module else ():
-                    target = mod_to_path.get(".".join([module, *ctor_parts[1:cut]]))
+                    target = resolve_module(".".join([module, *ctor_parts[1:cut]]), path, mod_to_path, py_paths, import_roots)
                     symbol = ".".join(ctor_parts[cut:])
                     if symbol in facts.get(target, {}).get("classes", ()):
                         cls_path, cls_symbol = target, symbol
@@ -511,7 +526,7 @@ def _resolve(call: str, caller: str, path: str, facts: dict, index: dict[str, di
 
 
 def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
-             dependency_files: dict[str, set[str]] | None = None) -> dict:
+             dependency_files: dict[str, set[str]] | None = None, import_roots=()) -> dict:
     """py_files: path -> module.  Returns {"files": facts, "edges": ..., "reach": ...} (raw)."""
     cache_path = (cache_dir(root) if write_cache else root / CACHE_RELDIR) / "discover.json"
     try:
@@ -532,8 +547,9 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
     # Per-file facts are cached as parsed; cross-file injection results are recomputed every run.
     cached = json.dumps({"schema": CACHE_SCHEMA, "parser": PARSER_ID, "files": facts}, sort_keys=True) if write_cache else ""
     mod_to_path = {f.get("module", ""): p for p, f in facts.items()}
+    py_paths = tuple(facts)
     index = {p: f.get("functions", {}) for p, f in facts.items()}
-    injected = _injected_classes(facts, index, mod_to_path)
+    injected = _injected_classes(facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
     foreign_writes = _apply_injected_writes(facts, injected)
     edges: dict[str, set[str]] = defaultdict(set)
     injected_edges: dict[str, set[str]] = defaultdict(set)
@@ -545,7 +561,7 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
                 if target:
                     injected_edges[f"{path}#{symbol}"].add(target)
                 else:
-                    target = _resolve(call, symbol, path, facts, index, mod_to_path, dependency_files=dependency_files)
+                    target = _resolve(call, symbol, path, facts, index, mod_to_path, dependency_files=dependency_files, py_paths=py_paths, import_roots=import_roots)
                 if target and target != f"{path}#{symbol}":
                     edges[f"{path}#{symbol}"].add(target)
                     incoming[target] += 1
@@ -563,27 +579,27 @@ def discover(root: Path, py_files: dict[str, str], *, write_cache: bool = True,
     return raw
 
 
-def _class_ref(name: str, caller: str, path: str, facts: dict, index: dict, mod_to_path: dict) -> str:
+def _class_ref(name: str, caller: str, path: str, facts: dict, index: dict, mod_to_path: dict, *, py_paths=(), import_roots=()) -> str:
     """'path#Cls' for a class name as seen from one function, or ''."""
     if not name or name == "<unresolved>":
         return ""
-    target = _resolve(name, caller, path, facts, index, mod_to_path)
+    target = _resolve(name, caller, path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
     cls_path, _, symbol = (target or "").partition("#")
     symbol = symbol.removesuffix(".__init__")
     if cls_path and symbol in facts.get(cls_path, {}).get("classes", ()):
         return f"{cls_path}#{symbol}"
     parts = name.split(".")
-    imports = {**facts[path].get("imports", {}), **facts[path].get("functions", {}).get(caller, {}).get("local_imports", {})}
+    imports = _scope_imports(facts[path], caller)
     module = imports.get(parts[0], "").replace(":", ".")
     for cut in range(len(parts) - 1, 0, -1) if module else ():
-        target = mod_to_path.get(".".join([module, *parts[1:cut]]))
+        target = resolve_module(".".join([module, *parts[1:cut]]), path, mod_to_path, py_paths, import_roots)
         symbol = ".".join(parts[cut:])
         if symbol in facts.get(target, {}).get("classes", ()):
             return f"{target}#{symbol}"
     return ""
 
 
-def _injected_classes(facts: dict, index: dict, mod_to_path: dict) -> dict[str, dict[str, str]]:
+def _injected_classes(facts: dict, index: dict, mod_to_path: dict, *, py_paths=(), import_roots=()) -> dict[str, dict[str, str]]:
     """path -> {"Cls|self.attr": "class_path#Other"} for constructor-injected attributes.
 
     An annotated parameter (or class-body annotation) names the class; without one, every static
@@ -593,7 +609,7 @@ def _injected_classes(facts: dict, index: dict, mod_to_path: dict) -> dict[str, 
     for path, file in facts.items():
         for symbol, fn in file.get("functions", {}).items():
             for callee, arguments in fn.get("ctor_calls", ()):
-                cls = _class_ref(callee, symbol, path, facts, index, mod_to_path)
+                cls = _class_ref(callee, symbol, path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
                 if not cls:
                     continue
                 cls_path, cls_name = cls.split("#", 1)
@@ -602,12 +618,12 @@ def _injected_classes(facts: dict, index: dict, mod_to_path: dict) -> dict[str, 
                     param = params[slot] if isinstance(slot, int) and slot < len(params) else slot
                     if isinstance(param, str):
                         evidence[(cls_path, cls_name, param)].add(
-                            _class_ref(argument, symbol, path, facts, index, mod_to_path) or "?")
+                            _class_ref(argument, symbol, path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots) or "?")
     found: dict[str, dict[str, str]] = {}
     for path, file in facts.items():
         for key, param in file.get("injected", {}).items():
             cls_name = key.split("|", 1)[0]
-            ref = _class_ref(file.get("instances", {}).get(key, ""), f"{cls_name}.__init__", path, facts, index, mod_to_path)
+            ref = _class_ref(file.get("instances", {}).get(key, ""), f"{cls_name}.__init__", path, facts, index, mod_to_path, py_paths=py_paths, import_roots=import_roots)
             seen = evidence.get((path, cls_name, param), set())
             if not ref and len(seen) == 1 and "?" not in seen:
                 ref = next(iter(seen))
@@ -745,7 +761,8 @@ def discover_inventory(root: Path, inv, *, write_cache: bool = True, data: dict 
                                       for target in files.get(dep, ())}
     extra = set(extra_sources)
     modules = {f: module_name(f, roots) for f in inv.py if not inv.is_test(f) or f in extra}
-    raw = discover(root, modules, write_cache=write_cache, dependency_files=dependency_files)
+    raw = discover(root, modules, write_cache=write_cache, dependency_files=dependency_files,
+                   import_roots=tuple(data.get("import_roots", ())) if data is not None else inv.import_roots)
     mod_to_path = {module: path for path, module in modules.items()}
     for name, target, via in console_scripts(root):
         module, sep, symbol = target.partition(":")

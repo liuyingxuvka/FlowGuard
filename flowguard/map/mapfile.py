@@ -22,7 +22,7 @@ from .common import DEFAULT_IGNORE, MAP_RELPATH, SCHEMA, SOURCE_EXTS, content_di
 from .inventory import Inventory
 from .retired import DESIGN_MARKER, runner_model_message, runner_model_paths
 
-TOP_KEYS = {"schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
+TOP_KEYS = {"import_roots", "schema", "project", "layers", "ignore", "test_command", "test_commands", "components", "flows", "accepted_debts", "fingerprint_format", "model_digests"}
 COMPONENT_KEYS = {"id", "layer", "summary", "responsibilities", "files", "entrypoints", "state",
                   "side_effects", "depends_on", "tests", "models", "status", "fingerprint", "_hint", "parent"}
 LIST_KEYS = ("responsibilities", "files", "entrypoints", "state", "side_effects", "depends_on", "tests", "models")
@@ -53,6 +53,10 @@ def validate_map(data: object) -> list[str]:
             and k.count("/") == 2 and "\\" not in k and k.endswith(".py") and not Path(k).name.startswith("_")
             and isinstance(v, str) and re.fullmatch(r"[0-9a-f]{64}", v) for k, v in digests.items()):
         errors.append("model_digests must map model paths to sha256 strings")
+    roots = data.get("import_roots", [])
+    if not isinstance(roots, list) or not all(isinstance(value, str) and value and not value.startswith("/")
+            and ".." not in value.split("/") and "\\" not in value for value in roots):
+        errors.append("import_roots must be a list of nonempty relative POSIX paths without '..'")
     test_commands = data.get("test_commands", {})
     if not isinstance(test_commands, dict) or not all(isinstance(p, str) and isinstance(cmd, str) and cmd.strip()
                                                       for p, cmd in test_commands.items()):

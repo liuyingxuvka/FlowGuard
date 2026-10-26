@@ -1545,3 +1545,20 @@ def test_map_check_names_model_edited_outside_target(tmp_path):
     assert len(guards(True)) == 1 and guards(True)[0].level == "error"
     del data["model_digests"]
     assert guards() == []
+
+
+@pytest.mark.parametrize("roots", [[""], [".."], ["a/../b"], ["/absolute"], ["a\\b"], [42], "library"])
+def test_import_roots_are_validated(tmp_path, roots):
+    from flowguard.map.mapfile import validate_map
+    data = {"schema": "flowguard.map.v1", "components": [], "import_roots": roots}
+    assert any("import_roots" in error for error in validate_map(data))
+
+
+def test_missing_import_root_is_a_warning(tmp_path):
+    from flowguard.map.check import run_check
+    data = {"schema": "flowguard.map.v1", "components": [], "import_roots": ["library"]}
+    inv = build_inventory(tmp_path, [], write_cache=False, import_roots=("library",))
+    findings = [f for f in run_check(tmp_path, data, inv, strict=True) if f.code == "import_root_missing"]
+    assert len(findings) == 1 and findings[0].level == "warn"
+    (tmp_path / "library").mkdir()
+    assert not [f for f in run_check(tmp_path, data, inv) if f.code == "import_root_missing"]

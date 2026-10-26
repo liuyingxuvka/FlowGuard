@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Resolve script siblings, declared import roots and enclosing function imports through one shared import resolver.
+- Projects using FlowGuard: script repositories can declare relative import_roots in their map.
+
 - Make target check a design check without bound tests, explain native code gaps and moved rules, and promote with one full check and recoverable atomic replacement.
 - Projects using FlowGuard: change models through a target; target check runs no bound tests and target promote runs them once; model_edited_outside_target now detects edits to current models.
 

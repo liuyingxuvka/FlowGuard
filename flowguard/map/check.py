@@ -238,6 +238,9 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in data["components"]})
     entry_findings.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(apply_accepted_debts(entry_findings, data.get("accepted_debts", []))[0])
+    for directory in data.get("import_roots", []):
+        if not (root / directory).is_dir():
+            out.append(Finding("warn", "import_root_missing", "", f"import root directory missing: {directory}"))
     out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))
     return out
 

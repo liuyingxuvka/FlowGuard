@@ -372,7 +372,7 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
             continue
         source = entry.path if view is None else str(physical)
         info = parse_python(root, source, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False)
-        imported.update(target for imp in info.imports if (target := resolve_import(imp, modules)))
+        imported.update(target for imp in info.imports if (target := resolve_import(imp, modules, importer=entry.path, py_paths=inv.py, import_roots=inv.import_roots)))
     entry_files = {a.split(":", 1)[0] for c in comps for a in c.get("entrypoints", [])}
     entry_files |= {path for path, facts in raw["files"].items() if facts.get("entrypoints")}
     for f in inv.source:
@@ -464,7 +464,7 @@ def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *,
     if inv is None:
         from .inventory import build_inventory
         from .mapfile import ignore_patterns
-        inv = build_inventory(root, ignore_patterns(data), write_cache=view is None)
+        inv = build_inventory(root, ignore_patterns(data), write_cache=view is None, import_roots=tuple(data.get("import_roots", ())))
     tree = build_tree(root, data, inv, view=view)
     tested = {n.path for c in data.get("components", []) if c.get("tests") for n in tree.models_for_component(c["id"])}
     for entry in model_registry(root, data, view=view).entries:
@@ -645,7 +645,7 @@ def dependency_import_sites(root: Path, data: dict, inv: Inventory, src: str, ds
                 imports = [f"{base}:{alias.name}" for alias in node.names]
             else:
                 continue
-            if any(resolve_import(imp, modules) in destination for imp in imports):
+            if any(resolve_import(imp, modules, importer=path, py_paths=inv.py, import_roots=inv.import_roots) in destination for imp in imports):
                 found.append((path, node.lineno, ast.unparse(node)))
     return [f"{path}:{line} {text}" for path, line, text in sorted(found)]
 
@@ -670,7 +670,7 @@ def private_use_findings(root: Path, data: dict, inv: Inventory) -> list[Finding
             continue
         for imported in sorted(info.imports):
             module, separator, name = imported.partition(":")
-            target = resolve_import(imported, modules) if separator else None
+            target = resolve_import(imported, modules, importer=path, py_paths=inv.py, import_roots=inv.import_roots) if separator else None
             holder = owner.get(target or "")
             if not separator or not private_name(name) or holder is None or holder == user or (user, holder, name) in seen:
                 continue

@@ -116,3 +116,5 @@ Promote prints `re-read:` lines (re-parented models, flows that cross changed co
 `fingerprint_format: 2` ignores only VERSION contents, the module-level Python __version__ string and the [project] TOML version value. Legacy pointers request one confirmation; other edits remain stale.
 
 `model_digests` records newline-normalized SHA256 identities of current model files; target promote, map scan and template writing current models update it.
+
+`import_roots` lists declared relative POSIX script import directories. Package modules resolve first, then a script's own directory when it has no __init__.py, then these roots in order. Missing roots warn; absolute paths and parent traversal are rejected. The tool never infers sys.path mutations.
