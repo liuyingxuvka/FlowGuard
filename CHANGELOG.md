@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: removed literals name code sites first; moved values stay quiet and settings-only map edits select only newly mapped tests.
+
 - Projects using FlowGuard: read and map show print complete views without --budget; every component and model is named, with child models folded into their parent.
 
 - Projects using FlowGuard: accepted debts are counted once and remain listed by map lint --debts; change --verbose shows exact test commands while normal change gives a counted summary.

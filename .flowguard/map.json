@@ -764,7 +764,7 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests.",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests. Name literal code sites before model sites, ignore moved values by source role, and select newly mapped tests for settings-only map edits.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -797,7 +797,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ea9f5095401dce6c68931e7b7565515a5de5b25afa10bc1c8509b46b59c74038"
+      "fingerprint": "sha256:05a8097d97457f043fcd772dc549bc01a48b201fca29809ab56830573055965f"
     }
   ],
   "flows": [
@@ -898,7 +898,7 @@
   "model_digests": {
     ".flowguard/models/anchor_watch.py": "3373b8122673801628827fb492306908f86c1dc7d1e4bbfcfa5b15cb3db0a7c1",
     ".flowguard/models/change_command.py": "5f722bfbeccbc434e13e33802633badc298511c6cff2b8653d16a220b6ac50ea",
-    ".flowguard/models/change_selection.py": "3b8f119d844968b4dc4ecfc86744ec04df99913d30a239efbe32bb2cacdab2d8",
+    ".flowguard/models/change_selection.py": "1d06075c320ff551e87cc5153629a9c9fa2886cfe7c32af8ac157d246725bc97",
     ".flowguard/models/component_pointer.py": "db984b440ac1cd23d5d5c1cdbf852f7f6b8ad0b7116b90e1c6db31db8fd9ee80",
     ".flowguard/models/discovery.py": "cf2e6bf88d5800459e1c3a18924f04ba7614c65437598cdbfdf8ec89b0a910b8",
     ".flowguard/models/edge_coverage.py": "894a796fa99220f79dd5f7446f7bbe8ffdce99739812f994d725118e0cbc9f50",
@@ -906,7 +906,7 @@
     ".flowguard/models/function_selection.py": "e39080175834cb207c0459b92a393981655260f3ebfa4d3322c38c7310a6476d",
     ".flowguard/models/gap_lines.py": "e26e16c39c6790bed771ee3baf2e33ebfab38e9c20b09eb63727e36eb9b0b1b9",
     ".flowguard/models/job_matching_example.py": "e09ba02a700d9fd2a4355d5e57235607d8f58a161b8f5697110a38b7f6649d7f",
-    ".flowguard/models/literal_consumers.py": "b636e695be4d743b9eaafe6739d5f3bd14b63abde653cc27a7a0952d6d9de896",
+    ".flowguard/models/literal_consumers.py": "b4a2fbd96cee21fc8e612d8a795dd7a1dcf02eff40dcd5627a68a196e839bb63",
     ".flowguard/models/map_binding.py": "966210916f33d166972fd596cc6d05ae2804039f65be8b9851c9c0cbe8404ce2",
     ".flowguard/models/map_check.py": "277a46f87b67e70ba5c72bd987d9e77e8848c1cb6837d64c391550c2852b9a10",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",

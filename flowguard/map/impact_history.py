@@ -172,87 +172,216 @@ def _literal_impact(root, data, inv, tree, changed, base):
     from collections import Counter
     from .discover import literal_sites
     from .mapfile import owner_index
-    owner,_=owner_index(data,inv)
-    model_paths={node.path:mid for mid,node in tree.nodes.items()}
-    model_source=[p.relative_to(root).as_posix() for p in (root/'.flowguard/models').glob('*.py') if not p.name.startswith('_')]
-    paths=sorted({path for path in inv.py if not inv.is_test(path)}|set(model_source))
-    sites={}; sources={}
+
+    owner, _ = owner_index(data, inv)
+    model_paths = {node.path: mid for mid, node in tree.nodes.items()}
+    model_source = [
+        p.relative_to(root).as_posix()
+        for p in (root / ".flowguard/models").glob("*.py")
+        if not p.name.startswith("_")
+    ]
+    paths = sorted({path for path in inv.py if not inv.is_test(path)} | set(model_source))
+    sites = {}
+    sources = {}
+
     def get(path):
         if path not in sites:
-            try: sources[path]=read_source(root/path);sites[path]=literal_sites(sources[path])
-            except OSError: sources[path]='';sites[path]=[]
+            try:
+                sources[path] = read_source(root / path)
+                sites[path] = literal_sites(sources[path])
+            except OSError:
+                sources[path] = ""
+                sites[path] = []
         return sites[path]
-    def candidate(path,value):
+
+    def candidate(path, value):
         return path not in inv.py or value in inv.py[path].string_literals
-    text_paths=None;text_cache={}
+
+    text_paths = None
+    text_cache = {}
+
     def mentions(value):
         nonlocal text_paths
         if text_paths is None:
-            try: text_paths=[p for p in _read_git_paths(root,'ls-files','-z') if Path(p).suffix.lower() in ('.md','.yaml','.yml','.json','.toml')]
-            except (OSError,subprocess.CalledProcessError): text_paths=[]
-        pattern=re.compile(r'(?<![A-Za-z0-9_])'+re.escape(value)+r'(?![A-Za-z0-9_])')
-        found=[]
+            try:
+                text_paths = [
+                    p
+                    for p in _read_git_paths(root, "ls-files", "-z")
+                    if Path(p).suffix.lower() in (".md", ".yaml", ".yml", ".json", ".toml")
+                ]
+            except (OSError, subprocess.CalledProcessError):
+                text_paths = []
+        pattern = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(value) + r"(?![A-Za-z0-9_])")
+        found = []
         for path in sorted(text_paths):
             if path not in text_cache:
-                try:text_cache[path]=read_source(root/path)
-                except OSError:text_cache[path]=''
-            if pattern.search(text_cache[path]):found.append(path)
+                try:
+                    text_cache[path] = read_source(root / path)
+                except OSError:
+                    text_cache[path] = ""
+            if pattern.search(text_cache[path]):
+                found.append(path)
         return found
-    lines=[];models=set();functions=set();tests=set();mention_lines=[];typos=[]
+
+    lines = []
+    models = set()
+    functions = set()
+    tests = set()
+    mention_lines = []
+    typos = []
+    role_group = {
+        "key_write": "produces",
+        "value": "produces",
+        "key_read": "handles",
+        "compare": "handles",
+    }
+    histories = {}
+    before_counts = Counter()
+    after_counts = Counter()
     for source in sorted(changed):
-        if inv.is_test(source) or not source.endswith('.py') or not (root/source).is_file(): continue
-        blob=subprocess.run(['git','-C',str(root),'show',f'{base}:{source}'],capture_output=True) if base else None
-        if blob is None or blob.returncode:continue
-        previous=read_source(root/source,data=blob.stdout);before=literal_sites(previous);after=get(source)
-        old_counts=Counter(value for value,_,role in before);new_counts=Counter(value for value,_,role in after)
-        cid=owner.get(source) or next((node.home for node in tree.nodes.values() if node.path==source),'unmapped')
-        altered=set()
-        for tag,i,j,start,end in difflib.SequenceMatcher(a=previous.splitlines(),b=sources[source].splitlines()).get_opcodes():
-            if tag!='equal':altered.update(range(start+1,end+1))
-        for value in sorted(old_counts):
-            if old_counts[value]<=new_counts[value]:continue
-            produced=any(v==value and role in ('key_write','value') for v,_,role in before)
-            roles={'key_read','compare'} if produced else {'key_write','value'}
-            label='consumes' if produced else 'produces'
-            origin='produced by' if produced else 'consumed by'
-            locations=[]
-            for path in paths:
-                if not candidate(path,value):continue
-                matches=[line for v,line,role in get(path) if v==value and role in roles and not (path==source and line in altered)]
-                if matches:locations.append((path,matches))
-            if len(locations)>20:
-                lines.append(f"{label} '{value}' ({origin} {cid}): {len(locations)} files (too common to list)")
+        if inv.is_test(source) or not source.endswith(".py"):
+            continue
+        blob = (
+            subprocess.run(
+                ["git", "-C", str(root), "show", f"{base}:{source}"], capture_output=True
+            )
+            if base
+            else None
+        )
+        previous = (
+            read_source(root / source, data=blob.stdout)
+            if blob is not None and blob.returncode == 0
+            else ""
+        )
+        before = literal_sites(previous)
+        after = get(source)
+        histories[source] = (previous, before, after)
+        before_counts.update(
+            (value, role_group[role]) for value, _, role in before if role in role_group
+        )
+        after_counts.update(
+            (value, role_group[role]) for value, _, role in after if role in role_group
+        )
+    for source, (previous, before, after) in histories.items():
+        cid = owner.get(source) or next(
+            (node.home for node in tree.nodes.values() if node.path == source), "unmapped"
+        )
+        altered = set()
+        for tag, i, j, start, end in difflib.SequenceMatcher(
+            a=previous.splitlines(), b=sources[source].splitlines()
+        ).get_opcodes():
+            if tag != "equal":
+                altered.update(range(start + 1, end + 1))
+        for value, group in sorted(
+            {(value, role_group[role]) for value, _, role in before if role in role_group}
+        ):
+            if before_counts[value, group] <= after_counts[value, group]:
                 continue
+            local_before = sum(
+                v == value and role_group.get(role) == group for v, _, role in before
+            )
+            local_after = sum(v == value and role_group.get(role) == group for v, _, role in after)
+            if local_before <= local_after:
+                continue
+            produced = group == "produces"
+            roles = {"key_read", "compare"} if produced else {"key_write", "value"}
+            label = "produces" if produced else "handles"
+            action = "read" if produced else "produce"
+            locations = []
+            for path in paths:
+                if not candidate(path, value):
+                    continue
+                matches = [
+                    line
+                    for v, line, role in get(path)
+                    if v == value and role in roles and not (path == source and line in altered)
+                ]
+                if matches:
+                    locations.append((path, matches))
+            if len(locations) > 20:
+                lines.append(
+                    f"{cid} no longer {label} '{value}': {len(locations)} files {action} it (too common to list)"
+                )
+                continue
+
             def order(item):
-                path=item[0]
-                return (0 if path.startswith('.flowguard/models/') else 3 if path==source else 1 if owner.get(path)!=cid else 2,path)
+                path = item[0]
+                return (
+                    (
+                        3
+                        if path.startswith(".flowguard/models/")
+                        else 2 if path == source else 0 if owner.get(path) != cid else 1
+                    ),
+                    path,
+                )
+
             locations.sort(key=order)
-            for path,found in locations[:5]:
-                lines.append(f"{label} '{value}' ({origin} {cid}): {path}:{found[0]}"+(f' (+{len(found)-1} in file)' if len(found)>1 else ''))
-            if len(locations)>5:lines.append(f'(+{len(locations)-5} more files)')
-            for path,found in locations:
-                if path in model_paths:models.add(model_paths[path]);continue
-                try: syntax=ast.parse(sources[path])
-                except SyntaxError:continue
+            for path, found in locations[:5]:
+                where = (
+                    "model " + model_paths[path]
+                    if path in model_paths
+                    else owner.get(path, "unmapped")
+                )
+                verb = "reads" if produced else "produces"
+                lines.append(
+                    f"{cid} no longer {label} '{value}' that {where} {verb} at {path}:{found[0]}"
+                    + (f" (+{len(found)-1} in file)" if len(found) > 1 else "")
+                )
+            if len(locations) > 5:
+                lines.append(f"(+{len(locations)-5} more files)")
+            for path, found in locations if produced else ():
+                if path in model_paths:
+                    models.add(model_paths[path])
+                    continue
+                try:
+                    syntax = ast.parse(sources[path])
+                except SyntaxError:
+                    continue
                 from .discover import function_spans
-                spans=function_spans(syntax)
+
+                spans = function_spans(syntax)
                 for line in found:
-                    enclosing=[span for span in spans if span[0]<=line<=span[1]]
-                    if enclosing:functions.add(path+'#'+min(enclosing,key=lambda span:span[1]-span[0])[2])
-            for path in inv.tests:
-                if candidate(path,value) and any(v==value for v,_,role in get(path)):tests.add(path)
-            files=mentions(value)
+                    enclosing = [span for span in spans if span[0] <= line <= span[1]]
+                    if enclosing:
+                        functions.add(
+                            path + "#" + min(enclosing, key=lambda span: span[1] - span[0])[2]
+                        )
+            for path in inv.tests if produced else ():
+                if candidate(path, value) and any(v == value for v, _, role in get(path)):
+                    tests.add(path)
+            files = mentions(value)
             if files:
-                mention_lines.append(f"mentions '{value}' in {len(files)} text files: "+', '.join(files[:2])+(f', +{len(files)-2}' if len(files)>2 else ''))
-        old_consumers=Counter(value for value,_,role in before if role in ('key_read','compare'))
-        new_consumers=Counter(value for value,_,role in after if role in ('key_read','compare'))
-        for value,count in new_consumers.items():
-            if count<=old_consumers[value]:continue
-            if any(candidate(path,value) and any(v==value and role in ('key_write','value') for v,line,role in get(path)) for path in paths):continue
-            if mentions(value):continue
-            line=next(line for v,line,role in after if v==value and role in ('key_read','compare'))
-            typos.append(f"nothing produces '{value}' (consumed at {source}:{line}); check the spelling")
-    return lines+mention_lines[:2]+typos[:1],models,functions,tests
+                mention_lines.append(
+                    f"mentions '{value}' in {len(files)} text files: "
+                    + ", ".join(files[:2])
+                    + (f", +{len(files)-2}" if len(files) > 2 else "")
+                )
+        old_consumers = Counter(
+            value for value, _, role in before if role in ("key_read", "compare")
+        )
+        new_consumers = Counter(
+            value for value, _, role in after if role in ("key_read", "compare")
+        )
+        for value, count in new_consumers.items():
+            if count <= old_consumers[value]:
+                continue
+            if any(
+                candidate(path, value)
+                and any(
+                    v == value and role in ("key_write", "value") for v, line, role in get(path)
+                )
+                for path in paths
+            ):
+                continue
+            if mentions(value):
+                continue
+            line = next(
+                line for v, line, role in after if v == value and role in ("key_read", "compare")
+            )
+            typos.append(
+                f"nothing produces '{value}' (consumed at {source}:{line}); check the spelling"
+            )
+    return lines + mention_lines[:2] + typos[:1], models, functions, tests
 
 def _git_promise_notes(root, data, changed, base):
     if base is None or not any(path.startswith('.flowguard/models/') and path.endswith('.py') for path in changed):

@@ -1042,75 +1042,229 @@ def select_tests(root, data, inv, tree, selected, changed_functions, *, changed=
                 also_reached=[f'{count} test functions call {fn} only through other functions (python -m flowguard change --broad)' for fn,count in sorted(indirect.items())])
 
 
-def compute_impact(root: Path, data: dict, inv: Inventory, changed: list[str], depth: int | None = None,
-                   *, base: str | None = None, broad: bool = False) -> Impact:
+SETTINGS_KEYS = ("accepted_debts", "large_model_seconds", "large_test_seconds", "model_digests")
+COMPONENT_SETTINGS = ("tests", "summary", "responsibilities", "status", "fingerprint")
+
+
+def _map_settings_tests(root, data, inv, base):
+    previous = _previous_map(root, base)
+    if previous is None:
+        return None
+
+    def structure(mapping):
+        result = {key: value for key, value in mapping.items() if key not in SETTINGS_KEYS}
+        result["components"] = [
+            {key: value for key, value in component.items() if key not in COMPONENT_SETTINGS}
+            for component in mapping.get("components", ())
+        ]
+        return result
+
+    if structure(previous) != structure(data):
+        return None
+    old = {component["id"]: component for component in previous.get("components", ())}
+    return {
+        path
+        for component in data.get("components", ())
+        for path in inv.tests
+        if matches_any(path, component.get("tests", ()))
+        and not matches_any(path, old.get(component["id"], {}).get("tests", ()))
+    }
+
+
+def compute_impact(
+    root: Path,
+    data: dict,
+    inv: Inventory,
+    changed: list[str],
+    depth: int | None = None,
+    *,
+    base: str | None = None,
+    broad: bool = False,
+) -> Impact:
     """Select exact owned/reachable functions, with explicit conservative uncertainty."""
     from .discover import discover_inventory, relied_models
     from .mapfile import owner_index
-    if changed is None: changed=changed_files(root,base or 'HEAD',data=data,inv=inv)
-    no_git=getattr(changed,'no_git','')
+
+    if changed is None:
+        changed = changed_files(root, base or "HEAD", data=data, inv=inv)
+    no_git = getattr(changed, "no_git", "")
+    changed = sorted(
+        {
+            project_relative(root, path)
+            for path in changed
+            if not project_relative(root, path).startswith(".flowguard/target/")
+        }
+    )
+    settings_tests = (
+        _map_settings_tests(root, data, inv, base) if ".flowguard/map.json" in changed else None
+    )
+    effective = [
+        path for path in changed if path != ".flowguard/map.json" or settings_tests is None
+    ]
     if broad:
-        result=_broad_impact(root,data,inv,changed,depth,base=base,broad=True)
-        result.no_git=no_git
+        result = _broad_impact(root, data, inv, effective, depth, base=base, broad=True)
+        result.changed = changed
+        result.no_git = no_git
         return result
-    changed=sorted({project_relative(root,path) for path in changed if not project_relative(root,path).startswith('.flowguard/target/')})
     if not changed:
-        result=_broad_impact(root,data,inv,[],depth,base=base,package_init=False)
-        result.no_git=no_git
+        result = _broad_impact(root, data, inv, [], depth, base=base, package_init=False)
+        result.no_git = no_git
         return result
-    comments={path for path in changed if _comment_only(root,base,path)}
-    source_changes=[path for path in changed if path not in comments and not inv.is_test(path) and not path.startswith('.flowguard/') and (path in inv.source or Path(path).suffix in SOURCE_EXTS)]
-    literal_tree=build_tree(root,data,inv)
-    consumer_lines,literal_models,literal_functions,literal_tests=_literal_impact(root,data,inv,literal_tree,changed,base)
-    raw=discover_inventory(root,inv,data=data,write_cache=False) if source_changes or literal_functions else {'files':{},'edges':{}}
-    functions,uncertain=_changed_symbols(root,inv,source_changes,base,raw)
+    comments = {path for path in changed if _comment_only(root, base, path)}
+    source_changes = [
+        path
+        for path in changed
+        if path not in comments
+        and not inv.is_test(path)
+        and not path.startswith(".flowguard/")
+        and (path in inv.source or Path(path).suffix in SOURCE_EXTS)
+    ]
+    literal_tree = build_tree(root, data, inv)
+    consumer_lines, literal_models, literal_functions, literal_tests = _literal_impact(
+        root, data, inv, literal_tree, changed, base
+    )
+    raw = (
+        discover_inventory(root, inv, data=data, write_cache=False)
+        if source_changes or literal_functions
+        else {"files": {}, "edges": {}}
+    )
+    functions, uncertain = _changed_symbols(root, inv, source_changes, base, raw)
     functions.update(literal_functions)
-    certain=set(source_changes)-set(uncertain)
-    result=_broad_impact(root,data,inv,[path for path in changed if path not in certain],depth,base=base,package_init=False)
-    tree=build_tree(root,data,inv)
-    owner,_=owner_index(data,inv)
-    direct={owner[path] for path in changed if path in owner}
-    result.changed=changed;result.direct=sorted(set(result.direct)|direct)
-    result.needs_review=sorted(set(result.needs_review)|{c['id'] for c in data['components'] if c['id'] in direct and is_stale(root,c,inv)})
-    result.review_models.update({cid:[node.id for node in tree.models_for_component(cid)] for cid in direct})
-    result.comment_only=sorted(comments)
-    result.unmapped=sorted(set(result.unmapped)|{path for path in certain if path not in owner and not matches_any(path,ignore_patterns(data))})
-    selected=set(result.model_ids)|literal_models
-    result.consumer_lines=consumer_lines
-    result.promise_lines,result.promise_findings=_git_promise_notes(root,data,changed,base)
+    certain = set(source_changes) - set(uncertain)
+    result = _broad_impact(
+        root,
+        data,
+        inv,
+        [path for path in effective if path not in certain],
+        depth,
+        base=base,
+        package_init=False,
+    )
+    tree = build_tree(root, data, inv)
+    owner, _ = owner_index(data, inv)
+    direct = {owner[path] for path in changed if path in owner}
+    result.changed = changed
+    result.direct = sorted(set(result.direct) | direct)
+    result.needs_review = sorted(
+        set(result.needs_review)
+        | {c["id"] for c in data["components"] if c["id"] in direct and is_stale(root, c, inv)}
+    )
+    result.review_models.update(
+        {cid: [node.id for node in tree.models_for_component(cid)] for cid in direct}
+    )
+    result.comment_only = sorted(comments)
+    result.unmapped = sorted(
+        set(result.unmapped)
+        | {
+            path
+            for path in certain
+            if path not in owner and not matches_any(path, ignore_patterns(data))
+        }
+    )
+    selected = set(result.model_ids) | literal_models
+    result.consumer_lines = consumer_lines
+    result.promise_lines, result.promise_findings = _git_promise_notes(root, data, changed, base)
     from .discover import select_model_functions, anchor_matches
-    chosen,reasons,flow_lines,unreached=select_model_functions(data,inv,tree,raw,functions)
+
+    chosen, reasons, flow_lines, unreached = select_model_functions(data, inv, tree, raw, functions)
     selected.update(chosen)
     result.flow_models.extend(flow_lines)
-    own={mid:node.contract.get('IMPLEMENTED_BY',{}) for mid,node in tree.nodes.items()}
+    own = {mid: node.contract.get("IMPLEMENTED_BY", {}) for mid, node in tree.nodes.items()}
     if source_changes:
-        sites=relied_models(raw,data,inv,{mid:list(anchors.values()) for mid,anchors in own.items()},files=list(certain))
-        result.relied_models=sorted(set(result.relied_models)|{f'{mid} via {cid}:{symbol}' for mid,locations in sites.items() for cid,symbol in locations})
+        sites = relied_models(
+            raw,
+            data,
+            inv,
+            {mid: list(anchors.values()) for mid, anchors in own.items()},
+            files=list(certain),
+        )
+        result.relied_models = sorted(
+            set(result.relied_models)
+            | {
+                f"{mid} via {cid}:{symbol}"
+                for mid, locations in sites.items()
+                for cid, symbol in locations
+            }
+        )
         # Full unexplained facts are needed for unowned entrypoints/writers, not owned edits.
-        if certain and (not functions or any(not any(anchor_matches(anchor,fn) for anchors in own.values() for anchor in anchors.values()) for fn in functions)):
+        if certain and (
+            not functions
+            or any(
+                not any(
+                    anchor_matches(anchor, fn)
+                    for anchors in own.values()
+                    for anchor in anchors.values()
+                )
+                for fn in functions
+            )
+        ):
             from .lint import coverage_facts
-            for cid,record in coverage_facts(root,data,inv,tree,raw).items():
-                entries=set(record.get('unexplained_entries',()))
-                result.unexplained.extend(f"{cid}: {anchor} ({'entrypoint' if anchor in entries else 'state writer'})" for anchor in record['unexplained'] if anchor.partition(':')[0] in certain)
-    pairs=sorted((node.path,mid) for mid,node in tree.nodes.items() if mid in selected)
-    result.models=[path for path,mid in pairs];result.model_ids=[mid for path,mid in pairs]
-    result.changed_functions=sorted(fn.replace('#',':',1) for fn in functions)
-    result.uncertain_files=uncertain;result.unreached=unreached;result.model_reasons=dict(reasons);result.no_git=no_git
+
+            for cid, record in coverage_facts(root, data, inv, tree, raw).items():
+                entries = set(record.get("unexplained_entries", ()))
+                result.unexplained.extend(
+                    f"{cid}: {anchor} ({'entrypoint' if anchor in entries else 'state writer'})"
+                    for anchor in record["unexplained"]
+                    if anchor.partition(":")[0] in certain
+                )
+    pairs = sorted((node.path, mid) for mid, node in tree.nodes.items() if mid in selected)
+    result.models = [path for path, mid in pairs]
+    result.model_ids = [mid for path, mid in pairs]
+    result.changed_functions = sorted(fn.replace("#", ":", 1) for fn in functions)
+    result.uncertain_files = uncertain
+    result.unreached = unreached
+    result.model_reasons = dict(reasons)
+    result.no_git = no_git
     whole_fallback = bool(uncertain) or any(
-        (path not in source_changes and not inv.is_test(path) and not path.startswith('.flowguard/models/') and path not in comments)
-        or (path.startswith('.flowguard/models/') and not (root/path).is_file())
+        (
+            path not in source_changes
+            and not inv.is_test(path)
+            and not path.startswith(".flowguard/models/")
+            and path not in comments
+        )
+        or (path.startswith(".flowguard/models/") and not (root / path).is_file())
         or (inv.is_test(path) and not is_collectable_test(path))
-        for path in changed)
-    extra=set(result.tests) if whole_fallback else {path for path in result.tests if path in changed}
+        for path in effective
+    )
+    extra = (
+        set(result.tests) if whole_fallback else {path for path in result.tests if path in changed}
+    )
     if no_git:
-        extra.update(path for c in data['components'] if c['id'] in direct for path in inv.tests if matches_any(path,c.get('tests',())))
-    selection=select_tests(root,data,inv,tree,selected,functions,changed=changed,uncertain=uncertain,raw=raw,extra_files=extra|literal_tests)
-    result.tests=sorted(selection['nodes'])
-    result.test_commands, command_problems = _commands_for_tests(data,_previous_map(root,base) if '.flowguard/map.json' in changed else None,result.tests)
-    result.blocked=sorted(set(result.blocked)|set(command_problems))
-    result.test_functions={path:names for path,names in selection['nodes'].items() if path not in selection['whole_files']}
-    result.whole_test_files=selection['whole_files'];result.selected_test_functions=selection['selected'];result.total_test_functions=selection['total']
-    result.bound_test_count=selection['bound'];result.calling_test_count=selection['calling'];result.also_reached=selection['also_reached']
+        extra.update(
+            path
+            for c in data["components"]
+            if c["id"] in direct
+            for path in inv.tests
+            if matches_any(path, c.get("tests", ()))
+        )
+    selection = select_tests(
+        root,
+        data,
+        inv,
+        tree,
+        selected,
+        functions,
+        changed=changed,
+        uncertain=uncertain,
+        raw=raw,
+        extra_files=extra | literal_tests | set(settings_tests or ()),
+    )
+    result.tests = sorted(selection["nodes"])
+    result.test_commands, command_problems = _commands_for_tests(
+        data, _previous_map(root, base) if ".flowguard/map.json" in changed else None, result.tests
+    )
+    result.blocked = sorted(set(result.blocked) | set(command_problems))
+    result.test_functions = {
+        path: names
+        for path, names in selection["nodes"].items()
+        if path not in selection["whole_files"]
+    }
+    result.whole_test_files = selection["whole_files"]
+    result.selected_test_functions = selection["selected"]
+    result.total_test_functions = selection["total"]
+    result.bound_test_count = selection["bound"]
+    result.calling_test_count = selection["calling"]
+    result.also_reached = selection["also_reached"]
     return result
 
 
