@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-511: consumer lines name code sites first; moved literals and settings-only map edits select nothing",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
