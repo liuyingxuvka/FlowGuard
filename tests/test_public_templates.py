@@ -220,9 +220,11 @@ class PublicTemplateTests(unittest.TestCase):
             else:
                 models = [p for p in paths if p.startswith(".flowguard/models/") and p.count("/") == 2]
                 self.assertEqual(1, len(models), name)
-                self.assertEqual([],
-                                 [p for p in paths if p not in models], name)
-        self.assertEqual(["adoption", "behaviour", "ui-journey", "validator"], sorted(template_factories()))
+                expected_tests = ["REPLACE_ME/tests/test_cases.py"] if name == "cases" else []
+                self.assertEqual(expected_tests, [p for p in paths if p not in models], name)
+        self.assertEqual(
+            ["adoption", "behaviour", "cases", "ui-journey", "validator"], sorted(template_factories())
+        )
 
     def test_every_template_fails_cleanly_before_it_is_filled(self):
         from flowguard.map.mapfile import read_model_contract
@@ -267,7 +269,7 @@ class PublicTemplateTests(unittest.TestCase):
         code, stdout, _stderr = self.run_cli(["template", "--list"])
         self.assertEqual(0, code)
         listed = stdout.split()
-        self.assertEqual(["adoption", "behaviour", "ui-journey", "validator"], listed)
+        self.assertEqual(["adoption", "behaviour", "cases", "ui-journey", "validator"], listed)
         self.assertNotIn("project", listed)
         for name in listed:
             code, stdout, stderr = self.run_cli(["template", name])
@@ -276,8 +278,14 @@ class PublicTemplateTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             code, stdout, _stderr = self.run_cli(["template", "validator", "--write", directory])
             self.assertEqual(0, code)
-            self.assertEqual([".flowguard/models/validator.py"],
-                             sorted(p.relative_to(directory).as_posix() for p in Path(directory).rglob("*") if p.is_file()))
+            self.assertEqual(
+                [".flowguard/models/validator.py"],
+                sorted(
+                    p.relative_to(directory).as_posix()
+                    for p in Path(directory).rglob("*")
+                    if p.is_file()
+                ),
+            )
             code, _stdout, stderr = self.run_cli(["template", "validator", "--write", directory])
             self.assertEqual(1, code)
             self.assertIn("--force", stderr)
@@ -342,3 +350,61 @@ class PublicTemplateTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def test_cases_template_passes_and_every_known_bad_fails(tmp_path):
+    from flowguard.templates import cases_template_files
+
+    package = tmp_path / "app"
+    package.mkdir()
+    (package / "api.py").write_text(
+        "def convert(value):\n    result = value * 2\n    return result\n"
+    )
+    files = cases_template_files()
+    for item in files:
+        path = tmp_path / item.path.replace("REPLACE_ME", "app")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(item.content.replace("REPLACE_ME", "app"))
+    (tmp_path / ".flowguard/map.json").write_text(
+        json.dumps(
+            dict(
+                schema="flowguard.map.v1",
+                components=[
+                    dict(
+                        id="app",
+                        files=["app/*.py"],
+                        tests=["app/tests/*.py"],
+                        models=[],
+                        summary="Convert an input",
+                        responsibilities=[],
+                        status="draft",
+                    )
+                ],
+            )
+        )
+    )
+    env = _template_env()
+    command = [
+        sys.executable,
+        "-m",
+        "flowguard",
+        "map",
+        "models",
+        "--root",
+        str(tmp_path),
+        "--tests",
+    ]
+    result = subprocess.run(command, env=env, text=True, capture_output=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    model_path = tmp_path / files[0].path
+    proof = subprocess.run(
+        [sys.executable, "-m", "flowguard.map.proof", str(tmp_path), str(model_path)],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    payload = json.loads(proof.stdout)
+    assert payload["status"] == "pass", payload
+    assert payload["known_bad"] == ["wrong_output"], payload
+    assert payload["rules"] == ["case_output_matches"], payload

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: `template cases` creates a named case table, a real-function replay and matching tests.
+
 - Word lookup names the model that owns the matching symbol before comparing rule words and model depth.
 
 - Command help is generated from the real argparse options and shows every daily verb flag.

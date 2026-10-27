@@ -57,6 +57,79 @@ def validator_template_files() -> tuple[TemplateFile, ...]:
     )
 
 
+
+def cases_template_files() -> tuple[TemplateFile, ...]:
+    """A named case table, real replay and matching bound tests."""
+    return (
+        TemplateFile(
+            ".flowguard/models/cases.py",
+            '''"""Compare each named input case with its expected result on the real function."""
+from dataclasses import dataclass
+from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+
+MODEL_ID = "cases"
+PARENT = "REPLACE_ME"
+IMPLEMENTED_BY = {"Convert": "REPLACE_ME/api.py:convert"}
+TESTED_BY = {"case_output_matches": ["REPLACE_ME/tests/test_cases.py:test_cases"]}
+CASES = (("zero", 0, 0), ("positive", 2, 4), ("negative", -3, -6))
+
+@dataclass(frozen=True)
+class State:
+    name: str = ""
+    actual: int = 0
+    expected: int = 0
+
+class CaseStep:
+    name = "Convert"
+    reads = ()
+    writes = ("name", "actual", "expected")
+
+    def __init__(self, bad=False):
+        self.bad = bad
+
+    def apply(self, case, state):
+        name, value, expected = case
+        actual = expected + 1 if self.bad else expected
+        return (FunctionResult(actual, State(name, actual, expected), label=name),)
+
+RULES = (Invariant("case_output_matches", "each case produces its expected result",
+                   lambda state, trace: state.actual == state.expected),)
+
+def _explorer(bad=False):
+    return Explorer(Workflow((CaseStep(bad),)), (State(),), CASES,
+                    invariants=RULES, max_sequence_length=1, progress_steps=0)
+
+def build_explorer():
+    return _explorer()
+
+def broken_variants():
+    return {"wrong_output": _explorer(True)}
+
+def conformance():
+    from REPLACE_ME.api import convert
+    facts = []
+    for name, value, expected in CASES:
+        actual = convert(value)
+        facts.append(Fact(name, actual == expected, repr(actual)))
+    return CodeFactsReport(tuple(facts))
+''',
+        ),
+        TemplateFile(
+            "REPLACE_ME/tests/test_cases.py",
+            '''"""Bind the same named cases to the real conversion function."""
+import pytest
+from REPLACE_ME.api import convert
+
+@pytest.mark.parametrize("name,value,expected", (("zero", 0, 0), ("positive", 2, 4), ("negative", -3, -6)))
+def test_cases(name, value, expected):
+    assert convert(value) == expected
+''',
+        ),
+    )
+
+
 def write_template_files(
     root: str | Path,
     files: tuple[TemplateFile, ...],
@@ -86,6 +159,7 @@ __all__ = [
     "TemplateFile",
     "adoption_template_files",
     "behaviour_template_files",
+    "cases_template_files",
     "validator_template_files",
     "ui_journey_template_files",
     "write_template_files",

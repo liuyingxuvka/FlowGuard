@@ -170,9 +170,9 @@
     {
       "id": "templates",
       "layer": "interface",
-      "summary": "Generates ordinary models and adoption rules, routing new models into an open target.",
+      "summary": "Generate starter models, matching case tests and adoption rules; put model files in an open target.",
       "responsibilities": [
-        "write behaviour, validator and ui-journey starters into the target when open, otherwise record current-model digests",
+        "write each model starter into an open target, or record its current-model digest",
         "make placeholder code and test anchors fail until the user fills them"
       ],
       "files": [
@@ -196,7 +196,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:3a22048fb89f0dd0da443a9eb5ebc4342217e90bedda6fe7d6aa0d39f6518fec"
+      "fingerprint": "sha256:ce53519ee9a260bc48b56098dfb5addb1c6f59ad931453cad7972e919900a66f"
     },
     {
       "id": "test-mesh",
