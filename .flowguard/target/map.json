@@ -1,0 +1,399 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-421: Split FlowGuard's test files along the model tree",
+  "components": [
+    {
+      "id": "cli",
+      "layer": "interface",
+      "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
+      "responsibilities": [
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
+        "show owners, closest owners, target changes, Mermaid and reviews in read",
+        "annotate planned target breakage and ARCH lines in check, change and release",
+        "run release with the system root counted and optional whole-suite shards",
+        "run bound tests and, on request, the checks an edit needs",
+        "write templates and their aliases into the active target when one exists",
+        "hint splits for large scan drafts and say when discovery finds nothing"
+      ],
+      "files": [
+        "flowguard/__main__.py",
+        "flowguard/map/__init__.py",
+        "flowguard/map/__main__.py",
+        "flowguard/map/cli.py"
+      ],
+      "entrypoints": [
+        "flowguard/__main__.py:main",
+        "flowguard/map/cli.py:main"
+      ],
+      "state": [],
+      "side_effects": [
+        "prints to stdout",
+        "writes .flowguard/map.json on scan, deps --write and confirm"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read",
+        "map-target",
+        "public-api",
+        "templates"
+      ],
+      "tests": [
+        "tests/test_cli.py",
+        "tests/test_cli_change.py",
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py",
+        "tests/test_cli_map_check.py",
+        "tests/test_cli_map_lint.py",
+        "tests/test_cli_map_scan.py",
+        "tests/test_cli_read.py",
+        "tests/test_cli_template.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_packaged_cli_surface.py",
+        "tests/test_public_templates.py",
+        "tests/test_pytest_shard_runner.py",
+        "tests/test_read_command.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-check",
+      "layer": "map",
+      "summary": "Check structural bindings, fixed model/test sizes and model-edit guards; only reasoned soft findings can be waived.",
+      "responsibilities": [
+        "check anchors, files, imports, flow steps and models against the code Distinguish legacy fingerprint migration from real source staleness, using the same strict severity.",
+        "report one owner per entrypoint, responsibility, state and side effect",
+        "lint cycles, layers, sizes and private names, then apply accepted debts",
+        "explain entrypoints and state writers by model, test or reason"
+      ],
+      "files": [
+        "flowguard/map/check.py",
+        "flowguard/map/lint.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/check.py:run_check",
+        "flowguard/map/lint.py:run_lint"
+      ],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_cli_main.py",
+        "tests/test_component_pointer.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_map_binding.py",
+        "tests/test_map_check.py",
+        "tests/test_model_edits.py",
+        "tests/test_model_runs.py",
+        "tests/test_private_use.py"
+      ],
+      "models": [
+        ".flowguard/models/private_use.py"
+      ]
+    },
+    {
+      "id": "map-discover",
+      "layer": "map",
+      "summary": "Discover call graphs, literal roles and lexical functions; own reachability and shared model selection for body edits.",
+      "responsibilities": [
+        "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
+        "resolve attribute calls through assigned or injected classes",
+        "count del statements as state writes and expose anchor state writes",
+        "discover without writing caches when asked",
+        "find the model anchors that code calls directly",
+        "build one static call graph from current or target source facts",
+        "report no entrypoint or effect from words inside strings"
+      ],
+      "files": [
+        "flowguard/map/discover.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/discover.py:console_scripts",
+        "flowguard/map/discover.py:discover"
+      ],
+      "state": [],
+      "side_effects": [
+        "writes .flowguard/cache/discover.json"
+      ],
+      "depends_on": [
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_discovery.py",
+        "tests/test_map_discover.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-file",
+      "layer": "map",
+      "summary": "Read map and target contracts, static rules, finite ports and the canonical test tree with file-validated duration inputs.",
+      "responsibilities": [
+        "load, validate and save the map, fingerprints and current-model digests; memoize only parsed contracts by source identity",
+        "resolve component parents in one layer without loops",
+        "merge the target overlay, validate its remove intents and compare it with current",
+        "compute component fingerprints that detect stale descriptions",
+        "register contract models and build the model tree with its nesting errors",
+        "count import-like strings and injected attribute calls as dependency evidence"
+      ],
+      "files": [
+        "flowguard/map/mapfile.py",
+        "flowguard/map/scan.py",
+        "flowguard/map/tree.py",
+        "flowguard/map/targetfile.py",
+        "flowguard/map/testtree.py",
+        "flowguard/map/port.py",
+        "flowguard/map/modelstatic.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/mapfile.py:load_map",
+        "flowguard/map/scan.py:new_map"
+      ],
+      "state": [
+        "map.json components",
+        "canonical current-model digests"
+      ],
+      "side_effects": [
+        "writes .flowguard/map.json"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_component_pointer.py",
+        "tests/test_edge_coverage.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_flowguard_testtree.py",
+        "tests/test_map_file.py",
+        "tests/test_model_scope.py",
+        "tests/test_release_neutral_fingerprint.py",
+        "tests/test_scan_coverage.py",
+        "tests/test_tree_resolution.py"
+      ],
+      "models": [
+        ".flowguard/models/release_neutral_fingerprint.py"
+      ]
+    },
+    {
+      "id": "map-impact",
+      "layer": "map",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests.",
+      "responsibilities": [
+        "select the checks a change needs and list its unexplained functions",
+        "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
+        "select bound and directly calling test functions, with conservative whole-file fallback"
+      ],
+      "files": [
+        "flowguard/map/impact.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/impact.py:compute_impact"
+      ],
+      "state": [],
+      "side_effects": [
+        "reads git history; refreshes disposable analysis cache"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_change_selection.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_map_impact.py",
+        "tests/test_port_escalation.py",
+        "tests/test_test_selection.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-inventory",
+      "layer": "map",
+      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests.",
+      "responsibilities": [
+        "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
+        "handle a closed output pipe quietly for every command line entry",
+        "build a read-only inventory without creating or writing caches on request",
+        "parse bound-test item selectors as plain strings",
+        "derive lexical function, class and module-binding digests from source on demand"
+      ],
+      "files": [
+        "flowguard/map/common.py",
+        "flowguard/map/inventory.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/inventory.py:build_inventory"
+      ],
+      "state": [
+        "parsed file inventory and cache"
+      ],
+      "side_effects": [
+        "writes .flowguard/cache/inventory.json"
+      ],
+      "depends_on": [],
+      "tests": [
+        "tests/test_flowguard_map.py",
+        "tests/test_function_selection.py",
+        "tests/test_map_inventory__fg_helpers.py",
+        "tests/test_map_inventory_check.py",
+        "tests/test_map_inventory_cli.py",
+        "tests/test_map_inventory_common.py",
+        "tests/test_map_inventory_discover.py",
+        "tests/test_map_inventory_impact.py",
+        "tests/test_map_inventory_inventory.py",
+        "tests/test_map_inventory_mapfile.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-proof",
+      "layer": "map",
+      "summary": "Run fresh model proofs and bound tests, clean owned process groups within the outer session deadline, and report time as advice.",
+      "responsibilities": [
+        "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
+        "fail a model whose rule no known-bad variant breaks",
+        "read code facts for conformance and fail missing or unconsulted anchors",
+        "clean up model and pytest shard subprocesses in bounded time",
+        "run bound tests per item and require each to reach an anchor",
+        "show passing proofs on one line, with details for failures and separate bound-test timings"
+      ],
+      "files": [
+        "flowguard/map/proof.py",
+        "flowguard/map/runner.py",
+        "flowguard/map/facts.py",
+        "flowguard/map/system_model.py",
+        "flowguard/map/testreach.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/proof.py:run_models",
+        "flowguard/map/runner.py:run_isolated_process"
+      ],
+      "state": [],
+      "side_effects": [
+        "runs isolated model subprocesses",
+        "runs one isolated pytest process per model when bound-test checking is requested"
+      ],
+      "depends_on": [
+        "engine-conformance",
+        "engine-explore",
+        "map-check",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_anchor_watch.py",
+        "tests/test_flowguard_map_facts.py",
+        "tests/test_flowguard_map_proof.py",
+        "tests/test_model_proof.py",
+        "tests/test_model_runs.py",
+        "tests/test_test_binding.py"
+      ],
+      "models": [
+        ".flowguard/models/model_runs.py"
+      ]
+    },
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Show field lifecycles, exact code ownership, distinct model relations and bounded test positions without importing models.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py",
+        "tests/test_map_read.py",
+        "tests/test_read_component.py",
+        "tests/test_read_field.py",
+        "tests/test_read_find.py",
+        "tests/test_relation_graph.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks.",
+      "responsibilities": [
+        "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
+        "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
+        "mark only the breakage of a changed subject as moving to target",
+        "refuse a target that changes nothing, drops a promise or leaves it untied",
+        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm",
+        "warn about earlier findings, stale debts and untested rules without blocking",
+        "list what to re-read after promotion and which files to delete",
+        "include function-selected models and tests in the single promotion check"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target",
+        "flowguard/map/target.py:start_target",
+        "flowguard/map/target.py:add_to_target",
+        "flowguard/map/target.py:drop_target"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py",
+        "tests/test_gap_lines.py",
+        "tests/test_map_target.py",
+        "tests/test_target_add.py",
+        "tests/test_target_life_cycle.py"
+      ],
+      "models": [
+        ".flowguard/models/target_add.py",
+        ".flowguard/models/gap_lines.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": []
+}
