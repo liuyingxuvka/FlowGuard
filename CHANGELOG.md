@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: release, map models, target check and target promote run models in parallel by default; --jobs 1 stays serial in the calling thread.
+
 - Reuse read-only syntax, component file matches and model trees within a command; cold inventories and test analysis share parsing without changing results.
 
 - Check skill routes for duplicated paragraphs, broken links and missing command names; report text size without rejecting useful content.

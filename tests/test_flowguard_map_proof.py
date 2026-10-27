@@ -439,15 +439,13 @@ def test_shadowing_copy_names_the_imported_file(tmp_path, monkeypatch):
 
 
 def test_monitoring_slots_busy_falls_back_and_preserves_other_tools(tmp_path):
-    import pytest
     from _fg_helpers import proof__watch_native_module as _watch_native_module
     import sys
     from flowguard.map.facts import AnchorWatch
-    if not hasattr(sys, "monitoring"):
-        pytest.skip("monitoring tool slots require Python 3.12+")
+    previous_profile = sys.getprofile()
     reserved = []
     try:
-        for tool in (3, 4):
+        for tool in ((3, 4) if hasattr(sys, "monitoring") else ()):
             if sys.monitoring.get_tool(tool) is None:
                 sys.monitoring.use_tool_id(tool, "existing observer")
                 reserved.append(tool)
@@ -457,6 +455,7 @@ def test_monitoring_slots_busy_falls_back_and_preserves_other_tools(tmp_path):
             assert watch._tool_id is None
             module.ping()
         assert watch.consulted() == {"native_calls.py:ping"}
+        assert sys.getprofile() is previous_profile
         assert all(sys.monitoring.get_tool(tool) == "existing observer" for tool in reserved)
     finally:
         for tool in reserved:

@@ -16,6 +16,7 @@ from pathlib import Path
 
 from . import __version__
 from .map.cli import main as map_main
+from .map.proof import DEFAULT_JOBS
 from .map.common import quiet_broken_pipe, safe_stdio
 
 
@@ -55,7 +56,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
         p.add_argument("--run", action="store_true", help="then run the selected tests and models, one RAN line each")
     elif verb == "release":
-        p.add_argument("--jobs", type=int, choices=range(1, 33), default=1, metavar="N", help="run 1-32 model subprocesses concurrently")
+        p.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
         p.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                        help="after normal checks pass, run the whole suite in 1–32 parallel shards")
     return p

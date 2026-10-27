@@ -41,13 +41,9 @@ jobs:
       - name: Install FlowGuard
         run: python -m pip install -e ".[dev]"
 
-      - name: Complete unit suite on Ubuntu Python 3.11
+      - name: Release gate and the whole suite in 4 shards on Ubuntu Python 3.11
         if: matrix.full
-        run: python -m pytest -q
-
-      - name: Self-map and executable models on Ubuntu Python 3.11
-        if: matrix.full
-        run: python -m flowguard release
+        run: python -m flowguard release --shards 4
 
       - name: Core path and packaging smoke on the other platforms
         if: ${{ !matrix.full }}

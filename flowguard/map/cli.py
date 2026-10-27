@@ -31,7 +31,7 @@ from .impact import run_commands, changed_files, compute_impact, render_impact
 from .inventory import build_inventory
 from .lint import Limits, run_lint
 from .mapfile import MapError, component_files, component_graph, dependency_evidence, fingerprint, ignore_patterns, load_map, map_path, model_registry, owner_index, save_map
-from .proof import render_results, run_models
+from .proof import DEFAULT_JOBS, render_results, run_models
 from .scan import new_map
 from .tree import build_tree
 from .views import closest_owners, defined_symbols, find_owners, render_field, render_digest, render_mermaid, render_show
@@ -361,7 +361,7 @@ def cmd_confirm(root: Path, a) -> int:
 
 
 def cmd_models(root: Path, a) -> int:
-    results = run_models(root, a.ids, tests=a.tests, jobs=getattr(a, "jobs", 1))
+    results = run_models(root, a.ids, tests=a.tests, jobs=getattr(a, "jobs", DEFAULT_JOBS))
     print(render_results(results))
     return 1 if any(r.status != "pass" for r in results) else 0
 
@@ -385,7 +385,7 @@ def cmd_verify(root: Path, a) -> int:
     debts = data.get("accepted_debts", [])
     print(f"accepted debts: {len(debts)} (python -m flowguard map lint --debts)")
     registry = model_registry(root, data)
-    results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", 1))
+    results = run_models(root, [], tests=True, jobs=getattr(a, "jobs", DEFAULT_JOBS))
     if results:
         print(render_results(results))
     expected = {(entry.id, entry.path) for entry in registry.entries}
@@ -445,9 +445,10 @@ def build_parser() -> argparse.ArgumentParser:
     s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
     s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
     s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
-    s.add_argument("--jobs", type=int, choices=range(1, 33), default=1, metavar="N", help="run 1-32 model subprocesses concurrently")
+    s.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
     s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
     s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
+    s.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
     s.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
                    help="after normal checks pass, run the whole suite in 1–32 parallel shards")
     for command in sub.choices.values():   # --root is accepted before or after the command

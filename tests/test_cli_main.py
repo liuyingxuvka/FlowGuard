@@ -802,3 +802,38 @@ def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path
     assert code == 0, (output, errors)
     code, output, errors = _run(root, capsys, "target", "promote")
     assert code == 0 and not (root / ".flowguard/target").exists(), (output, errors)
+
+
+def test_jobs_default_is_min_four_cpus(tmp_path, monkeypatch, capsys):
+    import os
+    from flowguard.__main__ import _verb_parser
+    from flowguard.map import proof, target
+    from flowguard.map.cli import build_parser
+    from _fg_helpers import target_shelf_project
+    expected = min(4, os.cpu_count() or 1)
+    assert proof.DEFAULT_JOBS == expected
+    for parser, argv in ((_verb_parser('release'), []),
+            (build_parser(), ['models']), (build_parser(), ['verify']),
+            (target.build_parser(), ['check']), (target.build_parser(), ['promote'])):
+        assert parser.parse_args(argv).jobs == expected
+    root = target_shelf_project(tmp_path)
+    assert target.start_target(root, 'parallel model checks') == 0
+    assert target.add_to_target(root, 'lending') == 0
+    recorded = []
+    original = proof.run_models
+    def run_models(*args, **kwargs):
+        recorded.append(kwargs.get('jobs'))
+        return []
+    monkeypatch.setattr(proof, 'run_models', run_models)
+    target.main(['check', '--root', str(root)])
+    assert recorded and recorded[-1] == expected
+    recorded.clear()
+    target.check_target(root)
+    assert recorded and recorded[-1] == 1
+    monkeypatch.setattr(proof, 'run_models', original)
+    def no_pool(*args, **kwargs):
+        raise AssertionError('serial model execution must stay in the calling thread')
+    monkeypatch.setattr(proof, 'ThreadPoolExecutor', no_pool)
+    results = proof.run_models(root, [], jobs=1)
+    assert results and all(result.status == 'pass' for result in results)
+    capsys.readouterr()

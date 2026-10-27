@@ -21,6 +21,7 @@ from .mapfile import MapError, component_graph, ignore_patterns, load_map, model
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
                          validate_target)
 from .tree import build_tree
+from .proof import DEFAULT_JOBS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -35,6 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
     drop.add_argument("--yes", action="store_true")
     check = commands.add_parser("check", help="check actual code against the current tree with the target applied")
     promote = commands.add_parser("promote", help="replace the current tree with a clean target")
+    for command in (check, promote):
+        command.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
     for command in (start, add, drop, check, promote):
         command.add_argument("--root", default=argparse.SUPPRESS)
     return parser
@@ -225,7 +228,7 @@ def _issue_key(node, code, message, tree):
     return node, family, message
 
 
-def check_target(root: Path, *, models: bool = True, tests: bool = False, impact=None) -> TargetReport:
+def check_target(root: Path, *, models: bool = True, tests: bool = False, impact=None, jobs: int = 1) -> TargetReport:
     """Fresh native facts and proofs; all engine project-cache writes are disabled."""
     from .check import run_check
     from .lint import architecture_findings, architecture_variants, dropped_owner_findings
@@ -335,7 +338,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     if impact is not None:
         selected = sorted(set(selected) | (set(impact.model_ids) & set(tree.nodes)))
     # [] means "all" to model execution; an empty target selection means none.
-    results = run_models(root, selected, tests=tests, view=view, inv=inv) if selected else []
+    results = run_models(root, selected, tests=tests, view=view, inv=inv, jobs=jobs) if selected else []
     untouched, old = _unchanged_models(root, current, target, inv, tree, selected, changed_paths=changed_paths)
     for result in results:
         node = "model " + result.model
@@ -509,7 +512,7 @@ def _promotion_inputs(root, data):
     return {path: _file_hash(root / path) for path in sorted(paths)}
 
 
-def promote_target(root: Path) -> int:
+def promote_target(root: Path, *, jobs: int = 1) -> int:
     """Check once, revalidate the checked bytes, then apply a prepared write plan."""
     root = root.resolve()
     try:
@@ -538,7 +541,7 @@ def promote_target(root: Path) -> int:
         from .impact import changed_files, compute_impact, test_groups
         inventory = build_inventory(root, ignore_patterns(current), write_cache=False, import_roots=tuple(current.get('import_roots', ())))
         impact = compute_impact(root, current, inventory, changed_files(root, 'HEAD', data=current, inv=inventory), base='HEAD')
-        report = check_target(root, tests=True, impact=impact)
+        report = check_target(root, tests=True, impact=impact, jobs=jobs)
         if not report.errors and not report.todos:
             # Bound nodes were already checked, with anchor reach, by run_models.
             # Run the additional selected test nodes once without rerunning those bindings.
@@ -803,9 +806,9 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(args.root).resolve()
     try:
         if args.command == "promote":
-            return promote_target(root)
+            return promote_target(root, jobs=args.jobs)
         if args.command == "check":
-            report = check_target(root)
+            report = check_target(root, jobs=args.jobs)
             print(render_target_report(report))
             return 1 if report.errors else 3 if report.todos else 0
         load_map(root)

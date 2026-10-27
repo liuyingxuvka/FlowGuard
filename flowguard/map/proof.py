@@ -40,6 +40,8 @@ from .mapfile import MapError, load_map, model_registry, read_model_contract, re
 from .tree import build_tree
 from .runner import run_isolated_process
 
+DEFAULT_JOBS = min(4, os.cpu_count() or 1)
+
 DEFAULT_TIMEOUT = 300          # seconds per model
 
 
@@ -638,8 +640,11 @@ def run_models(root: Path, ids: list[str], *, timeout: int = DEFAULT_TIMEOUT, te
     selected = [entry for entry in registry.entries if not ids or entry.id in ids]
     def execute(entry):
         return run_model(root, root / entry.path, timeout, tests=tests, view=view)
-    with ThreadPoolExecutor(max_workers=jobs) as pool:
-        results = list(pool.map(execute, selected))
+    if jobs == 1:
+        results = [execute(entry) for entry in selected]
+    else:
+        with ThreadPoolExecutor(max_workers=jobs) as pool:
+            results = list(pool.map(execute, selected))
     if has_map and (not ids or "system" in ids):
         from .system_model import run_system_model
         results.append(run_system_model(root, data, inv, view=view))

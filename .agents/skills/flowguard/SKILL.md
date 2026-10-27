@@ -69,6 +69,7 @@ When a model or check stopped a wrong edit, add `Caught-by: <model or check>` to
 ## First map, review and release
 
 Hubs: `read --review`, `references/architecture_review.md`. `python -m flowguard release`; whole suite: `release --shards N` (hash without durations). Writing: `references/model_recipes.md`; templates: `references/node_kinds.md`.
+Models run in parallel (default --jobs = min(4, CPUs)); use --jobs 1 to read one model's output in order.
 
 ## Honesty rules
 

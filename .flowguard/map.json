@@ -81,7 +81,7 @@
       "layer": "interface",
       "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
       "responsibilities": [
-        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Models and release accept jobs 1-32 with sequential default; the hidden verify alias keeps its existing surface.",
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
         "annotate planned target breakage and ARCH lines in check, change and release",
         "run release with the system root counted and optional whole-suite shards",
@@ -135,7 +135,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0a98606a5abbb85a18ce8a0bd21fe59a06571ebc3140f23d80764d307d79f579"
+      "fingerprint": "sha256:1486bb15c624e14c1223407e5967399db55fd86c3a3f02a8292ca03624c973bb"
     },
     {
       "id": "public-api",
@@ -422,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:3c57673074775aea9e2ea3dc79d4d7b8176d1439a412b25ff731bc6f4effc145"
+      "fingerprint": "sha256:e2c17e8b012725b718925084d033f695734d2852e11f3f8573867aa1aa38f392"
     },
     {
       "id": "map-proof",
@@ -434,7 +434,8 @@
         "read code facts for conformance and fail missing or unconsulted anchors",
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
-        "show passing proofs on one line, with details for failures and separate bound-test timings"
+        "show passing proofs on one line, with details for failures and separate bound-test timings",
+        "Run model subprocesses in registration order, directly in the calling thread for one job and with a thread pool for explicit parallel jobs; library defaults stay serial."
       ],
       "files": [
         "flowguard/map/proof.py",
@@ -471,7 +472,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:362e863ec809628b3903e8caa32fdf957cabb70fe30ac34e794ae8a79cb42ed1"
+      "fingerprint": "sha256:2693b0218fccd015523e6d945b250dd5f83b0c7d6fd6e8dd69bc78744893792a"
     },
     {
       "id": "engine-explore",
