@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-510: read is complete: every component and model once, children folded, no budget",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
