@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 
+
 from _fg_helpers import (
     view__component as _component,
     view__inventory as _inventory,
@@ -155,3 +156,42 @@ def test_word_locate_names_the_symbol_owner(tmp_path, capsys):
         path.write_text(text)
     assert main(["read", "--root", str(tmp_path), "--find", "promote", "target"]) == 0
     assert capsys.readouterr().out.rstrip().endswith("locate: z_promotion")
+
+
+def test_unowned_location_lists_component_models(tmp_path):
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.views import render_locate
+
+    (tmp_path / "api.py").write_text("def other(): return 1\n")
+    models = tmp_path / ".flowguard/models"
+    models.mkdir(parents=True)
+    purposes = []
+    for index in range(7):
+        purpose = f"Candidate {index} owns the complete purpose needed to choose this model, including its final clause."
+        purposes.append(purpose)
+        (models / f"candidate{index}.py").write_text(
+            repr(purpose) + f'\nMODEL_ID="candidate{index}"\nPARENT="app"\n'
+            "IMPLEMENTED_BY={}\ndef build_explorer(): pass\n"
+        )
+    data = dict(
+        schema="flowguard.map.v1",
+        components=[
+            dict(
+                id="app",
+                files=["api.py"],
+                summary="Application",
+                responsibilities=[],
+                status="draft",
+                tests=[],
+                models=[],
+            )
+        ],
+    )
+    inv = build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False)
+    text = render_locate(tmp_path, data, inv, "api.py:other")
+    assert "no model owns api.py:other (component app)" in text
+    line = next(line for line in text.splitlines() if line.startswith("models of app:"))
+    for index, purpose in enumerate(purposes[:5]):
+        assert f"candidate{index} ({purpose})" in line
+    assert "candidate5" not in line and "(+2 more)" in line

@@ -1008,6 +1008,13 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
             f"no model owns {loc} (component {component}); reached by: "
             + (capped(f"{mid} (via {anchor})" for mid, anchor in reached) or "none")
         ]
+        candidates = sorted(tree.models_for_component(component), key=lambda node: node.id)
+        choices = [f"{node.id} ({model_facets(root, node).purpose})" for node in candidates[:5]]
+        lines.append(
+            f"models of {component}: "
+            + (", ".join(choices) or "none")
+            + (f" (+{len(candidates)-5} more)" if len(candidates) > 5 else "")
+        )
         ending = f"next: add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)"
     if symbol:
         unbound = [
