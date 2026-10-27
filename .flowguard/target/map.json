@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-504: a failing escalated consumer is a target finding, never old",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
