@@ -178,7 +178,7 @@ def main(argv: list[str] | None = None) -> int:
         print(__doc__.strip())
         for verb, purpose in VERB_PURPOSE.items():
             print()
-            print(verb + ": " + purpose)
+            print(f"{verb:<10}{purpose}")
             if verb == "map":
                 print(
                     "usage: python -m flowguard map <command> ... (python -m flowguard map --help)"
