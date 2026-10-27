@@ -12,11 +12,8 @@ from flowguard.map.tree import build_tree
 
 
 def helpers():
-    directory = Path(__file__).parents[1] / ".flowguard/models"
-    path = directory / "_target_fixture.py"
-    if not path.exists():
-        path = directory.parent / "target/models/_target_fixture.py"
-    return runpy.run_path(str(path))
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    return target__target_life_cycle_fixture_helpers('_target_fixture')
 
 
 def project(root, case="valid"):
@@ -45,7 +42,7 @@ def test_model_port_reads_state_blocks_and_literals(tmp_path):
     source = (tmp_path / ".flowguard/models/desk.py").read_text()
     port = model_port(source)
     assert port.state == ("request", "answer", "reply")
-    assert set(port.blocks) == {"Receive", "Reply"} and not port.approximate
+    assert set(port.blocks) == {"TakeRequest", "Receive", "Reply"} and not port.approximate
     assert set(port.writes) == {"request", "answer", "reply"}
     assert port.handoff == {"lending": {"answer": "answer"}} and port.keeps == ("request", "reply")
     assert model_port('PARENT="unused"\ndef build_explorer(): return feature_explorer(())').state == (
@@ -112,7 +109,7 @@ def test_undeclared_write_and_output_checks(tmp_path):
     assert changed_fields({"a": 1}, {"a": 1, "b": []}) == ("b",)
     root = tmp_path / "no_declared_writes"
     project(root, "undeclared_write")
-    rewrite(root, "desk", '    writes=("request",)\n', '')
+    rewrite(root, "desk", '    reads=("request",)\n    writes=("request",)\n', '    reads=("request",)\n')
     # A block without writes has no C1 promise; its parent still gets static S0c.
     assert not any("undeclared_write:" in line for line in probe(root).problems)
 
@@ -184,7 +181,7 @@ def test_each_static_edge_mistake_has_its_code(tmp_path):
     root = tmp_path / "duplicate"
     data, inv = project(root)
     rewrite(root, "lending", 'PARENT = "desk"', 'PARENT = "loans"')
-    rewrite(root, "lending", '"shelf/loans.py:borrow"', '"shelf/cli.py:main"')
+    rewrite(root, "lending", '"shelf/loans.py:LoanService.borrow"', '"shelf/cli.py:main"')
     rewrite(root, "lending", 'COMPONENTS = ["loans"]', 'COMPONENTS = ["loans","cli"]')
     assert errors(root, data, build_inventory(root, DEFAULT_IGNORE, write_cache=False)) == {"duplicate_child_owner"}
     # Cousins under sibling components and component/descendant placements also collide.
@@ -201,7 +198,7 @@ def test_each_static_edge_mistake_has_its_code(tmp_path):
     rewrite(root, "lending", 'PARENT = "left"', 'PARENT = "desk"')
     assert not errors(root, data, build_inventory(root, DEFAULT_IGNORE, write_cache=False))
     # A read-only duplicate never acquires ownership.
-    rewrite(root, "lending", '"shelf/cli.py:main"', '"shelf/loans.py:borrow"')
+    rewrite(root, "lending", '"shelf/cli.py:main"', '"shelf/loans.py:LoanService.borrow"')
     path = root / ".flowguard/models/lending.py"
     path.write_text(path.read_text().replace('PARENT = "desk"', 'PARENT = "loans"')+'\nUSES={"Serve":"shelf/cli.py:main"}\n')
     assert not errors(root, data, build_inventory(root, DEFAULT_IGNORE, write_cache=False))

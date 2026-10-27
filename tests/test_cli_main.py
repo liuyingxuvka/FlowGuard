@@ -130,7 +130,7 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     _assert_current_lending(root, capsys)
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors
-    assert "model lending" in output.split("## loans", 1)[1].split("\n## ", 1)[0]
+    assert "model lending" in output.split("## cli", 1)[1].split("\n## ", 1)[0]
 
     for relative in ("shelf/loans.py", "tests/test_loans.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")
@@ -394,6 +394,9 @@ def test_target_promote_keeps_replacement_filename_when_old_model_id_is_removed(
     assert source.count('MODEL_ID = "lending"') == 1
     replacement = source.replace('MODEL_ID = "lending"', 'MODEL_ID = "lending_v2"').encode("utf-8")
     (directory / "models/lending.py").write_bytes(replacement)
+    assert _run(root,capsys,'target','add','desk')[0]==0
+    consumer=directory/'models/desk.py'
+    consumer.write_text(consumer.read_text().replace('"lending":{"answer":"answer"}','"lending_v2":{"answer":"answer"}'),encoding='utf-8')
     code, output, errors = _promote_with_real_check(root, capsys, monkeypatch)
     assert code == 0 and not errors, (output, errors)
     assert not directory.exists()
@@ -756,13 +759,13 @@ def test_promote_lists_what_to_re_read(tmp_path, capsys):
     current_loans = next(c for c in _load_map(root)["components"] if c["id"] == "loans")
     target["components"].append({**{k:v for k,v in current_loans.items() if k not in {"status","fingerprint","_hint"}}, "parent": "shelf_policy"})
     path.write_text(json.dumps(target), encoding="utf-8")
-    source = source.replace('MODEL_ID = "lending"', 'MODEL_ID = "lending"\nPARENT = "shelf_policy"')
+    source = source.replace('PARENT = "desk"', 'PARENT = "shelf_policy"')
     source = source.replace(',\n             "limit_respected": ["tests/test_loans.py:test_limit"]}', '}')
     (models / "lending.py").write_text(source, encoding="utf-8")
     code, output, errors = _run(root, capsys, "target", "promote")
     assert code == 0, (output, errors)
     lines = output.splitlines()
-    assert "re-read: model lending: its parent changed from loans to shelf_policy; check its purpose" in lines, output
+    assert "re-read: model lending: its parent changed from desk to shelf_policy; check its purpose" in lines, output
     assert "re-read: flow borrow: it crosses changed component loans; check its steps and model" in lines, output
     assert "re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it" in lines
     assert lines.index("re-read: test tests/test_loans.py:test_limit: no longer bound by any TESTED_BY; bind it or delete it") \
@@ -781,7 +784,7 @@ def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path
                 **{"target/" + name: SHELF_TARGET[name] for name in ("map.json", "models/lending.py")},
                 **{"after/" + name: SHELF_AFTER[name] for name in ("shelf/loans.py", "tests/test_loans.py")}}
     found = {path.relative_to(example).as_posix(): path.read_bytes().decode("utf-8").replace("\r\n", "\n")
-             for path in example.rglob("*") if path.is_file() and path.name != "README.md" and "__pycache__" not in path.parts}
+             for path in example.rglob("*") if path.is_file() and path.name != "README.md" and "__pycache__" not in path.parts and not path.relative_to(example).as_posix().startswith(".flowguard/cache/")}
     assert found == {name: text.replace("\r\n", "\n") for name, text in expected.items()}
     root = tmp_path / "shelf"          # the project is the example without its target/ and after/ folders
     for part in (".flowguard", "shelf", "tests"):

@@ -1,5 +1,5 @@
 """Selected model bindings and actual direct test calls choose test function nodes."""
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from flowguard import FunctionResult,Invariant,Workflow
@@ -12,7 +12,7 @@ from flowguard.map.tree import build_tree
 from flowguard.map.testtree import test_calls
 from _function_fixture import fixture,write
 MODEL_ID='test_selection'
-PARENT='map-impact'
+PARENT = 'change_selection'
 IMPLEMENTED_BY={'SelectTests':'flowguard/map/impact.py:select_tests'}
 USES={'TestCalls':'flowguard/map/testtree.py:test_calls'}
 TESTED_BY = {'bound_tests_follow_selected_models': ['tests/test_test_selection.py:test_parametrized_anchor_selects_its_case_only'], 'calling_tests_selected_by_direct_call': ['tests/test_test_selection.py:test_test_calling_through_same_file_helper_is_selected'], 'half_selected_file_runs_whole': ['tests/test_test_selection.py:test_half_selected_file_runs_whole'], 'also_reached_is_counted': ['tests/test_test_selection.py:test_cli_test_reaching_through_main_is_counted_as_also_reached']}
@@ -20,20 +20,24 @@ TESTED_BY = {'bound_tests_follow_selected_models': ['tests/test_test_selection.p
 class Observation:
     case:str=''
     correct:bool=True
+    code:str='none'
+    tests:str='none'
 class Select:
     name='Select'
+    reads=('code',)
+    writes=('case','correct','tests')
     def __init__(self,defect=''): self.defect=defect
     def apply(self,event,state):
         wrong={'runs_whole_test_files':'bound','misses_calling_test':'calling','splits_a_half_selected_file':'half','hides_indirect_tests':'indirect'}
-        result=Observation(event,wrong.get(self.defect)!=event)
-        return (FunctionResult(result.correct,result),)
+        result=replace(state,case=event,correct=wrong.get(self.defect)!=event,tests='none' if event=='none' else 'whole_files' if event=='half' else 'functions')
+        return (FunctionResult(result.tests,result),)
 RULES=(
  Invariant('bound_tests_follow_selected_models','bindings select actual test nodes',lambda s,t:s.case!='bound' or s.correct),
  Invariant('calling_tests_selected_by_direct_call','direct calls and one local helper are selected',lambda s,t:s.case!='calling' or s.correct),
  Invariant('half_selected_file_runs_whole','half or more of a file runs the whole file',lambda s,t:s.case!='half' or s.correct),
  Invariant('also_reached_is_counted','indirect project calls are counted separately',lambda s,t:s.case!='indirect' or s.correct),
 )
-def make(defect=''): return Explorer(Workflow((Select(defect),)),(Observation(),),('bound','calling','half','indirect'),invariants=RULES,max_sequence_length=1,progress_steps=0)
+def make(defect=''): return Explorer(Workflow((Select(defect),)),tuple(Observation(code=x,tests=y) for x in ('functions','uncertain','unreached','none') for y in ('none','functions')),('bound','calling','half','indirect','none'),invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer(): return make()
 def broken_variants(): return {name:make(name) for name in ('runs_whole_test_files','misses_calling_test','splits_a_half_selected_file','hides_indirect_tests')}
 def conformance():
@@ -53,3 +57,7 @@ def conformance():
             Fact('half','tests/test_half.py' in whole,repr(result)),
             Fact('indirect',bool(result['also_reached']),repr(result)),
         ))
+
+OUTPUTS = {'tests': ('functions', 'whole_files', 'none')}
+
+READS_PARENT = ('code',)

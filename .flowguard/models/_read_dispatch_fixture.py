@@ -8,7 +8,7 @@ from _target_fixture import make_port_project,write_json
 def fixture(root):
     data=make_port_project(root)
     (root/'tests').mkdir(exist_ok=True)
-    (root/'tests/test_loan.py').write_text('from shelf.loans import borrow\ndef test_borrow(): assert borrow("lend_request")=="lent"\n')
+    (root/'tests/test_loan.py').write_text('from shelf.loans import LoanService\ndef test_borrow(): assert LoanService().borrow("missing","book")=="refused"\n')
     data['components'][1]['tests']=['tests/test_loan.py']
     data['flows']=[dict(id='borrow',summary='request a loan',steps=['cli:main','loans:borrow'])]
     write_json(root/'.flowguard/map.json',data)
@@ -38,7 +38,7 @@ def answers(root,mode):
             code,text=call(root,'--component',name)
             yield value,code==expected and ("no component" in text if value=='unknown' else '## loans' in text),text
     elif mode=='find':
-        for word,value,expected in (('loans','owners',0),('zzzzzzzzzz','no_owner',1),('shelf/loans.py:borrow','location',0),('shelf/loans.py:missing','no_symbol',1),('tests/test_loan.py:test_borrow','test',0)):
+        for word,value,expected in (('loans','owners',0),('zzzzzzzzzz','no_owner',1),('shelf/loans.py:LoanService.borrow','location',0),('shelf/loans.py:missing','no_symbol',1),('tests/test_loan.py:test_borrow','test',0)):
             code,text=call(root,'--find',word)
             yield value,code==expected and bool(text),text
     elif mode=='review':

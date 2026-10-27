@@ -7,20 +7,9 @@ from unittest.mock import patch
 
 import flowguard.workflow as workflow_module
 
-PATH = Path(__file__).resolve().parents[1] / ".flowguard/models/python_function_state_verification.py"
-NAME = "_python_function_state_verification_owner_test"
-from flowguard.map.mapfile import load_map, resolve_model_path
-from flowguard.map.targetfile import build_target_view, load_target
-active = load_target(PATH.parents[2])
-if active is not None:
-    view = build_target_view(PATH.parents[2], load_map(PATH.parents[2]), active)
-    PATH = resolve_model_path(PATH.parents[2], ".flowguard/models/python_function_state_verification.py", view=view)
-SPEC = importlib.util.find_spec("python_function_state_verification") if active is None else None
-if SPEC is None:
-    SPEC = importlib.util.spec_from_file_location(NAME, PATH)
-OWNER = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = OWNER
-SPEC.loader.exec_module(OWNER)
+from types import SimpleNamespace
+from _fg_helpers import target__target_life_cycle_fixture_helpers
+OWNER=SimpleNamespace(**target__target_life_cycle_fixture_helpers('_engine_features'))
 
 
 def caught(report):
@@ -30,7 +19,7 @@ def caught(report):
 def owner_report(*feature_names):
     """Keep the full engine check by default; focus an oracle on its named contrast."""
     if not feature_names:
-        return OWNER.conformance()
+        return OWNER.feature_conformance(OWNER.FEATURES, OWNER.clean_fixture, OWNER.run_engine)
     selected = tuple(feature for feature in OWNER.FEATURES if feature.name in feature_names)
     if {feature.name for feature in selected} != set(feature_names):
         raise ValueError("oracle names an unknown engine feature")

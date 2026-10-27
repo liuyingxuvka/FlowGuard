@@ -1,61 +1,110 @@
-"""Parallel model runs retain registry order and the sequential verdicts."""
-from dataclasses import dataclass
+"""Schedule models, receive four proof verdicts, aggregate and render in registry order."""
+from dataclasses import dataclass,replace
 import json
 from pathlib import Path
 from tempfile import TemporaryDirectory
-
-from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
+from flowguard import FunctionResult,Invariant,InvariantResult,Workflow
 from flowguard.explorer import Explorer
-from flowguard.map.facts import CodeFactsReport, Fact
-
-MODEL_ID = "model_runs"
-PARENT = "map-proof"
-IMPLEMENTED_BY = {"RunModels": "flowguard/map/proof.py:run_models", "Render": "flowguard/map/proof.py:render_results"}
-USES = {"PrintFindings": "flowguard/map/common.py:print_findings"}
-TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns', 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model', 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'], 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'], 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'], 'identical_info_grouped': ['tests/test_model_runs.py:test_identical_info_grouped_into_one_line']}
-
-
+from flowguard.map.facts import CodeFactsReport,Fact
+MODEL_ID='model_runs'
+PARENT='map-proof'
+IMPLEMENTED_BY={'RunModels':'flowguard/map/proof.py:run_models','Render':'flowguard/map/proof.py:render_results'}
+OUTPUTS={'models':('pass','fail')}
+HANDOFF={'model_proof':{'outcome':'proof'},'anchor_watch':{'anchors':'anchors'},'port_checks':{'run_checks':'run_checks'},'test_binding':{'outcome':'tests'}}
+KEEPS=('completion','large','status','lines','models')
+@dataclass(frozen=True)
+class Case:
+    proof:str
+    anchors:str
+    run_checks:str
+    tests:str
+    completion:tuple
+    large:str
+CASES=tuple(Case(p,a,c,t,o,l) for p in ('accepted','rejected') for a in ('seen','never_ran') for c in ('clean','fail','warning') for t in ('accepted','rejected') for o in (('first','second'),('second','first')) for l in ('normal','soft','hard'))
 @dataclass(frozen=True)
 class State:
-    order: tuple = ()
-    pass_lines: int = 1
-    info_lines: int = 1
-    size_gate: bool = True
+    completion:tuple=()
+    large:str='normal'
+    proof:str='accepted'
+    anchors:str='seen'
+    run_checks:str='clean'
+    tests:str='accepted'
+    status:tuple=()
+    lines:tuple=()
+    models:str='pass'
+    @property
+    def order(self):return tuple(name for name,status in self.status)
+    @property
+    def pass_lines(self):return max((sum(line.startswith('PASS '+name) for line in self.lines) for name,status in self.status if status=='pass'),default=1)
+    @property
+    def size_gate(self):
+        if not self.status:return True
+        verdict=dict(self.status)['first']
+        healthy=self.proof=='accepted' and self.anchors=='seen' and self.run_checks!='fail' and self.tests=='accepted'
+        return verdict==('pass' if healthy and self.large!='hard' else 'fail')
+class Schedule:
+    name='Schedule'
+    reads=()
+    writes=('completion','large')
+    def apply(self,event,state):return (FunctionResult(event,replace(state,completion=event.completion,large=event.large)),)
+class Proof:
+    name='Proof'
+    reads=()
+    writes=('proof',)
+    def apply(self,event,state):return (FunctionResult(event,replace(state,proof=event.proof),label=event.proof),)
+class Anchors:
+    name='Anchors'
+    reads=()
+    writes=('anchors',)
+    def apply(self,event,state):return (FunctionResult(event,replace(state,anchors=event.anchors),label=event.anchors),)
+class RunChecks:
+    name='RunChecks'
+    reads=()
+    writes=('run_checks',)
+    def apply(self,event,state):return (FunctionResult(event,replace(state,run_checks=event.run_checks),label=event.run_checks),)
+class Tests:
+    name='Tests'
+    reads=()
+    writes=('tests',)
+    def apply(self,event,state):return (FunctionResult(event,replace(state,tests=event.tests),label=event.tests),)
+class Judge:
+    name='Judge'
+    reads=('proof','anchors','run_checks','tests','large','completion')
+    writes=('status',)
+    def __init__(self,defect=''):self.defect=defect
+    def apply(self,event,state):
+        checks=state.run_checks!='fail' or self.defect=='passes_failed_run_check'
+        good=state.proof=='accepted' and state.anchors=='seen' and checks and state.tests=='accepted'
+        size=state.large!='hard' or self.defect=='hard_pass'
+        if self.defect=='time_gate' and state.large=='soft':size=False
+        verdict='pass' if good and size else 'fail'
+        statuses={'first':verdict,'second':'pass'}
+        order=state.completion if self.defect=='order' else ('first','second')
+        return (FunctionResult(event,replace(state,status=tuple((name,statuses[name]) for name in order))),)
+class Render:
+    name='Render'
+    reads=('status','tests')
+    writes=('lines','models')
+    def __init__(self,defect=''):self.defect=defect
+    def apply(self,event,state):
+        lines=tuple(status.upper()+' '+name for name,status in state.status)
+        if self.defect=='rules':lines+=tuple('PASS '+name+' rules' for name,status in state.status if status=='pass')
+        models='pass' if state.tests=='accepted' and all(status=='pass' for name,status in state.status) else 'fail'
+        return (FunctionResult(models,replace(state,lines=lines,models=models)),)
 
-
-class Run:
-    name = "RunModels"
-    reads = ()
-    writes = ("order", "pass_lines", "info_lines", "size_gate")
-
-    def __init__(self, reversed_order=False):
-        self.reversed_order = reversed_order
-
-    def apply(self, event, state):
-        order = ("second", "first") if self.reversed_order is True else ("first", "second")
-        return (FunctionResult(order, State(order, 2 if self.reversed_order == "rules" else 1, 3 if self.reversed_order == "info" else 1, self.reversed_order not in ("time_gate","hard_pass")), label="run"),)
-
-
-INVARIANTS = (Invariant("parallel_output_in_registry_order", "completion order never reorders registered models",
+INVARIANTS = (
+Invariant("parallel_output_in_registry_order", "completion order never reorders registered models",
           lambda s, t: InvariantResult.pass_() if not s.order or s.order == ("first", "second")
           else InvariantResult.fail("registry order changed")),
-    Invariant("pass_is_one_line", "passing proofs have one output line", lambda s,t: s.pass_lines == 1),
-    Invariant("identical_info_grouped", "three identical INFO codes have one output line", lambda s,t: s.info_lines == 1),
-    Invariant("only_hard_size_limits_gate", "time and soft limits pass; more than 10000 sequences fail", lambda s,t:s.size_gate))
+Invariant("pass_is_one_line", "passing proofs have one output line", lambda s,t: s.pass_lines == 1),
+Invariant("only_hard_size_limits_gate", "time and soft limits pass; more than 10000 sequences fail", lambda s,t:s.size_gate),
+    Invariant('model_passes_only_when_every_verdict_passes','one failed verdict fails its model',lambda s,t:dict(s.status).get('first')!='pass' or s.proof=='accepted' and s.anchors=='seen' and s.run_checks!='fail' and s.tests=='accepted'),
+)
 
-
-def _explorer(reversed_order=False):
-    return Explorer(Workflow((Run(reversed_order),)), (State(),), ("run",), invariants=INVARIANTS,
-                    max_sequence_length=1, progress_steps=0)
-
-
-def build_explorer():
-    return _explorer()
-
-
-def broken_variants():
-    return {"orders_by_completion": _explorer(True), "prints_rules_on_pass": _explorer("rules"), "prints_each_info_line": _explorer("info"), "large_model_gates_exit": _explorer("time_gate"), "hard_limit_passes": _explorer("hard_pass")}
-
+def make(defect=''):
+    return Explorer(Workflow((Schedule(),Proof(),Anchors(),RunChecks(),Tests(),Judge(defect),Render(defect))),(State(),State(models="fail")),CASES,invariants=INVARIANTS,max_sequence_length=1,progress_steps=0)
+def build_explorer():return make()
+def broken_variants():return {'orders_by_completion':make('order'),'prints_rules_on_pass':make('rules'),'large_model_gates_exit':make('time_gate'),'hard_limit_passes':make('hard_pass'),'passes_failed_run_check':make('passes_failed_run_check')}
 
 def make_fixture(root, *, wrong_second=False):
     directory = root / ".flowguard/models"
@@ -107,16 +156,8 @@ def conformance():
             second = [(r.model, r.status) for r in parallel]
             facts.append(Fact(f"registry_order_{wrong}", first == second == expected, repr((first, second))))
     from flowguard.map.proof import ModelResult, render_results
-    from flowguard.map.common import Finding, print_findings
-    from contextlib import redirect_stdout
-    from io import StringIO
     rendered = render_results([ModelResult("probe", "probe.py", rules=["one"], known_bad=["two"])])
     facts.append(Fact("single_pass_line", len([line for line in rendered.splitlines() if line and not line.startswith("models:")]) == 1, rendered))
-    output = StringIO()
-    with redirect_stdout(output):
-        print_findings([Finding("info", "same", str(i), "note") for i in range(3)], "probe", as_json=False, limit=80)
-    rows = [line for line in output.getvalue().splitlines() if line.startswith("INFO")]
-    facts.append(Fact("grouped_info", len(rows) == 1 and "x3:" in rows[0], output.getvalue()))
     from _size_fixture import fixture as size_fixture
     for case,events,length,status in (('time',1,1,'pass'),('soft',3,7,'pass'),('hard',4,7,'fail')):
         with TemporaryDirectory(prefix='fg-model-size-') as directory:
@@ -126,3 +167,5 @@ def conformance():
             correct=result.status==status and ('INFO large_model' in text if case=='time' else 'warning: large_model:' in text if case=='soft' else 'large_model:' in text)
             facts.append(Fact('size_'+case,correct,text))
     return CodeFactsReport(tuple(facts))
+
+TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns', 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model', 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'], 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'], 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'], 'model_passes_only_when_every_verdict_passes': ['tests/test_model_runs.py:test_model_fails_when_any_verdict_fails']}

@@ -957,3 +957,14 @@ def test_locate_test_shows_its_position(tmp_path):
     inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
     text=render_locate(tmp_path,data,inv,'tests/test_state.py')
     assert 'lint: tests/test_state.py: 42 test functions' in text
+
+
+def test_find_view_imports_no_model(tmp_path,monkeypatch):
+    import sys
+    from _fg_helpers import view__fg232_view_project
+    from flowguard.__main__ import main
+    data,inv,marker=view__fg232_view_project(tmp_path)
+    assert main(['read','--root',str(tmp_path),'--find','loans'])==0
+    assert main(['read','--root',str(tmp_path),'--find','view232_loans.py:LoanService.borrow'])==0
+    assert not marker.exists()
+    assert not any(name.startswith('view232_') for name in sys.modules)

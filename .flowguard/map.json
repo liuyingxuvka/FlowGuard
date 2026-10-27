@@ -117,12 +117,13 @@
         "templates"
       ],
       "tests": [
+        "tests/test_cli_main.py",
+        "tests/test_cli_map.py",
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_proof.py",
         "tests/test_packaged_cli_surface.py",
         "tests/test_public_templates.py",
-        "tests/test_cli_main.py",
-        "tests/test_cli_map.py"
+        "tests/test_pytest_shard_runner.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -479,7 +480,8 @@
         "tests/test_explorer_progress.py",
         "tests/test_invariant_violation.py",
         "tests/test_loop_core.py",
-        "tests/test_loop_detection_scc.py"
+        "tests/test_loop_detection_scc.py",
+        "tests/test_python_function_state_verification_owner.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -562,7 +564,8 @@
         "tests/test_conformance_replay_duplicate_record_failure.py",
         "tests/test_conformance_replay_repeated_scoring_failure.py",
         "tests/test_conformance_replay_success.py",
-        "tests/test_model_kit.py"
+        "tests/test_model_kit.py",
+        "tests/test_python_function_state_verification_owner.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -687,11 +690,15 @@
         "map-inventory"
       ],
       "tests": [
+        "tests/test_cli_main.py",
+        "tests/test_component_pointer.py",
         "tests/test_flowguard_map.py",
         "tests/test_flowguard_map_contracts.py",
         "tests/test_flowguard_map_discover.py",
         "tests/test_map_binding.py",
+        "tests/test_map_check.py",
         "tests/test_model_edits.py",
+        "tests/test_model_runs.py",
         "tests/test_private_use.py"
       ],
       "models": [
@@ -726,11 +733,13 @@
         "map-inventory"
       ],
       "tests": [
+        "tests/test_flowguard_map_contracts.py",
+        "tests/test_flowguard_target.py",
         "tests/test_map_views.py",
-        "tests/test_relation_graph.py",
         "tests/test_read_component.py",
         "tests/test_read_field.py",
-        "tests/test_read_find.py"
+        "tests/test_read_find.py",
+        "tests/test_relation_graph.py"
       ],
       "models": [],
       "status": "confirmed",
@@ -763,8 +772,9 @@
         "map-read"
       ],
       "tests": [
-        "tests/test_flowguard_map.py",
         "tests/test_change_selection.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_port_escalation.py",
         "tests/test_test_selection.py"
       ],
       "models": [],
@@ -781,7 +791,7 @@
         "map-file:load_map",
         "map-read:render_show"
       ],
-      "model": ".flowguard/models/read_show.py"
+      "model": ".flowguard/models/read_command.py"
     },
     {
       "id": "after_edit",
@@ -791,7 +801,7 @@
         "map-check:run_check",
         "map-impact:compute_impact"
       ],
-      "model": ".flowguard/models/change_selection.py"
+      "model": ".flowguard/models/change_command.py"
     },
     {
       "id": "prove_models",
@@ -800,7 +810,7 @@
         "cli:cmd_models",
         "map-proof:run_models"
       ],
-      "model": ".flowguard/models/model_proof.py"
+      "model": ".flowguard/models/model_runs.py"
     },
     {
       "id": "first_map",
@@ -821,6 +831,17 @@
         "map-target:promote_target"
       ],
       "model": ".flowguard/models/target_life_cycle.py"
+    },
+    {
+      "id": "release",
+      "summary": "release: the strict check, every model with its bound tests and, with --shards, the whole suite in subtrees",
+      "steps": [
+        "cli:cmd_verify",
+        "map-check:run_check",
+        "map-proof:run_models",
+        "test-mesh:run"
+      ],
+      "model": ".flowguard/models/release_gate.py"
     }
   ],
   "accepted_debts": [
@@ -867,42 +888,50 @@
   ],
   "fingerprint_format": 2,
   "model_digests": {
-    ".flowguard/models/anchor_watch.py": "f2fffb29086a45404142787ac24bc8bb53027c07ec9d6e38795691b4ba703008",
-    ".flowguard/models/change_selection.py": "0809c0b4fb07f307f2f0a9b91ef7c45ab6a692e84fed37fbe6d8cd9ee6d811eb",
-    ".flowguard/models/component_pointer.py": "f99b6852c681fcee611ca436b5c6f4c7752794b523506c1798f7aced58f78ce6",
+    ".flowguard/models/anchor_watch.py": "3373b8122673801628827fb492306908f86c1dc7d1e4bbfcfa5b15cb3db0a7c1",
+    ".flowguard/models/change_command.py": "5f722bfbeccbc434e13e33802633badc298511c6cff2b8653d16a220b6ac50ea",
+    ".flowguard/models/change_selection.py": "3b8f119d844968b4dc4ecfc86744ec04df99913d30a239efbe32bb2cacdab2d8",
+    ".flowguard/models/component_pointer.py": "db984b440ac1cd23d5d5c1cdbf852f7f6b8ad0b7116b90e1c6db31db8fd9ee80",
     ".flowguard/models/discovery.py": "52f11642ed32f8429e20b410ac9722aa215e2a2bd90f3ed1036a2a9bbc3099d9",
     ".flowguard/models/edge_coverage.py": "2834aebea36872be0e1dd18cb62f6a81c44d1af84f36d3f22798fd31bdf132e2",
-    ".flowguard/models/function_selection.py": "707f7d0ac8c286412b627f01795aef44594e06906a05a75c6140c536dd9686ec",
-    ".flowguard/models/gap_lines.py": "110244ed3fc5c300df5d34256399e87a7a7b44bad757defa802913992f63fde2",
+    ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
+    ".flowguard/models/function_selection.py": "e39080175834cb207c0459b92a393981655260f3ebfa4d3322c38c7310a6476d",
+    ".flowguard/models/gap_lines.py": "9bd05d73f54e56df3bf07d347f2f04bd79dfe547f72be64695e3264ca15382a7",
     ".flowguard/models/job_matching_example.py": "e09ba02a700d9fd2a4355d5e57235607d8f58a161b8f5697110a38b7f6649d7f",
-    ".flowguard/models/literal_consumers.py": "e6dba7959f08202e83521f09b459ccf66610cae2cf983e2f45d051056e6301fe",
-    ".flowguard/models/map_binding.py": "f012caef68520c8b1290c3c03d70bbf88268acd1ace2d224fc7e64aa1788f677",
-    ".flowguard/models/model_edits.py": "b7355a53add8e24eb87cf00b31b9e9e1a2e5f1120773774b81dd017ca7e357cd",
-    ".flowguard/models/model_proof.py": "aea6aa19274f99df29c1a5403306c1969f1c795352e0ea20aedfc653a7bdbd81",
-    ".flowguard/models/model_runs.py": "36c7cb3afee4ddd75681fef49fa35440d102afdb74ad90ad84c1980aafed56a9",
+    ".flowguard/models/literal_consumers.py": "ee75817b5e7396c1aa2efda7dbdd48f2f7b774732d2c1132698bd6a21987cf8c",
+    ".flowguard/models/map_binding.py": "80a072012960f071963f9214dd73ba9ba064ea6b3ad6be05bca269b6a4c93721",
+    ".flowguard/models/map_check.py": "277a46f87b67e70ba5c72bd987d9e77e8848c1cb6837d64c391550c2852b9a10",
+    ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
+    ".flowguard/models/model_runs.py": "f4d5628a65264e65dff7be8c2ed10b6b0f36e285198e4958e7d035b07a265321",
     ".flowguard/models/model_scope.py": "53ac974f51615d813c1716c66af5977e3dafed5df916f16fd92b6ce867b37ff0",
-    ".flowguard/models/port_checks.py": "9ed28c23e94149bfb9efca43d513d28b73589f7f1abc1cba6593045fbf56a344",
-    ".flowguard/models/port_escalation.py": "c2d44a9a3867d94712ef3b13da8d06483a28961202b04c147fb6748d9a560ac1",
+    ".flowguard/models/port_checks.py": "ef35b550165ea1e23d4ca9157cb1da0e088ef73f38e65b7089315c0b788c7555",
+    ".flowguard/models/port_escalation.py": "77e2f59fa088b24ec94e48862c22d442a7d8e8791db72fccf683a211cf7a36e3",
     ".flowguard/models/private_use.py": "f22003c12bd2afdaa01c7f6ced7e6fbf79335274eb6d3ce88b2622b0cd628ed0",
-    ".flowguard/models/python_function_state_verification.py": "8ca587780b93b68f37d447bad908d77f331f71cee87156a9d295fc6dcda76d66",
-    ".flowguard/models/read_component.py": "c2ae315a8bb2ed109b50c0684219fe7d083a4c4f0e933156a710c772a15e879c",
-    ".flowguard/models/read_field.py": "eacd30a594a26a46cd6c508029428a511eec1ccacf7bb4d1b82c9946d46922fa",
-    ".flowguard/models/read_find.py": "1717a73069ee4fc008e40bae2a261a77820dd5e3e26a977b9d5012d599271955",
-    ".flowguard/models/read_review.py": "592d565ee49658cdff26b454a090adc402aec265a769a9d0d7d9ada88548bb6d",
-    ".flowguard/models/read_show.py": "a292a171e564365bc69e604536a4f652194e326862d1ef1cf0eb2402737a4ed5",
+    ".flowguard/models/read_command.py": "2d9adf639f611e726b40a23f81dbd8d14b563a7f53d62430a1ba044a65a543c0",
+    ".flowguard/models/read_component.py": "6b782273d7ba80b66c889da943b1c839b0bb107e52e6205deefe0ea860262261",
+    ".flowguard/models/read_field.py": "208c6f7d2985d58e0956bd1134116888d354bb61a7d83052e7643d76bcca3b84",
+    ".flowguard/models/read_find.py": "d52d1120a6af9d5ccf0536c8e1b0bc35186394f941d04a91748e64a95a82bbf2",
+    ".flowguard/models/read_mermaid.py": "f7d0db982766a5bc58f411b303df7b4574b47a5a2c2f783273b8afa2d9d83459",
+    ".flowguard/models/read_review.py": "92f33d63f8746745f7dd8a361880ea4a7efe8c1c2f7c063b119c1fd1dd2287a8",
+    ".flowguard/models/read_show.py": "83a123e2209afa2452dcd71712aa99a20036a195484bd5f5dc209bb1cf4e6d32",
     ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
-    ".flowguard/models/release_neutral_fingerprint.py": "92f3ba0bfa6dbeb8904fc1d8f12b44f97c87276a53b8b08ed7991cce4691e0a9",
+    ".flowguard/models/release_gate.py": "38b884f3999c3a8624ee61edead154224bd977ef8a5c77f89c246388a733a659",
+    ".flowguard/models/release_neutral_fingerprint.py": "60854075ea9031f571e1e11e3e977ac9ebf8af6322e559942b2d64dacc39bec7",
+    ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",
     ".flowguard/models/scan_coverage.py": "9464fdc7a25c57416a63985ea556cb73dbb2eab2ae367831da3ad15ee68d5136",
-    ".flowguard/models/shard_partition.py": "ca6c7de173ff6b39f5c8cfaf13ac675b7a2662051e556c622006f45d05ef5720",
-    ".flowguard/models/target_add.py": "64f0a4c1c5f1ee94c96d7a26a0cb2475c744944739b9ad980d265c20977e1bad",
-    ".flowguard/models/target_findings.py": "1230f96c54521d70925b66388ecd11e7eb5860a6f5d872962e7c2632e5d898b6",
-    ".flowguard/models/target_life_cycle.py": "39d5bff8394e06d0e7c3780d1b208fa66f69a1e09f42158c5fa456dce6a900b4",
+    ".flowguard/models/shard_partition.py": "f7cec42b49262133823cdb509ff0831485df5c65aad748ade5f0a08a3c56a179",
+    ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
+    ".flowguard/models/shard_suite.py": "f5209b660a2b888995a08ae9e23f1cbde67ccc4afe331bc19571a49a30f89de6",
+    ".flowguard/models/target_add.py": "305827cd4ed5ec941c16986a39ab9ea89961934acdde630368f9ab843e7eb985",
+    ".flowguard/models/target_findings.py": "db67adea50fdf9118613a625c1dd7b86e9f7fed3e7c016fe0740aed56d3c6f91",
+    ".flowguard/models/target_life_cycle.py": "6313fcd7294e129644d6c6cc038f50db4531a090fc90f23370d79e89f15e2642",
     ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
-    ".flowguard/models/test_binding.py": "e559f77a5e1e3e0d3858e4dc7ef7b4410c68e3f3c9cc0e36f3d22e0ec7cb60ad",
-    ".flowguard/models/test_selection.py": "16c1e224ae357c80c45c5649924f9e65f3c69d11764c3b500fcbc8b2b08d3c5c",
+    ".flowguard/models/test_binding.py": "f4e731d9e867ff3e45de3bbf1b8abf8f8b35d170444830b251e6ad345e18dfae",
+    ".flowguard/models/test_selection.py": "4a38c49deff80609673c5c807fc3a33eee0bd6ca8d53d3667026234bd8f1baa4",
     ".flowguard/models/test_tree.py": "584ed5041d7076a3b3d07bac630ae4fe6ef01ac44baef0529d5a86762e674e3d",
     ".flowguard/models/tree_resolution.py": "d443f5bd62d9ddb31fc4abf5ca4bc675322362665f1f3bbfbdacde8a3233de3d",
     ".flowguard/models/ui_journey_rules.py": "2dedf4809f58f7d2919ee8f026135829b083ccfa26f61d717b1f7148371e0f8a",
-    ".flowguard/models/validator_cases.py": "9b42a19b56ad0476bdeff77c1c60e1745232b25f99648253214968123209b824"
+    ".flowguard/models/validator_cases.py": "9b42a19b56ad0476bdeff77c1c60e1745232b25f99648253214968123209b824",
+    ".flowguard/models/workflow_composition.py": "147f68ec5eff46c4bd8cd2504fdacf7f1f988f88ff3a844e0f28bb6599b04aea"
   }
 }

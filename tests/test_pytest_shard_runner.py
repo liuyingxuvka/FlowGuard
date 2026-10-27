@@ -230,6 +230,18 @@ def test_release_runs_the_whole_suite_in_shards(tmp_path):
     assert not (tmp_path / "suite-not-run").exists()
     assert all(row["phase"] == "binding" for row in records())
 
+    from contextlib import redirect_stdout,redirect_stderr
+    from io import StringIO
+    from unittest.mock import patch
+    from flowguard.__main__ import main
+    direct_dir=tmp_path/'suite-direct-blocked'
+    direct=StringIO()
+    log.write_text('',encoding='utf-8')
+    with patch.dict(os.environ,{'FLOWGUARD_RELEASE_TEST_LOG':str(log),'FLOWGUARD_PYTEST_SHARDS_DIR':str(direct_dir)}):
+        with redirect_stdout(direct),redirect_stderr(direct):code=main(['release','--root',str(root),'--shards','2'])
+    assert code==1 and 'suite: not run (fix the failures above first)' in direct.getvalue(),direct.getvalue()
+    assert not direct_dir.exists() and all(row['phase']=='binding' for row in records())
+
 
 @pytest.mark.skipif(not sys.platform.startswith('linux'),reason='Linux nested process-group ownership')
 def test_process_owner_cleans_nested_children_after_parent_exit(tmp_path):
@@ -305,3 +317,38 @@ def test_record_is_written_after_a_run_and_not_when_blocked(tmp_path):
     code,blocked=shard_runner.run(args)
     assert code==70 and blocked['status']=='blocked'
     assert (path.read_bytes(),path.stat().st_mtime_ns)==before
+
+
+def test_suite_fails_when_one_shard_fails(tmp_path):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    target__target_life_cycle_fixture_helpers('_testtree_fixture')['runner_fixture'](tmp_path)
+    (tmp_path/'tests/test_one.py').write_text('def test_a(): assert False\ndef test_b(): assert True\n')
+    code,payload=shard_runner.run(shard_runner.build_parser().parse_args(['--root',str(tmp_path),'--shards','2']))
+    assert code!=0 and payload['status']=='fail'
+    assert any(row['status']=='fail' for row in payload['shards'])
+    assert payload['pytest_execution']['failed']==1
+
+
+@pytest.mark.parametrize('case,expected',(('all_pass','pass'),('one_fails','fail'),('one_skips','partial')))
+def test_one_shard_status_follows_its_tests(tmp_path,case,expected):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,case)
+    assert row['status']==expected
+    assert row['executed_count']==len(nodes)
+    assert projection['failed']==int(case=='one_fails')
+
+
+def test_one_shard_past_its_deadline_is_a_timeout(tmp_path):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,'past_deadline')
+    assert row['status']=='blocked' and row['deadline_exhausted']
+    assert row['executed_count']==0 and projection is None
+    assert not Path(row['stdout_path']).exists()
+
+
+def test_one_shard_runs_exactly_its_nodes(tmp_path):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    row,projection,nodes=target__target_life_cycle_fixture_helpers('_shard_fixture')['one_shard'](tmp_path,'all_pass')
+    assert row['status']=='pass' and row['exact_selection']
+    assert row['requested_count']==row['selected_count']==row['executed_count']==len(nodes)
+    assert set(projection['node_ids'])==set(nodes)

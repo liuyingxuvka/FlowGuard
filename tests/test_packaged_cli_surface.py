@@ -192,6 +192,14 @@ def test_change_run_runs_the_selected_checks(tmp_path):
     assert failed.returncode == 1 and any(line.startswith("RAN FAIL (exit 1) ") and "s python -m pytest" in line for line in failed.stdout.splitlines()), failed.stdout + failed.stderr
     assert "  " in failed.stdout.split("RAN FAIL", 1)[1]           # the failing output's tail is indented
 
+    from contextlib import redirect_stdout,redirect_stderr
+    from io import StringIO
+    from flowguard.__main__ import main
+    direct=StringIO()
+    with redirect_stdout(direct),redirect_stderr(direct):
+        code=main(['change','--root',str(root),'--run'])
+    assert code==1 and 'RAN FAIL (exit 1)' in direct.getvalue(),direct.getvalue()
+
 
 def test_change_run_skips_when_check_has_errors(tmp_path):
     root = _change_run_project(tmp_path)
@@ -202,6 +210,15 @@ def test_change_run_skips_when_check_has_errors(tmp_path):
                       "def test_run():\n    pass\n", encoding="utf-8")
     ran = _flowguard(root, "change", "--run", "app.py", "stray.py")
     assert ran.returncode == 1 and "RAN: skipped (fix the errors above first)" in ran.stdout, ran.stdout + ran.stderr
+    assert not (root / "tests/ran.marker").exists()
+
+    from contextlib import redirect_stdout,redirect_stderr
+    from io import StringIO
+    from flowguard.__main__ import main
+    direct=StringIO()
+    with redirect_stdout(direct),redirect_stderr(direct):
+        code=main(['change','--root',str(root),'--run','app.py','stray.py'])
+    assert code==1 and 'RAN: skipped (fix the errors above first)' in direct.getvalue(),direct.getvalue()
     assert not (root / "tests/ran.marker").exists()
 
 

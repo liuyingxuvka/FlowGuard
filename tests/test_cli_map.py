@@ -185,8 +185,8 @@ def test_flow_without_model_across_modeled_code_is_reported(tmp_path):
     root = shelf_project(tmp_path)
     data, inv = _context(root)
     found = [f for f in run_lint(root, data, inv) if f.code == "flow_unmodeled"]
-    assert found and "borrow" in found[0].message and "lending" in found[0].message and found[0].level == "info"
-    data["flows"][0]["model"] = ".flowguard/models/lending.py"
+    assert found and "borrow" in found[0].message and "desk" in found[0].message and found[0].level == "info"
+    data["flows"][0]["model"] = ".flowguard/models/desk.py"
     assert not [f for f in run_lint(root, data, inv) if f.code == "flow_unmodeled"]
 
 

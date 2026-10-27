@@ -10,7 +10,7 @@ from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport,Fact
 from _relation_fixture import field_fixture
 MODEL_ID='read_field'
-PARENT='map-read'
+PARENT = 'read_command'
 IMPLEMENTED_BY={'Field':'flowguard/map/views.py:render_field'}
 TESTED_BY = {'field_lists_writers_readers_rules': ['tests/test_read_field.py:test_read_field_status_names_writers_and_model', 'tests/test_read_field.py:test_json_key_written_and_read_across_components'], 'field_view_imports_no_model': ['tests/test_read_field.py:test_field_view_imports_no_model'], 'field_view_within_budget': ['tests/test_read_field.py:test_field_view_within_budget']}
 @dataclass(frozen=True)
@@ -32,7 +32,7 @@ RULES=(
  Invariant('field_view_imports_no_model','the field view imports no project model',lambda s,t:not s.imported),
  Invariant('field_view_within_budget','the field view is at most 1500 characters',lambda s,t:s.size<=1500),
 )
-def make(defect=''):return Explorer(Workflow((Show(defect),)),(State(),),('json','state','unknown'),invariants=RULES,max_sequence_length=1,progress_steps=0)
+def make(defect=''):return Explorer(Workflow((Show(defect),)),(State(),State(field="listed")),('json','state','unknown'),invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return make()
 def broken_variants():return {name:make(name) for name in ('lists_subscript_store_as_read','field_view_imports_a_model','field_view_exceeds_budget')}
 def conformance():
@@ -52,3 +52,5 @@ def conformance():
             imported=(root/'model_imported.marker').exists() or any(getattr(module,'__file__',None) and Path(module.__file__).resolve().is_relative_to(root) for module in tuple(sys.modules.values()))
             facts.append(Fact(case,correct and len(text)<=1500 and not imported,text))
     return CodeFactsReport(tuple(facts))
+
+OUTPUTS = {'field': ('listed', 'unknown')}

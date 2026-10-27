@@ -8,7 +8,7 @@ Independent check under the parent (no project_parent_state): routing does not
 start from a parent state.
 """
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from io import StringIO
 import json
 from pathlib import Path
@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from flowguard import FunctionResult, Invariant, InvariantResult, ReplayObservation, Workflow, replay_trace, select_covering_traces
 from flowguard.conformance import projected_output_matches, projected_state_matches
 from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
 from flowguard.map import cli as map_cli
 from flowguard.map import target as native
 from flowguard.map.check import run_check
@@ -33,7 +34,7 @@ IMPLEMENTED_BY = {
     "Downgrade": "flowguard/map/target.py:moving_to_target",
     "Classify": "flowguard/map/target.py:check_target",
 }
-TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale']}
+TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale'], 'noop_target_is_an_error': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
 
 
 @dataclass(frozen=True)
@@ -43,6 +44,9 @@ class Case:
     replaced: bool
     phase: str
     disposition: str
+    gap: str = "no_rule_change"
+    port: str | None = None
+    parent_in_target: bool = False
 
 
 # These are concrete promises about ten fact origins, not code-set copies.
@@ -84,29 +88,47 @@ DEFECTS = {
     "old_finding_blocks": ("old_finding_in_unchanged_model", "error"),
     "stale_debt_hidden": ("debt_made_stale", "none"),
 }
+NATIVE_CASES=CASES
+CASES += tuple(Case('gap_'+gap,'received gap',True,'target',bucket,gap) for gap,bucket in (('expected_gap','todo'),('no_gap','warn'),('moved_only','info'),('no_rule_change','info')))
+CASES += (Case('port_unchanged','received port',True,'target','none',port='unchanged'),Case('port_uncertain','received port',True,'target','warn',port='uncertain'),Case('port_parent_present','received port',True,'target','info',port='escalated',parent_in_target=True),Case('noop_target','unchanged target',True,'target','error'))
 BY_NAME = {case.name: case for case in CASES}
-DESIGN = {"design_failure", "owner_dropped", "responsibility_dropped", "entrypoint_owner", "design_only_model",
-          "runner_model", "behaviour_without_rule"}
+DESIGN = {"design_failure", "owner_dropped", "responsibility_dropped", "entrypoint_owner", "behaviour_without_rule"}
 CHANGED = {"planned_current": "info", "unplanned_current": "error", "unchanged_copy_breakage": "error"}
 
 
 @dataclass(frozen=True)
 class State:
     event: str = ""
-    bucket: str = ""
+    bucket: str = "none"
+    parent_in_target: bool = False
+    gap: str = "no_rule_change"
+    port: str | None = "unchanged"
 
 
+class Take:
+    name='Take'
+    reads=()
+    writes=('event','parent_in_target','gap','port')
+    def apply(self,event,state):
+        case=BY_NAME[event]
+        gap='expected_gap' if event=='code_gap' else case.gap
+        port='escalated' if event=='port_parent_missing' else case.port
+        return (FunctionResult(event,replace(state,event=event,parent_in_target=case.parent_in_target,gap=gap,port=port),label=port if port is not None else gap),)
 class Route:
-    name = "Route"
-
-    def __init__(self, defect=""):
-        self.defect = defect
-
-    def apply(self, event, state):
-        bucket = BY_NAME[event].disposition
-        if self.defect and DEFECTS[self.defect][0] == event:
-            bucket = DEFECTS[self.defect][1]
-        return (FunctionResult(bucket, State(event, bucket), label=event),)
+    name='Route'
+    reads=('event','parent_in_target','gap','port')
+    writes=('bucket',)
+    def __init__(self,defect=''):self.defect=defect
+    def apply(self,event,state):
+        if state.event.startswith('gap_') or state.event=='code_gap':
+            bucket={'expected_gap':'todo','no_gap':'warn','moved_only':'info','no_rule_change':'info'}[state.gap]
+        elif state.port=='escalated': bucket='info' if state.parent_in_target else 'error'
+        elif state.port=='uncertain':bucket='warn'
+        elif state.port=='unchanged':bucket='none'
+        else:bucket=BY_NAME[event].disposition
+        if self.defect=='passes_unchanged_copy' and event=='noop_target':bucket='none'
+        elif self.defect and self.defect in DEFECTS and DEFECTS[self.defect][0]==event:bucket=DEFECTS[self.defect][1]
+        return (FunctionResult(bucket,replace(state,bucket=bucket),label=bucket),)
 
 
 def _rule(name, events, predicate, message):
@@ -116,11 +138,12 @@ def _rule(name, events, predicate, message):
 
 
 INVARIANTS = (
-    _rule("port_change_needs_parent", {"port_parent_missing"}, lambda state: state.bucket == "error",
+    _rule("noop_target_is_an_error", {"noop_target"}, lambda state: state.bucket == "error", "an unchanged target must fail check"),
+    _rule("port_change_needs_parent", {"port_parent_missing", "port_parent_present"}, lambda state: state.bucket == ("info" if state.parent_in_target else "error"),
           "a changed output without its parent must be ERROR"),
     _rule("design_mistakes_are_errors", DESIGN, lambda state: state.bucket == "error",
           "a design mistake of the target was not an ERROR"),
-    _rule("missing_code_is_todo", {"code_gap"}, lambda state: state.bucket == "todo",
+    _rule("missing_code_is_todo", {"code_gap", "gap_expected_gap"}, lambda state: state.gap != "expected_gap" or state.bucket == "todo",
           "code the target still needs was not a TO-DO"),
     _rule("only_changed_subjects_move", set(CHANGED), lambda state: state.bucket == CHANGED[state.event],
           "breakage was moved to target although the target does not change its subject, or planned breakage was not"),
@@ -134,7 +157,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Route(defect),)), (State(),), tuple(BY_NAME), invariants=INVARIANTS,
+    return Explorer(Workflow((Take(), Route(defect))), (State(),State(bucket="error")), tuple(BY_NAME), invariants=INVARIANTS,
                     max_sequence_length=1, progress_steps=0)
 
 
@@ -143,7 +166,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {name: _explorer(name) for name in DEFECTS}
+    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy')}
 
 
 OLD_CONTRACT = '''from pathlib import Path
@@ -352,11 +375,18 @@ class RealRouting:
 
 
 def conformance():
-    # Every case is built fresh and checked by the real code; no stored verdict is reused.
-    last = None
-    for trace in select_covering_traces(build_explorer().explore().traces):
-        last = replay_trace(trace=trace, adapter=RealRouting(), invariants=INVARIANTS,
-                            rules=(projected_output_matches(), projected_state_matches()))
-        if not last.ok:
-            return last
-    return last
+    facts=[]
+    for case in NATIVE_CASES:
+        bucket,detail=observe_case(case)
+        facts.append(Fact(case.name,bucket==case.disposition,detail))
+    with TemporaryDirectory(prefix='fg-noop-bucket-') as directory:
+        root=make_project(Path(directory))
+        from _target_fixture import call_target
+        call_target(root,'start','unchanged copy');call_target(root,'add','component:loans')
+        report=native.check_target(root,models=False)
+        facts.append(Fact('noop_target',any(f.code=='target_noop' for f in report.errors),repr(report)))
+    return CodeFactsReport(tuple(facts))
+
+HANDOFF = {'gap_lines': {'gap': 'gap'}, 'port_escalation': {'port': ('port', {'unchanged': 'unchanged', 'escalated': 'escalated', 'uncertain': 'uncertain', 'none': None})}}
+
+KEEPS = ('event', 'parent_in_target', 'bucket')

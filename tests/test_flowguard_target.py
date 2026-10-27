@@ -280,11 +280,13 @@ def test_read_target_added_removed_flows_and_mermaid_use_real_node_identity(tmp_
     lending = models[0]
     for node, style in ((loans, "changed"), (lending, "changed"), (reports, "added"), (removed_cli, "removed")):
         assert any(line.strip().rstrip(";") == f"class {node} {style}" for line in diagram.splitlines()), diagram
-    assert f"{loans} --> {lending}" in diagram
+    desk = re.findall(r'^\s*(\w+)\(\["model desk<br/>[^"\n]*"\]\)', diagram, re.M)
+    assert len(desk) == 1
+    assert f"{desk[0]} ==> {lending}" in diagram
     assert f"root_system --> {reports}" in diagram
     code, focused, errors = _static_target_read(root, capsys, monkeypatch,
         "read", "--target", "--mermaid", "--component", "loans")
-    assert code == 0 and "model lending" in focused and not errors, (focused, errors)
+    assert code == 0 and "loans<br/>" in focused and "model lending" not in focused and not errors, (focused, errors)
     assert "reports<br/>" not in focused and "cli<br/>" not in focused
 
 
@@ -344,6 +346,9 @@ def test_read_target_conflicts_only_with_find(tmp_path, capsys, monkeypatch):
         _static_target_read(root, capsys, monkeypatch, "read", "--target", "--find", "loans")
     assert error.value.code == 2
     capsys.readouterr()
+
+    code,output,errors=_static_target_read(root,capsys,monkeypatch,'read','--target')
+    assert code==0 and not errors and '## ~ loans' in output, (output,errors)
 
 
 def test_target_promote_refuses_a_model_that_edits_its_checked_source(tmp_path, capsys, monkeypatch):
@@ -718,3 +723,24 @@ def test_promote_runs_what_function_selection_reaches(tmp_path):
     # No git uses the conservative file fallback; this test actually calls an anchor.
     assert native.promote_target(root)==1
     assert (root/'.flowguard/target').exists()
+
+
+def test_shelf_port_change_escalates_to_desk(tmp_path,capsys):
+    from _fg_helpers import target_shelf_project,target__run
+    root=target_shelf_project(tmp_path)
+    capsys.readouterr()
+    assert target__run(root,capsys,'target','start','extend lending answer')[0]==0
+    assert target__run(root,capsys,'target','add','lending')[0]==0
+    path=root/'.flowguard/target/models/lending.py'
+    source=path.read_text()
+    old='OUTPUTS = {"answer":("lent","refused")}'
+    assert old in source
+    path.write_text(source.replace(old,'OUTPUTS = {"answer":("lent","refused","waitlisted")}'))
+    code,text,error=target__run(root,capsys,'target','check')
+    assert code==1 and not error
+    assert 'port changed: lending out +waitlisted -> verify desk (parent)' in text
+    assert 'port_changed_parent_missing' in text
+    assert target__run(root,capsys,'target','add','desk')[0]==0
+    code,text,error=target__run(root,capsys,'target','check')
+    assert code==1 and not error
+    assert 'handoff_output_unhandled' in text and "waitlisted" in text

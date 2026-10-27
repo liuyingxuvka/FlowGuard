@@ -4,6 +4,7 @@ Each feature uses a fresh copy of one tiny two-rule project.  A missing
 binding is observed as a real warning while native model proof remains green.
 Only singleton defects are explored, to bound nested pytest startup costs.
 """
+from _kit_receipts import clean_receipts
 from pathlib import Path
 import shutil
 import sys
@@ -13,7 +14,7 @@ from flowguard.kit import Feature, feature_conformance, feature_explorer, featur
 from flowguard.map.proof import run_bound_tests, run_model_in_process
 
 MODEL_ID = "test_binding"
-PARENT = "map-proof"
+PARENT = 'model_runs'
 NOT_MODELED = {
     "flowguard/map/testreach.py:main.Reach.pytest_exception_interact": "pytest hook inside the reach-recording "
         "subprocess; it only marks a failed call, and the failed-binding verdict it feeds is this model's "
@@ -73,6 +74,7 @@ FEATURES = (
 )
 
 
+@clean_receipts
 def build_explorer():
     return feature_explorer(FEATURES, max_features=1)
 
@@ -126,3 +128,5 @@ def conformance():
         (template / "tests/test_binding_target.py").write_text(TEST_SOURCE, encoding="utf-8")
         return feature_conformance(FEATURES, lambda: {"model": BASE, "test": TEST_SOURCE},
                                    lambda fixture: _review(template, fixture), max_features=1)
+
+OUTPUTS = {'outcome': ('accepted', 'rejected')}

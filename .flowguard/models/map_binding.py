@@ -1,3 +1,4 @@
+USES = {'Check': 'flowguard/map/check.py:run_check', 'Lint': 'flowguard/map/lint.py:run_lint'}
 """Map check reports broken anchors, unowned files, undeclared or unused imports, two owners and bad flow steps.
 
 The base project has four components (app uses api and core; api uses core; util is free) and one flow.
@@ -19,8 +20,8 @@ from flowguard.map.inventory import build_inventory
 from flowguard.map.lint import run_lint
 MODEL_ID = 'map_binding'
 PARENT = 'map-check'
-COMPONENTS = ['map-check', 'map-file', 'cli']
-IMPLEMENTED_BY = {'Check': 'flowguard/map/check.py:run_check', 'Lint': 'flowguard/map/lint.py:run_lint', 'Owners': 'flowguard/map/lint.py:duplicate_owner_findings'}
+COMPONENTS = ['map-check', 'map-file']
+IMPLEMENTED_BY = {'Owners': 'flowguard/map/lint.py:duplicate_owner_findings', 'Anchor': 'flowguard/map/check.py:anchor_problem', 'Evidence': 'flowguard/map/mapfile.py:dependency_evidence'}
 TESTED_BY = {'missing_anchor_is_broken': ['tests/test_map_binding.py:test_check_reports_unmapped_overlap_anchor_and_undeclared_dep'], 'unowned_file_is_unmapped': ['tests/test_map_binding.py:test_check_reports_unmapped_overlap_anchor_and_undeclared_dep'], 'one_owner_per_file': ['tests/test_map_binding.py:test_check_reports_unmapped_overlap_anchor_and_undeclared_dep'], 'undeclared_import_is_reported': ['tests/test_map_binding.py:test_check_reports_unmapped_overlap_anchor_and_undeclared_dep'], 'unused_dependency_is_reported': ['tests/test_map_binding.py:test_map_check_binding_codes'], 'injected_dependency_is_evidence': ['tests/test_map_binding.py:test_map_check_binding_codes'], 'one_owner_per_claim': ['tests/test_map_binding.py:test_check_and_change_report_duplicate_owner'], 'flow_steps_resolve': ['tests/test_map_binding.py:test_flow_steps_are_verified', 'tests/test_flowguard_map_contracts.py:test_flow_step_can_read_the_previous_steps_file']}
 CODES = ('anchor_broken', 'file_unmapped', 'file_multi_owner', 'dep_undeclared', 'dep_unused', 'duplicate_owner', 'flow_step_broken', 'flow_handoff_invalid', 'private_cross_component_use')
 EXPECTED = {'rename_anchor': ('anchor_broken',), 'add_unowned_file': ('file_unmapped',), 'two_owners_one_file': ('file_multi_owner',), 'import_undeclared': ('dep_undeclared',), 'drop_import': ('dep_unused',), 'inject_dependency': (), 'duplicate_state': ('duplicate_owner',), 'bad_flow_step': ('flow_step_broken',), 'bad_flow_handoff': ('flow_handoff_invalid',), 'private_name_use': ('private_cross_component_use',)}

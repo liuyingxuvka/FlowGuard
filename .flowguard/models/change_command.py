@@ -88,7 +88,7 @@ def conformance():
             elif case=='missing':(root/'.flowguard/models/lending.py').unlink()
             elif case=='failing_test':
                 p=root/'tests/test_port.py';p.parent.mkdir(exist_ok=True);p.write_text('def test_selected_failure(): assert False\n')
-            else:p.write_text(p.read_text().replace('"lent" if request','str("lent") if request'))
+            else:p.write_text(p.read_text().replace('return "lent"','return str("lent")'))
             args=['change','--root',str(root)]
             if case in ('anchor','missing','stale','failing_test'):args+=['--run']
             out=StringIO()

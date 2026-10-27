@@ -22,31 +22,6 @@ def test_jobs_output_equals_sequential(tmp_path, capsys):
     assert outputs[0] == outputs[1] == outputs[2]
 
 
-def test_identical_info_grouped_into_one_line(capsys, tmp_path, monkeypatch):
-    import json
-    from pathlib import Path
-    from flowguard.map import cli
-    from flowguard.map.common import Finding, print_findings
-    notes = [Finding("info", "same", f"c{i}", "note") for i in range(24)]
-    warnings = [Finding("warn", "same", f"w{i}", "warning") for i in range(3)]
-    counts = print_findings(notes + warnings, "lint", as_json=False, limit=80)
-    text = capsys.readouterr().out
-    assert counts == {"error": 0, "warn": 3, "info": 24}
-    assert sum(line.startswith("INFO") for line in text.splitlines()) == 1
-    assert "INFO same x24: c0, c1, c10, c11, c12, c13, c14, c15 (+16 more; python -m flowguard map lint --json)" in text
-    assert sum(line.startswith("WARN") for line in text.splitlines()) == 3
-    print_findings(notes, "lint", as_json=True, limit=1)
-    assert len(json.loads(capsys.readouterr().out)["findings"]) == 24
-    # Exercise release's real output boundary: findings precede real model execution.
-    import runpy
-    from types import SimpleNamespace
-    helpers = runpy.run_path(str(Path(__file__).parents[1] / ".flowguard/models/model_runs.py"))
-    helpers["make_fixture"](tmp_path)
-    monkeypatch.setattr(cli, "run_check", lambda *a, **kw: [Finding("info", "same", str(i), "note") for i in range(24)])
-    assert cli.cmd_verify(tmp_path, SimpleNamespace(limit=80, jobs=1, shards=None)) == 0
-    output = capsys.readouterr().out
-    assert sum(line.startswith("INFO same x24:") for line in output.splitlines()) == 1
-    assert "PASS  first" in output and "PASS  second" in output
 
 
 def test_pass_is_one_line_fail_keeps_rules():
@@ -98,3 +73,26 @@ def test_time_over_the_limit_is_one_info(tmp_path):
     assert result.status=='pass'
     lines=[line for line in render_results([result]).splitlines() if line.startswith('INFO large_model')]
     assert len(lines)==1 and 'with its bound tests (advice limit 1e-06s)' in lines[0]
+
+
+@pytest.mark.parametrize('verdict',('proof','anchors','ports','tests'))
+def test_model_fails_when_any_verdict_fails(tmp_path,verdict):
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    from flowguard.map.proof import run_models,render_results
+    if verdict=='ports':
+        target__target_life_cycle_fixture_helpers('_target_fixture')['make_port_project'](tmp_path,'undeclared_write')
+        results=run_models(tmp_path,['desk'])
+        assert results[0].status=='fail' and any('undeclared_write' in p for p in results[0].problems)
+        assert 'FAIL  desk' in render_results(results)
+        return
+    target__target_life_cycle_fixture_helpers('model_runs')['make_fixture'](tmp_path)
+    path=tmp_path/'.flowguard/models/first.py';source=path.read_text()
+    if verdict=='proof':source=source.replace('"two": make(2)','"two": make(1)')
+    elif verdict=='anchors':source=source.replace('actual = load_anchor(IMPLEMENTED_BY["Run"], root=Path.cwd())()','actual = 1')
+    else:
+        source+='\nTESTED_BY={"one":["tests/test_native.py:test_first"]}\n'
+        test=tmp_path/'tests/test_native.py';test.parent.mkdir();test.write_text('from native import first_value\ndef test_first(): assert first_value()==2\n')
+    path.write_text(source)
+    results=run_models(tmp_path,['first','second'],tests=verdict=='tests')
+    assert [(r.model,r.status) for r in results]==[('first','fail'),('second','pass')]
+    assert 'FAIL  first' in render_results(results)

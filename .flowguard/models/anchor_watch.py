@@ -10,21 +10,22 @@ from flowguard.explorer import Explorer
 from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "anchor_watch"
-PARENT = "map-proof"
+PARENT = 'model_runs'
 IMPLEMENTED_BY = {"Watch": "flowguard/map/facts.py:AnchorWatch"}
-TESTED_BY = {'conformance_calls_are_seen': ['tests/test_anchor_watch.py:test_anchor_called_in_worker_thread_is_consulted'], 'explore_is_not_watched': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails']}
+TESTED_BY = {'conformance_calls_are_seen': ['tests/test_anchor_watch.py:test_anchor_called_in_worker_thread_is_consulted'], 'explore_is_not_watched': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails'], 'unconsulted_anchor_fails_the_model': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails']}
 
 
 @dataclass(frozen=True)
 class State:
     case: str = ""
     seen: bool = False
+    anchors: str = "never_ran"
 
 
 class Watch:
     name = "Watch"
     reads = ()
-    writes = ("case", "seen")
+    writes = ("case", "seen", "anchors")
 
     def __init__(self, defect=""):
         self.defect = defect
@@ -33,10 +34,12 @@ class Watch:
         seen = event == "worker"
         if self.defect == "misses_worker_thread_call" and event == "worker": seen = False
         if self.defect == "watches_explore" and event == "explore": seen = True
-        return (FunctionResult(event, State(event, seen), label=event),)
+        anchors="seen" if seen or event=="unconsulted" and self.defect=="passes_unconsulted_anchor" else "never_ran"
+        return (FunctionResult(anchors, State(event, seen, anchors), label=event),)
 
 
 INVARIANTS = (
+    Invariant("unconsulted_anchor_fails_the_model", "an unconsulted anchor never receives credit", lambda s,t:s.case!="unconsulted" or s.anchors=="never_ran"),
     Invariant("conformance_calls_are_seen", "a conformance call from a worker thread is observed",
               lambda s,t: InvariantResult.fail("worker call missed") if s.case == "worker" and not s.seen else InvariantResult.pass_()),
     Invariant("explore_is_not_watched", "abstract-only execution cannot satisfy a native binding",
@@ -45,7 +48,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Watch(defect),)), (State(),), ("worker", "explore"), invariants=INVARIANTS,
+    return Explorer(Workflow((Watch(defect),)), (State(),State(anchors="seen")), ("worker", "explore", "unconsulted"), invariants=INVARIANTS,
                     max_sequence_length=1, progress_steps=0)
 
 
@@ -53,7 +56,7 @@ def build_explorer(): return _explorer()
 
 
 def broken_variants():
-    return {name: _explorer(name) for name in ("misses_worker_thread_call", "watches_explore")}
+    return {name: _explorer(name) for name in ("misses_worker_thread_call", "watches_explore", "passes_unconsulted_anchor")}
 
 
 MODEL_SOURCE = '''from pathlib import Path
@@ -122,3 +125,5 @@ def conformance():
             ok = result.status == "pass" if case == "worker" else result.status == "fail" and any("never ran" in p for p in result.problems)
             facts.append(Fact(case, ok, repr((result.status, result.problems))))
     return CodeFactsReport(tuple(facts))
+
+OUTPUTS = {'anchors': ('seen', 'never_ran')}

@@ -14,7 +14,7 @@ from flowguard.map.common import normalize_newlines
 from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "target_add"
-PARENT = "map-target"
+PARENT = 'target_life_cycle'
 IMPLEMENTED_BY = {"Add": "flowguard/map/target.py:_add"}
 TESTED_BY = {'target_add_keeps_untracked_model': ['tests/test_target_add.py:test_target_add_keeps_untracked_model'], 'in_place_edit_moves_into_target': ['tests/test_target_add.py:test_target_add_moves_in_place_edit_of_committed_model'], 'uncommitted_promote_is_copied': ['tests/test_target_add.py:test_target_add_after_uncommitted_promote_copies']}
 
@@ -23,12 +23,13 @@ TESTED_BY = {'target_add_keeps_untracked_model': ['tests/test_target_add.py:test
 class State:
     case: str = ""
     moved: bool = False
+    added: str = "copied"
 
 
 class Add:
     name = "Add"
     reads = ()
-    writes = ("case", "moved")
+    writes = ("case", "moved", "added")
 
     def __init__(self, defect=""):
         self.defect = defect
@@ -41,7 +42,8 @@ class Add:
             moved = False
         if self.defect == "restores_promoted_model_from_head" and event == "promoted":
             moved = True
-        return (FunctionResult(moved, State(event, moved), label=event),)
+        added="moved" if moved else "copied"
+        return (FunctionResult(added, State(event, moved, added), label=event),)
 
 
 INVARIANTS = (
@@ -55,7 +57,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Add(defect),)), (State(),), ("untracked", "dirty", "promoted", "no_git"),
+    return Explorer(Workflow((Add(defect),)), (State(),State(added="moved")), ("untracked", "dirty", "promoted", "no_git"),
                     invariants=INVARIANTS, max_sequence_length=1, progress_steps=0)
 
 
@@ -104,3 +106,5 @@ def conformance():
                   and normalize_newlines(copied.read_bytes()) == normalize_newlines(edited))
             facts.append(Fact(case, ok, "current and target byte identities"))
     return CodeFactsReport(tuple(facts))
+
+OUTPUTS = {'added': ('copied', 'moved')}

@@ -26,18 +26,9 @@ from _target_fixture import REGULAR_CONTRACT, make_project, stage_target, write_
 
 MODEL_ID = "target_life_cycle"
 PARENT = "map-target"
-IMPLEMENTED_BY = {
-    "Start": "flowguard/map/target.py:start_target",
-    "Add": "flowguard/map/target.py:add_to_target",
-    "Check": "flowguard/map/target.py:check_target",
-    "Promote": "flowguard/map/target.py:promote_target",
-    "Drop": "flowguard/map/target.py:drop_target",
-}
-NOT_MODELED = {
-    "flowguard/map/target.py:main": "Argument parsing only; it calls start_target, add_to_target, check_target, "
-                                    "promote_target and drop_target, which this model anchors.",
-}
-TESTED_BY = {'target_check_runs_no_bound_tests': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'noop_target_never_promoted': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
+IMPLEMENTED_BY = {'Target': 'flowguard/map/target.py:main', 'Start': 'flowguard/map/target.py:start_target', 'Drop': 'flowguard/map/target.py:drop_target'}
+NOT_MODELED = {'flowguard/map/target.py:add_to_target': 'requires an open target and calls _add, which target_add anchors'}
+TESTED_BY = {'target_check_runs_no_bound_tests': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes']}
 
 PROGRAMS = (
     ("storage", ("START", "ADD_COMPONENT", "ADD_MODEL", "START_AGAIN", "CHECK", "DROP_PREVIEW", "DROP_YES")),
@@ -65,7 +56,8 @@ class State:
     errors: int = 0
     todos: int = 0
     action: str = ""
-    bucket: str = ""
+    added: str = "copied"
+    bucket: str = "none"
     promotion: str = ""
     changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
     bound_test_runs: int = 0
@@ -76,13 +68,13 @@ def _revisions(state):
             state.current_map_revision, state.current_model_revision)
 
 
-HANDOFF = {"target_findings": {"bucket": "bucket"}, "target_promotion": {"outcome": "promotion"}}
+HANDOFF = {'target_add': {'added': 'added'}, 'target_findings': {'bucket': 'bucket'}, 'target_promotion': {'outcome': 'promotion'}}
 KEEPS = ("scenario", "position", "changed", "expected_map_revision", "bound_test_runs")
 
 class Advance:
     name = "Advance"
     writes = ("position", "target_count", "target_revision", "current_map_revision", "current_model_revision",
-              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "bucket", "promotion", "changed", "bound_test_runs")
+              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "added", "bucket", "promotion", "changed", "bound_test_runs")
     def __init__(self, defect=""):
         self.defect = defect
     def apply(self, event, state):
@@ -100,6 +92,9 @@ class Advance:
             output = "refused"
         elif action in ("ADD_COMPONENT", "ADD_MODEL", "EDIT_MISSING", "EDIT_ERROR", "EDIT_PLANNED", "EDIT_WARNING"):
             new = replace(new, target_revision=state.target_revision+1)
+            if action in ("ADD_COMPONENT", "ADD_MODEL"):
+                new=replace(new,added="moved" if state.scenario=="storage" and action=="ADD_MODEL" else "copied")
+                output=new.added
             if action == "ADD_MODEL":
                 new = replace(new, expected_model_revision=1)
             elif action == "EDIT_MISSING":
@@ -111,9 +106,9 @@ class Advance:
         elif action == "WRITE_CODE":
             new = replace(new, todos=0)
         elif action == "CHECK":
-            bucket = ("error" if state.errors or not state.changed and self.defect != "promotes_unchanged_copy" else
-                      "todo" if state.todos else "info" if state.scenario == "planned" else
-                      "warn" if state.scenario == "warned" else "none")
+            # One received verdict per finite native program, not a replay of
+            # target_findings' routing or gap/port details.
+            bucket = {"storage":"error","todo":"todo","error":"error","clean":"none","noop":"error","planned":"info","warned":"warn"}[state.scenario]
             new = replace(new, bucket=bucket, errors=int(bucket == "error"), todos=int(bucket == "todo"))
             output = bucket
             if self.defect == "check_runs_bound_tests":
@@ -150,8 +145,6 @@ INVARIANTS = (
               lambda s,t: _holds(s.action != "START_AGAIN" or _revisions(s) == _revisions(_previous(s,t)), "second start replaced an existing target")),
     Invariant("promote_only_when_clean", "ERROR and TODO each block all promotion writes",
               lambda s,t: _holds(s.action != "PROMOTE" or not (s.errors or s.todos) or s.promotion == "refused" and _revisions(s) == _revisions(_previous(s,t)), "an unclean target was promoted")),
-    Invariant("noop_target_never_promoted", "a target equal to the current tree fails its check and is never promoted",
-              lambda s,t: _holds(s.changed or (s.action != "CHECK" or s.errors) and (s.action != "PROMOTE" or s.promotion in ("refused", "no_target") and _revisions(s) == _revisions(_previous(s,t))), "an unchanged target passed its check or was promoted")),
 )
 
 
@@ -169,9 +162,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {"check_runs_bound_tests": _explorer("check_runs_bound_tests"),
-            "promote_checks_twice": _explorer("promote_checks_twice"), "second_target": _explorer("second_target"), "unclean_promote": _explorer("unclean_promote"),
-            "promotes_unchanged_copy": _explorer("promotes_unchanged_copy")}
+    return {name:_explorer(name) for name in ("check_runs_bound_tests","promote_checks_twice","second_target","unclean_promote")}
 
 
 # This is an executable regular contract, not a runner, DTO or design-only model.

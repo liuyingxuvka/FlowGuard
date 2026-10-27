@@ -1,92 +1,100 @@
-"""A component's description is never reported current after its code changed.
+"""Confirmation describes the pointer; comparison consumes its fingerprint verdict.
 
-The fingerprint written by ``confirm`` is the component's "current pointer".
-Protected failures:
-  * check reports a confirmed component as clean although its files changed
-  * confirm accepts a component that has no description
-Conformance replays model traces against the real flowguard.map implementation
-in a throw-away project directory.
+The temporary model-file guard rejoins this small pointer model. It retains its
+own real checker anchor, known-bad and regression rather than losing a promise.
 """
-from __future__ import annotations
-import io
-import json
-import shutil
-import tempfile
-from contextlib import redirect_stderr, redirect_stdout
+from contextlib import redirect_stdout
 from dataclasses import dataclass, replace
+from hashlib import sha256
+from io import StringIO
+import json
 from pathlib import Path
-from flowguard import FunctionResult, Invariant, InvariantResult, ReplayObservation, Workflow, replay_trace, select_covering_traces
-from flowguard.conformance import projected_output_matches, projected_state_matches
+from tempfile import TemporaryDirectory
+from flowguard import FunctionResult, Invariant, InvariantResult, Workflow
 from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact
+from _pointer_fixture import model_edit_cases
+
 MODEL_ID = 'component_pointer'
 PARENT = 'map-file'
-COMPONENTS = ['map-file', 'cli']
-IMPLEMENTED_BY = {'Confirm': 'flowguard/map/cli.py:cmd_confirm', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint'}
-USES = {'Check': 'flowguard/map/check.py:run_check'}
-TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm']}
-NOT_MODELED = {'flowguard/__main__.py:main': 'CLI dispatcher; command and encoding integration are covered by CLI tests, not a modeled business transition.', 'flowguard/map/cli.py:main': 'Map command dispatcher; integration tests cover argument dispatch and statuses.', 'flowguard/map/inventory.py:build_inventory': 'Static source inventory writes disposable cache; encoding/cache and impact regressions cover it.', 'flowguard/templates.py:write_template_files': 'Explicit template file writer; generated template and overwrite tests cover the filesystem integration.'}
-MAX_EDITS = 2
-
-@dataclass(frozen=True)
-class Event:
-    kind: str
+COMPONENTS = ['map-file', 'cli', 'map-check']
+IMPLEMENTED_BY = {'Confirm': 'flowguard/map/cli.py:cmd_confirm', 'ModelEdits': 'flowguard/map/check.py:model_edit_findings'}
+USES = {'TargetAdd': 'flowguard/map/target.py:add_to_target'}
+HANDOFF = {'release_neutral_fingerprint': {'fingerprint': 'fingerprint'}}
+TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'], 'model_edited_outside_target_is_named': ['tests/test_model_edits.py:test_map_check_names_model_edited_outside_target']}
+NOT_MODELED = {'flowguard/__main__.py:main': 'CLI dispatch; command tests cover it.',
+               'flowguard/map/cli.py:main': 'Map dispatch; command tests cover it.',
+               'flowguard/map/inventory.py:build_inventory': 'Static inventory, covered by encoding and cache regressions.',
+               'flowguard/templates.py:write_template_files': 'Template writing, covered by generation and overwrite tests.'}
 
 @dataclass(frozen=True)
 class State:
     status: str = 'draft'
     described: bool = False
-    code_version: int = 0
-    confirmed_version: int = -1
-    model_edited: bool = False
-    last_report: str = ''
+    model_edit: bool = False
+    fingerprint: str = 'current'
+    freshness: str = ''
+    named: bool = False
+    action: str = ''
+    @property
+    def model_edited(self): return self.model_edit
+    @property
+    def last_report(self):
+        if self.action != 'check': return ''
+        return 'model_edited_outside_target' if self.named else self.freshness
 
-class Step:
-    """Intended behavior of edit / describe / confirm / check."""
-    name = 'Step'
-    reads = ('status', 'described', 'code_version', 'confirmed_version', 'model_edited')
-    writes = ('status', 'described', 'code_version', 'confirmed_version', 'last_report', 'model_edited')
+@dataclass(frozen=True)
+class ConfirmEvent:
+    kind: str = 'confirm'
+@dataclass(frozen=True)
+class CompareEvent:
+    kind: str
+@dataclass(frozen=True)
+class ReportEvent:
+    kind: str
 
-    def confirm_allowed(self, state: State) -> bool:
-        return state.described
+class Confirm:
+    name = 'Confirm'
+    accepted_input_type = ConfirmEvent
+    reads = ('described', 'status')
+    writes = ('status', 'action')
+    def __init__(self, defect=''): self.defect = defect
+    def apply(self, event, state):
+        allowed = state.described or self.defect == 'confirm_without_description'
+        return (FunctionResult('confirmed' if allowed else 'refused', replace(state,
+                status='confirmed' if allowed else state.status, action='confirm')),)
 
-    def report(self, state: State) -> str:
-        if state.model_edited:
-            return 'model_edited_outside_target'
-        if state.status == 'draft':
-            return 'draft'
-        return 'clean' if state.confirmed_version == state.code_version else 'stale'
+class Compare:
+    name = 'Compare'
+    accepted_input_type = CompareEvent
+    reads = ()
+    writes = ('fingerprint', 'action')
+    def apply(self, event, state):
+        return (FunctionResult(event.kind, replace(state, fingerprint=event.kind, action='compare'),
+                               label='fingerprint:'+event.kind),)
 
-    def apply(self, event: Event, state: State):
-        if event.kind == 'edit_model':
-            return (FunctionResult('model_edited', replace(state, model_edited=True, last_report=''), label='edit_model'),)
-        if event.kind == 'edit':
-            if state.code_version >= MAX_EDITS:
-                return (FunctionResult('edit_limit', state, label='edit_limit'),)
-            return (FunctionResult('edited', replace(state, code_version=state.code_version + 1, last_report=''), label='edit'),)
+class Report:
+    name = 'Report'
+    accepted_input_type = ReportEvent
+    reads = ('status', 'fingerprint', 'model_edit')
+    writes = ('described', 'model_edit', 'freshness', 'named', 'action')
+    def __init__(self, defect=''): self.defect = defect
+    def apply(self, event, state):
         if event.kind == 'describe':
-            return (FunctionResult('described', replace(state, described=True), label='describe'),)
-        if event.kind == 'confirm':
-            if not self.confirm_allowed(state):
-                return (FunctionResult('refused', state, label='confirm_refused'),)
-            return (FunctionResult('confirmed', replace(state, status='confirmed', confirmed_version=state.code_version), label='confirm'),)
-        report = self.report(state)
-        return (FunctionResult(report, replace(state, last_report=report), label=f'check_{report}'),)
+            return (FunctionResult('described', replace(state, described=True, action='describe')),)
+        if event.kind == 'edit_model':
+            return (FunctionResult('edited', replace(state, model_edit=True, action='edit_model')),)
+        if event.kind == 'target':
+            return (FunctionResult('owned_by_target', replace(state, model_edit=False, action='target')),)
+        freshness = 'draft' if state.status == 'draft' else 'clean' if state.fingerprint == 'current' else state.fingerprint
+        if self.defect == 'check_ignores_changes' and state.status == 'confirmed': freshness = 'clean'
+        named = state.model_edit and self.defect != 'ignores_in_place_model_edit'
+        return (FunctionResult((freshness, 'model_edited_outside_target' if named else ''),
+                replace(state, freshness=freshness, named=named, action='check')),)
 
-class ConfirmWithoutDescription(Step):
-    """Known-bad: confirm does not require a description."""
-
-    def confirm_allowed(self, state: State) -> bool:
-        return True
-
-class CheckIgnoresChanges(Step):
-    """Known-bad: check reports every confirmed component as clean."""
-
-    def report(self, state: State) -> str:
-        return 'draft' if state.status == 'draft' else 'clean'
-
-def _clean_means_current(state: State, trace) -> InvariantResult:
-    if state.last_report == 'clean' and state.confirmed_version != state.code_version:
-        return InvariantResult.fail('check reported clean after the owned file changed')
+def _clean_means_current(state, trace):
+    if state.action == 'check' and state.freshness == 'clean' and state.fingerprint != 'current':
+        return InvariantResult.fail('clean requires a current fingerprint verdict')
     return InvariantResult.pass_()
 
 def _confirmed_means_described(state: State, trace) -> InvariantResult:
@@ -94,120 +102,59 @@ def _confirmed_means_described(state: State, trace) -> InvariantResult:
         return InvariantResult.fail('a component without description was confirmed')
     return InvariantResult.pass_()
 
-class IgnoreModelEdit(Step):
+INVARIANTS = (
+    Invariant('clean_means_current', 'clean is reported only when the code is unchanged since confirm', _clean_means_current),
+    Invariant('confirmed_means_described', 'confirm requires summary and responsibilities', _confirmed_means_described),
+    Invariant("model_edited_outside_target_is_named", "model edits need their own target and cannot be silently cleared by confirm",
+              lambda s,t: InvariantResult.fail("unplanned model edit was hidden") if s.model_edited and s.last_report
+              and s.last_report != "model_edited_outside_target" else InvariantResult.pass_()),
+)
+EVENTS = (ConfirmEvent(), CompareEvent('current'), CompareEvent('stale'), CompareEvent('migrate'),
+          ReportEvent('describe'), ReportEvent('edit_model'), ReportEvent('target'), ReportEvent('check'))
 
-    def report(self, state):
-        return super().report(replace(state, model_edited=False))
-INVARIANTS = (Invariant('clean_means_current', 'clean is reported only when the code is unchanged since confirm', _clean_means_current), Invariant('confirmed_means_described', 'confirm requires summary and responsibilities', _confirmed_means_described))
-EVENTS = tuple((Event(kind) for kind in ('edit', 'describe', 'confirm', 'check')))
-
-def _explorer(step: Step) -> Explorer:
-    return Explorer(workflow=Workflow((step,)), initial_states=(State(),), external_inputs=EVENTS, invariants=INVARIANTS, max_sequence_length=5, progress_steps=0)
-
-def build_explorer() -> Explorer:
-    return _explorer(Step())
-
-def broken_variants() -> dict:
-    return {'confirm_without_description': _explorer(ConfirmWithoutDescription()), 'check_ignores_changes': _explorer(CheckIgnoresChanges())}
-
-class _RealMap:
-    """Drives the real flowguard.map code in a temporary project with one component."""
-
-    def reset(self, initial_state: State) -> None:
-        from flowguard.map import cli
-        self.cli = cli
-        self.root = Path(tempfile.mkdtemp(prefix='fg-pointer-'))
-        (self.root / 'app').mkdir()
-        self.code_version = 0
-        self.version_of: dict[str, int] = {}
-        self._write_code()
-        self._run('scan')
-        data = self._map()
-        data['components'] = [dict(data['components'][0], id='app', files=['app/*.py'], summary='', responsibilities=[], depends_on=[], tests=[])]
-        self._save(data)
-        self.last_report = ''
-        self.model_edited = False
-        model = self.root / '.flowguard/models/presence.py'
-        model.parent.mkdir(parents=True, exist_ok=True)
-        model.write_text(PRESENCE_MODEL)
-        from flowguard.map.common import content_digest
-        data = self._map()
-        data['components'][0]['models'] = ['.flowguard/models/presence.py']
-        data['model_digests'] = {'.flowguard/models/presence.py': content_digest(model)}
-        self._save(data)
-
-    def close(self) -> None:
-        shutil.rmtree(self.root, ignore_errors=True)
-
-    def _write_code(self) -> None:
-        (self.root / 'app' / 'core.py').write_text(f'VERSION = {self.code_version}\n\ndef current_version(): return VERSION\n', encoding='utf-8')
-        from flowguard.map.mapfile import fingerprint
-        self.version_of[fingerprint(self.root, ['app/core.py'])] = self.code_version
-
-    def _run(self, *argv: str) -> int:
-        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-            return self.cli.main(['--root', str(self.root), *argv])
-
-    def _map(self) -> dict:
-        return json.loads((self.root / '.flowguard' / 'map.json').read_text(encoding='utf-8'))
-
-    def _save(self, data: dict) -> None:
-        (self.root / '.flowguard' / 'map.json').write_text(json.dumps(data), encoding='utf-8')
-
-    def apply_step(self, step) -> ReplayObservation:
-        kind = step.function_input.kind
-        if kind == 'edit_model':
-            model = self.root / '.flowguard/models/presence.py'
-            model.write_text(model.read_text() + '\n# an in-place edit\n')
-            self.model_edited, self.last_report = (True, '')
-            output = 'model_edited'
-        elif kind == 'edit':
-            if self.code_version >= MAX_EDITS:
-                output = 'edit_limit'
-            else:
-                self.code_version += 1
-                self._write_code()
-                self.last_report = ''
-                output = 'edited'
-        elif kind == 'describe':
-            data = self._map()
-            data['components'][0].update(summary='the app', responsibilities=['run the app'])
-            self._save(data)
-            output = 'described'
-        elif kind == 'confirm':
-            output = 'confirmed' if self._run('confirm', 'app') == 0 else 'refused'
-        else:
-            from flowguard.map.check import run_check
-            from flowguard.map.inventory import build_inventory
-            from flowguard.map.mapfile import ignore_patterns, load_map
-            data = load_map(self.root)
-            codes = {f.code for f in run_check(self.root, data, build_inventory(self.root, ignore_patterns(data)))}
-            output = 'model_edited_outside_target' if 'model_edited_outside_target' in codes else 'draft' if 'draft' in codes else 'stale' if {'stale', 'fingerprint_migrate'} & codes else 'clean'
-            self.last_report = output
-        return ReplayObservation(function_name=step.function_name, observed_output=output, observed_state=self.observe_state())
-
-    def observe_state(self) -> State:
-        comp = self._map()['components'][0]
-        confirmed = comp['status'] == 'confirmed'
-        return State(status=comp['status'], described=bool(comp.get('summary') and comp.get('responsibilities')), code_version=self.code_version, confirmed_version=self.version_of.get(comp.get('fingerprint', ''), -1) if confirmed else -1, last_report=self.last_report, model_edited=self.model_edited)
-
-    def observe_output(self):
-        return None
+def make(defect=''):
+    return Explorer(Workflow((Confirm(defect), Compare(), Report(defect)), mode='choice'),
+                    (State(), State(status='confirmed', described=True)), EVENTS,
+                    invariants=INVARIANTS, max_sequence_length=3, progress_steps=0)
+def build_explorer(): return make()
+def broken_variants():
+    return {name: make(name) for name in ('confirm_without_description', 'check_ignores_changes', 'ignores_in_place_model_edit')}
 
 def conformance():
-    """Replay traces covering every modeled transition against the real implementation."""
-    from flowguard.map import mapfile
-    from flowguard.map.facts import CodeFactsReport, Fact
-    if 'model_digests' not in mapfile.TOP_KEYS:
-        return CodeFactsReport((Fact('model_edited_outside_target_is_named', False, 'model digest tracking is not implemented'),))
-    last = None
-    for trace in select_covering_traces(build_explorer().explore().traces):
-        adapter = _RealMap()
-        try:
-            last = replay_trace(trace=trace, adapter=adapter, invariants=INVARIANTS, rules=(projected_state_matches(), projected_output_matches()))
-        finally:
-            adapter.close()
-        if not last.ok:
-            return last
-    return last
-PRESENCE_MODEL = 'from pathlib import Path\nfrom flowguard import FunctionResult, Invariant, InvariantResult, Workflow\nfrom flowguard.explorer import Explorer\nfrom flowguard.map.facts import CodeFactsReport, Fact\nMODEL_ID = "presence"\nPARENT = "app"\nIMPLEMENTED_BY = {"Read": "app/core.py:current_version"}\nRULE = Invariant("present", "source exists", lambda s,t: InvariantResult.pass_() if s else InvariantResult.fail("missing"))\nclass Read:\n    name = "Read"\n    def __init__(self, value=True): self.value = value\n    def apply(self,event,state): return (FunctionResult(self.value,self.value),)\ndef make(value): return Explorer(Workflow((Read(value),)), (True,), ("read",), invariants=(RULE,), max_sequence_length=1,progress_steps=0)\ndef build_explorer(): return make(True)\ndef broken_variants(): return {"missing": make(False)}\ndef conformance():\n    data = (Path.cwd()/"app/core.py").read_bytes()\n    return CodeFactsReport((Fact("native_source", bool(data), repr(data)),))\n'
+    from types import SimpleNamespace
+    from flowguard.map.cli import cmd_confirm
+    from flowguard.map.check import run_check
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import component_state, load_map, ignore_patterns
+    from flowguard.map.common import content_digest
+    facts = []
+    with TemporaryDirectory(prefix='fg-pointer-') as directory:
+        root = Path(directory); path = root/'app.py'; path.write_text('def run(): return True\n')
+        version = root/'pkg/__init__.py'; version.parent.mkdir(); version.write_text('__version__="1.0.0"\n')
+        data = dict(schema='flowguard.map.v1', fingerprint_format=2, components=[dict(
+            id='app', summary='', responsibilities=[], files=['app.py', 'pkg/__init__.py'], tests=[], models=[],
+            entrypoints=[], depends_on=[], state=[], side_effects=[], status='draft')])
+        target = root/'.flowguard/map.json'; target.parent.mkdir(); target.write_text(json.dumps(data))
+        with redirect_stdout(StringIO()): refused = cmd_confirm(root, SimpleNamespace(ids=['app']))
+        facts.append(Fact('description_required', refused == 1 and load_map(root)['components'][0]['status'] == 'draft'))
+        data['components'][0].update(summary='Compute one value', responsibilities=['compute the value'])
+        target.write_text(json.dumps(data))
+        with redirect_stdout(StringIO()): confirmed = cmd_confirm(root, SimpleNamespace(ids=['app']))
+        data = load_map(root); inv = build_inventory(root, ignore_patterns(data), write_cache=False)
+        facts.append(Fact('described_pointer', confirmed == 0 and data['components'][0]['status'] == 'confirmed'))
+        for case in ('current', 'stale', 'migrate'):
+            if case == 'stale': path.write_text('def run(): return False\n')
+            probe = json.loads(json.dumps(data))
+            if case == 'migrate':
+                legacy = sha256()
+                for rel in ('app.py', 'pkg/__init__.py'): legacy.update((rel+'\0'+content_digest(root/rel)+'\n').encode())
+                probe['components'][0]['fingerprint'] = 'sha256:'+legacy.hexdigest(); probe['fingerprint_format'] = 1
+            inv = build_inventory(root, ignore_patterns(data), write_cache=False)
+            received = component_state(root, probe['components'][0], inv, probe)
+            findings = run_check(root, probe, inv)
+            codes = {f.code for f in findings if f.component == 'app'}
+            reported = 'draft' if 'draft' in codes else 'migrate' if 'fingerprint_migrate' in codes else 'stale' if 'stale' in codes else 'clean'
+            facts.append(Fact(case, received == case and reported == ('clean' if case == 'current' else case), repr((received,codes))))
+    guarded = model_edit_cases()
+    facts.append(Fact('model_file_target_guard', guarded.ok, guarded.format_text()))
+    return CodeFactsReport(tuple(facts))

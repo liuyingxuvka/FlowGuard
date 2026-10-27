@@ -17,3 +17,15 @@ and tests that implement it (`after/`). The project is this directory without `t
 
 The target is kept in `target/`, not `.flowguard/target/`, so that this example has no unfinished
 target; FlowGuard's own map ignores `examples/shelf/**`.
+
+
+## Port change
+
+The desk consumes lending's two-way `answer` and prints refusals. In an open
+target, add `waitlisted` to lending's `OUTPUTS["answer"]`, then run
+`python -m flowguard target check`. It names
+`port changed: lending out +waitlisted -> verify desk (parent)` and
+`port_changed_parent_missing`. Add `desk` with `python -m flowguard target add desk`.
+Its own run then reports `handoff_output_unhandled` until a real desk trace receives
+`waitlisted` into `answer` and replies to it. Declaring the new value alone does not
+implement a waiting list; the target must describe and replay that behavior.

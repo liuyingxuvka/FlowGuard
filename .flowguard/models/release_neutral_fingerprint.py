@@ -1,3 +1,4 @@
+OUTPUTS = {'fingerprint': ('current', 'migrate', 'stale')}
 """Version declarations are neutral; all other bytes and format migration matter."""
 from dataclasses import dataclass
 from hashlib import sha256
@@ -10,10 +11,7 @@ from flowguard.map.facts import CodeFactsReport, Fact
 
 MODEL_ID = "release_neutral_fingerprint"
 PARENT = "map-file"
-IMPLEMENTED_BY = {
-    "ReleaseNeutral": "flowguard/map/mapfile.py:_release_neutral",
-    "ComponentState": "flowguard/map/mapfile.py:component_state",
-}
+IMPLEMENTED_BY = {'ReleaseNeutral': 'flowguard/map/mapfile.py:_release_neutral', 'ComponentState': 'flowguard/map/mapfile.py:component_state', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint'}
 TESTED_BY = {'version_only_change_is_current': ['tests/test_release_neutral_fingerprint.py:test_version_only_bump_keeps_components_current'], 'other_edit_is_stale': ['tests/test_release_neutral_fingerprint.py:test_non_version_edit_in_version_file_is_stale'], 'format_one_map_migrates_once': ['tests/test_release_neutral_fingerprint.py:test_format1_map_migrates_once', 'tests/test_release_neutral_fingerprint.py:test_format2_map_with_format1_value_is_stale']}
 CASES = ("version_py", "version_toml", "version_file", "docstring", "other_py", "other_name", "other_tool",
          "legacy_format1", "legacy_format2")
@@ -24,13 +22,15 @@ EXPECTED["legacy_format1"] = "migrate"
 @dataclass(frozen=True)
 class State:
     case: str = ""
-    status: str = ""
+    fingerprint: str = ""
+    @property
+    def status(self): return self.fingerprint
 
 
 class Step:
     name = "Fingerprint"
     reads = ()
-    writes = ("case", "status")
+    writes = ("case", "fingerprint")
 
     def __init__(self, defect=""):
         self.defect = defect

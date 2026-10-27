@@ -16,23 +16,25 @@ EXPECTED = {"native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved 
 class State:
     case: str = ""
     line: str = ""
+    gap: str = "no_rule_change"
 
 
 class Classify:
     name = "GapLines"
     reads = ()
-    writes = ("case", "line")
+    writes = ("case", "line", "gap")
 
     def __init__(self, defect=""):
         self.defect = defect
 
     def apply(self, event, state):
-        line = EXPECTED[event]
+        line = EXPECTED[event] if event in EXPECTED else "no rule change"
         wrong = {"missing_bound_test_counts_as_gap": "missing_test", "reports_moved_rule_as_new": "moved",
                  "counts_recorded_rule_as_gap": "recorded", "counts_engine_exception_as_gap": "engine_exception"}
         if wrong.get(self.defect) == event:
             line = "EXPECTED GAP"
-        return (FunctionResult(line, State(event, line), label=event),)
+        gap="expected_gap" if line=="EXPECTED GAP" else "moved_only" if event=="moved" else "no_rule_change" if event=="unchanged" else "no_gap"
+        return (FunctionResult(gap, State(event, line, gap), label=gap),)
 
 
 def _check(state, cases):
@@ -52,7 +54,7 @@ INVARIANTS = (
 
 
 def _explorer(defect=""):
-    return Explorer(Workflow((Classify(defect),)), (State(),), tuple(EXPECTED), invariants=INVARIANTS,
+    return Explorer(Workflow((Classify(defect),)), (State(),State(gap="no_gap")), tuple(EXPECTED)+("unchanged",), invariants=INVARIANTS,
                     max_sequence_length=1, progress_steps=0)
 
 
@@ -71,3 +73,7 @@ def conformance():
         return CodeFactsReport((Fact("native_gap_lines", False, "the native design gap classifier is not written"),))
     from _gap_cases import native_cases
     return CodeFactsReport(tuple(native_cases()))
+
+PARENT = 'target_findings'
+
+OUTPUTS = {'gap': ('expected_gap', 'no_gap', 'moved_only', 'no_rule_change')}

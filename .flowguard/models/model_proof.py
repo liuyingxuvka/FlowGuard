@@ -5,6 +5,7 @@ of text edits is executed in process; no cached proof or subprocess can supply
 anchor credit. The fixture's target module and model module are restored after
 one native invocation so distinct temporary projects cannot share target code.
 """
+from _kit_receipts import clean_receipts
 from pathlib import Path
 import sys
 import tempfile
@@ -13,7 +14,7 @@ from flowguard.kit import Feature, feature_conformance, feature_explorer, featur
 from flowguard.map.proof import run_model_in_process
 
 MODEL_ID = "model_proof"
-PARENT = "map-proof"
+PARENT = 'model_runs'
 IMPLEMENTED_BY = {"RunModel": "flowguard/map/proof.py:run_model_in_process"}
 NOT_MODELED = {
     "flowguard/map/facts.py:AnchorWatch.__enter__": "context-manager entry of the anchor call recorder; its observable "
@@ -78,13 +79,12 @@ FEATURES = (
                                          'lambda state, trace: InvariantResult.pass_())),')),
     Feature("missing_conformance", True, ("missing_conformance",),
             _edit("def conformance():", "def _unused_conformance():")),
-    Feature("unconsulted_anchor", True, ("unconsulted_anchor",),
-            _edit('actual = load_anchor(IMPLEMENTED_BY["Advance"])(0)', "actual = 1")),
     Feature("additional_description", False, (), lambda source: source + "\n# Another description of this proof.\n"),
     Feature("unused_helper", False, (), lambda source: source + "\ndef unused_helper():\n    return 17\n"),
 )
 
 
+@clean_receipts
 def build_explorer():
     return feature_explorer(FEATURES, codes="first")
 
@@ -131,3 +131,5 @@ def _review(source):
 
 def conformance():
     return feature_conformance(FEATURES, lambda: BASE, _review, codes="first")
+
+OUTPUTS = {'outcome': ('accepted', 'rejected')}

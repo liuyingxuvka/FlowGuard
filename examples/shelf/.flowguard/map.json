@@ -30,7 +30,9 @@
       "depends_on": [
         "loans"
       ],
-      "tests": [],
+      "tests": [
+        "tests/test_cli.py"
+      ],
       "models": [],
       "status": "draft"
     },

@@ -95,86 +95,23 @@ def probe_regular_model(root, logical_model, *, view):
 
 
 def make_port_project(root, case="valid"):
-    """Real desk/lending models and their independently implemented shelf entrypoints."""
+    """Copy the runnable shelf port example, then apply one finite real defect."""
+    import shutil,json
     from pathlib import Path
-    root = Path(root); root.mkdir(parents=True, exist_ok=True)
-    files = {"shelf/__init__.py":"", "shelf/loans.py": 'def borrow(request):\n    return "lent" if request == "lend_request" else "refused"\n',
-             "shelf/cli.py": 'from .loans import borrow\ndef main(request): return borrow(request)\n'}
-    head = '''from dataclasses import dataclass, replace
-from pathlib import Path
-from flowguard import FunctionResult, Invariant, Workflow
-from flowguard.explorer import Explorer
-from flowguard.map.facts import CodeFactsReport, Fact, load_anchor
-'''
-    desk = head + '''MODEL_ID = "desk"
-PARENT = "cli"
-IMPLEMENTED_BY = {"Serve":"shelf/cli.py:main"}
-HANDOFF = {"lending":{"answer":"answer"}}
-KEEPS = ("request","reply")
-OUTPUTS = {}
-@dataclass(frozen=True)
-class DeskState:
-    request: str = ""
-    answer: str = ""
-    reply: str = ""
-class Receive:
-    name="Receive"
-    reads=()
-    writes=("request","answer")
-    def apply(self, request, state):
-        answer = "lent" if request == "lend_request" else "refused"
-        new=replace(state,request=request,answer=answer)
-        return (FunctionResult(answer,new,label="received"),)
-class Reply:
-    name="Reply"
-    reads=("answer",)
-    writes=("reply",)
-    def __init__(self,bad=False): self.bad=bad
-    def apply(self, value, state):
-        reply="hidden" if self.bad else state.answer
-        return (FunctionResult(reply,replace(state,reply=reply),label="replied"),)
-RULE = Invariant("refused_borrow_is_told","a refusal reaches the caller",lambda s,t: s.answer!="refused" or s.reply in ("","refused"))
-def make(block):
-    return Explorer(Workflow((Receive(),block)),(DeskState(),),("lend_request","deny_request"),invariants=(RULE,),max_sequence_length=1,progress_steps=0)
-def build_explorer(): return make(Reply())
-def broken_variants(): return {"reply_hides_refusal":make(Reply(True))}
-def conformance():
-    main=load_anchor(IMPLEMENTED_BY["Serve"],root=Path.cwd())
-    return CodeFactsReport(tuple(Fact("native_"+request,main(request)==answer) for request,answer in (("lend_request","lent"),("deny_request","refused"))))
-'''
-    lending = head + '''MODEL_ID = "lending"
-PARENT = "desk"
-COMPONENTS = ["loans"]
-IMPLEMENTED_BY = {"Borrow":"shelf/loans.py:borrow"}
-READS_PARENT = ("request",)
-OUTPUTS = {"answer":("lent","refused")}
-@dataclass(frozen=True)
-class LendingState:
-    request: str = ""
-    answer: str = ""
-class Borrow:
-    name="Borrow"
-    reads=("request",)
-    writes=("request","answer")
-    def __init__(self,bad=False): self.bad=bad
-    def apply(self, request, state):
-        answer="lost" if self.bad else "lent" if request=="lend_request" else "refused"
-        return (FunctionResult(answer,replace(state,request=request,answer=answer),label="borrowed"),)
-RULE=Invariant("answer_allowed","the lending result is finite",lambda s,t:s.answer in ("","lent","refused"))
-def make(block):
-    return Explorer(Workflow((block,)),(LendingState(),),("lend_request","deny_request"),invariants=(RULE,),max_sequence_length=1,progress_steps=0)
-def build_explorer(): return make(Borrow())
-def broken_variants(): return {"lost_answer":make(Borrow(True))}
-def conformance():
-    borrow=load_anchor(IMPLEMENTED_BY["Borrow"],root=Path.cwd())
-    return CodeFactsReport(tuple(Fact("native_"+request,borrow(request)==answer) for request,answer in (("lend_request","lent"),("deny_request","refused"))))
-'''
+    root=Path(root);root.mkdir(parents=True,exist_ok=True)
+    source=next(parent.parent for parent in Path(__file__).resolve().parents if parent.name=='.flowguard')/'examples/shelf'
+    shutil.copytree(source,root,dirs_exist_ok=True,ignore=shutil.ignore_patterns('target','after','__pycache__','cache','.git','README.md'))
+    data=json.loads((root/'.flowguard/map.json').read_text())
+    desk=(root/'.flowguard/models/desk.py').read_text()
+    lending=(root/'.flowguard/models/lending.py').read_text()
+    files={'shelf/loans.py':(root/'shelf/loans.py').read_text()}
+    head='from dataclasses import dataclass, replace\nfrom pathlib import Path\nfrom flowguard import FunctionResult, Invariant, Workflow\nfrom flowguard.explorer import Explorer\nfrom flowguard.map.facts import CodeFactsReport, Fact, load_anchor\n'
     if case == "undeclared_write":
         desk=desk.replace('writes=("request","answer")','writes=("request",)')
     elif case == "undeclared_output":
         lending=lending.replace('OUTPUTS = {"answer":("lent","refused")}','OUTPUTS = {"answer":("lent",)}')
     elif case == "missing_receipt":
-        desk=desk.replace('FunctionResult(answer,new,label="received")','FunctionResult("ok",new,label="received")').replace('FunctionResult(reply,replace','FunctionResult("ok",replace')
+        desk=desk.replace('FunctionResult(event,replace(state,request=event.request))','FunctionResult(event.request,replace(state,request=event.request))').replace('FunctionResult(event.answer,replace(state,answer=event.answer),label=event.answer)','FunctionResult("ok",replace(state,answer="refused"),label="received")').replace('FunctionResult(reply,replace','FunctionResult("ok",replace')
     elif case == "wrong_receiving_field":
         desk=desk.replace('"answer":"answer"','"answer":"request"').replace('KEEPS = ("request","reply")','KEEPS = ("request","reply","answer")')
     elif case == "unreached_output":
@@ -189,11 +126,11 @@ def conformance():
     def apply(self,value,state):
         return (FunctionResult(value,replace(state,extra=EXTRA)),)
 '''.replace('EXTRA','not state.extra' if case=="domain_keeps" else '"computed"')
-        desk=desk.replace('RULE = Invariant',block+'RULE = Invariant').replace('Workflow((Receive(),block))','Workflow((Receive(),block,Compute()))')
+        desk=desk.replace('RULE = Invariant',block+'RULE = Invariant').replace('Workflow((TakeRequest(),Receive(),block))','Workflow((TakeRequest(),Receive(),block,Compute()))')
         if case=="domain_keeps":
             desk=desk.replace('max_sequence_length=1','max_sequence_length=2')
         else:
-            desk=desk.replace('OUTPUTS = {}','OUTPUTS = {"extra":("computed",)}')
+            desk += '\nOUTPUTS = {"extra":("computed",)}\n'
             files['shelf/consumer.py']='def consume(value): return value\n'
             files['.flowguard/models/consumer.py']=head+'''MODEL_ID="consumer"
 PARENT="cli"
@@ -224,21 +161,22 @@ def conformance(): return CodeFactsReport((Fact("native",load_anchor(IMPLEMENTED
         desk=desk.replace('"lending":{"answer":"answer"}','"lending":{"answer":"answer","request":"answer"}')
     elif case == "consumer_receipts":
         desk=desk.replace('"lending":{"answer":"answer"}', '"lending":{"answer":"answer"},"other":{"answer":"answer"}')
-        other=lending.replace('MODEL_ID = "lending"','MODEL_ID = "other"').replace('PARENT = "desk"','PARENT = "loans"').replace('shelf/loans.py:borrow','shelf/loans.py:borrow_other')
+        other=lending.replace('MODEL_ID = "lending"','MODEL_ID = "other"').replace('PARENT = "desk"','PARENT = "loans"').replace('shelf/loans.py:LoanService.borrow','shelf/loans.py:borrow_other')
+        files['shelf/loans.py']+='\ndef borrow_other(request): return request\n'
+        other=other.replace('\"GiveBack\": \"shelf/loans.py:LoanService.give_back\"', '\"GiveBack\": \"shelf/loans.py:give_back_other\"')
+        files['shelf/loans.py']+='\ndef give_back_other(request): return request\n'
         files['.flowguard/models/other.py']=other
-        files['shelf/loans.py']+='\ndef borrow_other(request): return borrow(request)\n'
     elif case == "no_child_output":
         lending=lending.replace('OUTPUTS = {"answer":("lent","refused")}','OUTPUTS = {}')
         desk=desk.replace('HANDOFF = {"lending":{"answer":"answer"}}','HANDOFF = {}').replace('KEEPS = ("request","reply")','KEEPS = ("request","reply","answer")')
-    files['tests/test_port.py'] = 'from shelf.loans import borrow\ndef test_borrow():\n    assert borrow("lend_request") == "lent"\n    assert borrow("deny_request") == "refused"\n'
+    files['tests/test_port.py'] = 'from shelf.loans import LoanService\ndef test_borrow():\n    service=LoanService()\n    service.members.join("ann")\n    service.catalog.add("book",1)\n    assert service.borrow("ann","book")=="lent"\n    assert service.borrow("missing","book")=="refused"\n'
     files['.flowguard/models/desk.py']=desk
     files['.flowguard/models/lending.py']=lending
     for path,text in files.items():
         target=root/path; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(text,encoding="utf-8")
-    cli_files=['shelf/cli.py']+(['shelf/consumer.py'] if case=="parent_output" else [])
-    data=dict(schema="flowguard.map.v1",project="ports",layers=["interface","engine"],components=[
-        dict(id="cli",layer="interface",summary="Serve a lending request",responsibilities=["serve the request"],files=cli_files,tests=["tests/test_port.py"],depends_on=["loans"],models=[],status="draft"),
-        dict(id="loans",layer="engine",summary="Lend or refuse",responsibilities=["lend a book"],files=["shelf/loans.py","shelf/__init__.py"],tests=["tests/test_port.py"],models=[],depends_on=[],status="draft")])
+    for component in data['components']:
+        if component['id']=='loans' and 'tests/test_port.py' not in component['tests']:component['tests'].append('tests/test_port.py')
+        if component['id']=='cli' and case=='parent_output':component['files'].append('shelf/consumer.py')
     write_json(root/'.flowguard/map.json',data)
     return data
 
