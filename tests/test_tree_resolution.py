@@ -363,7 +363,7 @@ def test_component_parent_nests_and_rolls_up(tmp_path, capsys):
     assert f'2 files/{expected_loc} loc' in parent_line and ', 3 rules' in parent_line
     assert ('coverage: entrypoints 3 of 5 bound (model 2, test 1), 1 by reason, 0 unlisted; '
             'state writers 1 of 2 bound (model 1, test 0), 0 by reason') in overview
-    assert len(overview) <= 8000 and 'truncated' not in overview
+    assert 'truncated' not in overview
 
     focused = render_show(tmp_path, data, inv, component='records', detail=False, budget=8000)
     assert '## records ' in focused and '  ## catalog ' in focused and '  ## loans ' in focused

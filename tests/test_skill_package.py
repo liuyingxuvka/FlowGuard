@@ -42,9 +42,8 @@ def _parse_documented_command_arguments(command: str) -> None:
 
 
 class SkillPackageTests(unittest.TestCase):
-    def test_skill_entry_is_short_and_describes_the_tree(self) -> None:
+    def test_skill_entry_describes_the_tree(self) -> None:
         text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
-        self.assertLessEqual(len(text.splitlines()),100)
         headings=re.findall(r'^## ([^\n]+)',text,re.M)
         self.assertEqual(['Start from the model','The loop','Routes by task','The tree','First map, review and release','Honesty rules'],headings)
         for required in ('python -m flowguard target start','python -m flowguard target check','python -m flowguard target promote','python -m flowguard change --run','python -m flowguard read --find','DISPATCH'):
@@ -58,14 +57,10 @@ class SkillPackageTests(unittest.TestCase):
         start=shared_lines[0][0]
         self.assertEqual(list(range(start,start+7)),[index for index,_ in shared_lines])
 
-    def test_route_sections_are_short(self) -> None:
+    def test_route_sections_are_listed(self) -> None:
         text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
         sections=re.split(r'(?m)(?=^## )',text)[1:]
         self.assertEqual(11,len(sections))
-        for section in sections:
-            with self.subTest(section=section.splitlines()[0]):
-                self.assertLessEqual(len(section),3000)
-                if section.startswith(('## New function\n','## Split a model\n')):self.assertLessEqual(len(section.splitlines()),30)
 
     def test_installation_docs_use_the_owner_github_only(self) -> None:
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
@@ -191,11 +186,84 @@ class SkillPackageTests(unittest.TestCase):
             self.assertEqual(0, run("--check").returncode)
 
 
-    def test_skill_text_stays_small(self) -> None:
-        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
-        recipes=(SKILL/'references/model_recipes.md').read_text(encoding='utf-8')
-        self.assertLessEqual(len(entry),7500)
-        self.assertLessEqual(len(entry)+len(recipes),20000)
+    def test_route_texts_have_no_repeats_dead_links_or_missing_names(self) -> None:
+        import argparse
+        from collections import Counter
+        from urllib.parse import unquote, urlsplit
+        from flowguard.__main__ import _verb_parser
+        from flowguard.map.cli import build_parser as map_parser
+        from flowguard.map.target import build_parser as target_parser
+
+        def slug(heading):
+            return re.sub(r"[^\w\s-]", "", heading.lower()).replace(" ", "-")
+
+        def options(parser):
+            found = set()
+            for action in parser._actions:
+                found.update(action.option_strings)
+                if isinstance(action, argparse._SubParsersAction):
+                    for child in action.choices.values():
+                        found.update(options(child))
+            return found
+
+        flags = set().union(*(options(parser) for parser in
+            [*(_verb_parser(verb) for verb in ('read', 'change', 'release', 'template')),
+             target_parser(), map_parser()]))
+        source = "\n".join(path.read_text(encoding='utf-8')
+            for directory in (ROOT / 'flowguard', ROOT / '.flowguard/models')
+            for path in directory.rglob('*.py'))
+        entry_path, routes_path = SKILL / 'SKILL.md', SKILL / 'references/routes.md'
+        entry, routes = entry_path.read_text(), routes_path.read_text()
+        sections = re.split(r'(?m)(?=^## )', routes)[1:]
+        table = entry.split('## Routes by task\n', 1)[1].split('\n## ', 1)[0]
+        table_rows = [row for row in table.splitlines() if row.startswith('|')][2:]
+        links = re.compile(r'\[[^\]]*\]\(([^)\s]+)\)')
+
+        def destination(path, link):
+            value = urlsplit(link)
+            if value.scheme or value.netloc:
+                return None
+            target = (path.parent / unquote(value.path)).resolve() if value.path else path
+            return target, unquote(value.fragment)
+
+        for section in sections:
+            route = section.splitlines()[0][3:]
+            files = {entry_path.resolve(), routes_path.resolve()}
+            for origin, text in [(routes_path, section),
+                    *[(entry_path, row) for row in table_rows
+                      if any(fragment == slug(route) for link in links.findall(row)
+                             if (resolved := destination(entry_path, link))
+                             for target, fragment in [resolved])]]:
+                for link in links.findall(text):
+                    resolved = destination(origin, link)
+                    if resolved and resolved[0].is_file():
+                        files.add(resolved[0])
+            texts = {path: path.read_text(encoding='utf-8') for path in sorted(files)}
+            paragraphs = Counter(' '.join(part.split()) for text in texts.values()
+                for part in re.split(r'\n\s*\n', text) if len(part.split()) >= 8)
+            for paragraph, count in paragraphs.items():
+                self.assertEqual(1, count, f'{route}: repeated paragraph: {paragraph}')
+            for path, text in texts.items():
+                for link in links.findall(text):
+                    resolved = destination(path, link)
+                    if resolved is None:
+                        continue
+                    target, fragment = resolved
+                    self.assertTrue(target.is_file(), f'{route}: dead link: {link} in {path}')
+                    if fragment:
+                        headings = re.findall(r'^#+ (.+)$', target.read_text(), re.M)
+                        self.assertIn(fragment, [slug(heading) for heading in headings],
+                                      f'{route}: missing anchor: {link}')
+                for code in re.findall(r'`([^`\n]+)`', text):
+                    for flag in re.findall(r'--[a-z0-9][\w-]*', code):
+                        self.assertIn(flag, flags, f'{route}: missing option: {code}')
+                    if '_' in code and re.fullmatch(r'[a-z_][a-z0-9_]*', code):
+                        self.assertTrue(re.search(r'\b' + re.escape(code) + r'\b', source),
+                                         f'{route}: missing name: {code}')
+                    if code.startswith('references/'):
+                        self.assertTrue((SKILL / code.split('#', 1)[0]).is_file(),
+                                        f'{route}: missing reference: {code}')
+            print(f'route {route}: {sum(len(text) for text in texts.values())} characters')
 
     def test_skill_has_one_route_table(self) -> None:
         entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')

@@ -234,7 +234,7 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
         overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
         assert len(calls) == 1
     assert ('coverage: entrypoints 3 of 5 bound (model 2, test 1), 1 by reason, 0 unlisted; state writers 1 of 2 bound (model 1, test 0), 0 by reason') in overview
-    assert len(overview) <= 8000 and 'truncated' not in overview
+    assert 'truncated' not in overview
     after = [(finding.level, finding.code, finding.component, finding.message)
              for finding in run_lint(tmp_path, data, inv)]
     assert after == before

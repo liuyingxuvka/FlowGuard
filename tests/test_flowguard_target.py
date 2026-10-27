@@ -208,7 +208,7 @@ def test_read_target_shows_holds_facets_from_target_bytes_and_keeps_current_read
                      + '\nraise AssertionError("a read imported the target model")\n', encoding="utf-8")
     current_bytes = (root / ".flowguard/models/lending.py").read_bytes()
     code, output, errors = _static_target_read(root, capsys, monkeypatch, "read", "--target")
-    assert code == 0 and not errors and len(output.rstrip("\n")) <= 8000, (output, errors)
+    assert code == 0 and not errors and 'truncated' not in output, (output, errors)
     for text in ("## ~ loans", "~ model lending", "rules + no_idle_copy_while_held",
                  "known-bad + return_ignores_holds", "code + Hold -> shelf/loans.py:LoanService.hold",
                  "tests + no_idle_copy_while_held -> tests/test_loans.py:test_hold_gets_returned_copy",

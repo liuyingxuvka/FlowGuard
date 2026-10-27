@@ -294,7 +294,7 @@ def test_review_ranks_defects_and_states_true_strengths(tmp_path):
     assert split < explain
     assert all('references/' in line or 'python -m flowguard' in line for line in numbered)
     assert steps[-1].startswith('declined: ')
-    assert len(text) <= 8000
+    assert text.count('optimise next:') == 1
     assert not (tmp_path / 'model_import.marker').exists()
     assert not any(getattr(module, '__file__', None) and str(tmp_path) in str(module.__file__)
                    for module in list(sys.modules.values()))

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Check skill routes for duplicated paragraphs, broken links and missing command names; report text size without rejecting useful content.
+
 ## v0.70.13 - 2026-10-27 - Model ports and a smaller workflow
 
 - Check finite values passed between models, exclusive stages, dispatch branches and shared consumers; name the parent or consumer that must handle a changed port.
