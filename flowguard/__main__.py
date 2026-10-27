@@ -30,35 +30,84 @@ def _budget(text: str) -> int:
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
     if verb == "target":
         from .map.target import build_parser
+
         return build_parser()
     p = argparse.ArgumentParser(prog=f"python -m flowguard {verb}")
     if verb == "template":
         p.add_argument("name", nargs="?", help="template name (see --list)")
         p.add_argument("--list", action="store_true", help="list template names")
-        p.add_argument("--write", metavar="DIR", help="write the files under DIR instead of printing them")
+        p.add_argument(
+            "--write", metavar="DIR", help="write the files under DIR instead of printing them"
+        )
         p.add_argument("--force", action="store_true", help="overwrite existing files when writing")
         return p
     p.add_argument("--root", default=".")
     if verb == "read":
         group = p.add_mutually_exclusive_group()
         group.add_argument("--component", help="show one component in detail")
-        group.add_argument("--field", metavar="NAME", help="field writers, readers, rules and tests")
-        group.add_argument("--find", nargs="+", metavar="WORD", help="words, a location path[:symbol], or a test path[::test]")
-        p.add_argument("--mermaid", action="store_true", help="export the model tree (incompatible with --find)")
-        p.add_argument("--target", action="store_true", help="show changes made by the target (incompatible with --find)")
-        p.add_argument("--review", action="store_true",
-                       help="rank architecture strengths, defects and next steps (incompatible with the other views)")
-        p.add_argument("--budget", type=_budget, default=8000, metavar="N",
-                       help="max characters printed (default 8000, like map show --budget; at least 200)")
+        group.add_argument(
+            "--field", metavar="NAME", help="field writers, readers, rules and tests"
+        )
+        group.add_argument(
+            "--find",
+            nargs="+",
+            metavar="WORD",
+            help="words, a location path[:symbol], or a test path[::test]",
+        )
+        p.add_argument(
+            "--mermaid",
+            action="store_true",
+            help="export the model tree (incompatible with --find)",
+        )
+        p.add_argument(
+            "--target",
+            action="store_true",
+            help="show changes made by the target (incompatible with --find)",
+        )
+        p.add_argument(
+            "--review",
+            action="store_true",
+            help="rank architecture strengths, defects and next steps (incompatible with the other views)",
+        )
+        p.add_argument(
+            "--budget",
+            type=_budget,
+            default=8000,
+            metavar="N",
+            help="max characters printed (default 8000, like map show --budget; at least 200)",
+        )
     elif verb == "change":
-        p.add_argument("--broad", action="store_true", help="include all ancestors and review models")
+        p.add_argument(
+            "--broad", action="store_true", help="include all ancestors and review models"
+        )
+        p.add_argument(
+            "--verbose",
+            action="store_true",
+            help="print the exact selected test commands and nodes",
+        )
         p.add_argument("--base", default="HEAD", help="git revision to diff against (default HEAD)")
         p.add_argument("files", nargs="*", help="changed files (default: from git)")
-        p.add_argument("--run", action="store_true", help="then run the selected tests and models, one RAN line each")
+        p.add_argument(
+            "--run",
+            action="store_true",
+            help="then run the selected tests and models, one RAN line each",
+        )
     elif verb == "release":
-        p.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
-        p.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
-                       help="after normal checks pass, run the whole suite in 1–32 parallel shards")
+        p.add_argument(
+            "--jobs",
+            type=int,
+            choices=range(1, 33),
+            default=DEFAULT_JOBS,
+            metavar="N",
+            help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))",
+        )
+        p.add_argument(
+            "--shards",
+            type=int,
+            choices=range(1, 33),
+            metavar="N",
+            help="after normal checks pass, run the whole suite in 1–32 parallel shards",
+        )
     return p
 
 

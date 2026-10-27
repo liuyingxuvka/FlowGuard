@@ -237,27 +237,45 @@ class Finding:
         return f"{self.level.upper():5} {self.code:24} {self.component or '-':26} {self.message}"
 
 
-def print_findings(findings: list[Finding], name: str, *, as_json: bool, limit: int) -> dict[str, int]:
+def print_findings(
+    findings: list[Finding], name: str, *, as_json: bool, limit: int
+) -> dict[str, int]:
     order = {lvl: i for i, lvl in enumerate(LEVELS)}
     findings.sort(key=lambda f: (order[f.level], f.code, f.component, f.message))
     counts = {lvl: sum(f.level == lvl for f in findings) for lvl in LEVELS}
     if as_json:
-        print(json.dumps({"command": name, "counts": counts, "findings": [asdict(f) for f in findings]}, indent=1))
+        print(
+            json.dumps(
+                {"command": name, "counts": counts, "findings": [asdict(f) for f in findings]},
+                indent=1,
+            )
+        )
     else:
+        covered = 0
+        visible = []
+        for finding in findings:
+            if finding.level == "info" and " (accepted debt: " in finding.message:
+                covered += 1
+            else:
+                visible.append(finding)
         rows = []
         grouped = {}
-        for finding in findings:
+        for finding in visible:
             if finding.level == "info":
                 grouped.setdefault(finding.code, []).append(finding)
         emitted = set()
-        for finding in findings:
+        for finding in visible:
             group = grouped.get(finding.code, []) if finding.level == "info" else []
             if len(group) >= 3:
                 if finding.code in emitted:
                     continue
                 emitted.add(finding.code)
                 ids = ", ".join(item.component or "-" for item in group[:8])
-                more = f" (+{len(group)-8} more; python -m flowguard map lint --json)" if len(group) > 8 else ""
+                more = (
+                    f" (+{len(group)-8} more; python -m flowguard map lint --json)"
+                    if len(group) > 8
+                    else ""
+                )
                 rows.append(f"INFO {finding.code} x{len(group)}: {ids}{more}")
             else:
                 rows.append(finding.line())
@@ -266,5 +284,11 @@ def print_findings(findings: list[Finding], name: str, *, as_json: bool, limit: 
         hidden = len(rows) - min(len(rows), limit)
         if hidden:
             print(f"... {hidden} more (use --limit N or --json)")
-        print(f"{name}: {counts['error']} error(s), {counts['warn']} warning(s), {counts['info']} info")
+        if covered:
+            print(
+                f"({covered} finding(s) covered by accepted debts not shown: python -m flowguard map lint --debts)"
+            )
+        print(
+            f"{name}: {counts['error']} error(s), {counts['warn']} warning(s), {counts['info']} info"
+        )
     return counts

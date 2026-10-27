@@ -183,22 +183,34 @@ def test_change_run_runs_the_selected_checks(tmp_path):
     root = _change_run_project(tmp_path)
     (root / "app.py").write_text("def run():\n    return 1 == 1\n", encoding="utf-8")
     plain = _flowguard(root, "change")
-    assert "run: python -m pytest" in plain.stdout and "RAN" not in plain.stdout, plain.stdout + plain.stderr
+    assert (
+        "run: python -m flowguard change --run (pytest:" in plain.stdout
+        and "RAN" not in plain.stdout
+    ), (plain.stdout + plain.stderr)
     ran = _flowguard(root, "change", "--run")
     assert ran.returncode == plain.returncode == 0, ran.stdout + ran.stderr
-    assert ran.stdout.startswith(plain.stdout.rstrip("\n")) and any(line.startswith("RAN PASS ") and "s python -m pytest" in line for line in ran.stdout.splitlines()), ran.stdout
-    (root / "tests/test_app.py").write_text("from app import run\n\ndef test_run():\n    assert not run()\n", encoding="utf-8")
+    assert ran.stdout.startswith(plain.stdout.rstrip("\n")) and any(
+        line.startswith("RAN PASS ") and "s python -m pytest" in line
+        for line in ran.stdout.splitlines()
+    ), ran.stdout
+    (root / "tests/test_app.py").write_text(
+        "from app import run\n\ndef test_run():\n    assert not run()\n", encoding="utf-8"
+    )
     failed = _flowguard(root, "change", "--run")
-    assert failed.returncode == 1 and any(line.startswith("RAN FAIL (exit 1) ") and "s python -m pytest" in line for line in failed.stdout.splitlines()), failed.stdout + failed.stderr
-    assert "  " in failed.stdout.split("RAN FAIL", 1)[1]           # the failing output's tail is indented
+    assert failed.returncode == 1 and any(
+        line.startswith("RAN FAIL (exit 1) ") and "s python -m pytest" in line
+        for line in failed.stdout.splitlines()
+    ), (failed.stdout + failed.stderr)
+    assert "  " in failed.stdout.split("RAN FAIL", 1)[1]  # the failing output's tail is indented
 
-    from contextlib import redirect_stdout,redirect_stderr
+    from contextlib import redirect_stdout, redirect_stderr
     from io import StringIO
     from flowguard.__main__ import main
-    direct=StringIO()
-    with redirect_stdout(direct),redirect_stderr(direct):
-        code=main(['change','--root',str(root),'--run'])
-    assert code==1 and 'RAN FAIL (exit 1)' in direct.getvalue(),direct.getvalue()
+
+    direct = StringIO()
+    with redirect_stdout(direct), redirect_stderr(direct):
+        code = main(["change", "--root", str(root), "--run"])
+    assert code == 1 and "RAN FAIL (exit 1)" in direct.getvalue(), direct.getvalue()
 
 
 def test_change_run_skips_when_check_has_errors(tmp_path):

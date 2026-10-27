@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: accepted debts are counted once and remain listed by map lint --debts; change --verbose shows exact test commands while normal change gives a counted summary.
+
 - Check the model scheduler with one real fixture and report models above the timing advice in one counted line per advice value.
 
 - Projects using FlowGuard: changing the stored-fingerprint formula without updating its format now produces a warning; ordinary version bumps remain neutral.

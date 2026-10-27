@@ -248,48 +248,99 @@ def cmd_change(root: Path, a) -> int:
     formula_path = "flowguard/map/mapfile.py"
     if formula_path in changes and formula_path in inv.source:
         from .common import Finding, read_source
-        previous = subprocess.run(["git", "show", a.base + ":" + formula_path], cwd=root, capture_output=True)
+
+        previous = subprocess.run(
+            ["git", "show", a.base + ":" + formula_path], cwd=root, capture_output=True
+        )
         if previous.returncode == 0:
-            message = format_guard(previous.stdout.decode("utf-8"), read_source(root / formula_path))
+            message = format_guard(
+                previous.stdout.decode("utf-8"), read_source(root / formula_path)
+            )
             if message:
-                findings.append(Finding("warn", "fingerprint_format_unchanged", "map-file", message.removeprefix("fingerprint_format_unchanged: ")))
+                findings.append(
+                    Finding(
+                        "warn",
+                        "fingerprint_format_unchanged",
+                        "map-file",
+                        message.removeprefix("fingerprint_format_unchanged: "),
+                    )
+                )
     imp = compute_impact(root, data, inv, changes, base=a.base, broad=getattr(a, "broad", False))
     architecture = scoped_architecture_findings(root, data, inv, imp.direct)
     target = _active_target(root, data)
     findings = moving_to_target(findings, root, data, target)
     architecture = moving_to_target(architecture, root, data, target)
-    unmapped = [path for path in imp.unmapped if target is None or not target_owns_file(path, target)]
+    unmapped = [
+        path for path in imp.unmapped if target is None or not target_owns_file(path, target)
+    ]
     # Structural violations appear once, as ARCH lines with import paths.
-    arch_rules = {(f.code, f.component) for f in architecture if f.code in {"layer_violation", "dependency_cycle"}}
-    shown = [f for f in findings if (f.level != "info" or f.component in imp.direct or f.message.startswith("moving to target: "))
-             and (f.code, f.component) not in arch_rules]
+    arch_rules = {
+        (f.code, f.component)
+        for f in architecture
+        if f.code in {"layer_violation", "dependency_cycle"}
+    }
+    shown = [
+        f
+        for f in findings
+        if (
+            f.level != "info"
+            or f.component in imp.direct
+            or f.message.startswith("moving to target: ")
+        )
+        and (f.code, f.component) not in arch_rules
+    ]
     counts = {level: sum(f.level == level for f in findings) for level in ("error", "warn", "info")}
     print_findings(shown, "check", as_json=False, limit=80)
     if len(shown) < len(findings):
-        print(f"({len(findings) - len(shown)} more finding(s) not repeated here: python -m flowguard map check)")
+        print(
+            f"({len(findings) - len(shown)} more finding(s) not repeated here: python -m flowguard map check)"
+        )
     print()
-    print(render_impact(replace(imp, unmapped=unmapped), moving_models=target_model_paths(root, data, target))
-          if target is not None else render_impact(imp))
+    print(
+        render_impact(
+            imp,
+            moving_models=target_model_paths(root, data, target) if target is not None else None,
+            verbose=getattr(a, "verbose", False),
+            unmapped=unmapped,
+        )
+    )
     if (root / TARGET_RELDIR).exists():
         if target is None:
-            print("TARGET: .flowguard/target/map.json is invalid; run: python -m flowguard target check")
+            print(
+                "TARGET: .flowguard/target/map.json is invalid; run: python -m flowguard target check"
+            )
         else:
             report = check_target(root, models=False)
-            print(f'TARGET "{report.goal}": {len(report.errors)} design error(s), {len(report.todos)} to-do in the map; '
-                  'run: python -m flowguard target check (it also runs the target models)')
+            print(
+                f'TARGET "{report.goal}": {len(report.errors)} design error(s), {len(report.todos)} to-do in the map; '
+                "run: python -m flowguard target check (it also runs the target models)"
+            )
     for finding in architecture:
         print(f"ARCH {finding.level.upper()} {finding.code} {finding.component}: {finding.message}")
     affected = set(imp.direct)
     debts = sum(debt.get("component") in affected for debt in data.get("accepted_debts", []))
-    print(f"debts: {debts} accepted for the changed components (python -m flowguard map lint --debts)")
-    code = int(bool(counts["error"] or imp.blocked or unmapped or any(f.level == "error" for f in architecture)))
+    print(
+        f"debts: {debts} accepted for the changed components (python -m flowguard map lint --debts)"
+    )
+    code = int(
+        bool(
+            counts["error"]
+            or imp.blocked
+            or unmapped
+            or any(f.level == "error" for f in architecture)
+        )
+    )
     if not getattr(a, "run", False):
         return code
     if code:
         print("RAN: skipped (fix the errors above first)")
         return code
-    result = _run_selected(root, run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None))
+    result = _run_selected(
+        root,
+        run_commands(imp, moving_models=target_model_paths(root, data, target) if target else None),
+    )
     from .mapfile import is_stale
+
     stale = sorted(c["id"] for c in data["components"] if is_stale(root, c, inv))
     if stale:
         print("next: python -m flowguard map confirm " + " ".join(stale))

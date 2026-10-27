@@ -81,7 +81,7 @@
       "layer": "interface",
       "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
       "responsibilities": [
-        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface.",
+        "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
         "show owners, closest owners, target changes, Mermaid and reviews in read",
         "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
         "run release with the system root counted and optional whole-suite shards",
@@ -135,7 +135,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e01b8ceb9b52baf93be1c36cbc0599a81a1fa59321173ffddf2d95132d177d85"
+      "fingerprint": "sha256:47864b83548cd38190c106a691bd3ec38330e589451f9e79f7b59cadcc388ecb"
     },
     {
       "id": "public-api",
@@ -241,7 +241,7 @@
     {
       "id": "map-inventory",
       "layer": "map",
-      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests.",
+      "summary": "Inventory source and imports; derive per-function signatures, bodies, class shape and module binding digests. Text findings count accepted debts once while JSON retains each finding.",
       "responsibilities": [
         "inventory files, symbols and imports, including literal import calls Replace inventory caches atomically; shared source decoding can use an already-read exact byte snapshot.",
         "handle a closed output pipe quietly for every command line entry",
@@ -278,7 +278,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:ebe89fa00d0ceac89189ed630f119cb144b2a917208bf2bf6d8f29a5b85fbbc3"
+      "fingerprint": "sha256:5d53ab9f911e9c5d1e885f9276ac7b3b80019ef4d27b168f9d9c9e31d49c1fe1"
     },
     {
       "id": "map-file",
@@ -764,7 +764,7 @@
     {
       "id": "map-impact",
       "layer": "map",
-      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests.",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests. Present selected pytest work as counted summaries, with exact commands on explicit verbose requests.",
       "responsibilities": [
         "select the checks a change needs and list its unexplained functions",
         "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
@@ -797,7 +797,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:d6f0c52a78297e668beb318e3fac696fe35b47e76f6a9f79ecd3edca34e9091b"
+      "fingerprint": "sha256:ea9f5095401dce6c68931e7b7565515a5de5b25afa10bc1c8509b46b59c74038"
     }
   ],
   "flows": [
@@ -882,6 +882,11 @@
       "code": "large_file",
       "component": "map-target",
       "reason": "Target check now tracks source identity and runs own bound tests. Keep these changes under the existing owner while round-10 target features are completed; extract the pure identity/change helpers during FG-515 before publication."
+    },
+    {
+      "code": "large_file",
+      "component": "map-impact",
+      "reason": "Counted command summaries add presentation work to the current owner. FG-515 will extract cohesive impact presentation helpers before publication, after the round-10 selection changes settle; retain the existing 800 LOC diagnostic."
     }
   ],
   "fingerprint_format": 2,
