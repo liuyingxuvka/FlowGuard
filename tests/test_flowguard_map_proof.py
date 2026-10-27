@@ -6,8 +6,8 @@ import pytest
 from pathlib import Path
 
 
+
 from _fg_helpers import (
-    target__target_life_cycle_fixture_helpers,
     proof_FIXED as FIXED,
     proof_MODEL as MODEL,
     proof_MODEL_SOURCE as MODEL_SOURCE,
@@ -19,6 +19,7 @@ from _fg_helpers import (
     proof__size_project as _size_project,
     proof__watch_native_module as _watch_native_module,
     proof_models as models,
+    target__target_life_cycle_fixture_helpers,
     proof_write as write,
 )
 
@@ -58,10 +59,19 @@ def test_strict_check_and_verify_gate(shop, capsys):
 def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
     import json
     from flowguard.map import cli
+
     data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
-    extra = dict(data["components"][0], id="billing", files=["billing/*.py"], entrypoints=[], tests=[], models=[],
-                 state=[], side_effects=[])
-    data["components"].append(extra)                                             # same responsibility twice
+    extra = dict(
+        data["components"][0],
+        id="billing",
+        files=["billing/*.py"],
+        entrypoints=[],
+        tests=[],
+        models=[],
+        state=[],
+        side_effects=[],
+    )
+    data["components"].append(extra)  # same responsibility twice
     write(shop, "billing/pay.py", "def pay():\n    return 1\n")
     (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
     assert cli.main(["--root", str(shop), "lint"]) == 1
@@ -69,7 +79,11 @@ def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
     (shop / ".flowguard/map.json").write_text(json.dumps(data), encoding="utf-8")
     capsys.readouterr()
     assert cli.main(["--root", str(shop), "lint"]) == 0
-    assert "accepted debt: billing split planned for Q3" in capsys.readouterr().out
+    output = capsys.readouterr().out
+    assert "accepted debt: billing split planned for Q3" not in output
+    assert "finding(s) covered by accepted debts not shown" in output
+    assert cli.main(["--root", str(shop), "lint", "--debts"]) == 0
+    assert "billing split planned for Q3" in capsys.readouterr().out
 
 
 @pytest.mark.parametrize("invalid", ["unsupported", "duplicate", "missing"])
