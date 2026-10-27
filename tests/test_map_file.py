@@ -26,6 +26,7 @@ from flowguard.map.tree import build_tree
 import pytest, os, json
 
 
+
 from _fg_helpers import (
     flowguard_map_contracts421_CONTRACT as CONTRACT,
     view__component as _component,
@@ -570,6 +571,7 @@ def test_locate_unowned_function_says_no_model_owns(tmp_path):
     code, text = helper["observe"](tmp_path, "unowned")
     assert code == 0 and text.splitlines() == [
         "no model owns api.py:unowned (component app); reached by: none",
+        "models of app: deeper ((no purpose line: add a module docstring)), owner ((no purpose line: add a module docstring))",
         "next: add the rule to a model of app; a separate aspect gets its own model there (references/routes.md#New function)",
     ]
 
