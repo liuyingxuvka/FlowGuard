@@ -3,6 +3,12 @@ import pytest
 from pathlib import Path
 
 
+from _fg_helpers import (
+    target__target_life_cycle_fixture_helpers,
+    map_impact_of as impact_of,
+    map_write as write,
+)
+
 @pytest.mark.parametrize('changed,expected,tests', [
     ('child.py', {'child', 'parent'}, ['tests/test_child.py']),
     ('_shared.py', {'child', 'parent'}, []),
@@ -12,7 +18,6 @@ from pathlib import Path
     ('_unused.py', set(), []),
 ])
 def test_change_selects_importers_and_ancestors_of_a_changed_model(impact_project, changed, expected, tests):
-    from _fg_helpers import map_write as write, map_impact_of as impact_of
     root, data = impact_project
     for mid in ('parent', 'child', 'grand'):
         content = (f'MODEL_ID = {mid!r}\nIMPLEMENTED_BY = {{"Probe": "tests/test_{mid}.py:test_safe"}}\ndef conformance(): pass\n'
@@ -36,3 +41,24 @@ def test_change_selects_importers_and_ancestors_of_a_changed_model(impact_projec
     direct = impact_of(root, data, [path])
     if changed in {"child.py", "_shared.py", "_leaf.py"}:
         assert {"child", "parent"} <= set(direct.model_ids)
+
+
+
+
+def test_new_parent_value_names_slicing_sibling(tmp_path):
+    from flowguard.map.port import slicing_siblings
+    from flowguard.map.mapfile import load_map, ignore_patterns
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.targetfile import build_target_view, load_target
+    from flowguard.map.tree import build_tree
+    factory = target__target_life_cycle_fixture_helpers("_target_fixture")["slicing_project"]
+    for reads in (False, True):
+        root = factory(tmp_path / str(reads), reads_field=reads)
+        data = load_map(root)
+        inv = build_inventory(root, ignore_patterns(data), write_cache=False)
+        before = build_tree(root, data, inv)
+        view = build_target_view(root, data, load_target(root))
+        tree = build_tree(root, view.data, inv, view=view)
+        ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
+        actual = slicing_siblings("check", before.nodes["check"].contract["port"], ports["check"], tree, ports)
+        assert actual == ([] if reads else [("publish", "gate", "flag", ("held",))])

@@ -70,11 +70,13 @@ CASES = (
          "current", "error"),
     Case("port_parent_missing", "a target child output changes without its parent", True, "target", "error"),
     Case("port_consumer_unhandled", "a target producer output changes; a short-form consumer outside the target never receives the new value", True, "target", "error", port="escalated"),
+    Case("child_start_new_value", "a sibling starts at a newly received value it does not read", True, "target", "warn"),
 )
 
 
 # Each known-bad variant routes one case to the wrong bucket.
 DEFECTS = {
+    "sibling_start_blocks": ("child_start_new_value", "error"),
     "consumer_failure_is_old": ("port_consumer_unhandled", "warn"),
     "parent_missing_is_todo": ("port_parent_missing", "todo"),
     "unplanned_error_downgraded": ("unplanned_current", "info"),
@@ -153,8 +155,8 @@ INVARIANTS = (
           "map check --strict downgraded a current error"),
     _rule("old_findings_do_not_block", {"old_finding_in_unchanged_model"}, lambda state: state.bucket == "warn",
           "an old finding of a model the target does not change blocked the target"),
-    _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale"}, lambda state: state.bucket == "warn",
-          "an untested rule or a stale debt was not a warning"),
+    _rule("warnings_never_block", {"unbound_invariant", "debt_made_stale", "child_start_new_value"}, lambda state: state.bucket == "warn",
+          "an untested rule, a stale debt or a sibling that starts from a new parent value is a warning, never a block"),
 )
 
 
@@ -168,7 +170,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy'), 'consumer_failure_is_old':_explorer('consumer_failure_is_old')}
+    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy'), 'consumer_failure_is_old':_explorer('consumer_failure_is_old'), 'sibling_start_blocks':_explorer('sibling_start_blocks')}
 
 
 OLD_CONTRACT = '''from pathlib import Path
@@ -264,6 +266,11 @@ def _current_case(root, case):
 def observe_case(case):
     """One fresh bounded native filesystem/proof case, no fixture verdict reuse."""
     with TemporaryDirectory(prefix="target-findings-") as directory:
+        if case.name == "child_start_new_value":
+            from _target_fixture import slicing_project
+            root = slicing_project(Path(directory))
+            report = native.check_target(root)
+            return _unique_bucket(report, code="child_start_new_value"), repr(report)
         if case.name == "port_consumer_unhandled":
             from _target_fixture import make_port_project, call_target
             root = Path(directory)

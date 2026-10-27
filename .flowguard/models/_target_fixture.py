@@ -199,3 +199,98 @@ def probe_port_model(root, model):
             if name=='shelf' or name.startswith('shelf.') or name.startswith('_flowguard_model_') and name.rsplit('_',1)[-1] in ('desk','lending','consumer'):
                 sys.modules.pop(name,None)
         sys.modules.update(saved)
+
+def slicing_project(root, reads_field=False):
+    """An actual new parent value, with a sibling projecting only the old step."""
+    make_project(root)
+    source = root / 'shelf/loans.py'
+    source.write_text(source.read_text() + '\ndef gate(value): return value\ndef check(value): return value\ndef publish(value): return value\n')
+    head = '''from dataclasses import dataclass
+from pathlib import Path
+from flowguard import FunctionResult, Invariant, Workflow
+from flowguard.explorer import Explorer
+from flowguard.map.facts import CodeFactsReport, Fact, load_anchor
+'''
+    gate = head + '''MODEL_ID = "gate"
+PARENT = "loans"
+IMPLEMENTED_BY = {"Gate": "shelf/loans.py:gate"}
+HANDOFF = {"check": {"flag": "flag"}, "publish": {"step": "step"}}
+KEEPS = ("step",)
+VALUES = ("ok", "bad")
+@dataclass(frozen=True)
+class State:
+    step: str = "start"
+    flag: str = ""
+class Gate:
+    name = "Gate"
+    reads = ("step",)
+    writes = ("step", "flag")
+    def __init__(self, wrong=False): self.wrong = wrong
+    def apply(self, event, state):
+        if event in ("start", "ready"):
+            return (FunctionResult(event, State(event, state.flag)),)
+        return (FunctionResult(event, State("lost" if self.wrong else "ready", event)),)
+RULE = Invariant("gate_step", "a gate retains one received decision", lambda s,t: s.step in ("start", "ready") and s.flag in ("",) + VALUES)
+def make(wrong=False): return Explorer(Workflow((Gate(wrong),)), (State(),), VALUES + ("ready",), invariants=(RULE,), max_sequence_length=1, progress_steps=0)
+def build_explorer(): return make()
+def broken_variants(): return {"lost_step": make(True)}
+def conformance(): return CodeFactsReport((Fact("native_gate", load_anchor(IMPLEMENTED_BY["Gate"], root=Path.cwd())("ok") == "ok"),))
+'''
+    check = head + '''MODEL_ID = "check"
+PARENT = "gate"
+IMPLEMENTED_BY = {"Check": "shelf/loans.py:check"}
+OUTPUTS = {"flag": ("ok", "bad")}
+VALUES = ("ok", "bad")
+@dataclass(frozen=True)
+class State:
+    flag: str = ""
+class Check:
+    name = "Check"
+    reads = ()
+    writes = ("flag",)
+    def __init__(self, wrong=False): self.wrong = wrong
+    def apply(self, event, state): return (FunctionResult(event, State("lost" if self.wrong else event)),)
+RULE = Invariant("decision_received", "a decision is one declared flag", lambda s,t: s.flag in ("",) + VALUES)
+def make(wrong=False): return Explorer(Workflow((Check(wrong),)), (State(),), VALUES, invariants=(RULE,), max_sequence_length=1, progress_steps=0)
+def build_explorer(): return make()
+def broken_variants(): return {"lost_flag": make(True)}
+def conformance(): return CodeFactsReport((Fact("native_check", load_anchor(IMPLEMENTED_BY["Check"], root=Path.cwd())("ok") == "ok"),))
+'''
+    publish = head + '''from flowguard.kit import reachable_states
+from gate import build_explorer as parent_explorer
+MODEL_ID = "publish"
+PARENT = "gate"
+IMPLEMENTED_BY = {"Publish": "shelf/loans.py:publish"}
+OUTPUTS = {"step": ("ready",)}
+@dataclass(frozen=True)
+class State:
+    step: str = "start"
+def project_parent_state(state):
+    return State(state.step)
+class Publish:
+    name = "Publish"
+    reads = ("step",)
+    writes = ("step",)
+    def __init__(self, wrong=False): self.wrong = wrong
+    def apply(self, event, state): return (FunctionResult("ready", State("lost" if self.wrong else "ready")),)
+RULE = Invariant("step_retained", "publication retains a gate step", lambda s,t: s.step in ("start", "ready"))
+def make(wrong=False): return Explorer(Workflow((Publish(wrong),)), reachable_states(parent_explorer(), project_parent_state), ("publish",), invariants=(RULE,), max_sequence_length=1, progress_steps=0)
+def build_explorer(): return make()
+def broken_variants(): return {"lost_step": make(True)}
+def conformance(): return CodeFactsReport((Fact("native_publish", load_anchor(IMPLEMENTED_BY["Publish"], root=Path.cwd())(1) == 1),))
+'''
+    if reads_field:
+        publish = publish.replace('    return State(state.step)', '    if state.flag == "held":\n        return None\n    return State(state.step)')
+    for name, text in (('gate', gate), ('check', check), ('publish', publish)):
+        (root / '.flowguard/models' / (name + '.py')).write_text(text)
+    path = root / '.flowguard/map.json'
+    data = json.loads(path.read_text())
+    data['components'][0]['models'].append('.flowguard/models/gate.py')
+    write_json(path, data)
+    assert call_target(root, 'start', 'a received decision gains held') == 0
+    assert call_target(root, 'add', 'check') == 0
+    assert call_target(root, 'add', 'gate') == 0
+    for name in ('check', 'gate'):
+        path = root / '.flowguard/target/models' / (name + '.py')
+        path.write_text(path.read_text().replace('("ok", "bad")', '("ok", "bad", "held")'))
+    return root

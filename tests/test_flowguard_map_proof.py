@@ -1,8 +1,26 @@
 """Tests grouped by their model or native component."""
 from __future__ import annotations
-import pytest,os,json
+import json
+import os
+import pytest
 from pathlib import Path
 
+
+from _fg_helpers import (
+    target__target_life_cycle_fixture_helpers,
+    proof_FIXED as FIXED,
+    proof_MODEL as MODEL,
+    proof_MODEL_SOURCE as MODEL_SOURCE,
+    proof__MINIMAL_MODEL as _MINIMAL_MODEL,
+    proof__anchor_watch_helpers as _anchor_watch_helpers,
+    proof__check_codes as _check_codes,
+    proof__edit_model as _edit_model,
+    proof__native_model as _native_model,
+    proof__size_project as _size_project,
+    proof__watch_native_module as _watch_native_module,
+    proof_models as models,
+    proof_write as write,
+)
 
 def test_check_verifies_model_code_anchors(shop, capsys):
     from flowguard.map import cli
@@ -27,7 +45,6 @@ def test_impact_lists_models_of_affected_components(shop, capsys):
 
 def test_strict_check_and_verify_gate(shop, capsys):
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write, proof_FIXED as FIXED
     assert cli.main(["--root", str(shop), "check", "--strict"]) == 1          # still draft
     cli.main(["--root", str(shop), "confirm", "all"])
     write(shop, "shop/orders.py", FIXED)                                         # now stale
@@ -41,7 +58,6 @@ def test_strict_check_and_verify_gate(shop, capsys):
 def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
     import json
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write
     data = json.loads((shop / ".flowguard/map.json").read_text(encoding="utf-8"))
     extra = dict(data["components"][0], id="billing", files=["billing/*.py"], entrypoints=[], tests=[], models=[],
                  state=[], side_effects=[])
@@ -60,7 +76,6 @@ def test_accepted_debt_downgrades_a_lint_error(shop, capsys):
 def test_registry_errors_block_check_and_model_execution(shop, capsys, invalid):
     import json
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write, proof_models as models, proof_MODEL_SOURCE as MODEL_SOURCE
     data = json.loads((shop / ".flowguard/map.json").read_text())
     if invalid == "unsupported":
         rel = ".flowguard/models/nested/model.py"
@@ -84,7 +99,6 @@ def test_registry_errors_block_check_and_model_execution(shop, capsys, invalid):
                                   "def conformance():\n    return True\n",
                                   "def broken_variants():\n    return {}\n"])
 def test_defined_proof_hooks_cannot_silently_do_nothing(tmp_path, hook):
-    from _fg_helpers import proof__MINIMAL_MODEL as _MINIMAL_MODEL, proof_write as write
     from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL + hook)
     result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
@@ -92,7 +106,6 @@ def test_defined_proof_hooks_cannot_silently_do_nothing(tmp_path, hook):
 
 
 def test_abstract_model_fails(tmp_path):
-    from _fg_helpers import proof__MINIMAL_MODEL as _MINIMAL_MODEL, proof_write as write, proof__native_model as _native_model
     from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/minimal.py", _MINIMAL_MODEL)
     result = run_model(tmp_path, tmp_path / ".flowguard/models/minimal.py")
@@ -112,7 +125,6 @@ def test_no_models_output_is_explicitly_not_model_proof(tmp_path):
 
 def test_unanchored_python_syntax_error_is_a_check_error(shop, capsys):
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write
     write(shop, "shop/unanchored.py", "def broken(:\n")
     assert cli.main(["--root", str(shop), "check"]) == 1
     output = capsys.readouterr().out
@@ -120,7 +132,6 @@ def test_unanchored_python_syntax_error_is_a_check_error(shop, capsys):
 
 
 def test_non_explorer_proves_nothing(tmp_path):
-    from _fg_helpers import proof_write as write
     from flowguard.map.proof import run_model
     write(tmp_path, ".flowguard/models/fake.py", "from types import SimpleNamespace\nMODEL_ID='fake'\ndef build_explorer():\n    return SimpleNamespace(explore=lambda: SimpleNamespace(ok=True))\n")
     result = run_model(tmp_path, tmp_path / ".flowguard/models/fake.py")
@@ -128,7 +139,6 @@ def test_non_explorer_proves_nothing(tmp_path):
 
 
 def test_no_broken_variants_is_an_error(tmp_path):
-    from _fg_helpers import proof__MINIMAL_MODEL as _MINIMAL_MODEL, proof_write as write
     from flowguard.map.proof import run_model
     source = _MINIMAL_MODEL.replace("def broken_variants()", "def unused_variants()")
     write(tmp_path, ".flowguard/models/minimal.py", source)
@@ -174,7 +184,6 @@ def test_model_timeout_cleans_its_spawned_child(tmp_path, kind):
 def test_verify_without_user_models_runs_the_builtin_system(tmp_path, capsys):
     import json
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write
     write(tmp_path, ".flowguard/map.json", json.dumps({
         "schema": "flowguard.map.v1", "project": "empty", "components": []}))
     assert cli.main(["--root", str(tmp_path), "verify"]) == 0
@@ -186,7 +195,6 @@ def test_verify_without_user_models_runs_the_builtin_system(tmp_path, capsys):
 
 def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, monkeypatch):
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write, proof__edit_model as _edit_model, proof_FIXED as FIXED, proof_models as models
     from flowguard.map.proof import ModelResult
 
     write(shop, 'shop/orders.py', FIXED)
@@ -223,7 +231,6 @@ def test_release_fails_when_an_invariant_has_no_breaking_variant(shop, capsys, m
 def test_builtin_system_model(shop, capsys, monkeypatch, mode, expected):
     import json
     from flowguard.map import cli
-    from _fg_helpers import proof_write as write, proof_FIXED as FIXED, proof_models as models, proof_MODEL_SOURCE as MODEL_SOURCE
     write(shop, "shop/orders.py", FIXED)
     write(shop, "shop/api.py", "from shop.orders import OrderService\ndef handle():\n    return OrderService()\n")
     data_path = shop / ".flowguard/map.json"
@@ -288,7 +295,6 @@ def test_system_variants_only_skip_positive_accepted_debt_findings(monkeypatch):
 
 
 def test_bound_tests_without_pytest_are_an_environment_error(shop, monkeypatch):
-    from _fg_helpers import proof_write as write, proof_FIXED as FIXED, proof_MODEL_SOURCE as MODEL_SOURCE
     from flowguard.map import proof
 
     write(shop, "shop/orders.py", FIXED)
@@ -348,7 +354,6 @@ def test_model_result_name_defaults_and_bounded_display(rule_count, bad_count, e
     ("[", "malformed"),
 ])
 def test_bound_parameter_selection_preserves_each_item_guard(shop, capsys, suffix, problem):
-    from _fg_helpers import proof_MODEL as MODEL, proof_write as write, proof__check_codes as _check_codes, proof_FIXED as FIXED, proof_models as models
     write(shop, "shop/orders.py", FIXED)
     write(shop, "tests/test_orders.py", "import pytest\n"
           "@pytest.mark.parametrize('hit', [True, False], ids=['hit', 'miss'])\n"
@@ -396,7 +401,6 @@ def test_anchor_file_read_is_consulted(tmp_path):
 
 
 def test_test_call_watch_is_per_item(tmp_path):
-    from _fg_helpers import proof__watch_native_module as _watch_native_module
     from flowguard.map.facts import AnchorWatch
     module = _watch_native_module(tmp_path)
     watches = [AnchorWatch(tmp_path, ["native_calls.py:ping"], test_call=True) for _ in range(3)]
@@ -410,7 +414,6 @@ def test_test_call_watch_is_per_item(tmp_path):
 
 
 def test_shadowing_copy_names_the_imported_file(tmp_path, monkeypatch):
-    from _fg_helpers import proof__anchor_watch_helpers as _anchor_watch_helpers
     from contextlib import chdir
     import importlib.util
     import sys
@@ -439,7 +442,6 @@ def test_shadowing_copy_names_the_imported_file(tmp_path, monkeypatch):
 
 
 def test_monitoring_slots_busy_falls_back_and_preserves_other_tools(tmp_path):
-    from _fg_helpers import proof__watch_native_module as _watch_native_module
     import sys
     from flowguard.map.facts import AnchorWatch
     previous_profile = sys.getprofile()
@@ -522,7 +524,6 @@ def test_process_model_passes_with_its_debt_and_goes_stale_once_anchored(tmp_pat
 
 
 def test_invariant_untested_only_for_models_with_tests(shop):
-    from _fg_helpers import proof_MODEL as MODEL
     from flowguard.map.proof import run_model_in_process
     path = shop / MODEL
     source = path.read_text()
@@ -534,7 +535,6 @@ def test_invariant_untested_only_for_models_with_tests(shop):
 def test_nine_rule_model_warns_and_a_debt_closes_it(tmp_path):
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
-    from _fg_helpers import proof__size_project as _size_project
     from flowguard.map.lint import run_lint,split_recipe
     data=_size_project(tmp_path,rules=9)
     inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
@@ -551,7 +551,6 @@ def test_thirteen_rule_model_fails_map_check_and_no_debt_closes_it(tmp_path):
     import json
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
-    from _fg_helpers import proof__size_project as _size_project
     from flowguard.map.check import run_check
     from flowguard.map.lint import run_lint
     data=_size_project(tmp_path,rules=13)
@@ -569,7 +568,6 @@ def test_thirteen_rule_model_fails_map_check_and_no_debt_closes_it(tmp_path):
 def test_unreadable_rule_count_reports_nothing(tmp_path):
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
-    from _fg_helpers import proof__size_project as _size_project
     from flowguard.map.lint import model_size_findings
     data=_size_project(tmp_path,rules=13)
     path=tmp_path/'.flowguard/models/sized.py'
@@ -578,3 +576,30 @@ def test_unreadable_rule_count_reports_nothing(tmp_path):
     path.write_text(source)
     inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
     assert not model_size_findings(tmp_path,data,inv)
+
+
+
+
+def test_child_start_hits_counts_new_value_starts(tmp_path, monkeypatch):
+    from flowguard.map.proof import child_start_hits
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.targetfile import load_target, build_target_view
+    import flowguard.kit as kit
+    root = target__target_life_cycle_fixture_helpers("_target_fixture")["slicing_project"](tmp_path)
+    view = build_target_view(root, load_map(root), load_target(root))
+    calls = []
+    actual = kit.reachable_states
+
+    def reachable(*args, **kwargs):
+        calls.append(True)
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(kit, "reachable_states", reachable)
+    assert child_start_hits(root, view, ".flowguard/models/gate.py", ".flowguard/models/publish.py", "flag", ("held",)) == (1, 5, "held")
+    assert len(calls) == 1
+    from flowguard.map import target
+    report = target.check_target(root)
+    findings = [finding for finding in report.warnings if finding.code == "child_start_new_value"]
+    assert len(findings) == 1 and findings[0].node == "model publish"
+    assert "flag='held' (1 of 5 reachable)" in findings[0].message
+    assert not report.errors and not report.todos

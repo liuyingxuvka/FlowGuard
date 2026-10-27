@@ -376,6 +376,30 @@ def _anchor_verdict(result: ModelResult, root: Path, contract: dict, watch: Anch
                                    "execution not verified")
 
 
+def child_start_hits(root, view, parent_logical, child_logical, field, values):
+    """Count new-value starts; a batch of siblings shares one fresh parent exploration.
+
+    A single child returns (hits, total, smallest value). An internal sibling batch
+    returns those tuples keyed by logical child path; no states or verdicts persist.
+    """
+    from flowguard.kit import reachable_states
+
+    batch = isinstance(child_logical, (list, tuple))
+    children = list(child_logical) if batch else [child_logical]
+    with model_namespace(view):
+        parent = _load(root, root / parent_logical, view=view)
+        sys.modules[Path(parent_logical).stem] = parent
+        states = reachable_states(parent.build_explorer())
+        result = {}
+        for logical in children:
+            child = _load(root, root / logical, view=view)
+            hits = [state for state in states if getattr(state, field) in values
+                    and child.project_parent_state(state) is not None]
+            value = min((getattr(state, field) for state in hits), key=str) if hits else None
+            result[logical] = len(hits), len(states), value
+    return result if batch else result[child_logical]
+
+
 def _child_start_check(root: Path, path: Path, contract: dict, module, design, result: ModelResult, *, view=None) -> None:
     """Warn about the actual model-parent port, without lending its calls to the child proof."""
     if "project_parent_state" not in contract["functions"]:

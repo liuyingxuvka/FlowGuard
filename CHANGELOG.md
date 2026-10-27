@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: when a child adds a received parent value, target check warns about siblings that start from those states without reading the changed field.
+
 - Projects using FlowGuard: after code changes, target check names open or closed gaps and runs the target models' own bound tests; a missing anchor no longer claims conformance ran.
 
 - Projects using FlowGuard: a changed output that an escalated consumer never receives is an error; target promotion refuses it instead of treating it as an old finding.

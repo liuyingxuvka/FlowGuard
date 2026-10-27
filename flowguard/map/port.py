@@ -220,6 +220,34 @@ def port_delta(old, new):
                 keeps=set(old.keeps) != set(new.keeps), dispatch=old.dispatch != new.dispatch)
 
 
+def slicing_siblings(model_id, before, after, tree, ports):
+    """Siblings whose parent projection ignores a newly received output value."""
+    node = tree.nodes.get(model_id)
+    if node is None or node.parent_kind != "model":
+        return []
+    parent = node.parent
+    received = (ports[parent].handoff or {}).get(model_id, {})
+    previous = before.outputs or {} if before is not None else {}
+    result = []
+    for key, values in sorted((after.outputs or {}).items()):
+        added = set(values) - set(previous.get(key, ()))
+        mapping = received.get(key)
+        if not added or mapping is None:
+            continue
+        if isinstance(mapping, str):
+            field, mapped = mapping, added
+        else:
+            field, value_map = mapping
+            mapped = {value_map[value] for value in added if value in value_map and value_map[value] is not None}
+        if field is None or not mapped:
+            continue
+        for sibling in tree.children(parent, "model"):
+            if (sibling.id != model_id and "project_parent_state" in sibling.contract.get("functions", ())
+                    and field not in ports[sibling.id].reads_parent):
+                result.append((sibling.id, parent, field, tuple(sorted(mapped, key=str))))
+    return result
+
+
 def _receipts(port, ports):
     result = {}
     for producer, keys in (port.handoff or {}).items():

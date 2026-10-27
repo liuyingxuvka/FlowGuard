@@ -318,6 +318,7 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
         add('todos','test '+finding.component,finding.code,finding.message)
     ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
     escalated = {}
+    slicing = {}
     for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):
         for receiver, reason in chosen:
             if receiver not in target_ids:
@@ -330,6 +331,12 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             callers = code_callers(discover_inventory(root, inv, data=view.data, write_cache=False), tree.nodes[mid], scope)
             line = line.replace('(no model consumer)', '(no model consumer; code callers: ' + (', '.join(callers) or '-') + ')')
         report.port_lines.append(line)
+        if models:
+            from .port import slicing_siblings
+            for child, parent, field, values in slicing_siblings(mid, before, after, tree, ports):
+                if parent in target_ids:
+                    group = slicing.setdefault((mid, parent, field), {})
+                    group.setdefault(child, set()).update(values)
         if before is None or port_delta(before, after)['out']:
             for parent, reason in escalation_set(mid, tree, ports, state=False):
                 if reason == "parent" and parent not in target_ids:
@@ -340,7 +347,27 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
                         f"the target changes the port of {mid} ({description}) but not its parent {parent}; python -m flowguard target add {parent}, then make {parent} receive '{value}' (a CHECK step that takes it; with a full-form HANDOFF entry, also map it there)")
     if not models:
         return report
-    from .proof import run_models
+    from .proof import child_start_hits, run_models
+
+    for (producer, parent, field), children in slicing.items():
+        logical = {child: tree.nodes[child].path for child in children}
+        values = set().union(*children.values())
+        try:
+            observations = child_start_hits(root, view, tree.nodes[parent].path, list(logical.values()), field, values)
+            for child, path in logical.items():
+                hits, total, value = observations[path]
+                if hits:
+                    clause = ("its project_parent_state reads the parent state through a helper" if "?" in ports[child].reads_parent
+                              else f"its project_parent_state does not read {field}")
+                    add("warnings", "model " + child, "child_start_new_value",
+                        f"{child} starts from {parent} states with {field}='{value}' ({hits} of {total} reachable), "
+                        f"a value this target adds ({producer} out +{value}); {clause}; "
+                        f"python -m flowguard target add {child}, then make it handle {field}='{value}' or exclude those states")
+        except Exception as exc:
+            detail = str(exc).splitlines()[0] if str(exc).splitlines() else type(exc).__name__
+            for child in children:
+                add("warnings", "model " + child, "child_start_new_value",
+                    f"not checked: parent {parent} could not be explored ({detail})")
 
     selected = _selected_models(root, current, target, view, inv, tree)
     if impact is not None:

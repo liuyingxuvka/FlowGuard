@@ -289,7 +289,7 @@
         "resolve component parents in one layer without loops",
         "merge the target overlay, validate its remove intents and compare it with current",
         "compute component fingerprints that detect stale descriptions",
-        "register contract models and build the model tree with its nesting errors",
+        "register contract models, build the model tree and locate siblings whose parent projection ignores a newly received value",
         "count import-like strings and injected attribute calls as dependency evidence",
         "Reuse component file matches, test calls and read-only model trees for identical content within one command, returning fresh mutable call/file collections."
       ],
@@ -332,7 +332,7 @@
         ".flowguard/models/release_neutral_fingerprint.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:01c2f9c2b9b257fba5fc515aebc579ed804b3b2c9bbd27fcd99d811865c468a1"
+      "fingerprint": "sha256:00c9ce56555b2fc42fb2ee17b876c0c205bbcb7b9b08802fa397d0ed991f84f5"
     },
     {
       "id": "map-discover",
@@ -381,7 +381,7 @@
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
-        "warn about earlier findings, stale debts and untested rules without blocking",
+        "warn about earlier findings, stale debts, untested rules and siblings that project newly received parent values without reading their field",
         "include function-selected models and tests in the single promotion check"
       ],
       "files": [
@@ -422,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:7d5898703515c45288c4203afc30a0853ec77c3df93ba4c0fe2d03dce347db3e"
+      "fingerprint": "sha256:047a7aad9c5637276178ff1113c36d231703ac303eba7f0de16a16ea9d30c0f2"
     },
     {
       "id": "map-proof",
@@ -431,7 +431,7 @@
       "responsibilities": [
         "run every model, system included, with known-bad and conformance checks Run independent model subprocesses with explicit concurrency and retain registry order, with system last.",
         "fail a model whose rule no known-bad variant breaks",
-        "read code facts for conformance and fail missing or unconsulted anchors",
+        "read code facts for conformance and fail missing or unconsulted anchors; count child projections from one fresh parent exploration per sibling group",
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
         "show passing proofs on one line, with details for failures and separate bound-test timings",
@@ -472,7 +472,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:2693b0218fccd015523e6d945b250dd5f83b0c7d6fd6e8dd69bc78744893792a"
+      "fingerprint": "sha256:3f2588c06b02920b09e23df30c7bfcd057bb7b4a6b0573e63d1a7f74c81ffcb6"
     },
     {
       "id": "engine-explore",
@@ -903,7 +903,7 @@
     ".flowguard/models/model_runs.py": "f4d5628a65264e65dff7be8c2ed10b6b0f36e285198e4958e7d035b07a265321",
     ".flowguard/models/model_scope.py": "6873fdbcf88483aaa8b382c3d1b6a7732992e1a383ff72bee480e61d78577420",
     ".flowguard/models/port_checks.py": "52bb56591517c7c70f47e5c47a3890053bf42e3c967ff121bb0f391dd7fff0db",
-    ".flowguard/models/port_escalation.py": "1d123981ea7d4aa097e58fa163e3ff2e41106672288924a47aa628ad0175b58a",
+    ".flowguard/models/port_escalation.py": "197e994b733b1c3f4326794025bf617ba63b7131490845f7c89d6414ea1de010",
     ".flowguard/models/private_use.py": "f22003c12bd2afdaa01c7f6ced7e6fbf79335274eb6d3ce88b2622b0cd628ed0",
     ".flowguard/models/read_command.py": "069c7123f45411a5b1a73702e35a7c3f6f557cca5f8e51f7dcf8d55134964a27",
     ".flowguard/models/read_component.py": "d520d79f24da4a9884ba26650d66acf3cd01c306e94bccad380d4e8271e83cde",
@@ -921,7 +921,7 @@
     ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
     ".flowguard/models/shard_suite.py": "f5209b660a2b888995a08ae9e23f1cbde67ccc4afe331bc19571a49a30f89de6",
     ".flowguard/models/target_add.py": "305827cd4ed5ec941c16986a39ab9ea89961934acdde630368f9ab843e7eb985",
-    ".flowguard/models/target_findings.py": "5d2119cb7f56b8dace90e1d3acb38cee77b71b833c26eb620a3378d60bddd9d1",
+    ".flowguard/models/target_findings.py": "c7010ed1a43e9aadd62dc7297662da20eaf477d276751226a9f1ccbfeb002038",
     ".flowguard/models/target_life_cycle.py": "c3636d569be1c1d1ef54698626a0767e23170d52975baa2e99d0c6d0da27965d",
     ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
     ".flowguard/models/test_binding.py": "f4e731d9e867ff3e45de3bbf1b8abf8f8b35d170444830b251e6ad345e18dfae",
