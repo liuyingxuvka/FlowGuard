@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-507: a fingerprint formula change without a format change is warned",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
