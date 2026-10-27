@@ -346,7 +346,8 @@
         "report no entrypoint or effect from words inside strings"
       ],
       "files": [
-        "flowguard/map/discover.py"
+        "flowguard/map/discover.py",
+        "flowguard/map/discovery_syntax.py"
       ],
       "entrypoints": [
         "flowguard/map/discover.py:console_scripts",
@@ -366,7 +367,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:e403b5e31a0feca71271643fb84c7543659740ff8162a264380414cee9407009"
+      "fingerprint": "sha256:2e0e98731bd1162c32c9d8e94782b443b26871857d1f23800caffd332019893c"
     },
     {
       "id": "map-target",
@@ -377,9 +378,8 @@
         "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
-        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm",
+        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
         "warn about earlier findings, stale debts and untested rules without blocking",
-        "list what to re-read after promotion and which files to delete",
         "include function-selected models and tests in the single promotion check"
       ],
       "files": [
@@ -420,7 +420,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:135d486e2cfc5922ed06a3b7ed46cbdec4f2d1c1429cfdc83b9a120ab5521bac"
+      "fingerprint": "sha256:40546ab321d575f3ea56825abf75861ccee7bd30572bb7a717c17b3ed3c9868e"
     },
     {
       "id": "map-proof",
@@ -734,7 +734,8 @@
         "flowguard/map/views.py",
         "flowguard/map/facets.py",
         "flowguard/map/review.py",
-        "flowguard/map/digest.py"
+        "flowguard/map/digest.py",
+        "flowguard/map/view_format.py"
       ],
       "entrypoints": [],
       "state": [],
@@ -755,7 +756,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:39cd9016ee7158d741d39880189101b5671bc278da061e16cd99e64a43bd6414"
+      "fingerprint": "sha256:f3ed315c84a22daff05fcde0a5881b4f68681c6c1cd4419c504e67022c20b9f2"
     },
     {
       "id": "map-impact",
@@ -767,7 +768,8 @@
         "select bound and directly calling test functions, with conservative whole-file fallback"
       ],
       "files": [
-        "flowguard/map/impact.py"
+        "flowguard/map/impact.py",
+        "flowguard/map/impact_history.py"
       ],
       "entrypoints": [
         "flowguard/map/impact.py:compute_impact"
@@ -792,7 +794,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:0571efc4ce0c7684e31c372589ca7eca29632694a15e9aab54c244c919a85f0d"
+      "fingerprint": "sha256:d6f0c52a78297e668beb318e3fac696fe35b47e76f6a9f79ecd3edca34e9091b"
     }
   ],
   "flows": [
@@ -859,11 +861,6 @@
   ],
   "accepted_debts": [
     {
-      "code": "large_component",
-      "component": "examples",
-      "reason": "teaching examples and the problem corpus; their size does not affect the package"
-    },
-    {
       "code": "high_fan_out",
       "component": "cli",
       "reason": "the command entry dispatches each command family to the component that owns it"
@@ -885,7 +882,7 @@
     ".flowguard/models/change_command.py": "5f722bfbeccbc434e13e33802633badc298511c6cff2b8653d16a220b6ac50ea",
     ".flowguard/models/change_selection.py": "3b8f119d844968b4dc4ecfc86744ec04df99913d30a239efbe32bb2cacdab2d8",
     ".flowguard/models/component_pointer.py": "db984b440ac1cd23d5d5c1cdbf852f7f6b8ad0b7116b90e1c6db31db8fd9ee80",
-    ".flowguard/models/discovery.py": "1bdfd5aab92fe4c70e6f91f9cfa3dbc70a9fe526413fff55f35de97a00e02d90",
+    ".flowguard/models/discovery.py": "cf2e6bf88d5800459e1c3a18924f04ba7614c65437598cdbfdf8ec89b0a910b8",
     ".flowguard/models/edge_coverage.py": "894a796fa99220f79dd5f7446f7bbe8ffdce99739812f994d725118e0cbc9f50",
     ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
     ".flowguard/models/function_selection.py": "e39080175834cb207c0459b92a393981655260f3ebfa4d3322c38c7310a6476d",

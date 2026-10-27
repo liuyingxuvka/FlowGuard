@@ -533,7 +533,7 @@ def promote_target(root: Path) -> int:
             drafts = sorted(c["id"] for c in target.data.get("components", []))
             reread = _re_read(root, current, target, view)
         # The same full proof and TESTED_BY path as `target check`, exactly once.
-        from .impact import changed_files, compute_impact, _test_groups
+        from .impact import changed_files, compute_impact, test_groups
         inventory = build_inventory(root, ignore_patterns(current), write_cache=False, import_roots=tuple(current.get('import_roots', ())))
         impact = compute_impact(root, current, inventory, changed_files(root, 'HEAD', data=current, inv=inventory), base='HEAD')
         report = check_target(root, tests=True, impact=impact)
@@ -553,7 +553,7 @@ def promote_target(root: Path) -> int:
                             if found:
                                 suffix = '['+symbol.split('[',1)[1] if '[' in symbol else ''
                                 tested.add(path+'::'+found.replace('.', '::')+suffix)
-            groups, missing = _test_groups(impact)
+            groups, missing = test_groups(impact)
             import shlex
             for command, nodes in groups.items():
                 remaining = []

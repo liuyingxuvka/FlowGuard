@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep map formatting, discovery syntax and history evidence in focused modules; expose test grouping to its promotion consumer.
+
 - Group tests by their final model subtrees and native components, preserving every test and its binding.
 
 - The skill now teaches twelve concepts, one edit loop and a task route table; focused model recipes cover ports, staged and dispatch models, with separate node-kind guidance.
