@@ -337,7 +337,7 @@
     {
       "id": "map-discover",
       "layer": "map",
-      "summary": "Discover call graphs, literal roles and lexical functions; own reachability and shared model selection for body edits.",
+      "summary": "Discover call graphs, literal roles and lexical functions; own reachability and shared model selection for body edits. Select flow models for direct step edits and helpers on the static path between steps; keep unrelated branches outside that selection.",
       "responsibilities": [
         "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
         "resolve attribute calls through assigned or injected classes",
@@ -369,7 +369,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:2e0e98731bd1162c32c9d8e94782b443b26871857d1f23800caffd332019893c"
+      "fingerprint": "sha256:6ae8574c037dec54056b41307375f83c735918cfb6f9ef6869d4bb97e4f507df"
     },
     {
       "id": "map-target",

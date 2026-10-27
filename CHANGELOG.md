@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: a helper edit selects a flow model only when the helper lies on the static path between its steps; direct callers remain selected.
+
 - Projects using FlowGuard: removed literals name code sites first; moved values stay quiet and settings-only map edits select only newly mapped tests.
 
 - Projects using FlowGuard: read and map show print complete views without --budget; every component and model is named, with child models folded into their parent.
