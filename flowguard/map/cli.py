@@ -568,7 +568,7 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         choices=range(1, 33),
         metavar="N",
-        help="after normal checks pass, run the whole suite in 1–32 parallel shards",
+        help="after normal checks pass, run the whole suite in 1-32 parallel shards",
     )
     for command in sub.choices.values():  # --root is accepted before or after the command
         command.add_argument(

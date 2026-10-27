@@ -7,6 +7,7 @@ from pathlib import Path
 
 
 
+
 from _fg_helpers import (
     target_SHELF_AFTER as SHELF_AFTER,
     target_SHELF_BASE as SHELF_BASE,
@@ -838,3 +839,14 @@ def test_jobs_default_is_min_four_cpus(tmp_path, monkeypatch, capsys):
     results = proof.run_models(root, [], jobs=1)
     assert results and all(result.status == 'pass' for result in results)
     capsys.readouterr()
+
+
+def test_help_lists_every_option_of_every_verb(capsys):
+    from flowguard.__main__ import main, _verb_parser
+
+    assert main(["--help"]) == 0
+    text = capsys.readouterr().out
+    for verb in ("read", "change", "release", "template", "target"):
+        for action in _verb_parser(verb)._actions:
+            for option in action.option_strings:
+                assert option in text, (verb, option)

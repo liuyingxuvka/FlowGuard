@@ -1,12 +1,4 @@
-"""python -m flowguard: daily verbs on top of the FlowGuard map.
-
-  read      [--root R] [--component ID | --find WORDS... | --review] understand the software (business data read-only; disposable caches may update)
-  change    [--root R] [--base REF] [--run] [FILES...]       after editing: check the map, list (and --run) what to run
-  release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
-  map       <command> ...                                    every map/proof command (python -m flowguard map --help)
-  template  [--list | NAME [--write DIR] [--force]]          starter files for the node kinds
-  target    start "<goal>" | add <id> | check | promote | drop   plan a change as a target model, check the code against it, promote it
-"""
+"""python -m flowguard --help: daily verbs on top of the FlowGuard map."""
 
 from __future__ import annotations
 
@@ -21,6 +13,16 @@ from .map.common import quiet_broken_pipe, safe_stdio
 
 
 
+
+
+VERB_PURPOSE = {
+    'read': 'Understand the components, models and their relationships.',
+    'change': 'Check an edit and run the affected tests and models.',
+    'release': 'Run the release gate, optionally with whole-suite shards.',
+    'template': 'Write starter model and test files.',
+    'target': 'Plan, check and promote a behaviour or structure change.',
+    'map': 'Use every map and proof command.',
+}
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
@@ -95,7 +97,7 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
             type=int,
             choices=range(1, 33),
             metavar="N",
-            help="after normal checks pass, run the whole suite in 1–32 parallel shards",
+            help="after normal checks pass, run the whole suite in 1-32 parallel shards",
         )
     return p
 
@@ -174,6 +176,15 @@ def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args or args[0] in {"-h", "--help", "help"}:
         print(__doc__.strip())
+        for verb, purpose in VERB_PURPOSE.items():
+            print()
+            print(verb + ": " + purpose)
+            if verb == "map":
+                print(
+                    "usage: python -m flowguard map <command> ... (python -m flowguard map --help)"
+                )
+            else:
+                print(_verb_parser(verb).format_usage().strip())
         return 0
     if args[0] in {"--version", "version"}:
         print(__version__)
