@@ -7,6 +7,13 @@ from flowguard.map.tree import build_tree
 from flowguard.map.testtree import test_functions as functions,resolve_test_anchor,test_positions as positions,test_units as units,test_file_findings as findings
 
 
+
+from _fg_helpers import (
+    map_fill,
+    map_run,
+    map_write,
+)
+
 def fixture(root):
     base=Path(__file__).parents[1]/'.flowguard'
     path=base/'target/models/_testtree_fixture.py'
@@ -139,10 +146,11 @@ def test_one_to_one_test_file_splits_with_its_model(tmp_path):
 
 def test_component_tests_line_counts_here_and_below(tmp_path):
     from flowguard.map.views import render_show
-    data,nodeids,inv,tree=fixture(tmp_path)
-    text=render_show(tmp_path,data,inv,component='core',detail=False,budget=20000)
-    assert 'functions here and below (bound ' in text and 'bindable:' not in text
-    assert 'tests/test_tree.py (3 bound)' in text
+
+    data, nodeids, inv, tree = fixture(tmp_path)
+    text = render_show(tmp_path, data, inv, component="core", detail=False)
+    assert "functions here and below (bound " in text and "bindable:" not in text
+    assert "tests/test_tree.py (3 bound)" in text
 
 
 def test_large_test_seconds_is_validated():
@@ -158,25 +166,33 @@ def test_each_test_file_parsed_once_per_command(project, monkeypatch, capsys):
     from collections import Counter
     from flowguard.__main__ import main
     from flowguard.map import testtree
-    from _fg_helpers import map_run, map_fill, map_write
-    map_write(project, 'tests/test_api.py', 'def test_api():\n    assert 3 == 3\n')
-    map_run(project, 'scan')
+
+    map_write(project, "tests/test_api.py", "def test_api():\n    assert 3 == 3\n")
+    map_run(project, "scan")
     map_fill(project)
-    texts = {(project / path).read_text() for path in
-             ('tests/test_api.py', 'tests/test_orders.py', 'tests/test_storage.py')}
+    texts = {
+        (project / path).read_text()
+        for path in ("tests/test_api.py", "tests/test_orders.py", "tests/test_storage.py")
+    }
     original = ast.parse
     counts = Counter()
+
     def counted(source, *args, **kwargs):
-        text = source.decode('utf-8') if isinstance(source, bytes) else source
+        text = source.decode("utf-8") if isinstance(source, bytes) else source
         if isinstance(text, str) and text in texts:
             counts[text] += 1
         return original(source, *args, **kwargs)
-    monkeypatch.setattr(ast, 'parse', counted)
-    for command in (['read'], ['read', '--find', 'shop/storage.py:save'],
-                    ['read', '--component', 'storage'], ['change']):
-        if hasattr(testtree, '_syntax'):
+
+    monkeypatch.setattr(ast, "parse", counted)
+    for command in (
+        ["read"],
+        ["read", "--find", "shop/storage.py:save"],
+        ["read", "--component", "storage"],
+        ["change"],
+    ):
+        if hasattr(testtree, "_syntax"):
             testtree._syntax.cache_clear()
         counts.clear()
-        assert main([*command, '--root', str(project)]) == 0
+        assert main([*command, "--root", str(project)]) == 0
         capsys.readouterr()
         assert counts and all(count <= 1 for count in counts.values()), (command, counts)

@@ -6,6 +6,7 @@ import pytest
 from pathlib import Path
 
 
+
 from _fg_helpers import (
     target_SHELF_AFTER as SHELF_AFTER,
     target_SHELF_BASE as SHELF_BASE,
@@ -21,8 +22,8 @@ from _fg_helpers import (
     target__run_models_with_results as _run_models_with_results,
     target__target_with as _target_with,
     target__write_map as _write_map,
-    target_shelf_project,
     target_shelf_project as shelf_project,
+    target_shelf_project,
 )
 
 @pytest.mark.parametrize("contents", ["{broken json", json.dumps({
@@ -128,13 +129,18 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     current_map = (root / ".flowguard/map.json").read_bytes()
     current_model = (root / ".flowguard/models/lending.py").read_bytes()
     _assert_current_lending(root, capsys)
-    for arguments in (("target", "start", "holds"), ("target", "add", "loans"),
-                      ("target", "add", "lending")):
+    for arguments in (
+        ("target", "start", "holds"),
+        ("target", "add", "loans"),
+        ("target", "add", "lending"),
+    ):
         code, output, errors = _run(root, capsys, *arguments)
         assert code == 0 and not errors, (output, errors)
     directory = root / ".flowguard/target"
     (directory / "map.json").write_text(SHELF_TARGET["map.json"], encoding="utf-8")
-    (directory / "models/lending.py").write_text(SHELF_TARGET["models/lending.py"], encoding="utf-8")
+    (directory / "models/lending.py").write_text(
+        SHELF_TARGET["models/lending.py"], encoding="utf-8"
+    )
 
     code, output, errors = _check_without_writes(root, capsys)
     assert code == 3 and not errors, (output, errors)
@@ -145,7 +151,7 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
     _assert_current_lending(root, capsys)
     code, output, errors = _run(root, capsys, "read")
     assert code == 0 and not errors
-    assert "model lending" in output.split("## cli", 1)[1].split("\n## ", 1)[0]
+    assert "+1 stage children: lending" in output.split("## cli", 1)[1].split("\n## ", 1)[0]
 
     for relative in ("shelf/loans.py", "tests/test_loans.py"):
         (root / relative).write_text(SHELF_AFTER[relative], encoding="utf-8")

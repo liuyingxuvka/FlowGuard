@@ -129,65 +129,134 @@ def _show_header(data, graph, inv, *, architecture=None, debts=None):
                    + ("; python -m flowguard read --review ranks them" if errors or warnings else ""))
 
 
-def _render_target_show(root, data, inv, target, *, component, detail, budget):
-    view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw = _target_comparison(root, data, inv, target)
+def _render_target_show(root, data, inv, target, *, component, detail):
+    view, old_tree, tree, old, new, changes, graph, old_system, new_system, raw = (
+        _target_comparison(root, data, inv, target)
+    )
     merged = view.data
     component_ids = {cid for kind, cid in old.keys() | new.keys() if kind == "component"}
     ordered = [c["id"] for c in merged["components"]] + [c["id"] for c in data["components"]]
-    display_data = {**merged, "components": [(new.get(("component", cid)) or old[("component", cid)])[0]
-                                              for cid in dict.fromkeys(ordered) if cid in component_ids]}
+    display_data = {
+        **merged,
+        "components": [
+            (new.get(("component", cid)) or old[("component", cid)])[0]
+            for cid in dict.fromkeys(ordered)
+            if cid in component_ids
+        ],
+    }
     if component and component != "system":
-        descendants = {c["id"] for mapping in (data, merged) for c in component_subtree(mapping, component)}
-        component_ids = {cid for cid in component_ids if cid in descendants or cid.startswith(component + ".")}
+        descendants = {
+            c["id"] for mapping in (data, merged) for c in component_subtree(mapping, component)
+        }
+        component_ids = {
+            cid for cid in component_ids if cid in descendants or cid.startswith(component + ".")
+        }
         if not component_ids:
-            return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
+            return f"no component {component!r}; run 'python -m flowguard read' to list components"
     elif component == "system":
         component_ids = set()
     counts = {mark: sum(value == mark for value in changes.values()) for mark in "+~-"}
-    lines = [_show_header(merged, graph, inv),
-             f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)',
-             goal_rules_line(root, data, target, view)[0]]
+    lines = [
+        _show_header(merged, graph, inv),
+        f'target: "{target.goal}" (+{counts["+"]} ~{counts["~"]} -{counts["-"]} nodes)',
+        goal_rules_line(root, data, target, view)[0],
+    ]
     lines.append(next(line for line in new_system.code if line.startswith("coverage:")))
     if not component:
         flows = {f["id"]: f for f in [*data.get("flows", []), *merged.get("flows", [])]}
         for kind, fid in sorted(changes):
             if kind == "flow":
                 flow = flows[fid]
-                lines.append(f'> {changes[(kind, fid)]} flow {fid}: {flow.get("summary", "")} :: '
-                             + " -> ".join(flow.get("steps", []))
-                             + (f" model: {flow['model']}" if flow.get("model") else " (no model)")
-                             + (" (removed by the target)" if changes[(kind, fid)] == "-" else ""))
+                lines.append(
+                    f'> {changes[(kind, fid)]} flow {fid}: {flow.get("summary", "")} :: '
+                    + " -> ".join(flow.get("steps", []))
+                    + (f" model: {flow['model']}" if flow.get("model") else " (no model)")
+                    + (" (removed by the target)" if changes[(kind, fid)] == "-" else "")
+                )
     essential = "\n".join(lines)
     model_data = {mid: record[1] for (kind, mid), record in new.items() if kind == "model"}
     old_model_data = {mid: record[1] for (kind, mid), record in old.items() if kind == "model"}
-    roots = {mid for mid, node in tree.nodes.items() if node.home_kind == "system" and ("model", mid) in changes}
+    roots = {
+        mid
+        for mid, node in tree.nodes.items()
+        if node.home_kind == "system" and ("model", mid) in changes
+    }
     top = essential
     if component is None or component == "system":
         if component == "system":
             top += "\n" + "\n".join(_facet_lines_with_was(new_system, old_system, "  "))
-        top += "\n" + "\n".join(_model_lines(tree, roots, model_data, bindings=bool(component or detail), changes=changes, previous=old))
-        removed_roots = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "system" and changes.get(("model", mid)) == "-"}
-        top += "\n" + "\n".join(_model_lines(old_tree, removed_roots, old_model_data, changes=changes, previous=old))
+        top += "\n" + "\n".join(
+            _model_lines(
+                tree,
+                roots,
+                model_data,
+                bindings=bool(component or detail),
+                changes=changes,
+                previous=old,
+                fold=not bool(component or detail),
+            )
+        )
+        removed_roots = {
+            mid
+            for mid, node in old_tree.nodes.items()
+            if node.home_kind == "system" and changes.get(("model", mid)) == "-"
+        }
+        top += "\n" + "\n".join(
+            _model_lines(
+                old_tree,
+                removed_roots,
+                old_model_data,
+                changes=changes,
+                previous=old,
+                fold=not bool(component or detail),
+            )
+        )
     relevant = {cid for kind, cid in changes if kind == "component"}
-    relevant.update(node.home for snapshot in (old_tree, tree) for node in snapshot.nodes.values()
-                    if node.home_kind == "component" and ("model", node.id) in changes)
+    relevant.update(
+        node.home
+        for snapshot in (old_tree, tree)
+        for node in snapshot.nodes.values()
+        if node.home_kind == "component" and ("model", node.id) in changes
+    )
     blocks, compacts, musts = [], [], {}
     for display_comp, depth in _layer_order(display_data, component_ids):
         cid = display_comp["id"]
         key = ("component", cid)
         before, after = old.get(key), new.get(key)
-        ids = {mid for mid, node in tree.nodes.items() if node.home_kind == "component" and node.home == cid and ("model", mid) in changes}
-        removed = {mid for mid, node in old_tree.nodes.items() if node.home_kind == "component" and node.home == cid and changes.get(("model", mid)) == "-"}
-        if not component and key not in changes and not ids and not removed and not any(
-                child["id"] in relevant for child in component_subtree(display_data, cid)):
+        ids = {
+            mid
+            for mid, node in tree.nodes.items()
+            if node.home_kind == "component" and node.home == cid and ("model", mid) in changes
+        }
+        removed = {
+            mid
+            for mid, node in old_tree.nodes.items()
+            if node.home_kind == "component"
+            and node.home == cid
+            and changes.get(("model", mid)) == "-"
+        }
+        if (
+            not component
+            and key not in changes
+            and not ids
+            and not removed
+            and not any(child["id"] in relevant for child in component_subtree(display_data, cid))
+        ):
             continue
         record = after or before
         comp, fact = record
         mark = changes.get(key, "")
         heading = f"\n## {mark + ' ' if mark else ''}{cid} [{comp.get('layer') or '-'}] {fact.code[0]}, {fact.rule_count} rules"
         if mark == "-":
-            removed_lines = _model_lines(old_tree, removed, old_model_data, changes=changes, previous=old)
-            blocks.append((cid, _component_block([heading + " (removed by the target)", *removed_lines], depth)))
+            removed_lines = _model_lines(
+                old_tree, removed, old_model_data, changes=changes, previous=old
+            )
+            blocks.append(
+                (
+                    cid,
+                    _component_block([heading + " (removed by the target)", *removed_lines], depth),
+                )
+            )
             continue
         body = [heading]
         if component or detail:
@@ -204,43 +273,69 @@ def _render_target_show(root, data, inv, target, *, component, detail, budget):
             body.extend(_dependency_lines(merged, inv, cid, graph, raw))
             body.extend(_relied_lines(merged, inv, raw, tree, model_data, cid))
             body.extend(_flow_lines(merged, tree, model_data, cid))
-        compact = [*body, *_model_lines(tree, ids, model_data, component=cid if component or detail else None,
-                                        changes=changes, previous=old)]
-        body.extend(_model_lines(tree, ids, model_data, component=cid if component or detail else None,
-                                 bindings=bool(component or detail), changes=changes, previous=old))
-        removed_lines = _model_lines(old_tree, removed, old_model_data, changes=changes, previous=old)
+        compact = [
+            *body,
+            *_model_lines(
+                tree,
+                ids,
+                model_data,
+                component=cid if component or detail else None,
+                changes=changes,
+                previous=old,
+            ),
+        ]
+        body.extend(
+            _model_lines(
+                tree,
+                ids,
+                model_data,
+                component=cid if component or detail else None,
+                bindings=bool(component or detail),
+                changes=changes,
+                previous=old,
+                fold=not bool(component or detail),
+            )
+        )
+        removed_lines = _model_lines(
+            old_tree, removed, old_model_data, changes=changes, previous=old
+        )
         body.extend(removed_lines)
         compact.extend(removed_lines)
         blocks.append((cid, _component_block(body, depth)))
         compacts.append((cid, _component_block(compact, depth)))
         if cid == component:
-            musts[cid] = [heading.lstrip("\n"), *[line for line in facet_lines if not line.lstrip().startswith("was: ")]]
+            musts[cid] = [
+                heading.lstrip("\n"),
+                *[line for line in facet_lines if not line.lstrip().startswith("was: ")],
+            ]
     if component == "system":
-        system_lines = _facet_lines_with_was(new_system, old_system, "  ")
-        return _bounded_focus(essential, "system", "\n".join(system_lines), "\n".join(system_lines), [], [],
-                              [line for line in system_lines if not line.lstrip().startswith("was: ")], budget)
-    if component and component in musts:
-        focus = next(text for cid, text in blocks if cid == component)
-        focus_compact = next(text for cid, text in compacts if cid == component)
-        return _bounded_focus(top, component, focus, focus_compact,
-                              [b for b in blocks if b[0] != component], [b for b in compacts if b[0] != component],
-                              musts[component], budget)
+        return _tidy(top)
     if component is None:
         unchanged = sum(("component", c["id"]) not in changes for c in data["components"])
-        blocks.append(("unchanged", f"unchanged: {unchanged} component(s); python -m flowguard read shows them"))
-    return _bounded_show(top, essential, blocks, budget)
+        blocks.append(
+            (
+                "unchanged",
+                f"unchanged: {unchanged} component(s); python -m flowguard read shows them",
+            )
+        )
+    return _tidy(top + "\n" + "\n".join(text for cid, text in blocks))
 
 
-def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, budget: int, target=None) -> str:
-    budget = max(0, budget)
+def render_show(
+    root: Path, data: dict, inv: Inventory, *, component: str | None, detail: bool, target=None
+) -> str:
     if target is not None:
-        return _render_target_show(root, data, inv, target, component=component, detail=detail, budget=budget)
+        return _render_target_show(root, data, inv, target, component=component, detail=detail)
     graph = component_graph(data, inv)
     tree = build_tree(root, data, inv)
     model_data = {mid: model_facets(root, node) for mid, node in tree.nodes.items()}
     raw, functions, coverage = _read_facts(root, data, inv, tree)
-    component_data = {c["id"]: component_facets(root, data, inv, c, tree, graph, functions,
-                                               coverage=coverage[c["id"]]) for c in data["components"]}
+    component_data = {
+        c["id"]: component_facets(
+            root, data, inv, c, tree, graph, functions, coverage=coverage[c["id"]]
+        )
+        for c in data["components"]
+    }
     comps = data["components"]
     if component == "system":
         comps = []
@@ -248,14 +343,24 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
         descendants = {c["id"] for c in component_subtree(data, component)}
         comps = [c for c in comps if c["id"] in descendants or c["id"].startswith(component + ".")]
         if not comps:
-            return f"no component {component!r}; run 'python -m flowguard read' to list components"[:budget]
+            return f"no component {component!r}; run 'python -m flowguard read' to list components"
     architecture, debts, problems = _architecture(data, graph)
     head = _show_header(data, graph, inv, architecture=architecture, debts=debts)
     model_ids = {node.path: node.id for node in tree.nodes.values()}
-    flows = [] if component else [
-        f"> flow {flow['id']}: {flow.get('summary', '')} :: " + " -> ".join(flow.get("steps", []))
-        + (f" model: {model_ids.get(flow['model'], flow['model'])}" if flow.get("model") else " (no model)")
-        for flow in data.get("flows", [])]
+    flows = (
+        []
+        if component
+        else [
+            f"> flow {flow['id']}: {flow.get('summary', '')} :: "
+            + " -> ".join(flow.get("steps", []))
+            + (
+                f" model: {model_ids.get(flow['model'], flow['model'])}"
+                if flow.get("model")
+                else " (no model)"
+            )
+            for flow in data.get("flows", [])
+        ]
+    )
     target_lines = []
     try:
         target = load_target(root)
@@ -263,85 +368,145 @@ def render_show(root: Path, data: dict, inv: Inventory, *, component: str | None
             if validate_target(root, data, target):
                 raise ValueError("invalid target")
             changes = target_node_changes(root, data, target)
-            target_lines.append(f'target: "{target.goal}": +{len(changes["+"])} ~{len(changes["~"])} '
-                                f'-{len(changes["-"])} nodes; see python -m flowguard read --target; '
-                                'python -m flowguard target check lists what is left')
+            target_lines.append(
+                f'target: "{target.goal}": +{len(changes["+"])} ~{len(changes["~"])} '
+                f'-{len(changes["-"])} nodes; see python -m flowguard read --target; '
+                "python -m flowguard target check lists what is left"
+            )
     except (OSError, ValueError, TypeError, SyntaxError, MapError):
-        target_lines.append("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
+        target_lines.append(
+            "target: .flowguard/target/map.json is invalid; run python -m flowguard target check"
+        )
     from .testtree import test_calls, resolve_test_anchor
     from .mapfile import process_model_reason
-    indices=functions
-    bound=functions.bound_functions
-    calling=set()
-    call_index=functions.layout['calls']
+
+    indices = functions
+    bound = functions.bound_functions
+    calling = set()
+    call_index = functions.layout["calls"]
     for node in tree.nodes.values():
-        anchors=set(node.contract.get('IMPLEMENTED_BY',{}).values())
-        calling.update((path,name) for path,calls in call_index.items() for name,values in calls.items() if values & anchors)
+        anchors = set(node.contract.get("IMPLEMENTED_BY", {}).values())
+        calling.update(
+            (path, name)
+            for path, calls in call_index.items()
+            for name, values in calls.items()
+            if values & anchors
+        )
     all_tests = {(path, name) for path, names in indices.items() for name in names}
-    tests_line = (f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
-                  f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither"
-                  " (python -m flowguard read --find <test path>)")
+    tests_line = (
+        f"tests: {len(all_tests)} test functions; {len(bound & all_tests)} bound to a model (TESTED_BY), "
+        f"{len((calling - bound) & all_tests)} call a model's code, {len(all_tests - bound - calling)} neither"
+        " (python -m flowguard read --find <test path>)"
+    )
     relation = relations(root, data, inv, tree, raw)
     models_line = relations_line(data, tree, relation)
-    essential = "\n".join([head, coverage_line(coverage, summary=True), tests_line, models_line, *target_lines, *flows])
-    root_models = [] if component else _model_lines(tree, {n.id for n in tree.nodes.values() if n.home_kind == "system"},
-                                                   model_data, bindings=detail, relation=relation)
+    essential = "\n".join(
+        [
+            head,
+            coverage_line(coverage, summary=True),
+            tests_line,
+            models_line,
+            *target_lines,
+            *flows,
+        ]
+    )
+    root_models = (
+        []
+        if component
+        else _model_lines(
+            tree,
+            {n.id for n in tree.nodes.values() if n.home_kind == "system"},
+            model_data,
+            bindings=detail,
+            relation=relation,
+            fold=not detail,
+        )
+    )
     if component == "system":
-        root_models = _facet_lines(system_facets(data, inv, tree, graph, functions, coverage=coverage), "  ")
-        system_text = "\n".join(root_models)
-        return _bounded_focus(essential, "system", system_text, system_text, [], [], root_models, budget)
+        return _tidy(
+            essential
+            + "\n"
+            + "\n".join(
+                _facet_lines(
+                    system_facets(data, inv, tree, graph, functions, coverage=coverage), "  "
+                )
+            )
+        )
     top = "\n".join([essential, *root_models])
-    blocks: list[tuple[str, str]] = []
-    compacts: list[tuple[str, str]] = []
-    must: list[str] = []
-    for c, depth in _layer_order(data, {c["id"] for c in comps}):
+    blocks = []
+    shown_components = {c["id"] for c in comps}
+    related = (
+        {n.id for c in comps for n in tree.models_for_component(c["id"])} if component else set()
+    )
+    foreign = {
+        mid
+        for mid in related
+        if tree.nodes[mid].home_kind != "component" or tree.nodes[mid].home not in shown_components
+    }
+    for c, depth in _layer_order(data, shown_components):
+        cid = c["id"]
+        full = bool(detail or cid == component)
         scoped = component_scope(data, c)
         files = component_files(scoped, inv)
-        dependencies = {dep for member in component_subtree(data, c["id"]) for dep in graph.get(member["id"], ())}
+        dependencies = {
+            dep for member in component_subtree(data, cid) for dep in graph.get(member["id"], ())
+        }
         flag = "STALE" if is_stale(root, c, inv) else c["status"]
         tag = "" if flag == "confirmed" else f" [{flag}]"
-        fact = component_data[c["id"]]
-        lines = [f"\n## {c['id']} [{c.get('layer') or '-'}] {len(files)} files/{sum(inv.loc.get(f, 0) for f in files)} loc, {fact.rule_count} rules{tag}"]
-        if component or detail:
+        fact = component_data[cid]
+        lines = [
+            f"\n## {cid} [{c.get('layer') or '-'}] {len(files)} files/{sum(inv.loc.get(f, 0) for f in files)} loc, {fact.rule_count} rules{tag}"
+        ]
+        if full:
             lines.extend(_facet_lines(fact, "  "))
-            if c["id"] == component:
-                must = [lines[0].lstrip("\n"), *lines[1:]]
         else:
             lines.append("  " + fact.purpose[:90] + ("…" if len(fact.purpose) > 90 else ""))
             if scoped.get("state"):
                 lines.append("  state: " + "; ".join(scoped["state"]))
         if dependencies:
-            if component or detail:
-                lines.extend(_dependency_lines(data, inv, c["id"], graph, raw))
+            if full:
+                lines.extend(_dependency_lines(data, inv, cid, graph, raw))
             else:
                 lines.append("  uses: " + ", ".join(sorted(dependencies)))
-        if component or detail:
-            lines.extend(used_by_lines(data, inv, tree, c["id"]))
-            lines.extend(_relied_lines(data, inv, raw, tree, model_data, c["id"]))
-            lines.extend(_flow_lines(data, tree, model_data, c["id"]))
-        declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)
-        if declared_only and (component or detail):
-            lines.append("  declared, unverified: " + ", ".join(declared_only))
-        if component or detail:
-            users = sorted(k for k, v in graph.items() if c["id"] in v)
+        if full:
+            lines.extend(used_by_lines(data, inv, tree, cid))
+            lines.extend(_relied_lines(data, inv, raw, tree, model_data, cid))
+            lines.extend(_flow_lines(data, tree, model_data, cid))
+            declared_only = sorted(set(scoped.get("depends_on", [])) - dependencies)
+            if declared_only:
+                lines.append("  declared, unverified: " + ", ".join(declared_only))
+            users = sorted(k for k, v in graph.items() if cid in v)
             if users:
                 lines.append("  used by: " + ", ".join(users))
-        if problems.get(c["id"]):
-            lines.append("  problems: " + "; ".join(
-                ("cycle" if f.code == "dependency_cycle" else f.code) + (" (debt)" if f.level == "info" else "")
-                + ": " + f.message.partition(" (accepted debt:")[0] for f in problems[c["id"]]))
-        models = {n.id for n in tree.models_for_component(c["id"])} if component or detail else {
-            n.id for n in tree.nodes.values() if n.home_kind == "component" and n.home == c["id"]}
-        compact = [*lines, *_model_lines(tree, models, model_data, component=c["id"] if component or detail else None, relation=relation)]
-        lines.extend(_model_lines(tree, models, model_data, component=c["id"] if component or detail else None,
-                                  bindings=bool(component or detail), relation=relation))
-        blocks.append((c["id"], _component_block(lines, depth)))
-        compacts.append((c["id"], _component_block(compact, depth)))
-    if component and must:
-        at = next(index for index, (cid, _) in enumerate(blocks) if cid == component)
-        return _bounded_focus(top, component, blocks[at][1], compacts[at][1], blocks[:at] + blocks[at + 1:],
-                              compacts[:at] + compacts[at + 1:], must, budget)
-    return _bounded_show(top, essential, blocks, budget)
+        if problems.get(cid):
+            lines.append(
+                "  problems: "
+                + "; ".join(
+                    ("cycle" if f.code == "dependency_cycle" else f.code)
+                    + (" (debt)" if f.level == "info" else "")
+                    + ": "
+                    + f.message.partition(" (accepted debt:")[0]
+                    for f in problems[cid]
+                )
+            )
+        models = {n.id for n in tree.nodes.values() if n.home_kind == "component" and n.home == cid}
+        lines.extend(
+            _model_lines(
+                tree,
+                models,
+                model_data,
+                component=cid if full else None,
+                bindings=full,
+                relation=relation,
+                fold=not full,
+            )
+        )
+        if cid == component:
+            for mid in sorted(foreign):
+                rows = _model_lines(tree, {mid}, model_data)
+                lines.append(rows[0] + f" (home {tree.nodes[mid].home})")
+        blocks.append(_component_block(lines, depth))
+    return _tidy(top + "\n" + "\n".join(blocks))
 
 
 def render_mermaid(root: Path, data: dict, inv: Inventory, *, component: str | None = None, target=None) -> str:
@@ -577,116 +742,272 @@ def render_locate(root: Path, data: dict, inv: Inventory, location: str) -> str:
     from .mapfile import component_ancestors
     from .testtree import test_functions, resolve_test_anchor, test_calls
     from .discover import reachable_functions
-    path,separator,symbol=location.partition('::') if '::' in location else location.partition(':')
-    path=norm(path);symbol=symbol.replace('::','.')
-    given=symbol
+
+    path, separator, symbol = (
+        location.partition("::") if "::" in location else location.partition(":")
+    )
+    path = norm(path)
+    symbol = symbol.replace("::", ".")
+    given = symbol
     if symbol:
-        plain=symbol.split('[',1)[0]
-        choices=inv.py[path].symbols
+        plain = symbol.split("[", 1)[0]
+        choices = inv.py[path].symbols
         if plain not in choices:
-            matched=[name for name in choices if name.endswith('.'+plain)]
-            if len(matched)!=1:
-                error=f"no symbol '{given}' in {path}; symbols: "+', '.join(sorted(choices)[:10])
-                return error if len(error)<=2000 else error[:1997]+'...'
-            plain=matched[0]
-        symbol=plain
-    tree=build_tree(root,data,inv)
-    owner,_=owner_index(data,inv)
+            matched = [name for name in choices if name.endswith("." + plain)]
+            if len(matched) != 1:
+                error = (
+                    f"no symbol '{given}' in {path}; symbols: "
+                    + ", ".join(sorted(choices)[:10])
+                    + (f", +{len(choices)-10} more" if len(choices) > 10 else "")
+                )
+                return error
+            plain = matched[0]
+        symbol = plain
+    tree = build_tree(root, data, inv)
+    owner, _ = owner_index(data, inv)
+
     def chain(mid):
-        models=[mid,*tree.ancestors(mid)]
-        last=tree.nodes[models[-1]]
-        component=last.parent if last.parent_kind=='component' else last.home
-        tail=[component,*component_ancestors(data,component),'system'] if component!='system' else ['system']
-        return ' < '.join(dict.fromkeys([*models,*tail]))
-    def match(anchor,loc):
-        a,_,name=anchor.partition(':');f,_,s=loc.partition(':')
-        return a==f and (not s or s==name or s.startswith(name+'.'))
+        models = [mid, *tree.ancestors(mid)]
+        last = tree.nodes[models[-1]]
+        component = last.parent if last.parent_kind == "component" else last.home
+        tail = (
+            [component, *component_ancestors(data, component), "system"]
+            if component != "system"
+            else ["system"]
+        )
+        return " < ".join(dict.fromkeys([*models, *tail]))
+
+    def match(anchor, loc):
+        a, _, name = anchor.partition(":")
+        f, _, s = loc.partition(":")
+        return a == f and (not s or s == name or s.startswith(name + "."))
+
     def owned(loc):
-        return sorted([mid for mid,node in tree.nodes.items() if any(match(anchor,loc) for anchor in node.contract.get('IMPLEMENTED_BY',{}).values())],key=lambda mid:(-len(tree.ancestors(mid)),mid))
-    sources={};functions={};calls={};bindings=defaultdict(list)
+        return sorted(
+            [
+                mid
+                for mid, node in tree.nodes.items()
+                if any(
+                    match(anchor, loc)
+                    for anchor in node.contract.get("IMPLEMENTED_BY", {}).values()
+                )
+            ],
+            key=lambda mid: (-len(tree.ancestors(mid)), mid),
+        )
+
+    sources = {}
+    functions = {}
+    calls = {}
+    bindings = defaultdict(list)
     for test in inv.tests:
-        if not test.endswith('.py'):continue
-        try:sources[test]=read_source(root/test)
-        except OSError:continue
-        functions[test]=test_functions(sources[test])
-        calls[test]=test_calls(test,sources[test],inv)
-    for mid,node in tree.nodes.items():
-        for rule,anchors in node.contract.get('TESTED_BY',{}).items():
+        if not test.endswith(".py"):
+            continue
+        try:
+            sources[test] = read_source(root / test)
+        except OSError:
+            continue
+        functions[test] = test_functions(sources[test])
+        calls[test] = test_calls(test, sources[test], inv)
+    for mid, node in tree.nodes.items():
+        for rule, anchors in node.contract.get("TESTED_BY", {}).items():
             for anchor in anchors:
-                test,_,name=anchor.partition(':')
-                actual=resolve_test_anchor(root/test,name)
-                if actual:bindings[(test,actual)].append((mid,rule))
-    def capped(items,limit=5):
-        values=list(dict.fromkeys(items))
-        return ', '.join(values[:limit])+(f', +{len(values)-limit}' if len(values)>limit else '')
+                test, _, name = anchor.partition(":")
+                actual = resolve_test_anchor(root / test, name)
+                if actual:
+                    bindings[(test, actual)].append((mid, rule))
+
+    def capped(items, limit=5):
+        values = list(dict.fromkeys(items))
+        return ", ".join(values[:limit]) + (
+            f", +{len(values)-limit}" if len(values) > limit else ""
+        )
+
     def finish(lines):
-        lines=[line if len(line)<=450 else line[:447]+'...' for line in lines]
-        text='\n'.join(lines)
-        if len(text)<=2000:return text
-        ending=lines[-1] if lines[-1].startswith('next:') else ''
-        body='\n'.join(lines[:-1]) if ending else text
-        return body[:max(0,1996-len(ending))]+'...'+('\n'+ending if ending else '')
+        return "\n".join(lines)
+
     if inv.is_test(path):
         from .testtree import test_layout, common_position, test_file_findings
-        ids=[path+'::'+name.replace('.','::') for name in functions.get(path,{})] if not symbol else [path+'::'+symbol.replace('.','::')+('['+given.split('[',1)[1] if '[' in given else '')]
-        layout=test_layout(root,data,inv,tree,ids)
-        position=common_position(layout['positions'].values(),layout['parents'])
-        header=f'locate {path}'+('::'+symbol.replace('.','::') if symbol else '')+f' (test; position {position})'
+
+        ids = (
+            [path + "::" + name.replace(".", "::") for name in functions.get(path, {})]
+            if not symbol
+            else [
+                path
+                + "::"
+                + symbol.replace(".", "::")
+                + ("[" + given.split("[", 1)[1] if "[" in given else "")
+            ]
+        )
+        layout = test_layout(root, data, inv, tree, ids)
+        position = common_position(layout["positions"].values(), layout["parents"])
+        header = (
+            f"locate {path}"
+            + ("::" + symbol.replace(".", "::") if symbol else "")
+            + f" (test; position {position})"
+        )
         if not symbol:
-            counts={mid:len({name for test,name in bindings if test==path and any(m==mid for m,rule in bindings[(test,name)])}) for mid in tree.nodes}
-            bound={name for test,name in bindings if test==path}
-            lint=[finding.message for finding in test_file_findings(root,data,inv,tree) if finding.component==path]
-            return finish([header,'bound: '+(', '.join(f'{mid} {count}' for mid,count in sorted(counts.items()) if count) or 'none')+f'; unbound {len(set(functions.get(path,{}))-bound)}',*(['lint: '+'; '.join(lint)] if lint else [])])
-        bound=bindings.get((path,symbol),())
-        lines=[header,'bound to: '+(capped(f'{mid} (rule {rule})' for mid,rule in bound) if bound else f'none (unbound; position {position})')]
-        called=sorted(calls.get(path,{}).get(symbol,()))
-        call_owners={fn:owned(fn) for fn in called}
-        lines.append('calls: '+(capped(fn+(' (owned by '+','.join(call_owners[fn])+')' if call_owners[fn] else ' (unowned)') for fn in called) or 'none'))
-        for mid in dict.fromkeys(mid for mid,rule in bound):
-            anchors=tree.nodes[mid].contract.get('IMPLEMENTED_BY',{}).values()
-            lines.append('code: '+mid+' owns '+capped(anchors)+' < '+chain(mid).partition(' < ')[2])
+            counts = {
+                mid: len(
+                    {
+                        name
+                        for test, name in bindings
+                        if test == path and any(m == mid for m, rule in bindings[(test, name)])
+                    }
+                )
+                for mid in tree.nodes
+            }
+            bound = {name for test, name in bindings if test == path}
+            lint = [
+                finding.message
+                for finding in test_file_findings(root, data, inv, tree)
+                if finding.component == path
+            ]
+            return finish(
+                [
+                    header,
+                    "bound: "
+                    + (
+                        ", ".join(
+                            f"{mid} {count}" for mid, count in sorted(counts.items()) if count
+                        )
+                        or "none"
+                    )
+                    + f"; unbound {len(set(functions.get(path,{}))-bound)}",
+                    *(["lint: " + "; ".join(lint)] if lint else []),
+                ]
+            )
+        bound = bindings.get((path, symbol), ())
+        lines = [
+            header,
+            "bound to: "
+            + (
+                capped(f"{mid} (rule {rule})" for mid, rule in bound)
+                if bound
+                else f"none (unbound; position {position})"
+            ),
+        ]
+        called = sorted(calls.get(path, {}).get(symbol, ()))
+        call_owners = {fn: owned(fn) for fn in called}
+        lines.append(
+            "calls: "
+            + (
+                capped(
+                    fn
+                    + (
+                        " (owned by " + ",".join(call_owners[fn]) + ")"
+                        if call_owners[fn]
+                        else " (unowned)"
+                    )
+                    for fn in called
+                )
+                or "none"
+            )
+        )
+        for mid in dict.fromkeys(mid for mid, rule in bound):
+            anchors = tree.nodes[mid].contract.get("IMPLEMENTED_BY", {}).values()
+            lines.append(
+                "code: " + mid + " owns " + capped(anchors) + " < " + chain(mid).partition(" < ")[2]
+            )
         if not bound:
-            choices=sorted({mid for mids in call_owners.values() for mid in mids},key=lambda mid:(-len(tree.ancestors(mid)),mid))
-            if choices:lines.append(f"next: bind it in {choices[0]}'s TESTED_BY if it checks one of its rules")
+            choices = sorted(
+                {mid for mids in call_owners.values() for mid in mids},
+                key=lambda mid: (-len(tree.ancestors(mid)), mid),
+            )
+            if choices:
+                lines.append(
+                    f"next: bind it in {choices[0]}'s TESTED_BY if it checks one of its rules"
+                )
             else:
-                component=position
-                lines.append(f'next: if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound')
+                component = position
+                lines.append(
+                    f"next: if this test checks behaviour, add that rule to a model of {component} in a target (python -m flowguard target add <model of component>, or python -m flowguard template behaviour) and bind it; otherwise it stays unbound"
+                )
         return finish(lines)
-    loc=path+(':'+symbol if symbol else '')
-    component=owner.get(path,'unmapped')
-    raw=discover_inventory(root,inv,data=data,write_cache=False)
-    own=[];uses=[];reached=[]
-    for mid,node in tree.nodes.items():
-        for kind,anchors in (('owned',node.contract.get('IMPLEMENTED_BY',{})),('uses',node.contract.get('USES',{}))):
-            for name,anchor in anchors.items():
-                if match(anchor,loc):
-                    (own if kind=='owned' else uses).append((mid,name));continue
-                f,_,s=anchor.partition(':')
-                starts=[f+'#'+name for name in raw.get('files',{}).get(f,{}).get('functions',{}) if name==s or name.startswith(s+'.')]
-                nodes=set().union(*(reachable_functions(raw.get('edges',{}),start) for start in starts)) if starts else set()
-                if any(n==loc.replace(':','#',1) or not symbol and n.startswith(path+'#') for n in nodes):reached.append((mid,anchor))
-    rank=lambda pair:(-len(tree.ancestors(pair[0])),pair[0],pair[1])
-    own.sort(key=rank);uses.sort(key=rank)
-    winners=own or uses
+    loc = path + (":" + symbol if symbol else "")
+    component = owner.get(path, "unmapped")
+    raw = discover_inventory(root, inv, data=data, write_cache=False)
+    own = []
+    uses = []
+    reached = []
+    for mid, node in tree.nodes.items():
+        for kind, anchors in (
+            ("owned", node.contract.get("IMPLEMENTED_BY", {})),
+            ("uses", node.contract.get("USES", {})),
+        ):
+            for name, anchor in anchors.items():
+                if match(anchor, loc):
+                    (own if kind == "owned" else uses).append((mid, name))
+                    continue
+                f, _, s = anchor.partition(":")
+                starts = [
+                    f + "#" + name
+                    for name in raw.get("files", {}).get(f, {}).get("functions", {})
+                    if name == s or name.startswith(s + ".")
+                ]
+                nodes = (
+                    set().union(
+                        *(reachable_functions(raw.get("edges", {}), start) for start in starts)
+                    )
+                    if starts
+                    else set()
+                )
+                if any(
+                    n == loc.replace(":", "#", 1) or not symbol and n.startswith(path + "#")
+                    for n in nodes
+                ):
+                    reached.append((mid, anchor))
+    rank = lambda pair: (-len(tree.ancestors(pair[0])), pair[0], pair[1])
+    own.sort(key=rank)
+    uses.sort(key=rank)
+    winners = own or uses
     if winners:
-        mid,block=winners[0];node=tree.nodes[mid];facets=model_facets(root,node)
-        lines=[f'locate {loc} (component {component})',f'model {mid} ({"owned" if own else "uses"}: {block})'+(' < '+chain(mid).partition(' < ')[2] if ' < ' in chain(mid) else ''),
-               '  rules: '+capped(facets.rules), '  '+model_port_line(node,tree)]
-        test_counts=defaultdict(set)
-        for (test,name),records in bindings.items():
-            if any(m==mid for m,rule in records):test_counts[test].add(name)
-        lines.append('  tests: '+(capped(f'{test} ({len(names)} bound)' for test,names in sorted(test_counts.items())) or 'none'))
-        others=[f'{m} ({name})' for m,name in own if m!=mid]
-        if others:lines.append('also owned by: '+capped(others))
-        if reached:lines.append('reached by: '+capped(m for m,anchor in reached if m!=mid))
-        ending=f'next: python -m flowguard target start "<goal>", then python -m flowguard target add {mid}'
+        mid, block = winners[0]
+        node = tree.nodes[mid]
+        facets = model_facets(root, node)
+        lines = [
+            f"locate {loc} (component {component})",
+            f'model {mid} ({"owned" if own else "uses"}: {block})'
+            + (" < " + chain(mid).partition(" < ")[2] if " < " in chain(mid) else ""),
+            "  rules: " + capped(facets.rules),
+            "  " + model_port_line(node, tree),
+        ]
+        test_counts = defaultdict(set)
+        for (test, name), records in bindings.items():
+            if any(m == mid for m, rule in records):
+                test_counts[test].add(name)
+        lines.append(
+            "  tests: "
+            + (
+                capped(
+                    f"{test} ({len(names)} bound)" for test, names in sorted(test_counts.items())
+                )
+                or "none"
+            )
+        )
+        others = [f"{m} ({name})" for m, name in own if m != mid]
+        if others:
+            lines.append("also owned by: " + capped(others))
+        if reached:
+            lines.append("reached by: " + capped(m for m, anchor in reached if m != mid))
+        ending = f'next: python -m flowguard target start "<goal>", then python -m flowguard target add {mid}'
     else:
-        lines=[f'no model owns {loc} (component {component}); reached by: '+(capped(f'{mid} (via {anchor})' for mid,anchor in reached) or 'none')]
-        ending=f'next: add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)'
+        lines = [
+            f"no model owns {loc} (component {component}); reached by: "
+            + (capped(f"{mid} (via {anchor})" for mid, anchor in reached) or "none")
+        ]
+        ending = f"next: add the rule to a model of {component}; a separate aspect gets its own model there (references/routes.md#New function)"
     if symbol:
-        unbound=[test+'::'+name.replace('.','::') for test,tests in calls.items() for name,values in tests.items() if (test,name) not in bindings and any(match(fn,loc) for fn in values)]
-        if unbound:lines.append(f'called by tests: {len(unbound)} unbound ('+capped(sorted(unbound))+')')
-    return finish([*lines,ending])
+        unbound = [
+            test + "::" + name.replace(".", "::")
+            for test, tests in calls.items()
+            for name, values in tests.items()
+            if (test, name) not in bindings and any(match(fn, loc) for fn in values)
+        ]
+        if unbound:
+            lines.append(
+                f"called by tests: {len(unbound)} unbound (" + capped(sorted(unbound)) + ")"
+            )
+    return finish([*lines, ending])
 
 
 HUB_CONSUMERS = 2
@@ -784,68 +1105,105 @@ def render_field(root: Path, data: dict, inv: Inventory, name: str) -> str:
     """Join field sites and promises statically, with no model execution or persisted index."""
     from .discover import literal_sites, function_spans
     from .port import model_port
+
     tree = build_tree(root, data, inv)
     raw = discover_inventory(root, inv, data=data)
-    word = re.compile(r'(?<!\w)'+re.escape(name)+r'(?!\w)')
+    word = re.compile(r"(?<!\w)" + re.escape(name) + r"(?!\w)")
     parts = defaultdict(list)
     bound = defaultdict(set)
     code_priority = {}
-    for component in data['components']:
-        values = component.get('state', [])
-        if isinstance(values, str): values = [values]
+    for component in data["components"]:
+        values = component.get("state", [])
+        if isinstance(values, str):
+            values = [values]
         for value in values:
-            if word.search(value): parts['map'].append(f"{component['id']} (state: {value})")
+            if word.search(value):
+                parts["map"].append(f"{component['id']} (state: {value})")
     for mid, node in tree.nodes.items():
-        port = node.contract['port']
+        port = node.contract["port"]
         labels = []
-        if name in (port.state or ()): labels.append('State.'+name)
+        if name in (port.state or ()):
+            labels.append("State." + name)
         for block, spec in port.blocks.items():
-            modes = [mode for mode in ('reads', 'writes') if name in (spec[mode] or ())]
-            if modes: labels.append('block '+block+' '+' and '.join(modes)+' it')
-        if name in port.reads_parent: labels.append('reads parent.'+name)
-        if name in (port.outputs or {}): labels.append('OUTPUTS.'+name)
-        if name in port.keeps: labels.append('KEEPS.'+name)
+            modes = [mode for mode in ("reads", "writes") if name in (spec[mode] or ())]
+            if modes:
+                labels.append("block " + block + " " + " and ".join(modes) + " it")
+        if name in port.reads_parent:
+            labels.append("reads parent." + name)
+        if name in (port.outputs or {}):
+            labels.append("OUTPUTS." + name)
+        if name in port.keeps:
+            labels.append("KEEPS." + name)
         for producer, keys in (port.handoff or {}).items():
             for key, into in keys.items():
                 if (into if isinstance(into, str) or into is None else into[0]) == name:
-                    labels.append(f'HANDOFF {producer}.{key} -> {name}')
-        if labels: parts['models'].append(mid+' '+', '.join(labels))
+                    labels.append(f"HANDOFF {producer}.{key} -> {name}")
+        if labels:
+            parts["models"].append(mid + " " + ", ".join(labels))
         fact = model_facets(root, node)
-        rules = [rule for rule, note in zip(fact.rules, fact.rule_notes or ('',)*len(fact.rules)) if word.search(rule) or word.search(note)]
+        rules = [
+            rule
+            for rule, note in zip(fact.rules, fact.rule_notes or ("",) * len(fact.rules))
+            if word.search(rule) or word.search(note)
+        ]
         bads = [bad for bad in fact.known_bad if word.search(bad)]
         if rules or bads:
-            parts['rules'].append(', '.join(mid+'.'+rule for rule in rules)+(('; ' if rules else '')+'known-bad: '+', '.join(bads) if bads else ''))
+            parts["rules"].append(
+                ", ".join(mid + "." + rule for rule in rules)
+                + (("; " if rules else "") + "known-bad: " + ", ".join(bads) if bads else "")
+            )
         for rule in rules:
-            for anchor in node.contract.get('TESTED_BY', {}).get(rule, ()):
-                path, _, symbol = anchor.partition(':'); bound[path].add(symbol)
-    for path, facts in raw.get('files', {}).items():
-        for attr, writers in facts.get('state', {}).items():
-            if attr.rsplit('.', 1)[-1] == name:
-                parts['code writes'].extend(path+':'+writer for writer in writers)
-        try: source = read_source(root/path)
-        except OSError: continue
+            for anchor in node.contract.get("TESTED_BY", {}).get(rule, ()):
+                path, _, symbol = anchor.partition(":")
+                bound[path].add(symbol)
+    for path, facts in raw.get("files", {}).items():
+        for attr, writers in facts.get("state", {}).items():
+            if attr.rsplit(".", 1)[-1] == name:
+                parts["code writes"].extend(path + ":" + writer for writer in writers)
+        try:
+            source = read_source(root / path)
+        except OSError:
+            continue
         # Discovery supplies lexical start lines; select the innermost containing function.
         syntax = ast.parse(source)
         spans = function_spans(syntax)
-        stores = {node.lineno for node in ast.walk(syntax) if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store)}
+        stores = {
+            node.lineno
+            for node in ast.walk(syntax)
+            if isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Store)
+        }
         for value, line, role in literal_sites(source):
-            if value != name or role not in ('key_write', 'key_read'): continue
-            candidates = [span for span in spans if span[0]<=line<=span[1]]
-            symbol = min(candidates, key=lambda span: span[1]-span[0])[2] if candidates else '<module>'
-            site=path+':'+symbol
-            code_priority[site]=min(code_priority.get(site,1),0 if role=='key_write' and line in stores else 1)
-            parts['code writes' if role=='key_write' else 'code reads'].append(site)
-    parts['tests'] = [f'{path} ({len(symbols)} bound)' for path, symbols in sorted(bound.items())]
-    if not any(parts.values()): return f'field {name}: no model, rule or code site'[:1500]
-    if parts['code writes'] and not parts['rules']:
-        parts['rules'] = [f'none (a field no rule names: python -m flowguard read --field {name} before changing it)']
-    lines = ['field '+name]
-    for label in ('map', 'models', 'rules', 'code writes', 'code reads', 'tests'):
+            if value != name or role not in ("key_write", "key_read"):
+                continue
+            candidates = [span for span in spans if span[0] <= line <= span[1]]
+            symbol = (
+                min(candidates, key=lambda span: span[1] - span[0])[2] if candidates else "<module>"
+            )
+            site = path + ":" + symbol
+            code_priority[site] = min(
+                code_priority.get(site, 1), 0 if role == "key_write" and line in stores else 1
+            )
+            parts["code writes" if role == "key_write" else "code reads"].append(site)
+    parts["tests"] = [f"{path} ({len(symbols)} bound)" for path, symbols in sorted(bound.items())]
+    if not any(parts.values()):
+        return f"field {name}: no model, rule or code site"
+    if parts["code writes"] and not parts["rules"]:
+        parts["rules"] = [
+            f"none (a field no rule names: python -m flowguard read --field {name} before changing it)"
+        ]
+    lines = ["field " + name]
+    for label in ("map", "models", "rules", "code writes", "code reads", "tests"):
         items = list(dict.fromkeys(parts[label]))
-        if label=='code writes': items.sort(key=lambda site: (code_priority.get(site,0),site))
-        if items: lines.append('  '+label+': '+', '.join(items[:5])+(f' (+{len(items)-5})' if len(items)>5 else ''))
-    # Share the space among sections so a verbose model cannot hide code or tests.
-    allowance = max(20, (1499-len(lines[0]))//max(1,len(lines)-1)-1)
-    return '\n'.join([lines[0], *[line if len(line)<=allowance else line[:allowance-1]+'…' for line in lines[1:]]])[:1500]
+        if label == "code writes":
+            items.sort(key=lambda site: (code_priority.get(site, 0), site))
+        if items:
+            lines.append(
+                "  "
+                + label
+                + ": "
+                + ", ".join(items[:5])
+                + (f" (+{len(items)-5})" if len(items) > 5 else "")
+            )
+    return "\n".join(lines)
 
-from .view_format import (LIST_LIMITS, _architecture, _bounded_focus, _bounded_focus_raw, _bounded_show, _bounded_show_raw, _capped, _component_block, _count, _dependency_lines, _dependency_symbols, _descendant_tests, _facet_lines, _facet_lines_with_was, _layer_order, _model_lines, _node_delta, _node_fields, _rule_text, _shorten, _shown_lists, _tidy, _unreadable)
+from .view_format import (LIST_LIMITS, _architecture, _capped, _component_block, _count, _dependency_lines, _dependency_symbols, _descendant_tests, _facet_lines, _facet_lines_with_was, _layer_order, _model_lines, _node_delta, _node_fields, _rule_text, _shown_lists, _tidy, _unreadable)

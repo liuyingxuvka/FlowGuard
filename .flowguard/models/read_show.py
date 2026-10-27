@@ -37,14 +37,14 @@ def make_fixture(root):
     return data
 
 def base_conformance():
-    from flowguard.map.views import render_show
+    from _read_fixture import show_view as render_show
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     with TemporaryDirectory(prefix='fg-read-show-') as directory:
         root = Path(directory)
         data = make_fixture(root)
         inv = build_inventory(root, DEFAULT_IGNORE, write_cache=False)
-        text = render_show(root, data, inv, component=None, detail=False, budget=8000)
+        text = render_show(root, data, inv, component=None, detail=False)
         return CodeFactsReport((Fact('bound_coverage', 'coverage: entrypoints 2 of 4 bound (model 1, test 1), 1 by reason, 0 unlisted;' in text, text), Fact('test_counts', "tests: 4 test functions; 1 bound to a model (TESTED_BY), 2 call a model's code, 1 neither" in text, text)))
 
 from _read_fixture import ReadCase, JointState, Bridge, legacy_cases, legacy_conformance, _abstract
@@ -53,26 +53,17 @@ MODEL_ID='read_show'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Show': 'flowguard/map/views.py:render_show'}
 USES={'Facets': 'flowguard/map/facets.py:component_facets'}
-TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_visible_or_named': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'within_budget': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer']}
+TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer']}
 MOVED_RULES=(
 Invariant('no_model_import', 'reading never imports a model module', lambda state, trace: not state.imported),
-Invariant('components_visible_or_named', 'each component is visible or explicitly named as hidden', lambda state, trace: _names(state)),
-Invariant('within_budget', 'output fits the requested character budget', lambda state, trace: len(state.text) <= state.case.budget),
+Invariant('components_and_models_visible', 'every component and every model is visible, each model once', lambda state, trace: _names(state)),
 Invariant('model_purpose_and_three_counts', 'displayed models retain purpose and rule/bad/test counts', lambda state, trace: _model_contract(state)),
 Invariant('missing_summary_prompt', 'a visible component without summary carries the purpose prompt', lambda state, trace: _summary(state)),
 Invariant('components_in_layer_order', 'read lists top-level components by layer, parents before children', lambda state, trace: _layer_order(state)),
 )
-RULES=(
-Invariant('coverage_counts_only_bound', 'words do not count as calls', lambda s, t: s[0] == 2),Invariant('tests_line_counts_bound_and_unbound', 'one bound, two calling and one unrelated test', lambda s, t: s[1:] == (1, 2, 1)),
-Invariant('no_model_import', 'reading never imports a model module', lambda state, trace: not state.imported),
-Invariant('components_visible_or_named', 'each component is visible or explicitly named as hidden', lambda state, trace: _names(state)),
-Invariant('within_budget', 'output fits the requested character budget', lambda state, trace: len(state.text) <= state.case.budget),
-Invariant('model_purpose_and_three_counts', 'displayed models retain purpose and rule/bad/test counts', lambda state, trace: _model_contract(state)),
-Invariant('missing_summary_prompt', 'a visible component without summary carries the purpose prompt', lambda state, trace: _summary(state)),
-Invariant('components_in_layer_order', 'read lists top-level components by layer, parents before children', lambda state, trace: _layer_order(state)),
-)
-FEATURE_NAMES=['small_budget', 'import_time_marker', 'missing_summary', 'late_upper_component']
-LEGACY_FAULTS={'drops_a_component': 'drop_component', 'imports_a_model': 'import_model', 'exceeds_budget': 'overflow', 'drops_model_contract': 'drop_model_contract', 'drops_summary_prompt': 'drop_summary_prompt', 'map_file_order': 'map_file_order'}
+RULES = BASE_RULES + MOVED_RULES
+FEATURE_NAMES=['import_time_marker', 'missing_summary', 'late_upper_component']
+LEGACY_FAULTS={'drops_a_component': 'drop_component', 'imports_a_model': 'import_model', 'drops_a_model': 'overflow', 'drops_model_contract': 'drop_model_contract', 'drops_summary_prompt': 'drop_summary_prompt', 'map_file_order': 'map_file_order'}
 
 from dataclasses import dataclass, replace
 @dataclass(frozen=True,eq=False)
@@ -94,14 +85,14 @@ class ReadStep(Bridge):
             answers=((event[1],state.native,state.legacy),)
         else:
             answers=tuple(('complete',item.new_state.native,item.new_state.legacy) for item in super().apply(event,state))
-        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_exceeds_budget' else max(200,getattr(native,'size',0))),label=answer) for answer,native,legacy in answers)
+        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='show_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='show_view_drops_a_model' else max(200,getattr(native,'size',0))),label=answer) for answer,native,legacy in answers)
 
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
-    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete', 'truncated'))
-    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,fault)),)),tuple(ViewState(native.initial_states[0],_abstract(ReadCase()),value) for value in ('complete', 'truncated')),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
+    events=tuple(('native',event) for event in native.external_inputs)+tuple(('legacy',case) for case in legacy_cases(FEATURE_NAMES))+tuple(('answer',value) for value in ('complete',))
+    return Explorer(Workflow((ReadStep(native,LEGACY_FAULTS.get(fault,fault)),)),tuple(ViewState(native.initial_states[0],_abstract(ReadCase()),'') for value in ('complete',)),events,invariants=RULES,max_sequence_length=1,progress_steps=0)
 def build_explorer():return _explorer()
-def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'exceeds_budget':_explorer('exceeds_budget'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order')}
+def broken_variants():return {'counts_docstring_mention_as_test':_explorer('counts_docstring_mention_as_test'),'counts_unbound_as_bound':_explorer('counts_unbound_as_bound'),'drops_a_component':_explorer('drops_a_component'),'imports_a_model':_explorer('imports_a_model'),'drops_a_model':_explorer('drops_a_model'),'drops_model_contract':_explorer('drops_model_contract'),'drops_summary_prompt':_explorer('drops_summary_prompt'),'map_file_order':_explorer('map_file_order')}
 def _original_conformance():
     native=base_conformance()
     moved=legacy_conformance(FEATURE_NAMES,MOVED_RULES)
@@ -115,4 +106,10 @@ def conformance():
         for value,valid,text in answers(root,'show'): facts.append(Fact(value,valid and not imported(root),text))
     return CodeFactsReport(tuple(facts))
 
-OUTPUTS = {'shown': ('complete', 'truncated')}
+OUTPUTS = {'shown': ('complete',)}
+
+from _read_fixture import complete_view_facts
+_previous_conformance = conformance
+def conformance():
+    previous = _previous_conformance()
+    return CodeFactsReport(tuple(previous.facts) + complete_view_facts('show'))

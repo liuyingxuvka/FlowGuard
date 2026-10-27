@@ -1,4 +1,4 @@
-"""Formatting for bounded map views."""
+"""Formatting for complete map views."""
 from __future__ import annotations
 import re
 from collections import defaultdict
@@ -60,12 +60,15 @@ def _rule_text(facets) -> str:
     if facets.rules_source == "file":
         return ", ".join(facets.rules) + " (found in the file; map models prints the real ones)"
     notes = facets.rule_notes or ("",) * len(facets.rules)
-    text = "; ".join(name + (": " + (note[:69] + "…" if len(note) > 70 else note) if note else "")
-                     for name, note in zip(facets.rules, notes)) or "-"
+    text = (
+        "; ".join(name + (": " + note if note else "") for name, note in zip(facets.rules, notes))
+        or "-"
+    )
     if facets.cases is not None:
         defects, benign = facets.cases
-        text += (f"; cases: {len(defects)} defects ({_capped(defects, 6)})"
-                 + (f", {len(benign)} benign ({_capped(benign, 6)})" if benign else ", 0 benign"))
+        text += f"; cases: {len(defects)} defects ({_capped(defects, 6)})" + (
+            f", {len(benign)} benign ({_capped(benign, 6)})" if benign else ", 0 benign"
+        )
     return text
 
 def _facet_lines(facets, indent: str) -> list[str]:
@@ -95,37 +98,103 @@ def _descendant_tests(tree, mid, facets) -> tuple[int, list[str]]:
         pending.extend(tree.children(child.id, "model"))
     return total, sorted(names)
 
-def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, bindings: bool = False,
-                 changes=None, previous=None, relation=None) -> list[str]:
-    roots = sorted((tree.nodes[mid] for mid in ids if tree.nodes[mid].parent_kind != "model"
-                    or tree.nodes[mid].parent not in ids), key=lambda n: n.id)
+def _fold_names(tree, ids, relation):
+    kinds = (
+        {child: kind.split()[0] for parent, child, kind in relation.composition} if relation else {}
+    )
+    names = []
+    count = 0
+    mixed = len({kinds.get(mid, "stage") for mid in ids}) > 1
+    for mid in ids:
+        children = [node.id for node in tree.children(mid, "model")]
+        nested_count, nested = _fold_names(tree, children, relation)
+        name = mid + (f" [{kinds.get(mid, 'stage')}]" if mixed else "")
+        if children:
+            name += " (" + nested + ")"
+        names.append(name)
+        count += 1 + nested_count
+    return count, ", ".join(names)
+
+
+def _fold_line(tree, mid, relation, depth):
+    children = [node.id for node in tree.children(mid, "model")]
+    count, names = _fold_names(tree, children, relation)
+    kinds = (
+        {kind.split()[0] for parent, child, kind in relation.composition if parent == mid}
+        if relation
+        else {"stage"}
+    )
+    kind = next(iter(kinds)) + " " if len(kinds) == 1 else ""
+    return "  " * (depth + 1) + f"+{count} {kind}children: {names}"
+
+
+def _model_lines(
+    tree,
+    ids: set[str],
+    facets,
+    *,
+    component: str | None = None,
+    bindings: bool = False,
+    changes=None,
+    previous=None,
+    relation=None,
+    fold: bool = False,
+) -> list[str]:
+    roots = sorted(
+        (
+            tree.nodes[mid]
+            for mid in ids
+            if tree.nodes[mid].parent_kind != "model" or tree.nodes[mid].parent not in ids
+        ),
+        key=lambda n: n.id,
+    )
     pending, lines = [(node, 1) for node in reversed(roots)], []
     while pending:
         node, depth = pending.pop()
         fact = facets[node.id]
         purpose = fact.purpose[:50] + ("…" if len(fact.purpose) > 50 else "")
-        home = f" (home {node.home})" if component and (node.home_kind != "component" or node.home != component) else ""
+        home = (
+            f" (home {node.home})"
+            if component and (node.home_kind != "component" or node.home != component)
+            else ""
+        )
         mark = changes.get(("model", node.id), "") if changes is not None else ""
         prefix = mark + " " if mark else ""
         rolled, child_ids = _descendant_tests(tree, node.id, facets)
         more = f" +{rolled} in children" if rolled else ""
-        kind = next((kind for parent, child, kind in relation.composition if child == node.id), '') if relation else ''
-        relation_label = f' [{kind} of {node.parent}]' if kind else ''
-        lines.append("  " * depth + prefix + f"model {node.id}: {purpose} "
-                     f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){relation_label}{home}")
+        kind = (
+            next((kind for parent, child, kind in relation.composition if child == node.id), "")
+            if relation
+            else ""
+        )
+        relation_label = f" [{kind} of {node.parent}]" if kind else ""
+        lines.append(
+            "  " * depth + prefix + f"model {node.id}: {purpose} "
+            f"({fact.rule_count_text} rules, {_count(fact.known_bad_count)} known-bad, {fact.test_count} tests{more}){relation_label}{home}"
+        )
         if relation:
-            consumed = [f'{producer}.{key} -> {into if into is not None else "(atoms)"}'
-                        for producer, consumer, key, into in relation.consumption if consumer == node.id]
+            consumed = [
+                f'{producer}.{key} -> {into if into is not None else "(atoms)"}'
+                for producer, consumer, key, into in relation.consumption
+                if consumer == node.id
+            ]
             if consumed:
-                lines.append('  '*(depth+1)+'consumes: '+', '.join(consumed[:6])+(f', +{len(consumed)-6}' if len(consumed)>6 else ''))
+                lines.append(
+                    "  " * (depth + 1)
+                    + "consumes: "
+                    + ", ".join(consumed[:6])
+                    + (f", +{len(consumed)-6}" if len(consumed) > 6 else "")
+                )
         if component:
-            lines.append("  " * (depth + 1) + model_port_line(node, tree, limit=max(0, 200-2*(depth+1))))
+            lines.append("  " * (depth + 1) + model_port_line(node, tree))
         start = len(lines)
         before = previous.get(("model", node.id)) if previous is not None else None
         if mark == "-":
             lines[-1] += " (removed by the target)"
         elif changes is not None and bindings:
-            lines.extend(_facet_lines_with_was(fact, before[1] if before else None, "  " * (depth + 1)))
+            lines.extend(
+                _facet_lines_with_was(fact, before[1] if before else None, "  " * (depth + 1))
+            )
         elif bindings:
             lines.extend(_facet_lines(fact, "  " * (depth + 1)))
         elif changes is not None and mark:
@@ -136,7 +205,20 @@ def _model_lines(tree, ids: set[str], facets, *, component: str | None = None, b
             for index in range(start, len(lines)):
                 if lines[index].lstrip().startswith("tests: "):
                     lines[index] += f"; children: {rolled} tests in {', '.join(child_ids)}"
-        pending.extend((child, depth + 1) for child in reversed(tree.children(node.id, "model")) if child.id in ids)
+        descendants = set()
+        todo = list(tree.children(node.id, "model"))
+        while todo:
+            child = todo.pop()
+            descendants.add(child.id)
+            todo.extend(tree.children(child.id, "model"))
+        if fold and descendants and descendants <= ids:
+            lines.append(_fold_line(tree, node.id, relation, depth))
+        else:
+            pending.extend(
+                (child, depth + 1)
+                for child in reversed(tree.children(node.id, "model"))
+                if child.id in ids
+            )
     return lines
 
 def _facet_lines_with_was(fact, before, indent):
@@ -228,86 +310,3 @@ def _component_block(lines, depth):
 def _tidy(text: str) -> str:
     """At most one blank line between blocks."""
     return re.sub(r"\n{3,}", "\n\n", text)
-
-def _shorten(line: str, width: int) -> str:
-    return line if len(line) <= width else line[:max(0, width - 1)] + "…"
-
-def _bounded_focus(*args):
-    return _tidy(_bounded_focus_raw(*args))
-
-def _bounded_focus_raw(top, focus, full, compact, children, compact_children, must, budget):
-    """read --component X: shorten inside X's block, never hide X itself.
-
-    Order: capped lists (always), model facets reduced to model headings, child
-    component blocks hidden and named, then X's own lines shortened with "…".
-    """
-    text = top + "\n" + "\n".join([full, *(block for _, block in children)])
-    if len(text) <= budget:
-        return text
-    suggested = -(-len(text) // 1000) * 1000
-
-    def notice(hidden):
-        names = f"not shown: {', '.join(hidden)}; " if hidden else ""
-        return (f"\n... shortened to fit {budget} chars; {names}"
-                f"python -m flowguard read --component {focus} --budget {suggested} shows all")
-
-    text = top + "\n" + "\n".join([compact, *(block for _, block in compact_children)])
-    if len(text) + len(notice([])) <= budget:
-        return text + notice([])
-    names = [cid for cid, _ in compact_children]
-    shown, hidden = top + "\n" + compact, []
-    for cid, block in compact_children:
-        if not hidden and len(shown) + 1 + len(block) + len(notice(names[names.index(cid) + 1:])) <= budget:
-            shown += "\n" + block
-        else:
-            hidden.append(cid)
-    if len(shown) + len(notice(hidden)) <= budget:
-        return shown + notice(hidden)
-    # Keep X's heading and its five facet lines; shorten each line until all fit.
-    note = notice(names)
-    if len(note) > budget // 3:
-        note = f"\n... shortened to fit {budget} chars"
-    available = budget - len(note)
-    minimum = [min(len(line), (line.index("]") + 3) if line.startswith("## ") and "]" in line
-                   else len(line.partition(": ")[0]) + 3) for line in must]
-    # The requested block outranks the overview lines above it at this point.
-    room = available - 1 - (len(must) - 1)
-    width = max((len(line) for line in must), default=0)
-    while width > 1 and sum(max(low, min(len(line), width)) for line, low in zip(must, minimum)) > room:
-        width -= 1
-    lines = [_shorten(line, max(low, width)) for line, low in zip(must, minimum)]
-    return ("\n" + "\n".join(lines) + note)[:budget]
-
-def _bounded_show(top, essential, blocks, budget):
-    return _tidy(_bounded_show_raw(_tidy(top), essential, [(cid, _tidy(block)) for cid, block in blocks], budget))
-
-def _bounded_show_raw(top, essential, blocks, budget):
-    text = top + "\n" + "\n".join(b for _, b in blocks)
-    if len(text) <= budget:
-        return text
-    reserve = min(160, max(len("\n... truncated"), budget // 2))
-    shown = ""
-    rows = top.splitlines()
-    if len(essential) > budget - reserve:
-        rows = rows[:1] + [line for line in rows[1:] if line.startswith("> flow ")] + [line for line in rows[1:] if not line.startswith("> flow ")]
-    for line in rows:
-        candidate = shown + ("\n" if shown else "") + line
-        if len(candidate) > budget - reserve:
-            break
-        shown = candidate
-    hidden: list[str] = []
-    for cid, block in blocks:
-        if not hidden and len(shown) + 1 + len(block) <= budget - reserve:
-            shown += "\n" + block
-        else:
-            hidden.append(cid)
-    named = []
-    for cid in hidden:
-        if len(", ".join(named + [cid])) > reserve - 90:
-            break
-        named.append(cid)
-    names = ", ".join(named) + (f" +{len(hidden) - len(named)} more" if len(named) < len(hidden) else "")
-    notice = f"\n... truncated at {budget} chars; not shown: {names}; use read --component ID"
-    if len(shown) + len(notice) > budget:
-        notice = f"\ntruncated; not shown: {len(hidden)}"
-    return (shown + notice)[:budget]

@@ -104,23 +104,31 @@ def cmd_discover(root: Path, a) -> int:
 
 
 def cmd_show(root: Path, a) -> int:
-    if getattr(a, 'field', None):
+    if getattr(a, "field", None):
         if a.component or a.mermaid or a.target or a.review:
-            print('error: --field cannot be combined with another view', file=sys.stderr)
+            print("error: --field cannot be combined with another view", file=sys.stderr)
             return 2
         data, inv = _context(root, with_bodies=False)
         text = render_field(root, data, inv, a.field)
         print(text)
-        return int(text.startswith('field '+a.field+': no model, rule or code site'))
+        return int(text.startswith("field " + a.field + ": no model, rule or code site"))
     if getattr(a, "review", False):
-        clash = [flag for flag, on in (("--component", a.component), ("--mermaid", getattr(a, "mermaid", False)),
-                                       ("--target", getattr(a, "target", False))) if on]
+        clash = [
+            flag
+            for flag, on in (
+                ("--component", a.component),
+                ("--mermaid", getattr(a, "mermaid", False)),
+                ("--target", getattr(a, "target", False)),
+            )
+            if on
+        ]
         if clash:
             print(f"error: --review cannot be used with {', '.join(clash)}", file=sys.stderr)
             return 2
         from .review import render_review
+
         data, inv = _context(root, with_bodies=False)
-        print(render_review(root, data, inv, budget=a.budget))
+        print(render_review(root, data, inv))
         return 0
     data, inv = _context(root, with_bodies=False)
     target = None
@@ -133,11 +141,16 @@ def cmd_show(root: Path, a) -> int:
             if validate_target(root, data, target):
                 raise MapError("invalid target")
         except (OSError, ValueError, TypeError, SyntaxError, MapError):
-            print("target: .flowguard/target/map.json is invalid; run python -m flowguard target check")
+            print(
+                "target: .flowguard/target/map.json is invalid; run python -m flowguard target check"
+            )
             return 1
     options = {"target": target} if target is not None else {}
-    text = render_mermaid(root, data, inv, component=a.component, **options) if getattr(a, "mermaid", False) else render_show(
-        root, data, inv, component=a.component, detail=False, budget=a.budget, **options)
+    text = (
+        render_mermaid(root, data, inv, component=a.component, **options)
+        if getattr(a, "mermaid", False)
+        else render_show(root, data, inv, component=a.component, detail=False, **options)
+    )
     print(text)
     return 1 if text.startswith("no component") else 0
 
@@ -479,39 +492,88 @@ def cmd_verify(root: Path, a) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="python -m flowguard.map", description=__doc__,
-                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p = argparse.ArgumentParser(
+        prog="python -m flowguard.map",
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     p.add_argument("--root", default=".", help="project root (default: current directory)")
     sub = p.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("scan"); s.add_argument("--limit", type=int, default=50)
+    s = sub.add_parser("scan")
+    s.add_argument("--limit", type=int, default=50)
     s.add_argument("--max-components", type=int, default=40)
-    s = sub.add_parser("discover"); s.add_argument("--component"); s.add_argument("--json", action="store_true")
-    s = sub.add_parser("show"); s.add_argument("--component")
-    s.add_argument("--budget", type=int, default=8000, help="max characters printed")
-    s.add_argument("--field", metavar="NAME")
-    s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid (not budgeted)")
-    s.add_argument("--target", action="store_true", help="show the target's node-by-node changes")
-    s.add_argument("--review", action="store_true", help="architecture review: metrics, strengths, defects, optimise next")
-    s = sub.add_parser("find"); s.add_argument("words", nargs="+")
-    s = sub.add_parser("digest"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
-    for name in ("check", "lint"):
-        s = sub.add_parser(name); s.add_argument("--json", action="store_true"); s.add_argument("--limit", type=int, default=80)
-    sub.choices["check"].add_argument("--strict", action="store_true", help="draft and stale are errors (release)")
-    lint = sub.choices["lint"]
-    lint.add_argument("--debts", action="store_true", help="list accepted decisions and unused debts")
-    s = sub.add_parser("impact"); s.add_argument("files", nargs="*"); s.add_argument("--base", default="HEAD")
+    s = sub.add_parser("discover")
+    s.add_argument("--component")
     s.add_argument("--json", action="store_true")
-    s = sub.add_parser("deps"); s.add_argument("--write", action="store_true")
-    s = sub.add_parser("confirm"); s.add_argument("ids", nargs="+", help="component ids, or 'all'")
-    s = sub.add_parser("models"); s.add_argument("ids", nargs="*")
-    s.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
-    s.add_argument("--tests", action="store_true", help="run each model's bound tests and check actual anchor reach")
-    s = sub.add_parser("verify"); s.add_argument("--limit", type=int, default=80)
-    s.add_argument("--jobs", type=int, choices=range(1, 33), default=DEFAULT_JOBS, metavar="N", help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))")
-    s.add_argument("--shards", type=int, choices=range(1, 33), metavar="N",
-                   help="after normal checks pass, run the whole suite in 1–32 parallel shards")
-    for command in sub.choices.values():   # --root is accepted before or after the command
-        command.add_argument("--root", default=argparse.SUPPRESS, help="project root (default: current directory)")
+    s = sub.add_parser("show")
+    s.add_argument("--component")
+    s.add_argument("--field", metavar="NAME")
+    s.add_argument("--mermaid", action="store_true", help="export the model tree as Mermaid")
+    s.add_argument("--target", action="store_true", help="show the target's node-by-node changes")
+    s.add_argument(
+        "--review",
+        action="store_true",
+        help="architecture review: metrics, strengths, defects, optimise next",
+    )
+    s = sub.add_parser("find")
+    s.add_argument("words", nargs="+")
+    s = sub.add_parser("digest")
+    s.add_argument("ids", nargs="+", help="component ids, or 'all'")
+    for name in ("check", "lint"):
+        s = sub.add_parser(name)
+        s.add_argument("--json", action="store_true")
+        s.add_argument("--limit", type=int, default=80)
+    sub.choices["check"].add_argument(
+        "--strict", action="store_true", help="draft and stale are errors (release)"
+    )
+    lint = sub.choices["lint"]
+    lint.add_argument(
+        "--debts", action="store_true", help="list accepted decisions and unused debts"
+    )
+    s = sub.add_parser("impact")
+    s.add_argument("files", nargs="*")
+    s.add_argument("--base", default="HEAD")
+    s.add_argument("--json", action="store_true")
+    s = sub.add_parser("deps")
+    s.add_argument("--write", action="store_true")
+    s = sub.add_parser("confirm")
+    s.add_argument("ids", nargs="+", help="component ids, or 'all'")
+    s = sub.add_parser("models")
+    s.add_argument("ids", nargs="*")
+    s.add_argument(
+        "--jobs",
+        type=int,
+        choices=range(1, 33),
+        default=DEFAULT_JOBS,
+        metavar="N",
+        help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))",
+    )
+    s.add_argument(
+        "--tests",
+        action="store_true",
+        help="run each model's bound tests and check actual anchor reach",
+    )
+    s = sub.add_parser("verify")
+    s.add_argument("--limit", type=int, default=80)
+    s.add_argument(
+        "--jobs",
+        type=int,
+        choices=range(1, 33),
+        default=DEFAULT_JOBS,
+        metavar="N",
+        help="run 1-32 model subprocesses concurrently (default: min(4, CPUs))",
+    )
+    s.add_argument(
+        "--shards",
+        type=int,
+        choices=range(1, 33),
+        metavar="N",
+        help="after normal checks pass, run the whole suite in 1–32 parallel shards",
+    )
+    for command in sub.choices.values():  # --root is accepted before or after the command
+        command.add_argument(
+            "--root", default=argparse.SUPPRESS, help="project root (default: current directory)"
+        )
     return p
 
 

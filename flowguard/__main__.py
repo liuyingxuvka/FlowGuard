@@ -1,6 +1,6 @@
 """python -m flowguard: daily verbs on top of the FlowGuard map.
 
-  read      [--root R] [--component ID | --find WORDS... | --review] [--budget N] understand the software (business data read-only; disposable caches may update)
+  read      [--root R] [--component ID | --find WORDS... | --review] understand the software (business data read-only; disposable caches may update)
   change    [--root R] [--base REF] [--run] [FILES...]       after editing: check the map, list (and --run) what to run
   release   [--root R] [--shards N]                          release gate; optionally run the whole suite in parallel shards
   map       <command> ...                                    every map/proof command (python -m flowguard map --help)
@@ -20,11 +20,7 @@ from .map.proof import DEFAULT_JOBS
 from .map.common import quiet_broken_pipe, safe_stdio
 
 
-def _budget(text: str) -> int:
-    value = int(text)
-    if value < 200:
-        raise argparse.ArgumentTypeError("the read budget must be at least 200 characters")
-    return value
+
 
 
 def _verb_parser(verb: str) -> argparse.ArgumentParser:
@@ -68,13 +64,6 @@ def _verb_parser(verb: str) -> argparse.ArgumentParser:
             "--review",
             action="store_true",
             help="rank architecture strengths, defects and next steps (incompatible with the other views)",
-        )
-        p.add_argument(
-            "--budget",
-            type=_budget,
-            default=8000,
-            metavar="N",
-            help="max characters printed (default 8000, like map show --budget; at least 200)",
         )
     elif verb == "change":
         p.add_argument(
@@ -194,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         return map_main(rest)
     if verb == "target":
         from .map.target import main as target_main
+
         return target_main(rest)
     if verb not in {"read", "change", "release", "template", "target"}:
         print(f"unknown command {verb!r}; run 'python -m flowguard --help'", file=sys.stderr)
@@ -204,7 +194,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.error("--mermaid cannot be used with --find")
     if verb == "read" and ns.target and ns.find:
         parser.error("--target cannot be used with --find")
-    if verb == "read" and ns.review and (ns.component or ns.find or ns.field or ns.mermaid or ns.target):
+    if (
+        verb == "read"
+        and ns.review
+        and (ns.component or ns.find or ns.field or ns.mermaid or ns.target)
+    ):
         parser.error("--review cannot be used with --component, --find, --mermaid or --target")
     if verb == "read" and ns.field and (ns.mermaid or ns.target):
         parser.error("--field cannot be used with --mermaid or --target")
@@ -217,12 +211,20 @@ def main(argv: list[str] | None = None) -> int:
             return map_main([*root, "show", "--field", ns.field])
         if ns.find:
             return map_main([*root, "find", *ns.find])
-        return map_main([*root, "show", "--budget", str(ns.budget), *(["--component", ns.component] if ns.component else []),
-                         *(["--mermaid"] if ns.mermaid else []), *(["--target"] if ns.target else []),
-                         *(["--review"] if ns.review else [])])
+        return map_main(
+            [
+                *root,
+                "show",
+                *(["--component", ns.component] if ns.component else []),
+                *(["--mermaid"] if ns.mermaid else []),
+                *(["--target"] if ns.target else []),
+                *(["--review"] if ns.review else []),
+            ]
+        )
     if verb == "change":
         from .map.cli import cmd_change
         from .map.mapfile import MapError
+
         try:
             return cmd_change(Path(ns.root).resolve(), ns)
         except (MapError, RuntimeError) as exc:
@@ -230,6 +232,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     from .map.cli import cmd_verify
     from .map.mapfile import MapError
+
     ns.limit = 80
     try:
         return cmd_verify(Path(ns.root).resolve(), ns)

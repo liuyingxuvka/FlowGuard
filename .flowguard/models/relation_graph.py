@@ -55,10 +55,11 @@ def conformance():
     with TemporaryDirectory(prefix='fg-relations-') as directory:
         root=Path(directory);data=fixture(root);inv=build_inventory(root,DEFAULT_IGNORE,write_cache=False);tree=build_tree(root,data,inv);raw=discover_inventory(root,inv,data=data,write_cache=False)
         function=getattr(views,'relations',None);actual=function(root,data,inv,tree,raw) if function else None
-        show=views.render_show(root,data,inv,component=None,detail=False,budget=30000);mermaid=views.render_mermaid(root,data,inv);review=render_review(root,data,inv,budget=30000)
+        from _read_fixture import show_view
+        show=show_view(root,data,inv,component=None,detail=False);mermaid=views.render_mermaid(root,data,inv);review=render_review(root,data,inv)
         ports={mid:node.contract['port'] for mid,node in tree.nodes.items()}
         ripple=escalation_set('T',tree,ports)
-        facts=[Fact('views','[stage of desk]' in show and '[branch x of cmd]' in show and 'consumes: P.value -> value' in show and 'm_desk ==> m_lending' in mermaid and 'm_cmd ==>|"x"| m_a' in mermaid and 'm_P --o|"value"| m_K1' in mermaid,show+'\n'+mermaid)]
+        facts=[Fact('views','stage children:' in show and 'branch children:' in show and 'consumes: P.value -> value' in show and 'm_desk ==> m_lending' in mermaid and 'm_cmd ==>|"x"| m_a' in mermaid and 'm_P --o|"value"| m_K1' in mermaid,show+'\n'+mermaid)]
         if actual is None:facts.append(Fact('relations',False,'relations is absent'))
         else:
             facts.extend((Fact('placement',('extra','W') in actual.placement,repr(actual.placement)),Fact('hub',actual.hub['P'] and actual.hub['Q'] and actual.hub['Q8'] and not actual.hub['R'],review),Fact('ripple',actual.ripple['T']==ripple and ripple==[('V','parent'),('KT','HANDOFF')],repr(actual.ripple)),Fact('reading_parent',len(actual.ripple['U'])==4,repr(actual.ripple['U'])),Fact('review','hubs:' in review and 'Q8 (extra)' in review,review)))

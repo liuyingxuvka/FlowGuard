@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: read and map show print complete views without --budget; every component and model is named, with child models folded into their parent.
+
 - Projects using FlowGuard: accepted debts are counted once and remain listed by map lint --debts; change --verbose shows exact test commands while normal change gives a counted summary.
 
 - Check the model scheduler with one real fixture and report models above the timing advice in one counted line per advice value.

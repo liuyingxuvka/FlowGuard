@@ -5,7 +5,7 @@ architecture findings. With no map yet, start with `python -m flowguard map scan
 noncomment source lines (5.2 MB) produced a 158k-character digest with a
 40-line-per-file limit, about 3.1% of source bytes. These are character/byte counts,
 not token estimates. API density and the line limit change this ratio; measure your
-project and read components in batches. Default `read` targets 8,000 characters.
+project and read components in batches. `read` prints every component and model; child models are folded into their parent's line and `read --component <id>` shows them.
 
 ## Steps
 
@@ -38,7 +38,7 @@ project and read components in batches. Default `read` targets 8,000 characters.
    - Add 1-5 `flows` for the most important journeys. Each flow needs `"id"` (not `"name"`),
      `"summary"` and `"steps"`.
    - Keep `summary` to one sentence and one present-tense duty per responsibility, about 12 words, so that
-     `python -m flowguard read` stays within its 8,000-character default budget, including coverage, structure problems and model subtrees.
+`read` prints every component and model; child models are folded into their parent's line and `read --component <id>` shows them.
 4. `python -m flowguard map deps --write` writes dependencies supported by imports, lazy exports, literal import calls, entrypoint or defined-symbol literals, or justified accepted debts; ordinary string values are not dependency evidence; unsupported declarations are removed. An injected collaborator (a constructor parameter with a type annotation, or the same class passed at every call site) is evidence too.
 5. `python -m flowguard map check` and fix until it reports 0 errors (`draft` warnings are expected now).
    For real existing `dependency_cycle` / `layer_violation` problems not being refactored now, record

@@ -50,19 +50,15 @@ MODEL_ID='read_review'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Review': 'flowguard/map/review.py:render_review'}
 USES={'Facets': 'flowguard/map/facets.py:component_facets'}
-TESTED_BY = {'closed_suggestion_is_counted': ['tests/test_read_command.py:test_closing_debt_hides_one_suggestion'], 'review_ranks_errors_first': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_strengths_are_true': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_steps_name_a_recipe': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_imports_no_model': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_within_budget': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths']}
+TESTED_BY = {'closed_suggestion_is_counted': ['tests/test_read_command.py:test_closing_debt_hides_one_suggestion'], 'review_ranks_errors_first': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_strengths_are_true': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_steps_name_a_recipe': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_imports_no_model': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_complete': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths']}
 MOVED_RULES=(
 Invariant('review_ranks_errors_first', 'every ERROR finding is in optimise next, before every non-ERROR step', lambda state, trace: _ranked(state)),
 Invariant('review_strengths_are_true', 'every strength read --review claims holds on the project', lambda state, trace: _true_strengths(state)),
 Invariant('review_steps_name_a_recipe', 'every optimise next step names a references recipe or a flowguard command', lambda state, trace: _recipes(state)),
 )
-RULES = (
-Invariant('closed_suggestion_is_counted', 'the closed suggestion disappears and the decision is counted', lambda s, t: s == (False, 1)),
-Invariant('review_ranks_errors_first', 'every ERROR finding is in optimise next, before every non-ERROR step', lambda state, trace: _ranked(state)),
-Invariant('review_strengths_are_true', 'every strength read --review claims holds on the project', lambda state, trace: _true_strengths(state)),
-Invariant('review_steps_name_a_recipe', 'every optimise next step names a references recipe or a flowguard command', lambda state, trace: _recipes(state)),
+RULES = BASE_RULES + MOVED_RULES + (
 Invariant('review_view_imports_no_model','the view never imports a project model',lambda s,t:not s.imported),
-Invariant('review_view_within_budget','the view fits its requested budget',lambda s,t:s.size<=8000)
+Invariant('review_view_complete','every component row is shown',lambda s,t:s.complete),
 )
 FEATURE_NAMES=['review_fixture']
 LEGACY_FAULTS={'review_hides_error': 'review_hides_error', 'review_claims_false_strength': 'review_false_strength', 'review_step_without_recipe': 'review_no_recipe'}
@@ -74,20 +70,20 @@ class ViewState(JointState):
     legacy:object
     review:str='ranked'
     imported:bool=False
-    size:int=200
+    complete: bool = True
     def __eq__(self,other):
-        if isinstance(other,ViewState): return (self.native,self.legacy,self.review,self.imported,self.size)==(other.native,other.legacy,other.review,other.imported,other.size)
+        if isinstance(other,ViewState): return (self.native,self.legacy,self.review,self.imported,self.complete)==(other.native,other.legacy,other.review,other.imported,other.complete)
         return super().__eq__(other)
-    def __hash__(self): return hash((self.native,self.legacy,self.review,self.imported,self.size))
+    def __hash__(self): return hash((self.native,self.legacy,self.review,self.imported,self.complete))
 class ReadStep(Bridge):
     reads=('native','legacy')
-    writes=('native','legacy','review','imported','size')
+    writes=('native','legacy','review','imported','complete')
     def apply(self,event,state):
         if event[0]=='answer':
             answers=((event[1],state.native,state.legacy),)
         else:
             answers=tuple(('ranked',item.new_state.native,item.new_state.legacy) for item in super().apply(event,state))
-        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='review_view_imports_a_model' or getattr(legacy,'imported',False),9000 if self.fault=='review_view_exceeds_budget' else max(200,getattr(native,'size',0))),label=answer) for answer,native,legacy in answers)
+        return tuple(FunctionResult(answer,ViewState(native,legacy,answer,self.fault=='review_view_imports_a_model' or getattr(legacy,'imported',False),False if self.fault=='review_view_hides_components' else getattr(native,'complete',True)),label=answer) for answer,native,legacy in answers)
 
 def _explorer(fault=""):
     native=base_variants().get(fault,base_build())
@@ -111,4 +107,10 @@ def conformance():
 OUTPUTS = {'review': ('ranked', 'nothing_to_rank')}
 
 def broken_variants():
-    return {'closed_suggestion_reappears':_explorer('closed_suggestion_reappears'), 'review_hides_error':_explorer('review_hides_error'), 'review_claims_false_strength':_explorer('review_claims_false_strength'), 'review_step_without_recipe':_explorer('review_step_without_recipe'), 'review_view_imports_a_model':_explorer('review_view_imports_a_model'), 'review_view_exceeds_budget':_explorer('review_view_exceeds_budget')}
+    return {'closed_suggestion_reappears':_explorer('closed_suggestion_reappears'), 'review_hides_error':_explorer('review_hides_error'), 'review_claims_false_strength':_explorer('review_claims_false_strength'), 'review_step_without_recipe':_explorer('review_step_without_recipe'), 'review_view_imports_a_model':_explorer('review_view_imports_a_model'), 'review_view_hides_components':_explorer('review_view_hides_components')}
+
+from _read_fixture import complete_view_facts
+_previous_conformance = conformance
+def conformance():
+    previous = _previous_conformance()
+    return CodeFactsReport(tuple(previous.facts) + complete_view_facts('review'))

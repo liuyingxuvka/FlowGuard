@@ -30,7 +30,7 @@ def imported(root):
 
 def answers(root,mode):
     if mode=='show':
-        for args,value in (((), 'complete'),(('--budget','200'),'truncated')):
+        for args,value in (((), 'complete'),):
             code,text=call(root,*args)
             yield value,code==0 and ('truncated' in text if value=='truncated' else text.startswith('# ') and 'truncated' not in text),text
     elif mode=='component':

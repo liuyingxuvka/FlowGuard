@@ -82,7 +82,7 @@
       "summary": "Dispatch supported read, change, target and release commands with fixed defaults; map aliases retain the same owners.",
       "responsibilities": [
         "parse command lines and dispatch them to their owners Confirmation writes format 2 pointers and upgrades the map after all confirmed pointers are current. Model-running commands accept jobs 1-32, default to min(4, CPUs), and retain explicit --jobs 1 serial execution; the hidden verify alias keeps its existing surface. The change --verbose flag displays exact selected pytest commands.",
-        "show owners, closest owners, target changes, Mermaid and reviews in read",
+        "show complete owners, closest owners, target changes, Mermaid and reviews in read; folded child names lead to full component views",
         "annotate planned target breakage and ARCH lines in check, change and release; show fingerprint-format reminders in change",
         "run release with the system root counted and optional whole-suite shards",
         "run bound tests and, on request, the checks an edit needs",
@@ -135,7 +135,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:47864b83548cd38190c106a691bd3ec38330e589451f9e79f7b59cadcc388ecb"
+      "fingerprint": "sha256:ba224fae2ff5de5240a42810617a3622e7ad36778d04f6d949fe79b110fe0c56"
     },
     {
       "id": "public-api",
@@ -726,7 +726,7 @@
     {
       "id": "map-read",
       "layer": "map",
-      "summary": "Show field lifecycles, exact code ownership, distinct model relations and bounded test positions without importing models.",
+      "summary": "Show complete component and model views, field lifecycles, exact code ownership, distinct model relations and counted test positions without importing models.",
       "responsibilities": [
         "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
@@ -759,7 +759,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:a89a04fc167939f91ab79735b56717e0df7ac1a886a592ee67150d288927a921"
+      "fingerprint": "sha256:315a2cd95a4fa714c0ef0b254e6068990b469a8f1590069f5af4789b62af2011"
     },
     {
       "id": "map-impact",
@@ -887,6 +887,11 @@
       "code": "large_file",
       "component": "map-impact",
       "reason": "Counted command summaries add presentation work to the current owner. FG-515 will extract cohesive impact presentation helpers before publication, after the round-10 selection changes settle; retain the existing 800 LOC diagnostic."
+    },
+    {
+      "code": "large_file",
+      "component": "map-read",
+      "reason": "Removing budget cuts and laying out the changed functions exposes presentation growth in views.py. Extract cohesive read presentation and location helpers under this owner during FG-515 and remove this temporary debt before publication; keep the 800 LOC diagnostic."
     }
   ],
   "fingerprint_format": 2,
@@ -910,14 +915,14 @@
     ".flowguard/models/port_checks.py": "52bb56591517c7c70f47e5c47a3890053bf42e3c967ff121bb0f391dd7fff0db",
     ".flowguard/models/port_escalation.py": "197e994b733b1c3f4326794025bf617ba63b7131490845f7c89d6414ea1de010",
     ".flowguard/models/private_use.py": "f22003c12bd2afdaa01c7f6ced7e6fbf79335274eb6d3ce88b2622b0cd628ed0",
-    ".flowguard/models/read_command.py": "069c7123f45411a5b1a73702e35a7c3f6f557cca5f8e51f7dcf8d55134964a27",
-    ".flowguard/models/read_component.py": "d520d79f24da4a9884ba26650d66acf3cd01c306e94bccad380d4e8271e83cde",
-    ".flowguard/models/read_field.py": "208c6f7d2985d58e0956bd1134116888d354bb61a7d83052e7643d76bcca3b84",
-    ".flowguard/models/read_find.py": "f37bfc6a74b353ea4aaf7781456f1071df8cfb90352f0c838a775a503b4f4422",
+    ".flowguard/models/read_command.py": "c61f0695ffd9375de9336ab6398b19599981f3a798553c45e150e605b15e459b",
+    ".flowguard/models/read_component.py": "8d3c3b89a03151a0de7894f0bce4c5fb9a44b4176b5461ddfe674c15239c7f18",
+    ".flowguard/models/read_field.py": "7eacba82bf3ffd33296df7c70f04667e36f6ac82a4dffbaa00dfa90adb0a2b68",
+    ".flowguard/models/read_find.py": "eda623fcffebdc5e3a8ee88c3fe7eb3f4fad0a94ff2df38ebb5f2b81953911a8",
     ".flowguard/models/read_mermaid.py": "ff0604b7a7f071b843b9d5f09cbce8aadfef8fbf90b0961c71419424fcdf5747",
-    ".flowguard/models/read_review.py": "d3697d33920e6fb1cf5c540ceb77a747910f61fc935880688307574a7cc28d1e",
-    ".flowguard/models/read_show.py": "20adc28f32a92c1c27dd77fc565f630bb6bbfd63d71ef7a362a6f684ce8681ab",
-    ".flowguard/models/relation_graph.py": "ceb79195f86546ac0cf3543b26644f2e7bb9277dadcca1ca6631ced26a7c6464",
+    ".flowguard/models/read_review.py": "7d47f025afbf579a41c2b5ca300082aea79bb5d8f9abf91fef79651830d44143",
+    ".flowguard/models/read_show.py": "0bb4ea4eca86f51e39f3b98c023f816d6101d447352afb30740fe2afe08fa36a",
+    ".flowguard/models/relation_graph.py": "376ddfbfa763e6e82d76930a5ada60b844ab490db4f6f2157bb4e2882acf7a22",
     ".flowguard/models/release_gate.py": "38b884f3999c3a8624ee61edead154224bd977ef8a5c77f89c246388a733a659",
     ".flowguard/models/release_neutral_fingerprint.py": "96e8b0639d451e729081386ccd40cfcf04839a9f9fa05eee39426592e6019b36",
     ".flowguard/models/replay_conformance.py": "311629f611c211acfecac54cd2d745cec295cc820fcf1b6c104f3f355441b97b",

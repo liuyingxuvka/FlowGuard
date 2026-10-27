@@ -15,7 +15,7 @@ HANDOFF={'read_show':{'shown':'shown'},'read_component':{'component':'component'
 KEEPS=('mode','refused','exit_code')
 TESTED_BY = {'one_view_per_read': ['tests/test_flowguard_target.py:test_read_target_conflicts_only_with_find'], 'missing_subject_exits_one': ['tests/test_read_command.py:test_read_unknown_component_fails_and_names_the_read_command'], 'project_without_map_is_refused': ['tests/test_flowguard_map.py:test_missing_map_points_at_scan_and_the_first_map_guide']}
 FIELDS={'show':'shown','component':'component','find':'found','review':'review','field':'field','mermaid':'diagram'}
-ANSWERS={'show':('complete','truncated'),'component':('shown','unknown'),'find':('owners','no_owner','location','no_symbol','test'),'review':('ranked','nothing_to_rank'),'field':('listed','unknown'),'mermaid':('drawn','unknown')}
+ANSWERS={'show':('complete',),'component':('shown','unknown'),'find':('owners','no_owner','location','no_symbol','test'),'review':('ranked','nothing_to_rank'),'field':('listed','unknown'),'mermaid':('drawn','unknown')}
 @dataclass(frozen=True)
 class Case:
     mode:str=''
@@ -75,7 +75,7 @@ def conformance():
     from _read_dispatch_fixture import fixture,call
     from flowguard.__main__ import _verb_parser
     facts=[]
-    offered={action.dest for action in _verb_parser('read')._actions}-{'root','budget','target','help'}|{'show'}
+    offered={action.dest for action in _verb_parser('read')._actions}-{'root','target','help'}|{'show'}
     declared=set(DISPATCH['mode'])
     for flag in sorted(offered-declared):
         facts.append(Fact('unlisted_'+flag,False,f'read offers --{flag}, which DISPATCH does not list; add its view model as a branch of read_command (PARENT = "read_command") and list it in DISPATCH'))

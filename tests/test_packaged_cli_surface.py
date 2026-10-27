@@ -104,28 +104,45 @@ def test_quiet_pipe_does_not_swallow_command_einval(monkeypatch):
             quiet_broken_pipe(command)()
 
 
-def test_read_budget_option_matches_map_show(tmp_path):
-    """`read --budget N` is the same budget as `map show --budget N`; tiny budgets are refused."""
+def test_read_matches_map_show(tmp_path):
+    """read and map show print the same complete view; removed budget flags are refused."""
     directory = tmp_path / ".flowguard"
     directory.mkdir()
-    components = [{"id": f"part{index}", "summary": "Serve part " * 20, "responsibilities": ["serve"],
-                   "files": [f"part{index}.py"], "status": "draft", "fingerprint": "", "layer": ""}
-                  for index in range(12)]
+    components = [
+        {
+            "id": f"part{index}",
+            "summary": "Serve part " * 20,
+            "responsibilities": ["serve"],
+            "files": [f"part{index}.py"],
+            "status": "draft",
+            "fingerprint": "",
+            "layer": "",
+        }
+        for index in range(12)
+    ]
     for index in range(12):
         (tmp_path / f"part{index}.py").write_text("def run():\n    return True\n", encoding="utf-8")
-    (directory / "map.json").write_text(json.dumps({
-        "schema": "flowguard.map.v1", "project": "budget", "components": components}), encoding="utf-8")
+    (directory / "map.json").write_text(
+        json.dumps({"schema": "flowguard.map.v1", "project": "budget", "components": components}),
+        encoding="utf-8",
+    )
 
     def run(*args):
         # Shortened lines end with "…"; read the child's output as UTF-8 on every platform.
         environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-        return subprocess.run([sys.executable, "-m", "flowguard", *args, "--root", str(tmp_path)],
-                              cwd=ROOT, capture_output=True, text=True, encoding="utf-8", env=environment)
+        return subprocess.run(
+            [sys.executable, "-m", "flowguard", *args, "--root", str(tmp_path)],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=environment,
+        )
 
-    read = run("read", "--budget", "3000")
-    shown = run("map", "show", "--budget", "3000")
+    read = run("read")
+    shown = run("map", "show")
     assert read.returncode == 0 and shown.returncode == 0, read.stderr + shown.stderr
-    assert len(read.stdout.rstrip("\n")) <= 3000
+    assert all("## " + c["id"] + " [" in read.stdout for c in components)
     assert read.stdout == shown.stdout
     assert run("read", "--budget", "100").returncode == 2
 

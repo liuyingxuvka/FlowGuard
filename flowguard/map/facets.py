@@ -42,13 +42,16 @@ class Facets:
 from .modelstatic import StaticModel as _StaticModel, file_rules as _file_rules, call_name as _call_name, BUILTIN_RULE_HELPERS
 
 
-def model_port_line(node, tree, *, limit=200):
-    """One bounded port line; model literals own the data, this view owns its presentation."""
+def model_port_line(node, tree):
+    """One complete port line; model literals own the data, this view owns its presentation."""
     from .port import Port, keeps_classes
+
     port = node.contract.get("port", Port())
+
     def brief(items):
         items = list(items)
-        return ",".join(map(str, items[:6])) + (f",+{len(items)-6}" if len(items)>6 else "")
+        return ",".join(map(str, items[:6])) + (f",+{len(items)-6}" if len(items) > 6 else "")
+
     parts = ["state " + (brief(port.state) if port.state is not None else "?")]
     if port.reads_parent:
         parts.append("reads parent " + brief(port.reads_parent))
@@ -61,13 +64,20 @@ def model_port_line(node, tree, *, limit=200):
                 if item is not None:
                     into = item if isinstance(item, str) else item[0]
                     destinations.append(other.id + ("." + into if into else ""))
-            outputs.append(f"{key}=" + "|".join(map(str, values)) + (" -> " + brief(destinations) if destinations else ""))
+            outputs.append(
+                f"{key}="
+                + "|".join(map(str, values))
+                + (" -> " + brief(destinations) if destinations else "")
+            )
         parts.append("out " + brief(outputs))
     elif port.outputs is None and node.parent_kind == "model":
         parts.append("out ?")
     if port.keeps:
         kinds = keeps_classes(node.id)
-        parts.append("keeps " + brief(name+(f"({kinds[name]})" if name in kinds else "") for name in port.keeps))
+        parts.append(
+            "keeps "
+            + brief(name + (f"({kinds[name]})" if name in kinds else "") for name in port.keeps)
+        )
     received = []
     for child, keys in (port.handoff or {}).items():
         for key, item in keys.items():
@@ -76,9 +86,12 @@ def model_port_line(node, tree, *, limit=200):
     if received:
         parts.append("from " + brief(received))
     for selector, alternatives in (port.dispatch or {}).items():
-        parts.append(f"dispatch {selector}: " + brief(f"{value}->{child}" for value,child in alternatives.items()))
+        parts.append(
+            f"dispatch {selector}: "
+            + brief(f"{value}->{child}" for value, child in alternatives.items())
+        )
     line = "port: " + ("~ " if port.approximate else "") + " | ".join(parts)
-    return line if len(line)<=limit else line[:max(0,limit-3)]+"..."
+    return line
 
 
 def model_facets(root: Path, node, *, view=None) -> Facets:

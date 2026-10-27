@@ -4,6 +4,8 @@ import pytest,os,json
 from pathlib import Path
 
 
+
+
 from _fg_helpers import (
     map_codes as codes,
     map_fill as fill,
@@ -202,7 +204,7 @@ def test_flow_step_can_read_the_previous_steps_file(tmp_path):
         f for f in linted if f.code in {"flow_step_unreached", "flow_handoff_not_entrypoint"}
     ], linted
     assert "check:main reads plan.json" in render_show(
-        tmp_path, data, inv, component=None, detail=False, budget=8000
+        tmp_path, data, inv, component=None, detail=False
     )
     assert "plan.json" in render_mermaid(tmp_path, data, inv)
     _, _, _, linted = mapped(["plan:main", "check:main reads plan.json"], check_entry=False)

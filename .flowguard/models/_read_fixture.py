@@ -1,4 +1,4 @@
-"""Read shows each requested component, its five static facets and model contracts within budget, without imports.
+"""Read shows each requested component, its five static facets and model contracts completely, without imports.
 
 The input features are valid adversarial observations, not rejected requests.
 Literal abstract outputs witness the promises; conformance checks the same
@@ -32,7 +32,6 @@ KIT_CASES = 'cases: 2 defects (d_one, d_two), 1 benign (b_one)'
 
 @dataclass(frozen=True)
 class ReadCase:
-    budget: int = 8000
     import_marker: bool = False
     missing_summary: bool = False
     component: str | None = None
@@ -43,7 +42,7 @@ class ReadCase:
     sources: bool = False
     review: bool = False
     query: str = ''
-FEATURES = (Feature('small_budget', False, (), lambda case: replace(case, budget=420)), Feature('import_time_marker', False, (), lambda case: replace(case, import_marker=True)), Feature('missing_summary', False, (), lambda case: replace(case, missing_summary=True)), Feature('large_component', False, (), lambda case: replace(case, component='alpha')), Feature('late_upper_component', False, (), lambda case: replace(case, layered=True)), Feature('relied_component', False, (), lambda case: replace(case, relied=True, component='beta'), conflicts=('large_component',)), Feature('component_in_flow', False, (), lambda case: replace(case, flowing=True, component='beta'), conflicts=('large_component',)), Feature('helper_split_model', False, (), lambda case: replace(case, probe='helper_split'), exclusive=True), Feature('wrapper_rule_model', False, (), lambda case: replace(case, probe='wrapper'), exclusive=True), Feature('loop_built_variants_model', False, (), lambda case: replace(case, probe='loops'), exclusive=True), Feature('kit_model', False, (), lambda case: replace(case, probe='kit'), exclusive=True), Feature('review_fixture', False, (), lambda case: replace(case, review=True), exclusive=True), Feature('inflected_query', False, (), lambda case: replace(case, query='expire'), exclusive=True))
+FEATURES = (Feature('import_time_marker', False, (), lambda case: replace(case, import_marker=True)), Feature('missing_summary', False, (), lambda case: replace(case, missing_summary=True)), Feature('large_component', False, (), lambda case: replace(case, component='alpha')), Feature('late_upper_component', False, (), lambda case: replace(case, layered=True)), Feature('relied_component', False, (), lambda case: replace(case, relied=True, component='beta'), conflicts=('large_component',)), Feature('component_in_flow', False, (), lambda case: replace(case, flowing=True, component='beta'), conflicts=('large_component',)), Feature('helper_split_model', False, (), lambda case: replace(case, probe='helper_split'), exclusive=True), Feature('wrapper_rule_model', False, (), lambda case: replace(case, probe='wrapper'), exclusive=True), Feature('loop_built_variants_model', False, (), lambda case: replace(case, probe='loops'), exclusive=True), Feature('kit_model', False, (), lambda case: replace(case, probe='kit'), exclusive=True), Feature('review_fixture', False, (), lambda case: replace(case, review=True), exclusive=True), Feature('inflected_query', False, (), lambda case: replace(case, query='expire'), exclusive=True))
 
 @dataclass(frozen=True)
 class ReadObservation:
@@ -55,9 +54,11 @@ class ReadObservation:
 def _names(observation):
     if observation.case.review or observation.case.query:
         return True
-    notice = next((line.partition('not shown:')[2] for line in observation.text.splitlines() if 'truncated' in line and 'not shown:' in line), '')
     wanted = (observation.case.component,) if observation.case.component else ('alpha', 'beta')
-    return all((re.search(f'^## {cid} \\[', observation.text, re.M) or re.search(f'\\b{cid}\\b', notice) for cid in wanted))
+    components = all(re.search(r'^## ' + re.escape(cid) + r' \[', observation.text, re.M) for cid in wanted)
+    model = observation.case.component not in (None, 'alpha') or MODEL_LINE in observation.text or LARGE_MODEL_LINE in observation.text
+    return bool(components and model)
+
 
 def _focused(observation):
     """The requested component is never hidden: its heading and own five facets are always printed."""
@@ -211,8 +212,6 @@ def _abstract(case, file_order=False):
     if case.component:
         purpose = '(no summary yet)' if case.missing_summary else 'Serve alpha'
         text = '## alpha [-] 1 files/1 loc, 0 rules\n  purpose: ' + purpose + '\n  rules: -\n  known-bad: -\n  code: 1 files/1 loc\n  tests: 1 files: tests/test_alpha.py; 300 functions, 300 bound\n  ' + LARGE_MODEL_LINE
-    elif case.budget == 420:
-        text = '# read fixture\n... truncated at 420 chars; not shown: alpha, beta; use read --component ID'
     else:
         purpose = '(no summary yet)' if case.missing_summary else 'Serve alpha'
         alpha = f"## alpha [{('low' if case.layered else '-')}]\n  " + purpose + '\n  ' + MODEL_LINE
@@ -230,13 +229,13 @@ class LegacyShow:
 
     def apply(self, case, state):
         observed = _abstract(case)
-        if self.fault == 'drop_component' and case.budget != 420:
+        if self.fault == 'drop_component':
             observed = replace(observed, text=observed.text.split('\n## beta [', 1)[0])
         elif self.fault == 'import_model':
             observed = replace(observed, imported=True)
         elif self.fault == 'overflow':
-            observed = replace(observed, text=observed.text + 'x' * (case.budget + 1))
-        elif self.fault == 'drop_model_contract' and case.budget != 420:
+            observed = replace(observed, text=observed.text.replace(MODEL_LINE, ''))
+        elif self.fault == 'drop_model_contract':
             observed = replace(observed, text=observed.text.replace(MODEL_LINE, 'model read_probe: '))
         elif self.fault == 'drop_summary_prompt' and case.missing_summary:
             observed = replace(observed, text=observed.text.replace('(no summary yet)', ''))
@@ -263,7 +262,7 @@ class LegacyShow:
         elif self.fault == 'exact_words_only' and case.query:
             observed = replace(observed, text='')
         elif self.fault == 'hide_focused' and case.component:
-            observed = replace(observed, text=f'# read fixture\n... truncated at {case.budget} chars; not shown: {case.component}; use read --component ID')
+            observed = replace(observed, text=f'# read fixture\n... truncated at complete-view chars; not shown: {case.component}; use read --component ID')
         return (FunctionResult(observed.text, observed, label='read'),)
 
 def _files():
@@ -344,11 +343,11 @@ def _review(template, case, rules):
             text = '\n'.join((cid for _, cid, _ in find_owners(data, inv, [case.query])))
         elif case.review:
             from flowguard.map.review import render_review
-            text = render_review(root, data, inv, budget=case.budget)
+            text = render_review(root, data, inv)
         else:
-            text = render_show(root, data, inv, component=case.component, detail=False, budget=case.budget)
+            text = show_view(root, data, inv, component=case.component, detail=False)
         if case.probe:
-            text += '\n\n' + render_show(root, data, inv, component='alpha', detail=False, budget=case.budget)
+            text += '\n\n' + show_view(root, data, inv, component='alpha', detail=False)
         models = (root / '.flowguard/models').resolve()
         imported = (root / 'model_import.marker').exists() or any((isinstance((file := vars(module).get('__file__')), str) and Path(file).resolve().is_relative_to(models) for module in tuple(sys.modules.values()) if module is not None))
         observed = ReadObservation(case, text, imported, _runtime(root) if case.probe else ())
@@ -432,3 +431,49 @@ def legacy_conformance(feature_names, rules):
             _write(root, relative, source)
         observations = [_review(root, case, rules) for case in legacy_cases(feature_names)]
         return CodeFactsReport(tuple((Fact(f'view_case_{index}', all((rule.check(observed, None).ok for rule in rules)), observed.text) for index, observed in enumerate(observations))))
+
+
+def show_view(root, data, inv, **options):
+    from inspect import signature
+    if 'budget' in signature(render_show).parameters:
+        options['budget'] = 8000
+    return render_show(root, data, inv, **options)
+
+
+def complete_view_facts(mode):
+    """Real old entrypoints lose a component, a model, a long line or a review row."""
+    from flowguard.map.facts import Fact
+    from flowguard.map.views import render_show, render_locate, render_field
+    from flowguard.map.review import render_review
+    import inspect
+    with tempfile.TemporaryDirectory(prefix='fg-complete-view-') as directory:
+        root = Path(directory)
+        long_symbol = 'run_' + 'visible' * 250
+        components = []
+        for index in range(64):
+            cid = f'component_{index:02}_' + 'ownership' * 9
+            filename = f'unit{index}.py'
+            _write(root, filename, ('def ' + long_symbol + '(row):\n    row["record_code"] = "ready"\n    return row\n') if index == 0 else 'def run(): return True\n')
+            components.append(dict(id=cid, summary='Complete purpose ' + 'preserve every word ' * 500 if index == 0 else 'Serve ' + cid, responsibilities=[], files=[filename], tests=[], models=[], depends_on=[], status='draft'))
+        data = dict(schema='flowguard.map.v1', project='complete', components=components)
+        first = components[0]['id']
+        _write(root, '.flowguard/models/probe.py', 'MODEL_ID="probe"\nPARENT=' + repr(first) + '\nIMPLEMENTED_BY={"Run":' + repr('unit0.py:' + long_symbol) + '}\nRULES=(Invariant("safe","keep safe",None),)\ndef build_explorer(): pass\ndef broken_variants(): return {}\n')
+        inv = build_inventory(root, DEFAULT_IGNORE, write_cache=False)
+        options = {'budget': 8000} if 'budget' in inspect.signature(render_show).parameters else {}
+        if mode == 'show':
+            text = render_show(root, data, inv, component=None, detail=False, **options)
+            correct = all(re.search(r'^## ' + re.escape(c['id']) + r' \[', text, re.M) for c in components) and 'model probe:' in text
+        elif mode == 'component':
+            text = render_show(root, data, inv, component=first, detail=False, **options)
+            correct = components[0]['summary'] in text and 'model probe:' in text
+        elif mode == 'find':
+            text = render_locate(root, data, inv, 'unit0.py:' + long_symbol)
+            correct = ('locate unit0.py:' + long_symbol) in text and not any(line.endswith('...') for line in text.splitlines())
+        elif mode == 'field':
+            text = render_field(root, data, inv, 'record_code')
+            correct = 'unit0.py:' + long_symbol in text and not any(line.endswith('…') for line in text.splitlines())
+        else:
+            text = render_review(root, data, inv)
+            rows = text.split('components: ', 1)[-1].split('optimise next:', 1)[0]
+            correct = all('  ' + c['id'] + ' ' in rows for c in components)
+        return (Fact(mode + '_complete_real_entrypoint', bool(correct), text),)

@@ -529,16 +529,26 @@ def view__runtime_names(tmp_path):
     return found
 
 def view__assert_static_equals_runtime(tmp_path, data, inv):
-    overview = render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
-    detail = render_show(tmp_path, data, inv, component='app', detail=False, budget=8000)
+    overview = render_show(tmp_path, data, inv, component=None, detail=False)
+    detail = render_show(tmp_path, data, inv, component="app", detail=False)
     lines = detail.splitlines()
     for mid, (rules, bads) in view__runtime_names(tmp_path).items():
-        row = next((line for line in overview.splitlines() if line.strip().startswith(f'model {mid}: ')))
-        assert f'({len(rules)} rules, {len(bads)} known-bad,' in row, row
-        at = next((index for index, line in enumerate(lines) if line.strip().startswith(f'model {mid}: ')))
-        facets = {line.strip().partition(': ')[0]: line.strip().partition(': ')[2] for line in lines[at + 1:at + 6]}
-        assert facets['rules'] == '; '.join((f'{name}: {text}' for name, text in sorted(rules.items())))
-        assert facets['known-bad'] == ', '.join(bads)
+        assert mid in overview
+        row = next(
+            (line for line in detail.splitlines() if line.strip().startswith(f"model {mid}: "))
+        )
+        assert f"({len(rules)} rules, {len(bads)} known-bad," in row, row
+        at = next(
+            (index for index, line in enumerate(lines) if line.strip().startswith(f"model {mid}: "))
+        )
+        facets = {
+            line.strip().partition(": ")[0]: line.strip().partition(": ")[2]
+            for line in lines[at + 1 : at + 6]
+        }
+        assert facets["rules"] == "; ".join(
+            (f"{name}: {text}" for name, text in sorted(rules.items()))
+        )
+        assert facets["known-bad"] == ", ".join(bads)
 view__HELPER_SPLIT_MODELS = {'.flowguard/models/_probe_common.py': view__PROBE_HEAD + 'def _ok(state, trace): return True\nA = Invariant("a_rule", "a holds", _ok)\nB = Invariant("b_rule", "b holds", _ok)\nBOTH = (A, B)\n', '.flowguard/models/probe_child.py': view__PROBE_HEAD + 'from _probe_common import A, B\nMODEL_ID = "probe_child"\nPARENT = "probe_parent"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\nTESTED_BY = {"a_rule": ["tests/test_app.py:test_run"]}\ndef _explorer():\n    return Explorer(Workflow(()), (0,), (), invariants=(A, B))\ndef build_explorer(): return _explorer()\ndef broken_variants(): return {"child_bad": _explorer()}\n', '.flowguard/models/probe_parent.py': view__PROBE_HEAD + 'from _probe_common import BOTH\nMODEL_ID = "probe_parent"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\ndef _explorer():\n    return Explorer(Workflow(()), (0,), (), invariants=BOTH)\ndef build_explorer(): return _explorer()\ndef broken_variants(): return {"parent_bad": _explorer()}\n', '.flowguard/models/probe_wrapper.py': view__PROBE_HEAD + 'MODEL_ID = "probe_wrapper"\nIMPLEMENTED_BY = {"Run": "app.py:run"}\ndef _rule(name, text):\n    return Invariant(name, text, lambda state, trace: True)\nRULES = (_rule("x_rule", "x holds"), _rule("y_rule", "y holds"))\ndef _explorer(kind=""):\n    return Explorer(Workflow(()), (0,), (), invariants=RULES)\ndef build_explorer(): return _explorer()\ndef broken_variants():\n    return {name: _explorer(name) for name in ("x_bad", "y_bad")}\n'}
 
 def view__assert_kit_matches_runtime(tmp_path, detail):
