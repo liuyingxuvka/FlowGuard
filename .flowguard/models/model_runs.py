@@ -139,33 +139,30 @@ def conformance():
     (root / ".flowguard/map.json").write_text(json.dumps({"schema": "flowguard.map.v1", "components": [comp]}))
 
 
+
 def conformance():
-    from flowguard.map.proof import run_models
+    from flowguard.map.proof import run_models, ModelResult, render_results
+    from flowguard.map.lint import size_finding
     facts = []
-    for wrong in (False, True):
-        with TemporaryDirectory(prefix="fg-model-runs-") as directory:
-            root = Path(directory)
-            make_fixture(root, wrong_second=wrong)
-            try:
-                sequential = run_models(root, [], jobs=1)
-                parallel = run_models(root, [], jobs=2)
-            except TypeError as exc:
-                return CodeFactsReport((Fact("native_jobs", False, str(exc)),))
-            expected = [("first", "pass"), ("second", "fail" if wrong else "pass"), ("system", "pass")]
-            first = [(r.model, r.status) for r in sequential]
-            second = [(r.model, r.status) for r in parallel]
-            facts.append(Fact(f"registry_order_{wrong}", first == second == expected, repr((first, second))))
-    from flowguard.map.proof import ModelResult, render_results
+    with TemporaryDirectory(prefix="fg-model-runs-") as directory:
+        root = Path(directory)
+        make_fixture(root, wrong_second=True)
+        sequential = run_models(root, [], jobs=1)
+        parallel = run_models(root, [], jobs=2)
+        expected = [("first", "pass"), ("second", "fail"), ("system", "pass")]
+        first = [(result.model, result.status) for result in sequential]
+        second = [(result.model, result.status) for result in parallel]
+        facts.append(Fact("registry_order", first == second == expected, repr((first, second))))
     rendered = render_results([ModelResult("probe", "probe.py", rules=["one"], known_bad=["two"])])
     facts.append(Fact("single_pass_line", len([line for line in rendered.splitlines() if line and not line.startswith("models:")]) == 1, rendered))
-    from _size_fixture import fixture as size_fixture
-    for case,events,length,status in (('time',1,1,'pass'),('soft',3,7,'pass'),('hard',4,7,'fail')):
-        with TemporaryDirectory(prefix='fg-model-size-') as directory:
-            root=Path(directory);size_fixture(root,events,length,seconds=0.000001 if case=='time' else 10)
-            result=run_models(root,['sized'])[0]
-            text=render_results([result])
-            correct=result.status==status and ('INFO large_model' in text if case=='time' else 'warning: large_model:' in text if case=='soft' else 'large_model:' in text)
-            facts.append(Fact('size_'+case,correct,text))
+    text = render_results([ModelResult("sized", "sized.py", seconds=0.5, advice_limit=1e-06)])
+    facts.append(Fact("size_time", "INFO large_model x1:" in text and "PASS" in text, text))
+    soft = size_finding("sized", "sequences", 2187)
+    hard = size_finding("sized", "sequences", 21844)
+    facts.append(Fact("size_soft", soft is not None and soft.level == "warn", repr(soft)))
+    facts.append(Fact("size_hard", hard is not None and hard.level == "error", repr(hard)))
     return CodeFactsReport(tuple(facts))
+
+
 
 TESTED_BY = {'only_hard_size_limits_gate': ['tests/test_model_runs.py:test_sequence_soft_limit_warns', 'tests/test_model_runs.py:test_sequence_hard_limit_fails_the_model', 'tests/test_model_runs.py:test_time_over_the_limit_is_one_info'], 'parallel_output_in_registry_order': ['tests/test_model_runs.py:test_jobs_output_equals_sequential'], 'pass_is_one_line': ['tests/test_model_runs.py:test_pass_is_one_line_fail_keeps_rules'], 'model_passes_only_when_every_verdict_passes': ['tests/test_model_runs.py:test_model_fails_when_any_verdict_fails']}

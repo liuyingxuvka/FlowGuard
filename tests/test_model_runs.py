@@ -4,6 +4,14 @@ import pytest,os,json
 from pathlib import Path
 
 
+from _fg_helpers import (
+    proof__size_project as _size_project,
+    flowguard_port421_probe as probe,
+    flowguard_port421_project as project,
+    flowguard_port421_rewrite as rewrite,
+    target__target_life_cycle_fixture_helpers,
+)
+
 def test_jobs_output_equals_sequential(tmp_path, capsys):
     from pathlib import Path
     from flowguard.map import cli
@@ -37,7 +45,6 @@ def test_pass_is_one_line_fail_keeps_rules():
 
 def test_sequence_soft_limit_warns(tmp_path):
     import json
-    from _fg_helpers import proof__size_project as _size_project
     from flowguard.map.proof import run_models,render_results
     _size_project(tmp_path,events=3,length=7)
     result=run_models(tmp_path,['sized'])[0]
@@ -50,15 +57,12 @@ def test_sequence_soft_limit_warns(tmp_path):
     assert result.status=='pass' and not any(w.startswith('large_model:') for w in result.warnings)
 
 
-def test_sequence_hard_limit_fails_the_model(tmp_path):
-    from _fg_helpers import proof__size_project as _size_project
-    from flowguard.map.proof import run_models
-    data=_size_project(tmp_path,events=4,length=7)
-    result=run_models(tmp_path,['sized'])[0]
-    assert result.status=='fail' and result.sequences==21844
-    assert any('over the hard limit 10,000' in problem for problem in result.problems)
+def test_sequence_hard_limit_fails_the_model(tmp_path, capsys):
+    data = _size_project(tmp_path, events=4, length=7)
     from flowguard.map.cli import main
-    assert main(['--root',str(tmp_path),'models','sized'])==1
+    assert main(['--root', str(tmp_path), 'models', 'sized']) == 1
+    output = capsys.readouterr().out
+    assert "FAIL  sized" in output and "over the hard limit 10,000" in output and "21,844" in output
     from flowguard.map.target import main as target_main
     assert target_main(['--root',str(tmp_path),'start','Enforce size'])==0
     assert target_main(['--root',str(tmp_path),'add','sized'])==0
@@ -66,18 +70,17 @@ def test_sequence_hard_limit_fails_the_model(tmp_path):
 
 
 def test_time_over_the_limit_is_one_info(tmp_path):
-    from _fg_helpers import proof__size_project as _size_project
     from flowguard.map.proof import run_models,render_results
     _size_project(tmp_path,seconds=0.000001)
     result=run_models(tmp_path,['sized'])[0]
     assert result.status=='pass'
     lines=[line for line in render_results([result]).splitlines() if line.startswith('INFO large_model')]
-    assert len(lines)==1 and 'with its bound tests (advice limit 1e-06s)' in lines[0]
+    assert len(lines) == 1 and lines[0].startswith('INFO large_model x1: sized ')
+    assert 'model + bound tests over the 1e-06s advice' in lines[0]
 
 
 @pytest.mark.parametrize('verdict',('proof','anchors','ports','tests'))
 def test_model_fails_when_any_verdict_fails(tmp_path,verdict):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers
     from flowguard.map.proof import run_models,render_results
     if verdict=='ports':
         target__target_life_cycle_fixture_helpers('_target_fixture')['make_port_project'](tmp_path,'undeclared_write')
@@ -106,7 +109,6 @@ from flowguard.map.inventory import build_inventory
 from flowguard.map.mapfile import load_map
 from flowguard.map.port import model_port, port_findings, upward
 from flowguard.map.tree import build_tree
-from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
 
 def test_undeclared_write_and_output_checks(tmp_path):
     from dataclasses import fields, is_dataclass, replace
@@ -118,7 +120,6 @@ def test_undeclared_write_and_output_checks(tmp_path):
     from flowguard.map.mapfile import load_map
     from flowguard.map.port import model_port, port_findings, upward
     from flowguard.map.tree import build_tree
-    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
     for case, model, code, warning in (("undeclared_write", "desk", "undeclared_write", False),
             ("undeclared_output", "lending", "output_undeclared", False),
             ("unreached_output", "lending", "output_unreached", True)):
@@ -147,7 +148,6 @@ def test_handoff_value_must_be_received_as_an_event(tmp_path):
     from flowguard.map.mapfile import load_map
     from flowguard.map.port import model_port, port_findings, upward
     from flowguard.map.tree import build_tree
-    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
     root = tmp_path / "good"
     project(root)
     assert probe(root).status == "pass"
@@ -175,7 +175,6 @@ def test_keeps_classes_and_parent_outputs(tmp_path):
     from flowguard.map.mapfile import load_map
     from flowguard.map.port import model_port, port_findings, upward
     from flowguard.map.tree import build_tree
-    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
     from flowguard.map.port import keeps_classes
     root = tmp_path / "good"
     project(root)
@@ -189,3 +188,27 @@ def test_keeps_classes_and_parent_outputs(tmp_path):
         project(root, case)
         result = probe(root)
         assert result.status == "fail" and any(code in p for p in result.problems), result
+
+
+def test_conformance_runs_one_fixture_project(monkeypatch):
+    import runpy
+    from pathlib import Path
+    from flowguard.map import proof
+    directory = Path(__file__).parents[1] / ".flowguard"
+    model = directory / "target/models/model_runs.py"
+    if not model.exists():
+        model = directory / "models/model_runs.py"
+    monkeypatch.syspath_prepend(str(directory / "models"))
+    conformance = runpy.run_path(str(model))["conformance"]
+    actual = proof.run_models
+    calls = []
+
+    def counted(root, *args, **kwargs):
+        calls.append((root, kwargs.get("jobs", 1)))
+        return actual(root, *args, **kwargs)
+
+    monkeypatch.setattr(proof, "run_models", counted)
+    conformance()
+    assert len(calls) == 2
+    assert calls[0][0] == calls[1][0]
+    assert [jobs for root, jobs in calls] == [1, 2]

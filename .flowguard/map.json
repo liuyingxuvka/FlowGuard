@@ -434,7 +434,7 @@
         "read code facts for conformance and fail missing or unconsulted anchors; count child projections from one fresh parent exploration per sibling group",
         "clean up model and pytest shard subprocesses in bounded time",
         "run bound tests per item and require each to reach an anchor",
-        "show passing proofs on one line, with details for failures and separate bound-test timings",
+        "show passing proofs on one line, retain every failure and warning, and group timing advice once per advice limit",
         "Run model subprocesses in registration order, directly in the calling thread for one job and with a thread pool for explicit parallel jobs; library defaults stay serial."
       ],
       "files": [
@@ -472,7 +472,7 @@
         ".flowguard/models/model_runs.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:3f2588c06b02920b09e23df30c7bfcd057bb7b4a6b0573e63d1a7f74c81ffcb6"
+      "fingerprint": "sha256:c010f78dc53ffbf9192e2eaaf50a57f5770f3a2525dd3d1e2c0c585e162f2343"
     },
     {
       "id": "engine-explore",
@@ -900,7 +900,7 @@
     ".flowguard/models/map_binding.py": "966210916f33d166972fd596cc6d05ae2804039f65be8b9851c9c0cbe8404ce2",
     ".flowguard/models/map_check.py": "277a46f87b67e70ba5c72bd987d9e77e8848c1cb6837d64c391550c2852b9a10",
     ".flowguard/models/model_proof.py": "b8ff72110c36b0843d7da451c8615f24c596b7ea1d49ae595bf9ddffae050627",
-    ".flowguard/models/model_runs.py": "f4d5628a65264e65dff7be8c2ed10b6b0f36e285198e4958e7d035b07a265321",
+    ".flowguard/models/model_runs.py": "011e2cc02326f2dbbc7c4473064209edd77076e6ca2075c9aac8469f890e7da3",
     ".flowguard/models/model_scope.py": "6873fdbcf88483aaa8b382c3d1b6a7732992e1a383ff72bee480e61d78577420",
     ".flowguard/models/port_checks.py": "52bb56591517c7c70f47e5c47a3890053bf42e3c967ff121bb0f391dd7fff0db",
     ".flowguard/models/port_escalation.py": "197e994b733b1c3f4326794025bf617ba63b7131490845f7c89d6414ea1de010",

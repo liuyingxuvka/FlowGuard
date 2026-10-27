@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Check the model scheduler with one real fixture and report models above the timing advice in one counted line per advice value.
+
 - Projects using FlowGuard: changing the stored-fingerprint formula without updating its format now produces a warning; ordinary version bumps remain neutral.
 
 - Projects using FlowGuard: when a child adds a received parent value, target check warns about siblings that start from those states without reading the changed field.

@@ -693,10 +693,16 @@ def render_results(results: list[ModelResult]) -> str:
             lines.append(f"      rules: {names(r.rules)}; known-bad: {names(r.known_bad)}")
         lines += ["      " + p.replace("\n", "\n      ") for p in r.problems]
         lines += [f"      warning: {w}" for w in r.warnings]
-        if r.seconds+(r.test_seconds or 0)>r.advice_limit:
-            from .lint import split_recipe
-            lines.append(f'INFO large_model {r.model}: {r.seconds+(r.test_seconds or 0):.1f}s with its bound tests '
-                         f'(advice limit {r.advice_limit:g}s); a split usually helps: '+split_recipe(r.model))
+    groups = {}
+    for result in results:
+        seconds = result.seconds + (result.test_seconds or 0)
+        if seconds > result.advice_limit:
+            groups.setdefault(result.advice_limit, []).append((result.model, seconds))
+    for limit, models in sorted(groups.items()):
+        models.sort(key=lambda item: (-item[1], item[0]))
+        values = ", ".join(f"{name} {seconds:.1f}s" for name, seconds in models)
+        lines.append(f"INFO large_model x{len(models)}: {values} (model + bound tests over the {limit:g}s advice); "
+                     "a split usually helps: references/routes.md#Split a model")
     failed = sum(r.status != "pass" for r in results)
     lines.append(f"models: {len(results) - failed} passed, {failed} failed")
     return "\n".join(lines)
