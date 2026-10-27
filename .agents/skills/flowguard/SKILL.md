@@ -1,67 +1,75 @@
 ---
 name: flowguard
-description: "Use for software codebases: one living model tree of the software (map, executable models and tests bound to the real code), with a current model and a target model for planned changes; put new code in the right owner and verify only what a change affects. Not for story, trip or world models; use worldguard."
+description: "Start software changes from the living map, executable models and bound tests; extend the owner and verify affected checks."
 ---
 
 # FlowGuard
 
 ## Start from the model
 
-1. `python -m flowguard read` before opening source (the current model of the software); no map yet: build it first (`python -m flowguard map scan`, then `references/first_map.md`). Business data stays read-only; disposable caches may update.
-2. Before adding behavior, `python -m flowguard read --find <words>`; extend the owner it names. Create a new component only when none owns the responsibility; give each new source file exactly one owner.
-3. `python -m flowguard read --component <id>` to read that node's five facets; open only the files of the components you touch; add --budget N to see more.
-4. Does the task change behavior (a rule, input or external promise) or structure (components, file ownership, dependencies or layers)? Yes: target first below. No: follow **Change code only**.
+Read `python -m flowguard read` before source. No map: `map scan`; `references/first_map.md`. Install only `git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>`; tests need pytest>=8.
 
-To judge the architecture, read `python -m flowguard read --review` before proposing a refactor, and propose it as a target.
+1. **node**: one tree rooted at system.
+2. **parent**: `parent`/`PARENT`; omitted: inferred, shown by read.
+3. **port**: computed from the model file; the AI writes OUTPUTS, HANDOFF, READS_PARENT, KEEPS, DISPATCH (see The tree).
+4. **field**: `read --field`.
+5. **rule/counterexample**: condition/breaking trace.
+6. **known-bad**: must be rejected.
+7. **anchor/USES**: owned/consulted code.
+8. **test**: `TESTED_BY`; same tree, subtree shards.
+9. **flow**: entry-to-result path.
+10. **layer/dependency**: allowed calls.
+11. **target**: old model → target → code; `.flowguard/target/`.
+12. **locate → model → port changed? → parent and consumers**.
 
-The current model is `.flowguard/map.json` plus `.flowguard/models/`: owners, files, responsibilities, state, side effects, dependencies, tests and executable contracts. Confirmed components store file fingerprints; changed code becomes STALE until re-read and confirmed.
-The target is `.flowguard/target/`: one planned change at a time, committed beside the code; git keeps history.
-Commands: `python -m flowguard read | change | release | template | target` and `python -m flowguard map <command>`. Templates: `adoption`, `behaviour`, `ui-journey`, `validator`.
-Install the engine only from GitHub: `python -m pip install "flowguard @ git+https://github.com/liuyingxuvka/FlowGuard.git@<tag>"`; the PyPI package named `flowguard` is a different project. `release` and `map models --tests` need `pytest>=8` in the same environment (`pip install pytest`).
+Models, tests and code grow together. Split a model that is too big, staged or dispatching: its stages or branches become a coarse parent with children, different aspects and shared parts become separate models; never a parent only to group models. Split a test file that is too big or mixes models along the models it tests; a file that tests only one model splits with it. map check warns at the soft limits and refuses at the hard ones; time is advice. Every model has rules and known-bad variants that must fail. It binds code once it describes code that exists (a process model with no code yet carries a model_anchor_missing debt with its reason) and binds tests once tests exercise it (a model without tests carries an unbound_models debt with its reason); a bound test feeds the model's entry seeds into the real entry and checks its exits. A test may have no model.
 
-## Change behaviour or structure: target first
+## The loop
 
-1. `python -m flowguard target start "<goal>"`.
-2. `python -m flowguard target add <id>` for each changed node. Write new nodes directly in `.flowguard/target/map.json` or `.flowguard/target/models/`; use the merged `.flowguard/models/` paths for model references. Target format: `references/map_format.md`.
-3. Edit the target until `python -m flowguard target check` has no ERROR and only code TO-DO remains: the design is ready; a target that changes an entrypoint, state or side effect must add or change at least one rule or known-bad (target check prints its goal rules).
-4. Every changed-rule model should print `EXPECTED GAP` on old code; moved rules and rules recording existing behaviour are exceptions. Write the code and tests; run `python -m flowguard target check` as often as useful.
-5. `python -m flowguard target promote` runs the full check once and prints its report if refused; then `python -m flowguard map confirm <listed components>`; then commit the code and models together. `target check` runs no bound tests; `target promote` is the one full check.
-While working, `change` marks breakage of what the target changes `moving to target`; everything else stays ERROR. A green model that missed a bug follows this same route: `python -m flowguard target add <model>`, then add the escaped case as a known-bad variant; see "When a green model missed a bug" in `references/model_recipes.md`.
+1. `python -m flowguard read --find <words | path:function | path::test>` → deepest owner.
+2. Code only: edit; `python -m flowguard change --run`; re-read stale owners/update changed descriptions; `python -m flowguard map confirm <ids>`; commit.
+3. Model change: `python -m flowguard target start "<goal>"`, `python -m flowguard target add <model>`; edit its `.flowguard/target/models/<model>.py` copy.
+4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing`: add/receive in the parent. Before code: `EXPECTED GAP`; except `moved rules only` or `NO GAP` (no code for that rule; commit `records existing behaviour: <rule>`). Commit the target if planned.
+5. Write code and bound tests; check until no TO-DO remains.
+6. `python -m flowguard target promote`: one full check; its `map confirm`; commit code/models/map.
 
-## Change code only
+change and target promote run a test with a model only when the test is in that model's TESTED_BY or calls the changed function directly; a test that checks a model through the command line must be bound, or only CI runs it (the also reached: line counts them).
 
-1. Edit the code, then `python -m flowguard change` (check + impact).
-2. Fix every ERROR and BLOCKED binding. Common: `file_unmapped` (give the file one owner); `dep_undeclared` (declare a real layer-respecting dependency, otherwise move code or drop the import); `dep_unused` (remove it); `test_missing` (fix the tests pattern); `anchor_broken` / `flow_step_broken` / `model_anchor_broken` (fix the name); `model_anchor_missing` / `model_conformance_missing` (bind the model; see The tree); `duplicate_owner` (two components claim one responsibility, state or side effect: keep one owner; the other calls it).
-3. Run exactly the tests and models it lists (`python -m flowguard change --run` runs them for you); never claim a test passed unless you ran it. `relies on:` lines name rules of other components that this code calls; keep them true.
-4. For each REVIEW component, read the change, update `summary`/`responsibilities`/`state`/`side_effects` when needed, then `python -m flowguard map confirm <id>`; for each `UNEXPLAINED` line, add the anchor, bind a test or write a `NOT_MODELED` reason. Run the `map confirm` command printed by `change --run` before committing.
+## Routes by task
+
+`code` = loop step 2; `target` = steps 3-6 with every model the row names. A row that a printed line starts is done when that line is gone. Steps per row: `references/routes.md`.
+
+| Task, or the line that starts it | Route | Do |
+| --- | --- | --- |
+| New function | target | extend, independent sibling or exclusive child; no owner: component; model-named tests |
+| `large_model` (WARN over 8 rules or 2,000 sequences, ERROR over 12 or 10,000), `child_unconnected`, `parent_field_uncovered`, `keeps_not_orchestration`, `dispatch_*` | target | one target; exclusive stages/branches; one branch per call |
+| `large_test_file`, `test_file_mixes_models`, `test_file_not_split` | target | move tests and `TESTED_BY` paths by model |
+| `port changed ... -> verify X`, `port_changed_parent_missing`, a hub listed by read --review | target | `target add X`; receive/map; hub: add ripple |
+| Rename or retire a field; `consumes`, `mentions`, `nothing produces`, `promises: -...` | target | `read --field <name>`; open sites; restore or explain each `-` |
+| Move or split code | code; target if a file changes owner or an anchor moves | clear ownership/anchor errors |
+| Remove a function | target | `remove:`; explain removed promises |
+| Bug a green model missed | target | escaped known-bad, `EXPECTED GAP`, one bound regression |
+| External promise (command, API, UI action) | target | owner, anchor or reasoned `NOT_MODELED`; no silent fallback |
+| UI journey; all bad inputs of a finite boundary | target | `template ui-journey`; `template validator` |
+| Model before code (a process or preset) | target | rules, known-bad, reasoned debt; anchor on `debt_stale` |
+| `model_edited_outside_target` | target | `target add <model>`; redo there |
+
+When a model or check stopped a wrong edit, add `Caught-by: <model or check>` to the commit message.
 
 ## The tree
 
 - Node: `system`, a component in `.flowguard/map.json` or a model in `.flowguard/models/`; a failing model shows its counterexample: the trace that breaks a rule.
-- Parent: `system` > component (optional component `parent`) > model > child model; `PARENT` names a component, a model id or `system`; without it a model sits under the one model that imports it, else its first `COMPONENTS` entry, else its first anchor's owner, else `system`.
+- Parent: `system` > component > model > child model; write `PARENT` (a component, a model id or `system`). Different aspects are separate models; a model that uses another's result names it in `HANDOFF`. Split a model when it is too big or holds one function's stages or alternatives: a coarse parent keeps the order, conditions and aggregation (alternatives: `DISPATCH` names one branch child each), each child hands its result up through `OUTPUTS`, and the parent receives every value into one of its fields (`HANDOFF`), gives each field to a child (`READS_PARENT`, `HANDOFF`) or `KEEPS` (inputs, markers, aggregates), and never re-checks a child's detail. Never create a parent only to group models. `map check` and `map models` fail on any unaccounted value or field. Tests follow the same tree (`TESTED_BY`).
 - Known-bad: `broken_variants()` in every model; each one must fail, and `release` fails when a rule is broken by none.
 - Real binding: `IMPLEMENTED_BY` anchors that `conformance()` replays against the real code; component `files` and `entrypoints`.
 - Test binding: `TESTED_BY` names real tests for each rule; they must pass and reach the anchored code (`map models --tests`).
 - Readback: `python -m flowguard read` (`--component <id>`, `--mermaid`, `--target`).
-- Current vs target: `.flowguard/map.json` and `.flowguard/models/` are the current model; `.flowguard/target/` is the target, and `target promote` makes it current once `target check` shows no error and no to-do.
+- Current vs target: `.flowguard/models/` and the components, files, dependencies, entrypoints, flows, layers and parents in `.flowguard/map.json` are the current model and change only through `.flowguard/target/` (`target start`, `target add`); every model change must show its expected gap in `target check` and becomes current only through `target promote`, which runs the one full check and prints the `map confirm` to run before the commit. The settings `ignore`, `import_roots`, `accepted_debts`, `large_model_seconds` and `large_test_seconds` are edited directly in `map.json`, with `python -m flowguard map check` before and after.
 
-Components can nest using an optional `parent`; models can nest under other models. Each node has purpose, rules, known-bad, code and tests: `read --component` prints them; `map models` prints the real rule and known-bad names.
-Root `system` is the code-derived component graph: unaccepted cycles, upward layer imports and duplicate owners violate its invariants; `python -m flowguard map models system` generates bad edges, and `map check` is its conformance.
-Anchors/`COMPONENTS`, `PARENT` and imports determine placement. `parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `anchor_outside_home` and `duplicate_child_owner` are ERRORs. A child slicing parent state declares `project_parent_state`; independent grouped checks need no projection.
-`python -m flowguard read --mermaid` draws the tree, declared dependencies and flows (append `--component ID` to focus); `read --component` names dependency symbols and shows coverage; `python -m flowguard read --target` shows target changes. `change` selects changed models, importers, ancestors and review children.
-For retries, deduplication, idempotency, ordering, caching, concurrency, money, permissions or multi-step flows, model the behavior with known-bad variants and real conformance (`python -m flowguard template behaviour --write .`, `references/model_recipes.md`); add models only when needed. `MODEL_ID` selects contract models; component ids select `read --component`. Unknown model ids fail.
+## First map, review and release
 
-
-## First map of an existing project
-
-Use `references/first_map.md`: scan -> digest -> describe -> deps -> check -> confirm -> lint. `scan` bounds draft grouping; `python -m flowguard map discover` separately shows routes, commands, effects and state writers. Read digests, not whole files.
-
-## Architecture review and release
-
-Use `python -m flowguard read --review` for the ranked view (strengths, defects, optimise next) and `python -m flowguard map lint` for the full list (`references/architecture_review.md`); propose each refactor as a target. Routine checkpoints run the affected tests/models from `change`. At final release, freeze source and run `python -m flowguard release --shards 4` once on that revision, or use successful CI for that exact source SHA.
+Hubs: `read --review`, `references/architecture_review.md`. `python -m flowguard release`; whole suite: `release --shards N` (hash without durations). Writing: `references/model_recipes.md`; templates: `references/node_kinds.md`.
 
 ## Honesty rules
 
-Keep `draft` when unsure; never invent anchors, owners or results; report what ran, failed and was skipped. The current model describes today's code; planned code belongs in the target, and history lives in git.
-
-USES binds code a model reads but does not own; conformance must call it.
+`confirm` records description, never proof. Report actual results; never weaken checks for time or reuse verdicts. `NOT_MODELED`, process models and accepted debts need reasons. Fix `debt_stale`; review `promises:` and `moved`.

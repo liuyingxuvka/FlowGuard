@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import io
 import re
@@ -42,36 +43,29 @@ def _parse_documented_command_arguments(command: str) -> None:
 
 class SkillPackageTests(unittest.TestCase):
     def test_skill_entry_is_short_and_describes_the_tree(self) -> None:
-        text = (SKILL / "SKILL.md").read_text(encoding="utf-8")
-        self.assertLessEqual(len(text.splitlines()), 100)
-        self.assertEqual(1, text.splitlines().count("## The tree"))
-        for retired in ("## Binding", "L0 ", "L1:", "L2", "keep runners"):
-            self.assertNotIn(retired, text)
-        self.assertNotIn("DESIGN_ONLY", text)
-        self.assertNotIn("10 capability reviews", text)
-        for required in ("## Change behaviour or structure: target first", "## Change code only",
-                         "python -m flowguard target start", "python -m flowguard target check",
-                         "python -m flowguard target promote"):
-            self.assertIn(required, text)
-        labels = ("- Node: ", "- Parent: ", "- Known-bad: ", "- Real binding: ",
-                  "- Test binding: ", "- Readback: ", "- Current vs target: ")
-        shared_lines = [(index, line) for index, line in enumerate(text.splitlines())
-                        if line.startswith(labels)]
-        self.assertEqual(7, len(shared_lines))
-        self.assertEqual(labels, tuple(next(label for label in labels if line.startswith(label))
-                                       for _, line in shared_lines))
-        start = shared_lines[0][0]
-        self.assertEqual(list(range(start, start + 7)), [index for index, _ in shared_lines])
+        text=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+        self.assertLessEqual(len(text.splitlines()),100)
+        headings=re.findall(r'^## ([^\n]+)',text,re.M)
+        self.assertEqual(['Start from the model','The loop','Routes by task','The tree','First map, review and release','Honesty rules'],headings)
+        for required in ('python -m flowguard target start','python -m flowguard target check','python -m flowguard target promote','python -m flowguard change --run','python -m flowguard read --find','DISPATCH'):
+            self.assertIn(required,text)
+        for retired in ('MESH','closure','consumer_model_id','FunctionContract','hazard','packs','budgeted','child_outside_parent','review children','--expect-gap','IGNORES_PARENT','route (a)','in place','model_tests_elsewhere','upgrade.md','runner_model','DESIGN_ONLY'):
+            self.assertNotIn(retired,text)
+        labels=('- Node: ','- Parent: ','- Known-bad: ','- Real binding: ','- Test binding: ','- Readback: ','- Current vs target: ')
+        shared_lines=[(index,line) for index,line in enumerate(text.splitlines()) if line.startswith(labels)]
+        self.assertEqual(7,len(shared_lines))
+        self.assertEqual(labels,tuple(next(label for label in labels if line.startswith(label)) for _,line in shared_lines))
+        start=shared_lines[0][0]
+        self.assertEqual(list(range(start,start+7)),[index for index,_ in shared_lines])
 
-    def test_model_recipes_have_short_grow_and_split_sections(self) -> None:
-        text = (SKILL / "references" / "model_recipes.md").read_text(encoding="utf-8")
-        for title in ("Grow a model", "Split a model"):
-            heading = "## " + title
-            self.assertEqual(1, text.splitlines().count(heading))
-            section = text.split(heading + "\n", 1)[1].split("\n## ", 1)[0]
-            self.assertLessEqual(len(section.splitlines()), 30)
-        self.assertNotIn("names the component that owns the files next to it",
-                         (SKILL / "SKILL.md").read_text(encoding="utf-8"))
+    def test_route_sections_are_short(self) -> None:
+        text=(SKILL/'references/routes.md').read_text(encoding='utf-8')
+        sections=re.split(r'(?m)(?=^## )',text)[1:]
+        self.assertEqual(11,len(sections))
+        for section in sections:
+            with self.subTest(section=section.splitlines()[0]):
+                self.assertLessEqual(len(section),3000)
+                if section.startswith(('## New function\n','## Split a model\n')):self.assertLessEqual(len(section.splitlines()),30)
 
     def test_installation_docs_use_the_owner_github_only(self) -> None:
         for path in (ROOT / "README.md", ROOT / "README.zh-CN.md", SKILL / "SKILL.md"):
@@ -164,6 +158,9 @@ class SkillPackageTests(unittest.TestCase):
         for command in ('python -m flowguard target start "<goal>"', 'python -m flowguard target check',
                         'python -m flowguard target promote', 'python -m flowguard read --find WORDS'):
             self.assertIn(command, target_rule)
+        self.assertIn('extend it',target_rule)
+        after_rule=next(line for line in rules.content.splitlines() if line.startswith('4. '))
+        for required in ('port changed','consumes','promises:','grow together'):self.assertIn(required,after_rule)
         self.assertFalse(any(f.path in ("AGENTS.md", "CLAUDE.md") for f in adoption_template_files()))
         self.assertEqual(["docs/flowguard_agents_rules.md"], [f.path for f in adoption_template_files()])
 
@@ -192,6 +189,41 @@ class SkillPackageTests(unittest.TestCase):
             cache.mkdir(exist_ok=True)
             (cache / "ignored.pyc").write_bytes(b"ignored")
             self.assertEqual(0, run("--check").returncode)
+
+
+    def test_skill_text_stays_small(self) -> None:
+        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+        recipes=(SKILL/'references/model_recipes.md').read_text(encoding='utf-8')
+        self.assertLessEqual(len(entry),7500)
+        self.assertLessEqual(len(entry)+len(recipes),20000)
+
+    def test_skill_has_one_route_table(self) -> None:
+        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+        self.assertEqual(1,entry.count('## Routes by task'))
+        section=entry.split('## Routes by task\n',1)[1].split('\n## ',1)[0]
+        rows=[line for line in section.splitlines() if line.startswith('|')][2:]
+        expected=('New function','large_model','large_test_file','port changed','Rename or retire a field','Move or split code','Remove a function','Bug a green model missed','External promise','UI journey','Model before code','model_edited_outside_target')
+        self.assertEqual(len(expected),len(rows))
+        for title,row in zip(expected,rows):self.assertIn(title,row.split('|')[1])
+        self.assertEqual(1,entry.count('Models, tests and code grow together'))
+
+    def test_route_rows_point_to_existing_sections(self) -> None:
+        entry=(SKILL/'SKILL.md').read_text(encoding='utf-8')
+        section=entry.split('## Routes by task\n',1)[1].split('\n## ',1)[0]
+        rows=[line for line in section.splitlines() if line.startswith('|')][2:]
+        mapping={0:('routes.md',('New function',)),1:('routes.md',('Split a model',)),2:('routes.md',('Split a test file',)),3:('routes.md',('Interface change',)),4:('routes.md',('Rename or retire a field',)),5:('routes.md',('Add or split a component',)),6:('routes.md',('Remove or merge a node',)),7:('routes.md',('When a green model missed a bug',)),8:('routes.md',('External promise (no silent fallback)',)),9:('node_kinds.md',('UI journey','Validator')),10:('routes.md',('Model before code',))}
+        for index,(filename,headings) in mapping.items():
+            text=(SKILL/'references'/filename).read_text(encoding='utf-8')
+            for heading in headings:self.assertEqual(1,text.splitlines().count('## '+heading),(index,filename,heading))
+        literals={node.value for path in (ROOT/'flowguard').rglob('*.py') for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))) if isinstance(node,ast.Constant) and isinstance(node.value,str)}
+        for row in rows:
+            for code in re.findall(r'`([a-z]+(?:_[a-z]+)*(?:_\*)?)`',row.split('|')[1]):
+                if "_" not in code:continue
+                with self.subTest(code=code):
+                    self.assertTrue(any(value.startswith(code[:-1]) for value in literals) if code.endswith('*') else code in literals)
+        for path in SKILL.rglob('*.md'):
+            text=path.read_text(encoding='utf-8')
+            for retired in ('Add a child** for an independent operation','importers and ancestors are selected too','map impact <file under the failure>'):self.assertNotIn(retired,text,str(path))
 
 
 if __name__ == "__main__":

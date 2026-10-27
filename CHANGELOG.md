@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The skill now teaches twelve concepts, one edit loop and a task route table; focused model recipes cover ports, staged and dispatch models, with separate node-kind guidance.
+
 - Static model views preserve shared literal finding codes, so generated known-bad names match the executable feature model.
 
 - Projects using FlowGuard: the project models now demonstrate coarse stages (`change_selection` and `function_selection`), dispatch branches (`read_command` with one `DISPATCH` child per read mode), and independent shared checks (`map_check` consumed by change/release, and `relation_graph` shared by views). Use these examples to split large models; `examples/shelf/` demonstrates a port upgrade from lending to its desk.

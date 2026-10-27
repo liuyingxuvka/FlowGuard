@@ -5,7 +5,7 @@ BEHAVIOUR_MODEL_TEMPLATE = '''"""TEMPLATE - generate with python -m flowguard te
 
 Executable model: placing an order charges the customer at most once per order id.
 Protected failure: a client retry with the same order id charges the card twice.
-For a primary-path plus fallback known-bad variant, see references/tree_operations.md,
+For a primary-path plus fallback known-bad variant, see references/routes.md,
 section "External promise (no silent fallback)".
 """
 

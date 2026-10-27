@@ -36,7 +36,7 @@ functions, unexplained), `optimise next:` (top five) and `debts:`. Ranking, high
 | candidate | weight | step |
 | --- | --- | --- |
 | any lint ERROR | 1000 | `fix <code>`, this file |
-| hub: used by >= 3, uses >= 3, and >= 1500 loc or >= 7 duties | 500 | `split`, `references/tree_operations.md#Add or split a component` |
+| hub: used by >= 3, uses >= 3, and >= 1500 loc or >= 7 duties | 500 | `split`, `references/routes.md#Add or split a component` |
 | `entrypoint_unmodeled`, `model_writer_unbound` / `foreign_state_write`, `private_cross_component_use` | 300 | `model` (template) / `move` |
 | unexplained entrypoints and state writers (200 + count); state or effects with no model (150); other WARN (100); flow with no model (80); models with 0 bound tests (60); `never_imported` (50) | | `explain`, `model`, `<code>`, `model flow`, `bind tests`, `delete or list` |
 

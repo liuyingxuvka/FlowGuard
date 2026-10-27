@@ -76,7 +76,7 @@ Templates start ordinary `behaviour` models, finite-input `validator` nodes and
 `ui-journey` nodes. `adoption` supplies repository rules. With a target present,
 model templates write into its model directory.
 
-Use [tree operations](../.agents/skills/flowguard/references/tree_operations.md)
+Use [routes](../.agents/skills/flowguard/references/routes.md)
 to add, split, merge or remove owners, retire fields and preserve external
 promises. [Model recipes](../.agents/skills/flowguard/references/model_recipes.md)
 describe real bindings, child models and the node kinds.

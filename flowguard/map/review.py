@@ -23,7 +23,7 @@ TEMPLATE = "python -m flowguard template behaviour --write ."
 # code (or candidate kind) -> (weight, action word, recipe or command)
 REVIEW_ACTIONS = {
     "error": (1000, "fix", ARCHITECTURE),
-    "hub": (500, "split", "references/tree_operations.md#Add or split a component, as a target"),
+    "hub": (500, "split", "references/routes.md#Add or split a component, as a target"),
     "entrypoint_unmodeled": (300, "model", TEMPLATE),
     "model_writer_unbound": (300, "model", TEMPLATE),
     "foreign_state_write": (300, "move", ARCHITECTURE),
@@ -36,7 +36,7 @@ REVIEW_ACTIONS = {
     "warn": (100, "{code}", ARCHITECTURE),
     "flow_without_model": (80, "model flow", "references/map_format.md"),
     "unbound_models": (60, "bind tests", "references/model_recipes.md#Run the bound tests"),
-    "never_imported": (50, "delete or list", "references/tree_operations.md#Remove or merge a node"),
+    "never_imported": (50, "delete or list", "references/routes.md#Remove or merge a node"),
 }
 HUB_USERS, HUB_USES, HUB_LOC, HUB_DUTIES = 3, 3, 1500, 7
 SHOWN_STEPS = 5

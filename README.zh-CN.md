@@ -81,7 +81,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | test-mesh | 用 `release --shards N`；每个分片跑若干棵完整测试子树，每个收集到的测试恰好运行一次。 |
 | ui-flow | 用 `ui-journey` 节点检查状态和旅程，再配合人工界面清单。 |
 
-见[树的操作](.agents/skills/flowguard/references/tree_operations.md)和
+见[树的操作](.agents/skills/flowguard/references/routes.md)和
 [模型配方](.agents/skills/flowguard/references/model_recipes.md)。
 
 ## 模型能抓住什么（真实例子）

@@ -21,7 +21,7 @@ A model of code that does not exist yet is a target model: write it under `.flow
 to real test anchors in both directions. Missing or renamed tests fail `map check`; keys must
 be actual design invariants. `NOT_MODELED = {"path.py:Symbol": "reason"}` records an explicit
 unmodeled entry; it grants no implementation proof. Each implementation anchor must be called, or its
-file read as code facts (`flowguard.map.facts.CodeFacts`), during exploration or conformance; a bad
+file read as code facts (`flowguard.map.facts.CodeFacts`), during conformance (abstract exploration grants no anchor credit); a bad
 variant must violate the intended design's property. `map lint` warns when a model names no tests.
 
 Run: `python -m flowguard map models <MODEL_ID>`. Start with `python -m flowguard template behaviour --write .`.
@@ -58,7 +58,7 @@ keep inputs and states finite.
 
 ## Recipes
 
-- **Primary path with a fallback**: see [External promise (no silent fallback)](tree_operations.md#external-promise-no-silent-fallback).
+- **Primary path with a fallback**: see [External promise (no silent fallback)](routes.md#external-promise-no-silent-fallback).
 
 - **API with several operations**: use `Workflow((SetBlock(), DelBlock()), mode="choice")`; each
   block declares `accepted_input_type`. Each input runs exactly one accepting block; no match is
@@ -74,69 +74,6 @@ keep inputs and states finite.
   with `require_label_order`; use `flowguard.loop.check_loops` to find stuck states.
 - **Permissions**: inputs carry a role; invariant: a forbidden role never reaches the protected
   effect; broken variant = check placed after the effect.
-
-## UI journey
-
-Start/add the owner's target first (SKILL.md). For a new model, use `python -m flowguard template ui-journey --write <scratch>` (`ui-flow` is an alias), then copy the starter model into `.flowguard/target/models/`.
-Import `UIInteractionModel`, `UIStateNode`, `UIControl`, `UITransition`, `ui_journey_explorer` and `ui_flow_code_facts` from `flowguard.ui_flow`; declare the initial state, screens/form data, controls and submit/cancel/back/retry transitions.
-Bind real handlers in `IMPLEMENTED_BY`, real UI source in `UI_FILES` and real tests in `TESTED_BY`; `conformance()` checks the source controls and handlers through code facts.
-Keep the `show_opens_an_unknown_state` and `details_dialog_cannot_close` known-bad variants; model reachable success, stable cancel and failure recovery.
-Automatic `ui_review_accepts` checks structure and four operability rules: `missing_failure_recovery`, `destructive_control_too_prominent`, `dialog_cannot_close`, `state_unreachable`.
-Model a close transition to a different registered state using an available control. Finish target design before code; remove every ERROR and TO-DO before promote, then run the selected checks.
-Review these questions against real UI code and click-through/component tests; the model and code facts do not render, click or prove the manual answers:
-
-- **Visibility:** Are internal ids/fields absent, optional details hidden until reveal and closable, rendered items accounted for, and disabled reasons user-facing?
-- **Hierarchy:** Does each screen have one clear main heading/action, stable global/context/local regions and task-owned labels/status/error text without unexplained duplication?
-- **Responsive:** At phone width is there no horizontal overflow, with immediate action feedback, stable layout and protection from stale asynchronous results?
-- **Operability:** Can users finish tasks with keyboard access, visible focus, correct affordances, cancel/Escape/close and focus return, including native dialogs and hover disclosure?
-- **Consistency:** Does one intent use the same term, typography, action grammar, navigation, feedback and recovery across surfaces, with deliberate repeated controls?
-- **Render/geometry:** In the running UI are controls rendered, unclipped and non-overlapping, with correct bounds/scroll/focus and current screenshot, DOM or geometry checks?
-- **Capability:** Does every required user task have a working path from control through its real handler to a visible result, preserving old capabilities or an explicit intentional change?
-- **Journey:** Does every entry route reach success with tested failure/recovery/cancel/exit branches, and do enabled controls and the current implementation match the declared states/transitions?
-
-## When a green model missed a bug
-
-A model passed, then a test, a run or a user hit a bug in the same behavior. Make the owning
-model reject the escaped case and keep one real regression test:
-
-1. Reproduce the failure; keep its evidence (failing test node id, log line, steps).
-2. `python -m flowguard map impact <file under the failure>` names the owning component and its
-   model. No model covers the behavior: write one (Five steps above).
-3. Classify the miss: an input the model lacks (timeout, empty list, second click), state too
-   coarse to tell the cases apart, an invariant too weak to see the bad state, or a conformance
-   adapter that maps the real code wrongly.
-4. Start the target flow in SKILL.md, then `python -m flowguard target add <id>`. In `.flowguard/target/models/`, add the missing input or state, or strengthen the invariant; add the escaped behavior as a broken variant (`broken_variants()`) that must FAIL. Recurring miss: add one sibling case of the same class.
-5. Run `python -m flowguard target check`: the intended design passes, every broken variant fails, and code/test TO-DO stays visible.
-6. Add or update one regression test and list it in the owner's target `tests`; fix the code until target check is clean, then `python -m flowguard target promote`. Confirm its listed components, run `python -m flowguard change` and the tests and models it lists.
-
-## Grow a model
-
-Use this when `change` names a model in REVIEW, reports `model_writer_unbound`, or a task adds behavior to an already modeled component.
-
-1. **Reuse** when existing invariants already cover the new behavior: add its real tests to `TESTED_BY`.
-2. **Extend** for a new input or rule over the same state: add inputs, state fields or invariants to the existing model, plus a known-bad variant that violates the new rule.
-3. **Add a child** for an independent operation over the same state: write a child model and import its blocks into the parent; imports infer the parent.
-4. **New model** for a different boundary and state: follow Five steps above.
-5. Do the change as a target (`python -m flowguard target add <id>`, after target start in SKILL.md): bind new code in `IMPLEMENTED_BY`, cover it in `conformance()`, check until clean and promote. Then run `python -m flowguard change` and its listed models; importers and ancestors are selected too.
-
-## Split a model
-
-Apply this split through SKILL.md's target-first flow.
-
-1. Move shared `State`, inputs, invariants and adapter into `_<name>_common.py`; underscore helpers are not models, and editing one reruns its importers.
-   A child keeps only the shared invariants its own inputs can break; `uncovered_invariant` fails a child that lists one it cannot break.
-2. Give each operation a child model with its own blocks, anchors, known-bad variants and replay.
-3. Import child blocks into the parent with `Workflow((SetBlock(), DelBlock()), mode="choice")`; each declares `accepted_input_type`, so no pass-through steps are needed.
-4. A child that slices parent state declares `project_parent_state(state)` (`return state` when reusing the parent's `State`) and starts from `flowguard.kit.reachable_states(parent.build_explorer(), project_parent_state)`; `map models` warns with `child_start_gap` when it misses parent states. An independent sub-check grouped under a parent needs neither projection nor reachable-state starts.
-In this split, the parent imports its children. A child that imports its parent (for `reachable_states`) must import it inside a function; a top-level import is circular.
-
-`python -m flowguard map check` reports ERROR for `parent_unknown`, `duplicate_child_owner`
-and `anchor_outside_home`: unknown parents, two child owners of the same code, or child anchors outside the parent's code.
-
-5. Declare each child's finite `OUTPUTS` and receive them through the parent's `HANDOFF`.
-   Every declared value must be received; use a broken variant that drops a value.
-6. Lift the children's known-bad variants into the parent too, prefixing their names to avoid collisions.
-7. Run `python -m flowguard target check` until clean, then `python -m flowguard target promote` and confirm its listed components. Run `python -m flowguard map models` so the now-current parent and children pass, then inspect their subtree with `python -m flowguard read --component <id>`.
 
 ## Conformance (model <-> code)
 
@@ -168,48 +105,6 @@ fail, required conformance passes, and `python -m flowguard map check` reports n
 need a new adapter. Report which code facts or real replay ran; do not describe an unrun replay as passed.
 
 
-## Validator
-
-Use when a function/interface has a finite input boundary and every declared bad value must be rejected; this is an ordinary contract model.
-Start/add the owner's target first (SKILL.md); scaffold with `python -m flowguard template validator --write <scratch>` and copy the model into `.flowguard/target/models/`.
-Import `ContractDimension`, `ContractExhaustionPlan`, `ContractOracle`, `contract_exhaustion_features` and `execute_contract_features` from `flowguard.validator`; bind real code and tests.
-Declare finite dimensions, their values and default mutations. Input/payload defaults include `old_schema_version` and `conflicting_identity`; keep `omitted_family_member` for missing registry members.
-Add `ContractAxis` / `ContractInteractionGroup` only for real interactions; cap the product and inspect the allowed single/pair combinations actually executed.
-Use generated features with real conformance and `execute_contract_features`; preserve the clean-input check and name a rejection oracle for each case.
-A dimension's mutation may have any name: built-in names keep their default reaction, other names must be rejected; a hand-written seed case still names its oracle or expected status, and invalid/unbounded dimensions or excessive products raise `ValueError`.
-Only `ValueError`/`TypeError` (or `rejects=(...)`) count as a rejection; any other exception is reported as `adapter_exception` (a crash).
-A reported accepted case id identifies a bad input the real function failed to reject: reproduce it, fix the code and retain a failing known-bad variant plus a real regression test.
-A default label saying reject before side effect is not observed timing proof; test the actual function's effects when that ordering matters.
-Finish target design before code and remove ERROR/TO-DO before promote; run the selected checks and report executed case counts and limits.
-
-## Node kinds
-
-`behaviour` starts an ordinary executable contract model.
-`validator` checks a finite input boundary; see `## Validator`.
-`ui-journey` explores interface states, controls and transitions; see `## UI journey`.
-Use `python -m flowguard template <kind> --write .`; `adoption` writes the six project integration rules.
-With a target, model files go into `.flowguard/target/models/`; otherwise they go into `.flowguard/models/`.
-Other template files keep their paths; the CLI prints the next target check or model command. `--force` keeps its overwrite meaning.
-
-Feature kits (`flowguard.kit`: `feature_explorer`; code facts or replay as conformance) reuse the same model contract.
-A feature model lists `Feature(name, rejects, codes, apply)` rows:
-each changes a clean input (a defect the code must reject and report, or a benign variation); the kit
-explores each allowed feature set once (up to `max_features=2` by default), generates the known-bad variants (`feature_variants`) and, in
-`feature_conformance(features, base, review)`, runs each combination on the real code and prints a
-counterexample (features, expected and observed verdict) for each one that disagrees. `codes="all"` reports all defects;
-use `codes="first"` for a validator that stops at the first defect in declaration order. `requires=("other",)`
-requires another feature in the set; `conflicts=("other",)` forbids their combination, symmetrically.
-`exclusive=True` still excludes every other feature. Impossible requirements and unknown names are errors. Invariants without a reachable nonempty witness
-are omitted; conformance still checks the clean base against the design, including adapter errors.
-`read` computes a kit model's rules, known-bad and defect/benign cases from a literal `FEATURES`
-(`feature_model_names` gives the same names without `apply`); a non-literal name or constraint shows `?`.
-
-`ui-journey` and `validator` contain `REPLACE_ME` anchors: fill them with real code and tests.
-`behaviour` has sample `shop/orders.py:OrderService.place` and a commented `TESTED_BY` example; replace the sample and bind real tests. Components come from IMPLEMENTED_BY; add COMPONENTS or PARENT only for placement. Run
-`python -m flowguard map models <MODEL_ID>`: exit code 0 means the intended plan passes and the
-broken plans are rejected.
-There is no review kind; `invariant_untested` is computed by `map models`.
-
 ## Helpers
 
 `read` never imports a model: it reads rules from the `invariants=` of the explorer that
@@ -218,21 +113,6 @@ from a `_helper` file, or build them with a small wrapper returning `Invariant(n
 `read` then shows each name and description. When it cannot, it shows `?` and
 `python -m flowguard map models` prints the real names.
 
-
-### Parent and child models
-
-`PARENT` may name a component, another model's `MODEL_ID`, or `"system"`.
-`parent_unknown`, `parent_cycle`, `parent_import_mismatch`, `anchor_outside_home` and
-`duplicate_child_owner` are errors; `test_not_nested` and `child_start_gap` remain warnings.
-Without it, the parent is the unique importing contract model, then `COMPONENTS[0]`,
-the first anchor's owner, or `system`.
-Prefer a parent model importing its child's blocks to compose their behavior.
-`change` also selects a child that imports its parent inside a function.
-FlowGuard adds `.flowguard/models` to `sys.path`; sibling imports need no path edits.
-Prefix helper files with `_` so they are not registered as executable models.
-
-`PARENT = "system"` places a cross-component model directly under the built-in system root.
-The root lives in the map, not in a user model file; its reserved id is `system`.
 
 ### Run the bound tests
 
@@ -256,3 +136,19 @@ Checking Python bindings requires pytest in the environment (`.[dev]` provides i
 The tests facet of `python -m flowguard read --component <id>` shows each node's bindings.
 
 USES binds code a model reads but does not own; conformance must call it.
+
+## Ports
+
+Ports are read from the actual explorer/state and literal declarations; no saved port copy is authoritative. A field's rule belongs to the model that holds every field it reads. IMPLEMENTED_BY names owned functions once; USES binds code owned elsewhere, grants no primary credit and must be reached by native conformance.
+
+- `OUTPUTS = {"answer": ("lent", "refused")}` declares a finite tuple per output field. A producing step really writes each value; merely declaring or initializing it is not a production trace. Declare OUTPUTS only for a real receiver.
+- `HANDOFF = {"lending": {"answer": "answer"}}` receives every current producer value unchanged into State.answer. The string is field-name shorthand, not a saved list of values. Full form: `{"answer": ("decision", {"lent": "yes", "refused": "no"})}`. A consumer outside the producer's parent may map an unused value to None. A composing parent must receive every value and never drops one.
+- `READS_PARENT = ("request",)` names fields the child takes; they exist in both State types and the parent supplies them. An explicit parent-state projection declares the same reads by its field accesses. Independent replay fixtures need not run another model first to obtain a start.
+- `KEEPS = ("request", "phase", "reply")` is the coarse parent's own input, forward step marker and aggregate. Every other parent field is supplied to a child or receives its output. Don't keep the child's domain state or copy its decision table into the parent.
+- `DISPATCH = {"mode": {"show": "read_show", "find": "read_find"}}` chooses exclusive branch children. Every reached choice has its PARENT-linked child. A call receives only its chosen branch's answer; a call refused before dispatch keeps the selector's default and runs no branch. Required stages can coexist with one chosen branch.
+
+Receive an actual event: a step's input, label or output contains the original producer value and that step holds the mapped value in the named receiving field. A value placed somewhere else in State, emitted in another call or computed without receiving it does not satisfy HANDOFF. Use literal reads/writes on blocks; the runtime checks actual changed fields, output values and receipt traces. Parent rules judge order, conditions, choice and aggregation. Their case tables contain only received child OUTPUTS; conformance calls the parent's real composing function and compares its own result, never re-explores or re-renders children.
+
+Different aspects and shared mechanisms stay component models. A command consuming a check is not its parent: declare HANDOFF in the command, OUTPUTS in the check. Child code belongs exclusively to the composing function. `COMPONENTS` gives allowed code scope, while PARENT determines placement; widening scope grants no duplicate ownership.
+
+Changing an interface prints `port changed`: include the named parent, HANDOFF consumer or child-input reader in the same target and make it receive/supply the new value. A new dispatch choice needs its branch rather than an upward escalation. See [Interface change](routes.md#interface-change) and [Split a model](routes.md#split-a-model).

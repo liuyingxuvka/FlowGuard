@@ -88,7 +88,7 @@ python scripts/install_skill.py --target "$env:CODEX_HOME\skills"
 | test-mesh | Use `release --shards N`; each shard runs whole test subtrees and every collected test runs exactly once. |
 | ui-flow | Use a `ui-journey` node for states and journeys, plus the manual UI checklist. |
 
-See [tree operations](.agents/skills/flowguard/references/tree_operations.md) and
+See [routes](.agents/skills/flowguard/references/routes.md) and
 [model recipes](.agents/skills/flowguard/references/model_recipes.md).
 
 ## What a model catches (real example)

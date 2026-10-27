@@ -188,7 +188,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:c6d3da41707e81fda2f85d5f874147cf1dbb11564f336bf867fa6653224f6446"
+      "fingerprint": "sha256:3a22048fb89f0dd0da443a9eb5ebc4342217e90bedda6fe7d6aa0d39f6518fec"
     },
     {
       "id": "test-mesh",
@@ -743,7 +743,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:52b57326f1497807929131defb35798a1686400f5db2ed63cbf0726e2c4307ae"
+      "fingerprint": "sha256:39cd9016ee7158d741d39880189101b5671bc278da061e16cd99e64a43bd6414"
     },
     {
       "id": "map-impact",
