@@ -1,67 +1,20 @@
 # Changelog
 
-## Unreleased
+## v0.70.13 - 2026-10-27 - Model ports and a smaller workflow
 
-- Keep nested model proofs and bound tests from inheriting another pytest runner's shard controls or receipt paths.
-
-- Avoid unused constructor analysis, repeated static trees and deep AST copies while retaining identical source facts and rule diagnostics.
-
-- Keep map formatting, discovery syntax and history evidence in focused modules; expose test grouping to its promotion consumer.
-
-- Group tests by their final model subtrees and native components, preserving every test and its binding.
-
-- The skill now teaches twelve concepts, one edit loop and a task route table; focused model recipes cover ports, staged and dispatch models, with separate node-kind guidance.
-
-- Static model views preserve shared literal finding codes, so generated known-bad names match the executable feature model.
-
-- Projects using FlowGuard: the project models now demonstrate coarse stages (`change_selection` and `function_selection`), dispatch branches (`read_command` with one `DISPATCH` child per read mode), and independent shared checks (`map_check` consumed by change/release, and `relation_graph` shared by views). Use these examples to split large models; `examples/shelf/` demonstrates a port upgrade from lending to its desk.
-
-- Projects using FlowGuard: tests have positions in the model tree, visible in component reads and test lookup. `release --shards N` balances whole subtrees from file-validated duration records; its first run keeps the stable hash fallback. Oversized or mixed test files warn at soft limits and must split at hard limits; one-to-one model/test files split together in a target. `large_test_seconds` controls advice only. Linux nested subprocesses clean their own groups while the outer session retains its deadline.
-
-- Projects using FlowGuard: model size warnings start above 8 rules or 2,000 explored sequences. More than 12 rules fails map checks; more than 10,000 sequences fails the model and cannot be waived. Time is advice only, configured by `large_model_seconds` (default 10). A single decision table can retain a reasoned soft-limit debt. Read views now have their own smaller models.
-
-- Projects using FlowGuard: `read --field NAME` lists a field’s writers, readers, rules and tests. Read shows relation counts, stage or branch labels and consumed outputs; Mermaid separates placement, composition and consumption. Architecture review lists central models and the models affected by their ports or code.
-
-- Projects using FlowGuard: `read --find path:function` names the model that owns the code, with its rules, port, parent chain and tests. A test location shows model bindings and called code; unbound direct callers can be found from a function. Word ranking stays the same and adds a model pointer.
-
-- Projects using FlowGuard: `change` names consumers of removed interface literals and text that mentions them. `change` and `target check` name removed promises and distinguish moves; explain intentional removals in the commit message. These notes do not block a check.
-
-- Projects using FlowGuard: `change` selects models by changed functions and selects individual bound or directly calling tests. `--broad` keeps the earlier file selection. Missing Git uses confirmed component fingerprints and explains its conservative file fallback.
-
-- Projects using FlowGuard: `change` checks direct port consumers when an interface changes, rather than always adding ancestors. `--broad` preserves the wider selection. A target that changes a child's outputs must also include its parent, with a command explaining how to add it.
-
-- Check actual State writes and declared finite outputs, and require strict parent/child receipts, inputs and field coverage. Focused reads show each model's port.
-- Projects using FlowGuard: `writes` is now checked. `OUTPUTS` declares results; `HANDOFF` receives them; `READS_PARENT` names child inputs; `KEEPS` reserves orchestration fields; `DISPATCH` requires one branch child for every selected alternative.
-
-- Group repeated INFO notes, show passing models on one line with separate proof/test times, and list debt reasons only on request.
-- Count test functions and coverage from real model bindings and resolved test calls. Explicit no-code model debts keep process models runnable while preserving their rules and known-bad checks.
-- Projects using FlowGuard: coverage counts actual bindings and calls; close a review suggestion with a reasoned accepted debt. Suggestions to bind tests that call modeled code stay visible.
-
-- Observe anchors only during conformance, with low-overhead process-wide monitoring on Python 3.12+ and a tracing fallback.
-- Projects using FlowGuard: anchors called only by explore() now fail; drive the real code from conformance().
-
-- Rank an exact symbol match only when it matches the entire joined query, so incidental query words no longer hide the duty owner.
-
-- Enforce owned anchors within the resolved model scope consistently, and display checked read-only USES dependencies without counting them as ownership.
-- Projects using FlowGuard: anchor_outside_home replaces child_outside_parent; bind code read-only with USES when the model consumes it.
-
-- Resolve script siblings, declared import roots and enclosing function imports through one shared import resolver.
-- Projects using FlowGuard: script repositories can declare relative import_roots in their map.
-
-- Make target check a design check without bound tests, explain native code gaps and moved rules, and promote with one full check and recoverable atomic replacement.
-- Projects using FlowGuard: change models through a target; target check runs no bound tests and target promote runs them once; model_edited_outside_target now detects edits to current models.
-
-- Show the complete refusal report during target promotion; support ordered parallel model subprocesses with --jobs and atomic parser cache writes.
-- Parse each unchanged model contract once per process, keyed by exact bytes; never cache model or test verdicts.
-
-- Keep components current across version-only release changes while retaining sensitivity to all other source edits.
-- Projects using FlowGuard: run python -m flowguard map confirm <component> once after upgrading (fingerprint_migrate names it); fingerprint_migrate is removed in 0.70.14.
-
-### Removed
-
-- Remove the unused corpus, checkpoint, artifact-envelope, scenario-review, packs, progress, minimization, legacy rendering, hint and old model-edge modules, their dedicated examples, tests and docs, and the old project-migration checks. Remove redundant tuning flags and compact trace storage.
-- Removed facade names: `ArtifactEnvelope`, `BoundedEventuallyProperty`, `BudgetedGraphConfig`, `BudgetedGraphFailure`, `BudgetedGraphReport`, `BudgetedShardReport`, `CachePack`, `ContractCheckReport`, `ContractViolation`, `DeduplicationPack`, `EventuallyProperty`, `FunctionContract`, `MinimizedCounterexample`, `OracleReviewResult`, `ProgressCheckConfig`, `ProgressCheckReport`, `ProgressFinding`, `ReductionStep`, `RetryPack`, `SCHEMA_VERSION`, `ScenarioMatrixBuilder`, `ScenarioReviewReport`, `SideEffectPack`, `budgeted_graph_fingerprint`, `budgeted_graph_run_dir`, `check_progress`, `check_refinement_projection`, `check_trace_contracts`, `graph_to_mermaid_text`, `loop_report_to_mermaid_text`, `make_artifact`, `mermaid_code_block`, `minimize_failing_sequence`, `minimize_report_counterexample`, `review_scenario`, `review_scenarios`, `run_budgeted_graph_checks`, `scenario_status_explanation`, `scenario_status_ok`, `trace_artifact`, `trace_to_mermaid_text`.
-- Projects using FlowGuard: all fourteen consumer names remain, as does `release --shards N` with whole-subtree balancing. `FLOWGUARD_COMPACT_TRACE_STORAGE` has no effect; exploration retains every observed trace.
+- Check finite values passed between models, exclusive stages, dispatch branches and shared consumers; name the parent or consumer that must handle a changed port.
+- Keep current models intact while designing a target. Report real code gaps, moved rules and existing behavior separately; run bound tests in the complete promotion check and promote checked bytes safely.
+- Select changed functions and their bound or directly calling tests. Explain removed literals and promises, preserve Git's timestamp checks and keep unrelated checks out of a small edit.
+- Read owners by words, exact symbols, source locations or test locations; inspect field lifecycles, code coverage and model rules without importing a model.
+- Show placement, composition and consumption separately, with coverage counts, shared-model hubs and the impact of port changes.
+- Enforce model and test size limits while treating elapsed time as advice. Keep tests beside their model subtrees and balance complete release shards using verified test durations.
+- Run fresh model checks with explicit concurrency and stable output order; passing proofs stay concise and failed checks retain their evidence, and nested runners keep separate control and receipt paths.
+- Keep the public API to 64 supported names, remove unused modules and retain the complete shard toolchain, validator and UI-flow support.
+- Organize the self-models and shelf example around real stages, alternatives and independently shared behavior, with real code and test bindings.
+- Teach twelve concepts, one development loop and task-specific routes in the shorter skill; install matching project rules and focused node-kind recipes.
+- Avoid repeated static trees, unused constructor scans and deep AST copies while preserving source facts, body fingerprints and rule diagnostics.
+- Version-only changes no longer invalidate confirmed component fingerprints.
+- Projects using FlowGuard: run `python -m flowguard map confirm <component>` once after upgrading (`fingerprint_migrate` names it); `fingerprint_migrate` is removed in 0.70.14.
 
 ## v0.70.12 - 2026-10-24 - The model shows the architecture
 
