@@ -319,7 +319,12 @@ class StaticModel:
                     or not all(isinstance(options[key], tuple) and all(isinstance(v, str) for v in options[key])
                                for key in ("requires", "conflicts"))):
                 return None
-            placeholders = tuple(f"\0{name}:{index}" for index in range(len(codes.elts))) if codes is not None else ()
+            # Equal literal codes must stay equal: the kit chooses its reporting
+            # witness from code sets, so two defects can share one code. Keep
+            # symbolic placeholders only where static evaluation is unavailable.
+            values = tuple(self.value(code, scope_item, local) for code in codes.elts) if codes is not None else ()
+            placeholders = tuple(value if isinstance(value, str) else f"\0{name}:{index}"
+                                 for index, value in enumerate(values))
             try:
                 features.append(Feature(name, rejects, placeholders, None, **options))
             except ValueError:

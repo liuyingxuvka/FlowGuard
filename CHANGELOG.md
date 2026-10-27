@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Static model views preserve shared literal finding codes, so generated known-bad names match the executable feature model.
+
 - Projects using FlowGuard: the project models now demonstrate coarse stages (`change_selection` and `function_selection`), dispatch branches (`read_command` with one `DISPATCH` child per read mode), and independent shared checks (`map_check` consumed by change/release, and `relation_graph` shared by views). Use these examples to split large models; `examples/shelf/` demonstrates a port upgrade from lending to its desk.
 
 - Projects using FlowGuard: tests have positions in the model tree, visible in component reads and test lookup. `release --shards N` balances whole subtrees from file-validated duration records; its first run keeps the stable hash fallback. Oversized or mixed test files warn at soft limits and must split at hard limits; one-to-one model/test files split together in a target. `large_test_seconds` controls advice only. Linux nested subprocesses clean their own groups while the outer session retains its deadline.
