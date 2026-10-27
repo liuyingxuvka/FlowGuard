@@ -610,8 +610,17 @@ def replay_call_findings(root, data, inv, tree, raw):
             return
         imported = node.module or ""
         if node.level:
-            parts = Path(path).parent.parts
-            imported = ".".join((*parts[: len(parts) - node.level + 1], *imported.split(".")))
+            info = inv.py.get(path)
+            if info is not None:
+                package = (
+                    info.module if path.endswith("/__init__.py") else info.module.rpartition(".")[0]
+                )
+                parts = package.split(".") if package else []
+                tail = imported.split(".") if imported else []
+                imported = ".".join([*parts[: len(parts) - node.level + 1], *tail])
+            elif node.level != 1:
+                parts = Path(path).parent.parts
+                imported = ".".join((*parts[: len(parts) - node.level + 1], *imported.split(".")))
         helper = (Path(path).parent / (imported + ".py")).as_posix()
         local = (
             module(helper)

@@ -365,9 +365,12 @@ def test_replay_call_undeclared_reports_fixture_replays(tmp_path):
         "native.py",
         "def entry(): return True\ndef used(): return True\ndef other(): return False\n",
     )
+    write("src/surface/__init__.py", "from .bridge import used\n")
+    write("src/surface/bridge.py", "from native import used\n")
     write(
         ".flowguard/models/_cases.py",
-        """from native import used, other
+        """from surface import used
+from native import other
 class Replay:
     def __init__(self):
         self.callback = used
@@ -404,7 +407,7 @@ def conformance():
         components=[
             dict(
                 id="native",
-                files=["native.py"],
+                files=["native.py", "src/surface/*.py"],
                 models=[],
                 tests=[],
                 responsibilities=["own native operations"],
