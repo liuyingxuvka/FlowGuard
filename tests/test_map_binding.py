@@ -83,3 +83,57 @@ def test_map_check_binding_codes(tmp_path):
     assert unused() == []                       # api reaches core only through the injected store
     write(tmp_path, "app.py", "from api import Service\nfrom core import Store\n\n\ndef main():\n    return 1\n")
     assert unused() == ["api"]                  # nothing passes a Store any more: the declared edge has no evidence
+
+import json
+import subprocess
+from pathlib import Path
+import pytest
+from flowguard.__main__ import main
+from flowguard.map.cli import _context
+from flowguard.map.check import run_check
+from flowguard.map.lint import run_lint
+from _fg_helpers import flowguard_map_contracts421_write as write, flowguard_map_contracts421_project as project, flowguard_map_contracts421_save as save, flowguard_map_contracts421_findings as findings, flowguard_map_contracts421_CONTRACT as CONTRACT, flowguard_map_contracts421__placement_port_source as _placement_port_source, flowguard_map_contracts421__fg233_parent_project as _fg233_parent_project, flowguard_map_contracts421__scope_helpers as _scope_helpers, flowguard_map_contracts421_json as json, flowguard_map_contracts421_subprocess as subprocess, flowguard_map_contracts421_Path as Path, flowguard_map_contracts421_pytest as pytest, flowguard_map_contracts421_main as main, flowguard_map_contracts421__context as _context, flowguard_map_contracts421_run_check as run_check, flowguard_map_contracts421_run_lint as run_lint
+
+def test_flow_step_can_read_the_previous_steps_file(tmp_path):
+    """A command that reads an earlier step's file is a `reads` step: checked as an entrypoint, not by call reach."""
+    import json
+    import subprocess
+    from pathlib import Path
+    import pytest
+    from flowguard.__main__ import main
+    from flowguard.map.cli import _context
+    from flowguard.map.check import run_check
+    from flowguard.map.lint import run_lint
+    from _fg_helpers import flowguard_map_contracts421_write as write, flowguard_map_contracts421_project as project, flowguard_map_contracts421_save as save, flowguard_map_contracts421_findings as findings, flowguard_map_contracts421_CONTRACT as CONTRACT, flowguard_map_contracts421__placement_port_source as _placement_port_source, flowguard_map_contracts421__fg233_parent_project as _fg233_parent_project, flowguard_map_contracts421__scope_helpers as _scope_helpers, flowguard_map_contracts421_json as json, flowguard_map_contracts421_subprocess as subprocess, flowguard_map_contracts421_Path as Path, flowguard_map_contracts421_pytest as pytest, flowguard_map_contracts421_main as main, flowguard_map_contracts421__context as _context, flowguard_map_contracts421_run_check as run_check, flowguard_map_contracts421_run_lint as run_lint
+    from flowguard.map.views import render_mermaid, render_show
+
+    write(tmp_path, "plan/main.py", "import json\n\ndef main():\n    with open('plan.json', 'w') as out:\n"
+          "        json.dump({'ok': True}, out)\n")
+    write(tmp_path, "check/main.py", "import json\n\ndef main():\n    with open('plan.json') as source:\n"
+          "        return json.load(source)\n")
+
+    def component(cid, entry=True):
+        return {"id": cid, "summary": f"{cid} command", "responsibilities": [f"{cid} step"],
+                "files": [f"{cid}/main.py"], "entrypoints": [f"{cid}/main.py:main"] if entry else [],
+                "tests": [], "models": [], "depends_on": [], "status": "draft"}
+
+    def mapped(steps, *, check_entry=True):
+        data = {"schema": "flowguard.map.v1", "components": [component("plan"), component("check", check_entry)],
+                "flows": [{"id": "chain", "summary": "plan then check", "steps": steps}]}
+        save(tmp_path, data)
+        data, inv = _context(tmp_path)
+        return data, inv, run_check(tmp_path, data, inv), run_lint(tmp_path, data, inv)
+
+    data, inv, checked, linted = mapped(["plan:main", "check:main reads plan.json"])
+    assert not [f for f in checked if f.level == "error"], checked
+    assert not [f for f in linted if f.code in {"flow_step_unreached", "flow_handoff_not_entrypoint"}], linted
+    assert "check:main reads plan.json" in render_show(tmp_path, data, inv, component=None, detail=False, budget=8000)
+    assert "plan.json" in render_mermaid(tmp_path, data, inv)
+    _, _, _, linted = mapped(["plan:main", "check:main reads plan.json"], check_entry=False)
+    assert [f for f in linted if f.code == "flow_handoff_not_entrypoint"], linted
+    for steps in (["plan:main reads plan.json", "check:main"], ["plan:main", "check:main reads "],
+                  ["plan:main", "check reads plan.json"]):
+        _, _, checked, _ = mapped(steps)
+        assert [f for f in checked if f.code == "flow_handoff_invalid" and f.level == "error"], (steps, checked)
+    _, _, _, linted = mapped(["plan:main", "check:main"])
+    assert [f for f in linted if f.code == "flow_step_unreached"], linted

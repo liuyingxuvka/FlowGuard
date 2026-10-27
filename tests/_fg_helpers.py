@@ -610,3 +610,214 @@ def view__field_project(tmp_path):
     from flowguard.map.inventory import build_inventory
     from flowguard.map.common import DEFAULT_IGNORE
     return (data, build_inventory(tmp_path, DEFAULT_IGNORE, write_cache=False))
+
+
+import json as flowguard_map_contracts421_json
+import subprocess as flowguard_map_contracts421_subprocess
+from pathlib import Path as flowguard_map_contracts421_Path
+import pytest as flowguard_map_contracts421_pytest
+from flowguard.__main__ import main as flowguard_map_contracts421_main
+from flowguard.map.cli import _context as flowguard_map_contracts421__context
+from flowguard.map.check import run_check as flowguard_map_contracts421_run_check
+from flowguard.map.lint import run_lint as flowguard_map_contracts421_run_lint
+
+def flowguard_map_contracts421_write(root, relative, content):
+    path = root / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding='utf-8')
+
+def flowguard_map_contracts421_project(tmp_path):
+    flowguard_map_contracts421_write(tmp_path, 'app.py', 'def run():\n    return True\n')
+    flowguard_map_contracts421_write(tmp_path, 'tests/test_app.py', 'from app import run\n\ndef test_run():\n    assert run() is True\n')
+    data = {'schema': 'flowguard.map.v1', 'components': [{'id': 'app', 'summary': 'Runs the application', 'responsibilities': ['run the app'], 'files': ['app.py'], 'entrypoints': ['app.py:run'], 'tests': ['tests/test_app.py'], 'models': [], 'depends_on': [], 'status': 'draft'}]}
+    flowguard_map_contracts421_save(tmp_path, data)
+    return data
+
+def flowguard_map_contracts421_save(root, data):
+    flowguard_map_contracts421_write(root, '.flowguard/map.json', flowguard_map_contracts421_json.dumps(data))
+
+def flowguard_map_contracts421_findings(root):
+    data, inv = flowguard_map_contracts421__context(root)
+    return flowguard_map_contracts421_run_check(root, data, inv)
+flowguard_map_contracts421_CONTRACT = 'MODEL_ID = "one"\nCOMPONENTS = ["app"]\nIMPLEMENTED_BY = {"Run": "app.py:run"}\ndef build_explorer():\n    pass\n'
+
+def flowguard_map_contracts421__placement_port_source(*, child=None):
+    """Only the static port declarations needed by the placement fixtures."""
+    fields = ('value', 'received') if child else ('value',)
+    return '\nfrom dataclasses import dataclass\nfrom flowguard import Workflow,FunctionResult\nfrom flowguard.explorer import Explorer\n@dataclass(frozen=True)\nclass PortState:\n' + ''.join((f'    {name}: int = 0\n' for name in fields)) + 'class Step:\n    name="Step"\n' + f'    writes={fields!r}\n' + '    def apply(self,event,state): return (FunctionResult(1,state),)\n' + 'OUTPUTS={"value":(1,)}\nKEEPS=("value",)\n' + (f'HANDOFF={{{child!r}:{{"value":"received"}}}}\n' if child else '') + 'def build_explorer(): return Explorer(Workflow((Step(),)),(PortState(),),(1,))\n'
+
+def flowguard_map_contracts421__fg233_parent_project(tmp_path):
+    marker = tmp_path / 'parent233-imported-code.txt'
+    guarded = f'from pathlib import Path\nPath({str(marker)!r}).write_text("imported")\n'
+    flowguard_map_contracts421_write(tmp_path, 'parent233_loans.py', guarded + 'def borrow(): return True\n')
+    flowguard_map_contracts421_write(tmp_path, 'parent233_catalog.py', guarded + 'def available(): return True\n')
+    flowguard_map_contracts421_write(tmp_path, 'tests/test_parent233.py', guarded + 'from parent233_loans import borrow\ndef test_borrow(): assert borrow() is True\n')
+    flowguard_map_contracts421_write(tmp_path, '.flowguard/models/parent233_rules.py', guarded + 'MODEL_ID="parent233_rules"\nPARENT="records"\nIMPLEMENTED_BY={"Borrow":"parent233_loans.py:borrow"}\ndef build_explorer(): raise AssertionError("static check explored a model")\ndef conformance(): raise AssertionError("static check replayed user code")\n')
+    data = dict(schema='flowguard.map.v1', layers=['records', 'other'], components=[dict(id='records', layer='records', summary='Record subsystem', responsibilities=['group records'], files=[], tests=[], models=[], depends_on=[], status='draft'), dict(id='loans', parent='records', layer='records', summary='Borrow items', responsibilities=['borrow items'], files=['parent233_loans.py'], entrypoints=['parent233_loans.py:borrow'], tests=['tests/test_parent233.py'], models=[], depends_on=[], status='draft'), dict(id='catalog', parent='records', layer='records', summary='Available items', responsibilities=['count availability'], files=['parent233_catalog.py'], tests=[], models=[], depends_on=[], status='draft')], flows=[], accepted_debts=[])
+    flowguard_map_contracts421_save(tmp_path, data)
+    return (data, marker)
+
+def flowguard_map_contracts421__scope_helpers():
+    import runpy
+    directory = flowguard_map_contracts421_Path(__file__).resolve().parents[1] / '.flowguard/models'
+    pending = directory.parent / 'target/models/model_scope.py'
+    if pending.is_file():
+        directory = pending.parent
+    return runpy.run_path(str(directory / 'model_scope.py'))
+import json as flowguard_map_discover421_json
+import shutil as flowguard_map_discover421_shutil
+import subprocess as flowguard_map_discover421_subprocess
+import sys as flowguard_map_discover421_sys
+import tempfile as flowguard_map_discover421_tempfile
+import unittest as flowguard_map_discover421_unittest
+from pathlib import Path as flowguard_map_discover421_Path
+import pytest as flowguard_map_discover421_pytest
+from flowguard.map.discover import component_summary as flowguard_map_discover421_component_summary, console_scripts as flowguard_map_discover421_console_scripts, discover as flowguard_map_discover421_discover, discover_inventory as flowguard_map_discover421_discover_inventory, file_facts as flowguard_map_discover421_file_facts
+from flowguard.map.common import DEFAULT_IGNORE as flowguard_map_discover421_DEFAULT_IGNORE
+from flowguard.map.inventory import build_inventory as flowguard_map_discover421_build_inventory
+from flowguard.map.lint import entrypoint_coverage_findings as flowguard_map_discover421_entrypoint_coverage_findings, run_lint as flowguard_map_discover421_run_lint, scoped_architecture_findings as flowguard_map_discover421_scoped_architecture_findings
+from flowguard.map.scan import guess_tests as flowguard_map_discover421_guess_tests, new_map as flowguard_map_discover421_new_map, propose_components as flowguard_map_discover421_propose_components
+flowguard_map_discover421_ROOT = flowguard_map_discover421_Path(__file__).resolve().parents[1]
+flowguard_map_discover421_APP = '\nimport requests\nfrom notes.store import NoteStore\n\nclass App:\n    def __init__(self):\n        self.routes = {}\n    def route(self, path, methods=None):\n        def wrap(fn):\n            self.routes[path] = fn\n            return fn\n        return wrap\n\napp = App()\nstore = NoteStore("notes.db")\n\n@app.route("/notes", methods=["POST"])\ndef create_note(body):\n    store.add(body)\n    requests.post("https://hooks.example/notes", json=body)\n\n@app.route("/notes")\ndef list_notes():\n    return store.all()\n\ndef tally(items):\n    requests = []\n    requests.append(len(items))\n    return requests\n'
+flowguard_map_discover421_STORE = '\nimport sqlite3\n\nclass NoteStore:\n    def __init__(self, path):\n        self.conn = sqlite3.connect(path)\n        self.count = 0\n    def add(self, body):\n        cur = self.conn.cursor()\n        cur.execute("insert into notes values (?)", (body,))\n        self.count += 1\n    def all(self):\n        return self.conn.cursor().execute("select * from notes").fetchall()\n'
+flowguard_map_discover421_CLI = '\nimport argparse\nimport shutil\n\ndef main(argv=None):\n    p = argparse.ArgumentParser()\n    sub = p.add_subparsers(dest="cmd")\n    sub.add_parser("backup")\n    if p.parse_args(argv).cmd == "backup":\n        shutil.copy("notes.db", "notes.bak")\n\n\n\nif __name__ == "__main__":\n    main()\n'
+
+def flowguard_map_discover421_write_project(root: Path) -> None:
+    (root / 'notes').mkdir()
+    (root / 'tests').mkdir()
+    (root / 'notes' / '__init__.py').write_text('', encoding='utf-8')
+    (root / 'notes' / 'app.py').write_text(flowguard_map_discover421_APP, encoding='utf-8')
+    (root / 'notes' / 'store.py').write_text(flowguard_map_discover421_STORE, encoding='utf-8')
+    (root / 'notes' / 'cli.py').write_text(flowguard_map_discover421_CLI, encoding='utf-8')
+    (root / 'tests' / 'test_store.py').write_text('def test_x():\n    assert True\n', encoding='utf-8')
+    flowguard_map_discover421_subprocess.run(['git', 'init', '-q'], cwd=root, check=True)
+
+def flowguard_map_discover421_map_cli(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return flowguard_map_discover421_subprocess.run([flowguard_map_discover421_sys.executable, '-m', 'flowguard', 'map', '--root', str(root), *args], cwd=flowguard_map_discover421_ROOT, capture_output=True, text=True, check=False)
+flowguard_map_discover421__INJECTED_STORE = 'import json\n\n\nclass NoteStore:\n    def __init__(self, path):\n        self.path = path\n        self.notes = {}\n\n    def save(self, note_id, text):\n        self.notes[note_id] = text\n        with open(self.path, "w") as handle:\n            json.dump(self.notes, handle)\n\n    def delete(self, note_id):\n        self.notes.pop(note_id, None)\n        with open(self.path, "w") as handle:\n            json.dump(self.notes, handle)\n'
+flowguard_map_discover421__INJECTED_SERVICE = 'class NoteService:\n    def __init__(self, store):\n        self.store = store\n\n    def add(self, note_id, text):\n        self.store.save(note_id, text)\n\n    def delete(self, note_id):\n        self.store.delete(note_id)\n'
+flowguard_map_discover421__INJECTED_CLI = 'from notes.service import NoteService\nfrom notes.store import NoteStore\n\n\ndef main():\n    service = NoteService(NoteStore("notes.json"))\n    service.add("a", "first note")\n'
+
+def flowguard_map_discover421__injected_project(root: Path, *, service: str=flowguard_map_discover421__INJECTED_SERVICE, cli: str | None=flowguard_map_discover421__INJECTED_CLI) -> dict:
+    """The constructor-injection shape: cli builds NoteService(NoteStore(...)); service never imports store."""
+    files = {'notes/__init__.py': '', 'notes/store.py': flowguard_map_discover421__INJECTED_STORE, 'notes/service.py': service}
+    if cli is not None:
+        files['notes/cli.py'] = cli
+    for relative, source in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source, encoding='utf-8')
+
+    def component(cid, path, layer, depends_on, entrypoints):
+        return dict(id=cid, layer=layer, summary=f'{cid} notes', responsibilities=[f'{cid} notes'], files=[path], entrypoints=entrypoints, state=[], side_effects=[], depends_on=depends_on, tests=[], models=[], status='draft')
+    components = [dict(component('store', 'notes/store.py', 'storage', [], []), files=['notes/store.py', 'notes/__init__.py']), component('service', 'notes/service.py', 'domain', ['store'], ['notes/service.py:NoteService.add'])]
+    if cli is not None:
+        components.append(component('cli', 'notes/cli.py', 'interface', ['service', 'store'], ['notes/cli.py:main']))
+    data = {'schema': 'flowguard.map.v1', 'project': 'notes', 'layers': ['interface', 'domain', 'storage'], 'ignore': [], 'components': components, 'flows': [], 'accepted_debts': []}
+    (root / '.flowguard').mkdir(exist_ok=True)
+    (root / '.flowguard/map.json').write_text(flowguard_map_discover421_json.dumps(data, indent=2) + '\n', encoding='utf-8')
+    return data
+
+def flowguard_map_discover421__resolution_case(tmp_path, files, caller, callee, *, import_roots=(), private=True):
+    from flowguard.map.lint import private_use_findings
+    for relative, source in files.items():
+        path = tmp_path / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    source_path = caller.partition('#')[0]
+    target_path = callee.partition('#')[0]
+    groups = {'caller': [source_path]}
+    others = sorted(set(files) - {source_path})
+    if others:
+        groups['helper'] = others
+    data = {'schema': 'flowguard.map.v1', 'import_roots': list(import_roots), 'components': [{'id': name, 'summary': name, 'responsibilities': ['execute the ' + name], 'files': paths, 'tests': [], 'models': [], 'status': 'draft'} for name, paths in groups.items()]}
+    inv = flowguard_map_discover421_build_inventory(tmp_path, [], write_cache=False, import_roots=import_roots)
+    raw = flowguard_map_discover421_discover_inventory(tmp_path, inv, write_cache=False, data=data)
+    assert callee in raw['edges'].get(caller, []), raw['edges']
+    findings = private_use_findings(tmp_path, data, inv)
+    assert bool(findings) == private, findings
+    if private:
+        assert any(('_private' in f.message and f.component == 'caller' for f in findings))
+        assert target_path in inv.file_deps[source_path]
+    return (data, inv, raw)
+
+def flowguard_map_discover421_literal_fixture():
+    import runpy
+    directory = flowguard_map_discover421_Path(__file__).parents[1] / '.flowguard'
+    target = directory / 'target/models/_literal_fixture.py'
+    return runpy.run_path(str(target if target.exists() else directory / 'models/_literal_fixture.py'))
+from dataclasses import fields as flowguard_port421_fields, is_dataclass as flowguard_port421_is_dataclass, replace as flowguard_port421_replace
+from pathlib import Path as flowguard_port421_Path
+import json as flowguard_port421_json
+import runpy as flowguard_port421_runpy
+from flowguard.map.common import DEFAULT_IGNORE as flowguard_port421_DEFAULT_IGNORE
+from flowguard.map.inventory import build_inventory as flowguard_port421_build_inventory
+from flowguard.map.mapfile import load_map as flowguard_port421_load_map
+from flowguard.map.port import model_port as flowguard_port421_model_port, port_findings as flowguard_port421_port_findings, upward as flowguard_port421_upward
+from flowguard.map.tree import build_tree as flowguard_port421_build_tree
+
+def flowguard_port421_helpers():
+    from _fg_helpers import target__target_life_cycle_fixture_helpers
+    return target__target_life_cycle_fixture_helpers('_target_fixture')
+
+def flowguard_port421_project(root, case='valid'):
+    h = flowguard_port421_helpers()
+    data = h['make_port_project'](root, case)
+    return (data, flowguard_port421_build_inventory(root, flowguard_port421_DEFAULT_IGNORE, write_cache=False))
+
+def flowguard_port421_probe(root, model='desk'):
+    return flowguard_port421_helpers()['probe_port_model'](root, model)
+
+def flowguard_port421_errors(root, data, inv):
+    return {finding.code for finding in flowguard_port421_build_tree(root, data, inv).findings if finding.level == 'error'}
+
+def flowguard_port421_rewrite(root, model, old, new):
+    path = root / '.flowguard/models' / (model + '.py')
+    source = path.read_text()
+    assert old in source
+    path.write_text(source.replace(old, new, 1))
+
+def flowguard_port421_dispatch_project(root, kind='valid'):
+    data, inv = flowguard_port421_project(root)
+    models = root / '.flowguard/models'
+    (models / 'desk.py').unlink()
+    (models / 'lending.py').unlink()
+    (root / 'shelf/loans.py').write_text('def borrow(value): return "left"\ndef second(value): return "right"\n')
+    (root / 'shelf/cli.py').write_text('from .loans import borrow,second\ndef main(mode): return borrow(mode) if mode=="x" else second(mode)\n')
+    head = 'from dataclasses import dataclass,replace\nfrom pathlib import Path\nfrom flowguard import FunctionResult,Invariant,Workflow\nfrom flowguard.explorer import Explorer\nfrom flowguard.map.facts import CodeFactsReport,Fact,load_anchor\n'
+    cmd = head + 'MODEL_ID="cmd"\nPARENT="cli"\nIMPLEMENTED_BY={"Serve":"shelf/cli.py:main"}\nHANDOFF={"a":{"answer":"a"},"b":{"answer":"b"}}\nKEEPS=("mode",)\nDISPATCH={"mode":{"x":"a","y":"b"}}\n@dataclass(frozen=True)\nclass Command:\n    mode:str=""\n    a:str=""\n    b:str=""\nclass Choose:\n    name="Choose"\n    reads=()\n    writes=("mode","a","b")\n    def __init__(self,bad=False): self.bad=bad\n    def apply(self,event,state):\n        mode=event\n        a="left" if event=="x" else ""\n        b="right" if event=="y" else ""\n        if KIND=="unknown" and event=="x": mode="z"\n        if KIND in ("wrong_branch","no_dispatch"): a,b=b and "left",a and "right"\n        if KIND=="two_branches" and event=="x": a,b="left","right"\n        if self.bad: a,b="hidden","hidden"\n        result=Command(mode,a,b)\n        return (FunctionResult((a,b),result,label="selected"),)\nRULE=Invariant("visible","branch results stay visible",lambda s,t:s.a!="hidden" and s.b!="hidden")\ndef make(bad=False): return Explorer(Workflow((Choose(bad),)),(Command(),),("x","y"),invariants=(RULE,),max_sequence_length=1,progress_steps=0)\ndef build_explorer(): return make()\ndef broken_variants(): return {"hidden":make(True)}\ndef conformance():\n    main=load_anchor(IMPLEMENTED_BY["Serve"],root=Path.cwd())\n    return CodeFactsReport((Fact("x",main("x")=="left"),Fact("y",main("y")=="right")))\n'
+    cmd += '\nKIND=' + repr(kind) + '\n'
+    if kind == 'no_dispatch':
+        cmd = cmd.replace('DISPATCH={"mode":{"x":"a","y":"b"}}', '')
+    if kind == 'unknown_selector':
+        cmd = cmd.replace('DISPATCH={"mode"', 'DISPATCH={"ghost"')
+    (models / 'cmd.py').write_text(cmd)
+    for name, symbol, value in (('a', 'borrow', 'left'), ('b', 'second', 'right')):
+        source = head + f'MODEL_ID={name!r}\nPARENT="cmd"\nCOMPONENTS=["loans"]\nIMPLEMENTED_BY={{"Result":"shelf/loans.py:{symbol}"}}\nOUTPUTS={{"answer":({value!r},)}}\n@dataclass(frozen=True)\nclass ResultState:\n    answer:str=""\nclass Produce:\n    name="Produce"\n    writes=("answer",)\n    def __init__(self,bad=False): self.bad=bad\n    def apply(self,event,state): return (FunctionResult(event,ResultState("bad" if self.bad else event)),)\nRULE=Invariant("result","the result is retained",lambda s,t:s.answer in ("",{value!r}))\ndef make(bad=False): return Explorer(Workflow((Produce(bad),)),(ResultState(),),({value!r},),invariants=(RULE,),max_sequence_length=1,progress_steps=0)\ndef build_explorer(): return make()\ndef broken_variants(): return {{"bad":make(True)}}\ndef conformance(): return CodeFactsReport((Fact("native",load_anchor(IMPLEMENTED_BY["Result"],root=Path.cwd())("x")=={value!r}),))\n'
+        if name == 'a' and kind == 'nonchild':
+            source = source.replace('PARENT="cmd"', 'PARENT="loans"')
+        (models / (name + '.py')).write_text(source)
+    return (data, flowguard_port421_build_inventory(root, flowguard_port421_DEFAULT_IGNORE, write_cache=False))
+
+def flowguard_port421_escalation_model():
+    import sys
+    root = flowguard_port421_Path(__file__).parents[1] / '.flowguard'
+    current, target = (root / 'models', root / 'target/models')
+    source = target / 'port_escalation.py' if (target / 'port_escalation.py').exists() else current / 'port_escalation.py'
+    sys.path.insert(0, str(current))
+    try:
+        return flowguard_port421_runpy.run_path(str(source))
+    finally:
+        sys.path.pop(0)
+
+def flowguard_port421__select_ports(tmp_path, mid, old, new):
+    from flowguard.map.port import model_port, port_selection
+    data, inv = flowguard_port421_project(tmp_path)
+    tree = flowguard_port421_build_tree(tmp_path, data, inv)
+    ports = {key: node.contract['port'] for key, node in tree.nodes.items()}
+    ports[mid] = new
+    return port_selection(mid, old, new, tree, ports)
+import pytest as map_inventory421_pytest, os as map_inventory421_os, json as map_inventory421_json
+from pathlib import Path as map_inventory421_Path
+import pytest as map_views421_pytest, os as map_views421_os, json as map_views421_json
+from pathlib import Path as map_views421_Path

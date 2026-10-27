@@ -12,13 +12,7 @@ MODEL_ID = "model_scope"
 PARENT = "map-file"
 IMPLEMENTED_BY = {"Scope": "flowguard/map/tree.py:scope_findings"}
 USES = {"BuildTree": "flowguard/map/tree.py:build_tree"}
-TESTED_BY = {
-    "anchor_inside_scope": ["tests/test_flowguard_map_contracts.py:test_anchor_scope_same_with_or_without_parent",
-                            "tests/test_flowguard_map_contracts.py:test_anchor_outside_home_names_common_ancestor"],
-    "verdict_independent_of_parent_source": ["tests/test_flowguard_map_contracts.py:test_anchor_scope_same_with_or_without_parent",
-                                            "tests/test_flowguard_map_contracts.py:test_model_ancestor_components_are_in_scope"],
-    "uses_is_read_only": ["tests/test_flowguard_map_contracts.py:test_unused_uses_fails_and_is_not_coverage"],
-}
+TESTED_BY = {'anchor_inside_scope': ['tests/test_model_scope.py:test_anchor_scope_same_with_or_without_parent', 'tests/test_model_scope.py:test_anchor_outside_home_names_common_ancestor'], 'verdict_independent_of_parent_source': ['tests/test_model_scope.py:test_anchor_scope_same_with_or_without_parent', 'tests/test_model_scope.py:test_model_ancestor_components_are_in_scope'], 'uses_is_read_only': ['tests/test_model_scope.py:test_unused_uses_fails_and_is_not_coverage']}
 
 
 @dataclass(frozen=True)

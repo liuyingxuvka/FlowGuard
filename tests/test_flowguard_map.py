@@ -521,8 +521,8 @@ def test_find_owners_edit_selects_its_models_and_test_functions(tmp_path):
     data=load(tmp_path);inv=build_inventory(tmp_path,DEFAULT_IGNORE,write_cache=False)
     result=compute_impact(tmp_path,data,inv,['flowguard/map/views.py'],base='HEAD')
     assert set(result.model_ids)=={'read_find'}
-    assert result.tests==['tests/test_map_views.py','tests/test_read_find.py']
-    assert result.test_functions['tests/test_map_views.py']
+    assert result.tests==['tests/test_map_inventory_inventory.py','tests/test_map_read.py','tests/test_read_command.py','tests/test_read_find.py']
+    assert result.test_functions['tests/test_map_read.py']
     assert 'Find is flowguard/map/views.py:find_'+'owners' in render_impact(result)
 
 

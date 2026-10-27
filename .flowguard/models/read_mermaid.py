@@ -11,7 +11,7 @@ PARENT='read_command'
 IMPLEMENTED_BY={'Mermaid':'flowguard/map/views.py:render_mermaid'}
 USES={'Facets':'flowguard/map/facets.py:component_facets'}
 OUTPUTS={'diagram':('drawn','unknown')}
-TESTED_BY = {'mermaid_view_imports_no_model': ['tests/test_map_views.py:test_mermaid_draws_dependencies_and_flows'], 'one_node_per_component_and_model': ['tests/test_map_views.py:test_mermaid_export_has_one_node_per_component_and_model'], 'dependencies_and_flows_drawn': ['tests/test_map_views.py:test_mermaid_draws_dependencies_and_flows'], 'target_changes_marked': ['tests/test_flowguard_target.py:test_read_target_added_removed_flows_and_mermaid_use_real_node_identity']}
+TESTED_BY = {'mermaid_view_imports_no_model': ['tests/test_read_command.py:test_mermaid_draws_dependencies_and_flows'], 'one_node_per_component_and_model': ['tests/test_read_command.py:test_mermaid_export_has_one_node_per_component_and_model'], 'dependencies_and_flows_drawn': ['tests/test_read_command.py:test_mermaid_draws_dependencies_and_flows'], 'target_changes_marked': ['tests/test_flowguard_target.py:test_read_target_added_removed_flows_and_mermaid_use_real_node_identity']}
 @dataclass(frozen=True)
 class State:
     diagram:str='drawn'

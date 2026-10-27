@@ -31,19 +31,7 @@ IMPLEMENTED_BY = {
     "Global": "flowguard/map/discover.py:_FileVisitor.visit_Global",
     "MainGuard": "flowguard/map/discover.py:_FileVisitor.visit_If",
 }
-TESTED_BY = {
-    "script_and_closure_calls_resolve": ["tests/test_flowguard_map_discover.py:test_nested_function_call_resolves",
-        "tests/test_flowguard_map_discover.py:test_import_local_to_enclosing_function_resolves",
-        "tests/test_flowguard_map_discover.py:test_sibling_script_import_resolves",
-        "tests/test_flowguard_map_discover.py:test_import_root_import_resolves"],
-    "entrypoints_found": ["tests/test_flowguard_map_discover.py:DiscoverTests.test_routes_commands_effects_and_state_writers",
-                          "tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
-    "writes_attributed_to_writer": ["tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
-    "effects_reach_their_entrypoints": ["tests/test_flowguard_map_discover.py:DiscoverTests.test_routes_commands_effects_and_state_writers",
-                                        "tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
-    "injected_attribute_resolves": ["tests/test_flowguard_map_discover.py:test_injected_collaborator_resolves_to_its_class"],
-    "nothing_invented": ["tests/test_flowguard_map_discover.py:test_discovery_finds_each_entry_and_effect_shape"],
-}
+TESTED_BY = {'script_and_closure_calls_resolve': ['tests/test_discovery.py:test_nested_function_call_resolves', 'tests/test_discovery.py:test_import_local_to_enclosing_function_resolves', 'tests/test_discovery.py:test_sibling_script_import_resolves', 'tests/test_discovery.py:test_import_root_import_resolves'], 'entrypoints_found': ['tests/test_discovery.py:DiscoverTests.test_routes_commands_effects_and_state_writers', 'tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'writes_attributed_to_writer': ['tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'effects_reach_their_entrypoints': ['tests/test_discovery.py:DiscoverTests.test_routes_commands_effects_and_state_writers', 'tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'injected_attribute_resolves': ['tests/test_discovery.py:test_injected_collaborator_resolves_to_its_class'], 'nothing_invented': ['tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape']}
 
 SHAPES = {
     "argparse_command": {"cmd.py": "import argparse\n\n\ndef main():\n    parser = argparse.ArgumentParser()\n"

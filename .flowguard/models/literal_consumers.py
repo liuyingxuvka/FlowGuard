@@ -10,7 +10,7 @@ MODEL_ID='literal_consumers'
 PARENT = 'change_selection'
 IMPLEMENTED_BY={'Sites':'flowguard/map/discover.py:literal_sites'}
 USES={'Impact':'flowguard/map/impact.py:compute_impact','Rules':'flowguard/map/facets.py:target_goal_rules'}
-TESTED_BY = {'removed_literal_names_consumers': ['tests/test_flowguard_map_discover.py:test_s4a_rename_names_the_consumers'], 'removed_promise_is_named': ['tests/test_flowguard_map_discover.py:test_removed_rule_known_bad_and_test_are_promises'], 'moved_rule_is_not_a_removed_promise': ['tests/test_flowguard_map_discover.py:test_moved_rule_prints_moved_not_promise']}
+TESTED_BY = {'removed_literal_names_consumers': ['tests/test_change_selection.py:test_s4a_rename_names_the_consumers'], 'removed_promise_is_named': ['tests/test_change_selection.py:test_removed_rule_known_bad_and_test_are_promises'], 'moved_rule_is_not_a_removed_promise': ['tests/test_change_selection.py:test_moved_rule_prints_moved_not_promise']}
 @dataclass(frozen=True)
 class Observation:
     edit:str=''

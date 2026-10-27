@@ -96,3 +96,96 @@ def test_model_fails_when_any_verdict_fails(tmp_path,verdict):
     results=run_models(tmp_path,['first','second'],tests=verdict=='tests')
     assert [(r.model,r.status) for r in results]==[('first','fail'),('second','pass')]
     assert 'FAIL  first' in render_results(results)
+
+from dataclasses import fields, is_dataclass, replace
+from pathlib import Path
+import json
+import runpy
+from flowguard.map.common import DEFAULT_IGNORE
+from flowguard.map.inventory import build_inventory
+from flowguard.map.mapfile import load_map
+from flowguard.map.port import model_port, port_findings, upward
+from flowguard.map.tree import build_tree
+from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
+
+def test_undeclared_write_and_output_checks(tmp_path):
+    from dataclasses import fields, is_dataclass, replace
+    from pathlib import Path
+    import json
+    import runpy
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.port import model_port, port_findings, upward
+    from flowguard.map.tree import build_tree
+    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
+    for case, model, code, warning in (("undeclared_write", "desk", "undeclared_write", False),
+            ("undeclared_output", "lending", "output_undeclared", False),
+            ("unreached_output", "lending", "output_unreached", True)):
+        root = tmp_path / case
+        project(root, case)
+        result = probe(root, model)
+        assert result.status == ("pass" if warning else "fail"), result
+        assert any(code in line for line in (result.warnings if warning else result.problems)), result
+    from flowguard.map.port import changed_fields
+    assert changed_fields(0, 1) == ()
+    assert changed_fields({"a": 1}, {"a": 1, "b": []}) == ("b",)
+    root = tmp_path / "no_declared_writes"
+    project(root, "undeclared_write")
+    rewrite(root, "desk", '    reads=("request",)\n    writes=("request",)\n', '    reads=("request",)\n')
+    # A block without writes has no C1 promise; its parent still gets static S0c.
+    assert not any("undeclared_write:" in line for line in probe(root).problems)
+
+
+def test_handoff_value_must_be_received_as_an_event(tmp_path):
+    from dataclasses import fields, is_dataclass, replace
+    from pathlib import Path
+    import json
+    import runpy
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.port import model_port, port_findings, upward
+    from flowguard.map.tree import build_tree
+    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
+    root = tmp_path / "good"
+    project(root)
+    assert probe(root).status == "pass"
+    for case in ("missing_receipt", "wrong_receiving_field"):
+        root = tmp_path / case
+        project(root, case)
+        result = probe(root)
+        assert result.status == "fail" and any("handoff_output_unhandled:" in p for p in result.problems), result
+    # A new value's presence in a different invocation cannot supply its missing renamed receipt.
+    root = tmp_path / "renamed"
+    project(root)
+    rewrite(root, "lending", '("lent","refused")}', '("lent","refused","waitlisted")}')
+    rewrite(root, "desk", '"answer":"answer"', '"answer":("answer",{"lent":"lent","refused":"refused","waitlisted":"refused"})')
+    result = probe(root)
+    assert any("waitlisted" in p and "handoff_output_unhandled" in p for p in result.problems), result
+
+
+def test_keeps_classes_and_parent_outputs(tmp_path):
+    from dataclasses import fields, is_dataclass, replace
+    from pathlib import Path
+    import json
+    import runpy
+    from flowguard.map.common import DEFAULT_IGNORE
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.mapfile import load_map
+    from flowguard.map.port import model_port, port_findings, upward
+    from flowguard.map.tree import build_tree
+    from _fg_helpers import flowguard_port421_helpers as helpers, flowguard_port421_project as project, flowguard_port421_probe as probe, flowguard_port421_errors as errors, flowguard_port421_rewrite as rewrite, flowguard_port421_dispatch_project as dispatch_project, flowguard_port421_escalation_model as escalation_model, flowguard_port421__select_ports as _select_ports, flowguard_port421_fields as fields, flowguard_port421_is_dataclass as is_dataclass, flowguard_port421_replace as replace, flowguard_port421_Path as Path, flowguard_port421_json as json, flowguard_port421_runpy as runpy, flowguard_port421_DEFAULT_IGNORE as DEFAULT_IGNORE, flowguard_port421_build_inventory as build_inventory, flowguard_port421_load_map as load_map, flowguard_port421_model_port as model_port, flowguard_port421_port_findings as port_findings, flowguard_port421_upward as upward, flowguard_port421_build_tree as build_tree
+    from flowguard.map.port import keeps_classes
+    root = tmp_path / "good"
+    project(root)
+    rewrite(root, "desk", "max_sequence_length=1", "max_sequence_length=3")
+    result = probe(root)
+    assert result.status == "pass", result
+    kinds = keeps_classes("desk")
+    assert kinds["request"] == "input" and kinds["reply"] == "aggregate", kinds
+    for case, code in (("domain_keeps", "keeps_not_orchestration"), ("parent_output", "parent_output_not_from_child")):
+        root = tmp_path / case
+        project(root, case)
+        result = probe(root)
+        assert result.status == "fail" and any(code in p for p in result.problems), result

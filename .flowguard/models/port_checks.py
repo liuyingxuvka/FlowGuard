@@ -10,7 +10,7 @@ MODEL_ID='port_checks'
 PARENT = 'model_runs'
 IMPLEMENTED_BY={'RunChecks': 'flowguard/map/port.py:run_findings'}
 USES={'RunModel': 'flowguard/map/proof.py:run_model_in_process'}
-TESTED_BY = {'undeclared_write_fails': ['tests/test_flowguard_port.py:test_undeclared_write_and_output_checks'], 'output_undeclared_fails': ['tests/test_flowguard_port.py:test_undeclared_write_and_output_checks'], 'handoff_value_received_into_field': ['tests/test_flowguard_port.py:test_handoff_value_must_be_received_as_an_event'], 'keeps_are_orchestration': ['tests/test_flowguard_port.py:test_keeps_classes_and_parent_outputs'], 'parent_output_from_child': ['tests/test_flowguard_port.py:test_keeps_classes_and_parent_outputs'], 'unreached_output_is_warned': ['tests/test_flowguard_port.py:test_undeclared_write_and_output_checks']}
+TESTED_BY = {'undeclared_write_fails': ['tests/test_model_runs.py:test_undeclared_write_and_output_checks'], 'output_undeclared_fails': ['tests/test_model_runs.py:test_undeclared_write_and_output_checks'], 'handoff_value_received_into_field': ['tests/test_model_runs.py:test_handoff_value_must_be_received_as_an_event'], 'keeps_are_orchestration': ['tests/test_model_runs.py:test_keeps_classes_and_parent_outputs'], 'parent_output_from_child': ['tests/test_model_runs.py:test_keeps_classes_and_parent_outputs'], 'unreached_output_is_warned': ['tests/test_model_runs.py:test_undeclared_write_and_output_checks']}
 @dataclass(frozen=True)
 class Observation:
     case: str = ""
