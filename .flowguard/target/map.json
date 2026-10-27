@@ -1,0 +1,169 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-421: Fix architecture warnings without changing behavior",
+  "components": [
+    {
+      "id": "map-read",
+      "layer": "map",
+      "summary": "Show field lifecycles, exact code ownership, distinct model relations and bounded test positions without importing models.",
+      "responsibilities": [
+        "show the tree, Mermaid and digests with static facets and coverage",
+        "find owners by word form and rank architecture defects and strengths",
+        "compare current and target facets and list the rules a target changes",
+        "show the model rules and flows each component relies on"
+      ],
+      "files": [
+        "flowguard/map/views.py",
+        "flowguard/map/facets.py",
+        "flowguard/map/review.py",
+        "flowguard/map/digest.py",
+        "flowguard/map/view_format.py"
+      ],
+      "entrypoints": [],
+      "state": [],
+      "side_effects": [],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py",
+        "tests/test_map_read.py",
+        "tests/test_read_component.py",
+        "tests/test_read_field.py",
+        "tests/test_read_find.py",
+        "tests/test_relation_graph.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-impact",
+      "layer": "map",
+      "summary": "Detect changed paths through a read-only Git index that preserves timestamp checks; select affected functions, ports, literals and tests.",
+      "responsibilities": [
+        "select the checks a change needs and list its unexplained functions",
+        "select owned or closest reachable changed functions and matching flows; print relied models without selecting them",
+        "select bound and directly calling test functions, with conservative whole-file fallback"
+      ],
+      "files": [
+        "flowguard/map/impact.py",
+        "flowguard/map/impact_history.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/impact.py:compute_impact"
+      ],
+      "state": [],
+      "side_effects": [
+        "reads git history; refreshes disposable analysis cache"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-inventory",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_change_selection.py",
+        "tests/test_flowguard_map.py",
+        "tests/test_map_impact.py",
+        "tests/test_port_escalation.py",
+        "tests/test_test_selection.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-discover",
+      "layer": "map",
+      "summary": "Discover call graphs, literal roles and lexical functions; own reachability and shared model selection for body edits.",
+      "responsibilities": [
+        "discover entrypoints, side effects and state writers Replace the disposable discovery cache atomically so concurrent writers cannot publish partial JSON.",
+        "resolve attribute calls through assigned or injected classes",
+        "count del statements as state writes and expose anchor state writes",
+        "discover without writing caches when asked",
+        "find the model anchors that code calls directly",
+        "build one static call graph from current or target source facts",
+        "report no entrypoint or effect from words inside strings"
+      ],
+      "files": [
+        "flowguard/map/discover.py",
+        "flowguard/map/discovery_syntax.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/discover.py:console_scripts",
+        "flowguard/map/discover.py:discover"
+      ],
+      "state": [],
+      "side_effects": [
+        "writes .flowguard/cache/discover.json"
+      ],
+      "depends_on": [
+        "map-file",
+        "map-inventory"
+      ],
+      "tests": [
+        "tests/test_discovery.py",
+        "tests/test_map_discover.py"
+      ],
+      "models": []
+    },
+    {
+      "id": "map-target",
+      "layer": "map",
+      "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks.",
+      "responsibilities": [
+        "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
+        "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
+        "mark only the breakage of a changed subject as moving to target",
+        "refuse a target that changes nothing, drops a promise or leaves it untied",
+        "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
+        "warn about earlier findings, stale debts and untested rules without blocking",
+        "include function-selected models and tests in the single promotion check"
+      ],
+      "files": [
+        "flowguard/map/target.py"
+      ],
+      "entrypoints": [
+        "flowguard/map/target.py:main",
+        "flowguard/map/target.py:promote_target",
+        "flowguard/map/target.py:start_target",
+        "flowguard/map/target.py:add_to_target",
+        "flowguard/map/target.py:drop_target"
+      ],
+      "state": [
+        ".flowguard/target/ (at most one target)"
+      ],
+      "side_effects": [
+        "writes and deletes .flowguard/target/",
+        "writes current .flowguard/map.json and .flowguard/models/ only after a clean target check"
+      ],
+      "depends_on": [
+        "map-check",
+        "map-discover",
+        "map-file",
+        "map-impact",
+        "map-inventory",
+        "map-proof",
+        "map-read"
+      ],
+      "tests": [
+        "tests/test_flowguard_target.py",
+        "tests/test_gap_lines.py",
+        "tests/test_map_target.py",
+        "tests/test_target_add.py",
+        "tests/test_target_life_cycle.py"
+      ],
+      "models": [
+        ".flowguard/models/target_add.py",
+        ".flowguard/models/gap_lines.py"
+      ]
+    }
+  ],
+  "flows": [],
+  "remove": [
+    "responsibility:promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm",
+    "responsibility:list what to re-read after promotion and which files to delete"
+  ]
+}
