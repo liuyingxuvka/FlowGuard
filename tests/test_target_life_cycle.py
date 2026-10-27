@@ -1,13 +1,27 @@
 """Tests grouped by their model or native component."""
 from __future__ import annotations
-import pytest,os,json
+import json
+import os
+import pytest
 from pathlib import Path
 
+
+from _fg_helpers import (
+    target_OLD_CHILD_MODEL as OLD_CHILD_MODEL,
+    target__check_without_writes as _check_without_writes,
+    target__fg403_clean_target as _fg403_clean_target,
+    target__load_map as _load_map,
+    target__rename_return_toward_target as _rename_return_toward_target,
+    target__run as _run,
+    target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers,
+    target__target_with as _target_with,
+    target__write_map as _write_map,
+    target_shelf_project as shelf_project,
+)
 
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_start_add_drop_and_read_line(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     capsys.readouterr()
     current = _load_map(root)
@@ -73,7 +87,6 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
 def test_change_marks_only_planned_breakage_and_keeps_tests(tmp_path, capsys, monkeypatch):
     import json
     import pytest
-    from _fg_helpers import target__run as _run, target__rename_return_toward_target as _rename_return_toward_target, target_shelf_project as shelf_project
     from flowguard.map import cli as map_cli
     from flowguard.map import proof
 
@@ -119,7 +132,6 @@ def test_change_marks_only_planned_breakage_and_keeps_tests(tmp_path, capsys, mo
 
 
 def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
-    from _fg_helpers import target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers
     from flowguard.map import target as native
     from flowguard.map.mapfile import load_map
     from flowguard.map.targetfile import build_target_view, load_target
@@ -156,7 +168,6 @@ def test_target_small_promotion_preserves_map_and_model_bytes(tmp_path):
 def test_dropping_a_responsibility_is_owner_dropped(tmp_path, capsys):
     """A responsibility needs a new owner or an explicit responsibility:<text> retirement."""
     import json
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("target", "start", "loans lends only"), ("target", "add", "loans"), ("target", "add", "catalog")):
@@ -188,7 +199,6 @@ def test_dropping_a_responsibility_is_owner_dropped(tmp_path, capsys):
 
 
 def test_unchanged_target_is_target_noop(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__target_with as _target_with, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _target_with(root, capsys, "copy loans", "loans")
@@ -208,7 +218,6 @@ def test_unchanged_target_is_target_noop(tmp_path, capsys):
 
 def test_copied_but_unchanged_entry_stays_an_error(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__target_with as _target_with, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     path = _target_with(root, capsys, "describe loans better", "loans")
@@ -232,7 +241,6 @@ def test_copied_but_unchanged_entry_stays_an_error(tmp_path, capsys):
 def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
     import json
     import flowguard.__main__ as cli
-    from _fg_helpers import target__target_with as _target_with, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project, target_OLD_CHILD_MODEL as OLD_CHILD_MODEL
     from flowguard.map.inventory import build_inventory
     from flowguard.map.mapfile import ignore_patterns
     from flowguard.map.target import _unchanged_models
@@ -277,7 +285,6 @@ def test_old_findings_of_unchanged_models_do_not_block(tmp_path, capsys):
 
 def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__target_with as _target_with, target__check_without_writes as _check_without_writes, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     data = _load_map(root)
     data["accepted_debts"] = [{"code": "untested_component", "component": "members",
@@ -305,7 +312,6 @@ def test_target_check_warns_about_debts_it_makes_stale(tmp_path, capsys):
 def test_target_check_reports_unwritten_code_as_todo(tmp_path, capsys):
     """An entrypoint the target plans but the code does not have yet is a TO-DO, never an ERROR."""
     import json
-    from _fg_helpers import target__target_with as _target_with, target_shelf_project as shelf_project
     from flowguard.map.target import check_target
 
     root = shelf_project(tmp_path)
@@ -322,7 +328,6 @@ def test_target_check_reports_unwritten_code_as_todo(tmp_path, capsys):
 def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkeypatch):
     """promote_target checks once; when a checked input changes afterwards it refuses and writes nothing."""
     from pathlib import Path
-    from _fg_helpers import target__target_life_cycle_fixture_helpers as _target_life_cycle_fixture_helpers
     from flowguard.map import target as native
 
     helpers = _target_life_cycle_fixture_helpers()
@@ -348,7 +353,6 @@ def test_promote_refuses_inputs_changed_after_its_check(tmp_path, capsys, monkey
 
 def test_refused_promote_prints_the_report(tmp_path, monkeypatch, capsys):
     import json
-    from _fg_helpers import target_shelf_project as shelf_project
     from flowguard.map import target
     root = shelf_project(tmp_path)
     assert target.start_target(root, "invalid goal case") == 0
@@ -372,7 +376,6 @@ def test_refused_promote_prints_the_report(tmp_path, monkeypatch, capsys):
 
 
 def test_target_check_runs_no_pytest_and_promote_runs_one_check(tmp_path, monkeypatch):
-    from _fg_helpers import target__fg403_clean_target as _fg403_clean_target
     from flowguard.map import proof
     native = _fg403_clean_target(tmp_path)
     original = proof.run_bound_tests
@@ -388,7 +391,6 @@ def test_target_check_runs_no_pytest_and_promote_runs_one_check(tmp_path, monkey
 
 
 def test_promote_names_stale_component_to_confirm(tmp_path, capsys):
-    from _fg_helpers import target__fg403_clean_target as _fg403_clean_target
     from flowguard.map.cli import cmd_confirm
     from types import SimpleNamespace
     native = _fg403_clean_target(tmp_path)
@@ -418,3 +420,31 @@ def test_port_change_without_parent_is_an_error(tmp_path):
     assert not (tmp_path/".flowguard/target/models/desk.py").exists()
     assert call(tmp_path,"add","desk") == 0
     assert not any(f.code == "port_changed_parent_missing" for f in check_target(tmp_path,models=False).errors)
+
+
+def test_changed_port_fails_short_form_consumer(tmp_path, capsys):
+    import runpy
+    from pathlib import Path
+    from flowguard.map import cli, target
+    directory = Path(__file__).resolve().parents[1] / '.flowguard'
+    fixture = directory / 'target/models/_target_fixture.py'
+    if not fixture.exists():
+        fixture = directory / 'models/_target_fixture.py'
+    runpy.run_path(str(fixture))['make_port_project'](tmp_path, 'short_consumer')
+    assert cli.main(['confirm', 'all', '--root', str(tmp_path)]) == 0
+    assert target.main(['start', 'extend producer outputs', '--root', str(tmp_path)]) == 0
+    assert target.main(['add', 'lending', '--root', str(tmp_path)]) == 0
+    path = tmp_path / '.flowguard/target/models/lending.py'
+    source = path.read_text()
+    assert source.count('("lent","refused")}') == 1
+    path.write_text(source.replace('("lent","refused")}', '("lent","refused","waitlisted")}'))
+    capsys.readouterr()
+    assert target.main(['check', '--root', str(tmp_path)]) == 1
+    output = capsys.readouterr().out
+    assert "ERROR model consumer: port_changed_consumer_unhandled: lending emits answer='waitlisted'; consumer never receives it and is not in the target; python -m flowguard target add consumer, then make consumer receive 'waitlisted'" in output
+    assert 'old_finding' not in output
+    current = tmp_path / '.flowguard/map.json'
+    before = current.read_bytes()
+    assert target.main(['promote', '--root', str(tmp_path)]) == 1
+    assert 'promote refused:' in capsys.readouterr().out
+    assert current.read_bytes() == before

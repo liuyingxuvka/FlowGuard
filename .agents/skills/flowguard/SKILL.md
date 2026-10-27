@@ -29,7 +29,7 @@ Models, tests and code grow together. Split a model that is too big, staged or d
 1. `python -m flowguard read --find <words | path:function | path::test>` → deepest owner.
 2. Code only: edit; `python -m flowguard change --run`; re-read stale owners/update changed descriptions; `python -m flowguard map confirm <ids>`; commit.
 3. Model change: `python -m flowguard target start "<goal>"`, `python -m flowguard target add <model>`; edit its `.flowguard/target/models/<model>.py` copy.
-4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing`: add/receive in the parent. Before code: `EXPECTED GAP`; except `moved rules only` or `NO GAP` (no code for that rule; commit `records existing behaviour: <rule>`). Commit the target if planned.
+4. `python -m flowguard target check`: fix ERROR; `port_changed_parent_missing` / `port_changed_consumer_unhandled`: `target add` the named model and make it receive the value. Before code: `EXPECTED GAP`; except `moved rules only` or `NO GAP` (no code for that rule; commit `records existing behaviour: <rule>`). Commit the target if planned.
 5. Write code and bound tests; check until no TO-DO remains.
 6. `python -m flowguard target promote`: one full check; its `map confirm`; commit code/models/map.
 

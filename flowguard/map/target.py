@@ -57,7 +57,7 @@ def _remove_readonly(function, path, info):
 TODO_CODES = {"test_file_not_split","anchor_broken", "component_empty", "pattern_dead", "model_anchor_broken",
               "model_missing", "flow_step_broken", "file_unmapped", "dep_undeclared",
               "dep_unused", "layer_violation", "dependency_cycle"}
-ERROR_CODES = {"file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
+ERROR_CODES = {"port_changed_consumer_unhandled", "file_multi_owner", "dep_unknown", "flow_step_unknown", "model_contract", "model_unreadable",
                "model_id_duplicate", "model_component_unknown", "model_anchor_missing", "model_conformance_missing",
                "model_path_unsupported", "parent_unknown", "parent_cycle", "parent_import_mismatch",
                "anchor_outside_home", "duplicate_child_owner", "duplicate_owner", "flow_handoff_invalid", "owner_dropped", "entrypoint_owner", "component_parent_unknown", "component_parent_cycle",
@@ -313,7 +313,11 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
     changed_paths = target_model_paths(root, current, target)
     target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
+    escalated = {}
     for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):
+        for receiver, reason in chosen:
+            if receiver not in target_ids:
+                escalated.setdefault(receiver, {})[mid] = reason
         if '(no model consumer)' in line:
             from .discover import discover_inventory
             from .port import code_callers
@@ -340,12 +344,24 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     # [] means "all" to model execution; an empty target selection means none.
     results = run_models(root, selected, tests=tests, view=view, inv=inv, jobs=jobs) if selected else []
     untouched, old = _unchanged_models(root, current, target, inv, tree, selected, changed_paths=changed_paths)
+    old -= set(escalated)
     for result in results:
         node = "model " + result.model
         problems = list(result.problems)
         if result.status != "pass" and not problems:
             problems.append(f"model ended with status {result.status}")
         for problem in problems:
+            unmatched = re.match(r"^handoff_output_unhandled: (\S+) emits (\S+)='([^']*)'", problem)
+            if unmatched and unmatched.group(1) in escalated.get(result.model, {}):
+                producer, key, value = unmatched.groups()
+                missing_parent = (escalated[result.model][producer] == "parent" and any(
+                    finding.code == "port_changed_parent_missing" and finding.node == "model " + producer
+                    for finding in report.errors))
+                if not missing_parent:
+                    add("errors", node, "port_changed_consumer_unhandled",
+                        f"{producer} emits {key}='{value}'; {result.model} never receives it and is not in the target; "
+                        f"python -m flowguard target add {result.model}, then make {result.model} receive '{value}'")
+                continue
             code = ("placeholder_anchor" if problem.startswith("placeholder anchor ") else
                     "implemented_by" if problem.startswith(("IMPLEMENTED_BY ", "USES ")) else
                     "tested_by_misses_anchor" if problem.startswith("tested_by_misses_anchor ") else

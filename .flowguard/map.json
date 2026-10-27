@@ -377,7 +377,7 @@
       "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
-        "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps",
+        "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps; reject unreceived changed outputs in escalated parents and consumers",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
@@ -422,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:e2c17e8b012725b718925084d033f695734d2852e11f3f8573867aa1aa38f392"
+      "fingerprint": "sha256:b6040b6e570a5eadcaf58d8fb71a9f436d2a816cfa99bc2f0d0f2a74d0c79571"
     },
     {
       "id": "map-proof",
@@ -916,7 +916,7 @@
     ".flowguard/models/shard_run.py": "d3eff6beecfebe5d53844e5f5bed5f2b985137d3aaf78b22df6e6abe926e022e",
     ".flowguard/models/shard_suite.py": "f5209b660a2b888995a08ae9e23f1cbde67ccc4afe331bc19571a49a30f89de6",
     ".flowguard/models/target_add.py": "305827cd4ed5ec941c16986a39ab9ea89961934acdde630368f9ab843e7eb985",
-    ".flowguard/models/target_findings.py": "db67adea50fdf9118613a625c1dd7b86e9f7fed3e7c016fe0740aed56d3c6f91",
+    ".flowguard/models/target_findings.py": "5d2119cb7f56b8dace90e1d3acb38cee77b71b833c26eb620a3378d60bddd9d1",
     ".flowguard/models/target_life_cycle.py": "6313fcd7294e129644d6c6cc038f50db4531a090fc90f23370d79e89f15e2642",
     ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
     ".flowguard/models/test_binding.py": "f4e731d9e867ff3e45de3bbf1b8abf8f8b35d170444830b251e6ad345e18dfae",

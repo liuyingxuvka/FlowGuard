@@ -34,7 +34,7 @@ IMPLEMENTED_BY = {
     "Downgrade": "flowguard/map/target.py:moving_to_target",
     "Classify": "flowguard/map/target.py:check_target",
 }
-TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale'], 'noop_target_is_an_error': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
+TESTED_BY = {'port_change_needs_parent': ['tests/test_target_life_cycle.py:test_port_change_without_parent_is_an_error', 'tests/test_target_life_cycle.py:test_changed_port_fails_short_form_consumer'], 'design_mistakes_are_errors': ['tests/test_target_life_cycle.py:test_dropping_a_responsibility_is_owner_dropped'], 'missing_code_is_todo': ['tests/test_target_life_cycle.py:test_target_check_reports_unwritten_code_as_todo'], 'only_changed_subjects_move': ['tests/test_target_life_cycle.py:test_copied_but_unchanged_entry_stays_an_error'], 'strict_never_moves': ['tests/test_target_life_cycle.py:test_change_marks_only_planned_breakage_and_keeps_tests'], 'old_findings_do_not_block': ['tests/test_target_life_cycle.py:test_old_findings_of_unchanged_models_do_not_block'], 'warnings_never_block': ['tests/test_target_life_cycle.py:test_target_check_warns_about_debts_it_makes_stale'], 'noop_target_is_an_error': ['tests/test_target_life_cycle.py:test_unchanged_target_is_target_noop']}
 
 
 @dataclass(frozen=True)
@@ -69,11 +69,13 @@ CASES = (
     Case("unchanged_copy_breakage", "target copies loans unchanged; the real current loans entrypoint breaks", True,
          "current", "error"),
     Case("port_parent_missing", "a target child output changes without its parent", True, "target", "error"),
+    Case("port_consumer_unhandled", "a target producer output changes; a short-form consumer outside the target never receives the new value", True, "target", "error", port="escalated"),
 )
 
 
 # Each known-bad variant routes one case to the wrong bucket.
 DEFECTS = {
+    "consumer_failure_is_old": ("port_consumer_unhandled", "warn"),
     "parent_missing_is_todo": ("port_parent_missing", "todo"),
     "unplanned_error_downgraded": ("unplanned_current", "info"),
     "strict_error_downgraded": ("strict_current", "info"),
@@ -139,8 +141,8 @@ def _rule(name, events, predicate, message):
 
 INVARIANTS = (
     _rule("noop_target_is_an_error", {"noop_target"}, lambda state: state.bucket == "error", "an unchanged target must fail check"),
-    _rule("port_change_needs_parent", {"port_parent_missing", "port_parent_present"}, lambda state: state.bucket == ("info" if state.parent_in_target else "error"),
-          "a changed output without its parent must be ERROR"),
+    _rule("port_change_needs_parent", {"port_parent_missing", "port_parent_present", "port_consumer_unhandled"}, lambda state: state.bucket == ("info" if state.parent_in_target else "error"),
+          "a changed output that its parent or a consumer outside the target does not receive must be ERROR"),
     _rule("design_mistakes_are_errors", DESIGN, lambda state: state.bucket == "error",
           "a design mistake of the target was not an ERROR"),
     _rule("missing_code_is_todo", {"code_gap", "gap_expected_gap"}, lambda state: state.gap != "expected_gap" or state.bucket == "todo",
@@ -166,7 +168,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy')}
+    return {'parent_missing_is_todo':_explorer('parent_missing_is_todo'), 'unplanned_error_downgraded':_explorer('unplanned_error_downgraded'), 'strict_error_downgraded':_explorer('strict_error_downgraded'), 'design_error_as_todo':_explorer('design_error_as_todo'), 'code_gap_as_error':_explorer('code_gap_as_error'), 'dropped_owner_as_todo':_explorer('dropped_owner_as_todo'), 'entrypoint_owner_as_todo':_explorer('entrypoint_owner_as_todo'), 'untested_warning_as_gate':_explorer('untested_warning_as_gate'), 'dropped_responsibility_ignored':_explorer('dropped_responsibility_ignored'), 'untied_goal_accepted':_explorer('untied_goal_accepted'), 'unchanged_subject_downgraded':_explorer('unchanged_subject_downgraded'), 'old_finding_blocks':_explorer('old_finding_blocks'), 'stale_debt_hidden':_explorer('stale_debt_hidden'), 'passes_unchanged_copy':_explorer('passes_unchanged_copy'), 'consumer_failure_is_old':_explorer('consumer_failure_is_old')}
 
 
 OLD_CONTRACT = '''from pathlib import Path
@@ -262,6 +264,17 @@ def _current_case(root, case):
 def observe_case(case):
     """One fresh bounded native filesystem/proof case, no fixture verdict reuse."""
     with TemporaryDirectory(prefix="target-findings-") as directory:
+        if case.name == "port_consumer_unhandled":
+            from _target_fixture import make_port_project, call_target
+            root = Path(directory)
+            make_port_project(root, "short_consumer")
+            assert map_cli.main(["confirm", "all", "--root", str(root)]) == 0
+            assert call_target(root, "start", "extend lending outputs") == 0
+            assert call_target(root, "add", "lending") == 0
+            path = root / ".flowguard/target/models/lending.py"
+            path.write_text(path.read_text().replace('("lent","refused")}', '("lent","refused","waitlisted")}'))
+            report = native.check_target(root)
+            return _unique_bucket(report, code="port_changed_consumer_unhandled"), repr(report)
         if case.name == "port_parent_missing":
             from _target_fixture import make_port_project, call_target
             root = Path(directory)

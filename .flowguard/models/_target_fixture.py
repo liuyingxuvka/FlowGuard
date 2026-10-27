@@ -150,6 +150,10 @@ def build_explorer(): return make()
 def broken_variants(): return {"lost":make(True)}
 def conformance(): return CodeFactsReport((Fact("native",load_anchor(IMPLEMENTED_BY["Consume"],root=Path.cwd())("computed")=="computed"),))
 '''
+    elif case == "short_consumer":
+        lending = lending.replace('PARENT = "desk"', 'PARENT = "loans"')
+        files["shelf/consumer.py"] = "def consume(value): return value\n"
+        files[".flowguard/models/consumer.py"] = head + 'MODEL_ID="consumer"\nPARENT="cli"\nIMPLEMENTED_BY={"Consume":"shelf/consumer.py:consume"}\nHANDOFF={"lending":{"answer":"seen"}}\n@dataclass(frozen=True)\nclass ConsumerState:\n    seen:str=""\nclass Consume:\n    name="Consume"\n    writes=("seen",)\n    def __init__(self,bad=False):self.bad=bad\n    def apply(self,event,state):return (FunctionResult(event,ConsumerState("bad" if self.bad else event)),)\nRULE=Invariant("received","the receipt is retained",lambda s,t:s.seen in ("","lent","refused"))\ndef make(bad=False):return Explorer(Workflow((Consume(bad),)),(ConsumerState(),),("lent","refused"),invariants=(RULE,),max_sequence_length=1,progress_steps=0)\ndef build_explorer():return make()\ndef broken_variants():return {"lost":make(True)}\ndef conformance():return CodeFactsReport((Fact("native",all(load_anchor(IMPLEMENTED_BY["Consume"],root=Path.cwd())(value)==value for value in ("lent","refused"))),))\n'
     elif case == "drops_child_value":
         desk=desk.replace('"answer":"answer"','"answer":("answer",{"lent":"lent","refused":None})')
     elif case == "missing_parent_input":
@@ -176,7 +180,7 @@ def conformance(): return CodeFactsReport((Fact("native",load_anchor(IMPLEMENTED
         target=root/path; target.parent.mkdir(parents=True,exist_ok=True); target.write_text(text,encoding="utf-8")
     for component in data['components']:
         if component['id']=='loans' and 'tests/test_port.py' not in component['tests']:component['tests'].append('tests/test_port.py')
-        if component['id']=='cli' and case=='parent_output':component['files'].append('shelf/consumer.py')
+        if component['id']=='cli' and case in ('parent_output','short_consumer'):component['files'].append('shelf/consumer.py')
     write_json(root/'.flowguard/map.json',data)
     return data
 
