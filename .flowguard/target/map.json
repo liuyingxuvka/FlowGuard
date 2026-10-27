@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-506: a sibling that starts from parent states is named when the parent field it ignores gains a value",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
