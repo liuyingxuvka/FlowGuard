@@ -346,3 +346,18 @@ def test_settings_only_map_edit_is_not_structure(tmp_path):
     assert impact.model_ids == []
     assert impact.tests == impact.whole_test_files == ["tests/test_more.py"]
     assert not impact.uncertain_files and "UNCERTAIN" not in render_impact(impact)
+    assert impact.map_changed
+    data["components"][0]["summary"] = "Clarify the same owner without widening checks"
+    (tmp_path / ".flowguard/map.json").write_text(json.dumps(data))
+    for broad in (False, True):
+        view = compute_impact(
+            tmp_path,
+            data,
+            build_inventory(tmp_path, [], write_cache=False),
+            [".flowguard/map.json"],
+            base="HEAD",
+            broad=broad,
+        )
+        assert view.map_review == [data["components"][0]["id"]]
+        assert view.map_changed and view.tests == ["tests/test_more.py"] and not view.models
+        assert view.selected_test_functions <= view.total_test_functions

@@ -830,7 +830,7 @@ def render_impact(
             )
         lines.append(message)
     for cid in imp.map_review:
-        lines.append(f"NOTE {cid}: map description changed; no verification fields changed")
+        lines.append(f"NOTE {cid}: map description changed; verification selection shown above")
     return "\n".join(lines)
 
 class ChangedFiles(list):
@@ -1046,8 +1046,12 @@ SETTINGS_KEYS = ("accepted_debts", "large_model_seconds", "large_test_seconds", 
 COMPONENT_SETTINGS = ("tests", "summary", "responsibilities", "status", "fingerprint")
 
 
-def _map_settings_tests(root, data, inv, base):
-    previous = _previous_map(root, base)
+_PREVIOUS_MAP_UNREAD = object()
+
+
+def _map_settings_tests(root, data, inv, base, *, previous=_PREVIOUS_MAP_UNREAD):
+    if previous is _PREVIOUS_MAP_UNREAD:
+        previous = _previous_map(root, base)
     if previous is None:
         return None
 
@@ -1095,9 +1099,23 @@ def compute_impact(
             if not project_relative(root, path).startswith(".flowguard/target/")
         }
     )
+    previous = _previous_map(root, base) if ".flowguard/map.json" in changed else None
     settings_tests = (
-        _map_settings_tests(root, data, inv, base) if ".flowguard/map.json" in changed else None
+        _map_settings_tests(root, data, inv, base, previous=previous)
+        if ".flowguard/map.json" in changed
+        else None
     )
+    description_review = []
+    if settings_tests is not None:
+        old_components = {component["id"]: component for component in previous["components"]}
+        description_review = [
+            component["id"]
+            for component in data["components"]
+            if any(
+                component.get(key) != old_components[component["id"]].get(key)
+                for key in ("summary", "responsibilities")
+            )
+        ]
     effective = [
         path for path in changed if path != ".flowguard/map.json" or settings_tests is None
     ]
@@ -1105,6 +1123,27 @@ def compute_impact(
         result = _broad_impact(root, data, inv, effective, depth, base=base, broad=True)
         result.changed = changed
         result.no_git = no_git
+        result.map_changed = ".flowguard/map.json" in changed
+        result.map_review = sorted(set(result.map_review) | set(description_review))
+        if settings_tests:
+            from .testtree import test_functions
+
+            added = settings_tests - set(result.tests)
+            counts = result._test_function_counts
+            if not counts:
+                counts.update(
+                    {
+                        path: len(test_functions(read_source(root / path)))
+                        for path in inv.tests
+                        if path.endswith(".py")
+                    }
+                )
+            result.tests = sorted(set(result.tests) | settings_tests)
+            result.whole_test_files = sorted(set(result.whole_test_files) | settings_tests)
+            result.selected_test_functions += sum(counts.get(path, 0) for path in added)
+            result.total_test_functions = sum(counts.values())
+            result.test_commands, problems = _commands_for_tests(data, previous, result.tests)
+            result.blocked = sorted(set(result.blocked) | set(problems))
         return result
     if not changed:
         result = _broad_impact(root, data, inv, [], depth, base=base, package_init=False)
@@ -1144,6 +1183,8 @@ def compute_impact(
     owner, _ = owner_index(data, inv)
     direct = {owner[path] for path in changed if path in owner}
     result.changed = changed
+    result.map_changed = ".flowguard/map.json" in changed
+    result.map_review = sorted(set(result.map_review) | set(description_review))
     result.direct = sorted(set(result.direct) | direct)
     result.needs_review = sorted(
         set(result.needs_review)
@@ -1250,9 +1291,7 @@ def compute_impact(
         extra_files=extra | literal_tests | set(settings_tests or ()),
     )
     result.tests = sorted(selection["nodes"])
-    result.test_commands, command_problems = _commands_for_tests(
-        data, _previous_map(root, base) if ".flowguard/map.json" in changed else None, result.tests
-    )
+    result.test_commands, command_problems = _commands_for_tests(data, previous, result.tests)
     result.blocked = sorted(set(result.blocked) | set(command_problems))
     result.test_functions = {
         path: names
