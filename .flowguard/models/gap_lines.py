@@ -7,8 +7,9 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "gap_lines"
 COMPONENTS = ["map-target", "map-read"]
 IMPLEMENTED_BY = {"GapLines": "flowguard/map/target.py:gap_lines", "GoalRules": "flowguard/map/facets.py:target_goal_rules"}
-TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification']}
-EXPECTED = {"native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved rules only",
+TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap', 'tests/test_gap_lines.py:test_shared_rule_tuple_marks_only_changed_names'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification'], 'missing_anchor_gap_names_the_symbol': ['tests/test_gap_lines.py:test_missing_anchor_names_symbol_without_claiming_conformance'], 'after_code_gap_names_changed_symbols': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap']}
+EXPECTED = {"anchor_only": "EXPECTED GAP (only the missing anchor symbol)", "closed": "GAP CLOSED",
+            "open": "GAP OPEN", "shared_tuple": "one name changed", "native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved rules only",
             "recorded": "NO GAP", "anchor_exception": "EXPECTED GAP", "engine_exception": "ERROR"}
 
 
@@ -33,7 +34,11 @@ class Classify:
                  "counts_recorded_rule_as_gap": "recorded", "counts_engine_exception_as_gap": "engine_exception"}
         if wrong.get(self.defect) == event:
             line = "EXPECTED GAP"
-        gap="expected_gap" if line=="EXPECTED GAP" else "moved_only" if event=="moved" else "no_rule_change" if event=="unchanged" else "no_gap"
+        if self.defect == "anchor_gap_claims_rule_gap" and event == "anchor_only":
+            line = "EXPECTED GAP"
+        if self.defect == "after_code_prints_no_gap" and event in {"closed", "open"}:
+            line = "NO GAP"
+        gap="expected_gap" if line.startswith("EXPECTED GAP") or line=="GAP OPEN" else "moved_only" if event=="moved" else "no_rule_change" if event=="unchanged" else "no_gap"
         return (FunctionResult(gap, State(event, line, gap), label=gap),)
 
 
@@ -50,6 +55,10 @@ INVARIANTS = (
               lambda s, t: _check(s, ("recorded",))),
     Invariant("exception_through_anchor_is_code_gap", "only an active anchor stack frame licenses an exception gap",
               lambda s, t: _check(s, ("anchor_exception", "engine_exception"))),
+    Invariant("missing_anchor_gap_names_the_symbol", "an absent symbol does not claim conformance ran",
+              lambda s, t: _check(s, ("anchor_only",))),
+    Invariant("after_code_gap_names_changed_symbols", "after writing code, the gap names its state and changed symbols",
+              lambda s, t: _check(s, ("closed", "open"))),
 )
 
 
@@ -64,7 +73,7 @@ def build_explorer():
 
 def broken_variants():
     return {name: _explorer(name) for name in ("missing_bound_test_counts_as_gap", "reports_moved_rule_as_new",
-            "counts_recorded_rule_as_gap", "counts_engine_exception_as_gap")}
+            "counts_recorded_rule_as_gap", "counts_engine_exception_as_gap", "anchor_gap_claims_rule_gap", "after_code_prints_no_gap")}
 
 
 def conformance():

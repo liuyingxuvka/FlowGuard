@@ -1,7 +1,0 @@
-{
-  "schema": "flowguard.target.v1",
-  "goal": "FG-505: target check names its phase and runs the target's own bound tests once code changed",
-  "components": [],
-  "flows": [],
-  "remove": []
-}

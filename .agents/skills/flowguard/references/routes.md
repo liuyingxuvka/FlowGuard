@@ -12,6 +12,8 @@ Use when no model file or map structure changes.
 
 ## New function
 
+An `EXPECTED GAP` that is only a missing anchor symbol says nothing yet: write the symbol with today's behaviour and check again.
+
 1. `read --find <words>` names the responsible component and model. No owner: [add a component](#add-or-split-a-component).
 2. Take the first fit: **reuse** a rule that already judges this behavior (bind the new test; `no rule change`); **extend** the same function, entry and fields (`target add <model>`, add its input/field/rule and a known-bad); **sibling** for a separate command/check/entry or code used by other commands, branches or models (new target file, `PARENT = "<component>"`, `template behaviour`). If a model consumes another's result, the user writes HANDOFF and producer OUTPUTS: [Ports](model_recipes.md#ports).
 3. An extra exclusive stage of a staged function gets `PARENT = "<parent>"`, OUTPUTS, READS_PARENT and a receiving step/HANDOFF in the parent's target. A new mode of one dispatch gets a branch child, OUTPUTS and the parent's DISPATCH/HANDOFF entry. Shared code is a sibling; never create a parent just to group models.

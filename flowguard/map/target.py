@@ -15,8 +15,8 @@ import re
 import subprocess
 from dataclasses import dataclass, field, replace
 
-from .common import matches_any, content_digest, atomic_write_text
-from .inventory import build_inventory
+from .common import matches_any, content_digest, atomic_write_text, normalize_newlines
+from .inventory import build_inventory, function_digests
 from .mapfile import MapError, component_graph, ignore_patterns, load_map, model_registry, read_model_contract, save_map, validate_map
 from .targetfile import (TARGET_RELDIR, TARGET_SCHEMA, build_target_view, load_target, target_is_noop, target_node_changes,
                          validate_target)
@@ -79,6 +79,7 @@ class TargetReport:
     todos: list[TargetFinding] = field(default_factory=list)
     warnings: list[TargetFinding] = field(default_factory=list)
     gaps: list[str] = field(default_factory=list)
+    own_tests: list = field(default_factory=list)
     bound_tests: bool = False
     goal_rules: str = ""
     old: int = 0               # problems of unchanged models over unchanged code (warnings, never blocking)
@@ -252,6 +253,10 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     view = build_target_view(root, current, target)
     inv = build_inventory(root, ignore_patterns(view.data), write_cache=False, import_roots=tuple(view.data.get("import_roots", ())))
     tree = build_tree(root, view.data, inv, view=view)
+    changed_paths = target_model_paths(root, current, target)
+    target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
+    code_changes = _code_changes(root, tree, target_ids) if not tests and models else {}
+    code_changed = set(code_changes)
     seen = set()
 
     def add(level, node, code, message):
@@ -284,7 +289,8 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             continue
         if finding.level == "info":
             continue
-        if finding.code in {"test_missing", "model_test_broken"} and not tests:
+        if (finding.code in {"test_missing", "model_test_broken"} and not tests
+                and _finding_node(finding, tree).removeprefix("model ") not in code_changed):
             add("warnings", _finding_node(finding, tree), finding.code, finding.message)
             continue
         placeholder = "placeholder anchor " in finding.message
@@ -311,8 +317,6 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     for finding in test_file_not_split_findings(root,current,inv,old_tree,tree,moved_model_rules(root,current,target,view,records=records)):
         add('todos','test '+finding.component,finding.code,finding.message)
     ports = {mid: node.contract["port"] for mid, node in tree.nodes.items() if "port" in node.contract}
-    changed_paths = target_model_paths(root, current, target)
-    target_ids = {mid for mid, node in tree.nodes.items() if node.path in changed_paths}
     escalated = {}
     for mid, line, chosen, (before, after, description) in _target_ports(root, old_tree, target, tree):
         for receiver, reason in chosen:
@@ -342,7 +346,16 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
     if impact is not None:
         selected = sorted(set(selected) | (set(impact.model_ids) & set(tree.nodes)))
     # [] means "all" to model execution; an empty target selection means none.
-    results = run_models(root, selected, tests=tests, view=view, inv=inv, jobs=jobs) if selected else []
+    own = [mid for mid in selected if mid in code_changed]
+    rest = [mid for mid in selected if mid not in code_changed]
+    results = []
+    if own:
+        results.extend(run_models(root, own, tests=True, view=view, inv=inv, jobs=jobs))
+    if rest:
+        results.extend(run_models(root, rest, tests=tests, view=view, inv=inv, jobs=jobs))
+    order = {mid: index for index, mid in enumerate(selected)}
+    results.sort(key=lambda result: order.get(result.model, len(order)))
+    report.own_tests = own
     untouched, old = _unchanged_models(root, current, target, inv, tree, selected, changed_paths=changed_paths)
     old -= set(escalated)
     for result in results:
@@ -375,18 +388,21 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
             if result.model in untouched:
                 problem += (f" (model unchanged by the target; if python -m flowguard map models {result.model} "
                             "failed before your edit too, fix it first)")
-            add("todos" if problem.split(" (model unchanged by the target;")[0] in result.code_gaps else "errors",
+            pending_import = (not tests and result.model in code_changed and code == "tested_by_failed"
+                              and problem.endswith("test was not collected/executed")
+                              and any("ModuleNotFoundError:" in gap for gap in result.code_gaps))
+            add("todos" if pending_import or problem.split(" (model unchanged by the target;")[0] in result.code_gaps else "errors",
                 node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
-    report.gaps = gap_lines(root, target, view, report, results, goal=goal)
+    report.gaps = gap_lines(root, target, view, report, results, goal=goal, code_changes=code_changes)
     for line in report.gaps:
         if line.startswith("NO GAP "):
             report.warnings.append(TargetFinding("model " + line.split()[2].rstrip(":"), "no_gap", line))
     return report
 
 
-def gap_lines(root, target, view, report, results, *, goal=None):
+def gap_lines(root, target, view, report, results, *, goal=None, code_changes=None):
     """Describe each target model's rule delta against genuine native code gaps."""
     from .facets import target_goal_rules
     changes = {line.split(": ", 1)[0][6:]: line.split(": ", 1)[1]
@@ -413,8 +429,22 @@ def gap_lines(root, target, view, report, results, *, goal=None):
         first = gaps[0].splitlines()[0] if gaps else ""
         if rules:
             names = " ".join(rules)
-            if gaps:
-                output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
+            symbols = (code_changes or {}).get(mid, [])
+            if symbols:
+                changed = ", ".join(symbols[:5])
+                if len(symbols) > 5:
+                    changed += f" +{len(symbols)-5} more"
+                if gaps:
+                    output.append(f"GAP OPEN {mid}: {len(gaps)} code gap(s) for {names} after code changes in {changed}; first: {first}")
+                else:
+                    output.append(f"GAP CLOSED {mid}: {names} hold; gap closed by {changed} (changed since target start)")
+            elif gaps:
+                missing = [re.search(r"symbol '([^']+)' not found in (\S+)", gap) for gap in gaps]
+                if all(missing):
+                    anchors = ", ".join(dict.fromkeys(f"'{match.group(1)}' in {match.group(2)}" for match in missing))
+                    output.append(f"EXPECTED GAP {mid}: only the missing anchor symbol {anchors} for {names}; conformance did not run, so this says nothing about the rule: add the symbol with today's behaviour, check again to see the rule's real gap, then change it")
+                else:
+                    output.append(f"EXPECTED GAP {mid}: {len(gaps)} code gap(s) for {names}; first: {first}")
             else:
                 output.append(f"NO GAP {mid}: the current code already satisfies {names}; if this rule records what the code already does, write no code for it and say so in the commit message; otherwise conformance() does not drive the real entry (check its call shape)")
         elif moved:
@@ -503,10 +533,15 @@ def render_target_report(report: TargetReport) -> str:
             lines.append(f"{label} {finding.node}: {finding.code}: {message}{suffix}")
     lines.append(f"target check: {len(report.errors)} error(s), {len(report.todos)} to-do, {len(report.warnings)} warning(s)"
                  + (f" ({report.old} old)" if report.old else ""))
-    lines.append("next: " + ("fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
+    test_errors = {"model_test_broken", "tested_by_failed", "tested_by_misses_anchor", "test_missing"}
+    tests_only = report.errors and all(finding.code in test_errors for finding in report.errors)
+    lines.append("next: " + ("write or fix the bound tests named in the ERROR lines, then python -m flowguard target check" if tests_only else
+                            "fix the target design (ERROR lines) in .flowguard/target/ first" if report.errors else
                             "write the code and tests until no TO-DO remains, then python -m flowguard target promote" if report.todos else
                             "python -m flowguard target promote"))
-    if not report.bound_tests:
+    if report.own_tests:
+        lines.append("bound tests: ran for " + ", ".join(report.own_tests) + " (code changed since target start); target promote runs the function-selected tests once")
+    elif not report.bound_tests:
         lines.append("bound tests: not run here; target promote runs them once")
     return "\n".join(lines)
 
@@ -524,7 +559,9 @@ def _promotion_inputs(root, data):
     inv = build_inventory(root, ignore_patterns(data), with_bodies=False, write_cache=False, import_roots=tuple(data.get("import_roots", ())))
     paths = set(inv.files) | {".flowguard/map.json"}
     paths.update(p.relative_to(root).as_posix() for p in (root / ".flowguard/models").glob("*.py") if p.is_file())
-    paths.update(p.relative_to(root).as_posix() for p in (root / TARGET_RELDIR).rglob("*") if p.is_file())
+    paths.update(p.relative_to(root).as_posix() for p in (root / TARGET_RELDIR).rglob("*")
+                 if p.is_file() and p.name != "base.json")
+    paths.discard(TARGET_RELDIR + "/base.json")
     return {path: _file_hash(root / path) for path in sorted(paths)}
 
 
@@ -759,6 +796,81 @@ def _add(root: Path, data: dict, target, requested: str) -> None:
         print(f"added {kind} {name} to .flowguard/target/map.json")
 
 
+def _record_base(root):
+    """Store input identities for design wording and extra tests, never proof results."""
+    data = {"schema": "flowguard.target-base.v1"}
+    if _git_head(root):
+        data["git"] = _git(root, "rev-parse", "HEAD").stdout.decode().strip()
+    else:
+        current = load_map(root) if (root / ".flowguard/map.json").exists() else {}
+        inv = build_inventory(root, ignore_patterns(current), write_cache=False)
+        data["files"] = {path: {"sha256": _file_hash(root / path)} for path in inv.source}
+    (root / TARGET_RELDIR / "base.json").write_text(json.dumps(data, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _code_changes(root, tree, model_ids):
+    """Changed source symbols relevant to each target's owned and consumed anchors."""
+    try:
+        base = json.loads((root / TARGET_RELDIR / "base.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        base = {"git": "HEAD"} if _git_head(root) else {}
+    if "git" not in base and "files" not in base:
+        return {}
+    anchors = {}
+    for mid in sorted(model_ids):
+        contract = tree.nodes[mid].contract
+        anchors[mid] = list(contract.get("IMPLEMENTED_BY", {}).values()) + list(contract.get("USES", {}).values())
+    changes = {}
+    for path in sorted({anchor.partition(":")[0] for items in anchors.values() for anchor in items}):
+        current = root / path
+        raw = current.read_bytes() if current.is_file() else None
+        if "git" not in base:
+            before = base["files"].get(path, {}).get("sha256")
+            after = hashlib.sha256(raw).hexdigest() if raw is not None else None
+            if before != after:
+                changes[path] = [path]
+            continue
+        previous = _git(root, "show", base["git"] + ":" + path)
+        old = previous.stdout if previous is not None and previous.returncode == 0 else None
+        if old == raw:
+            continue
+        if raw is None or not path.endswith(".py"):
+            changes[path] = [path]
+            continue
+        try:
+            before = function_digests(normalize_newlines(old or b"").decode("utf-8"))
+            after = function_digests(normalize_newlines(raw).decode("utf-8"))
+        except (UnicodeError, SyntaxError, ValueError):
+            changes[path] = [path]
+            continue
+        def identities(digests):
+            return {**{name: (item["sig_digest"], item["body_digest"]) for name, item in digests["functions"].items()},
+                    **{name: item["class_digest"] for name, item in digests["classes"].items()}}
+        left, right = identities(before), identities(after)
+        changed = {name for name in left.keys() | right.keys() if left.get(name) != right.get(name)}
+        changed = sorted(name for name in changed if not any(name.startswith(parent + ".") for parent in changed if parent != name))
+        if changed:
+            changes[path] = [path + ":" + name for name in changed]
+        elif before["bindings"] != after["bindings"] or before["statements"] != after["statements"]:
+            changes[path] = [path]
+    output = {}
+    for mid, items in anchors.items():
+        relevant = []
+        fallback = []
+        for path in sorted({anchor.partition(":")[0] for anchor in items}):
+            candidates = changes.get(path, [])
+            fallback.extend(candidates)
+            for changed in candidates:
+                for anchor in items:
+                    if anchor == changed or changed == path and anchor.partition(":")[0] == path or anchor.startswith(changed + ".") or changed.startswith(anchor + "."):
+                        relevant.append(changed)
+                        break
+        values = sorted(set(relevant or fallback))
+        if values:
+            output[mid] = values
+    return output
+
+
 def start_target(root: Path, goal: str) -> int:
     """Create the one target draft; refuse a second target or an empty goal."""
     target = load_target(root)
@@ -771,6 +883,7 @@ def start_target(root: Path, goal: str) -> int:
     directory.mkdir(parents=True)
     (directory / "models").mkdir()
     _save(root, dict(schema=TARGET_SCHEMA, goal=goal, components=[], flows=[], remove=[]))
+    _record_base(root)
     print(f'target started: "{goal}"')
     if not _git_head(root):
         print("note: no git here; the current model stays in .flowguard/models/ until target promote")

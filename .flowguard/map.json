@@ -377,7 +377,7 @@
       "summary": "Manage one target, classify current findings and native gaps, and promote only fresh complete code/model/test checks.",
       "responsibilities": [
         "start, extend and drop one target; move tracked in-place edits safely and retain current files otherwise",
-        "classify merged-tree design errors, semantic rule changes, moved rules and genuine native code gaps; reject unreceived changed outputs in escalated parents and consumers",
+        "classify merged-tree design errors, semantic rule changes, moved rules and native gaps before or after code changes; run the changed target models own bound tests and reject unreceived escalated outputs",
         "mark only the breakage of a changed subject as moving to target",
         "refuse a target that changes nothing, drops a promise or leaves it untied",
         "promote checked bytes atomically with transient recovery copies and name draft or stale components to confirm; list re-reads and deletions",
@@ -422,7 +422,7 @@
         ".flowguard/models/gap_lines.py"
       ],
       "status": "confirmed",
-      "fingerprint": "sha256:b6040b6e570a5eadcaf58d8fb71a9f436d2a816cfa99bc2f0d0f2a74d0c79571"
+      "fingerprint": "sha256:7d5898703515c45288c4203afc30a0853ec77c3df93ba4c0fe2d03dce347db3e"
     },
     {
       "id": "map-proof",
@@ -728,7 +728,7 @@
       "layer": "map",
       "summary": "Show field lifecycles, exact code ownership, distinct model relations and bounded test positions without importing models.",
       "responsibilities": [
-        "show the tree, Mermaid and digests with static facets and coverage",
+        "show the tree, Mermaid and digests with static facets and coverage; find owners by word form and rank architecture defects and strengths; compare current and target rules and known-bad definitions by name",
         "find owners by word form and rank architecture defects and strengths",
         "compare current and target facets and list the rules a target changes",
         "show the model rules and flows each component relies on"
@@ -759,7 +759,7 @@
       ],
       "models": [],
       "status": "confirmed",
-      "fingerprint": "sha256:49ca0a6603750805fcc270bba9a066889c5a6c7ca194451a780c9a74d6bfe893"
+      "fingerprint": "sha256:a89a04fc167939f91ab79735b56717e0df7ac1a886a592ee67150d288927a921"
     },
     {
       "id": "map-impact",
@@ -877,6 +877,11 @@
       "code": "unmodeled_owner",
       "component": "tooling",
       "reason": "text templates and packaging scripts: no state to explore; tests/test_public_templates.py and tests/test_skill_package.py cover them"
+    },
+    {
+      "code": "large_file",
+      "component": "map-target",
+      "reason": "Target check now tracks source identity and runs own bound tests. Keep these changes under the existing owner while round-10 target features are completed; extract the pure identity/change helpers during FG-515 before publication."
     }
   ],
   "fingerprint_format": 2,
@@ -889,7 +894,7 @@
     ".flowguard/models/edge_coverage.py": "894a796fa99220f79dd5f7446f7bbe8ffdce99739812f994d725118e0cbc9f50",
     ".flowguard/models/engine_explore.py": "aa460232d21b3ce47a41404e553c1d733aec394a2ebf7df8e22f125ec84e832f",
     ".flowguard/models/function_selection.py": "e39080175834cb207c0459b92a393981655260f3ebfa4d3322c38c7310a6476d",
-    ".flowguard/models/gap_lines.py": "9bd05d73f54e56df3bf07d347f2f04bd79dfe547f72be64695e3264ca15382a7",
+    ".flowguard/models/gap_lines.py": "e26e16c39c6790bed771ee3baf2e33ebfab38e9c20b09eb63727e36eb9b0b1b9",
     ".flowguard/models/job_matching_example.py": "e09ba02a700d9fd2a4355d5e57235607d8f58a161b8f5697110a38b7f6649d7f",
     ".flowguard/models/literal_consumers.py": "b636e695be4d743b9eaafe6739d5f3bd14b63abde653cc27a7a0952d6d9de896",
     ".flowguard/models/map_binding.py": "966210916f33d166972fd596cc6d05ae2804039f65be8b9851c9c0cbe8404ce2",
@@ -917,7 +922,7 @@
     ".flowguard/models/shard_suite.py": "f5209b660a2b888995a08ae9e23f1cbde67ccc4afe331bc19571a49a30f89de6",
     ".flowguard/models/target_add.py": "305827cd4ed5ec941c16986a39ab9ea89961934acdde630368f9ab843e7eb985",
     ".flowguard/models/target_findings.py": "5d2119cb7f56b8dace90e1d3acb38cee77b71b833c26eb620a3378d60bddd9d1",
-    ".flowguard/models/target_life_cycle.py": "6313fcd7294e129644d6c6cc038f50db4531a090fc90f23370d79e89f15e2642",
+    ".flowguard/models/target_life_cycle.py": "c3636d569be1c1d1ef54698626a0767e23170d52975baa2e99d0c6d0da27965d",
     ".flowguard/models/target_promotion.py": "e92c218c72a0d92da4716ec11fe4c2d7fa40b8893bb3ed256bff39f7867c7070",
     ".flowguard/models/test_binding.py": "f4e731d9e867ff3e45de3bbf1b8abf8f8b35d170444830b251e6ad345e18dfae",
     ".flowguard/models/test_selection.py": "4a38c49deff80609673c5c807fc3a33eee0bd6ca8d53d3667026234bd8f1baa4",

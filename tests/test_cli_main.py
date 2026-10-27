@@ -1,14 +1,34 @@
 """Tests grouped by their model or native component."""
 from __future__ import annotations
-import pytest,os,json
+import json
+import os
+import pytest
 from pathlib import Path
 
+
+from _fg_helpers import (
+    target_SHELF_AFTER as SHELF_AFTER,
+    target_SHELF_BASE as SHELF_BASE,
+    target_SHELF_TARGET as SHELF_TARGET,
+    target__assert_current_lending as _assert_current_lending,
+    target__check_without_writes as _check_without_writes,
+    target__install_shelf_target as _install_shelf_target,
+    target__load_map as _load_map,
+    target__project_snapshot as _project_snapshot,
+    target__promote_with_real_check as _promote_with_real_check,
+    target__rename_return_toward_target as _rename_return_toward_target,
+    target__run as _run,
+    target__run_models_with_results as _run_models_with_results,
+    target__target_with as _target_with,
+    target__write_map as _write_map,
+    target_shelf_project,
+    target_shelf_project as shelf_project,
+)
 
 @pytest.mark.parametrize("contents", ["{broken json", json.dumps({
     "schema": "wrong.target.schema", "goal": "holds", "components": [], "flows": [], "remove": []})])
 @pytest.mark.usefixtures("_no_model_execution")
 def test_invalid_target_map_does_not_break_read(tmp_path, capsys, contents):
-    from _fg_helpers import target__run as _run, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     original_map = (root / ".flowguard/map.json").read_bytes()
@@ -27,7 +47,6 @@ def test_invalid_target_map_does_not_break_read(tmp_path, capsys, contents):
 @pytest.mark.parametrize("goal", ["", "  "])
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_start_rejects_empty_goal_and_missing_map(tmp_path, capsys, goal):
-    from _fg_helpers import target__run as _run, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     code, _, errors = _run(root, capsys, "target", "start", goal)
@@ -43,7 +62,6 @@ def test_target_start_rejects_empty_goal_and_missing_map(tmp_path, capsys, goal)
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_commands_require_a_target_and_offer_help(tmp_path, capsys):
     import flowguard.__main__ as cli
-    from _fg_helpers import target__run as _run, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("add", "loans"), ("drop",), ("drop", "--yes")):
@@ -62,7 +80,6 @@ def test_target_commands_require_a_target_and_offer_help(tmp_path, capsys):
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_add_disambiguates_component_and_model_ids(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     capsys.readouterr()
     current = _load_map(root)
@@ -83,7 +100,6 @@ def test_target_add_disambiguates_component_and_model_ids(tmp_path, capsys):
 
 @pytest.mark.usefixtures("_no_model_execution")
 def test_target_add_names_helpers_and_current_importers_without_executing_them(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     model = root / ".flowguard/models/lending.py"
@@ -107,7 +123,6 @@ def test_target_add_names_helpers_and_current_importers_without_executing_them(t
 
 
 def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target_SHELF_TARGET as SHELF_TARGET, target__assert_current_lending as _assert_current_lending, target_SHELF_AFTER as SHELF_AFTER, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     current_map = (root / ".flowguard/map.json").read_bytes()
@@ -144,7 +159,6 @@ def test_target_check_todos_then_real_code_and_bound_test(tmp_path, capsys):
 
 
 def test_target_check_planned_component_is_todo_then_clean(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__install_shelf_target as _install_shelf_target, target__assert_current_lending as _assert_current_lending, target__load_map as _load_map, target_SHELF_AFTER as SHELF_AFTER, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root, reports=True)
@@ -170,7 +184,6 @@ def test_target_check_planned_component_is_todo_then_clean(tmp_path, capsys):
     ("import flowguard_missing_external_dependency\n", 1),
     ("import shelf.future_feature\n", 3)])
 def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, capsys, statement, expected_code):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__install_shelf_target as _install_shelf_target, target_SHELF_AFTER as SHELF_AFTER, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root)
@@ -179,7 +192,7 @@ def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, ca
     tests = root / "tests/test_loans.py"
     tests.write_text(statement + tests.read_text(), encoding="utf-8")
     code, output, errors = _check_without_writes(root, capsys)
-    assert code == 0 and not errors and "bound tests: not run here" in output, (output, errors)
+    assert code == expected_code and not errors and "bound tests: ran for lending" in output, (output, errors)
     code, output, errors = _run(root, capsys, "target", "promote")
     assert code == 1 and "ERROR model lending:" in output, (output, errors)
     assert statement.strip()[7:] in output
@@ -187,7 +200,6 @@ def test_target_bound_test_imports_keep_environment_errors_distinct(tmp_path, ca
 
 
 def test_unplanned_catalog_breakage_stays_an_error_with_a_target(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__install_shelf_target as _install_shelf_target, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root)
@@ -203,7 +215,6 @@ def test_unplanned_catalog_breakage_stays_an_error_with_a_target(tmp_path, capsy
 
 
 def test_new_target_file_is_moving_but_strict_remains_an_error(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__install_shelf_target as _install_shelf_target, target_SHELF_AFTER as SHELF_AFTER, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root, reports=True)
@@ -222,7 +233,6 @@ def test_new_target_file_is_moving_but_strict_remains_an_error(tmp_path, capsys)
 
 def test_release_warns_first_but_runs_the_same_current_models(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__install_shelf_target as _install_shelf_target, target_SHELF_TARGET as SHELF_TARGET, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     before_code, before, before_errors = _run(root, capsys, "release")
@@ -247,7 +257,6 @@ def test_release_warns_first_but_runs_the_same_current_models(tmp_path, capsys):
 
 @pytest.mark.parametrize("node", ["model", "flow", "missing_model"])
 def test_target_component_does_not_hide_an_unplanned_model_or_flow(tmp_path, capsys, node):
-    from _fg_helpers import target__run as _run, target_SHELF_BASE as SHELF_BASE, target__rename_return_toward_target as _rename_return_toward_target, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     capsys.readouterr()
     if node == "model":
@@ -282,7 +291,6 @@ def test_target_component_does_not_hide_an_unplanned_model_or_flow(tmp_path, cap
 
 
 def test_target_keeps_ambiguous_test_command_blocked(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__install_shelf_target as _install_shelf_target, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     capsys.readouterr()
     _install_shelf_target(root)
@@ -303,7 +311,6 @@ def test_target_keeps_ambiguous_test_command_blocked(tmp_path, capsys):
 
 
 def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path, capsys, monkeypatch):
-    from _fg_helpers import target__run as _run, target__run_models_with_results as _run_models_with_results, target__check_without_writes as _check_without_writes, target_SHELF_TARGET as SHELF_TARGET, target__load_map as _load_map, target_SHELF_AFTER as SHELF_AFTER, target__project_snapshot as _project_snapshot, target_shelf_project as shelf_project, target__promote_with_real_check as _promote_with_real_check
     root = shelf_project(tmp_path)
     capsys.readouterr()
     before_missing = _project_snapshot(root)
@@ -358,7 +365,6 @@ def test_target_promote_real_shelf_lifecycle_without_dropping_bindings(tmp_path,
 
 def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, capsys, monkeypatch):
     import json
-    from _fg_helpers import target__run as _run, target__install_shelf_target as _install_shelf_target, target__load_map as _load_map, target_SHELF_AFTER as SHELF_AFTER, target_shelf_project as shelf_project, target__promote_with_real_check as _promote_with_real_check
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root, reports=True)
@@ -383,7 +389,6 @@ def test_target_promote_adds_reports_and_removes_the_requested_flow(tmp_path, ca
 
 def test_target_promote_keeps_replacement_filename_when_old_model_id_is_removed(tmp_path, capsys, monkeypatch):
     import json
-    from _fg_helpers import target__run as _run, target_SHELF_BASE as SHELF_BASE, target_shelf_project as shelf_project, target__promote_with_real_check as _promote_with_real_check
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = root / ".flowguard/target"
@@ -407,7 +412,6 @@ def test_target_promote_keeps_replacement_filename_when_old_model_id_is_removed(
 
 def test_merge_a_component_keeps_its_promises(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__load_map as _load_map, target__project_snapshot as _project_snapshot, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("target", "start", "merge members into loans"), ("target", "add", "loans")):
@@ -468,7 +472,6 @@ def test_merge_a_component_keeps_its_promises(tmp_path, capsys):
 
 def test_dropping_an_entrypoint_on_purpose_is_written_in_remove(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("target", "start", "retire explicit member promises"),
@@ -519,7 +522,6 @@ def test_dropping_an_entrypoint_on_purpose_is_written_in_remove(tmp_path, capsys
 
 
 def test_removed_symbol_still_referenced_is_a_todo(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("target", "start", "drop Catalog.free"), ("target", "add", "lending")):
@@ -563,7 +565,6 @@ def test_removed_symbol_still_referenced_is_a_todo(tmp_path, capsys):
 
 def test_target_keeps_state_unique_and_public_entries_owned(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__load_map as _load_map, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     for arguments in (("target", "start", "plan a lending split"), ("target", "add", "loans")):
@@ -608,7 +609,6 @@ def test_target_keeps_state_unique_and_public_entries_owned(tmp_path, capsys):
 
 
 def test_rename_a_field_through_the_target(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     current_model = (root / ".flowguard/models/lending.py").read_bytes()
@@ -647,7 +647,6 @@ def test_rename_a_field_through_the_target(tmp_path, capsys):
 
 
 def test_target_child_can_plan_code_owned_by_its_component(tmp_path, capsys):
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__install_shelf_target as _install_shelf_target, target__assert_current_lending as _assert_current_lending, target_shelf_project as shelf_project
     root = shelf_project(tmp_path)
     capsys.readouterr()
     directory = _install_shelf_target(root, reports=True)
@@ -711,7 +710,6 @@ def conformance():
 
 def test_target_refuses_to_remove_a_component_parent_with_children(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__check_without_writes as _check_without_writes, target__load_map as _load_map, target_shelf_project as shelf_project, target__write_map as _write_map
     root = shelf_project(tmp_path)
     capsys.readouterr()
     current = _load_map(root)
@@ -741,7 +739,6 @@ def test_target_refuses_to_remove_a_component_parent_with_children(tmp_path, cap
 
 def test_promote_lists_what_to_re_read(tmp_path, capsys):
     import json
-    from _fg_helpers import target__run as _run, target__target_with as _target_with, target__load_map as _load_map, target_shelf_project as shelf_project
     import re
 
     root = shelf_project(tmp_path)
@@ -776,7 +773,6 @@ def test_shelf_example_matches_the_fixture_and_runs_the_target_workflow(tmp_path
     """examples/shelf holds the shelf fixture as files; copied out it runs the whole target workflow."""
     import subprocess
     from pathlib import Path
-    from _fg_helpers import target__run as _run, target_SHELF_BASE as SHELF_BASE, target_SHELF_TARGET as SHELF_TARGET, target_SHELF_AFTER as SHELF_AFTER
     import shutil
 
     example = Path(__file__).resolve().parents[1] / "examples/shelf"
@@ -809,7 +805,6 @@ def test_jobs_default_is_min_four_cpus(tmp_path, monkeypatch, capsys):
     from flowguard.__main__ import _verb_parser
     from flowguard.map import proof, target
     from flowguard.map.cli import build_parser
-    from _fg_helpers import target_shelf_project
     expected = min(4, os.cpu_count() or 1)
     assert proof.DEFAULT_JOBS == expected
     for parser, argv in ((_verb_parser('release'), []),

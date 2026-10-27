@@ -79,13 +79,25 @@ def native_case(case):
                                 expected=2 if case == "remove_gap" else 1, broad=case == "remove_gap")
         if case == "kit_binding":
             source = KIT_SOURCE
+        if case == "shared_tuple":
+            first = source.index("INVARIANTS = (")
+            last = source.index("\nclass Value:", first)
+            source = source[:first] + 'RULE_DATA = (("answer matches", lambda s,t: InvariantResult.pass_() if s in (0, 1) else InvariantResult.fail("answer")),\n             ("answer nonnegative", lambda s,t: InvariantResult.pass_() if s >= 0 else InvariantResult.fail("negative")))\nINVARIANTS = (Invariant("answer", RULE_DATA[0][0], RULE_DATA[0][1]),\n              Invariant("positive", RULE_DATA[1][0], RULE_DATA[1][1]),)' + source[last:]
+        if case == "shared_tuple":
+            source = source.replace('def broken_variants(): return {"wrong": make(EXPECTED["answer"] + 1), "negative": make(-1)}',
+                                    'BAD_DATA = (("wrong", 2), ("negative", -1))\ndef broken_variants(): return {name: make(value) for name, value in BAD_DATA}')
         make_project(root, source)
+        if case == "anchor_exception":
+            path = root / "native.py"
+            path.write_text(path.read_text().replace('def value(): return 1', 'def value(): raise RuntimeError("native failure")'))
         with redirect_stdout(StringIO()):
             native.start_target(root, "classify the native change")
             native.add_to_target(root, "one")
         model = root / ".flowguard/target/models/one.py"
-        if case in {"native", "table", "anchor_exception", "engine_exception", "adapter_exception"}:
+        if case in {"native", "table", "anchor_exception", "engine_exception", "adapter_exception", "anchor_only", "closed", "open"}:
             model.write_text(regular_source(expected=2))
+        elif case == "shared_tuple":
+            model.write_text(source.replace('"answer matches"', '"answer equals the declared native value"'))
         elif case in {"recorded", "missing_test"}:
             model.write_text(regular_source(positive=True, missing=case == "missing_test"))
         elif case.startswith("move"):
@@ -107,9 +119,12 @@ def native_case(case):
             model.write_text(KIT_SOURCE.replace('COMPONENTS = ["app"]', 'COMPONENTS = ["app"]\nPARENT = "app"'))
         else:
             raise ValueError(case)
-        if case == "anchor_exception":
+        if case == "anchor_only":
+            model.write_text(model.read_text().replace("native.py:value", "native.py:future_value"))
+        if case in {"closed", "open"}:
             path = root / "native.py"
-            path.write_text(path.read_text().replace('def value(): return 1', 'def value(): raise RuntimeError("native failure")'))
+            value = 2 if case == "closed" else 3
+            path.write_text(path.read_text().replace("def value(): return 1", f"def value(): return {value}"))
         if case == "engine_exception":
             (root / "engine.py").write_text('def broken(): raise RuntimeError("unanchored engine failure")\n')
             path = root / ".flowguard/map.json"
@@ -130,10 +145,18 @@ def native_case(case):
 
 def native_cases():
     for case in ("native", "table", "missing_test", "recorded", "move", "move_twice", "anchor_exception",
-                 "engine_exception", "adapter_exception", "kit_binding", "remove_clean", "remove_gap"):
+                 "engine_exception", "adapter_exception", "kit_binding", "remove_clean", "remove_gap",
+                 "anchor_only", "closed", "open", "shared_tuple"):
         result = native_case(case)
         text, goal = result["text"], "\n".join(result["goal"])
-        if case in {"native", "table", "anchor_exception"}:
+        if case == "anchor_only":
+            ok = "only the missing anchor symbol 'future_value' in native.py" in text and "conformance did not run" in text
+        elif case in {"closed", "open"}:
+            prefix = "GAP CLOSED" if case == "closed" else "GAP OPEN"
+            ok = prefix + " one:" in text and "native.py" in text and "NO GAP one:" not in text
+        elif case == "shared_tuple":
+            ok = result["goal"] == ["model one: ~answer"]
+        elif case in {"native", "table", "anchor_exception"}:
             ok = "EXPECTED GAP one:" in text
             if case == "table":
                 ok = ok and "~answer" in goal

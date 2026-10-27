@@ -28,7 +28,7 @@ MODEL_ID = "target_life_cycle"
 PARENT = "map-target"
 IMPLEMENTED_BY = {'Target': 'flowguard/map/target.py:main', 'Start': 'flowguard/map/target.py:start_target', 'Drop': 'flowguard/map/target.py:drop_target'}
 NOT_MODELED = {'flowguard/map/target.py:add_to_target': 'requires an open target and calls _add, which target_add anchors'}
-TESTED_BY = {'target_check_runs_no_bound_tests': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes']}
+TESTED_BY = {'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
 
 PROGRAMS = (
     ("storage", ("START", "ADD_COMPONENT", "ADD_MODEL", "START_AGAIN", "CHECK", "DROP_PREVIEW", "DROP_YES")),
@@ -61,6 +61,7 @@ class State:
     promotion: str = ""
     changed: bool = False      # the target differs from the current tree (a comment-only model copy does not)
     bound_test_runs: int = 0
+    code_written: bool = False
 
 
 def _revisions(state):
@@ -69,12 +70,12 @@ def _revisions(state):
 
 
 HANDOFF = {'target_add': {'added': 'added'}, 'target_findings': {'bucket': 'bucket'}, 'target_promotion': {'outcome': 'promotion'}}
-KEEPS = ("scenario", "position", "changed", "expected_map_revision", "bound_test_runs")
+KEEPS = ("scenario", "position", "changed", "expected_map_revision", "bound_test_runs", "code_written")
 
 class Advance:
     name = "Advance"
     writes = ("position", "target_count", "target_revision", "current_map_revision", "current_model_revision",
-              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "added", "bucket", "promotion", "changed", "bound_test_runs")
+              "expected_map_revision", "expected_model_revision", "errors", "todos", "action", "added", "bucket", "promotion", "changed", "bound_test_runs", "code_written")
     def __init__(self, defect=""):
         self.defect = defect
     def apply(self, event, state):
@@ -104,15 +105,19 @@ class Advance:
             elif action in ("EDIT_PLANNED", "EDIT_WARNING"):
                 new = replace(new, changed=True)
         elif action == "WRITE_CODE":
-            new = replace(new, todos=0)
+            new = replace(new, todos=0, code_written=True)
         elif action == "CHECK":
             # One received verdict per finite native program, not a replay of
             # target_findings' routing or gap/port details.
             bucket = {"storage":"error","todo":"todo","error":"error","clean":"none","noop":"error","planned":"info","warned":"warn"}[state.scenario]
             new = replace(new, bucket=bucket, errors=int(bucket == "error"), todos=int(bucket == "todo"))
             output = bucket
+            runs = int(state.code_written)
             if self.defect == "check_runs_bound_tests":
-                new = replace(new, bound_test_runs=state.bound_test_runs+1)
+                runs = 1
+            elif self.defect == "check_skips_tests_after_code":
+                runs = 0
+            new = replace(new, bound_test_runs=state.bound_test_runs+runs)
         elif action == "DROP_PREVIEW":
             output = "refused"
         elif action == "DROP_YES":
@@ -137,8 +142,8 @@ def _holds(condition, message):
 
 
 INVARIANTS = (
-    Invariant("target_check_runs_no_bound_tests", "design CHECK never runs the bound tests",
-              lambda s,t: _holds(s.action != "CHECK" or s.bound_test_runs == _previous(s,t).bound_test_runs, "CHECK ran bound tests")),
+    Invariant("check_runs_own_bound_tests_after_code", "design CHECK runs the target models bound tests only after their code changed since target start",
+              lambda s,t: _holds(s.action != "CHECK" or s.bound_test_runs == _previous(s,t).bound_test_runs + (1 if s.code_written else 0), "CHECK bound test phase mismatch")),
     Invariant("promote_runs_one_full_check", "a clean promotion runs its full bound check once",
               lambda s,t: _holds(s.action != "PROMOTE" or s.promotion != "promoted" or s.bound_test_runs == _previous(s,t).bound_test_runs+1, "PROMOTE repeated its full check")),
     Invariant("one_target_at_a_time", "a second start refuses without any revision change",
@@ -162,7 +167,7 @@ def build_explorer():
 
 
 def broken_variants():
-    return {name:_explorer(name) for name in ("check_runs_bound_tests","promote_checks_twice","second_target","unclean_promote")}
+    return {name:_explorer(name) for name in ("check_runs_bound_tests","check_skips_tests_after_code","promote_checks_twice","second_target","unclean_promote")}
 
 
 # This is an executable regular contract, not a runner, DTO or design-only model.
@@ -323,7 +328,6 @@ def _bound_counts():
         root = make_project(Path(directory))
         stage_target(root)
         edit_missing_method(root)
-        write_method(root)
         calls, actual = [], proof.run_bound_tests
         def counted(*args, **kwargs):
             calls.append(True)
@@ -331,13 +335,16 @@ def _bound_counts():
         proof.run_bound_tests = counted
         try:
             native.check_target(root)
+            before_code = len(calls)
+            write_method(root)
+            native.check_target(root)
             design = len(calls)
             with redirect_stdout(StringIO()), redirect_stderr(StringIO()):
                 code = native.promote_target(root)
             total = len(calls)
         finally:
             proof.run_bound_tests = actual
-        return [Fact("target_check_runs_no_bound_tests", design == 0, f"bound calls after CHECK: {design}"),
+        return [Fact("check_runs_own_bound_tests_after_code", before_code == 0 and design == 1, f"bound calls before/after code: {before_code}/{design}"),
                 Fact("promote_runs_one_full_check", code == 0 and total - design == 1,
                      f"bound calls in PROMOTE: {total - design}; exit {code}")]
 

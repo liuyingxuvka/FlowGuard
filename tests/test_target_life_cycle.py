@@ -6,6 +6,8 @@ import pytest
 from pathlib import Path
 
 
+
+
 from _fg_helpers import (
     target_OLD_CHILD_MODEL as OLD_CHILD_MODEL,
     target__check_without_writes as _check_without_writes,
@@ -72,7 +74,7 @@ def test_target_start_add_drop_and_read_line(tmp_path, capsys):
     target_files = {p.relative_to(directory).as_posix(): p.read_bytes()
                     for p in directory.rglob("*") if p.is_file()}
     code, output, errors = _run(root, capsys, "target", "drop")
-    assert code == 1 and not errors and 'would delete .flowguard/target/ ("holds", 2 file(s))' in output
+    assert code == 1 and not errors and 'would delete .flowguard/target/ ("holds", 3 file(s))' in output
     assert "re-run with --yes" in output
     assert {p.relative_to(directory).as_posix(): p.read_bytes()
             for p in directory.rglob("*") if p.is_file()} == target_files
@@ -448,3 +450,49 @@ def test_changed_port_fails_short_form_consumer(tmp_path, capsys):
     assert target.main(['promote', '--root', str(tmp_path)]) == 1
     assert 'promote refused:' in capsys.readouterr().out
     assert current.read_bytes() == before
+
+
+def test_target_check_runs_own_bound_tests_after_code(tmp_path, monkeypatch):
+    from flowguard.map import proof, target as native
+    helpers = __import__("runpy").run_path(str(Path(__file__).parents[1] / ".flowguard/models/_gap_cases.py"))
+    helpers["make_project"](tmp_path, helpers["regular_source"]())
+    native.start_target(tmp_path, "raise the answer and check its own tests")
+    native.add_to_target(tmp_path, "one")
+    model = tmp_path / ".flowguard/target/models/one.py"
+    source = helpers["regular_source"](expected=2, positive=True)
+    source = source.replace("TESTED_BY = {}", 'TESTED_BY = {"positive": ["tests/test_native.py:test_value"]}')
+    model.write_text(source)
+    tests = tmp_path / "tests"
+    tests.mkdir()
+    (tests / "test_native.py").write_text("from native import value\ndef test_value(): assert value() == 2\n")
+    calls = []
+    actual = proof.run_bound_tests
+
+    def counted(*args, **kwargs):
+        calls.append(True)
+        return actual(*args, **kwargs)
+
+    monkeypatch.setattr(proof, "run_bound_tests", counted)
+    report = native.check_target(tmp_path)
+    assert not report.errors and report.todos and calls == []
+    path = tmp_path / "native.py"
+    path.write_text(path.read_text().replace("def value(): return 1", "def value(): return 2"))
+    report = native.check_target(tmp_path)
+    assert not report.errors and not report.todos
+    assert len(calls) == 1
+    output = native.render_target_report(report)
+    assert "GAP CLOSED one:" in output and "native.py" in output
+    assert "bound tests: ran for one" in output
+    base = tmp_path / ".flowguard/target/base.json"
+    base.write_text("not JSON: promotion must not read this input identity")
+    original_open = Path.open
+
+    def forbid_base_read(path, *args, **kwargs):
+        assert path != base, "promotion read base.json"
+        return original_open(path, *args, **kwargs)
+
+    with monkeypatch.context() as scoped:
+        scoped.setattr(Path, "open", forbid_base_read)
+        assert native.promote_target(tmp_path) == 0
+    assert len(calls) == 2
+    assert not (tmp_path / ".flowguard/target/base.json").exists()

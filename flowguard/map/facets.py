@@ -240,6 +240,31 @@ def system_facets(data: dict, inv: Inventory, tree, graph, functions, *, coverag
                   + ((coverage_line(coverage, summary=True),) if coverage is not None else ()), tests, 3, count)
 
 
+def _named_definition(static, node, scope):
+    """Resolve a rule's literal tuple/dict item without including its unrelated siblings."""
+    import copy
+
+    class OwnInputs(ast.NodeTransformer):
+        def visit_Subscript(self, value):
+            value = self.generic_visit(value)
+            index = value.slice
+            base = value.value
+            if isinstance(base, ast.Name):
+                found = static._lookup(base.id, scope)
+                if found:
+                    base = found[0]
+            if isinstance(index, ast.Constant):
+                if isinstance(base, (ast.Tuple, ast.List)) and isinstance(index.value, int) and -len(base.elts) <= index.value < len(base.elts):
+                    return self.visit(copy.deepcopy(base.elts[index.value]))
+                if isinstance(base, ast.Dict):
+                    for key, item in zip(base.keys, base.values):
+                        if isinstance(key, ast.Constant) and key.value == index.value:
+                            return self.visit(copy.deepcopy(item))
+            return value
+
+    return static._definition(OwnInputs().visit(copy.deepcopy(node)), scope)
+
+
 def _definitions(root: Path, logical: str, syntax, view=None):
     """Static rule and known-bad names, each with its defining expression (None when not located)."""
     static = _StaticModel(root, logical, syntax, view=view)
@@ -250,8 +275,38 @@ def _definitions(root: Path, logical: str, syntax, view=None):
             given = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg == "name"), None)
             name = static.value(given, static.main) if given is not None else None
             if isinstance(name, str) and name in rules:
-                static.rule_defs.setdefault(name, static._definition(node, static.main))
+                static.rule_defs[name] = _named_definition(static, node, static.main)
     bad = static.known_bad() or ()
+    hook = static.main.functions.get("broken_variants")
+    if hook:
+        import copy
+        for node in ast.walk(hook):
+            if not isinstance(node, ast.DictComp) or len(node.generators) != 1:
+                continue
+            generator = node.generators[0]
+            if generator.ifs or generator.is_async:
+                continue
+            values = static._iterate(generator.iter, static.main, {})
+            if values is None:
+                continue
+            for value in values:
+                bindings = {}
+                if not static._bind(generator.target, value, bindings):
+                    continue
+                name = static._key(node.key, static.main, {}, bindings)
+                if name not in bad:
+                    continue
+
+                class BindInputs(ast.NodeTransformer):
+                    def visit_Name(self, item):
+                        if item.id in bindings and isinstance(item.ctx, ast.Load):
+                            try:
+                                return ast.parse(repr(bindings[item.id]), mode="eval").body
+                            except (SyntaxError, ValueError):
+                                pass
+                        return item
+
+                static.bad_defs[name] = ast.dump(BindInputs().visit(copy.deepcopy(node.value)))
     return ({name: static.rule_defs.get(name) for name in rules}, {name: static.bad_defs.get(name) for name in bad})
 
 
