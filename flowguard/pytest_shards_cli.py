@@ -23,6 +23,7 @@ from flowguard.pytest_shards import (  # noqa: E402
     validate_partition,
 )
 from flowguard.map.runner import run_isolated_process
+from flowguard.map.common import child_pytest_environment
 from flowguard.pytest_junit import _pytest_junit_projection  # noqa: E402
 
 
@@ -339,20 +340,13 @@ def run(args: argparse.Namespace) -> tuple[int, dict[str, Any]]:
             reason="pytest invocation run-timeout must be positive",
         )
     invocation_deadline = invocation_started + invocation_budget
-    environment = dict(os.environ)
+    environment = child_pytest_environment(os.environ)
     # A shard owner may itself be exercised by a parent pytest process (for
     # example, the closure-regression batch).  Never inherit another owner's
     # recorder/control paths into this run: the child would then look like a
     # collection subprocess to test doubles and could write into the parent's
     # evidence files.  These variables are set deliberately per subprocess
     # below, after this base environment has been sanitized.
-    for control_name in (
-        "FLOWGUARD_PYTEST_COLLECTION_NODEIDS",
-        "FLOWGUARD_PYTEST_SHARD_NODEIDS",
-        "FLOWGUARD_PYTEST_SHARD_COLLECTION",
-        "FLOWGUARD_PYTEST_NODEIDS",
-    ):
-        environment.pop(control_name, None)
     environment.update(
         {
             "PYTHONDONTWRITEBYTECODE": "1",

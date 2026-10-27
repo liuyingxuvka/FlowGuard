@@ -49,6 +49,15 @@ def atomic_write_text(path: Path, text: str) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def child_pytest_environment(environment):
+    """Give a new pytest owner its own control and receipt paths."""
+    child = dict(environment)
+    for name in ("FLOWGUARD_PYTEST_COLLECTION_NODEIDS", "FLOWGUARD_PYTEST_SHARD_NODEIDS",
+                 "FLOWGUARD_PYTEST_SHARD_COLLECTION", "FLOWGUARD_PYTEST_NODEIDS"):
+        child.pop(name, None)
+    return child
+
+
 def normalize_newlines(data: bytes) -> bytes:
     """Canonical physical source newlines for fingerprints and equivalence checks."""
     return data.replace(b"\r\n", b"\n").replace(b"\r", b"\n")

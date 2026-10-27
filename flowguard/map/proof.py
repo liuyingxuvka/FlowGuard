@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .check import PLACEHOLDER_ANCHOR, anchor_problems
-from .common import parse_test_anchor
+from .common import parse_test_anchor, child_pytest_environment
 from .facts import AnchorWatch, PlaceholderAnchorError
 from .mapfile import MapError, load_map, model_registry, read_model_contract, resolve_model_path
 from .tree import build_tree
@@ -155,7 +155,7 @@ def _load(root: Path, path: Path, *, view=None):
 def run_model(root: Path, path: Path, timeout: int = DEFAULT_TIMEOUT, *, tests: bool = False, view=None) -> ModelResult:
     """Run one model in a fresh subprocess so imports and module state never leak between models."""
     package_parent = Path(__file__).resolve().parents[2]          # directory that contains 'flowguard/'
-    env = dict(os.environ)
+    env = child_pytest_environment(os.environ)
     env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
@@ -228,7 +228,8 @@ def run_bound_tests(root: Path, path: Path, result: ModelResult, *, timeout: int
                 exact_items.add(anchor)
         if not nodes:
             return
-        env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
+        env = child_pytest_environment(os.environ)
+        env.update(PYTHONDONTWRITEBYTECODE="1", PYTHONIOENCODING="utf-8")
         package_parent = Path(__file__).resolve().parents[2]
         env["PYTHONPATH"] = os.pathsep.join([str(root), str(package_parent)] + ([env["PYTHONPATH"]] if env.get("PYTHONPATH") else []))
         with tempfile.TemporaryDirectory(prefix="flowguard-tested-by-") as folder:

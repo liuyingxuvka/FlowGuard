@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep nested model proofs and bound tests from inheriting another pytest runner's shard controls or receipt paths.
+
 - Avoid unused constructor analysis, repeated static trees and deep AST copies while retaining identical source facts and rule diagnostics.
 
 - Keep map formatting, discovery syntax and history evidence in focused modules; expose test grouping to its promotion consumer.
