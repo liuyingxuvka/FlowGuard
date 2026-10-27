@@ -1,0 +1,7 @@
+{
+  "schema": "flowguard.target.v1",
+  "goal": "FG-508: slim model_runs: one real subprocess case, size facts in process",
+  "components": [],
+  "flows": [],
+  "remove": []
+}
