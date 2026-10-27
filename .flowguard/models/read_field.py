@@ -12,6 +12,10 @@ from _relation_fixture import field_fixture
 MODEL_ID='read_field'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Field':'flowguard/map/views.py:render_field'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'Main': 'flowguard/__main__.py:main',
+}
 TESTED_BY = {'field_lists_writers_readers_rules': ['tests/test_read_field.py:test_read_field_status_names_writers_and_model', 'tests/test_read_field.py:test_json_key_written_and_read_across_components'], 'field_view_imports_no_model': ['tests/test_read_field.py:test_field_view_imports_no_model'], 'field_view_uncut': ['tests/test_read_field.py:test_field_view_is_complete']}
 @dataclass(frozen=True)
 class State:

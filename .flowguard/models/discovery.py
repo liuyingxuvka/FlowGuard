@@ -31,6 +31,11 @@ IMPLEMENTED_BY = {
     "Global": "flowguard/map/discovery_syntax.py:_FileVisitor.visit_Global",
     "MainGuard": "flowguard/map/discovery_syntax.py:_FileVisitor.visit_If",
 }
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'DiscoverInventory': 'flowguard/map/discover.py:discover_inventory',
+    'ReachableEffects': 'flowguard/map/discover.py:reachable_effects',
+}
 TESTED_BY = {'script_and_closure_calls_resolve': ['tests/test_discovery.py:test_nested_function_call_resolves', 'tests/test_discovery.py:test_import_local_to_enclosing_function_resolves', 'tests/test_discovery.py:test_sibling_script_import_resolves', 'tests/test_discovery.py:test_import_root_import_resolves'], 'entrypoints_found': ['tests/test_discovery.py:DiscoverTests.test_routes_commands_effects_and_state_writers', 'tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'writes_attributed_to_writer': ['tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'effects_reach_their_entrypoints': ['tests/test_discovery.py:DiscoverTests.test_routes_commands_effects_and_state_writers', 'tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape'], 'injected_attribute_resolves': ['tests/test_discovery.py:test_injected_collaborator_resolves_to_its_class'], 'nothing_invented': ['tests/test_discovery.py:test_discovery_finds_each_entry_and_effect_shape']}
 
 SHAPES = {

@@ -8,6 +8,9 @@ from flowguard.map.facts import CodeFactsReport,Fact
 MODEL_ID='shard_suite'
 PARENT='test-mesh'
 IMPLEMENTED_BY={'Run':'flowguard/pytest_shards_cli.py:run','Aggregate':'flowguard/pytest_shards.py:aggregate_pytest_projections'}
+USES = {
+    'BuildParser': 'flowguard/pytest_shards_cli.py:build_parser',
+}
 OUTPUTS={'suite':('pass','fail','partial','blocked')}
 HANDOFF={'shard_partition':{'algorithm':'algorithm'},'shard_run':{'shard':'shard_results'}}
 KEEPS=('coverage','collected','suite','recorded','record_written')

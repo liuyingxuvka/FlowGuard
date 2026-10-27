@@ -12,6 +12,9 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "anchor_watch"
 PARENT = 'model_runs'
 IMPLEMENTED_BY = {"Watch": "flowguard/map/facts.py:AnchorWatch"}
+USES = {
+    'RunModelInProcess': 'flowguard/map/proof.py:run_model_in_process',
+}
 TESTED_BY = {'conformance_calls_are_seen': ['tests/test_anchor_watch.py:test_anchor_called_in_worker_thread_is_consulted'], 'explore_is_not_watched': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails'], 'unconsulted_anchor_fails_the_model': ['tests/test_anchor_watch.py:test_anchor_called_only_in_explore_fails']}
 
 

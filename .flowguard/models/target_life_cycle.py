@@ -27,6 +27,9 @@ from _target_fixture import REGULAR_CONTRACT, make_project, stage_target, write_
 MODEL_ID = "target_life_cycle"
 PARENT = "map-target"
 IMPLEMENTED_BY = {'Target': 'flowguard/map/target.py:main', 'Start': 'flowguard/map/target.py:start_target', 'Drop': 'flowguard/map/target.py:drop_target'}
+USES = {
+    'MovingToTarget': 'flowguard/map/target.py:moving_to_target',
+}
 NOT_MODELED = {'flowguard/map/target.py:add_to_target': 'requires an open target and calls _add, which target_add anchors'}
 TESTED_BY = {'promote_runs_one_full_check': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check'], 'one_target_at_a_time': ['tests/test_target_life_cycle.py:test_target_start_add_drop_and_read_line'], 'promote_only_when_clean': ['tests/test_target_life_cycle.py:test_target_small_promotion_preserves_map_and_model_bytes'], 'check_runs_own_bound_tests_after_code': ['tests/test_target_life_cycle.py:test_target_check_runs_no_pytest_and_promote_runs_one_check', 'tests/test_target_life_cycle.py:test_target_check_runs_own_bound_tests_after_code']}
 

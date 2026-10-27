@@ -14,7 +14,14 @@ from _target_fixture import make_port_project, slicing_project
 MODEL_ID = "port_escalation"
 PARENT = 'change_selection'
 IMPLEMENTED_BY = {'PortDelta': 'flowguard/map/port.py:port_delta', 'Escalation': 'flowguard/map/port.py:escalation_set', 'Importers': 'flowguard/map/tree.py:ModelTree.importers'}
-USES = {"SlicingSiblings": "flowguard/map/port.py:slicing_siblings", "Impact": "flowguard/map/impact.py:compute_impact"}
+USES = {
+    'BuildTargetView': 'flowguard/map/targetfile.py:build_target_view',
+    'Impact': 'flowguard/map/impact.py:compute_impact',
+    'LoadTarget': 'flowguard/map/targetfile.py:load_target',
+    'Main': 'flowguard/map/target.py:main',
+    'RenderImpact': 'flowguard/map/impact.py:render_impact',
+    'SlicingSiblings': 'flowguard/map/port.py:slicing_siblings',
+}
 TESTED_BY = {'port_unchanged_selects_child_only': ['tests/test_change_selection.py:test_rule_edit_selects_the_child_only'], 'output_change_selects_parent_and_consumers': ['tests/test_change_selection.py:test_output_change_selects_parent_not_grandparent'], 'reads_parent_change_selects_parent': ['tests/test_change_selection.py:test_reads_parent_change_selects_parent'], 'model_importers_selected': ['tests/test_port_escalation.py:test_change_selects_importers_and_ancestors_of_a_changed_model'], 'new_parent_value_names_slicing_sibling': ['tests/test_port_escalation.py:test_new_parent_value_names_slicing_sibling']}
 CASES = ("rule", "output", "reads", "sibling")
 EXPECTED = {"sibling": ("publish",), "rule": ("lending",), "output": ("consumer", "desk", "lending"), "reads": ("desk", "lending")}

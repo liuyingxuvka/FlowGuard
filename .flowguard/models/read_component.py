@@ -44,7 +44,11 @@ from _read_fixture import _flows, _focused, _layer_order, _model_contract, _name
 MODEL_ID='read_component'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Facets': 'flowguard/map/facets.py:component_facets'}
-USES={'Show': 'flowguard/map/views.py:render_show'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'Main': 'flowguard/__main__.py:main',
+    'Show': 'flowguard/map/views.py:render_show',
+}
 TESTED_BY = {'port_line_shown': ['tests/test_read_component.py:test_read_component_prints_one_port_line_per_model'], 'focused_component_visible': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component'], 'relied_rules_shown': ['tests/test_read_component.py:test_read_component_lists_the_rules_it_relies_on'], 'component_flows_shown': ['tests/test_read_component.py:test_read_component_lists_its_flows_and_their_rules'], 'static_rules_match_model': ['tests/test_read_component.py:test_static_rules_follow_helpers_and_wrappers', 'tests/test_read_component.py:test_static_known_bad_follow_loops_and_tuple_targets', 'tests/test_read_component.py:test_kit_model_facets_are_static_and_complete'], 'component_view_imports_no_model': ['tests/test_read_command.py:test_read_component_names_the_symbols_used_on_each_edge'], 'component_view_complete': ['tests/test_read_component.py:test_read_component_never_hides_the_requested_component', 'tests/test_read_component.py:test_component_view_names_subtree_once']}
 NOT_MODELED={'flowguard/map/modelstatic.py:StaticModel._module': 'memoizes one parsed helper file per read; the names it yields are what static_rules_match_model checks on real render_show output', 'flowguard/map/modelstatic.py:StaticModel.explorer_rules': 'remembers the kit case table found while reading rules; the cases line is checked by static_rules_match_model through the kit probe', 'flowguard/map/modelstatic.py:StaticModel._defined': "records the AST of each rule's defining call so goal rules can compare versions; tests/test_flowguard_target.py:test_behaviour_target_without_a_rule_is_untied checks that line", 'flowguard/map/modelstatic.py:StaticModel.bad_keys': 'collects known-bad names written by loops and comprehensions; tests/test_map_views.py:test_static_known_bad_follow_loops_and_tuple_targets checks them'}
 MOVED_RULES=(

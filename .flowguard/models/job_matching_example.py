@@ -28,6 +28,11 @@ IMPLEMENTED_BY = {
     "BrokenRecord": "examples/job_matching/production.py:BrokenDuplicateRecordSystem.record_scored_job",
     "BrokenScore": "examples/job_matching/production.py:BrokenRepeatedScoringSystem.score_job",
 }
+USES = {
+    'CorrectJobMatchingSystem': 'examples/job_matching/production.py:CorrectJobMatchingSystem',
+    'GenerateRepresentativeTraces': 'examples/job_matching/conformance.py:generate_representative_traces',
+    'ReplayJobMatchingTrace': 'examples/job_matching/conformance.py:replay_job_matching_trace',
+}
 NOT_MODELED = {}
 TESTED_BY = {
     "no_duplicate_application_records": [

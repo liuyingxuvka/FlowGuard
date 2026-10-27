@@ -9,6 +9,10 @@ from _testtree_fixture import fixture
 MODEL_ID='test_tree'
 PARENT='map-file'
 IMPLEMENTED_BY={'Positions':'flowguard/map/testtree.py:test_positions','Units':'flowguard/map/testtree.py:test_units','Calls':'flowguard/map/testtree.py:test_calls','FileFindings':'flowguard/map/testtree.py:test_file_findings'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'BuildTree': 'flowguard/map/tree.py:build_tree',
+}
 TESTED_BY={'bound_test_sits_at_its_model':['tests/test_flowguard_testtree.py:test_positions_on_a_fixture_tree'],
  'unbound_test_sits_where_its_calls_go':['tests/test_flowguard_testtree.py:test_positions_on_a_fixture_tree'],
  'mixed_test_file_is_named':['tests/test_flowguard_testtree.py:test_mixed_file_and_large_file_are_named'],

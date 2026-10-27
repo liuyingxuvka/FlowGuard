@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Projects using FlowGuard: replay_call_undeclared warns when a model replays a product function without an anchor and prints the USES declaration needed to include it after edits.
+
 - Projects using FlowGuard: a helper edit selects a flow model only when the helper lies on the static path between its steps; direct callers remain selected.
 
 - Projects using FlowGuard: removed literals name code sites first; moved values stay quiet and settings-only map edits select only newly mapped tests.

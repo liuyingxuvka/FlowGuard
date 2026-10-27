@@ -19,7 +19,13 @@ MODEL_ID = 'component_pointer'
 PARENT = 'map-file'
 COMPONENTS = ['map-file', 'cli', 'map-check']
 IMPLEMENTED_BY = {'Confirm': 'flowguard/map/cli.py:cmd_confirm', 'ModelEdits': 'flowguard/map/check.py:model_edit_findings'}
-USES = {'TargetAdd': 'flowguard/map/target.py:add_to_target'}
+USES = {
+    'ComponentState': 'flowguard/map/mapfile.py:component_state',
+    'Main': 'flowguard/map/cli.py:main',
+    'RunCheck': 'flowguard/map/check.py:run_check',
+    'TargetAdd': 'flowguard/map/target.py:add_to_target',
+    'TargetMain': 'flowguard/map/target.py:main',
+}
 HANDOFF = {'release_neutral_fingerprint': {'fingerprint': 'fingerprint'}}
 TESTED_BY = {'clean_means_current': ['tests/test_component_pointer.py:test_stale_after_owned_file_changes_and_confirm_clears_it'], 'confirmed_means_described': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'], 'model_edited_outside_target_is_named': ['tests/test_model_edits.py:test_map_check_names_model_edited_outside_target']}
 NOT_MODELED = {'flowguard/__main__.py:main': 'CLI dispatch; command tests cover it.',

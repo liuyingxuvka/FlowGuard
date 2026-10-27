@@ -52,7 +52,11 @@ from _read_fixture import _flows, _focused, _layer_order, _model_contract, _name
 MODEL_ID='read_show'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Show': 'flowguard/map/views.py:render_show'}
-USES={'Facets': 'flowguard/map/facets.py:component_facets'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'Facets': 'flowguard/map/facets.py:component_facets',
+    'Main': 'flowguard/__main__.py:main',
+}
 TESTED_BY = {'coverage_counts_only_bound': ['tests/test_read_command.py:test_coverage_counts_calls_not_words'], 'tests_line_counts_bound_and_unbound': ['tests/test_read_command.py:test_tests_line_counts_bound_calling_and_neither'], 'no_model_import': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_and_models_visible': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts', 'tests/test_read_command.py:test_read_is_complete_and_folds_children'], 'model_purpose_and_three_counts': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'missing_summary_prompt': ['tests/test_read_command.py:test_read_observes_hidden_names_missing_summary_and_model_counts'], 'components_in_layer_order': ['tests/test_read_command.py:test_read_orders_components_by_layer']}
 MOVED_RULES=(
 Invariant('no_model_import', 'reading never imports a model module', lambda state, trace: not state.imported),

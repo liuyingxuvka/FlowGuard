@@ -9,7 +9,11 @@ from _literal_fixture import native_case
 MODEL_ID='literal_consumers'
 PARENT = 'change_selection'
 IMPLEMENTED_BY={'Sites':'flowguard/map/discover.py:literal_sites'}
-USES={'Impact':'flowguard/map/impact.py:compute_impact','Rules':'flowguard/map/facets.py:target_goal_rules'}
+USES = {
+    'Impact': 'flowguard/map/impact.py:compute_impact',
+    'RenderImpact': 'flowguard/map/impact.py:render_impact',
+    'Rules': 'flowguard/map/facets.py:target_goal_rules',
+}
 TESTED_BY = {'moved_literal_is_silent': ['tests/test_change_selection.py:test_moved_literal_selects_nothing'], 'removed_literal_names_consumers': ['tests/test_change_selection.py:test_s4a_rename_names_the_consumers'], 'removed_promise_is_named': ['tests/test_change_selection.py:test_removed_rule_known_bad_and_test_are_promises'], 'moved_rule_is_not_a_removed_promise': ['tests/test_change_selection.py:test_moved_rule_prints_moved_not_promise']}
 @dataclass(frozen=True)
 class Observation:

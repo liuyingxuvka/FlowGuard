@@ -4,6 +4,7 @@ from pathlib import Path
 
 
 
+
 from _fg_helpers import (
     view__fg232_count_discovery as _fg232_count_discovery,
     view__fg232_view_project as _fg232_view_project,
@@ -347,3 +348,92 @@ def test_coverage_line_counts_explained_entrypoints(tmp_path, monkeypatch):
     assert after == before
     assert not marker.exists()
     assert not any(name.startswith("view232_") for name in sys.modules)
+
+
+def test_replay_call_undeclared_reports_fixture_replays(tmp_path):
+    from flowguard.map.modelstatic import replay_call_findings
+    from flowguard.map.inventory import build_inventory
+    from flowguard.map.tree import build_tree
+    from flowguard.map.discover import discover_inventory
+
+    def write(name, text):
+        path = tmp_path / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text)
+
+    write(
+        "native.py",
+        "def entry(): return True\ndef used(): return True\ndef other(): return False\n",
+    )
+    write(
+        ".flowguard/models/_cases.py",
+        """from native import used, other
+class Replay:
+    def __init__(self):
+        self.callback = used
+        self.unused_callback = other
+    def apply_step(self, event): return self.callback()
+    def convenience(self): return other()
+def choose(kind):
+    if kind == "yes": return used()
+    elif kind == "unmentioned": return other()
+    else: return other()
+""",
+    )
+    source = """import inspect
+from native import other
+from _cases import choose, Replay
+MODEL_ID = "probe"
+PARENT = "native"
+IMPLEMENTED_BY = {"Entry": "native.py:entry"}
+USES = {"Used": "native.py:entry"}
+def build_explorer(): pass
+def conformance():
+    choose("yes")
+    Replay()
+    inspect.signature(other)
+    return True
+
+_previous_conformance = conformance
+def conformance():
+    return str(_previous_conformance()).strip() == "True"
+"""
+    write(".flowguard/models/probe.py", source)
+    data = dict(
+        schema="flowguard.map.v1",
+        components=[
+            dict(
+                id="native",
+                files=["native.py"],
+                models=[],
+                tests=[],
+                responsibilities=["own native operations"],
+                summary="Native operations",
+                status="draft",
+            )
+        ],
+    )
+
+    def findings():
+        inv = build_inventory(tmp_path, [], write_cache=False)
+        tree = build_tree(tmp_path, data, inv)
+        raw = discover_inventory(tmp_path, inv, data=data, write_cache=False)
+        return replay_call_findings(tmp_path, data, inv, tree, raw)
+
+    rows = findings()
+    assert len(rows) == 1, rows
+    assert (
+        rows[0].level == "warn"
+        and rows[0].code == "replay_call_undeclared"
+        and rows[0].component == "probe"
+    )
+    assert "replays native.py:used at .flowguard/models/_cases.py:" in rows[0].message
+    assert 'USES "NativeUsed": "native.py:used"' in rows[0].message
+    write(
+        ".flowguard/models/probe.py",
+        source.replace(
+            'USES = {"Used": "native.py:entry"}',
+            'USES = {"Used": "native.py:entry", "NativeUsed": "native.py:used"}',
+        ),
+    )
+    assert findings() == []

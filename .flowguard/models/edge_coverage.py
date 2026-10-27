@@ -9,7 +9,10 @@ from _target_fixture import make_port_project, probe_port_model
 MODEL_ID='edge_coverage'
 PARENT="map-file"
 IMPLEMENTED_BY={'EdgeChecks': 'flowguard/map/port.py:port_findings'}
-USES={}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'BuildTree': 'flowguard/map/tree.py:build_tree',
+}
 TESTED_BY = {'child_value_received': ['tests/test_edge_coverage.py:test_each_static_edge_mistake_has_its_code'], 'child_input_provided': ['tests/test_edge_coverage.py:test_each_static_edge_mistake_has_its_code'], 'parent_fields_covered': ['tests/test_edge_coverage.py:test_each_static_edge_mistake_has_its_code'], 'siblings_do_not_overlap': ['tests/test_edge_coverage.py:test_each_static_edge_mistake_has_its_code'], 'child_hands_a_value_up': ['tests/test_edge_coverage.py:test_each_static_edge_mistake_has_its_code']}
 @dataclass(frozen=True)
 class Observation:

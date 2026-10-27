@@ -49,7 +49,11 @@ from _read_fixture import _flows, _focused, _layer_order, _model_contract, _name
 MODEL_ID='read_review'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Review': 'flowguard/map/review.py:render_review'}
-USES={'Facets': 'flowguard/map/facets.py:component_facets'}
+USES = {
+    'Facets': 'flowguard/map/facets.py:component_facets',
+    'Main': 'flowguard/__main__.py:main',
+    'RenderShow': 'flowguard/map/views.py:render_show',
+}
 TESTED_BY = {'closed_suggestion_is_counted': ['tests/test_read_command.py:test_closing_debt_hides_one_suggestion'], 'review_ranks_errors_first': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_strengths_are_true': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_steps_name_a_recipe': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_imports_no_model': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths'], 'review_view_complete': ['tests/test_read_command.py:test_review_ranks_defects_and_states_true_strengths']}
 MOVED_RULES=(
 Invariant('review_ranks_errors_first', 'every ERROR finding is in optimise next, before every non-ERROR step', lambda state, trace: _ranked(state)),

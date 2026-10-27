@@ -11,7 +11,10 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID='change_command'
 PARENT='cli'
 IMPLEMENTED_BY={'Change':'flowguard/map/cli.py:cmd_change','Run':'flowguard/map/cli.py:_run_selected'}
-USES={'Main':'flowguard/__main__.py:main'}
+USES = {
+    'CmdConfirm': 'flowguard/map/cli.py:cmd_confirm',
+    'Main': 'flowguard/__main__.py:main',
+}
 HANDOFF={'change_selection':{'selection':'selection'},'map_check':{'check':'check'}}
 TESTED_BY = {'errors_skip_the_run': ['tests/test_packaged_cli_surface.py:test_change_run_skips_when_check_has_errors'], 'exit_follows_check_selection_and_run': ['tests/test_packaged_cli_surface.py:test_change_run_runs_the_selected_checks'], 'stale_component_names_confirm': ['tests/test_packaged_cli_surface.py:test_change_run_ends_with_map_confirm_for_stale_components']}
 @dataclass(frozen=True)

@@ -1,4 +1,8 @@
-USES = {'Check': 'flowguard/map/check.py:run_check', 'Lint': 'flowguard/map/lint.py:run_lint'}
+USES = {
+    'Check': 'flowguard/map/check.py:run_check',
+    'Lint': 'flowguard/map/lint.py:run_lint',
+    'Main': 'flowguard/map/cli.py:main',
+}
 """Map check reports broken anchors, unowned files, undeclared or unused imports, two owners and bad flow steps.
 
 The base project has four components (app uses api and core; api uses core; util is free) and one flow.

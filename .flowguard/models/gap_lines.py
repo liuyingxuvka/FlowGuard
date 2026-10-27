@@ -7,6 +7,13 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "gap_lines"
 COMPONENTS = ["map-target", "map-read"]
 IMPLEMENTED_BY = {"GapLines": "flowguard/map/target.py:gap_lines", "GoalRules": "flowguard/map/facets.py:target_goal_rules"}
+USES = {
+    'AddToTarget': 'flowguard/map/target.py:add_to_target',
+    'CheckTarget': 'flowguard/map/target.py:check_target',
+    'LoadTarget': 'flowguard/map/targetfile.py:load_target',
+    'RenderTargetReport': 'flowguard/map/target.py:render_target_report',
+    'StartTarget': 'flowguard/map/target.py:start_target',
+}
 TESTED_BY = {'changed_rule_gap_is_expected': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap', 'tests/test_gap_lines.py:test_missing_bound_test_is_never_a_gap', 'tests/test_gap_lines.py:test_shared_rule_tuple_marks_only_changed_names'], 'moved_rules_expect_no_gap': ['tests/test_gap_lines.py:test_split_into_child_prints_moved_rules_only'], 'recorded_rule_prints_no_gap': ['tests/test_gap_lines.py:test_recorded_rule_prints_no_gap'], 'exception_through_anchor_is_code_gap': ['tests/test_gap_lines.py:test_exception_classification'], 'missing_anchor_gap_names_the_symbol': ['tests/test_gap_lines.py:test_missing_anchor_names_symbol_without_claiming_conformance'], 'after_code_gap_names_changed_symbols': ['tests/test_gap_lines.py:test_rule_broken_by_old_code_is_an_expected_gap']}
 EXPECTED = {"anchor_only": "EXPECTED GAP (only the missing anchor symbol)", "closed": "GAP CLOSED",
             "open": "GAP OPEN", "shared_tuple": "one name changed", "native": "EXPECTED GAP", "missing_test": "NO GAP", "moved": "moved rules only",

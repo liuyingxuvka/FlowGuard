@@ -14,7 +14,11 @@ from _function_fixture import fixture,write
 MODEL_ID='test_selection'
 PARENT = 'change_selection'
 IMPLEMENTED_BY={'SelectTests':'flowguard/map/impact.py:select_tests'}
-USES={'TestCalls':'flowguard/map/testtree.py:test_calls'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'BuildTree': 'flowguard/map/tree.py:build_tree',
+    'TestCalls': 'flowguard/map/testtree.py:test_calls',
+}
 TESTED_BY = {'bound_tests_follow_selected_models': ['tests/test_test_selection.py:test_parametrized_anchor_selects_its_case_only'], 'calling_tests_selected_by_direct_call': ['tests/test_test_selection.py:test_test_calling_through_same_file_helper_is_selected'], 'half_selected_file_runs_whole': ['tests/test_test_selection.py:test_half_selected_file_runs_whole'], 'also_reached_is_counted': ['tests/test_test_selection.py:test_cli_test_reaching_through_main_is_counted_as_also_reached']}
 @dataclass(frozen=True)
 class Observation:

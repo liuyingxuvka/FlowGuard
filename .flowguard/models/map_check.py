@@ -14,7 +14,10 @@ MODEL_ID = 'map_check'
 PARENT = 'map-check'
 COMPONENTS = ['map-check', 'map-inventory']
 IMPLEMENTED_BY = {'Check': 'flowguard/map/check.py:run_check', 'PrintFindings': 'flowguard/map/common.py:print_findings'}
-USES = {'Command': 'flowguard/map/cli.py:cmd_check'}
+USES = {
+    'CmdConfirm': 'flowguard/map/cli.py:cmd_confirm',
+    'Command': 'flowguard/map/cli.py:cmd_check',
+}
 NOT_MODELED = {'flowguard/map/lint.py:run_lint': 'Collects independent system, map_binding, private_use and edge checks; its only filesystem effect is disposable discovery caching. Binding, architecture and CLI tests exercise the aggregate.'}
 OUTPUTS = {'check': ('error', 'stale', 'clean')}
 TESTED_BY = {'error_finding_fails_check': ['tests/test_component_pointer.py:test_filled_map_checks_clean_after_confirm'], 'strict_makes_draft_and_stale_errors': ['tests/test_cli_main.py:test_new_target_file_is_moving_but_strict_remains_an_error'], 'identical_info_grouped': ['tests/test_map_check.py:test_identical_info_grouped_into_one_line']}

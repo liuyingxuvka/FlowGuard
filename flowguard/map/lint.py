@@ -304,8 +304,15 @@ def compound_responsibility_findings(data: dict, max_chars: int = 120) -> list[F
             for c in data["components"] for r in c.get("responsibilities", []) if len(r) > max_chars or ";" in r]
 
 
-def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = None, *, view=None,
-             write_cache: bool | None = None) -> list[Finding]:
+def run_lint(
+    root: Path,
+    data: dict,
+    inv: Inventory,
+    limits: Limits | None = None,
+    *,
+    view=None,
+    write_cache: bool | None = None,
+) -> list[Finding]:
     """All architecture findings; disposable caches are written only for the current tree unless write_cache=False."""
     write_cache = view is None if write_cache is None else write_cache
     limits = limits or Limits()
@@ -321,11 +328,18 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                 rows.append((c["id"], r, tok))
     out.extend(duplicate_owner_findings(data))
     for i, (ca, ra, ta) in enumerate(rows):
-        for cb, rb, tb in rows[i + 1:]:
+        for cb, rb, tb in rows[i + 1 :]:
             if ca != cb:
                 similarity = len(ta & tb) / len(ta | tb)
                 if 0.6 <= similarity < 1.0:
-                    out.append(Finding("warn", "possible_duplicate", ca, f"{ra!r} ~ {cb}: {rb!r} (similarity {similarity:.2f})"))
+                    out.append(
+                        Finding(
+                            "warn",
+                            "possible_duplicate",
+                            ca,
+                            f"{ra!r} ~ {cb}: {rb!r} (similarity {similarity:.2f})",
+                        )
+                    )
 
     out.extend(shape_findings(data, inv, graph, limits))
     out.extend(compound_responsibility_findings(data))
@@ -339,9 +353,17 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     for sites in by_body.values():
         if len(sites) > 1:
             hit = sorted({owner.get(f, "?") for f, _, _ in sites})
-            where = ", ".join(f"{f}:{s}" for f, s, _ in sites[:4]) + (" ..." if len(sites) > 4 else "")
-            out.append(Finding("warn" if len(hit) > 1 else "info", "duplicate_code", hit[0],
-                               f"{len(sites)} identical bodies ({sites[0][2]} AST nodes) in {hit}: {where}"))
+            where = ", ".join(f"{f}:{s}" for f, s, _ in sites[:4]) + (
+                " ..." if len(sites) > 4 else ""
+            )
+            out.append(
+                Finding(
+                    "warn" if len(hit) > 1 else "info",
+                    "duplicate_code",
+                    hit[0],
+                    f"{len(sites)} identical bodies ({sites[0][2]} AST nodes) in {hit}: {where}",
+                )
+            )
 
     raw = discover_inventory(root, inv, write_cache=write_cache, data=data)
     modules = {info.module: path for path, info in inv.py.items()}
@@ -355,17 +377,33 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
                     continue
                 target_module, _, state_name = write.removeprefix("<import>.").partition(":")
                 target_owner = owner.get(modules.get(target_module, ""), "")
-                if target_owner and owner.get(path) != target_owner and state_name in declared_state[target_owner]:
-                    out.append(Finding("warn", "foreign_state_write", owner.get(path, ""),
-                                       f"{path}:{symbol} line {function['line']} mutates {target_owner}'s declared state {state_name}; "
-                                       "route the update through its owner"))
+                if (
+                    target_owner
+                    and owner.get(path) != target_owner
+                    and state_name in declared_state[target_owner]
+                ):
+                    out.append(
+                        Finding(
+                            "warn",
+                            "foreign_state_write",
+                            owner.get(path, ""),
+                            f"{path}:{symbol} line {function['line']} mutates {target_owner}'s declared state {state_name}; "
+                            "route the update through its owner",
+                        )
+                    )
     for write in raw.get("foreign_writes", ()):
         path, _, symbol = write["source"].partition("#")
         writer, holder = owner.get(path), owner.get(write["class_path"])
         if writer and holder and writer != holder and not inv.is_test(path):
-            out.append(Finding("warn", "foreign_state_write", writer,
-                               f"{path}:{symbol} line {write['line']} writes {write['class']}.{write['attr']} owned by "
-                               f"{holder}; route the update through its owner"))
+            out.append(
+                Finding(
+                    "warn",
+                    "foreign_state_write",
+                    writer,
+                    f"{path}:{symbol} line {write['line']} writes {write['class']}.{write['attr']} owned by "
+                    f"{holder}; route the update through its owner",
+                )
+            )
     imported = {t for deps in inv.file_deps.values() for t in deps}
     modules = {info.module: path for path, info in inv.py.items()}
     # Registered contract models are real importers even though they are outside source ownership.
@@ -375,26 +413,68 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
         if physical is None:
             continue
         source = entry.path if view is None else str(physical)
-        info = parse_python(root, source, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False)
-        imported.update(target for imp in info.imports if (target := resolve_import(imp, modules, importer=entry.path, py_paths=inv.py, import_roots=inv.import_roots)))
+        info = parse_python(
+            root, source, entry.path.removesuffix(".py").replace("/", "."), collect_bodies=False
+        )
+        imported.update(
+            target
+            for imp in info.imports
+            if (
+                target := resolve_import(
+                    imp,
+                    modules,
+                    importer=entry.path,
+                    py_paths=inv.py,
+                    import_roots=inv.import_roots,
+                )
+            )
+        )
     entry_files = {a.split(":", 1)[0] for c in comps for a in c.get("entrypoints", [])}
     entry_files |= {path for path, facts in raw["files"].items() if facts.get("entrypoints")}
     for f in inv.source:
-        if f in inv.py and not inv.is_test(f) and f not in imported and f not in entry_files \
-                and not f.endswith(("__init__.py", "__main__.py", "setup.py", "conftest.py")) \
-                and not any(symbol.startswith("pytest_") and "." not in symbol for symbol in inv.py[f].symbols):
-            out.append(Finding("info", "never_imported", owner.get(f, ""), f"{f} is not imported by any repo file (dead code or an entrypoint?)"))
+        if (
+            f in inv.py
+            and not inv.is_test(f)
+            and f not in imported
+            and f not in entry_files
+            and not f.endswith(("__init__.py", "__main__.py", "setup.py", "conftest.py"))
+            and not any(
+                symbol.startswith("pytest_") and "." not in symbol for symbol in inv.py[f].symbols
+            )
+        ):
+            out.append(
+                Finding(
+                    "info",
+                    "never_imported",
+                    owner.get(f, ""),
+                    f"{f} is not imported by any repo file (dead code or an entrypoint?)",
+                )
+            )
     out.extend(discovery_findings(raw, data, inv))
     covered_by_model, not_modeled = model_coverage(root, data, registry, view=view)
     tree = build_tree(root, data, inv, view=view)
     out.extend(flow_unmodeled_findings(raw, data, inv, tree))
-    out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
-        models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
+    out.extend(
+        entrypoint_coverage_findings(
+            raw,
+            data,
+            inv,
+            covered_by_model,
+            not_modeled=not_modeled,
+            models_by_component={
+                c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps
+            },
+        )
+    )
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
     out.extend(model_binding_notes(root, data, inv, view=view, tree=tree))
     out.extend(model_size_findings(root, data, inv, view=view, tree=tree))
+    from .modelstatic import replay_call_findings
+
+    out.extend(replay_call_findings(root, data, inv, tree, raw))
     from .testtree import test_file_findings
-    out.extend(test_file_findings(root,data,inv,tree))
+
+    out.extend(test_file_findings(root, data, inv, tree))
     out.extend(private_use_findings(root, data, inv))
     # Lint must count no-code model debts so they become stale after anchoring.
     for entry in registry.entries:
@@ -404,7 +484,14 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
         except (OSError, SyntaxError, ValueError):
             continue
         if physical is not None and not contract.get("IMPLEMENTED_BY"):
-            out.append(Finding("error", "model_anchor_missing", entry.id, f"{entry.path}: no implementation anchors"))
+            out.append(
+                Finding(
+                    "error",
+                    "model_anchor_missing",
+                    entry.id,
+                    f"{entry.path}: no implementation anchors",
+                )
+            )
     out, used = apply_accepted_debts(out, normalized_debts(data))
     out.extend(stale_debt_findings(data, inv, raw, used))
     return out

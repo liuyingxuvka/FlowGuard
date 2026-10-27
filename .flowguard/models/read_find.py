@@ -87,7 +87,11 @@ from _read_fixture import _flows, _focused, _layer_order, _model_contract, _name
 MODEL_ID='read_find'
 PARENT = 'read_command'
 IMPLEMENTED_BY={'Find': 'flowguard/map/views.py:find_owners', 'Locate': 'flowguard/map/views.py:render_locate'}
-USES={}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'Main': 'flowguard/__main__.py:main',
+    'RenderShow': 'flowguard/map/views.py:render_show',
+}
 TESTED_BY = {'locate_prefers_owner': ['tests/test_read_find.py:test_locate_prefers_the_owner_over_a_deeper_reacher'], 'test_location_shows_models_and_code': ['tests/test_read_find.py:test_locate_bound_test_shows_model_rule_and_code'], 'find_view_uncut': ['tests/test_read_find.py:test_locate_output_is_complete'], 'find_ranks_duty_owner_first': ['tests/test_read_find.py:test_find_bonus_needs_the_joined_query'], 'find_exact_symbol_first': ['tests/test_read_find.py:test_find_ranks_the_component_that_defines_an_exact_symbol_first'], 'find_matches_word_forms': ['tests/test_read_find.py:test_find_matches_word_forms'], 'find_view_imports_no_model': ['tests/test_read_command.py:test_find_view_imports_no_model']}
 MOVED_RULES=(
 Invariant('find_matches_word_forms', 'a query word matches a duty word that differs only by a common ending', lambda state, trace: _word_forms(state)),

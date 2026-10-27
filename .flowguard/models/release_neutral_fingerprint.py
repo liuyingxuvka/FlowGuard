@@ -12,6 +12,9 @@ from flowguard.map.facts import CodeFactsReport, Fact
 MODEL_ID = "release_neutral_fingerprint"
 PARENT = "map-file"
 IMPLEMENTED_BY = {'ReleaseNeutral': 'flowguard/map/mapfile.py:_release_neutral', 'ComponentState': 'flowguard/map/mapfile.py:component_state', 'Fingerprint': 'flowguard/map/mapfile.py:fingerprint', 'FormatGuard': 'flowguard/map/mapfile.py:format_guard'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+}
 TESTED_BY = {'version_only_change_is_current': ['tests/test_release_neutral_fingerprint.py:test_version_only_bump_keeps_components_current'], 'other_edit_is_stale': ['tests/test_release_neutral_fingerprint.py:test_non_version_edit_in_version_file_is_stale'], 'format_one_map_migrates_once': ['tests/test_release_neutral_fingerprint.py:test_format1_map_migrates_once', 'tests/test_release_neutral_fingerprint.py:test_format2_map_with_format1_value_is_stale'], 'formula_change_names_format': ['tests/test_release_neutral_fingerprint.py:test_formula_change_without_format_bump_warns']}
 CASES = ("version_py", "version_toml", "version_file", "docstring", "other_py", "other_name", "other_tool",
          "legacy_format1", "legacy_format2", "formula_edit_same_format", "formula_edit_bumped", "other_function_edit")

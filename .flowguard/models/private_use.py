@@ -8,6 +8,9 @@ from flowguard.map.facts import CodeFactsReport,Fact
 MODEL_ID='private_use'
 PARENT='map-check'
 IMPLEMENTED_BY={'PrivateUse':'flowguard/map/lint.py:private_use_findings'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+}
 TESTED_BY = {'private_names_are_flagged': ['tests/test_private_use.py:test_lint_reports_private_names_used_across_components']}
 @dataclass(frozen=True)
 class State:

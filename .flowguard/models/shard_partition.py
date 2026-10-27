@@ -17,7 +17,11 @@ from flowguard.workflow import Workflow
 MODEL_ID = "shard_partition"
 PARENT = "shard_suite"
 IMPLEMENTED_BY = {"Partition": "flowguard/pytest_shards.py:partition_nodeids"}
-USES={'Units':'flowguard/map/testtree.py:test_units'}
+USES = {
+    'BuildInventory': 'flowguard/map/inventory.py:build_inventory',
+    'BuildTree': 'flowguard/map/tree.py:build_tree',
+    'Units': 'flowguard/map/testtree.py:test_units',
+}
 NOT_MODELED={'flowguard/pytest_shards_cli.py:main':'argument parsing only; run, which this model replays, does the work'}
 TESTED_BY = {'shard_is_union_of_subtrees': ['tests/test_pytest_shards.py:test_partition_is_exact_and_a_union_of_subtrees'], 'unbound_tests_stay_in_their_component': ['tests/test_pytest_shards.py:test_partition_is_exact_and_a_union_of_subtrees'], 'every_id_exactly_once': ['tests/test_pytest_shards.py:test_partition_is_exact_and_a_union_of_subtrees'], 'bounded_shard_count': ['tests/test_pytest_shards.py:test_partition_is_exact_and_a_union_of_subtrees']}
 

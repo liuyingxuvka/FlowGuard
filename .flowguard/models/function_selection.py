@@ -11,7 +11,11 @@ MODEL_ID='function_selection'
 PARENT = 'change_selection'
 COMPONENTS = ['map-inventory']
 IMPLEMENTED_BY = {'Digests': 'flowguard/map/inventory.py:function_digests', 'NoGit': 'flowguard/map/impact.py:_no_git_changes'}
-USES={'Impact':'flowguard/map/impact.py:compute_impact'}
+USES = {
+    'Impact': 'flowguard/map/impact.py:compute_impact',
+    'Main': 'flowguard/map/cli.py:main',
+    'RenderImpact': 'flowguard/map/impact.py:render_impact',
+}
 TESTED_BY = {'function_edit_selects_the_owner': ['tests/test_function_selection.py:test_owned_edit_does_not_select_composing_parent'], 'binding_change_follows_importers': ['tests/test_function_selection.py:test_module_binding_change_selects_importer_functions'], 'uncertain_edit_falls_back_broad': ['tests/test_function_selection.py:test_removed_function_is_uncertain'], 'no_git_uses_stale_components': ['tests/test_function_selection.py:test_no_git_uses_stale_components'], 'relied_models_selected': ['tests/test_function_selection.py:test_change_selects_models_whose_anchors_the_edit_calls'], 'flow_models_selected': ['tests/test_function_selection.py:test_change_selects_the_model_of_a_flow_whose_step_changed'], 'unexplained_functions_listed': ['tests/test_function_selection.py:test_change_lists_unexplained_functions_of_changed_files']}
 @dataclass(frozen=True)
 class Observation:
