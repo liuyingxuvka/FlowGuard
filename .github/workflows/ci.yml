@@ -45,6 +45,24 @@ jobs:
         if: matrix.full
         run: python -m flowguard release --shards 4
 
+      - name: Print failed test shard diagnostics
+        if: ${{ failure() && matrix.full }}
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+          for path in sorted(Path(".flowguard/cache/pytest-shards").glob("run-*/aggregate.json")):
+              report = json.loads(path.read_text(encoding="utf-8"))
+              for shard in report.get("shards", []):
+                  if shard.get("status") == "pass":
+                      continue
+                  print(f"Shard diagnostics: {shard.get('shard_id', shard.get('name', 'unknown'))}")
+                  for key in ("stdout_path", "stderr_path"):
+                      output = Path(shard[key])
+                      if output.is_file():
+                          print(f"--- {output.name} ---")
+                          print(output.read_text(encoding="utf-8", errors="replace"))
+
       - name: Core path and packaging smoke on the other platforms
         if: ${{ !matrix.full }}
         run: >-
