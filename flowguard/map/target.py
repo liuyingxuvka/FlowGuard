@@ -358,18 +358,18 @@ def check_target(root: Path, *, models: bool = True, tests: bool = False, impact
                 node, code, problem)
         for warning in result.warnings:
             add("warnings", node, "invariant_untested" if warning.startswith("invariant_untested: ") else "model_warning", warning)
-    report.gaps = gap_lines(root, target, view, report, results)
+    report.gaps = gap_lines(root, target, view, report, results, goal=goal)
     for line in report.gaps:
         if line.startswith("NO GAP "):
             report.warnings.append(TargetFinding("model " + line.split()[2].rstrip(":"), "no_gap", line))
     return report
 
 
-def gap_lines(root, target, view, report, results):
+def gap_lines(root, target, view, report, results, *, goal=None):
     """Describe each target model's rule delta against genuine native code gaps."""
     from .facets import target_goal_rules
     changes = {line.split(": ", 1)[0][6:]: line.split(": ", 1)[1]
-               for line in target_goal_rules(root, target, view)}
+               for line in (target_goal_rules(root, target, view) if goal is None else goal)}
     by_model = {result.model: list(result.code_gaps) for result in results}
     output = []
     for entry in model_registry(root, view.data, view=view).entries:

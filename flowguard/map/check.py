@@ -239,7 +239,7 @@ def run_check(root: Path, data: dict, inv: Inventory, *, strict: bool = False, v
         if not (root / directory).is_dir():
             out.append(Finding("warn", "import_root_missing", "", f"import root directory missing: {directory}"))
     from .lint import model_size_findings
-    out.extend(apply_accepted_debts(model_size_findings(root,data,inv,view=view),data.get('accepted_debts',[]))[0])
+    out.extend(apply_accepted_debts(model_size_findings(root,data,inv,view=view,tree=tree),data.get('accepted_debts',[]))[0])
     from .testtree import test_file_findings
     out.extend(apply_accepted_debts(test_file_findings(root,data,inv,tree),data.get('accepted_debts',[]))[0])
     out.extend(model_edit_findings(root, load_map(root) if view is not None else data, stale_level))

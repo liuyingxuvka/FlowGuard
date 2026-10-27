@@ -400,12 +400,13 @@ def read_model_contract(path: Path) -> dict:
     return found
 
 
-def read_model_syntax(path: Path):
-    """Reuse the contract's parsed AST; callers receive an independent tree."""
+def read_model_syntax(path: Path, *, copy_tree=True):
+    """Reuse parsed source; callers get an independent tree unless borrowing it read-only."""
     raw=path.read_bytes()
     key=(str(path.resolve()),hashlib.sha256(raw).hexdigest())
-    read_model_contract(path)
-    return copy.deepcopy(_MODEL_CONTRACT_CACHE[key][1])
+    if key not in _MODEL_CONTRACT_CACHE:
+        read_model_contract(path)
+    return copy.deepcopy(_MODEL_CONTRACT_CACHE[key][1]) if copy_tree else _MODEL_CONTRACT_CACHE[key][1]
 
 
 def dependency_evidence(data: dict, inv: Inventory, raw: dict | None = None) -> dict[str, set[str]]:

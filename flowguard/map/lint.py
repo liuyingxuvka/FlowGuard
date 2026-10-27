@@ -391,8 +391,8 @@ def run_lint(root: Path, data: dict, inv: Inventory, limits: Limits | None = Non
     out.extend(entrypoint_coverage_findings(raw, data, inv, covered_by_model, not_modeled=not_modeled,
         models_by_component={c["id"]: [n.path for n in tree.models_for_component(c["id"])] for c in comps}))
     out.extend(model_writer_findings(raw, data, root, inv, registry, view=view))
-    out.extend(model_binding_notes(root, data, inv, view=view))
-    out.extend(model_size_findings(root, data, inv, view=view))
+    out.extend(model_binding_notes(root, data, inv, view=view, tree=tree))
+    out.extend(model_size_findings(root, data, inv, view=view, tree=tree))
     from .testtree import test_file_findings
     out.extend(test_file_findings(root,data,inv,tree))
     out.extend(private_use_findings(root, data, inv))
@@ -481,15 +481,21 @@ def coverage_facts(root, data, inv, tree, raw, *, source_cache=None):
     return out
 
 
-def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *, view=None) -> list[Finding]:
+def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *, view=None, tree=None) -> list[Finding]:
     """Non-gating binding notes: design-only models still to bind; models whose guarding tests are not named."""
     out: list[Finding] = []
     if inv is None:
         from .inventory import build_inventory
         from .mapfile import ignore_patterns
         inv = build_inventory(root, ignore_patterns(data), write_cache=view is None, import_roots=tuple(data.get("import_roots", ())))
-    tree = build_tree(root, data, inv, view=view)
+    if tree is None:
+        tree = build_tree(root, data, inv, view=view)
     from .mapfile import process_model_reason
+    unbound = [node for node in tree.nodes.values()
+               if not any(node.contract.get("TESTED_BY", {}).values())
+               and not process_model_reason(data, node.contract)]
+    if not unbound:
+        return out
     from .testtree import test_calls
     calls = {}
     for test in inv.tests:
@@ -498,10 +504,8 @@ def model_binding_notes(root: Path, data: dict, inv: Inventory | None = None, *,
                 calls[test] = test_calls(test, read_source(root / test), inv)
             except OSError:
                 continue
-    for node in tree.nodes.values():
+    for node in unbound:
         contract = node.contract
-        if any(contract.get("TESTED_BY", {}).values()) or process_model_reason(data, contract):
-            continue
         anchors = set(contract.get("IMPLEMENTED_BY", {}).values())
         calling = [f"{path}::{name}" for path, functions in calls.items()
                    for name, values in functions.items() if values & anchors]
@@ -857,8 +861,9 @@ def size_finding(model, kind, count):
     return Finding('error' if count>hard else 'warn','large_model',model,detail+': '+split_recipe(model))
 
 
-def model_size_findings(root, data, inv, *, view=None):
+def model_size_findings(root, data, inv, *, view=None, tree=None):
     from .modelstatic import rule_count
-    tree = build_tree(root, data, inv, view=view)
+    if tree is None:
+        tree = build_tree(root, data, inv, view=view)
     return [finding for mid, node in tree.nodes.items()
             if (finding := size_finding(mid, 'rules', rule_count(root,node.path,view=view))) is not None]

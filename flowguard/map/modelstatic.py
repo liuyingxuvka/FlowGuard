@@ -548,7 +548,7 @@ def file_rules(syntax) -> list[str]:
 def rule_count(root, logical, *, view=None):
     path=resolve_model_path(root,logical,view=view)
     if path is None:return None
-    try:syntax=read_model_syntax(path)
+    try:syntax=read_model_syntax(path,copy_tree=False)
     except (OSError,SyntaxError):return None
     found=StaticModel(root,logical,syntax,view=view).explorer_rules()
     if found is not None:return len({name for name,note in found})

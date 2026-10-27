@@ -149,10 +149,16 @@ def parse_python(root: Path, path: str, module: str, *, collect_bodies: bool = T
                         if isinstance(n, (ast.Global, ast.Nonlocal)) for name in n.names}
             replacements = {name: f"_local{i}" for i, name in enumerate(dict.fromkeys(local_names))
                             if name not in globals_}
-            class LocalNames(ast.NodeTransformer):
-                def visit_Name(self, node):
-                    return ast.copy_location(ast.Name(replacements.get(node.id, node.id), node.ctx), node)
-            normalized = [LocalNames().visit(copy.deepcopy(stmt)) for stmt in body]
+            def normalize(value):
+                if isinstance(value, ast.AST):
+                    fields = {name: normalize(item) for name, item in ast.iter_fields(value)}
+                    if isinstance(value, ast.Name):
+                        fields['id'] = replacements.get(value.id, value.id)
+                    return type(value)(**fields)
+                if isinstance(value, list):
+                    return [normalize(item) for item in value]
+                return value
+            normalized = [normalize(stmt) for stmt in body]
             dump = "\n".join(ast.dump(stmt, annotate_fields=False) for stmt in normalized)
             info.bodies.append([symbol, sha256_bytes(dump.encode())[:16], size])
 

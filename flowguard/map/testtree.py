@@ -129,8 +129,9 @@ def test_calls(path, text, inv):
                 qualified = '.'.join(parts[cut:])
                 if target and qualified in inv.py[target].symbols:
                     result.add(target+':'+qualified)
-                    if constructor(target, qualified):
-                        result.update(target+':'+value for value in inv.py[target].symbols if value.startswith(qualified+'.'))
+                    members = {value for value in inv.py[target].symbols if value.startswith(qualified+'.')}
+                    if members and constructor(target, qualified):
+                        result.update(target+':'+value for value in members)
                     break
         return result
     return {name:calls(node,module_imports,name.rpartition('.')[0],1) for name,node in functions.items()}

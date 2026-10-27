@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Avoid unused constructor analysis, repeated static trees and deep AST copies while retaining identical source facts and rule diagnostics.
+
 - Keep map formatting, discovery syntax and history evidence in focused modules; expose test grouping to its promotion consumer.
 
 - Group tests by their final model subtrees and native components, preserving every test and its binding.
